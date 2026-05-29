@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as positron from 'positron';
 import { PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
 import { createSchemaNode } from '../postgresqlNodes.js';
 
@@ -35,6 +36,27 @@ function createTestConnection(mockClient: any): PostgreSQLConnection {
 	// eslint-disable-next-line local/code-no-any-casts
 	(conn as any)._client = mockClient;
 	return conn;
+}
+
+// Expands a schema node to its Tables group children (table nodes).
+async function tablesOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await schemaNode.getChildren!();
+	const tablesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupTables)!;
+	return tablesGroup.getChildren!();
+}
+
+// Expands a schema node to its Views group children (view nodes).
+async function viewsOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await schemaNode.getChildren!();
+	const viewsGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupViews)!;
+	return viewsGroup.getChildren!();
+}
+
+// Expands a table or view node to its Columns group children (field nodes).
+async function columnsOf(relationNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await relationNode.getChildren!();
+	const columnsGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupColumns)!;
+	return columnsGroup.getChildren!();
 }
 
 suite('PostgreSQL Driver Tests', () => {
@@ -99,9 +121,21 @@ suite('PostgreSQL Driver Tests', () => {
 		await conn.disconnect();
 	});
 
-	// --- Empty database ---
+	// --- Root structure ---
 
-	test('database with no user schemas returns no children', async () => {
+	test('getChildren returns a single Schemas group node', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+
+		const roots = await conn.getChildren();
+		assert.strictEqual(roots.length, 1);
+		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupSchemas);
+		assert.strictEqual(roots[0].name, 'Schemas');
+
+		await conn.disconnect();
+	});
+
+	test('Schemas group with no user schemas returns no children', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('information_schema.schemata')) {
 				return { rows: [] };
@@ -110,15 +144,16 @@ suite('PostgreSQL Driver Tests', () => {
 		});
 		const conn = createTestConnection(mock);
 
-		const children = await conn.getChildren();
-		assert.strictEqual(children.length, 0);
+		const [schemasGroup] = await conn.getChildren();
+		const schemas = await schemasGroup.getChildren!();
+		assert.strictEqual(schemas.length, 0);
 
 		await conn.disconnect();
 	});
 
 	// --- Schema browsing ---
 
-	test('getChildren returns schema nodes', async () => {
+	test('Schemas group expands to schema nodes', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('information_schema.schemata')) {
 				return {
@@ -132,14 +167,15 @@ suite('PostgreSQL Driver Tests', () => {
 		});
 		const conn = createTestConnection(mock);
 
-		const children = await conn.getChildren();
-		assert.strictEqual(children.length, 2);
+		const [schemasGroup] = await conn.getChildren();
+		const schemas = await schemasGroup.getChildren!();
+		assert.strictEqual(schemas.length, 2);
 
-		const names = children.map(c => c.name).sort();
+		const names = schemas.map(c => c.name).sort();
 		assert.deepStrictEqual(names, ['app', 'public']);
 
-		children.forEach(c => {
-			assert.strictEqual(c.kind, 'schema');
+		schemas.forEach(c => {
+			assert.strictEqual(c.kind, positron.DataConnectionNodeKind.Schema);
 			assert.ok(c.getChildren, 'schema node should have getChildren');
 		});
 
@@ -148,14 +184,20 @@ suite('PostgreSQL Driver Tests', () => {
 
 	// --- Tables and views within a schema ---
 
-	test('schema getChildren returns tables and views', async () => {
+	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('information_schema.tables')) {
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
 				return {
 					rows: [
-						{ table_name: 'users', table_type: 'BASE TABLE' },
-						{ table_name: 'orders', table_type: 'BASE TABLE' },
-						{ table_name: 'user_orders', table_type: 'VIEW' },
+						{ table_name: 'users' },
+						{ table_name: 'orders' },
+					]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('VIEW')) {
+				return {
+					rows: [
+						{ table_name: 'user_orders' },
 					]
 				};
 			}
@@ -163,32 +205,34 @@ suite('PostgreSQL Driver Tests', () => {
 		});
 
 		const schemaNode = createSchemaNode(mock, 'public');
-		assert.ok(schemaNode.getChildren);
+		const groups = await schemaNode.getChildren!();
+		assert.strictEqual(groups.length, 2);
+		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
+		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
 
-		const children = await schemaNode.getChildren!();
-		assert.strictEqual(children.length, 3);
-
-		const tableNames = children
-			.filter(c => c.kind === 'table')
-			.map(c => c.name)
-			.sort();
+		// Tables.
+		const tables = await tablesOf(schemaNode);
+		const tableNames = tables.map(t => t.name).sort();
 		assert.deepStrictEqual(tableNames, ['orders', 'users']);
+		tables.forEach(t => {
+			assert.strictEqual(t.kind, positron.DataConnectionNodeKind.Table);
+			assert.ok(t.getChildren, `${t.name} should have getChildren`);
+			assert.ok(t.preview, `${t.name} should have preview`);
+		});
 
-		const viewNames = children
-			.filter(c => c.kind === 'view')
-			.map(c => c.name);
-		assert.deepStrictEqual(viewNames, ['user_orders']);
-
-		// Tables and views should have getChildren and preview.
-		children.forEach(c => {
-			assert.ok(c.getChildren, `${c.name} should have getChildren`);
-			assert.ok(c.preview, `${c.name} should have preview`);
+		// Views.
+		const views = await viewsOf(schemaNode);
+		assert.deepStrictEqual(views.map(v => v.name), ['user_orders']);
+		views.forEach(v => {
+			assert.strictEqual(v.kind, positron.DataConnectionNodeKind.View);
+			assert.ok(v.getChildren, `${v.name} should have getChildren`);
+			assert.ok(v.preview, `${v.name} should have preview`);
 		});
 	});
 
-	// --- Field nodes ---
+	// --- Field nodes (under each table's Columns group) ---
 
-	test('table getChildren returns field nodes with types', async () => {
+	test('table Columns group returns field nodes with types', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('information_schema.columns')) {
 				return {
@@ -232,43 +276,69 @@ suite('PostgreSQL Driver Tests', () => {
 					]
 				};
 			}
-			if (sql.includes('information_schema.tables')) {
-				return {
-					rows: [{ table_name: 'products', table_type: 'BASE TABLE' }]
-				};
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 'products' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schemaNode = createSchemaNode(mock, 'public');
-		const tables = await schemaNode.getChildren!();
-		const productsNode = tables.find(c => c.name === 'products');
-		assert.ok(productsNode, 'products table should exist');
+		const tables = await tablesOf(schemaNode);
+		const productsNode = tables.find(c => c.name === 'products')!;
 
-		const fields = await productsNode.getChildren!();
+		const fields = await columnsOf(productsNode);
 		assert.strictEqual(fields.length, 4);
 
-		const idField = fields.find(f => f.name === 'id');
-		assert.ok(idField);
-		assert.strictEqual(idField.kind, 'field');
+		const idField = fields.find(f => f.name === 'id')!;
+		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
 		assert.strictEqual(idField.dataType, 'integer');
 
-		const nameField = fields.find(f => f.name === 'name');
-		assert.ok(nameField);
+		const nameField = fields.find(f => f.name === 'name')!;
 		assert.strictEqual(nameField.dataType, 'character varying(255)');
 
-		const priceField = fields.find(f => f.name === 'price');
-		assert.ok(priceField);
+		const priceField = fields.find(f => f.name === 'price')!;
 		assert.strictEqual(priceField.dataType, 'numeric(10,2)');
 
-		const activeField = fields.find(f => f.name === 'active');
-		assert.ok(activeField);
+		const activeField = fields.find(f => f.name === 'active')!;
 		assert.strictEqual(activeField.dataType, 'boolean');
 
 		// Field nodes should be leaves.
 		fields.forEach(f => {
 			assert.strictEqual(f.getChildren, undefined);
 			assert.strictEqual(f.preview, undefined);
+		});
+	});
+
+	// --- Indexes ---
+
+	test('table Indexes group returns index leaf nodes', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('pg_indexes')) {
+				return {
+					rows: [
+						{ indexname: 'products_pkey' },
+						{ indexname: 'products_name_idx' },
+					]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 'products' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schemaNode = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schemaNode);
+		const productsNode = tables.find(c => c.name === 'products')!;
+
+		const groups = await productsNode.getChildren!();
+		const indexesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupIndexes)!;
+		const indexes = await indexesGroup.getChildren!();
+
+		assert.deepStrictEqual(indexes.map(i => i.name).sort(), ['products_name_idx', 'products_pkey']);
+		indexes.forEach(i => {
+			assert.strictEqual(i.kind, positron.DataConnectionNodeKind.Index);
+			assert.strictEqual(i.getChildren, undefined, 'indexes are leaves');
 		});
 	});
 
@@ -289,15 +359,15 @@ suite('PostgreSQL Driver Tests', () => {
 					}]
 				};
 			}
-			if (sql.includes('information_schema.tables')) {
-				return { rows: [{ table_name: 't', table_type: 'BASE TABLE' }] };
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schema = createSchemaNode(mock, 'public');
-		const tables = await schema.getChildren!();
-		const fields = await tables[0].getChildren!();
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'text[]');
 	});
 
@@ -316,15 +386,15 @@ suite('PostgreSQL Driver Tests', () => {
 					}]
 				};
 			}
-			if (sql.includes('information_schema.tables')) {
-				return { rows: [{ table_name: 't', table_type: 'BASE TABLE' }] };
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schema = createSchemaNode(mock, 'public');
-		const tables = await schema.getChildren!();
-		const fields = await tables[0].getChildren!();
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'order_status');
 	});
 
@@ -343,15 +413,15 @@ suite('PostgreSQL Driver Tests', () => {
 					}]
 				};
 			}
-			if (sql.includes('information_schema.tables')) {
-				return { rows: [{ table_name: 't', table_type: 'BASE TABLE' }] };
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schema = createSchemaNode(mock, 'public');
-		const tables = await schema.getChildren!();
-		const fields = await tables[0].getChildren!();
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'numeric(18)');
 	});
 
@@ -372,14 +442,14 @@ suite('PostgreSQL Driver Tests', () => {
 
 	test('preview does not throw', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('information_schema.tables')) {
-				return { rows: [{ table_name: 't', table_type: 'BASE TABLE' }] };
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
 			}
 			return { rows: [] };
 		});
 
 		const schema = createSchemaNode(mock, 'public');
-		const tables = await schema.getChildren!();
+		const tables = await tablesOf(schema);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();
 	});

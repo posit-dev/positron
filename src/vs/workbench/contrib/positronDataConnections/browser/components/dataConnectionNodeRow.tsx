@@ -28,10 +28,14 @@ const kindIcon = (kind: string): string => {
 		case 'column':
 		case 'field':
 			return 'symbol-field';
+		case 'group-schemas':
+			return 'symbol-namespace';
 		case 'group-tables':
 			return 'table';
 		case 'group-views':
 			return 'eye';
+		case 'group-columns':
+			return 'symbol-field';
 		case 'group-indexes':
 			return 'key';
 		case 'group-triggers':

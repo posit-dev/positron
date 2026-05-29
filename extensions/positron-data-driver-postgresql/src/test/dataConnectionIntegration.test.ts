@@ -94,12 +94,58 @@ suite('PostgreSQL Data Connection Integration', () => {
 		});
 	}
 
-	// Helper: find a schema node by name in the connection's children.
+	// Helper: returns the root Schemas group node.
+	async function getSchemasGroup(conn: positron.DataConnection): Promise<positron.DataConnectionNode> {
+		const roots = await conn.getChildren();
+		assert.strictEqual(roots.length, 1, 'Root should be a single Schemas group');
+		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupSchemas);
+		return roots[0];
+	}
+
+	// Helper: returns the list of schema nodes under the root Schemas group.
+	async function listSchemas(conn: positron.DataConnection): Promise<positron.DataConnectionNode[]> {
+		const schemasGroup = await getSchemasGroup(conn);
+		return schemasGroup.getChildren!();
+	}
+
+	// Helper: find a schema node by name under the root Schemas group.
 	async function findSchemaNode(conn: positron.DataConnection, name: string): Promise<positron.DataConnectionNode> {
-		const schemas = await conn.getChildren();
+		const schemas = await listSchemas(conn);
 		const node = schemas.find(s => s.name === name);
 		assert.ok(node, `Schema '${name}' not found`);
 		return node;
+	}
+
+	// Helper: returns the Tables group node inside a schema.
+	async function tablesGroupOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode> {
+		const children = await schemaNode.getChildren!();
+		const node = children.find(c => c.kind === positron.DataConnectionNodeKind.GroupTables);
+		assert.ok(node, 'Schema should have a Tables group');
+		return node;
+	}
+
+	// Helper: returns the Views group node inside a schema.
+	async function viewsGroupOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode> {
+		const children = await schemaNode.getChildren!();
+		const node = children.find(c => c.kind === positron.DataConnectionNodeKind.GroupViews);
+		assert.ok(node, 'Schema should have a Views group');
+		return node;
+	}
+
+	// Helper: returns the column field nodes for a table or view.
+	async function columnsOf(relationNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+		const children = await relationNode.getChildren!();
+		const columnsGroup = children.find(c => c.kind === positron.DataConnectionNodeKind.GroupColumns);
+		assert.ok(columnsGroup, 'Relation should have a Columns group');
+		return columnsGroup.getChildren!();
+	}
+
+	// Helper: returns the index nodes for a table.
+	async function indexesOf(tableNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+		const children = await tableNode.getChildren!();
+		const indexesGroup = children.find(c => c.kind === positron.DataConnectionNodeKind.GroupIndexes);
+		assert.ok(indexesGroup, 'Table should have an Indexes group');
+		return indexesGroup.getChildren!();
 	}
 
 	suite('Driver Discovery', () => {
@@ -173,18 +219,18 @@ suite('PostgreSQL Data Connection Integration', () => {
 			await conn.disconnect();
 		});
 
-		test('getChildren returns schemas including the test schema', async function () {
+		test('schemas group lists schemas including the test schema', async function () {
 			this.timeout(10000);
 
 			// Connect to the test DB.
 			const conn = await connectDriver();
 
-			// Get the children (schemas).
-			const schemas = await conn.getChildren();
+			// List schemas via the Schemas group.
+			const schemas = await listSchemas(conn);
 
 			// The test schema should be present.
 			const testSchemaNode = schemas.find(s => s.name === testSchema);
-			assert.ok(testSchemaNode, 'Test schema should appear in getChildren');
+			assert.ok(testSchemaNode, 'Test schema should appear under the Schemas group');
 			assert.strictEqual(testSchemaNode.kind, positron.DataConnectionNodeKind.Schema);
 
 			// System schemas should be excluded.
@@ -198,7 +244,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 			await conn.disconnect();
 		});
 
-		test('schema node expands to show tables and views', async function () {
+		test('schema node expands to Tables and Views groups', async function () {
 			this.timeout(10000);
 
 			// Create tables and a view in the test schema.
@@ -210,24 +256,23 @@ suite('PostgreSQL Data Connection Integration', () => {
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
 
-			// Expand the schema to get tables and views.
-			const children = await schemaNode.getChildren!();
-
 			// Check tables.
-			const tables = children.filter(c => c.kind === positron.DataConnectionNodeKind.Table);
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
 			const tableNames = tables.map(t => t.name).sort();
 			assert.deepStrictEqual(tableNames, ['orders', 'users']);
+			assert.ok(tables.every(t => t.kind === positron.DataConnectionNodeKind.Table));
 
 			// Check views.
-			const views = children.filter(c => c.kind === positron.DataConnectionNodeKind.View);
+			const views = await (await viewsGroupOf(schemaNode)).getChildren!();
 			assert.strictEqual(views.length, 1);
 			assert.strictEqual(views[0].name, 'user_orders');
+			assert.strictEqual(views[0].kind, positron.DataConnectionNodeKind.View);
 
 			// Disconnect.
 			await conn.disconnect();
 		});
 
-		test('table node expands to show fields with PostgreSQL types', async function () {
+		test('table node exposes Columns and Indexes groups; columns carry PostgreSQL types', async function () {
 			this.timeout(10000);
 
 			// Create a table with a variety of PostgreSQL types.
@@ -248,12 +293,12 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Connect and navigate to the table.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
-			const children = await schemaNode.getChildren!();
-			const productsNode = children.find(c => c.name === 'products');
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const productsNode = tables.find(c => c.name === 'products');
 			assert.ok(productsNode);
 
-			// Expand the table to get fields.
-			const fields = await productsNode.getChildren!();
+			// Columns.
+			const fields = await columnsOf(productsNode);
 			assert.strictEqual(fields.length, 9);
 
 			// Check specific field types.
@@ -288,11 +333,17 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Fields are leaves.
 			assert.strictEqual(idField.getChildren, undefined);
 
+			// Indexes: the serial primary key creates an implicit index.
+			const indexes = await indexesOf(productsNode);
+			assert.ok(indexes.length >= 1, 'Primary key should produce at least one index');
+			assert.ok(indexes.every(i => i.kind === positron.DataConnectionNodeKind.Index));
+			assert.ok(indexes.every(i => i.getChildren === undefined), 'Indexes are leaves');
+
 			// Disconnect.
 			await conn.disconnect();
 		});
 
-		test('view node expands to show fields', async function () {
+		test('view node exposes Columns group only (no Indexes)', async function () {
 			this.timeout(10000);
 
 			// Create a table and a view.
@@ -302,13 +353,18 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Connect and navigate to the view.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
-			const children = await schemaNode.getChildren!();
-			const viewNode = children.find(c => c.name === 'employee_list');
+			const views = await (await viewsGroupOf(schemaNode)).getChildren!();
+			const viewNode = views.find(c => c.name === 'employee_list');
 			assert.ok(viewNode);
 			assert.strictEqual(viewNode.kind, positron.DataConnectionNodeKind.View);
 
-			// Expand the view to get fields.
-			const fields = await viewNode.getChildren!();
+			// Views expose only a Columns group.
+			const viewChildren = await viewNode.getChildren!();
+			assert.strictEqual(viewChildren.length, 1);
+			assert.strictEqual(viewChildren[0].kind, positron.DataConnectionNodeKind.GroupColumns);
+
+			// Columns of the view.
+			const fields = await columnsOf(viewNode);
 			assert.strictEqual(fields.length, 2);
 			assert.strictEqual(fields[0].name, 'id');
 			assert.strictEqual(fields[1].name, 'name');
@@ -317,16 +373,18 @@ suite('PostgreSQL Data Connection Integration', () => {
 			await conn.disconnect();
 		});
 
-		test('empty schema returns no children', async function () {
+		test('empty schema yields empty Tables and Views groups', async function () {
 			this.timeout(10000);
 
 			// The test schema was created empty -- no tables or views.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
 
-			// Expand the schema.
-			const children = await schemaNode.getChildren!();
-			assert.strictEqual(children.length, 0);
+			// Tables and Views groups exist; both empty.
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const views = await (await viewsGroupOf(schemaNode)).getChildren!();
+			assert.strictEqual(tables.length, 0);
+			assert.strictEqual(views.length, 0);
 
 			// Disconnect.
 			await conn.disconnect();
@@ -348,7 +406,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 
 			// Connect and browse.
 			const conn = await connectDriver();
-			const schemas = await conn.getChildren();
+			const schemas = await listSchemas(conn);
 
 			// Find both schemas.
 			const schema1 = schemas.find(s => s.name === testSchema);
@@ -357,13 +415,13 @@ suite('PostgreSQL Data Connection Integration', () => {
 			assert.ok(schema2);
 
 			// Each schema has its own table.
-			const children1 = await schema1.getChildren!();
-			assert.strictEqual(children1.length, 1);
-			assert.strictEqual(children1[0].name, 'alpha');
+			const tables1 = await (await tablesGroupOf(schema1)).getChildren!();
+			assert.strictEqual(tables1.length, 1);
+			assert.strictEqual(tables1[0].name, 'alpha');
 
-			const children2 = await schema2.getChildren!();
-			assert.strictEqual(children2.length, 1);
-			assert.strictEqual(children2[0].name, 'beta');
+			const tables2 = await (await tablesGroupOf(schema2)).getChildren!();
+			assert.strictEqual(tables2.length, 1);
+			assert.strictEqual(tables2[0].name, 'beta');
 
 			// Cleanup the extra schema.
 			await setupClient.query(`DROP SCHEMA "${secondSchema}" CASCADE`);
@@ -382,9 +440,9 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Connect and navigate to the table.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
-			const children = await schemaNode.getChildren!();
-			const tasksNode = children.find(c => c.name === 'tasks')!;
-			const fields = await tasksNode.getChildren!();
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const tasksNode = tables.find(c => c.name === 'tasks')!;
+			const fields = await columnsOf(tasksNode);
 
 			// The enum field should report its udt_name.
 			const statusField = fields.find(f => f.name === 'status')!;
@@ -403,9 +461,9 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Connect and navigate.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
-			const children = await schemaNode.getChildren!();
-			const arrNode = children.find(c => c.name === 'arrays')!;
-			const fields = await arrNode.getChildren!();
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const arrNode = tables.find(c => c.name === 'arrays')!;
+			const fields = await columnsOf(arrNode);
 
 			// Check array type formatting.
 			const intArr = fields.find(f => f.name === 'int_arr')!;
@@ -428,14 +486,37 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// Connect and navigate.
 			const conn = await connectDriver();
 			const schemaNode = await findSchemaNode(conn, testSchema);
-			const children = await schemaNode.getChildren!();
-			const wideNode = children.find(c => c.name === 'wide_table')!;
-			const fields = await wideNode.getChildren!();
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const wideNode = tables.find(c => c.name === 'wide_table')!;
+			const fields = await columnsOf(wideNode);
 
 			// All 50 columns should be present.
 			assert.strictEqual(fields.length, 50);
 			assert.strictEqual(fields[0].name, 'col_0');
 			assert.strictEqual(fields[49].name, 'col_49');
+
+			// Disconnect.
+			await conn.disconnect();
+		});
+
+		test('table indexes are listed under the Indexes group', async function () {
+			this.timeout(10000);
+
+			// Create a table with an explicit index in addition to the PK index.
+			await setupClient.query(`CREATE TABLE "${testSchema}".accounts (id serial PRIMARY KEY, email text NOT NULL)`);
+			await setupClient.query(`CREATE INDEX accounts_email_idx ON "${testSchema}".accounts (email)`);
+
+			// Connect and navigate to the table.
+			const conn = await connectDriver();
+			const schemaNode = await findSchemaNode(conn, testSchema);
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const accountsNode = tables.find(c => c.name === 'accounts')!;
+			const indexes = await indexesOf(accountsNode);
+
+			// The explicit index should be present alongside the PK index.
+			const indexNames = indexes.map(i => i.name).sort();
+			assert.ok(indexNames.includes('accounts_email_idx'), 'Explicit index should appear');
+			assert.ok(indexNames.some(n => n === 'accounts_pkey' || n.endsWith('_pkey')), 'PK index should appear');
 
 			// Disconnect.
 			await conn.disconnect();
@@ -490,20 +571,17 @@ suite('PostgreSQL Data Connection Integration', () => {
 			const conn = await connectDriver();
 			assert.strictEqual(await conn.isConnected(), true);
 
-			// 4. Browse: schemas -> test schema -> tables/views -> fields.
+			// 4. Browse: Schemas group -> test schema -> Tables/Views groups -> Columns groups -> fields.
 			const schemaNode = await findSchemaNode(conn, testSchema);
 			assert.strictEqual(schemaNode.kind, positron.DataConnectionNodeKind.Schema);
 
-			const topLevel = await schemaNode.getChildren!();
-			assert.strictEqual(topLevel.length, 2);
-
-			// Test employees table.
-			const employeesNode = topLevel.find(n => n.name === 'employees')!;
+			// Tables.
+			const tables = await (await tablesGroupOf(schemaNode)).getChildren!();
+			const employeesNode = tables.find(n => n.name === 'employees')!;
 			assert.strictEqual(employeesNode.kind, positron.DataConnectionNodeKind.Table);
-			assert.ok(employeesNode.getChildren);
 
-			// Test employees fields.
-			const fields = await employeesNode.getChildren!();
+			// Employees columns.
+			const fields = await columnsOf(employeesNode);
 			assert.strictEqual(fields.length, 4);
 			assert.strictEqual(fields[0].name, 'id');
 			assert.strictEqual(fields[0].dataType, 'integer');
@@ -516,10 +594,11 @@ suite('PostgreSQL Data Connection Integration', () => {
 			assert.strictEqual(fields[0].kind, positron.DataConnectionNodeKind.Field);
 			assert.strictEqual(fields[0].getChildren, undefined);
 
-			// Test department_count view.
-			const viewNode = topLevel.find(n => n.name === 'department_count')!;
+			// Views.
+			const views = await (await viewsGroupOf(schemaNode)).getChildren!();
+			const viewNode = views.find(n => n.name === 'department_count')!;
 			assert.strictEqual(viewNode.kind, positron.DataConnectionNodeKind.View);
-			const viewFields = await viewNode.getChildren!();
+			const viewFields = await columnsOf(viewNode);
 			assert.strictEqual(viewFields.length, 2);
 
 			// 5. Disconnect.

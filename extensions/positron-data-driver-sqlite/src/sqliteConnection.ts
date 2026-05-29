@@ -9,7 +9,6 @@ import {
 	createGroupNode,
 	createIndexNode,
 	createTableNode,
-	createTriggerNode,
 	createViewNode,
 } from './sqliteNodes.js';
 
@@ -57,7 +56,7 @@ export class SQLiteConnection implements positron.DataConnection {
 	}
 
 	/**
-	 * Returns top-level children: four category group nodes (Tables, Views, Indexes, Triggers).
+	 * Returns top-level children: three category group nodes (Tables, Views, Indexes).
 	 * Each group defers its schema query until it is itself expanded.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
@@ -67,16 +66,15 @@ export class SQLiteConnection implements positron.DataConnection {
 			createGroupNode('Tables', positron.DataConnectionNodeKind.GroupTables, () => this._listObjects('table').map(name => createTableNode(this._db!, name))),
 			createGroupNode('Views', positron.DataConnectionNodeKind.GroupViews, () => this._listObjects('view').map(name => createViewNode(this._db!, name))),
 			createGroupNode('Indexes', positron.DataConnectionNodeKind.GroupIndexes, () => this._listObjects('index').map(name => createIndexNode(this._db!, name))),
-			// createGroupNode('Triggers', positron.DataConnectionNodeKind.GroupTriggers, () => this._listObjects('trigger').map(name => createTriggerNode(name))),
 		];
 	}
 
 	/**
-	 * Lists object names of the given sqlite_master type ('table' | 'view' | 'index' | 'trigger'),
+	 * Lists object names of the given sqlite_master type ('table' | 'view' | 'index'),
 	 * excluding internal sqlite_-prefixed objects and auto-generated indexes (sqlite_autoindex_*
 	 * is already covered by the sqlite_ filter).
 	 */
-	private _listObjects(type: 'table' | 'view' | 'index' | 'trigger'): string[] {
+	private _listObjects(type: 'table' | 'view' | 'index'): string[] {
 		this._ensureConnected();
 		const rows = this._db!.prepare(
 			`SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%' ORDER BY name`

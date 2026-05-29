@@ -7,51 +7,75 @@ import { Client } from 'pg';
 import * as positron from 'positron';
 
 /**
- * Creates a schema node that can expand to show tables and views.
- * @param client The open pg client.
- * @param schemaName The schema name.
+ * Creates the root "Schemas" group node. Lists every non-system schema as a child schema node.
  */
-export function createSchemaNode(
-	client: Client,
-	schemaName: string
-): positron.DataConnectionNode {
+export function createSchemasGroupNode(client: Client): positron.DataConnectionNode {
 	return {
-		name: schemaName,
-		kind: positron.DataConnectionNodeKind.Schema,
-		getChildren() {
-			return getTablesAndViews(client, schemaName);
+		name: 'Schemas',
+		kind: positron.DataConnectionNodeKind.GroupSchemas,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') ORDER BY schema_name`
+			);
+			return result.rows.map(row => createSchemaNode(client, row.schema_name));
 		},
 	};
 }
 
 /**
- * Queries tables and views in a schema and returns them as nodes.
- * @param client The open pg client.
- * @param schemaName The schema to inspect.
+ * Creates a schema node that expands to two category groups: Tables and Views. Exported so
+ * unit tests can construct a schema node directly against a mocked client without having to
+ * walk through the root Schemas group.
  */
-async function getTablesAndViews(
-	client: Client,
-	schemaName: string
-): Promise<positron.DataConnectionNode[]> {
-	const result = await client.query(`SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_type, table_name`, [schemaName]);
-
-	// Tables first, then views.
-	const tables = result.rows
-		.filter(row => row.table_type === 'BASE TABLE')
-		.map(row => createTableNode(client, schemaName, row.table_name));
-
-	const views = result.rows
-		.filter(row => row.table_type === 'VIEW')
-		.map(row => createViewNode(client, schemaName, row.table_name));
-
-	return [...tables, ...views];
+export function createSchemaNode(client: Client, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: schemaName,
+		kind: positron.DataConnectionNodeKind.Schema,
+		async getChildren() {
+			return [
+				createTablesGroupNode(client, schemaName),
+				createViewsGroupNode(client, schemaName),
+			];
+		},
+	};
 }
 
 /**
- * Creates a table node that can expand to show columns.
- * @param client The open pg client.
- * @param schemaName The schema containing the table.
- * @param tableName The table name.
+ * Creates the "Tables" group inside a schema. Lists base tables in the schema.
+ */
+function createTablesGroupNode(client: Client, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: 'Tables',
+		kind: positron.DataConnectionNodeKind.GroupTables,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name`,
+				[schemaName]
+			);
+			return result.rows.map(row => createTableNode(client, schemaName, row.table_name));
+		},
+	};
+}
+
+/**
+ * Creates the "Views" group inside a schema. Lists views in the schema.
+ */
+function createViewsGroupNode(client: Client, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: 'Views',
+		kind: positron.DataConnectionNodeKind.GroupViews,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'VIEW' ORDER BY table_name`,
+				[schemaName]
+			);
+			return result.rows.map(row => createViewNode(client, schemaName, row.table_name));
+		},
+	};
+}
+
+/**
+ * Creates a table node that expands to two category groups: Columns and Indexes.
  */
 function createTableNode(
 	client: Client,
@@ -61,8 +85,11 @@ function createTableNode(
 	return {
 		name: tableName,
 		kind: positron.DataConnectionNodeKind.Table,
-		getChildren() {
-			return getFieldNodes(client, schemaName, tableName);
+		async getChildren() {
+			return [
+				createColumnsGroupNode(client, schemaName, tableName),
+				createIndexesGroupNode(client, schemaName, tableName),
+			];
 		},
 		preview() {
 			// TODO: Wire up to Data Explorer when the preview UI is available.
@@ -72,10 +99,8 @@ function createTableNode(
 }
 
 /**
- * Creates a view node that can expand to show columns.
- * @param client The open pg client.
- * @param schemaName The schema containing the view.
- * @param viewName The view name.
+ * Creates a view node that expands to a single "Columns" group. Views don't have indexes in
+ * the schema-browsing sense, so there's only one category under each view.
  */
 function createViewNode(
 	client: Client,
@@ -85,8 +110,8 @@ function createViewNode(
 	return {
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
-		getChildren() {
-			return getFieldNodes(client, schemaName, viewName);
+		async getChildren() {
+			return [createColumnsGroupNode(client, schemaName, viewName)];
 		},
 		preview() {
 			// TODO: Wire up to Data Explorer when the preview UI is available.
@@ -96,23 +121,53 @@ function createViewNode(
 }
 
 /**
- * Queries column metadata for a table or view and returns field nodes.
- * @param client The open pg client.
- * @param schemaName The schema name.
- * @param tableName The table or view name.
+ * Creates the "Columns" group inside a table or view. Lists column nodes with formatted
+ * dataType strings.
  */
-async function getFieldNodes(
+function createColumnsGroupNode(
+	client: Client,
+	schemaName: string,
+	relationName: string
+): positron.DataConnectionNode {
+	return {
+		name: 'Columns',
+		kind: positron.DataConnectionNodeKind.GroupColumns,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT column_name, data_type, udt_name, is_nullable, character_maximum_length, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+				[schemaName, relationName]
+			);
+			return result.rows.map(row => ({
+				name: row.column_name,
+				kind: positron.DataConnectionNodeKind.Field,
+				dataType: formatDataType(row),
+			}));
+		},
+	};
+}
+
+/**
+ * Creates the "Indexes" group inside a table. Lists indexes as leaf nodes.
+ */
+function createIndexesGroupNode(
 	client: Client,
 	schemaName: string,
 	tableName: string
-): Promise<positron.DataConnectionNode[]> {
-	const result = await client.query(`SELECT column_name, data_type, udt_name, is_nullable, character_maximum_length, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`, [schemaName, tableName]);
-
-	return result.rows.map(row => ({
-		name: row.column_name,
-		kind: positron.DataConnectionNodeKind.Field,
-		dataType: formatDataType(row),
-	}));
+): positron.DataConnectionNode {
+	return {
+		name: 'Indexes',
+		kind: positron.DataConnectionNodeKind.GroupIndexes,
+		async getChildren() {
+			const result = await client.query(
+				`SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname`,
+				[schemaName, tableName]
+			);
+			return result.rows.map(row => ({
+				name: row.indexname,
+				kind: positron.DataConnectionNodeKind.Index,
+			}));
+		},
+	};
 }
 
 /**

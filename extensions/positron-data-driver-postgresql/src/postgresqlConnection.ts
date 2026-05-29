@@ -5,7 +5,7 @@
 
 import { Client } from 'pg';
 import * as positron from 'positron';
-import { createSchemaNode } from './postgresqlNodes.js';
+import { createSchemasGroupNode } from './postgresqlNodes.js';
 
 /**
  * Connection configuration passed from the driver.
@@ -67,19 +67,12 @@ export class PostgreSQLConnection implements positron.DataConnection {
 	}
 
 	/**
-	 * Returns top-level children: non-system schemas.
-	 * Each schema node can be expanded to show tables and views.
+	 * Returns top-level children: a single "Schemas" group node that lists every non-system
+	 * schema. Each schema node can be expanded to show its Tables and Views groups.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-
-		// Query non-system schemas.
-		const result = await this._client!.query(
-			`SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') ORDER BY schema_name`);
-
-		return result.rows.map(row =>
-			createSchemaNode(this._client!, row.schema_name)
-		);
+		return [createSchemasGroupNode(this._client!)];
 	}
 
 	/** Closes the connection. Idempotent -- safe to call multiple times. */
