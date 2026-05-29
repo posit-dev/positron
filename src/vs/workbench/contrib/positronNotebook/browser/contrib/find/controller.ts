@@ -8,6 +8,7 @@ import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE, CONTEXT_REPLAC
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
+import { PositronNotebookView } from '../../PositronNotebookView.js';
 import { autorun, IObservable, observableSignal, observableValue, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
@@ -80,8 +81,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	private readonly _notebookModelDisposables = this._register(new DisposableStore());
 
+	private get _notebook(): IPositronNotebookInstance {
+		return this._view.instance;
+	}
+
 	constructor(
-		private readonly _notebook: IPositronNotebookInstance,
+		private readonly _view: PositronNotebookView,
 		@IBulkEditService private readonly _bulkEditService: IBulkEditService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
@@ -138,20 +143,16 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
-			if (!this._notebook.overlayContainer) {
-				throw new Error('Notebook overlay container not available for Find Widget rendering');
-			}
-
 			// Bind context keys
-			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
-			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
-			const replaceInputFocused = CONTEXT_REPLACE_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
+			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._view.scopedContextKeyService);
+			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._view.scopedContextKeyService);
+			const replaceInputFocused = CONTEXT_REPLACE_INPUT_FOCUSED.bindTo(this._view.scopedContextKeyService);
 
 			// Create the find instance
 			const findWidgetSearchHistory = FindWidgetSearchHistory.getOrCreate(this._storageService);
 			const replaceWidgetHistory = ReplaceWidgetHistory.getOrCreate(this._storageService);
 			const findInstance = this._register(new PositronFindInstance({
-				container: this._notebook.overlayContainer,
+				container: this._view.overlayContainer,
 				findInputOptions: {
 					label: localize('positronNotebook.find.label', "Find"),
 					placeholder: localize('positronNotebook.find.placeholder', "Find"),
@@ -169,7 +170,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
 					history: replaceWidgetHistory,
 				},
-				contextKeyService: this._notebook.scopedContextKeyService,
+				contextKeyService: this._view.scopedContextKeyService,
 				contextViewService: this._contextViewService,
 			}));
 			this._findInstance = findInstance;

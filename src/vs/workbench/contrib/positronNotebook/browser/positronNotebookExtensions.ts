@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { BrandedService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import type { PositronNotebookView } from './PositronNotebookView.js';
 
 /**
  * This module is based on the editor extension system in src/vs/editor/browser/editorExtensions.ts
  */
 
 /**
- * A Positron notebookcontribution that gets created every time a new notebook gets created
- * and gets disposed when the notebook gets disposed.
+ * A Positron notebook contribution that gets created every time a new view is
+ * attached and gets disposed when the view is disposed.
  */
 export interface IPositronNotebookContribution {
 	/**
@@ -21,7 +21,7 @@ export interface IPositronNotebookContribution {
 }
 
 export interface IPositronNotebookContributionCtor<Services extends BrandedService[] = BrandedService[]> {
-	new(notebook: IPositronNotebookInstance, ...services: Services): IPositronNotebookContribution;
+	new(view: PositronNotebookView, ...services: Services): IPositronNotebookContribution;
 }
 
 export interface IPositronNotebookContributionDescription {

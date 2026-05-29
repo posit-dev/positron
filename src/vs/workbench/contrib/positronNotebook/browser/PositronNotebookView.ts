@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
 
 /**
  * Per-pane presentation state for a Positron notebook.
@@ -18,19 +19,25 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
  * remains the model coordinator (execution, cell ordering, kernel, lifecycle).
  *
  * Owns: scoped context key service, scoped instantiation service, context
- * manager, container references.
+ * manager, container references, contributions.
  */
 export class PositronNotebookView extends Disposable {
 
 	private _scopedContextKeyService: IContextKeyService;
 	private _scopedInstantiationService: IInstantiationService;
 	private readonly _contextManager: PositronNotebookContextKeyManager;
+	private readonly _contributions = this._register(new DisposableMap<string, IPositronNotebookContribution>());
 
 	/** The DOM element that the notebook renders into. */
 	readonly container: HTMLElement;
 
 	/** The overlay container for contributions (find widget, etc.). */
 	readonly overlayContainer: HTMLElement;
+
+	/** The notebook instance (model) backing this view. */
+	get instance(): IPositronNotebookInstance {
+		return this._instance;
+	}
 
 	get scopedContextKeyService(): IContextKeyService {
 		return this._scopedContextKeyService;
@@ -66,6 +73,18 @@ export class PositronNotebookView extends Disposable {
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this._instance)
 		);
 		this._contextManager.setContainer(editorContainer, this._scopedContextKeyService, this._scopedInstantiationService);
+
+		// Instantiate all registered contributions for this view.
+		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
+		for (const desc of contributions) {
+			const contribution = this._scopedInstantiationService.createInstance(desc.ctor, this);
+			this._contributions.set(desc.id, contribution);
+		}
+	}
+
+	/** Gets a registered notebook contribution by its ID. */
+	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
+		return this._contributions.get(id) as T | undefined;
 	}
 
 	/**

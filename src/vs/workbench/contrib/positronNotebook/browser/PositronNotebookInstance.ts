@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -51,7 +51,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
-import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
+import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
@@ -263,7 +263,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _currentOperation: NotebookOperationType | undefined = undefined;
 
-	private readonly _contributions = this._register(new DisposableMap<string, IPositronNotebookContribution>());
 
 	/**
 	 * Observable list of deletion sentinels.
@@ -614,12 +613,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._onDidChangeViewCells.fire({ splices });
 			}
 		}));
-
-		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
-		for (const desc of contributions) {
-			const contribution = this._instantiationService.createInstance(desc.ctor, this);
-			this._contributions.set(desc.id, contribution);
-		}
 
 		this._positronNotebookService.registerInstance(this);
 	}
@@ -1967,7 +1960,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
-		return this._contributions.get(id) as T;
+		return this._currentView?.getContribution<T>(id);
 	}
 
 	/**
