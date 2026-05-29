@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
-import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { IMemoryUsageSnapshot, LowMemoryUnit } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -47,6 +47,12 @@ export const MEMORY_BAR_MAX_WIDTH = 100;
  * meter (no bar).
  */
 export const MEMORY_BAR_MIN_WIDTH = 27;
+
+/**
+ * The extra width consumed by the low-memory warning icon (icon + gap) when
+ * the meter is in a low-memory state.
+ */
+export const MEMORY_METER_WARNING_WIDTH = 20;
 
 /**
  * The label shown while memory data is still being computed.
@@ -88,9 +94,16 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 	// Ref for the meter element (used for popup anchoring).
 	const meterRef = useRef<HTMLDivElement>(undefined!);
 
+	// Ref for the low-memory warning icon (used as a distinct hover target).
+	const warningRef = useRef<HTMLDivElement>(null);
+
 	// Track mouse-inside state so we can show/hide the hover tooltip via the
 	// action bar's hover manager, consistent with other action bar widgets.
 	const [mouseInside, setMouseInside] = useState(false);
+
+	// Track whether the mouse is over the warning icon specifically, so its
+	// tooltip takes precedence over the meter's tooltip.
+	const [warningHover, setWarningHover] = useState(false);
 
 	// Compute the tooltip text based on the current state.
 	const tooltipText = (loading || !snapshot)
@@ -104,15 +117,41 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 			ByteSize.formatSize(snapshot.freeSystemMemory)
 		);
 
-	// Show/hide hover tooltip via the action bar hover manager.
+	// Compute the low-memory warning tooltip, reporting remaining memory in the
+	// unit of the threshold that triggered the warning.
+	const lowMemory = snapshot?.lowMemory;
+	const lowMemoryTooltip = lowMemory
+		? (lowMemory.unit === LowMemoryUnit.Percent
+			? localize('positron.memoryUsage.lowMemoryPercent', "Low memory ({0}% remaining)", Math.max(0, Math.round(lowMemory.remaining)))
+			: localize('positron.memoryUsage.lowMemoryMb', "Low memory ({0}MB remaining)", Math.max(0, Math.round(lowMemory.remaining))))
+		: undefined;
+
+	// Show/hide hover tooltip via the action bar hover manager. The warning
+	// icon's tooltip takes precedence when the mouse is over it.
 	useEffect(() => {
-		if (mouseInside) {
+		if (warningHover && warningRef.current && lowMemoryTooltip) {
+			actionBarContext.hoverManager?.showHover(warningRef.current, lowMemoryTooltip);
+		} else if (mouseInside) {
 			actionBarContext.hoverManager?.showHover(meterRef.current, tooltipText);
 		}
-	}, [mouseInside, actionBarContext.hoverManager, tooltipText]);
+	}, [warningHover, mouseInside, actionBarContext.hoverManager, tooltipText, lowMemoryTooltip]);
 
 	const onMouseEnter = () => setMouseInside(true);
 	const onMouseLeave = () => setMouseInside(false);
+
+	// The low-memory warning icon, rendered to the left of the bar when the
+	// system is low on memory. Hooks above run unconditionally; this element is
+	// shared between the loading and loaded render paths.
+	const warningIcon = lowMemoryTooltip ? (
+		<div
+			ref={warningRef}
+			aria-label={lowMemoryTooltip}
+			className='memory-low-warning codicon codicon-warning'
+			role='img'
+			onMouseEnter={() => setWarningHover(true)}
+			onMouseLeave={() => setWarningHover(false)}
+		/>
+	) : null;
 
 	// Loading state: draw an empty bar with a "Mem" label.
 	if (loading || !snapshot) {
@@ -207,6 +246,7 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 			onMouseEnter={onMouseEnter}
 			onMouseLeave={onMouseLeave}
 		>
+			{warningIcon}
 			{barWidth !== undefined && (
 				<MemoryUsageBar snapshot={snapshot} style={{ width: barWidth }} />
 			)}

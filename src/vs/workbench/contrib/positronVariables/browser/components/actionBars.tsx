@@ -17,7 +17,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
-import { MemoryUsageMeter, MEMORY_METER_CHROME_WIDTH, MEMORY_METER_NO_BAR_WIDTH, MEMORY_BAR_MAX_WIDTH, MEMORY_BAR_MIN_WIDTH } from './memoryUsageMeter.js';
+import { MemoryUsageMeter, MEMORY_METER_CHROME_WIDTH, MEMORY_METER_NO_BAR_WIDTH, MEMORY_BAR_MAX_WIDTH, MEMORY_BAR_MIN_WIDTH, MEMORY_METER_WARNING_WIDTH } from './memoryUsageMeter.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
@@ -219,20 +219,24 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		// content never overflows the cell.
 		const labelWidth = Math.max(35, Math.ceil(sizeLabel.length * 6));
 
+		// The low-memory warning icon adds a fixed amount of chrome to the left
+		// of the bar when the system is in a low-memory state.
+		const warningWidth = memorySnapshot?.lowMemory ? MEMORY_METER_WARNING_WIDTH : 0;
+
 		// Space remaining for the meter after the other actions and a separator.
 		const meterSpace = actionBarWidth - baseWidth - DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
-		const spaceForBar = meterSpace - MEMORY_METER_CHROME_WIDTH - labelWidth;
+		const spaceForBar = meterSpace - MEMORY_METER_CHROME_WIDTH - labelWidth - warningWidth;
 
 		if (spaceForBar >= MEMORY_BAR_MIN_WIDTH) {
 			const barWidth = Math.min(MEMORY_BAR_MAX_WIDTH, Math.floor(spaceForBar));
 			rightActions.push({
-				fixedWidth: MEMORY_METER_CHROME_WIDTH + barWidth + labelWidth,
+				fixedWidth: MEMORY_METER_CHROME_WIDTH + barWidth + labelWidth + warningWidth,
 				separator: true,
 				component: <MemoryUsageMeter barWidth={barWidth} loading={loading} snapshot={memorySnapshot} />
 			});
-		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth) {
+		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth) {
 			rightActions.push({
-				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth,
+				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth,
 				separator: true,
 				component: <MemoryUsageMeter loading={loading} snapshot={memorySnapshot} />
 			});

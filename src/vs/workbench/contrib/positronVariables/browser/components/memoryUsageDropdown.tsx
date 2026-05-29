@@ -245,8 +245,20 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 					highlightedIds={highlightedIds}
 					onSegmentHover={onHover}
 				/>
+				{snapshot.lowMemory && (
+					<div className='low-memory-warning'>
+						<span className='codicon codicon-warning' />
+						<span>
+							{localize(
+								'positron.memoryUsage.lowMemoryRemaining',
+								"Low memory ({0} remaining)",
+								ByteSize.formatSize(snapshot.freeSystemMemory)
+							)}
+						</span>
+					</div>
+				)}
 			</div>
-			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className='memory-usage-dropdown' role='table'>
+			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className={`memory-usage-dropdown${snapshot.lowMemory ? ' low-memory' : ''}`} role='table'>
 				{sessionRows.length > 0 && (
 					<>
 						<div className='section-header' role='row'>

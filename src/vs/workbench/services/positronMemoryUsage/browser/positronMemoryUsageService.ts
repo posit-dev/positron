@@ -13,6 +13,8 @@ import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessi
 import { IHostService } from '../../host/browser/host.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import {
+	computeLowMemoryStatus,
+	ILowMemoryThresholds,
 	IMemorySessionUsage,
 	IMemoryUsageSnapshot,
 	IPositronMemoryInfoProvider,
@@ -24,6 +26,11 @@ const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
 const POST_EXECUTION_DELAY_MS = 2000;
 const POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
 const ENABLED_SETTING = 'positron.memoryUsage.enabled';
+const LOW_MEMORY_PERCENT_SETTING = 'positron.memoryUsage.lowMemoryThresholdPercent';
+const LOW_MEMORY_MB_SETTING = 'positron.memoryUsage.lowMemoryThresholdMB';
+
+/** Default low-memory threshold as a percentage of total memory. */
+const DEFAULT_LOW_MEMORY_PERCENT = 5;
 
 /** Number of consecutive poll failures before we stop retrying. */
 const MAX_CONSECUTIVE_FAILURES = 5;
@@ -75,6 +82,9 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	/** The user-configured polling interval (or default). */
 	private _configuredIntervalMs: number;
 
+	/** The user-configured low-memory thresholds. */
+	private _lowMemoryThresholds: ILowMemoryThresholds;
+
 	/** Disposable for the debounced post-execution poll timer. */
 	private _postExecutionTimer: number | undefined;
 
@@ -90,6 +100,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		this._windowFocused = this._hostService.hasFocus;
 		this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
 		this._enabled = this._configurationService.getValue<boolean>(ENABLED_SETTING) !== false;
+		this._lowMemoryThresholds = this._readLowMemoryThresholds();
 
 		// Subscribe to new sessions (guarded by _enabled)
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
@@ -158,6 +169,23 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 					this._restartPolling(this._effectiveInterval());
 				}
 			}
+			if (e.affectsConfiguration(LOW_MEMORY_PERCENT_SETTING) || e.affectsConfiguration(LOW_MEMORY_MB_SETTING)) {
+				this._lowMemoryThresholds = this._readLowMemoryThresholds();
+				// Recompute the low-memory status against the latest snapshot so
+				// the warning updates immediately rather than on the next poll.
+				if (this._enabled && this._currentSnapshot) {
+					const snapshot: IMemoryUsageSnapshot = {
+						...this._currentSnapshot,
+						lowMemory: computeLowMemoryStatus(
+							this._currentSnapshot.freeSystemMemory,
+							this._currentSnapshot.totalSystemMemory,
+							this._lowMemoryThresholds,
+						),
+					};
+					this._currentSnapshot = snapshot;
+					this._onDidUpdateMemoryUsage.fire(snapshot);
+				}
+			}
 		}));
 
 		// Start up if enabled
@@ -191,6 +219,20 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		this._sessionListeners.clear();
 		this._kernelMemory.clear();
 		this._currentSnapshot = undefined;
+	}
+
+	/**
+	 * Reads the low-memory thresholds from configuration. A missing percentage
+	 * setting falls back to the default; a missing megabyte setting is treated
+	 * as disabled (no default).
+	 */
+	private _readLowMemoryThresholds(): ILowMemoryThresholds {
+		const percent = this._configurationService.getValue<number>(LOW_MEMORY_PERCENT_SETTING);
+		const megabytes = this._configurationService.getValue<number>(LOW_MEMORY_MB_SETTING);
+		return {
+			percent: typeof percent === 'number' ? percent : DEFAULT_LOW_MEMORY_PERCENT,
+			megabytes: typeof megabytes === 'number' ? megabytes : 0,
+		};
 	}
 
 	/**
@@ -313,6 +355,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				positronOverheadBytes,
 				extensionHostOverheadBytes,
 				otherProcessesBytes,
+				lowMemory: computeLowMemoryStatus(info.freeSystemMemory, info.totalSystemMemory, this._lowMemoryThresholds),
 			};
 
 			this._currentSnapshot = snapshot;
