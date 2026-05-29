@@ -8,6 +8,7 @@ import React from 'react';
 
 // Other dependencies.
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
  * React context providing the scoped context key service for a notebook cell subtree.
@@ -17,11 +18,11 @@ export const CellScopedContextKeyServiceContext = React.createContext<IScopedCon
 /**
  * Provider component to make a cell's scoped context key service available to its children.
  *
- * @param props.service - The scoped context key service for this cell
+ * @param props.cell - The notebook cell whose scoped context key service will be provided
  * @param props.children - React children that need access to the service
  */
-export function CellScopedContextKeyServiceProvider({ service, children }: { service: IScopedContextKeyService | undefined; children: React.ReactNode; }) {
-	return <CellScopedContextKeyServiceContext.Provider value={service}>{children}</CellScopedContextKeyServiceContext.Provider>;
+export function CellScopedContextKeyServiceProvider({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode; }) {
+	return <CellScopedContextKeyServiceContext.Provider value={cell.scopedContextKeyService}>{children}</CellScopedContextKeyServiceContext.Provider>;
 }
 
 /**

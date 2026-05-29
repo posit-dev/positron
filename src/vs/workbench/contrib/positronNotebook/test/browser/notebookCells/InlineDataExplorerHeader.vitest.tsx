@@ -20,6 +20,7 @@ import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { CellScopedContextKeyServiceProvider } from '../../../browser/notebookCells/CellContextKeyServiceProvider.js';
 import { InlineDataExplorerHeader } from '../../../browser/notebookCells/InlineDataExplorer.js';
 import type { IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
+import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 
 /** Minimal MenuItemAction stub for rendering and click dispatch. */
 function mockAction(id: string, label: string, iconId: string, run: (...args: unknown[]) => Promise<unknown> = () => Promise.resolve()): MenuItemAction {
@@ -95,8 +96,11 @@ describe('InlineDataExplorerHeader', () => {
 			return rtl.render(header);
 		}
 
+		const cell = stubInterface<IPositronNotebookCell>({
+			scopedContextKeyService: contextKeyService,
+		});
 		return rtl.render(
-			<CellScopedContextKeyServiceProvider service={contextKeyService}>
+			<CellScopedContextKeyServiceProvider cell={cell}>
 				{header}
 			</CellScopedContextKeyServiceProvider>
 		);

@@ -220,7 +220,7 @@ export function NotebookCellWrapper({ cell, children }: {
 			selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 		}}
 	>
-		<CellScopedContextKeyServiceProvider service={cell.scopedContextKeyService}>
+		<CellScopedContextKeyServiceProvider cell={cell}>
 			<MaybeCellProvider cell={cell}>
 				<div className='positron-notebooks-cell-action-bar-container'>
 					<NotebookCellActionBar cell={cell} />
