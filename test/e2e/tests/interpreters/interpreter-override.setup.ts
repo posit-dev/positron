@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test as base, TestFixtures, WorkerFixtures } from '../../_test.setup';
-import { buildPythonPath, buildRPath } from '../helpers/include-excludes.js';
+import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';
+import { buildPythonPath, buildRPath } from './helpers/include-excludes.js';
 
 // Write the interpreter override settings BEFORE the app launches, so the app's first (and only)
 // discovery runs against the override and the non-override interpreters are never registered.

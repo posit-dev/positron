@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../../_test.setup';
-import { test } from './_test.setup.js';
-import { buildPythonPath, buildRPath, expectSessionStartToFail } from '../helpers/include-excludes.js';
+import { tags } from '../_test.setup';
+import { test } from './interpreter-override.setup.js';
+import { buildPythonPath, buildRPath, expectSessionStartToFail } from './helpers/include-excludes.js';
 
 test.use({
 	suiteId: __filename
 });
 
-// The override settings are written before the app launches (see _test.setup.ts), so the only
+// The override settings are written before the app launches (see interpreter-override.setup.ts), so the only
 // interpreters ever discovered are the override ones. Starting any non-override interpreter must
 // therefore fail.
 test.describe('Interpreter: Override', {
