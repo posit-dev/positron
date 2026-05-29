@@ -3,14 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-data-connections {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-}
-
-.positron-data-connections-container:focus,
-.positron-data-connections-container:focus-visible {
-	outline: none !important;
-}
+// Side-effect imports. Each module registers a ControlGalleryEntry into the registry at
+// load time. Adding a new control's harness is a single-line addition here.
+import './positronListGallery.js';
+import './positronTreeGallery.js';
