@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Python Venv Auto-Creation', {
-	tag: [tags.INTERPRETER, tags.WIN, tags.WEB]
+	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 	test.slow();
 
@@ -27,9 +27,7 @@ test.describe('Python Venv Auto-Creation', {
 		}, { reload: 'web' });
 	});
 
-	test('Notification appears for workspace with requirements.txt', {
-		tag: [tags.CRITICAL]
-	}, async function ({ app, openFolder }) {
+	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
 		await openFolder(`${fixtureBase}/with-requirements`);
 
 		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
@@ -44,9 +42,7 @@ test.describe('Python Venv Auto-Creation', {
 		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 
-	test('Clicking Yes creates venv', {
-		tag: [tags.CRITICAL]
-	}, async function ({ app, openFolder, hotKeys }) {
+	test('Clicking Yes creates venv', async function ({ app, openFolder, hotKeys }) {
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
