@@ -30,12 +30,14 @@ export class Variables {
 	memoryMeter: Locator;
 	memoryDropdown: Locator;
 	memorySizeLabel: Locator;
+	lowMemoryWarning: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys) {
 		this.variablesPane = this.code.driver.currentPage.locator('[id="workbench.panel.positronSession"]');
 		this.memoryMeter = this.code.driver.currentPage.locator('.memory-usage-meter');
 		this.memoryDropdown = this.code.driver.currentPage.locator('.memory-usage-dropdown');
 		this.memorySizeLabel = this.code.driver.currentPage.locator('.memory-size-label');
+		this.lowMemoryWarning = this.code.driver.currentPage.locator('.memory-usage-meter .memory-low-warning');
 	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
@@ -216,6 +218,23 @@ export class Variables {
 		await this.focusVariablesView();
 		await expect(this.memoryMeter).toBeVisible({ timeout: 30000 });
 		await expect(this.memorySizeLabel).not.toHaveText('Mem', { timeout: 30000 });
+	}
+
+	/**
+	 * Verify the low-memory warning icon is (or is not) shown in the memory meter.
+	 * When expected to be visible, also checks the accessible "Low memory" label.
+	 * @param visible whether the warning icon is expected to be visible
+	 */
+	async expectLowMemoryWarning(visible: boolean) {
+		await test.step(`Verify low memory warning icon ${visible ? 'is' : 'is not'} visible`, async () => {
+			await this.focusVariablesView();
+			if (visible) {
+				await expect(this.lowMemoryWarning).toBeVisible({ timeout: 30000 });
+				await expect(this.lowMemoryWarning).toHaveAttribute('aria-label', /Low memory/);
+			} else {
+				await expect(this.lowMemoryWarning).not.toBeVisible({ timeout: 30000 });
+			}
+		});
 	}
 
 	/**
