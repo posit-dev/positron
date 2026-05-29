@@ -6,6 +6,9 @@
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { localize } from '../../../../nls.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { ByteSize } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -26,8 +29,9 @@ const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
 const POST_EXECUTION_DELAY_MS = 2000;
 const POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
 const ENABLED_SETTING = 'positron.memoryUsage.enabled';
-const LOW_MEMORY_PERCENT_SETTING = 'positron.memoryUsage.lowMemoryThresholdPercent';
-const LOW_MEMORY_MB_SETTING = 'positron.memoryUsage.lowMemoryThresholdMB';
+const LOW_MEMORY_PERCENT_SETTING = 'memoryUsage.lowMemoryThresholdPercent';
+const LOW_MEMORY_MB_SETTING = 'memoryUsage.lowMemoryThresholdMB';
+const LOW_MEMORY_NOTIFICATION_SETTING = 'memoryUsage.lowMemoryNotification';
 
 /** Default low-memory threshold as a percentage of total memory. */
 const DEFAULT_LOW_MEMORY_PERCENT = 5;
@@ -85,6 +89,17 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 	/** The user-configured low-memory thresholds. */
 	private _lowMemoryThresholds: ILowMemoryThresholds;
 
+	/**
+	 * The low-memory state at the previous measurement. `undefined` before the
+	 * first measurement; used to detect an OK -> low transition so the
+	 * notification only fires when entering the low-memory state (not when the
+	 * very first measurement is already low).
+	 */
+	private _wasLowMemory: boolean | undefined;
+
+	/** Whether the low-memory notification has been shown this session. */
+	private _lowMemoryNotificationShown = false;
+
 	/** Disposable for the debounced post-execution poll timer. */
 	private _postExecutionTimer: number | undefined;
 
@@ -94,6 +109,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IHostService private readonly _hostService: IHostService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -183,6 +199,11 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 						),
 					};
 					this._currentSnapshot = snapshot;
+					// Treat a threshold change that pushes us into the low-memory
+					// state as entering it, so the notification fires here too.
+					// This is primarily useful for testing the notification by
+					// lowering the threshold.
+					this._maybeNotifyLowMemory(snapshot);
 					this._onDidUpdateMemoryUsage.fire(snapshot);
 				}
 			}
@@ -219,6 +240,10 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		this._sessionListeners.clear();
 		this._kernelMemory.clear();
 		this._currentSnapshot = undefined;
+		// Reset the transition baseline so a re-activation does not notify on
+		// its first measurement. The once-per-session flag is intentionally
+		// left set so the notification is not repeated after a toggle.
+		this._wasLowMemory = undefined;
 	}
 
 	/**
@@ -359,6 +384,7 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			};
 
 			this._currentSnapshot = snapshot;
+			this._maybeNotifyLowMemory(snapshot);
 			this._onDidUpdateMemoryUsage.fire(snapshot);
 		} catch (err) {
 			this._consecutiveFailures++;
@@ -368,6 +394,36 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				this._logService.warn('Failed to poll memory usage (will retry):', err);
 			}
 		}
+	}
+
+	/**
+	 * Show a warning notification when the system enters a low-memory state.
+	 *
+	 * The notification fires only on an OK -> low transition (so it is not shown
+	 * when the very first measurement is already low), at most once per session,
+	 * and only when enabled by configuration.
+	 */
+	private _maybeNotifyLowMemory(snapshot: IMemoryUsageSnapshot): void {
+		const isLow = !!snapshot.lowMemory;
+		const enteredLowMemory = isLow && this._wasLowMemory === false;
+		this._wasLowMemory = isLow;
+
+		if (!enteredLowMemory || this._lowMemoryNotificationShown) {
+			return;
+		}
+		if (this._configurationService.getValue<boolean>(LOW_MEMORY_NOTIFICATION_SETTING) === false) {
+			return;
+		}
+
+		this._lowMemoryNotificationShown = true;
+		this._notificationService.notify({
+			severity: Severity.Warning,
+			message: localize(
+				'positron.memoryUsage.lowMemoryNotificationMessage',
+				"The system is low on memory ({0} remaining). Consider removing data from memory or closing unused notebooks, documents, and consoles.",
+				ByteSize.formatSize(snapshot.freeSystemMemory)
+			),
+		});
 	}
 
 	override dispose(): void {

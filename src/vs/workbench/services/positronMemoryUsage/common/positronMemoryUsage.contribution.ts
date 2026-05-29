@@ -37,6 +37,11 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				default: 0,
 				minimum: 0,
 				markdownDescription: localize('positron.memoryUsage.lowMemoryThresholdMB', "Show a low-memory warning in the Variables pane when free system memory drops to or below this number of megabytes. Set to `0` to disable."),
+			},
+			'memoryUsage.lowMemoryNotification': {
+				type: 'boolean',
+				default: true,
+				markdownDescription: localize('positron.memoryUsage.lowMemoryNotification', "Whether to show a notification when the system enters a low-memory state. The notification appears at most once per session."),
 			}
 		}
 	});
