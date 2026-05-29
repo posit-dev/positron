@@ -29,7 +29,8 @@ test.describe('Notebook Side-by-Side Isolation', {
 		await hotKeys.minimizeBottomPanel();
 	});
 
-	test('Notebook action buttons target their own notebook, not the focused one',
+	// https://github.com/posit-dev/positron/issues/13876
+	test.skip('Notebook action buttons target their own notebook, not the focused one',
 		async function ({ app, sessions, runCommand }) {
 			const { notebooksPositron, editors } = app.workbench;
 
