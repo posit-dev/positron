@@ -13,12 +13,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 		id: 'positronMemoryUsage',
 		title: localize('positron.memoryUsage', "Memory Usage"),
 		properties: {
-			'positron.memoryUsage.enabled': {
+			'memoryUsage.enabled': {
 				type: 'boolean',
 				default: true,
 				markdownDescription: localize('positron.memoryUsage.enabled', "Whether to display memory usage in the Variables pane. When disabled, memory polling is stopped and the memory meter is hidden."),
 			},
-			'positron.memoryUsage.pollingIntervalMs': {
+			'memoryUsage.pollingIntervalMs': {
 				type: 'number',
 				default: 10000,
 				minimum: 500,

@@ -6,8 +6,10 @@
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { toAction } from '../../../../base/common/actions.js';
 import { localize } from '../../../../nls.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IPreferencesService } from '../../preferences/common/preferences.js';
 import { ByteSize } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -18,6 +20,7 @@ import { RuntimeState } from '../../languageRuntime/common/languageRuntimeServic
 import {
 	computeLowMemoryStatus,
 	ILowMemoryThresholds,
+	LowMemoryUnit,
 	IMemorySessionUsage,
 	IMemoryUsageSnapshot,
 	IPositronMemoryInfoProvider,
@@ -27,11 +30,16 @@ import {
 const DEFAULT_POLLING_INTERVAL_MS = 10000;
 const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
 const POST_EXECUTION_DELAY_MS = 2000;
-const POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
-const ENABLED_SETTING = 'positron.memoryUsage.enabled';
+const POLLING_INTERVAL_SETTING = 'memoryUsage.pollingIntervalMs';
+const ENABLED_SETTING = 'memoryUsage.enabled';
 const LOW_MEMORY_PERCENT_SETTING = 'memoryUsage.lowMemoryThresholdPercent';
 const LOW_MEMORY_MB_SETTING = 'memoryUsage.lowMemoryThresholdMB';
 const LOW_MEMORY_NOTIFICATION_SETTING = 'memoryUsage.lowMemoryNotification';
+
+// Legacy (positron.* prefixed) setting keys, honored for users who configured
+// them before the prefix was removed. The new keys win when both are set.
+const LEGACY_POLLING_INTERVAL_SETTING = 'positron.memoryUsage.pollingIntervalMs';
+const LEGACY_ENABLED_SETTING = 'positron.memoryUsage.enabled';
 
 /** Default low-memory threshold as a percentage of total memory. */
 const DEFAULT_LOW_MEMORY_PERCENT = 5;
@@ -48,7 +56,7 @@ const MAX_CONSECUTIVE_FAILURES = 5;
  * - Slows to 60s when the window loses focus.
  * - Schedules an extra poll 2s after all kernels become idle (debounced).
  *
- * The entire feature can be disabled via the `positron.memoryUsage.enabled`
+ * The entire feature can be disabled via the `memoryUsage.enabled`
  * setting. When disabled, polling stops, session listeners are torn down,
  * and the snapshot is cleared. Toggling the setting back on restores the
  * feature immediately.
@@ -110,12 +118,13 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		@IHostService private readonly _hostService: IHostService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 	) {
 		super();
 
 		this._windowFocused = this._hostService.hasFocus;
-		this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
-		this._enabled = this._configurationService.getValue<boolean>(ENABLED_SETTING) !== false;
+		this._configuredIntervalMs = this._readConfiguredInterval();
+		this._enabled = this._readEnabled();
 		this._lowMemoryThresholds = this._readLowMemoryThresholds();
 
 		// Subscribe to new sessions (guarded by _enabled)
@@ -167,8 +176,8 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 
 		// Listen for config changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(ENABLED_SETTING)) {
-				const newEnabled = this._configurationService.getValue<boolean>(ENABLED_SETTING) !== false;
+			if (e.affectsConfiguration(ENABLED_SETTING) || e.affectsConfiguration(LEGACY_ENABLED_SETTING)) {
+				const newEnabled = this._readEnabled();
 				if (newEnabled !== this._enabled) {
 					this._enabled = newEnabled;
 					if (newEnabled) {
@@ -179,8 +188,8 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 					this._onDidChangeEnabled.fire(newEnabled);
 				}
 			}
-			if (e.affectsConfiguration(POLLING_INTERVAL_SETTING)) {
-				this._configuredIntervalMs = this._configurationService.getValue<number>(POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
+			if (e.affectsConfiguration(POLLING_INTERVAL_SETTING) || e.affectsConfiguration(LEGACY_POLLING_INTERVAL_SETTING)) {
+				this._configuredIntervalMs = this._readConfiguredInterval();
 				if (this._enabled) {
 					this._restartPolling(this._effectiveInterval());
 				}
@@ -244,6 +253,52 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 		// its first measurement. The once-per-session flag is intentionally
 		// left set so the notification is not repeated after a toggle.
 		this._wasLowMemory = undefined;
+	}
+
+	/**
+	 * Reads whether the feature is enabled, honoring the legacy key. Defaults to
+	 * enabled when neither key is explicitly set.
+	 */
+	private _readEnabled(): boolean {
+		return this._readWithLegacyFallback<boolean>(ENABLED_SETTING, LEGACY_ENABLED_SETTING) !== false;
+	}
+
+	/**
+	 * Reads the configured polling interval, honoring the legacy key. Falls back
+	 * to the default when neither key is explicitly set.
+	 */
+	private _readConfiguredInterval(): number {
+		return this._readWithLegacyFallback<number>(POLLING_INTERVAL_SETTING, LEGACY_POLLING_INTERVAL_SETTING) || DEFAULT_POLLING_INTERVAL_MS;
+	}
+
+	/**
+	 * Reads a configuration value, preferring the new key but falling back to the
+	 * legacy (positron.* prefixed) key for users who configured it before the
+	 * prefix was removed. The new key wins when both are explicitly set. Returns
+	 * `undefined` when neither key is explicitly set.
+	 */
+	private _readWithLegacyFallback<T>(newKey: string, legacyKey: string): T | undefined {
+		if (this._isExplicitlySet(newKey)) {
+			return this._configurationService.getValue<T>(newKey);
+		}
+		if (this._isExplicitlySet(legacyKey)) {
+			return this._configurationService.getValue<T>(legacyKey);
+		}
+		return undefined;
+	}
+
+	/**
+	 * Returns whether a configuration key has an explicit value set in any
+	 * user/workspace scope (as opposed to falling back to its default).
+	 */
+	private _isExplicitlySet(key: string): boolean {
+		const inspected = this._configurationService.inspect(key);
+		return inspected.applicationValue !== undefined ||
+			inspected.userValue !== undefined ||
+			inspected.userLocalValue !== undefined ||
+			inspected.userRemoteValue !== undefined ||
+			inspected.workspaceValue !== undefined ||
+			inspected.workspaceFolderValue !== undefined;
 	}
 
 	/**
@@ -415,6 +470,11 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 			return;
 		}
 
+		// Open the threshold setting that triggered the warning.
+		const settingId = snapshot.lowMemory?.unit === LowMemoryUnit.Percent
+			? LOW_MEMORY_PERCENT_SETTING
+			: LOW_MEMORY_MB_SETTING;
+
 		this._lowMemoryNotificationShown = true;
 		this._notificationService.notify({
 			severity: Severity.Warning,
@@ -423,6 +483,15 @@ export class PositronMemoryUsageService extends Disposable implements IPositronM
 				"The system is low on memory ({0} remaining). Consider removing data from memory or closing unused notebooks, documents, and consoles.",
 				ByteSize.formatSize(snapshot.freeSystemMemory)
 			),
+			actions: {
+				primary: [
+					toAction({
+						id: 'positron.memoryUsage.configureLowMemoryThreshold',
+						label: localize('positron.memoryUsage.configureThreshold', "Configure Low Memory Threshold"),
+						run: () => this._preferencesService.openSettings({ query: `@id:${settingId}` }),
+					}),
+				],
+			},
 		});
 	}
 
