@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -18,7 +17,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await settings.set({
 			'interpreters.startupBehavior': 'auto'
 		});
-		await openFolder(join('qa-example-content/workspaces/r-session-hooks'));
+		await openFolder('qa-example-content/workspaces/r-session-hooks');
 		await app.workbench.console.waitForReadyAndStarted('>', 60000);
 	});
 
