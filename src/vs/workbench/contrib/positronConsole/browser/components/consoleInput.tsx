@@ -38,6 +38,7 @@ import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { PositronConsoleInputCursorBoundary } from '../../../../common/contextkeys.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
@@ -620,36 +621,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
-			// Up arrow processing.
-			case KeyCode.UpArrow: {
-				if (cmdOrCtrlKey && !historyBrowserActiveRef.current) {
-					// If the cmd or ctrl key is pressed, and the history
-					// browser is not up, engage the history browser with the
-					// prefix match strategy. This behavior mimics RStudio.
-					const isDebugMode = isForegroundDebugSession(services.contextKeyService);
-					const entries =
-						services.executionHistoryService.getInputEntries(
-							props.positronConsoleInstance.runtimeMetadata.languageId
-						).filter(entry => {
-							// Show debug entries when in debug mode, non-debug entries otherwise.
-							const isDebugEntry = entry.debug && entry.debug !== 'inactive';
-							return isDebugMode ? isDebugEntry : !isDebugEntry;
-						});
-					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
-					consumeEvent();
-					break;
-				} else {
-					navigateHistoryUp(e);
-				}
-				break;
-			}
-
-			// Down arrow processing.
-			case KeyCode.DownArrow: {
-				navigateHistoryDown(e);
-				break;
-			}
-
 			// Bind Home key to `cursorLineStart` (same as Ctrl+A)
 			case KeyCode.Home: {
 				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
@@ -894,6 +865,30 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
+		// Bind and maintain the cursor-boundary context key. Drives `when` clauses for
+		// keybindings that should only fire when the cursor is at the top or bottom of the
+		// console input (e.g. up/down history navigation), so the keybindings don't steal
+		// keystrokes when the cursor is on an interior line of multi-line input.
+		const cursorBoundaryContext = PositronConsoleInputCursorBoundary.bindTo(services.contextKeyService);
+		const updateCursorBoundary = () => {
+			const position = codeEditorWidget.getPosition();
+			const lineCount = codeEditorWidget.getModel()?.getLineCount() ?? 1;
+			if (!position) {
+				cursorBoundaryContext.set('none');
+				return;
+			}
+			const atTop = position.lineNumber === 1;
+			const atBottom = position.lineNumber === lineCount;
+			cursorBoundaryContext.set(
+				atTop && atBottom ? 'both' :
+					atTop ? 'top' :
+						atBottom ? 'bottom' : 'none');
+		};
+		disposableStore.add(codeEditorWidget.onDidChangeCursorPosition(updateCursorBoundary));
+		disposableStore.add(codeEditorWidget.onDidChangeModelContent(updateCursorBoundary));
+		disposableStore.add(codeEditorWidget.onDidFocusEditorWidget(updateCursorBoundary));
+		updateCursorBoundary();
+
 		// Set the blur event handler.
 		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => {
 			// If the history browser is active, deactivate it.
@@ -1048,9 +1043,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// If the history browser is not active, engage the history browser with the prefix match
 			// strategy. Otherwise, navigate history up.
 			if (e.usingPrefixMatch && !historyBrowserActiveRef.current) {
-				engageHistoryBrowser(new HistoryPrefixMatchStrategy(services.executionHistoryService.getInputEntries(
+				const isDebugMode = isForegroundDebugSession(services.contextKeyService);
+				const entries = services.executionHistoryService.getInputEntries(
 					props.positronConsoleInstance.runtimeMetadata.languageId
-				)));
+				).filter(entry => {
+					// Show debug entries when in debug mode, non-debug entries otherwise.
+					const isDebugEntry = entry.debug && entry.debug !== 'inactive';
+					return isDebugMode ? isDebugEntry : !isDebugEntry;
+				});
+				engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 			} else {
 				navigateHistoryUp();
 			}
