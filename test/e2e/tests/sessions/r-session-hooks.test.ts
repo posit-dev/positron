@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: R Session Init Hooks', {
-	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK]
+	tag: [tags.CONSOLE, tags.SESSIONS, tags.ARK, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ app, openFolder, settings }) {
@@ -54,7 +54,7 @@ test.describe('Sessions: R Session Init Hooks', {
 	});
 
 	test('R - Restart runs .Rprofile and fires session_init with start_type=restart', {
-		tag: [tags.WIN, tags.WEB]
+		tag: [tags.WEB]
 	}, async function ({ app, sessions, hotKeys }) {
 		const { console } = app.workbench;
 
