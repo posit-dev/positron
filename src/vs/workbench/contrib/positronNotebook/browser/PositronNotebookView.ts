@@ -56,7 +56,7 @@ export class PositronNotebookView extends Disposable {
 		container: HTMLElement,
 		overlayContainer: HTMLElement,
 		scopedContextKeyService: IScopedContextKeyService,
-		editorContainer: HTMLElement,
+		private readonly _editorContainer: HTMLElement,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
@@ -72,9 +72,22 @@ export class PositronNotebookView extends Disposable {
 		this._contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this._instance)
 		);
-		this._contextManager.setContainer(editorContainer, this._scopedContextKeyService, this._scopedInstantiationService);
+	}
 
-		// Instantiate all registered contributions for this view.
+	/**
+	 * Initialize contributions and context keys. Must be called after
+	 * `_currentView` is assigned on the instance, because upstream code
+	 * (NotebookEditorContextKeys) reads `instance.scopedContextKeyService`
+	 * which delegates to `_currentView.scopedContextKeyService`.
+	 *
+	 * The proper fix is for PositronNotebookView to implement
+	 * IPositronNotebookEditor directly (like ICodeEditor / INotebookEditor
+	 * are per-pane), so contributions receive the View and can read
+	 * scopedContextKeyService without the round-trip through the instance.
+	 */
+	initializeContributions(): void {
+		this._contextManager.setContainer(this._editorContainer, this._scopedContextKeyService, this._scopedInstantiationService);
+
 		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
 		for (const desc of contributions) {
 			const contribution = this._scopedInstantiationService.createInstance(desc.ctor, this);

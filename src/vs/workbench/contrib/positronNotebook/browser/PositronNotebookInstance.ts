@@ -1927,6 +1927,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				scopedContextKeyService,
 				editorContainer,
 			);
+			this._currentView.initializeContributions();
 		}
 
 		// Set container last -- contributions react to this observable, and they
