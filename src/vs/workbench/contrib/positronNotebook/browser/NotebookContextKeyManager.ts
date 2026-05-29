@@ -4,41 +4,44 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 
 /**
- * Manages context keys for a positron notebook editor view.
- *
- * Binds focus-tracking and VS Code notebook context keys to the view's
- * scoped context key service. Created via the scoped instantiation service
- * so it receives the pane-level CKS through DI.
+ * Manages context keys for a Positron notebook editor widget.
  */
-export class PositronNotebookContextKeyManager extends Disposable {
+export class NotebookContextKeyManager extends Disposable {
+	private readonly editorFocused: IContextKey<boolean>;
 
 	constructor(
 		editorContainer: HTMLElement,
-		private readonly _notebookInstance: IPositronNotebookInstance,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		private readonly notebookInstance: IPositronNotebookInstance,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
 
-		const positronEditorFocus = NotebookContextKeys.editorFocused.bindTo(contextKeyService);
-		this._register(toDisposable(() => positronEditorFocus.reset()));
+		this.editorFocused = NotebookContextKeys.editorFocused.bindTo(this.contextKeyService);
 
-		this._register(instantiationService.createInstance(NotebookEditorContextKeys, this._notebookInstance));
+		// TODO: Once we complete moving over the IPositronNotebookEditor implementation
+		//   to the widget, we'll pass the widget instead of the instance here.
+		this._register(instantiationService.createInstance(NotebookEditorContextKeys, this.notebookInstance));
 
 		const focusTracker = this._register(DOM.trackFocus(editorContainer));
 		this._register(focusTracker.onDidFocus(() => {
-			positronEditorFocus.set(true);
+			this.editorFocused.set(true);
 		}));
 		this._register(focusTracker.onDidBlur(() => {
-			positronEditorFocus.set(false);
+			this.editorFocused.set(false);
 		}));
+	}
+
+	public override dispose(): void {
+		super.dispose();
+		this.editorFocused.reset();
 	}
 }

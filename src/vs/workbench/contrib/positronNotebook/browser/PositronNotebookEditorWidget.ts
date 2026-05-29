@@ -7,7 +7,7 @@ import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js'
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { NotebookContextKeyManager } from './NotebookContextKeyManager.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
 
@@ -25,7 +25,7 @@ export class PositronNotebookEditorWidget extends Disposable {
 
 	private readonly _scopedContextKeyService: IContextKeyService;
 	private readonly _scopedInstantiationService: IInstantiationService;
-	private _contextManager!: PositronNotebookContextKeyManager;
+	private _contextManager!: NotebookContextKeyManager;
 	private readonly _contributions = this._register(new DisposableMap<string, IPositronNotebookContribution>());
 
 	/** The DOM element that the notebook renders into. */
@@ -47,7 +47,7 @@ export class PositronNotebookEditorWidget extends Disposable {
 		return this._scopedInstantiationService;
 	}
 
-	get contextManager(): PositronNotebookContextKeyManager {
+	get contextManager(): NotebookContextKeyManager {
 		return this._contextManager;
 	}
 
@@ -78,7 +78,7 @@ export class PositronNotebookEditorWidget extends Disposable {
 	 */
 	initializeContributions(): void {
 		this._contextManager = this._register(
-			this._scopedInstantiationService.createInstance(PositronNotebookContextKeyManager, this._editorContainer, this._instance)
+			this._scopedInstantiationService.createInstance(NotebookContextKeyManager, this._editorContainer, this._instance)
 		);
 
 		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
