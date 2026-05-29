@@ -17,7 +17,7 @@ import { getWindow } from '../../../../base/browser/dom.js';
 import { escape } from '../../../../base/common/strings.js';
 import { DeferredImage } from './notebookCells/DeferredImage.js';
 import { KatexMath } from './notebookCells/KatexMath.js';
-import { MermaidDiagram } from './notebookCells/MermaidDiagram.js';
+import { MermaidDiagram } from '../../positronMermaid/browser/mermaidDiagramComponent.js';
 import { NotebookLink } from './notebookCells/NotebookLink.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
