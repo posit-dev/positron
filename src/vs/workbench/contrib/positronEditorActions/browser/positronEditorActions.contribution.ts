@@ -25,10 +25,10 @@ import { SAVE_FILE_COMMAND_ID, SAVE_FILE_LABEL } from '../../files/browser/fileC
 // after the user types (see https://github.com/posit-dev/positron/issues/13530).
 // The Save button must enable on unsaved edits regardless of whether an
 // auto-save is queued, so we maintain our own key.
-const PositronActiveEditorIsDirtyContext = new RawContextKey<boolean>(
-	'positronActiveEditorIsDirty',
+const ActiveEditorHasUnsavedChangesContext = new RawContextKey<boolean>(
+	'positronEditorActions.activeEditorHasUnsavedChanges',
 	false,
-	localize('positronActiveEditorIsDirty', "Whether the active editor has unsaved changes (ignores in-flight auto-save)"),
+	localize('positron.activeEditorHasUnsavedChanges', "Whether the active editor has unsaved changes (ignores in-flight auto-save)"),
 );
 
 // Tracks `activeEditor.isDirty()` per editor group via the editor parts
@@ -43,8 +43,8 @@ const PositronActiveEditorIsDirtyContext = new RawContextKey<boolean>(
 //   - any working copy dirty change (provided via `onDidChange` below) --
 //     this covers the user-types-into-active-editor flow because the editor
 //     model is the working copy.
-class PositronActiveEditorDirtyTracker extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.positronActiveEditorDirtyTracker';
+class ActiveEditorHasUnsavedChangesTracker extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positronEditorActions.activeEditorHasUnsavedChangesTracker';
 
 	constructor(
 		@IEditorGroupsService editorGroupsService: IEditorGroupsService,
@@ -53,7 +53,7 @@ class PositronActiveEditorDirtyTracker extends Disposable implements IWorkbenchC
 		super();
 
 		this._register(editorGroupsService.registerContextKeyProvider({
-			contextKey: PositronActiveEditorIsDirtyContext,
+			contextKey: ActiveEditorHasUnsavedChangesContext,
 			getGroupContextKeyValue: (group: IEditorGroup) => !!group.activeEditor?.isDirty(),
 			onDidChange: Event.map(workingCopyService.onDidChangeDirty, () => undefined),
 		}));
@@ -76,7 +76,7 @@ MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, {
 		id: SAVE_FILE_COMMAND_ID,
 		title: SAVE_FILE_LABEL,
 		icon: ThemeIcon.fromId('positron-save'),
-		precondition: PositronActiveEditorIsDirtyContext,
+		precondition: ActiveEditorHasUnsavedChangesContext,
 	},
 	group: '1_save',
 	order: 10,
@@ -84,7 +84,7 @@ MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, {
 });
 
 registerWorkbenchContribution2(
-	PositronActiveEditorDirtyTracker.ID,
-	PositronActiveEditorDirtyTracker,
+	ActiveEditorHasUnsavedChangesTracker.ID,
+	ActiveEditorHasUnsavedChangesTracker,
 	WorkbenchPhase.BlockRestore,
 );
