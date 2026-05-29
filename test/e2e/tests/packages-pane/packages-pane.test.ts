@@ -49,7 +49,7 @@ test.describe('Packages Pane', {
 		});
 
 	test.describe('Help button', { tag: [tags.HELP] }, () => {
-		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
+		test('R - Opens package help in Help pane', { tag: [tags.WIN] }, async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
 			// Base is always attached
