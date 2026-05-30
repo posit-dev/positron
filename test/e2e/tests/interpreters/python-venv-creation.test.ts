@@ -29,20 +29,20 @@ test.describe('Python Venv Auto-Creation', {
 
 	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
 		await openFolder(`${fixtureBase}/with-requirements`);
+		await app.workbench.sessions.expectNoStartUpMessaging();
 
 		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
 		await app.workbench.toasts.expectToastWithTitle(/uv/);
 		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
 	});
 
-	test('No notification when .venv already exists', async function ({ app, openFolder, hotKeys }) {
-		await hotKeys.reloadWindow(true);
+	test('No notification when .venv already exists', async function ({ app, openFolder }) {
 		await openFolder(`${fixtureBase}/with-existing-venv`);
 
 		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 
-	test('Clicking Yes creates venv', async function ({ app, openFolder, hotKeys }) {
+	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
@@ -50,8 +50,8 @@ test.describe('Python Venv Auto-Creation', {
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
 
 		try {
-			await hotKeys.reloadWindow(true);
 			await openFolder('qa-example-content/venv-creation-test');
+			await app.workbench.sessions.expectNoStartUpMessaging();
 
 			await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
 			await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
