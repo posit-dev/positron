@@ -441,7 +441,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 			}
 		}
-	}
+	};
 
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {

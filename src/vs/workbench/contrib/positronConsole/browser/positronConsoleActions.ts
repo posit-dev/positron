@@ -740,7 +740,7 @@ export function registerPositronConsoleActions() {
 									logService.warn(
 										nextStatementRange.line ?
 											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
-											"Can't compute advancement due to a syntax error."
+											`Can't compute advancement due to a syntax error.`
 									);
 									break;
 								}
