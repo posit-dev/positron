@@ -21,7 +21,6 @@ test.describe('Notebook Drag Select Past Viewport', {
 
 	test('Tall cell editor is capped to viewport height and scrollable (#13240)', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		const page = app.code.driver.currentPage;
 
 		// Create a notebook with a tall code cell (55 lines exceeds any viewport)
 		const lines = Array.from({ length: 55 }, (_, i) => `line_${i} = ${i}`).join('\n');
