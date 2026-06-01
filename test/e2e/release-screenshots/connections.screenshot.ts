@@ -104,19 +104,21 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		// package (not installed in CI's R 4.5.2 env). Create the same 5 tables
 		// directly via DBI so the connection pane tree matches the docs reference.
 		const scriptName = 'nycflights-sqlite.r';
+		const nycflightsDbPath = join(app.workspacePathOrFolder, 'db', 'nycflights13.sqlite').replace(/\\/g, '/');
 		const scriptContent = [
 			'library(connections)',
 			'library(DBI)',
 			'library(RSQLite)',
 			'',
 			'# Create the nycflights13 schema without the nycflights13 package.',
-			'db_path <- "db/nycflights13.sqlite"',
+			`db_path <- "${nycflightsDbPath}"`,
+			'dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)',
 			'tmp <- dbConnect(SQLite(), db_path)',
-			'dbExecute(tmp, "CREATE TABLE airlines (carrier TEXT, name TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE airports (faa TEXT, name TEXT, lat REAL, lon REAL, alt INTEGER, tz INTEGER, dst TEXT, tzone TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE flights (year INTEGER, month INTEGER, day INTEGER, dep_time INTEGER, arr_time INTEGER, carrier TEXT, flight INTEGER, tailnum TEXT, origin TEXT, dest TEXT, air_time REAL, distance REAL)")',
-			'dbExecute(tmp, "CREATE TABLE planes (tailnum TEXT, year INTEGER, type TEXT, manufacturer TEXT, model TEXT, engines INTEGER, seats INTEGER, speed REAL, engine TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE weather (origin TEXT, year INTEGER, month INTEGER, day INTEGER, hour INTEGER, temp REAL, dewp REAL, humid REAL, wind_dir REAL, wind_speed REAL, wind_gust REAL, precip REAL, pressure REAL, visib REAL, time_hour TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS airlines (carrier TEXT, name TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS airports (faa TEXT, name TEXT, lat REAL, lon REAL, alt INTEGER, tz INTEGER, dst TEXT, tzone TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS flights (year INTEGER, month INTEGER, day INTEGER, dep_time INTEGER, arr_time INTEGER, carrier TEXT, flight INTEGER, tailnum TEXT, origin TEXT, dest TEXT, air_time REAL, distance REAL)")',
+			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS planes (tailnum TEXT, year INTEGER, type TEXT, manufacturer TEXT, model TEXT, engines INTEGER, seats INTEGER, speed REAL, engine TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS weather (origin TEXT, year INTEGER, month INTEGER, day INTEGER, hour INTEGER, temp REAL, dewp REAL, humid REAL, wind_dir REAL, wind_speed REAL, wind_gust REAL, precip REAL, pressure REAL, visib REAL, time_hour TEXT)")',
 			'dbDisconnect(tmp)',
 			'',
 			'con <- connection_open(SQLite(), db_path)',
@@ -153,6 +155,9 @@ test.describe('Release Screenshots - Connections Pane', () => {
 			await sqliteItems.nth(sqliteCount - 1).locator('.codicon-arrow-circle-right').click({ timeout: 30_000 });
 			await expect(connections.currentConnectionName.filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 15_000 });
 		}
+
+		// Wait for the schema tree root node to load before expanding children.
+		await expect(page.locator('.connections-item').filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 30_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		// the columns are visible (matches the 3 expanded tables in the docs ref).
