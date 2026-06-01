@@ -2276,7 +2276,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2026.0"
+            "pet": "2026.4"
         }
     }
 }
