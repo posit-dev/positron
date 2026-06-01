@@ -10,7 +10,6 @@ import { isDoubleClickMessage, isHTMLOutputWebviewMessage, isWheelForwardMessage
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
-import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
 import { Event } from '../../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../../base/common/observable.js';
@@ -81,7 +80,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 
 	// Retrieve relevant context
 	const notebookInstance = useNotebookInstance();
-	const visibilityObservable = useNotebookVisibility();
+	const visibilityObservable = notebookInstance.isVisible;
 	const services = usePositronReactServicesContext();
 	const onDoubleClick = options?.onDoubleClick;
 	const onFocus = options?.onFocus;

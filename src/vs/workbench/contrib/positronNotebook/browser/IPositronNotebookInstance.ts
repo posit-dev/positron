@@ -219,6 +219,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly isReadOnly: boolean;
 
 	/**
+	 * Observable indicating whether the notebook editor is currently visible.
+	 */
+	readonly isVisible: IObservable<boolean>;
+
+	/**
 	 * Event that fires when the cells container is scrolled
 	 */
 	readonly onDidScrollCellsContainer: Event<void>;
@@ -236,6 +241,17 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly hoverManager: IHoverManager;
 
 	// ===== Methods =====
+
+	/**
+	 * Sets the notebook editor as visible.
+	 */
+	onVisible(): void;
+
+	/**
+	 * Sets the notebook editor as hidden.
+	 */
+	onHide(): void;
+
 	/**
 	 * Executes the specified cells in order.
 	 *

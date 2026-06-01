@@ -123,6 +123,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
 
 	/**
+	 * Observable tracking if the editor is currently visible
+	 */
+	public readonly isVisible = observableValue<boolean>('isVisible', false);
+
+	/**
 	 * Bumped on every `restoreEditorViewState` call. The notebook React
 	 * component subscribes to this so its scroll-restoration layout effect
 	 * re-fires on cache-hit setInput, where the React tree is reused.
@@ -271,6 +276,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
 		}
 		return this._scopedInstantiationService.value;
+	}
+
+	onVisible(): void {
+		this.isVisible.set(true, undefined);
+	}
+
+	onHide(): void {
+		this.isVisible.set(false, undefined);
 	}
 
 	/**

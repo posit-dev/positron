@@ -211,16 +211,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	 */
 	readonly onDidChangeSelection = this._onDidChangeSelection.event;
 
-	/**
-	 * Size as an observable so it can be lazily passed into the React component.
-	 */
-	private readonly _size = observableValue<ISize>('size', { width: 0, height: 0 });
-
-	/**
-	 * Observable tracking if the editor is currently visible
-	 */
-	private readonly _isVisible = observableValue<boolean>('isVisible', false);
-
 	private _notebookInstance: PositronNotebookInstance | undefined;
 
 	get notebookInstance() {
@@ -228,8 +218,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
-		this._isVisible.set(visible, undefined);
 		super.setEditorVisible(visible);
+
+		if (visible) {
+			this._notebookInstance?.onVisible();
+		} else {
+			this._notebookInstance?.onHide();
+		}
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
