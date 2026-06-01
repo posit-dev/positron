@@ -988,7 +988,9 @@ const editorOptionsCustomizationSchema: IConfigurationPropertySchema = {
 		// 	}
 		// }
 	],
-	tags: ['notebookLayout']
+	// --- Start Positron ---
+	tags: ['notebookLayout', 'legacy', 'native']
+	// --- End Positron ---
 };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
@@ -1063,7 +1065,9 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize('notebook.undoRedoPerCell.description', "Whether to use separate undo/redo stack for each cell."),
 			type: 'boolean',
 			default: true,
-			tags: ['notebookLayout']
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		[NotebookSetting.compactView]: {
 			description: nls.localize('notebook.compactView.description', "Control whether the notebook editor should be rendered in a compact form. For example, when turned on, it will decrease the left margin width."),
@@ -1161,7 +1165,9 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.textOutputLineLimit', "Controls how many lines of text are displayed in a text output. If {0} is enabled, this setting is used to determine the scroll height of the output.", '`#notebook.output.scrolling#`'),
 			type: 'number',
 			default: 30,
-			tags: ['notebookLayout', 'notebookOutputLayout'],
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			// --- End Positron ---
 			minimum: 1,
 		},
 		[NotebookSetting.LinkifyOutputFilePaths]: {
@@ -1180,13 +1186,17 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.markup.fontSize', "Controls the font size in pixels of rendered markup in notebooks. When set to {0}, 120% of {1} is used.", '`0`', '`#editor.fontSize#`'),
 			type: 'number',
 			default: 0,
-			tags: ['notebookLayout']
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		[NotebookSetting.markdownLineHeight]: {
 			markdownDescription: nls.localize('notebook.markdown.lineHeight', "Controls the line height in pixels of markdown cells in notebooks. When set to {0}, {1} will be used", '`0`', '`normal`'),
 			type: 'number',
 			default: 0,
-			tags: ['notebookLayout']
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		[NotebookSetting.cellEditorOptionsCustomizations]: editorOptionsCustomizationSchema,
 		[NotebookSetting.interactiveWindowCollapseCodeCells]: {
@@ -1205,7 +1215,9 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.outputFontSize', "Font size for the output text within notebook cells. When set to 0, {0} is used.", '`#editor.fontSize#`'),
 			type: 'number',
 			default: 0,
-			tags: ['notebookLayout', 'notebookOutputLayout']
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		[NotebookSetting.outputFontFamily]: {
 			markdownDescription: nls.localize('notebook.outputFontFamily', "The font family of the output text within notebook cells. When set to empty, the {0} is used.", '`#editor.fontFamily#`'),
@@ -1215,19 +1227,26 @@ configurationRegistry.registerConfiguration({
 		[NotebookSetting.outputScrolling]: {
 			markdownDescription: nls.localize('notebook.outputScrolling', "Initially render notebook outputs in a scrollable region when longer than the limit."),
 			type: 'boolean',
-			tags: ['notebookLayout', 'notebookOutputLayout'],
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			// --- End Positron ---
 			default: typeof product.quality === 'string' && product.quality !== 'stable' // only enable as default in insiders
 		},
 		[NotebookSetting.outputWordWrap]: {
 			markdownDescription: nls.localize('notebook.outputWordWrap', "Controls whether the lines in output should wrap."),
 			type: 'boolean',
-			tags: ['notebookLayout', 'notebookOutputLayout'],
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			// --- End Positron ---
 			default: false
 		},
 		[NotebookSetting.defaultFormatter]: {
 			description: nls.localize('notebookFormatter.default', "Defines a default notebook formatter which takes precedence over all other formatter settings. Must be the identifier of an extension contributing a formatter."),
 			type: ['string', 'null'],
 			default: null,
+			// --- Start Positron ---
+			tags: ['legacy', 'native'],
+			// --- End Positron ---
 			enum: DefaultFormatter.extensionIds,
 			enumItemLabels: DefaultFormatter.extensionItemLabels,
 			markdownEnumDescriptions: DefaultFormatter.extensionDescriptions
@@ -1235,18 +1254,25 @@ configurationRegistry.registerConfiguration({
 		[NotebookSetting.formatOnSave]: {
 			markdownDescription: nls.localize('notebook.formatOnSave', "Format a notebook on save. A formatter must be available and the editor must not be shutting down. When {0} is set to `afterDelay`, the file will only be formatted when saved explicitly.", '`#files.autoSave#`'),
 			type: 'boolean',
-			tags: ['notebookLayout'],
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native'],
+			// --- End Positron ---
 			default: false
 		},
 		[NotebookSetting.insertFinalNewline]: {
 			markdownDescription: nls.localize('notebook.insertFinalNewline', "When enabled, insert a final new line into the end of code cells when saving a notebook."),
 			type: 'boolean',
-			tags: ['notebookLayout'],
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native'],
+			// --- End Positron ---
 			default: false
 		},
 		[NotebookSetting.formatOnCellExecution]: {
 			markdownDescription: nls.localize('notebook.formatOnCellExecution', "Format a notebook cell upon execution. A formatter must be available."),
 			type: 'boolean',
+			// --- Start Positron ---
+			tags: ['legacy', 'native'],
+			// --- End Positron ---
 			default: false
 		},
 		[NotebookSetting.confirmDeleteRunningCell]: {
@@ -1287,7 +1313,9 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.remoteSaving', "Enables the incremental saving of notebooks between processes and across Remote connections. When enabled, only the changes to the notebook are sent to the extension host, improving performance for large notebooks and slow network connections."),
 			type: 'boolean',
 			default: typeof product.quality === 'string' && product.quality !== 'stable', // only enable as default in insiders
-			tags: ['experimental']
+			// --- Start Positron ---
+			tags: ['experimental', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		[NotebookSetting.scrollToRevealCell]: {
 			markdownDescription: nls.localize('notebook.scrolling.revealNextCellOnExecute.description', "How far to scroll when revealing the next cell upon running {0}.", 'notebook.cell.executeAndSelectBelow'),
@@ -1329,6 +1357,9 @@ configurationRegistry.registerConfiguration({
 		[NotebookSetting.outputBackupSizeLimit]: {
 			markdownDescription: nls.localize('notebook.backup.sizeLimit', "The limit of notebook output size in kilobytes (KB) where notebook files will no longer be backed up for hot reload. Use 0 for unlimited."),
 			type: 'number',
+			// --- Start Positron ---
+			tags: ['legacy', 'native'],
+			// --- End Positron ---
 			default: 10000
 		},
 		[NotebookSetting.multiCursor]: {
@@ -1340,7 +1371,9 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.markup.fontFamily', "Controls the font family of rendered markup in notebooks. When left blank, this will fall back to the default workbench font family."),
 			type: 'string',
 			default: '',
-			tags: ['notebookLayout']
+			// --- Start Positron ---
+			tags: ['notebookLayout', 'legacy', 'native']
+			// --- End Positron ---
 		},
 		// --- Start Positron ---
 		[NotebookSetting.workingDirectory]: {
@@ -1353,12 +1386,14 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.save.executionCounts', "Save execution counts to the notebook file. Disable for version-control-friendly notebooks."),
 			type: 'boolean',
 			default: true,
+			tags: ['legacy', 'native'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		[NotebookSetting.saveOutputs]: {
 			markdownDescription: nls.localize('notebook.save.outputs', "Save outputs to the notebook file."),
 			type: 'boolean',
 			default: true,
+			tags: ['legacy', 'native'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		// --- End Positron ---
