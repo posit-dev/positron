@@ -288,7 +288,10 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			if (container && height > container.clientHeight) {
 				const containerRect = container.getBoundingClientRect();
 				const editorTop = editorPartRef.current.getBoundingClientRect().top;
-				maxHeight = containerRect.bottom - Math.max(editorTop, containerRect.top);
+				const available = containerRect.bottom - Math.max(editorTop, containerRect.top);
+				if (available > 0) {
+					maxHeight = available;
+				}
 			}
 			editor.layout({
 				height: Math.min(height, maxHeight),
