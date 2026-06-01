@@ -225,7 +225,14 @@ export async function registerCreateEnvironmentFeatures(
                 // (onDidSelectItem) lets Positron start the returned runtimeId itself, so
                 // handleInstallPythonResult only registers - the palette command must start it here.
                 if (handled?.runtimeId) {
-                    await positron.runtime.selectLanguageRuntime(handled.runtimeId);
+                    // Best-effort: start the runtime in the console. A failure here does
+                    // not mean the install failed - the runtime is still registered and
+                    // will appear in the session picker.
+                    try {
+                        await positron.runtime.selectLanguageRuntime(handled.runtimeId);
+                    } catch (startError) {
+                        traceError(`Failed to start runtime after Python install: ${startError}`);
+                    }
                 }
                 return handled;
             } catch (error) {

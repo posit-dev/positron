@@ -182,7 +182,9 @@ async function createVenvHandlingExisting(
         }
         if (existingVenvAction === ExistingVenvAction.Recreate) {
             if (!(await deleteEnvironment(folder, undefined))) {
-                throw new Error('Failed to delete existing virtual environment');
+                // Delete failed - warn the user but don't abort the overall install.
+                // Python itself was installed successfully; fall back to the base interpreter.
+                return { venvPython: undefined, attempted: true };
             }
         }
         return { venvPython: await create(), attempted: true };
