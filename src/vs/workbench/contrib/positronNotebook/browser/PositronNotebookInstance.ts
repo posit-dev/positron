@@ -527,12 +527,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			kernel => /** @description positronNotebookLanguage */ kernel?.runtime?.languageId ?? 'plaintext'
 		);
 
-		// Attach existing runtime session for the notebook if any
-		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri);
-		if (runtimeSession) {
-			this._maybeAttachSession(runtimeSession);
-		}
-
 		// Attach any runtime sessions that start for the notebook
 		this._register(this.runtimeSessionService.onWillStartSession(({ session }) => {
 			this._maybeAttachSession(session);
@@ -977,6 +971,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	setModel(model: NotebookTextModel): void {
 		this._textModel.set(model, undefined);
+
+		// Attach existing runtime session for the notebook if any
+		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(model.uri);
+		if (runtimeSession) {
+			this._maybeAttachSession(runtimeSession);
+		}
 
 		this._modelStore.clear();
 		this._modelStore.add(model.onDidChangeContent((e) => {
