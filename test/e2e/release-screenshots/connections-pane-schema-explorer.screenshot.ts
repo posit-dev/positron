@@ -37,7 +37,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	 * tree drilled into a table so the column types are visible.
 	 */
 	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, hotKeys, console, connections, layouts } = app.workbench;
+		const { sessions, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		// Build the nycflights13-schema SQLite database without the nycflights13 R
@@ -77,8 +77,9 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// `connections::connection_open()` registers the connection in Positron's pane.
 		await executeCode('R', `source("${scriptName}", echo=TRUE)`, { maximizeConsole: false, timeout: 60000 });
 
-		// Layout
-		await hotKeys.closePrimarySidebar();
+		// Layout: keep the primary sidebar (file explorer) open so the editor
+		// is narrower, matching the reference. Only open the connections pane
+		// in the aux bar.
 		await connections.openConnectionPane();
 
 		// connection_open from the R connections package may auto-navigate to schema
@@ -99,7 +100,9 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		// the columns are visible (matches the 3 expanded tables in the docs ref).
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airlines', /^flights$/, /^planes$/]);
-		await layouts.resizeAuxiliaryBar({ x: 100 });
+		// Widen the connections pane so the full schema tree and column types
+		// are clearly visible, matching the reference.
+		await layouts.resizeAuxiliaryBar({ x: -200 });
 		// Grow the bottom panel so the console (with script echo) takes a
 		// larger portion of the window, matching the ~50/50 editor/console
 		// split in the docs reference.
