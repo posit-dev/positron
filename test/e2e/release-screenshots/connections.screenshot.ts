@@ -90,23 +90,35 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	 * SQLite connection expanded in the Connections pane, with the schema
 	 * tree drilled into a table so the column types are visible.
 	 */
-	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, r }) => {
-		const { sessions, hotKeys, connections, layouts, quickaccess } = app.workbench;
+	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
+		const { sessions, hotKeys, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Source the R script: `connections::connection_open()` registers the
-		// connection AND auto-opens it in schema view.
+		// Open the script in the editor so the editor pane matches the docs ref.
 		const scriptRel = join('workspaces', 'chinook-db-r', 'chinook-sqlite.r');
 		await openFile(scriptRel);
-		await quickaccess.runCommand('r.sourceCurrentFile');
+
+		// Clear the R startup banner so the console area shows the script echo
+		// (line-by-line `>` prompts), matching the docs reference.
+		await console.clearButton.click();
+
+		// source(echo=TRUE) prints each line as it executes -- yields the same
+		// `> library(...)` / `> con <- ...` console view shown in the docs.
+		// `connections::connection_open()` registers the connection AND opens
+		// it in schema view.
+		await executeCode('R', 'source("workspaces/chinook-db-r/chinook-sqlite.r", echo=TRUE)', { maximizeConsole: false });
 
 		// Layout
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
 
+		// Run via executeCode doesn't auto-open schema view (only r.sourceCurrentFile
+		// does). Drill in from the list view first.
+		await connections.viewConnection('SQLiteConnection');
+
 		// Expand SQLiteConnection -> main -> albums so columns are visible.
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'albums']);
-		await layouts.resizeAuxiliaryBar({ x: -200 });
+		await layouts.resizeAuxiliaryBar({ x: -350 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

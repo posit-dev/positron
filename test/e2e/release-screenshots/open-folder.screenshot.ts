@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
+import { captureFullWindow, captureRegion } from './helpers/screenshot-utils';
 import { prepareForScreenshot, reapplyCdpViewport, setScreenshotWindowSize } from './helpers/layout-utils';
 import { annotate, clearAnnotations } from './helpers/annotate-utils';
 
@@ -35,7 +35,7 @@ test.describe('Release Screenshots - Open Folder', () => {
 	 * top-right folder dropdown + its menu.
 	 */
 	test('Release Screenshot - open-folder.png', async ({ app, page, hotKeys, r }) => {
-		const { sessions, quickaccess } = app.workbench;
+		const { sessions, quickaccess, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		// Close the current folder so the no-folder Welcome page renders.
@@ -50,6 +50,12 @@ test.describe('Release Screenshots - Open Folder', () => {
 		await quickaccess.runCommand('workbench.action.openWalkthrough');
 		await expect(page.locator('.positron-welcome-page-start').first()).toBeVisible({ timeout: 15000 });
 
+		// Layout customizations BEFORE opening the menu (they steal focus and
+		// would close the modal popup).
+		await hotKeys.closePrimarySidebar();
+		await quickaccess.runCommand('workbench.action.closePanel');
+		await layouts.expectBottomPanelToBeVisible(false);
+
 		// Click the top-right Folder Selector dropdown to reveal the menu.
 		await page.locator('.top-action-bar-custom-folder-menu').click();
 		const menu = page.locator('.positron-modal-popup');
@@ -62,7 +68,27 @@ test.describe('Release Screenshots - Open Folder', () => {
 			{ selector: '.positron-welcome-page-start', label: '', color: ANNOTATION_COLOR, padding: 6, borderWidth: 3 },
 			{ selector: '.positron-modal-popup', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
 		]);
-		await hotKeys.closePrimarySidebar();
-		await captureFullWindow(page, 'open-folder.png');
+
+		// Crop to top portion (title bar + action bar + welcome page Start/Open
+		// sections + the dropdown menu) so the console/panel area is excluded.
+		const titleBar = page.locator('.monaco-workbench .part.titlebar');
+		const menuLoc = page.locator('.positron-modal-popup').first();
+		const welcomeStart = page.locator('.positron-welcome-page-start').first();
+		const titleBox = await titleBar.boundingBox();
+		const menuBox = await menuLoc.boundingBox();
+		const welcomeBox = await welcomeStart.boundingBox();
+		const workbench = await page.locator('.monaco-workbench').boundingBox();
+		if (!titleBox || !menuBox || !welcomeBox || !workbench) {
+			throw new Error('Could not measure crop region');
+		}
+		// Use the lower of (menu bottom, welcome Start/Open bottom) so both are
+		// fully visible regardless of their relative y positions.
+		const bottom = Math.ceil(Math.max(menuBox.y + menuBox.height, welcomeBox.y + welcomeBox.height) + 16);
+		await captureRegion(page, 'open-folder.png', {
+			x: Math.floor(workbench.x),
+			y: Math.floor(titleBox.y),
+			width: Math.ceil(workbench.width),
+			height: bottom - Math.floor(titleBox.y),
+		});
 	});
 });
