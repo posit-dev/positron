@@ -128,7 +128,15 @@ test.describe('Release Screenshots - Connections Pane', () => {
 
 		// Run via executeCode doesn't auto-open schema view (only r.sourceCurrentFile
 		// does). Drill in from the list view first.
-		await connections.viewConnection('SQLiteConnection');
+		// The prior test may have left a chinook SQLiteConnection open, so there could
+		// be multiple SQLiteConnections in the list. The nycflights connection was just
+		// created, so it's the last one -- click its arrow icon directly rather than
+		// using viewConnection(), which always picks the first match.
+		const sqliteItems = page.locator('.connections-list-item').filter({ hasText: 'SQLiteConnection' });
+		const sqliteCount = await sqliteItems.count();
+		await sqliteItems.nth(sqliteCount - 1).locator('.codicon-arrow-circle-right').click();
+		// Wait for the schema view to confirm we're inside the nycflights connection.
+		await expect(connections.currentConnectionName.filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 15_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		// the columns are visible (matches the 3 expanded tables in the docs ref).
