@@ -1448,6 +1448,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports [variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}`. If this setting doesn't resolve to an existing directory, it defaults to the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
 			type: 'string',
 			default: '',
+			tags: ['legacy', 'native'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		[NotebookSetting.saveExecutionCounts]: {
