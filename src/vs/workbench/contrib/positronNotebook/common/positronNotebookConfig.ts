@@ -124,7 +124,7 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize(
 				'positron.notebook.experimental',
-				'Enable experimental Positron Notebook features. These features are under active development and may change without notice.'
+				'Enable experimental features in the Positron notebook editor, such as the Visualize action for data frames. These features are under active development and may change or be removed without notice.'
 			),
 			tags: ['experimental', 'native'],
 			scope: ConfigurationScope.WINDOW,
