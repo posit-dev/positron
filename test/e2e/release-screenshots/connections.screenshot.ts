@@ -41,7 +41,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	 * Two DB connections visible in the aux-bar Connections tab:
 	 * R SQLite (chinook) and Python SQLAlchemy (sqlite, chinook).
 	 */
-	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, executeCode, python }) => {
+	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, python }) => {
 		const { sessions, hotKeys, variables, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
@@ -53,12 +53,17 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		// 2. Python SQLAlchemy (sqlite backend): Positron recognizes sqlalchemy.engine.base.Engine
 		//    and shows the DB icon on it; clicking registers it in the Connections pane as
 		//    'SQLAlchemy (sqlite)' — visually distinct from the R SQLiteConnection.
+		//    Use python.execInConsole (write-to-file + run) rather than executeCode so
+		//    Python becomes the foreground console, allowing variables.focusVariablesView()
+		//    to show the Python session's variables.
 		const chinookDbPath = join(app.workspacePathOrFolder, 'data-files', 'chinook', 'chinook.db').replace(/\\/g, '/');
-		const pyScript = [
+		const pyScriptName = 'sqlalchemy-conn.py';
+		fs.writeFileSync(join(app.workspacePathOrFolder, pyScriptName), [
 			'from sqlalchemy import create_engine',
 			`conn = create_engine('sqlite:///${chinookDbPath}')`,
-		].join('\n');
-		await executeCode('Python', pyScript, { maximizeConsole: false });
+		].join('\n'));
+		await openFile(pyScriptName);
+		await quickaccess.runCommand('python.execInConsole');
 		await variables.focusVariablesView();
 		const pyConnRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
 		await expect(pyConnRow.locator('.right-column .viewer-icon.codicon-database')).toBeVisible({ timeout: 20_000 });
