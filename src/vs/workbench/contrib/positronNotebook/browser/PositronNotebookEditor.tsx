@@ -50,9 +50,6 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'PositronNotebookEditorViewState';
 
-/** Maximum number of notebook renders cached per pane. */
-const MAX_CACHED_RENDERS = 3;
-
 
 export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositronNotebookViewState> {
 	/**
@@ -135,13 +132,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			editorService,
 			editorGroupService,
 		);
-
-		this._register(this._group.onDidCloseEditor(e => {
-			if (!(e.editor instanceof PositronNotebookEditorInput)) {
-				return;
-			}
-			this._renderCache.remove(e.editor.resource);
-		}));
 
 		this._logService.debug('PositronNotebookEditor created.');
 
@@ -331,25 +321,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			)
 		);
 
-		// Cache hit: reuse the existing renderer, container, and live Monaco
-		// editors -- the fast path that skips editor recreation. The component
-		// re-runs its scroll-restoration layout effect via the observable
-		// bumped by restoreEditorViewState; the snap below covers the gap
-		// before React commits so we never paint at scrollTop=0.
-		const cachedRender = this._renderCache.get(input.resource);
-		if (cachedRender) {
-			this._notebookShell!.appendChild(cachedRender.container);
-			notebookInstance.attachView(
-				cachedRender.container,
-				this._containerScopedContextKeyService!,
-				this._overlayContainer!,
-				this._editorContainer,
-			);
-			notebookInstance.restoreEditorViewState(viewState);
-			notebookInstance.snapToRestoredScrollPosition();
-			return;
-		}
-
 		this._renderFreshForInput(input);
 		notebookInstance.restoreEditorViewState(viewState);
 	}
@@ -378,12 +349,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// its cells container to still be accessible.
 		super.clearInput();
 
-		// Park cached containers off-DOM; their React trees and Monaco editors
-		// stay alive so the next setInput hit is fast.
-		for (const entry of this._renderCache.entries()) {
-			entry.container.remove();
-		}
-
 		// Contributions (e.g. find controller) rely on observing detach.
 		notebookInstance?.detachView();
 
@@ -406,11 +371,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	override getControl() {
 		return this._control.value;
 	}
-
-	private readonly _renderCache = new NotebookRenderCache(
-		MAX_CACHED_RENDERS,
-		disposeNotebookRenderCacheEntry,
-	);
 
 	private _renderNotebookInto(renderer: PositronReactRenderer): void {
 		this._logService.debug(this._identifier, 'renderNotebook');
@@ -484,7 +444,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		);
 
 		const renderer = new PositronReactRenderer(container);
-		this._renderCache.add({ uri: input.resource, container, renderer });
 		this._renderNotebookInto(renderer);
 	}
 
@@ -494,8 +453,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	 */
 	public override dispose(): void {
 		this._logService.debug(this._identifier, 'dispose');
-
-		this._renderCache.clear();
 
 		this._notebookInstance?.dispose();
 
