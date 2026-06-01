@@ -41,7 +41,7 @@ export const POSITRON_SETTING_BADGES: readonly IPositronSettingBadge[] = [
 	{
 		tag: 'native',
 		label: localize('positron.nativeBadge', "Native"),
-		description: localize('positron.nativeBadgeDescription', "This setting applies to the Positron notebook editor."),
+		description: localize('positron.nativeBadgeDescription', "This setting applies to the native notebook editor."),
 	},
 ];
 
