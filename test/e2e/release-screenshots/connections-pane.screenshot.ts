@@ -36,9 +36,9 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	 * Two DB connections visible in the aux-bar Connections tab:
 	 * R SQLite (chinook) and Python SQLAlchemy (sqlite, chinook).
 	 */
-	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, python }) => {
+	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile }) => {
 		const { sessions, hotKeys, variables, connections, layouts, quickaccess } = app.workbench;
-		await sessions.expectAllSessionsToBeReady();
+		const [rSession, pythonSession] = await sessions.start(['r', 'python']);
 
 		// 1. R SQLite (chinook): source so connection_open() registers SQLiteConnection.
 		const rScript = join('workspaces', 'chinook-db-r', 'chinook-sqlite.r');
@@ -61,7 +61,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await quickaccess.runCommand('python.execInConsole');
 		// Explicitly re-select Python: R startup triggered by r.sourceCurrentFile
 		// may have stolen the foreground session before we reach the variables check.
-		await sessions.select('Python');
+		await sessions.select(pythonSession.id);
 		await variables.focusVariablesView();
 		const pyConnRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
 		await expect(pyConnRow.locator('.right-column .viewer-icon.codicon-database')).toBeVisible({ timeout: 20_000 });
@@ -79,7 +79,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await layouts.resizeAuxiliaryBar({ x: -250 });
 
 		// Make R the foreground session + R file the active editor.
-		await sessions.select(`R ${process.env.POSITRON_R_VER_SEL!}`);
+		await sessions.select(rSession.id);
 		await openFile(rScript);
 
 		// capture screenshot
