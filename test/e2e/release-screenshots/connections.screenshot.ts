@@ -40,7 +40,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	 * R session with an active SQLite connection visible in the aux-bar
 	 * Connections tab.
 	 */
-	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, r, python }) => {
+	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, python }) => {
 		const { sessions, hotKeys, variables, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
@@ -119,6 +119,10 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		// Expand SQLiteConnection -> main -> albums so columns are visible.
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'albums']);
 		await layouts.resizeAuxiliaryBar({ x: -350 });
+		// Grow the bottom panel so the console (with script echo) takes a
+		// larger portion of the window, matching the ~50/50 editor/console
+		// split in the docs reference.
+		await layouts.resizePanel({ y: -120 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
