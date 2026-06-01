@@ -202,10 +202,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('Python - console accepts input after notebook cell execution', {
-		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
-	}, async function ({ app, sessions }) {
+	test('Python - console accepts input after notebook cell execution', {tag: [tags.CONSOLE]}, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
@@ -226,13 +223,9 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
-	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13141' }]
-	}, async function ({ app, openFile }) {
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile }) {
 		const { notebooksPositron } = app.workbench;
-
 		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-
 		await notebooksPositron.newNotebook();
 		await notebooksPositron.kernel.select('Python');
 
