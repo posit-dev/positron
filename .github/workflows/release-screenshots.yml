@@ -25,9 +25,9 @@ on:
         type: boolean
         default: true
       slack_notify:
-        description: "Notify #positron-test-results on nightly failure. Uncheck when triggering manually for testing."
+        description: "Notify #positron-test-results on nightly failure. Always on for scheduled runs; opt-in for manual triggers."
         type: boolean
-        default: true
+        default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
