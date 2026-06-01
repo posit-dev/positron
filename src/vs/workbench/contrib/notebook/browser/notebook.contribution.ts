@@ -989,6 +989,7 @@ const editorOptionsCustomizationSchema: IConfigurationPropertySchema = {
 		// }
 	],
 	// --- Start Positron ---
+	// tags: ['notebookLayout']
 	tags: ['notebookLayout', 'legacy', 'native']
 	// --- End Positron ---
 };
@@ -1023,6 +1024,7 @@ configurationRegistry.registerConfiguration({
 				'default': 'right'
 			},
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1036,6 +1038,7 @@ configurationRegistry.registerConfiguration({
 				nls.localize('notebook.showCellStatusbar.visibleAfterExecute.description', "The cell status bar is hidden until the cell has executed. Then it becomes visible to show the execution status.")],
 			default: 'visible',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1048,6 +1051,7 @@ configurationRegistry.registerConfiguration({
 				nls.localize('notebook.cellExecutionTimeVerbosity.verbose.description', "The cell last execution timestamp and duration are visible, with advanced information in the hover tooltip.")],
 			default: 'default',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1056,6 +1060,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1064,6 +1069,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1073,6 +1079,7 @@ configurationRegistry.registerConfiguration({
 			enum: ['hover', 'click'],
 			default: 'click',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1081,6 +1088,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy', 'native']
 			// --- End Positron ---
 		},
@@ -1089,6 +1097,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1098,6 +1107,7 @@ configurationRegistry.registerConfiguration({
 			enum: ['border', 'gutter'],
 			default: 'gutter',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1113,6 +1123,7 @@ configurationRegistry.registerConfiguration({
 			],
 			default: 'both',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1121,6 +1132,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1129,6 +1141,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1142,6 +1155,7 @@ configurationRegistry.registerConfiguration({
 			],
 			default: 'indented',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1150,6 +1164,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1170,6 +1185,7 @@ configurationRegistry.registerConfiguration({
 			],
 			default: 'mouseover',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1178,6 +1194,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1186,6 +1203,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1195,6 +1213,7 @@ configurationRegistry.registerConfiguration({
 			enum: ['always', 'never', 'dynamic'],
 			default: 'always',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1203,6 +1222,7 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 30,
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout'],
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
 			// --- End Positron ---
 			minimum: 1,
@@ -1212,6 +1232,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
+			// tags: ['notebookOutputLayout']
 			tags: ['notebookOutputLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1220,6 +1241,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			// --- Start Positron ---
+			// tags: ['notebookOutputLayout']
 			tags: ['notebookOutputLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1228,6 +1250,7 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 0,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy', 'native']
 			// --- End Positron ---
 		},
@@ -1236,6 +1259,7 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 0,
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy', 'native']
 			// --- End Positron ---
 		},
@@ -1251,6 +1275,7 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 0,
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout']
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1259,6 +1284,7 @@ configurationRegistry.registerConfiguration({
 			type: 'number',
 			default: 0,
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout']
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native']
 			// --- End Positron ---
 		},
@@ -1266,6 +1292,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.outputFontFamily', "The font family of the output text within notebook cells. When set to empty, the {0} is used.", '`#editor.fontFamily#`'),
 			type: 'string',
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout']
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1273,6 +1300,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.outputScrolling', "Initially render notebook outputs in a scrollable region when longer than the limit."),
 			type: 'boolean',
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout'],
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
 			// --- End Positron ---
 			default: typeof product.quality === 'string' && product.quality !== 'stable' // only enable as default in insiders
@@ -1281,6 +1309,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.outputWordWrap', "Controls whether the lines in output should wrap."),
 			type: 'boolean',
 			// --- Start Positron ---
+			// tags: ['notebookLayout', 'notebookOutputLayout'],
 			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
 			// --- End Positron ---
 			default: false
@@ -1300,6 +1329,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.formatOnSave', "Format a notebook on save. A formatter must be available and the editor must not be shutting down. When {0} is set to `afterDelay`, the file will only be formatted when saved explicitly.", '`#files.autoSave#`'),
 			type: 'boolean',
 			// --- Start Positron ---
+			// tags: ['notebookLayout'],
 			tags: ['notebookLayout', 'legacy', 'native'],
 			// --- End Positron ---
 			default: false
@@ -1308,6 +1338,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.insertFinalNewline', "When enabled, insert a final new line into the end of code cells when saving a notebook."),
 			type: 'boolean',
 			// --- Start Positron ---
+			// tags: ['notebookLayout'],
 			tags: ['notebookLayout', 'legacy', 'native'],
 			// --- End Positron ---
 			default: false
@@ -1356,6 +1387,7 @@ configurationRegistry.registerConfiguration({
 				codeOutput: true
 			},
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy']
 			// --- End Positron ---
 		},
@@ -1364,6 +1396,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: typeof product.quality === 'string' && product.quality !== 'stable', // only enable as default in insiders
 			// --- Start Positron ---
+			// tags: ['experimental']
 			tags: ['experimental', 'legacy', 'native']
 			// --- End Positron ---
 		},
@@ -1440,6 +1473,7 @@ configurationRegistry.registerConfiguration({
 			type: 'string',
 			default: '',
 			// --- Start Positron ---
+			// tags: ['notebookLayout']
 			tags: ['notebookLayout', 'legacy', 'native']
 			// --- End Positron ---
 		},
