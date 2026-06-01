@@ -502,6 +502,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		this._renderCache.clear();
 
+		this._notebookInstance?.dispose();
+
 		// Call the base class's dispose method.
 		super.dispose();
 	}
