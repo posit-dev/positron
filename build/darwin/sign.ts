@@ -127,7 +127,9 @@ async function main(buildDir?: string): Promise<void> {
 			`${infoPlistPath}`
 		]);
 		await spawn('plutil', [
-			'-insert',
+			// --- Start Positron ---
+			'-replace',
+			// --- End Positron ---
 			'NSLocalNetworkUsageDescription',
 			'-string',
 			'The app uses your local network for DNS resolution and to connect to locally running services.',
@@ -136,7 +138,9 @@ async function main(buildDir?: string): Promise<void> {
 
 		if (embeddedInfoPlistPath && fs.existsSync(embeddedInfoPlistPath)) {
 			await spawn('plutil', [
-				'-insert',
+				// --- Start Positron ---
+				'-replace',
+				// --- End Positron ---
 				'NSAppleEventsUsageDescription',
 				'-string',
 				`An application in ${product.embedded.nameLong} wants to use AppleScript.`,
@@ -164,7 +168,9 @@ async function main(buildDir?: string): Promise<void> {
 				`${embeddedInfoPlistPath}`
 			]);
 			await spawn('plutil', [
-				'-insert',
+				// --- Start Positron ---
+				'-replace',
+				// --- End Positron ---
 				'NSLocalNetworkUsageDescription',
 				'-string',
 				`The app uses your local network for DNS resolution and to connect to locally running services.`,
