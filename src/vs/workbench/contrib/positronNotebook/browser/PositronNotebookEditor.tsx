@@ -5,9 +5,6 @@
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { NotebookRenderCache } from './notebookRenderCache.js';
-import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -17,22 +14,12 @@ import { IContextKeyService, IScopedContextKeyService } from '../../../../platfo
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import {
-	EditorPaneSelectionChangeReason,
-	IEditorOpenContext,
-	IEditorPaneSelectionChangeEvent
-} from '../../../common/editor.js';
+import { EditorPaneSelectionChangeReason, IEditorOpenContext, IEditorPaneSelectionChangeEvent } from '../../../common/editor.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions, IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
-import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
-import { PositronNotebookComponent } from './PositronNotebookComponent.js';
-import { EnvironentProvider } from './EnvironmentProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
-import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
-import { observableValue } from '../../../../base/common/observable.js';
 import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AbstractEditorWithViewState } from '../../../browser/parts/editor/editorWithViewState.js';
@@ -91,7 +78,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		@IThemeService themeService: IThemeService,
 		@IEditorGroupsService editorGroupService: IEditorGroupsService,
 		@IStorageService storageService: IStorageService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
 		@IEditorService editorService: IEditorService,
