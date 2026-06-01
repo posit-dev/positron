@@ -41,6 +41,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 
 /**
@@ -220,10 +221,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	 */
 	private readonly _isVisible = observableValue<boolean>('isVisible', false);
 
+	private _notebookInstance: PositronNotebookInstance | undefined;
 
-	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
-		return this._input?.notebookInstance;
+		return this._notebookInstance;
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -250,6 +251,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		// Create a scoped context key service rooted at the editor container so contributions inherit it.
 		this._containerScopedContextKeyService = this._register(this.contextKeyService.createScoped(this._editorContainer));
+
+		this._notebookInstance = this.instantiationService.createInstance(
+			PositronNotebookInstance,
+			this._identifier,
+			'jupyter-notebook',
+			undefined,
+		);
 	}
 
 	override layout(
@@ -281,6 +289,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			);
 		}
 
+		const notebookInstance = this._notebookInstance;
+		if (!notebookInstance) {
+			throw new Error('Notebook instance is not set.');
+		}
+
 		// We're setting the options on the input here so that the input can resolve the model
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
@@ -290,7 +303,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// - loadEditorViewState: loaded from persisted storage (e.g. after reload)
 		const viewState = options?.viewState
 			?? this.loadEditorViewState(input, context);
-		const { notebookInstance } = input;
 
 		// Update the editor control given the notebook instance.
 		// This has to be done before we `await super.setInput` since that fires events
@@ -362,7 +374,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		const notebookInstance = this._input?.notebookInstance;
+		const notebookInstance = this._notebookInstance;
 
 		// Call super first so that AbstractEditorWithViewState can save the
 		// editor view state (e.g. scroll position) while the input and the
@@ -469,7 +481,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		container.tabIndex = -1;
 		this._notebookShell.appendChild(container);
 
-		input.notebookInstance.attachView(
+		this._notebookInstance?.attachView(
 			container,
 			this._containerScopedContextKeyService,
 			this._overlayContainer,

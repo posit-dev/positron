@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ICachedNotebookRender } from './notebookRenderCache.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
+// import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 /**
  * Dispose a NotebookRenderCache entry. The conditional detach guards against
@@ -16,8 +16,9 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 export function disposeNotebookRenderCacheEntry(entry: ICachedNotebookRender): void {
 	entry.renderer.dispose();
 	entry.container.remove();
-	const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
-	if (instance && instance.isAttachedTo(entry.container)) {
-		instance.detachView();
-	}
+	// TODO: Figure out what to do here...
+	// const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
+	// if (instance && instance.isAttachedTo(entry.container)) {
+	// 	instance.detachView();
+	// }
 }

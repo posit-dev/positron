@@ -122,11 +122,9 @@ export function instantiateTestNotebookInstance(
 	// instances can coexist in the same ModelService without collisions.
 	const id = nextInstanceId++;
 	const viewType = 'jupyter-notebook';
-	const uri = URI.parse(`test:///test/notebook-${id}.ipynb`);
 	const notebook = disposables.add(instantiationService.createInstance(
 		TestPositronNotebookInstance,
 		`test-instance-${id}`,
-		uri,
 		viewType,
 		undefined, // creationOptions
 	));
@@ -135,6 +133,7 @@ export function instantiateTestNotebookInstance(
 	// Create the notebook text model directly (before attachView, matching
 	// PositronNotebookEditor.setInput production order).
 	const cellDtos = cells.map((cell) => cellToDto(cell));
+	const uri = URI.parse(`test:///test/notebook-${id}.ipynb`);
 	const model = disposables.add(instantiationService.createInstance(
 		NotebookTextModel,
 		viewType,
