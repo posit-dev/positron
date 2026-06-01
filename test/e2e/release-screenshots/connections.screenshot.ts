@@ -57,20 +57,25 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await openFile(pyScript);
 		await quickaccess.runCommand('python.execInConsole');
 		await variables.focusVariablesView();
-		// Wait a beat for `conn` to populate; clicking before then no-ops silently.
-		await page.waitForTimeout(2000);
+		// python.execInConsole doesn't wait for the script to finish. Wait for the
+		// DB icon to be visible before clicking so the click doesn't no-op silently.
+		const pyConnRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
+		await expect(pyConnRow.locator('.right-column .viewer-icon.codicon-database')).toBeVisible({ timeout: 20_000 });
 		await variables.clickDatabaseIconForVariableRow('conn');
 
 		// Layout: close primary sidebar, focus connections pane, navigate back to
 		// the connection-list view (Python's DB-icon click landed us in schema view).
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
+		// Wait for schema view to be fully visible before attempting to back out,
+		// ensuring the Python connection is registered.
+		await expect(connections.currentConnectionName).toBeVisible({ timeout: 15_000 });
 		const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
 		if (await backButton.isVisible()) {
 			await backButton.click();
 		}
 		await expect(connections.connectionItems).toHaveCount(2, { timeout: 30_000 });
-		await layouts.resizeAuxiliaryBar({ x: -100 });
+		await layouts.resizeAuxiliaryBar({ x: -250 });
 
 		// Make R the foreground session + R file the active editor to match the
 		// docs reference (which features R as the headline language). Use the
@@ -142,7 +147,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		// using viewConnection(), which always picks the first match.
 		const sqliteItems = page.locator('.connections-list-item').filter({ hasText: 'SQLiteConnection' });
 		const sqliteCount = await sqliteItems.count();
-		await sqliteItems.nth(sqliteCount - 1).locator('.codicon-arrow-circle-right').click();
+		await sqliteItems.nth(sqliteCount - 1).locator('.codicon-arrow-circle-right').click({ timeout: 60000 });
 		// Wait for the schema view to confirm we're inside the nycflights connection.
 		await expect(connections.currentConnectionName.filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 15_000 });
 
@@ -168,12 +173,13 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	 * connection-details form (Database, Host, Port, User, Password) is visible.
 	 */
 	test('Release Screenshot - connections-pane-new-connection.png', async ({ app, page, r }) => {
-		const { sessions, hotKeys, connections } = app.workbench;
+		const { sessions, hotKeys, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
+		await layouts.resizeAuxiliaryBar({ x: -150 });
 
 		// open the new-connection modal with PostgreSQL pre-selected
 		await connections.initiateConnection('R', 'PostgreSQL');
@@ -205,7 +211,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.showSecondarySidebar();
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: 100 });
+		await layouts.resizeAuxiliaryBar({ x: -150 });
 
 		const connRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
 		const dbIcon = connRow.locator('.right-column .viewer-icon.codicon-database');
