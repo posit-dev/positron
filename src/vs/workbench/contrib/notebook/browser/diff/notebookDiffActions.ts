@@ -753,7 +753,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: typeof product.quality === 'string' && product.quality !== 'stable', // only enable as default in insiders
 			markdownDescription: localize('notebook.diff.toggleInline', "Enable the command to toggle the experimental notebook inline diff editor."),
 			// --- Start Positron ---
-			tags: ['legacy']
+			tags: ['experimental', 'legacy']
 			// --- End Positron ---
 		},
 	}

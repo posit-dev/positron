@@ -1386,7 +1386,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			// --- Start Positron ---
-			tags: ['legacy']
+			tags: ['experimental', 'legacy']
 			// --- End Positron ---
 		},
 		[NotebookSetting.notebookVariablesView]: {
