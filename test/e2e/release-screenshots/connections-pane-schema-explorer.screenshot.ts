@@ -40,17 +40,16 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		const { sessions, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Build the nycflights13-schema SQLite database without the nycflights13 R
-		// package (not installed in CI's R 4.5.2 env). Create the same 5 tables
-		// directly via DBI so the connection pane tree matches the docs reference.
 		const scriptName = 'nycflights-sqlite.r';
 		const nycflightsDbPath = join(app.workspacePathOrFolder, 'db', 'nycflights13.sqlite').replace(/\\/g, '/');
-		const scriptContent = [
-			'library(connections)',
+
+		// Build the nycflights13-schema SQLite database silently (no echo) so
+		// the CREATE TABLE boilerplate never appears in the editor or console.
+		// The nycflights13 R package is not installed in CI's R 4.5.2 env.
+		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
+		await executeCode('R', [
 			'library(DBI)',
 			'library(RSQLite)',
-			'',
-			'# Create the nycflights13 schema without the nycflights13 package.',
 			`db_path <- "${nycflightsDbPath}"`,
 			'dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)',
 			'tmp <- dbConnect(SQLite(), db_path)',
@@ -60,21 +59,27 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS planes (tailnum TEXT, year INTEGER, type TEXT, manufacturer TEXT, model TEXT, engines INTEGER, seats INTEGER, speed REAL, engine TEXT)")',
 			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS weather (origin TEXT, year INTEGER, month INTEGER, day INTEGER, hour INTEGER, temp REAL, dewp REAL, humid REAL, wind_dir REAL, wind_speed REAL, wind_gust REAL, precip REAL, pressure REAL, visib REAL, time_hour TEXT)")',
 			'dbDisconnect(tmp)',
+		].join('\n'), { maximizeConsole: false, timeout: 60000 });
+
+		// Write a short display script — only the connection-open lines visible
+		// in the editor and echoed in the console, matching the docs reference.
+		const displayScript = [
+			'library(connections)',
+			'library(DBI)',
+			'library(RSQLite)',
 			'',
+			`db_path <- "${nycflightsDbPath}"`,
 			'con <- connection_open(SQLite(), db_path)',
-			'',
 		].join('\n');
-		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), scriptContent);
-		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
+		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), displayScript);
 		await openFile(scriptName);
 
-		// Clear the R startup banner so the console area shows the script echo
-		// (line-by-line `>` prompts), matching the docs reference.
+		// Clear the R startup banner so the console area shows only the
+		// short script echo (line-by-line `>` prompts), matching the reference.
 		await console.clearButton.click();
 
-		// source(echo=TRUE) prints each line as it executes -- yields the same
-		// `> library(...)` / `> con <- ...` console view shown in the docs.
-		// `connections::connection_open()` registers the connection in Positron's pane.
+		// source(echo=TRUE) prints each line as it executes and registers the
+		// connection in Positron's pane via connection_open().
 		await executeCode('R', `source("${scriptName}", echo=TRUE)`, { maximizeConsole: false, timeout: 60000 });
 
 		// Layout: keep the primary sidebar (file explorer) open so the editor
