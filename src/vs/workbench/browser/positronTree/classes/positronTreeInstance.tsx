@@ -12,7 +12,7 @@ import { JSX, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
 // Other dependencies.
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
 
@@ -35,9 +35,10 @@ export type PositronTreeGetRoots<T> = () => Promise<readonly TreeNode<T>[]>;
 export type PositronTreeGetChildren<T> = (node: TreeNode<T>) => Promise<readonly TreeNode<T>[]>;
 
 /**
- * PositronTreeInstanceOptions type.
+ * PositronTreeBaseOptions type. The tree options other than the cursor/commit options, which come
+ * from SelectionCursorOptions (see PositronTreeInstanceOptions).
  */
-export interface PositronTreeInstanceOptions<T> {
+interface PositronTreeBaseOptions<T> {
 	// Async fetcher for the root nodes.
 	readonly getRoots: PositronTreeGetRoots<T>;
 
@@ -57,6 +58,15 @@ export interface PositronTreeInstanceOptions<T> {
 	readonly useDefaultStyling?: boolean;
 }
 
+/**
+ * PositronTreeInstanceOptions type. Defaults to not tracking the cursor: the cursor (focus) moves
+ * independently and Enter/Space commit the selection to the cursor row (both default to true). Set
+ * selectionFollowsCursor true to make the selection follow the cursor on every move, in which case
+ * Enter/Space-to-select are redundant and disallowed.
+ */
+export type PositronTreeInstanceOptions<T> = PositronTreeBaseOptions<T> & SelectionCursorOptions;
+
+// Per-level indent width in pixels, used when options.indentWidth is not supplied.
 const DEFAULT_INDENT_WIDTH = 12;
 
 /**
@@ -102,18 +112,12 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	// "loading initial data" from "no roots."
 	private _initialLoadCompleted = false;
 
-	// Fires when the user activates a row (Enter key on the focused row).
-	private readonly _onDidActivateEmitter = this._register(new Emitter<TreeNode<T>>());
-
 	// Fires when the tree's loading state changes (initial load, roots fetch, or per-node fetch).
 	private readonly _onDidChangeLoadingEmitter = this._register(new Emitter<void>());
 
 	//#endregion Private Properties
 
 	//#region Public Events
-
-	// Fires when the user activates a row (Enter key on the focused row).
-	readonly onDidActivate: Event<TreeNode<T>> = this._onDidActivateEmitter.event;
 
 	// Fires when loading state changes.
 	readonly onDidChangeLoading: Event<void> = this._onDidChangeLoadingEmitter.event;
@@ -142,6 +146,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			internalCursor: false,
 			selection: true,
 			selectionMode: 'list-single-selection',
+			...selectionCursorOptions(options),
 		});
 
 		this._getRoots = options.getRoots;
@@ -541,18 +546,6 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 				this.fireOnDidUpdateEvent();
 			}
 		}
-	}
-
-	/**
-	 * Enter activates the focused row. Activation is intentionally distinct from expansion:
-	 * Enter signals "open / use this node," not "toggle the twisty." Toggle is left/right arrow.
-	 */
-	override async onEnterKey(): Promise<void> {
-		const visible = this._visibleNodes[this.cursorRowIndex];
-		if (visible === undefined) {
-			return;
-		}
-		this._onDidActivateEmitter.fire(visible.node);
 	}
 
 	/**
