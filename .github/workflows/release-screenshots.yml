@@ -359,12 +359,13 @@ jobs:
               }')"
 
   slack-notify:
-    # Nightly is on a schedule; failures should page #positron-test-results.
-    # Publish is on demand, so the operator already sees the result.
-    # `inputs.slack_notify` is unset on schedule events (cron), so the
-    # `!= false` check defaults to notifying; manual runs that uncheck the
-    # box opt out.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != 'false' }}
+    # Notify on cron failures always; manual runs only when the box is checked.
+    # Use github.event_name instead of comparing inputs.slack_notify to a string
+    # literal -- boolean inputs don't reliably coerce to strings in expressions.
+    if: >-
+      ${{ failure() &&
+          (inputs.mode || 'nightly') == 'nightly' &&
+          (github.event_name == 'schedule' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
