@@ -383,7 +383,11 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/notebook',
 					label: localize('notebook', 'Notebook'),
-					settings: ['notebook.*', 'interactiveWindow.*']
+					// --- Start Positron ---
+					// settings: ['notebook.*', 'interactiveWindow.*']
+					// Surface the Positron notebook editor settings in this group too.
+					settings: ['notebook.*', 'interactiveWindow.*', 'positron.notebook.*', 'positron.assistant.notebook.*']
+					// --- End Positron ---
 				},
 				{
 					id: 'features/mergeEditor',
