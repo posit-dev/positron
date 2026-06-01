@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import * as fs from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow, captureRegion } from './helpers/screenshot-utils';
@@ -94,9 +95,23 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		const { sessions, hotKeys, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Open the script in the editor so the editor pane matches the docs ref.
-		const scriptRel = join('workspaces', 'chinook-db-r', 'chinook-sqlite.r');
-		await openFile(scriptRel);
+		// Write an nycflights13 script to the workspace at runtime to match the
+		// docs reference (qa-example-content ships only the chinook fixture).
+		// The nycflights13 + dbplyr + connections + RSQLite R packages are
+		// preinstalled in CI's R env.
+		const scriptName = 'nycflights-sqlite.r';
+		const scriptContent = [
+			'library(connections)',
+			'library(RSQLite)',
+			'',
+			'dbplyr::nycflights13_sqlite("db")',
+			'con <- connection_open(SQLite(), "db/nycflights13.sqlite")',
+			'',
+		].join('\n');
+		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), scriptContent);
+		// dbplyr::nycflights13_sqlite("db") requires the target dir to exist.
+		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
+		await openFile(scriptName);
 
 		// Clear the R startup banner so the console area shows the script echo
 		// (line-by-line `>` prompts), matching the docs reference.
@@ -104,9 +119,8 @@ test.describe('Release Screenshots - Connections Pane', () => {
 
 		// source(echo=TRUE) prints each line as it executes -- yields the same
 		// `> library(...)` / `> con <- ...` console view shown in the docs.
-		// `connections::connection_open()` registers the connection AND opens
-		// it in schema view.
-		await executeCode('R', 'source("workspaces/chinook-db-r/chinook-sqlite.r", echo=TRUE)', { maximizeConsole: false });
+		// `connections::connection_open()` registers the connection in Positron's pane.
+		await executeCode('R', `source("${scriptName}", echo=TRUE)`, { maximizeConsole: false, timeout: 60000 });
 
 		// Layout
 		await hotKeys.closePrimarySidebar();
@@ -116,9 +130,10 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		// does). Drill in from the list view first.
 		await connections.viewConnection('SQLiteConnection');
 
-		// Expand SQLiteConnection -> main -> albums so columns are visible.
-		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'albums']);
-		await layouts.resizeAuxiliaryBar({ x: -350 });
+		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
+		// the columns are visible (matches the 3 expanded tables in the docs ref).
+		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airlines', /^flights$/, /^planes$/]);
+		await layouts.resizeAuxiliaryBar({ x: 100 });
 		// Grow the bottom panel so the console (with script echo) takes a
 		// larger portion of the window, matching the ~50/50 editor/console
 		// split in the docs reference.
@@ -174,7 +189,7 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.showSecondarySidebar();
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -300 });
+		await layouts.resizeAuxiliaryBar({ x: 100 });
 
 		const connRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
 		const dbIcon = connRow.locator('.right-column .viewer-icon.codicon-database');
