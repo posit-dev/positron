@@ -17,7 +17,7 @@ import {
 	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
-	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
+	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, setSpecRetry, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
@@ -337,8 +337,11 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	// note: workers are intentionally restarted per spec to scope logs by spec
 	// and provide a fresh app instance for each spec.
 	setSpecName(testInfo.titlePath[0]);
+	// Capture the retry index too: workers restart per spec (including on retry),
+	// so without this the retried attempt's logs overwrite the failed attempt's.
+	setSpecRetry(testInfo.retry);
 	logger.log('');
-	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
+	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}'${testInfo.retry > 0 ? ` (retry ${testInfo.retry})` : ''} <<<`);
 	logger.log('');
 });
 

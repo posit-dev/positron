@@ -13,10 +13,15 @@ export const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 
 // Global state variables that need to be mutable
 export let SPEC_NAME = '';
+export let SPEC_RETRY = 0;
 export let fixtureScreenshot: Buffer;
 
 export function setSpecName(name: string) {
 	SPEC_NAME = name;
+}
+
+export function setSpecRetry(retry: number) {
+	SPEC_RETRY = retry;
 }
 
 export function setFixtureScreenshot(screenshot: Buffer) {

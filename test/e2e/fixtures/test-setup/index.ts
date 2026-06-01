@@ -1,5 +1,5 @@
 // Re-export constants
-export { TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName } from './constants';
+export { TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName, setSpecRetry } from './constants';
 export * from './metrics.fixtures';
 export * from './reporting.fixtures';
 export * from './settings.fixtures';

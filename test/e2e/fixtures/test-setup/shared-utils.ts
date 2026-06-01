@@ -7,7 +7,7 @@ import path from 'path';
 import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
 import { MultiLogger, Application } from '../../infra';
-import { SPEC_NAME, ROOT_PATH } from './constants';
+import { SPEC_NAME, SPEC_RETRY, ROOT_PATH } from './constants';
 
 let fixtureScreenshot: Buffer | undefined;
 
@@ -88,13 +88,18 @@ export async function copyUserSettings(userDir: string): Promise<string> {
  * If a directory with the target name already exists, it will be overwritten.
  * If SPEC_NAME is not defined, uses a generic worker-based name.
  *
+ * Retried attempts are suffixed with `-retry<N>` so a passing retry doesn't
+ * overwrite the failed attempt's logs, which are what we need for triage.
+ *
  * @param logger The logger instance to use for logging.
  * @param logsPath The path to the logs directory.
  * @param workerInfo Information about the worker process.
  * @returns A promise that resolves when the operation is complete.
  */
 export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, workerInfo: any): Promise<string> {
-	const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
+	const baseName = SPEC_NAME || `worker-${workerInfo.workerIndex}`;
+	const dirName = SPEC_RETRY > 0 ? `${baseName}-retry${SPEC_RETRY}` : baseName;
+	const specLogsPath = path.join(path.dirname(logsPath), dirName);
 
 	try {
 		await access(logsPath, constants.F_OK);
