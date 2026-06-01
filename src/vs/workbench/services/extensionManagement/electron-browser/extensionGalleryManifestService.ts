@@ -16,6 +16,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ISharedProcessService } from '../../../../platform/ipc/electron-browser/services.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { asJson, IRequestService } from '../../../../platform/request/common/request.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
@@ -33,6 +34,31 @@ import { PositronGallerySourceConfigKey } from '../../../../platform/extensionMa
 // eslint-disable-next-line no-duplicate-imports
 import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
 import { parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
+
+/**
+ * Parses the EXTENSIONS_GALLERY env var and reports the outcome to the user:
+ * a warning notification + log on parse failure, an info log on success.
+ * Exported for unit testing -- the host class wires services in.
+ */
+export function reportExtensionsGalleryEnv(
+	envValue: string | undefined,
+	logService: Pick<ILogService, 'info' | 'warn'>,
+	notificationService: Pick<INotificationService, 'warn'>,
+): ExtensionGalleryConfig | undefined {
+	if (!envValue) {
+		return undefined;
+	}
+	const parsed = parseExtensionsGalleryEnv<ExtensionGalleryConfig>(envValue, msg => {
+		logService.warn(msg);
+		notificationService.warn(localize(
+			'positron.extensionsGallery.envInvalid',
+			"The EXTENSIONS_GALLERY environment variable is set but could not be parsed as JSON. Using the default extension gallery. See the log for details."));
+	});
+	if (parsed) {
+		logService.info(`[Marketplace] Using extension gallery from EXTENSIONS_GALLERY env var: ${parsed.serviceUrl}`);
+	}
+	return parsed;
+}
 // --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
@@ -62,6 +88,7 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		@ILogService private readonly logService: ILogService,
 		@IDialogService private readonly dialogService: IDialogService,
 		@IHostService private readonly hostService: IHostService,
+		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super(productService);
 		this.commonHeadersPromise = resolveMarketplaceHeaders(
@@ -85,10 +112,7 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 
 	// --- Start Positron ---
 	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
-		const envValue = env['EXTENSIONS_GALLERY'];
-		const envGallery = envValue
-			? parseExtensionsGalleryEnv<ExtensionGalleryConfig>(envValue, msg => this.logService.warn(msg))
-			: undefined;
+		const envGallery = reportExtensionsGalleryEnv(env['EXTENSIONS_GALLERY'], this.logService, this.notificationService);
 		return resolvePositronGalleryConfig(
 			envGallery,
 			this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
@@ -124,6 +148,12 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			// --- Start Positron ---
 			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
+				if (env['EXTENSIONS_GALLERY']) {
+					this.notificationService.info(localize(
+						'positron.extensionsGallery.settingIgnoredByEnv',
+						"The EXTENSIONS_GALLERY environment variable is set and overrides the extension gallery source setting. Unset the environment variable for this setting to take effect."));
+					return;
+				}
 				this.requestRestart();
 				return;
 			}
