@@ -500,15 +500,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			Event.filter(this.notebookKernelService.onDidChangeSelectedNotebooks, ({ notebook }) => this._isThisNotebook(notebook)),
 			() => {
 				/** @description positronNotebookInstanceKernel */
+				if (!this.textModel) {
+					// No notebook model is set, cannot infer a kernel.
+					return;
+				}
 				const { selected } = this.notebookKernelService.getMatchingKernel({
-					uri: this.uri,
-					notebookType: this.viewType,
+					uri: this.textModel.uri,
+					notebookType: this.textModel.viewType,
 				});
 				if (selected) {
 					if (selected instanceof RuntimeNotebookKernel) {
 						return selected;
 					} else {
-						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
+						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.textModel.uri}`);
 					}
 				}
 				return;
