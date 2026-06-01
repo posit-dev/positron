@@ -161,7 +161,15 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'plt.show()',
 		].join('\n');
 		await notebooksPositron.addCodeToCell(0, code, { fast: true });
-		await notebooksPositron.runCodeAtIndex(0);
+
+		// Run manually + wait for the rendered chart instead of the spinner.
+		// matplotlib + pandas cold-start can exceed runCodeAtIndex's 10s
+		// DEFAULT_TIMEOUT on CI, and asserting on the image is a stronger check.
+		// Scope to the cell-output testid so Monaco's overview-ruler canvas
+		// inside the cell editor doesn't match first.
+		const cell = page.locator('[data-testid="notebook-cell"]').first();
+		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
+		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
 
 		// Customize layout: close primary sidebar (file explorer), keep secondary
 		// side bar visible (variables), close bottom panel.
