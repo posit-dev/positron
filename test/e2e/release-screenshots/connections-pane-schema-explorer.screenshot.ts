@@ -63,12 +63,14 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 
 		// Write a short display script — only the connection-open lines visible
 		// in the editor and echoed in the console, matching the docs reference.
+		// Use file.path(getwd(), ...) so the path looks natural (R's getwd()
+		// resolves to the workspace root where we created the db/ directory).
 		const displayScript = [
 			'library(connections)',
 			'library(DBI)',
 			'library(RSQLite)',
 			'',
-			`db_path <- "${nycflightsDbPath}"`,
+			'db_path <- file.path(getwd(), "db", "nycflights13.sqlite")',
 			'con <- connection_open(SQLite(), db_path)',
 		].join('\n');
 		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), displayScript);
