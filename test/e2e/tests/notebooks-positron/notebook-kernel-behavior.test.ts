@@ -226,6 +226,22 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13141' }]
+	}, async function ({ app, openFile }) {
+		const { notebooksPositron } = app.workbench;
+
+		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+
+		const kernelButtons = app.code.driver.currentPage
+			.locator('.editor-group-container.active')
+			.getByRole('button', { name: 'Kernel Actions' });
+		await expect(kernelButtons).toHaveCount(1);
+	});
+
 });
 
 const rDataFrame = `data.frame(
