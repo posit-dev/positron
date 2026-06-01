@@ -95,21 +95,29 @@ test.describe('Release Screenshots - Connections Pane', () => {
 		const { sessions, hotKeys, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Write an nycflights13 script to the workspace at runtime to match the
-		// docs reference (qa-example-content ships only the chinook fixture).
-		// The nycflights13 + dbplyr + connections + RSQLite R packages are
-		// preinstalled in CI's R env.
+		// Build the nycflights13-schema SQLite database without the nycflights13 R
+		// package (not installed in CI's R 4.5.2 env). Create the same 5 tables
+		// directly via DBI so the connection pane tree matches the docs reference.
 		const scriptName = 'nycflights-sqlite.r';
 		const scriptContent = [
 			'library(connections)',
+			'library(DBI)',
 			'library(RSQLite)',
 			'',
-			'dbplyr::nycflights13_sqlite("db")',
-			'con <- connection_open(SQLite(), "db/nycflights13.sqlite")',
+			'# Create the nycflights13 schema without the nycflights13 package.',
+			'db_path <- "db/nycflights13.sqlite"',
+			'tmp <- dbConnect(SQLite(), db_path)',
+			'dbExecute(tmp, "CREATE TABLE airlines (carrier TEXT, name TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE airports (faa TEXT, name TEXT, lat REAL, lon REAL, alt INTEGER, tz INTEGER, dst TEXT, tzone TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE flights (year INTEGER, month INTEGER, day INTEGER, dep_time INTEGER, arr_time INTEGER, carrier TEXT, flight INTEGER, tailnum TEXT, origin TEXT, dest TEXT, air_time REAL, distance REAL)")',
+			'dbExecute(tmp, "CREATE TABLE planes (tailnum TEXT, year INTEGER, type TEXT, manufacturer TEXT, model TEXT, engines INTEGER, seats INTEGER, speed REAL, engine TEXT)")',
+			'dbExecute(tmp, "CREATE TABLE weather (origin TEXT, year INTEGER, month INTEGER, day INTEGER, hour INTEGER, temp REAL, dewp REAL, humid REAL, wind_dir REAL, wind_speed REAL, wind_gust REAL, precip REAL, pressure REAL, visib REAL, time_hour TEXT)")',
+			'dbDisconnect(tmp)',
+			'',
+			'con <- connection_open(SQLite(), db_path)',
 			'',
 		].join('\n');
 		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), scriptContent);
-		// dbplyr::nycflights13_sqlite("db") requires the target dir to exist.
 		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
 		await openFile(scriptName);
 
