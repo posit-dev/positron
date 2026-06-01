@@ -38,49 +38,44 @@ test.describe('Release Screenshots - Connections Pane', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/connections-pane.png
 	 *
-	 * R session with an active SQLite connection visible in the aux-bar
-	 * Connections tab.
+	 * Two DB connections visible in the aux-bar Connections tab:
+	 * R SQLite (chinook) and Python SQLAlchemy (sqlite, chinook).
 	 */
-	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, python }) => {
+	test('Release Screenshot - connections-pane.png', async ({ app, page, openFile, executeCode, python }) => {
 		const { sessions, hotKeys, variables, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// R connection: source the script. `connections::connection_open()` is
-		// the only path that auto-registers a connection in Positron's pane.
+		// 1. R SQLite (chinook): source so connection_open() registers SQLiteConnection.
 		const rScript = join('workspaces', 'chinook-db-r', 'chinook-sqlite.r');
 		await openFile(rScript);
 		await quickaccess.runCommand('r.sourceCurrentFile');
 
-		// Python connection: run the script (creates `conn` in Variables), then
-		// click the database icon to register it in the Connections pane.
-		const pyScript = join('workspaces', 'chinook-db-py', 'chinook-sqlite.py');
-		await openFile(pyScript);
-		await quickaccess.runCommand('python.execInConsole');
+		// 2. Python SQLAlchemy (sqlite backend): Positron recognizes sqlalchemy.engine.base.Engine
+		//    and shows the DB icon on it; clicking registers it in the Connections pane as
+		//    'SQLAlchemy (sqlite)' — visually distinct from the R SQLiteConnection.
+		const chinookDbPath = join(app.workspacePathOrFolder, 'data-files', 'chinook', 'chinook.db').replace(/\\/g, '/');
+		const pyScript = [
+			'from sqlalchemy import create_engine',
+			`conn = create_engine('sqlite:///${chinookDbPath}')`,
+		].join('\n');
+		await executeCode('Python', pyScript, { maximizeConsole: false });
 		await variables.focusVariablesView();
-		// python.execInConsole doesn't wait for the script to finish. Wait for the
-		// DB icon to be visible before clicking so the click doesn't no-op silently.
 		const pyConnRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
 		await expect(pyConnRow.locator('.right-column .viewer-icon.codicon-database')).toBeVisible({ timeout: 20_000 });
 		await variables.clickDatabaseIconForVariableRow('conn');
 
-		// Layout: close primary sidebar, focus connections pane, navigate back to
-		// the connection-list view (Python's DB-icon click landed us in schema view).
+		// Layout: close primary sidebar, open connections pane, navigate back to list
+		// view if connection_open() or the Python DB-icon click auto-navigated to schema view.
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
-		// Wait for schema view to be fully visible before attempting to back out,
-		// ensuring the Python connection is registered.
-		await expect(connections.currentConnectionName).toBeVisible({ timeout: 15_000 });
 		const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
-		if (await backButton.isVisible()) {
+		if (await backButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
 			await backButton.click();
 		}
 		await expect(connections.connectionItems).toHaveCount(2, { timeout: 30_000 });
 		await layouts.resizeAuxiliaryBar({ x: -250 });
 
-		// Make R the foreground session + R file the active editor to match the
-		// docs reference (which features R as the headline language). Use the
-		// versioned name so the text query disambiguates against the Python tab
-		// (whose name contains "positron", which substring-matches "R").
+		// Make R the foreground session + R file the active editor.
 		await sessions.select(`R ${process.env.POSITRON_R_VER_SEL!}`);
 		await openFile(rScript);
 

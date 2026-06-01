@@ -66,43 +66,6 @@ test.afterEach(async ({ page, hotKeys }) => {
 });
 
 test.describe('Release Screenshots - Interpreter Session', () => {
-
-	/**
-	 * Img Path: https://positron.posit.co/images/active-interpreter-session.png
-	 *
-	 * R and Python sessions running side-by-side, Sessions list visible in the
-	 * bottom panel, with an annotation on the top-right interpreter chip.
-	 *
-	 * Runs first so the R session is fresh — the console should show the R
-	 * startup banner, not output from an earlier test's executeCode.
-	 */
-	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
-		const { sessions, hotKeys, layouts } = app.workbench;
-		// Smaller window so the chrome and Sessions cards read proportionally
-		// larger in the docs page; matches astropy.png sizing.
-		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		const [pySession,] = await sessions.start(['python', 'r']);
-		await sessions.expectAllSessionsToBeReady();
-
-		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
-		await openFile('basics.R');
-
-		// customize the layout
-		await hotKeys.closePrimarySidebar();
-		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanel({ y: -150 });
-		await sessions.resizeSessionList({ x: -80 });
-
-		// capture screenshot
-		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
-		await annotate(page, [
-			{ selector: '.top-action-bar-session-manager-face', label: '', color: ANNOTATION_COLOR, padding: 3 },
-		]);
-		await captureFullWindow(page, 'active-interpreter-session.png');
-		await sessions.delete(pySession.id);
-	});
-
 	/**
 	 * Img Path: https://positron.posit.co/images/variables-pane.png
 	 *
@@ -138,5 +101,40 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
+	});
+
+	/**
+	 * Img Path: https://positron.posit.co/images/active-interpreter-session.png
+	 *
+	 * R and Python sessions running side-by-side, Sessions list visible in the
+	 * bottom panel, with an annotation on the top-right interpreter chip.
+	 *
+	 * Runs first so the R session is fresh — the console should show the R
+	 * startup banner, not output from an earlier test's executeCode.
+	 */
+	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
+		const { sessions, hotKeys, layouts } = app.workbench;
+		// Smaller window so the chrome and Sessions cards read proportionally
+		// larger in the docs page; matches astropy.png sizing.
+		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
+		await sessions.start(['r', 'python']);
+		await sessions.expectAllSessionsToBeReady();
+
+		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
+		await openFile('basics.R');
+
+		// customize the layout
+		await hotKeys.closePrimarySidebar();
+		await hotKeys.closeSecondarySidebar();
+		await layouts.resizePanel({ y: -150 });
+		await sessions.resizeSessionList({ x: -80 });
+
+		// capture screenshot
+		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await annotate(page, [
+			{ selector: '.top-action-bar-session-manager-face', label: '', color: ANNOTATION_COLOR, padding: 3 },
+		]);
+		await captureFullWindow(page, 'active-interpreter-session.png');
 	});
 });
