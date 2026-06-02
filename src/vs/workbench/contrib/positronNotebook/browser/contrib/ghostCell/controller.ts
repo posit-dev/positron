@@ -73,7 +73,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	private _ghostCellDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private _errorDismissTimer: ReturnType<typeof setTimeout> | undefined;
 	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
-	private _ghostCellAwaitingRequestContextKey: IContextKey<boolean> | undefined;
+	private _ghostCellAwaitingRequestContextKey: IContextKey<boolean>;
 	private _optInDismissedThisOpen: boolean = false;
 	private _enabledThisSession: boolean = false;
 	private _lastKnownCellCount: number = 0;
@@ -88,21 +88,11 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	) {
 		super();
 
-		// Defer context key binding until attachView() has been called, since
-		// scopedContextKeyService is not available during construction.
-		// The autorun re-runs when either container or ghostCellState changes,
-		// keeping the context key in sync with the state.
+		this._ghostCellAwaitingRequestContextKey =
+			POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST.bindTo(this._notebook.scopedContextKeyService);
+
+		// Sync the ghost cell state context key
 		this._register(autorun(reader => {
-			const container = this._notebook.container.read(reader);
-			if (!container) {
-				return;
-			}
-
-			if (!this._ghostCellAwaitingRequestContextKey) {
-				this._ghostCellAwaitingRequestContextKey =
-					POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST.bindTo(this._notebook.scopedContextKeyService);
-			}
-
 			const state = this._ghostCellState.read(reader);
 			this._ghostCellAwaitingRequestContextKey.set(state.status === 'awaiting-request');
 		}));

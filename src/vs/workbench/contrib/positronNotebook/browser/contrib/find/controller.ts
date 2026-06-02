@@ -59,7 +59,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 * Tracks whether the find widget was visible before the view was detached.
 	 * Used to restore visibility when the view is reattached.
 	 */
-	private _wasVisibleBeforeDetach = false;
+	// private _wasVisibleBeforeDetach = false;
 
 	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
 	/**
@@ -101,24 +101,25 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			this.attachNotebookModel(this._notebook.textModel);
 		}
 
+		// TODO: Need to figure out how to handle this in the new world...
 		// Hide find widget when view is detached, restore when reattached
-		this._register(autorun(reader => {
-			const container = this._notebook.container.read(reader);
-			this._logService.trace(`[FindController] Container autorun: container=${container ? 'attached' : 'detached'}`);
+		// this._register(autorun(reader => {
+		// 	const container = this._notebook.container.read(reader);
+		// 	this._logService.trace(`[FindController] Container autorun: container=${container ? 'attached' : 'detached'}`);
 
-			if (container === undefined) {
-				// Detached - save visibility state and hide
-				this._wasVisibleBeforeDetach = this._findInstance?.isVisible.read(undefined) ?? false;
-				this._logService.trace(`[FindController] Detaching, wasVisible=${this._wasVisibleBeforeDetach}`);
-				this._findInstance?.hide();
-			} else {
-				// Attached - restore visibility if it was visible before
-				this._logService.trace(`[FindController] Attaching, wasVisible=${this._wasVisibleBeforeDetach}`);
-				if (this._wasVisibleBeforeDetach && this._findInstance) {
-					this._findInstance.show();
-				}
-			}
-		}));
+		// 	if (container === undefined) {
+		// 		// Detached - save visibility state and hide
+		// 		this._wasVisibleBeforeDetach = this._findInstance?.isVisible.read(undefined) ?? false;
+		// 		this._logService.trace(`[FindController] Detaching, wasVisible=${this._wasVisibleBeforeDetach}`);
+		// 		this._findInstance?.hide();
+		// 	} else {
+		// 		// Attached - restore visibility if it was visible before
+		// 		this._logService.trace(`[FindController] Attaching, wasVisible=${this._wasVisibleBeforeDetach}`);
+		// 		if (this._wasVisibleBeforeDetach && this._findInstance) {
+		// 			this._findInstance.show();
+		// 		}
+		// 	}
+		// }));
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {

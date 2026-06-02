@@ -105,12 +105,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _modelStore = this._register(new DisposableStore());
 
 	/**
-	 * Dom element that contains the notebook is rendered in.
-	 * Observable so contributions (like find widget) can react to attach/detach events.
-	 */
-	public readonly container: IObservable<HTMLElement | undefined>;
-
-	/**
 	 * The scroll position resolved by the last call to `restoreEditorViewState`.
 	 * Read by the React component on mount to restore the scroll position.
 	 */
@@ -441,9 +435,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(focusTracker.onDidFocus(() => {
 			this._onDidFocusWidget.fire();
 		}));
-
-		// TODO: Can we remove this observable given it never changes anymore?
-		this.container = observableValue<HTMLElement | undefined>('positronNotebookContainer', this._renderer.notebookContainer);
 
 		// TODO: It'd be simpler if this could be scoped to the parentContainer.
 		//   Would that break anything?
@@ -1050,12 +1041,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._renderer.render(this);
 	}
 
-	private _detachModel(): void {
-		if (this._textModel.get()) {
-			// TODO: Update renderer so that we create it per model...
-			//    And remove its dom node here...
-		}
-	}
+	// private _detachModel(): void {
+	// 	if (this._textModel.get()) {
+	// 		// TODO: Update renderer so that we create it per model...
+	// 		//    And remove its dom node here...
+	// 	}
+	// }
 
 	/**
 	 * Sets editor options for the notebook or a specific cell.
@@ -2057,7 +2048,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/** Whether this instance's view is currently attached to `container`. */
 	isAttachedTo(container: HTMLElement): boolean {
-		return this.container.get() === container;
+		return this.currentContainer === container;
 	}
 
 	/**
