@@ -110,18 +110,11 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['seeded']);
 	});
 
-	it('de-duplicates tags read from an externally authored file', () => {
-		// nbformat tags are a set of labels, but a hand-edited file can carry
-		// duplicates. Collapsing them on read (first occurrence wins, order
-		// preserved) keeps the tag-bar UI's "values are unique" assumption true.
-		const cell = createCellWithMetadata({ metadata: { tags: ['dup', 'dup', 'x'] } });
-		expect(cell.tags.get()).toEqual(['dup', 'x']);
-	});
-
 	it('drops non-string tag entries and de-duplicates the rest', () => {
 		// tags is untrusted file data; an external writer can violate the
 		// string-array contract. Non-string entries are filtered out (rather than
-		// rendered as garbage) and survivors are de-duplicated.
+		// rendered as garbage) and duplicate survivors are collapsed (the repeated
+		// 'ok' yields a single entry).
 		const cell = createCellWithMetadata({ metadata: { tags: ['ok', 42, null, 'ok', { x: 1 }] } });
 		expect(cell.tags.get()).toEqual(['ok']);
 	});
