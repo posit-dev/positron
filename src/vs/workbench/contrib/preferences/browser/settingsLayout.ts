@@ -386,7 +386,7 @@ export const tocData: ITOCEntry<string> = {
 					// --- Start Positron ---
 					// settings: ['notebook.*', 'interactiveWindow.*']
 					// Surface the Positron notebook editor settings in this group too.
-					settings: ['notebook.*', 'interactiveWindow.*', 'positron.notebook.*', 'positron.assistant.notebook.*']
+					settings: ['notebook.*', 'positron.notebook.*', 'positron.assistant.notebook.*']
 					// --- End Positron ---
 				},
 				{
