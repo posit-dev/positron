@@ -768,7 +768,11 @@
 	],
 	"compounds": [
 		{
+			// --- Start Positron ---
+			// Rename this to "Positron".
+			// "name": "VS Code",
 			"name": "Positron",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
 				"Launch Positron Internal",
@@ -783,11 +787,38 @@
 				"order": 1
 			}
 		},
+		// --- Start Positron ---
+		// Remove the VS Code Agents launch target, since this doesn't exist in
+		// Positron.
+		// {
+		// 	"name": "VS Code Agents",
+		// 	"stopAll": true,
+		// 	"configurations": [
+		// 		"Launch VS Code Agents Internal",
+		// 		"Attach to Main Process",
+		// 		"Attach to Extension Host",
+		// 		"Attach to Shared Process",
+		// 	],
+		// 	"preLaunchTask": "Ensure Prelaunch Dependencies",
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 1
+		// 	}
+		// },
+		// --- End Positron ---
 		{
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "VS Code (Hot Reload)",
 			"name": "Positron (Hot Reload)",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
+				// --- Start Positron ---
+				// Rename this to "Positron"
+				// "Launch VS Code Internal (Hot Reload)",
 				"Launch Positron Internal (Hot Reload)",
+				// --- End Positron ---
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
