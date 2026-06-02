@@ -98,7 +98,7 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 				debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor toolbar`,
 			};
 			notebookUri = context.instance.uri;
-			context.instance.grabFocus();
+			context.instance.focus();
 		} else if (isNotebookEditorToolbarContext(context)) {
 			source = {
 				id: 'vscodeNotebookToolbar',
@@ -111,7 +111,7 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 				debugMessage: `User clicked ${this.desc.id} button in Positron notebook editor action bar`,
 			};
 			notebookUri = context;
-			accessor.get(IPositronNotebookService).listInstances(notebookUri)[0]?.grabFocus();
+			accessor.get(IPositronNotebookService).listInstances(notebookUri)[0]?.focus();
 		} else {
 			source = {
 				id: 'command',

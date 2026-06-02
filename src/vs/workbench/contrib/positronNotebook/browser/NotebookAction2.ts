@@ -12,7 +12,7 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { getNotebookInstanceFromActiveEditorPane, getNotebookInstanceFromEditorPane } from './notebookUtils.js';
 
 export type INotebookAction2Options = IAction2Options & {
-	readonly grabFocusOnRun?: boolean;
+	readonly focusOnRun?: boolean;
 };
 
 /**
@@ -24,11 +24,11 @@ export type INotebookAction2Options = IAction2Options & {
  * multiple notebooks are open side-by-side.
  */
 export abstract class NotebookAction2 extends Action2 {
-	private readonly _grabFocusOnRun: boolean;
+	private readonly _focusOnRun: boolean;
 
 	constructor(desc: INotebookAction2Options) {
 		super(desc);
-		this._grabFocusOnRun = desc.grabFocusOnRun ?? true;
+		this._focusOnRun = desc.focusOnRun ?? true;
 	}
 
 	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
@@ -58,8 +58,8 @@ export abstract class NotebookAction2 extends Action2 {
 			return;
 		}
 
-		if (this._grabFocusOnRun) {
-			notebook.grabFocus();
+		if (this._focusOnRun) {
+			notebook.focus();
 		}
 
 		const result = this.runNotebookAction(notebook, accessor, ...args);

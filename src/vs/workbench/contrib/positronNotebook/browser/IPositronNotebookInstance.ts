@@ -575,7 +575,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly onDidFocusWidget: Event<void>;
 
 	/**
-	 * Grabs focus for this notebook based on the current selection state.
+	 * Focuses this notebook based on the current selection state.
 	 */
-	grabFocus(): void;
+	focus(): void;
 }

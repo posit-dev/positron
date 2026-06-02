@@ -28,7 +28,7 @@ function registerPositronNotebookFindAction(
 		constructor() {
 			// Find actions run with focus intentionally in the find widget.
 			// grabbing notebook focus would move it away and break keyboard navigation.
-			super({ ...options, grabFocusOnRun: false });
+			super({ ...options, focusOnRun: false });
 		}
 
 		override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {

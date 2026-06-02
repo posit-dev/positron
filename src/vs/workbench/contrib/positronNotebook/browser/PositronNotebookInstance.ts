@@ -2336,14 +2336,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Grabs focus for this notebook based on the current selection state.
+	 * Focuses this notebook based on the current selection state.
 	 * Called when the notebook editor receives focus from the workbench.
 	 *
 	 * Note: This method may be called twice during tab switches:
 	 * - First call: Early, cells may not be rendered yet (no-op via optional chaining)
 	 * - Second call: After render completes, focus succeeds
 	 */
-	grabFocus(): void {
+	focus(): void {
 		const state = this.selectionStateMachine.state.get();
 
 		switch (state.type) {

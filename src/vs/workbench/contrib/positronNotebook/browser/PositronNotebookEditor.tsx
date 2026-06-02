@@ -256,7 +256,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		// Drive focus into the notebook instance based on selection state
 		if (this.notebookInstance) {
-			this.notebookInstance.grabFocus();
+			this.notebookInstance.focus();
 		}
 	}
 

@@ -1770,7 +1770,7 @@ export class CopyOutputAction extends NotebookAction2 {
 		super({
 			id: PositronNotebookActionId.CopyOutput,
 			title: localize2('positronNotebook.cell.copyOutput', "Copy Output"),
-			grabFocusOnRun: false,
+			focusOnRun: false,
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 				when: ContextKeyExpr.and(
@@ -1857,7 +1857,7 @@ class CopyOutputImageAction extends NotebookAction2 {
 			id: PositronNotebookActionId.CopyOutputImage,
 			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
 			icon: ThemeIcon.fromId('copy'),
-			grabFocusOnRun: false,
+			focusOnRun: false,
 			menu: [
 				{
 					id: MenuId.PositronNotebookCellOutputActionBar,

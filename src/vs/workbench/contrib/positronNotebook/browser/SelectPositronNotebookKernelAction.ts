@@ -70,7 +70,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		}
 
 		notebookKernelService.selectKernelForNotebook(kernel, notebook);
-		activeNotebook.grabFocus();
+		activeNotebook.focus();
 		return true;
 	}
 }
