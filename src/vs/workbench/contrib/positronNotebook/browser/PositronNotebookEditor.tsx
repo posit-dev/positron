@@ -263,11 +263,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		// Call super first so that AbstractEditorWithViewState can save the
-		// editor view state (e.g. scroll position) while the input and the
-		// DOM are still alive. The base class reads view state via
-		// computeEditorViewState() which needs the notebook instance and
-		// its cells container to still be accessible.
 		super.clearInput();
 
 		this._control.clear();
