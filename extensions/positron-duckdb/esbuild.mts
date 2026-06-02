@@ -16,6 +16,6 @@ run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
-		external: ['vscode', 'positron', '@duckdb/duckdb-wasm', 'web-worker'],
+		external: ['vscode', 'positron', '@duckdb/node-api', '@duckdb/node-bindings'],
 	},
 }, process.argv);

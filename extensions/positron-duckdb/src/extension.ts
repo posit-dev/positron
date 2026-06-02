@@ -76,61 +76,87 @@ import {
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
 }
-import * as duckdb from '@duckdb/duckdb-wasm';
+import { DuckDBConnection, DuckDBInstance as NeoDuckDBInstance, DuckDBResultReader } from '@duckdb/node-api';
+import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import * as zlib from 'zlib';
-import Worker from 'web-worker';
-import { Table, Vector } from 'apache-arrow';
-import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
+/**
+ * A thin wrapper over a materialized `@duckdb/node-api` result that exposes the
+ * small set of shapes the rest of the extension relies on. This localizes the
+ * differences between the native node-api result reader and the Apache Arrow
+ * `Table` that the WASM bindings used to return.
+ */
+class QueryResult {
+	private _columns: any[][] | undefined;
+
+	constructor(private readonly result: DuckDBResultReader) { }
+
+	/** The number of columns in the result. */
+	get numCols(): number {
+		return this.result.columnCount;
+	}
+
+	/** The number of rows in the (materialized) result. */
+	get numRows(): number {
+		return this.result.currentRowCount;
+	}
+
+	/** The names of the columns, in column order. */
+	get columnNames(): string[] {
+		return this.result.columnNames();
+	}
+
+	/** The result rows as plain objects keyed by column name. */
+	toArray(): any[] {
+		return this.result.getRowObjects();
+	}
+
+	/** The values for the column at the given index. */
+	columnAt(index: number): any[] {
+		if (this._columns === undefined) {
+			this._columns = this.result.getColumns();
+		}
+		return this._columns[index];
+	}
+
+	/** The values for the column with the given name. */
+	columnByName(name: string): any[] {
+		return this.columnAt(this.columnNames.indexOf(name));
+	}
+}
+
 class DuckDBInstance {
 	runningQuery: Promise<any> = Promise.resolve();
 
-	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
+	constructor(readonly con: DuckDBConnection) { }
 
-	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
-		// Create the path to the DuckDB WASM bundle. Note that only the EH
-		// bundle for Node is used for now as we don't support Positron
-		// extensions running in a browser context yet.
-		const distPath = path.join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
-		const bundle = {
-			mainModule: path.join(distPath, 'duckdb-eh.wasm'),
-			mainWorker: path.join(distPath, 'duckdb-node-eh.worker.cjs')
-		};
-
-		// On Windows, we need to call pathToFileURL on mainWorker because the web-worker package
-		// does not support Windows paths that start with a drive letter.
-		if (process.platform === 'win32') {
-			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
-		}
-
-		const worker = new Worker(bundle.mainWorker);
-		const logger = new duckdb.VoidLogger();
-		const db = new duckdb.AsyncDuckDB(logger, worker);
-		await db.instantiate(bundle.mainModule);
-
-		const con = await db.connect();
-		await con.query(`LOAD icu;
+	static async create(_ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
+		// Create an in-memory database backed by the native DuckDB binary.
+		const instance = await NeoDuckDBInstance.create(':memory:');
+		const con = await instance.connect();
+		await con.run(`LOAD icu;
 		SET TIMEZONE=\'UTC\';
 		`);
-		return new DuckDBInstance(db, con);
+		return new DuckDBInstance(con);
 	}
 
-	async runQuery(query: string): Promise<Table<any>> {
+	async runQuery(query: string): Promise<QueryResult> {
 		await this.runningQuery;
 		try {
 			const startTime = Date.now();
-			this.runningQuery = this.con.query(query);
+			this.runningQuery = this.con.runAndReadAll(query);
 
 			const result = await this.runningQuery;
 			const elapsedMs = Date.now() - startTime;
 			if (DEBUG_LOG) {
 				console.log(`Took ${elapsedMs} ms to run:\n${query}`);
 			}
-			return result;
+			return new QueryResult(result);
 		} catch (error) {
 			if (DEBUG_LOG) {
 				console.log(`Failed to execute:\n${query}`);
@@ -276,6 +302,16 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 function quoteIdentifier(fieldName: string) {
 	// Double any existing double quotes and wrap in double quotes
 	return '"' + fieldName.replace(/"/g, '""') + '"';
+}
+
+/**
+ * Escapes a string for use inside a single-quoted DuckDB SQL string literal,
+ * e.g. a file path passed to read_csv_auto or parquet_scan.
+ * @param value The raw string value (the caller supplies the surrounding quotes)
+ * @returns The value with single quotes doubled per SQL escaping convention
+ */
+function quoteLiteral(value: string) {
+	return value.replace(/'/g, '\'\'');
 }
 
 function anyValue(unquotedName: string) {
@@ -463,7 +499,7 @@ class ColumnProfileEvaluator {
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
 		ORDER BY freq DESC, value ASC
-		LIMIT ${params.limit};`) as Table<any>;
+		LIMIT ${params.limit};`);
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -546,7 +582,7 @@ class ColumnProfileEvaluator {
 				`${this.whereClause} AND ${predicate}` :
 				`WHERE ${predicate}`;
 			const result = await this.db.runQuery(`SELECT ${quoteIdentifier(field)}::VARCHAR AS value
-			FROM ${this.tableName} ${composedPred} LIMIT 1;`) as Table<any>;
+			FROM ${this.tableName} ${composedPred} LIMIT 1;`);
 
 			const fixedValue = result.toArray()[0].value;
 
@@ -689,9 +725,9 @@ class ColumnProfileEvaluator {
 		// Table with a single row containing all the computed statistics
 		const statsResult = await this.db.runQuery(statsQuery);
 
-		const stats = new Map<string, any>(statsResult.schema.names.map((value, index) => {
-			const child = statsResult.getChild(value)!;
-			return [value, child.get(0)] as [string, any];
+		const stats = new Map<string, any>(statsResult.columnNames.map((value) => {
+			const column = statsResult.columnByName(value);
+			return [value, column[0]] as [string, any];
 		}));
 
 		const results: Array<ColumnProfileResult> = [];
@@ -1129,8 +1165,8 @@ END`;
 			columns: []
 		};
 
-		const floatAdapter = (field: Vector<any>, i: number) => {
-			const value: string = field.get(i - lowerLimit);
+		const floatAdapter = (field: any[], i: number) => {
+			const value: string = field[i - lowerLimit];
 			switch (value) {
 				case 'NaN':
 					return SENTINEL_NAN;
@@ -1145,17 +1181,18 @@ END`;
 			}
 		};
 
-		const defaultAdapter = (field: Vector<any>, i: number) => {
+		const defaultAdapter = (field: any[], i: number) => {
 			const relIndex = i - lowerLimit;
-			return field.isValid(relIndex) ? field.get(relIndex) : SENTINEL_NULL;
+			const value = field[relIndex];
+			return value === null || value === undefined ? SENTINEL_NULL : value;
 		};
 
 		for (let i = 0; i < queryResult.numCols; i++) {
 			const column = params.columns[i];
 			const spec = column.spec;
-			const field = queryResult.getChildAt(i)!;
+			const field = queryResult.columnAt(i);
 
-			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
+			const fetchValues = (adapter: (field: any[], i: number) => ColumnValue) => {
 				if (isSelectionRange(spec)) {
 					// There may be fewer rows available than what was requested
 					const lastIndex = Math.min(
@@ -1548,7 +1585,7 @@ END`;
 			const unboxed = [
 				columns.map(s => s.column_name),
 				// TODO: maybe this can be made more efficient
-				...result.toArray().map(row => result.schema.names.map(name => row[name]))
+				...result.toArray().map(row => result.columnNames.map(name => row[name]))
 			];
 
 			let data;
@@ -1624,7 +1661,7 @@ END`;
 				const query = `SELECT ${selector} FROM ${this.tableName}${this._whereClause}${this._sortClause} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
 				return {
-					data: result.toArray()[0][result.schema.names[0]],
+					data: result.toArray()[0][result.columnNames[0]],
 					format: params.format
 				};
 			}
@@ -1757,7 +1794,7 @@ END`;
 }
 
 /**
- * Implementation of Data Explorer backend protocol using duckdb-wasm,
+ * Implementation of Data Explorer backend protocol using native DuckDB,
  * for serving requests coming in through the vscode command.
  */
 export class DataExplorerRpcHandler implements vscode.Disposable {
@@ -1829,7 +1866,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		const getCsvImportQuery = (_filePath: string, options: Array<string>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
-			SELECT * FROM read_csv_auto('${_filePath}'${options.length ? ', ' : ''}${options.join(' ,')});`;
+			SELECT * FROM read_csv_auto('${quoteLiteral(_filePath)}'${options.length ? ', ' : ''}${options.join(' ,')});`;
 		};
 
 		const importDelimited = async (filePath: string) => {
@@ -1856,33 +1893,33 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			}
 		};
 
-		// Read the entire contents and register it as a temp file
-		// to avoid file handle caching in duckdb-wasm
-		let fileContents = await vscode.workspace.fs.readFile(uri);
-		if (isGzipped) {
-			fileContents = zlib.gunzipSync(fileContents);
+		// Native DuckDB reads files directly from disk and transparently handles
+		// compressed (.gz/.zst) CSV/TSV files, so we can hand it the real path.
+		// For non-file URI schemes (e.g. untitled or virtual documents) DuckDB
+		// has no path to open, so we spill the contents to a temporary file.
+		let filePath: string;
+		let tempPath: string | undefined;
+		if (uri.scheme === 'file') {
+			filePath = uri.fsPath;
+		} else {
+			const fileContents = await vscode.workspace.fs.readFile(uri);
+			tempPath = path.join(os.tmpdir(), `positron-duckdb-${randomUUID()}-${path.basename(uri.path)}`);
+			await fs.promises.writeFile(tempPath, fileContents);
+			filePath = tempPath;
 		}
 
-		// For gzipped files, use the base name without the .gz extension
-		const virtualPath = isGzipped ?
-			path.basename(uri.path, '.gz') :
-			path.basename(uri.path);
-
-		// Use a tightly packed Uint8Array to avoid transfer issues
-		const fileBuffer = new Uint8Array(fileContents.buffer.slice(fileContents.byteOffset, fileContents.byteOffset + fileContents.byteLength));
-		await this.db.db.registerFileBuffer(virtualPath, fileBuffer);
 		try {
-			const baseExt = path.extname(virtualPath);
-			if (baseExt === '.parquet' || baseExt === '.parq') {
-				// Always create a view for Parquet files
+			if (fileExt === '.parquet' || fileExt === '.parq') {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
-				SELECT * FROM parquet_scan('${virtualPath}');`;
+				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
 				await this.db.runQuery(query);
 			} else {
-				await importDelimited(virtualPath);
+				await importDelimited(filePath);
 			}
 		} finally {
-			await this.db.db.dropFile(virtualPath);
+			if (tempPath !== undefined) {
+				await fs.promises.rm(tempPath, { force: true });
+			}
 		}
 	}
 
