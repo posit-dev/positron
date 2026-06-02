@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import * as fs from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
@@ -40,6 +41,9 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
 		const { sessions, console, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
+
+		// Ensure the db/ directory exists before dbplyr::nycflights13_sqlite() runs.
+		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
 
 		// Run the same script that's open in the editor to build and register
 		// the connection. This matches the reference screenshot exactly.
