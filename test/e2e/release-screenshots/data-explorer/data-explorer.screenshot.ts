@@ -5,9 +5,9 @@
 
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { test } from '../../../tests/_test.setup';
-import { capturePanel, captureRegion } from '../../helpers/screenshot-utils';
-import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
+import { test } from '../../tests/_test.setup';
+import { capturePanel, captureRegion } from '../_helpers/screenshot-utils';
+import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 type ExecuteCode = (
 	language: 'Python' | 'R',

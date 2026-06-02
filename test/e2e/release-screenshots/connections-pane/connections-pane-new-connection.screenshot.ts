@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test } from '../../../tests/_test.setup';
-import { captureFullWindow } from '../../helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
-import { clearAnnotations } from '../../helpers/annotate-utils';
+import { test } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+import { clearAnnotations } from '../_helpers/annotate-utils';
 
 test.use({
 	suiteId: __filename,

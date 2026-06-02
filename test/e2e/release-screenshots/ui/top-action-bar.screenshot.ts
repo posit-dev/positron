@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test } from '../../../tests/_test.setup';
-import { capturePanelHires, captureRegion } from '../../helpers/screenshot-utils';
-import { annotate, clearAnnotations } from '../../helpers/annotate-utils';
-import { hideToasts, setScreenshotWindowSize, waitForStableUI } from '../../helpers/layout-utils';
+import { test } from '../../tests/_test.setup';
+import { capturePanelHires, captureRegion } from '../_helpers/screenshot-utils';
+import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
+import { hideToasts, setScreenshotWindowSize, waitForStableUI } from '../_helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,

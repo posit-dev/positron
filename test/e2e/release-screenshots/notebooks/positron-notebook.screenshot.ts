@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test as base } from '../../../tests/_test.setup';
-import { captureFullWindow } from '../../helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
-import { annotate, clearAnnotations } from '../../helpers/annotate-utils';
+import { test as base } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
 

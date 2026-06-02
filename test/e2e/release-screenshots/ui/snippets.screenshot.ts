@@ -6,10 +6,10 @@
 import { expect } from '@playwright/test';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { test } from '../../../tests/_test.setup';
-import { captureRegion } from '../../helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
-import { annotate, clearAnnotations, paintBackdrop } from '../../helpers/annotate-utils';
+import { test } from '../../tests/_test.setup';
+import { captureRegion } from '../_helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+import { annotate, clearAnnotations, paintBackdrop } from '../_helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#ea580c';
 // Extra width on the right of the picker crop so `right-outside` badges
