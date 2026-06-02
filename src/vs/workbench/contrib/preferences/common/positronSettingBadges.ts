@@ -36,7 +36,7 @@ export const POSITRON_SETTING_BADGES: readonly IPositronSettingBadge[] = [
 	{
 		tag: 'legacy',
 		label: localize('positron.legacyBadge', "Legacy"),
-		description: localize('positron.legacyBadgeDescription', "This setting applies to the legacy notebook editor."),
+		description: localize('positron.legacyBadgeDescription', "This setting only applies to the legacy notebook editor."),
 	},
 	{
 		tag: 'native',
