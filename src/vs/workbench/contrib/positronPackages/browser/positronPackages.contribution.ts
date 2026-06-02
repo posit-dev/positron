@@ -24,6 +24,7 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
@@ -103,6 +104,21 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: 'auto',
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
+			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.outdatedCache.enabled', "Remember which packages were outdated so update indicators appear immediately on a new session, while the latest status is fetched in the background."),
+			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING]: {
+			type: 'number',
+			default: PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT,
+			minimum: 1,
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: nls.localize('positron.packages.outdatedCache.maxAgeHours', "How long, in hours, a remembered outdated status is shown before it is refreshed in the background. Only applies when `#packages.outdatedCache.enabled#` is enabled."),
 			tags: ['preview'],
 		}
 	}
