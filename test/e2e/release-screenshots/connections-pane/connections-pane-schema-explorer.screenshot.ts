@@ -71,11 +71,11 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airports', /^planes$/]);
 		// Widen the connections pane so the full schema tree and column types
 		// are clearly visible, matching the reference.
-		await layouts.resizeAuxiliaryBar({ x: -200 });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		// Grow the bottom panel so the console (with script echo) takes a
 		// larger portion of the window, matching the ~50/50 editor/console
 		// split in the docs reference.
-		await layouts.resizePanel({ y: -120 });
+		await layouts.resizePanel({ y: 30 });
 		await console.focus();
 
 		// capture screenshot

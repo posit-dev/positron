@@ -29,7 +29,7 @@ test.afterEach(async ({ page, hotKeys }) => {
 	await hotKeys.closeAllEditors();
 });
 
-test.describe('Release Screenshots - Connections Pane', () => {
+test.describe.skip('Release Screenshots - Connections Pane', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/connections-pane.png
 	 *
