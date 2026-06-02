@@ -23,6 +23,7 @@ import { CopyOutputAction } from '../../browser/positronNotebook.contribution.js
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 
 // Mock heavy transitive deps that are irrelevant to output focus testing.
 vi.mock('../../browser/notebookCells/NotebookCellActionBar.js', () => ({
@@ -54,6 +55,20 @@ describe('Notebook output focus state', () => {
 		.withReactServices()
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		// TableSummaryDataGridInstance reads PositronReactServices.services
+		// (static singleton) in its constructor. Bridge the builder-configured
+		// DI container to the singleton so the services stubbed above flow
+		// through to the instance under test.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	afterEach(() => {
+		// Clear the singleton bridged in beforeEach so no disposed reactServices
+		// instance outlives the suite.
+		PositronReactServices.services = undefined!;
+	});
 
 	function renderCellWithOutput(cellInputs?: TestCellInput[]) {
 		const defaultInput: TestCellInput[] = cellInputs ?? [{

@@ -16,6 +16,7 @@ import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider
 import { NotebookMarkdownCell } from '../../browser/notebookCells/NotebookMarkdownCell.js';
 import { PositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 
 // Module mocks must be hoisted above the source imports they intercept.
 const { mockedMarkdown, mockedCellEditorMonacoWidget } = vi.hoisted(() => ({
@@ -48,6 +49,20 @@ vi.mock('../../browser/notebookCells/CellProvider.js', () => ({
 describe('NotebookMarkdownCell', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	beforeEach(() => {
+		// TableSummaryDataGridInstance reads PositronReactServices.services
+		// (static singleton) in its constructor. Bridge the builder-configured
+		// DI container to the singleton so the services stubbed above flow
+		// through to the instance under test.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	afterEach(() => {
+		// Clear the singleton bridged in beforeEach so no disposed reactServices
+		// instance outlives the suite.
+		PositronReactServices.services = undefined!;
+	});
 
 	function renderMarkdownCell(content: string, editorShown: boolean): PositronNotebookMarkdownCell {
 		const notebook = createTestPositronNotebookInstance(

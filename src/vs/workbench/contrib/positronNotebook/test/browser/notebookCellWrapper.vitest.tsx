@@ -15,8 +15,10 @@ import { CellSelectionType } from '../../browser/selectionMachine.js';
 import { NotebookCellWrapper } from '../../browser/notebookCells/NotebookCellWrapper.js';
 import { useCell } from '../../browser/notebookCells/CellProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
-import { createLabelledTestNotebook, createTestPositronNotebookInstance, TestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { createLabelledTestNotebook, createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
+import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 
 // Each mock isolates the click-routing logic from a child that pulls in
 // heavy transitive deps. `.stub()` via the builder can't reach inside React
@@ -31,7 +33,21 @@ describe('NotebookCellWrapper onClick', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderCell(notebook: TestPositronNotebookInstance, cellIndex = 0, children: React.ReactNode = null) {
+	beforeEach(() => {
+		// TableSummaryDataGridInstance reads PositronReactServices.services
+		// (static singleton) in its constructor. Bridge the builder-configured
+		// DI container to the singleton so the services stubbed above flow
+		// through to the instance under test.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	afterEach(() => {
+		// Clear the singleton bridged in beforeEach so no disposed reactServices
+		// instance outlives the suite.
+		PositronReactServices.services = undefined!;
+	});
+
+	function renderCell(notebook: PositronNotebookInstance, cellIndex = 0, children: React.ReactNode = null) {
 		const cell = notebook.cells.get()[cellIndex];
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
@@ -174,12 +190,26 @@ describe('NotebookCellWrapper CellProvider', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
+	beforeEach(() => {
+		// TableSummaryDataGridInstance reads PositronReactServices.services
+		// (static singleton) in its constructor. Bridge the builder-configured
+		// DI container to the singleton so the services stubbed above flow
+		// through to the instance under test.
+		PositronReactServices.services = ctx.reactServices;
+	});
+
+	afterEach(() => {
+		// Clear the singleton bridged in beforeEach so no disposed reactServices
+		// instance outlives the suite.
+		PositronReactServices.services = undefined!;
+	});
+
 	function CellSpy() {
 		const cell = useCell();
 		return <div data-testid='cell-spy'>{cell.kind}</div>;
 	}
 
-	function renderCell(notebook: TestPositronNotebookInstance, children: React.ReactNode) {
+	function renderCell(notebook: PositronNotebookInstance, children: React.ReactNode) {
 		const cell = notebook.cells.get()[0];
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
