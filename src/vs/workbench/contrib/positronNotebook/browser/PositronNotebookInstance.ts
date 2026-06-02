@@ -60,6 +60,7 @@ import { ServiceCollection } from '../../../../platform/instantiation/common/ser
 import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './positronNotebookEditorTypes.js';
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronNotebookEditorRenderer } from './PositronNotebookEditorRenderer.js';
+import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -108,11 +109,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
 	public readonly container: IObservable<HTMLElement | undefined>;
-
-	/**
-	 * Disposables for the editor container event listeners
-	 */
-	private readonly _editorContainerListeners = this._register(new DisposableStore());
 
 	/**
 	 * The scroll position resolved by the last call to `restoreEditorViewState`.
@@ -239,26 +235,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	public readonly scopedContextKeyService: IScopedContextKeyService;
 	public readonly scopedInstantiationService: IInstantiationService;
-
-	/**
-	 * Sets the DOM element that contains the entire notebook editor.
-	 * This is the top-level container used for focus tracking.
-	 * @param container The container element to set, or null to clear
-	 */
-	setEditorContainer(container: HTMLElement | null): void {
-		// Clean up any existing listeners
-		this._editorContainerListeners.clear();
-
-		if (!container) {
-			return;
-		}
-
-		// Set up focus tracking for the editor container
-		const focusTracker = this._editorContainerListeners.add(DOM.trackFocus(container));
-		this._editorContainerListeners.add(focusTracker.onDidFocus(() => {
-			this._onDidFocusWidget.fire();
-		}));
-	}
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -458,14 +434,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		super();
 
 		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
-		parentContainer.appendChild(this._renderer.editorContainer);
+		parentContainer.appendChild(this._renderer.container);
+
+		// Set up focus tracking for the editor container
+		const focusTracker = this._register(DOM.trackFocus(parentContainer));
+		this._register(focusTracker.onDidFocus(() => {
+			this._onDidFocusWidget.fire();
+		}));
 
 		// TODO: Can we remove this observable given it never changes anymore?
 		this.container = observableValue<HTMLElement | undefined>('positronNotebookContainer', this._renderer.notebookContainer);
 
 		// TODO: It'd be simpler if this could be scoped to the parentContainer.
 		//   Would that break anything?
-		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.editorContainer));
+		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.container));
 		this.scopedInstantiationService = this._instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, this.scopedContextKeyService]));
 
@@ -525,13 +507,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._maybeAttachSession(session);
 		}));
 
+		// Create the manager for Positron-specific notebook context keys
+		// TODO: Do we still need this or do the NotebookEditorContextKeys
+		//   work as replacements?...
 		this.contextManager = this._register(
 			this.scopedInstantiationService.createInstance(
-				NotebookContextKeyManager,
-				parentContainer,
-				this,
+				NotebookContextKeyManager, focusTracker,
 			)
 		);
+
+		// Create the manager for VSCode notebook editor context keys
+		// Extensions may depend on these familiar context keys
+		this._register(this.scopedInstantiationService.createInstance(
+			NotebookEditorContextKeys, this
+		));
 
 		// Create hover manager for notebook action button tooltips
 		this.hoverManager = this._register(
@@ -1062,6 +1051,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	private _detachModel(): void {
+		if (this._textModel.get()) {
+			// TODO: Update renderer so that we create it per model...
+			//    And remove its dom node here...
+		}
 	}
 
 	/**

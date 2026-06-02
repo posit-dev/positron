@@ -164,12 +164,6 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly overlayContainer: HTMLElement | undefined;
 
 	/**
-	 * Sets the DOM element that contains the entire notebook editor.
-	 * @param container The container element to set, or null to clear
-	 */
-	setEditorContainer(container: HTMLElement | null): void;
-
-	/**
 	 * The DOM element that contains the cells for the notebook.
 	 * This is set when the cells container is mounted in the React component.
 	 */

@@ -6,7 +6,6 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
 
@@ -15,7 +14,7 @@ export class PositronNotebookEditorRenderer extends Disposable {
 	 * Top-level container for the entire notebook editor.
 	 * Contains both the notebook content and contributions.
 	 */
-	public readonly editorContainer: HTMLElement;
+	public readonly container: HTMLElement;
 
 	/**
 	 * Stable shell element that hosts the active per-entry notebook container.
@@ -37,25 +36,21 @@ export class PositronNotebookEditorRenderer extends Disposable {
 
 	private readonly _renderer: PositronReactRenderer;
 
-	constructor(
-		@ILogService private readonly _logService: ILogService,
-	) {
+	constructor() {
 		super();
 
 		// Create the top-level editor container
-		this.editorContainer = DOM.$('.positron-notebook-editor');
+		this.container = DOM.$('.positron-notebook-editor');
 
-		// TODO: Maybe the parent should do this...?
-		// editorContainer.appendChild(this._container);
-
+		// TODO: Impl render cache or fix comment
 		// Stable shell; per-entry containers are created lazily on cache miss
 		// (see _renderFreshForInput) and reparented in/out of this shell.
 		this._notebookShell = DOM.$('.positron-notebook-shell');
-		this.editorContainer.appendChild(this._notebookShell);
+		this.container.appendChild(this._notebookShell);
 
 		// Create the overlay container for widgets (find, etc)
 		this.overlayContainer = DOM.$('.positron-notebook-overlay-container');
-		this.editorContainer.appendChild(this.overlayContainer);
+		this.container.appendChild(this.overlayContainer);
 
 		this.notebookContainer = DOM.$('.positron-notebook-container');
 		this.notebookContainer.tabIndex = -1;
@@ -64,12 +59,8 @@ export class PositronNotebookEditorRenderer extends Disposable {
 		this._renderer = this._register(new PositronReactRenderer(this.notebookContainer));
 	}
 
-	render(
-		notebookInstance: IPositronNotebookInstance,
-	): void {
-		// TODO: Set the editor container for focus tracking.
-		// this.notebookInstance.setEditorContainer(this._editorContainer);
-
+	// TODO: Accept notebookInstance in the constructor? Lifecycles are tied together.
+	render(notebookInstance: IPositronNotebookInstance): void {
 		this._renderer.render(
 			<PositronNotebookComponent
 				notebookInstance={notebookInstance}
@@ -78,11 +69,5 @@ export class PositronNotebookEditorRenderer extends Disposable {
 				}}
 			/>
 		);
-	}
-
-	override dispose(): void {
-		this._logService.debug('PositronNotebookEditorView', 'dispose');
-		super.dispose();
-		this.editorContainer.remove();
 	}
 }
