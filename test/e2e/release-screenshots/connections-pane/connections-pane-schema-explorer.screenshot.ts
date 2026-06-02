@@ -11,7 +11,17 @@ import { captureFullWindow } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 import { clearAnnotations } from '../_helpers/annotate-utils';
 
-const NYCFLIGHTS_R_SCRIPT = join('workspaces', 'nycflights-sqlite-r', 'nycflights-sqlite.r');
+const SCRIPT = [
+	'path <- dbplyr::nycflights13_sqlite(path = "db/")',
+	'',
+	'library(DBI)',
+	'con <- dbConnect(',
+	'  RSQLite::SQLite(),',
+	'  dbname = "db/nycflights13.sqlite",',
+	'  bigint = "integer64"',
+	')',
+	'connections::connection_view(con)',
+].join('\n');
 
 test.use({
 	suiteId: __filename,
@@ -39,27 +49,17 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	 * tree drilled into a table so the column types are visible.
 	 */
 	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, console, connections, layouts, quickaccess } = app.workbench;
+		const { sessions, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Ensure the db/ directory exists before dbplyr::nycflights13_sqlite() runs.
+		// Write the script to the workspace root so the file explorer shows a
+		// clean single file rather than a nested workspaces/ subdirectory.
 		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
+		fs.writeFileSync(join(app.workspacePathOrFolder, 'nycflights-sqlite.r'), SCRIPT);
+		await openFile('nycflights-sqlite.r');
 
-		await openFile(NYCFLIGHTS_R_SCRIPT);
-
-		// Run the same script shown in the editor to build the DB and register
-		// the connection. Matches the reference screenshot exactly.
-		await executeCode('R', [
-			'path <- dbplyr::nycflights13_sqlite(path = "db/")',
-			'',
-			'library(DBI)',
-			'con <- dbConnect(',
-			'  RSQLite::SQLite(),',
-			'  dbname = "db/nycflights13.sqlite",',
-			'  bigint = "integer64"',
-			')',
-			'connections::connection_view(con)',
-		].join('\n'), { maximizeConsole: false, timeout: 60000 });
+		// Execute the same script to build the DB and register the connection.
+		await executeCode('R', SCRIPT, { maximizeConsole: false, timeout: 60000 });
 
 
 		await connections.openConnectionPane();
