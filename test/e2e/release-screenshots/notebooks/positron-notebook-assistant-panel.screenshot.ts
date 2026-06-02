@@ -6,7 +6,7 @@
 import { expect } from '@playwright/test';
 import { test as base } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot } from '../_helpers/layout-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 import { clearAnnotations } from '../_helpers/annotate-utils';
 
 const test = base.extend({
@@ -21,6 +21,10 @@ const test = base.extend({
 
 test.use({
 	suiteId: __filename,
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app, { width: 960, height: 640 });
 });
 
 test.afterEach(async ({ page, hotKeys }) => {
