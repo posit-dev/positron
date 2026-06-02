@@ -15,14 +15,14 @@ This prompt provides context for working with the `positron-duckdb` extension, w
 **Main Entry**: `src/extension.ts`  
 **Dependencies**: `@duckdb/node-api` (pulls in the platform-specific `@duckdb/node-bindings-*` native binding for the host)  
 
-The extension uses the native `@duckdb/node-api` ("node neo") package, which wraps pre-built DuckDB binaries. This replaced the previous `@duckdb/duckdb-wasm` build, which could not read compressed CSV/TSV files and had limited multithreading.
+The extension uses the native `@duckdb/node-api` ("node neo") package, which wraps pre-built DuckDB binaries. It reads compressed CSV/TSV files and supports multithreading.
 
 ## Architecture
 
 ### Core Components
 
 1. **DuckDBInstance**: Manages the native DuckDB database connection (`@duckdb/node-api`)
-2. **QueryResult**: Thin wrapper over a node-api result reader; exposes `toArray()`, `columnAt(i)`, `columnByName(name)`, `columnNames`, `numRows`, `numCols`. Localizes the differences from the old Apache Arrow `Table` the WASM bindings returned.
+2. **QueryResult**: Thin wrapper over a node-api result reader; exposes `toArray()`, `columnAt(i)`, `columnByName(name)`, `columnNames`, `numRows`, `numCols`.
 3. **DuckDBTableView**: Handles data explorer requests for a specific table
 4. **ColumnProfileEvaluator**: Computes statistical summaries and profiles 
 5. **DataExplorerRpcHandler**: Implements the Data Explorer RPC protocol
@@ -52,7 +52,7 @@ extensions/positron-duckdb/
 │           ├── flights.csv
 │           └── flights.parquet
 ├── tsconfig.json         # TypeScript configuration
-└── extension.webpack.config.js  # Build configuration
+└── esbuild.mts           # Build configuration
 ```
 
 ## Quick Development Workflow

@@ -87,9 +87,7 @@ const DEBUG_LOG = false;
 
 /**
  * A thin wrapper over a materialized `@duckdb/node-api` result that exposes the
- * small set of shapes the rest of the extension relies on. This localizes the
- * differences between the native node-api result reader and the Apache Arrow
- * `Table` that the WASM bindings used to return.
+ * small set of shapes the rest of the extension relies on.
  */
 class QueryResult {
 	private _columns: any[][] | undefined;
