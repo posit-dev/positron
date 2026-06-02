@@ -183,6 +183,18 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.model.metadata.metadata).toEqual({ tags: ['tag'] });
 	});
 
+	it('setTags skips the write when the tag list is unchanged', () => {
+		// applyEdits replaces the metadata object (a new reference) and fires a
+		// change even for identical content, which would add an undo entry and
+		// dirty the notebook. A no-op (e.g. committing a tag edit without changes)
+		// must leave the metadata object untouched.
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
+		const before = cell.model.metadata;
+
+		expect(cell.setTags(['a', 'b'])).toBe(true);
+		expect(cell.model.metadata).toBe(before);
+	});
+
 	it('addTag trims, appends, and reports "added"', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 

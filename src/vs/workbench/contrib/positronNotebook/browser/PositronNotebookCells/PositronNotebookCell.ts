@@ -220,6 +220,13 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	setTags(tags: string[]): boolean {
+		// Skip no-op writes: applyEdits replaces the metadata object and fires a
+		// change even for identical content, which would add an undo entry and
+		// dirty the notebook. A no-op leaves the desired state in place, so report
+		// success without writing (e.g. committing a tag edit without changes).
+		if (arraysEqual(this.tags.get(), tags)) {
+			return true;
+		}
 		const textModel = this._instance.textModel;
 		if (!textModel) {
 			return false;
