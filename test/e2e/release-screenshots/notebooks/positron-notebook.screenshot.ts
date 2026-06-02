@@ -95,37 +95,6 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	});
 
 	/**
-	 * Img Path: https://positron.posit.co/images/positron-notebook-assistant-panel.png
-	 */
-	test('Release Screenshot - positron-notebook-assistant-panel.png', async ({ app, page, python, settings }) => {
-		const { notebooksPositron, hotKeys, layouts } = app.workbench;
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
-
-		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
-
-		// Open a new notebook and select the Python interpreter
-		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-		await notebooksPositron.kernel.select('Python');
-
-		// customize the layout
-		await hotKeys.closePrimarySidebar();
-		await hotKeys.closeSecondarySidebar();
-		await hotKeys.toggleBottomPanel();
-		await layouts.expectBottomPanelToBeVisible(false);
-
-		// click the "Ask Assistant" button to open the assistant panel
-		await notebooksPositron.clickAskAssistantButton();
-		const panel = page.locator('.positron-modal-dialog-box').filter({ hasText: 'Positron Notebook Assistant' });
-		await expect(panel).toBeVisible({ timeout: 10000 });
-
-		// capture screenshot
-		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
-		await captureFullWindow(page, 'positron-notebook-assistant-panel.png');
-	});
-
-	/**
 	 * Img Path: https://positron.posit.co/images/positron-notebook.png
 	 *
 	 * Full notebook view: code cell + matplotlib chart output, assistant
