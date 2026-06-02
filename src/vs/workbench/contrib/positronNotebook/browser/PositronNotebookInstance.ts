@@ -59,6 +59,7 @@ import { createBareFontInfoFromRawSettings } from '../../../../editor/common/con
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './positronNotebookEditorTypes.js';
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
+import { PositronNotebookEditorRenderer } from './PositronNotebookEditorRenderer.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -239,6 +240,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private readonly _deletionSentinels = observableValue<IDeletionSentinel[]>('deletionSentinels', []);
 	readonly deletionSentinels = this._deletionSentinels;
+
+	private readonly _renderer: PositronNotebookEditorRenderer;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -593,6 +596,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const contribution = this._instantiationService.createInstance(desc.ctor, this);
 			this._contributions.set(desc.id, contribution);
 		}
+
+		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
 
 		this._positronNotebookService.registerInstance(this);
 	}
@@ -1027,6 +1032,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		this._onDidChangeContent.fire();
+
+		// TODO: We currently differ from CodeEditorWidget in that we just rerender
+		// but don't reconstruct a view. But I guess that *does* reconstruct
+		// the view in React. React just does more of the work for us?
+		// TODO: How do we *schedule* renders?... Does it matter?
+		// TODO: Do we also want a viewModel?... What lives there?
+		this._renderer.render(this);
 	}
 
 	/**
