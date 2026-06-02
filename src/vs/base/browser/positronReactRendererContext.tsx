@@ -11,7 +11,7 @@ import { PositronReactServices } from './positronReactServices.js';
 /**
  * PositronReactServicesContext.
  */
-export const PositronReactServicesContext = createContext<PositronReactServices>(undefined!);
+export const PositronReactServicesContext = createContext<PositronReactServices | undefined>(undefined);
 
 /**
  * PositronReactServicesProvider component.
@@ -29,4 +29,10 @@ export const PositronReactServicesProvider = ({ children }: { children: React.Re
  * usePositronReactServicesContext hook.
  * @returns The Positron React services context.
  */
-export const usePositronReactServicesContext = () => useContext(PositronReactServicesContext);
+export const usePositronReactServicesContext = () => {
+	const services = useContext(PositronReactServicesContext);
+	if (!services) {
+		throw new Error('usePositronReactServicesContext must be used within a PositronReactServicesProvider');
+	}
+	return services;
+};
