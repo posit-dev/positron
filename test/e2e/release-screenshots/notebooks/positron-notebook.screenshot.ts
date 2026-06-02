@@ -66,7 +66,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [
-			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
+			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 6 },
 		]);
 		await captureFullWindow(page, 'positron-notebook-editor-kernel-selector.png');
 	});
@@ -157,12 +157,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await layouts.resizeSidebar({ x: 100 });
 
 		// Run the notebook cell to populate variables and generate the chart output
-		const cell = page.locator('[data-testid="notebook-cell"]').first();
-		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
-		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
+		await notebooksPositron.runAllCells();
+		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('building the font cache')).not.toBeVisible();
-
-		// Expand the "daily_energy" variable
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();
 		await variables.waitForVariableRow('daily_energy');
