@@ -174,6 +174,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #endregion
 
 	get currentContainer(): HTMLElement | undefined {
+		// TODO: Should this be the parentContainer or view container?
 		return this._renderer.notebookContainer;
 	}
 
@@ -308,6 +309,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Is the instance connected to an editor as indicated by having an associated container object?
 	 */
 	get connectedToEditor(): boolean {
+		// TODO: This is always true now.
+		//   It probably needs to check for a model or a specific view for that model
+		//   (which doesn't yet exist)
 		return Boolean(this.currentContainer);
 	}
 
@@ -317,7 +321,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	get textModel() {
 		return this._textModel.get();
 	}
-
 
 	get isReadOnly(): boolean {
 		return this._creationOptions?.isReadOnly ?? false;
@@ -354,7 +357,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._logService.debug(this.id, 'Generating new notebook options');
 
 		this._notebookOptions = this._register(
-			this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
+			this.scopedInstantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
 		);
 
 		// Reset per-cell scrolling overrides when the global output scrolling setting
@@ -378,6 +381,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._isDisposed;
 	}
 
+	// TODO: Not sure about having getters for these now-changing properties
+	//   like language and uri.
+	//   Either make methods, or rename like
 	/**
 	 * Gets the language for the notebook.
 	 */
