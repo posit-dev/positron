@@ -45,6 +45,8 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// Ensure the db/ directory exists before dbplyr::nycflights13_sqlite() runs.
 		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
 
+		await openFile(NYCFLIGHTS_R_SCRIPT);
+
 		// Run the same script that's open in the editor to build and register
 		// the connection. This matches the reference screenshot exactly.
 		await executeCode('R', [
@@ -59,29 +61,14 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 			'connections::connection_view(con)',
 		].join('\n'), { maximizeConsole: false, timeout: 60000 });
 
-		// Open the checked-in workspace script (same pattern as chinook-sqlite.r).
-		// The script uses file.path(getwd(), "db", "nycflights13.sqlite") which
-		// resolves to the db/ directory we just created above.
-		await openFile(NYCFLIGHTS_R_SCRIPT);
 
-		// Clear the R startup banner so the console shows only the script output.
-		await console.clearButton.click();
-
-		// Source the open file — connection_open() registers the connection in
-		// Positron's Connections pane.
-		await quickaccess.runCommand('r.sourceCurrentFile');
-
-		// Layout: keep the primary sidebar (file explorer) open so the editor
-		// is narrower, matching the reference. Only open the connections pane
-		// in the aux bar.
 		await connections.openConnectionPane();
-
-		// Wait for the schema tree root node to load before expanding children.
+		await page.locator('.codicon.codicon-arrow-circle-right').click();
 		await expect(page.locator('.connections-item').filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 30_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		// the columns are visible (matches the 3 expanded tables in the docs ref).
-		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airlines', /^flights$/, /^planes$/]);
+		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airports', /^planes$/]);
 		// Widen the connections pane so the full schema tree and column types
 		// are clearly visible, matching the reference.
 		await layouts.resizeAuxiliaryBar({ x: -200 });
