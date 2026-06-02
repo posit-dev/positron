@@ -4,14 +4,15 @@ name: "PR Test Checker"
 # Scope: runs only for PR authors / commenters in the posit-dev `positron-dev`
 # team. GitHub Actions `if:` has no team-membership predicate, and the default
 # GITHUB_TOKEN cannot read org membership, so a dedicated `gate` job resolves
-# membership at runtime via the GitHub API. It uses a fine-grained PAT loaded
-# from 1Password (op://Positron/PositronService-GitHub/pr-test-checker-PAT),
-# scoped to the posit-dev org with `Members: read` and nothing else, and
+# membership at runtime via the GitHub API. It mints a short-lived token from
+# the "Positron Projects" GitHub App (secrets POSITRON_PROJECTS_CLIENT_ID +
+# POSITRON_PROJECTS_PEM, shared with release-generate-sbom.yml) scoped to the
+# posit-dev org, which carries the App's `Members: read` permission, and
 # exposes an `ok` output the grading jobs depend on via `needs`. The gate
-# FAILS CLOSED: if the PAT is missing or any API call fails, `ok=false` and
-# nothing is graded. Membership is always live -- there is no allowlist to
-# maintain. To change who PETE runs for, edit the `positron-dev` team on
-# GitHub, not this file.
+# FAILS CLOSED: if the token can't be minted or any API call fails (e.g. the
+# App is missing `Members: read`), `ok=false` and nothing is graded. Membership
+# is always live -- there is no allowlist to maintain. To change who PETE runs
+# for, edit the `positron-dev` team on GitHub, not this file.
 #
 # Trigger recovery: we listen for `opened`, `synchronize`, AND `ready_for_review`
 # on `pull_request`, not just `opened`. GitHub occasionally drops `opened`
@@ -47,10 +48,10 @@ on:
 
 jobs:
   # Resolve positron-dev team membership at runtime. This is a pure GitHub API
-  # read with a read-only PAT; it checks out no PR code, so it is safe to run in
-  # base context. Emits `ok=true` only when the relevant user(s) are *active*
-  # team members, and FAILS CLOSED (`ok=false`) on a missing token or any API
-  # error. The grading jobs depend on this via `needs: gate`.
+  # read with a short-lived App token; it checks out no PR code, so it is safe
+  # to run in base context. Emits `ok=true` only when the relevant user(s) are
+  # *active* team members, and FAILS CLOSED (`ok=false`) on a token/API error.
+  # The grading jobs depend on this via `needs: gate`.
   gate:
     name: Check positron-dev membership
     # Cheap event-shape pre-filter so we don't spin up a runner (or hit the API)
@@ -62,7 +63,7 @@ jobs:
         github.event.issue.pull_request != null &&
         contains(github.event.comment.body, '/recheck-tests'))
     runs-on: ubuntu-latest
-    # No GITHUB_TOKEN scopes needed: the check uses the PAT in GH_TOKEN below.
+    # No GITHUB_TOKEN scopes needed: the check uses the App token in GH_TOKEN.
     permissions: {}
     concurrency:
       group: pr-test-checker-gate-${{ github.event.pull_request.number || github.event.issue.number }}
@@ -70,21 +71,22 @@ jobs:
     outputs:
       ok: ${{ steps.check.outputs.ok }}
     steps:
-      - name: Load membership-read PAT from 1Password
-        uses: 1password/load-secrets-action@v4
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
         with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          PETE_PAT: "op://Positron/PositronService-GitHub/pr-test-checker-PAT"
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
 
       - name: Check team membership
         id: check
         env:
-          # PAT loaded from 1Password above: fine-grained, scoped to the
-          # posit-dev org with `Members: read` only. If it is missing the gh
-          # calls fail and the gate stays ok=false -- fail closed.
-          GH_TOKEN: ${{ env.PETE_PAT }}
+          # Short-lived token from the Positron Projects GitHub App, scoped to
+          # the posit-dev org. Reading team membership needs the App's
+          # `Members: read` permission; without it the gh calls 404 and the gate
+          # stays ok=false -- fail closed.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           EVENT_NAME: ${{ github.event_name }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           COMMENTER: ${{ github.event.comment.user.login }}
