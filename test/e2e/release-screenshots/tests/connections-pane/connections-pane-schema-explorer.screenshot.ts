@@ -6,10 +6,10 @@
 import { expect } from '@playwright/test';
 import * as fs from 'fs';
 import { join } from 'path';
-import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { clearAnnotations } from './helpers/annotate-utils';
+import { test } from '../../../tests/_test.setup';
+import { captureFullWindow } from '../../helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
+import { clearAnnotations } from '../../helpers/annotate-utils';
 
 const NYCFLIGHTS_R_SCRIPT = join('workspaces', 'nycflights-sqlite-r', 'nycflights-sqlite.r');
 
@@ -47,8 +47,8 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 
 		await openFile(NYCFLIGHTS_R_SCRIPT);
 
-		// Run the same script that's open in the editor to build and register
-		// the connection. This matches the reference screenshot exactly.
+		// Run the same script shown in the editor to build the DB and register
+		// the connection. Matches the reference screenshot exactly.
 		await executeCode('R', [
 			'path <- dbplyr::nycflights13_sqlite(path = "db/")',
 			'',

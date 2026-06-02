@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { join } from 'path';
-import { test } from '../tests/_test.setup';
-import { captureRegion } from './helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { annotate, clearAnnotations } from './helpers/annotate-utils';
+import { test } from '../../../tests/_test.setup';
+import { captureRegion } from '../../helpers/screenshot-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
+import { annotate, clearAnnotations } from '../../helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
 

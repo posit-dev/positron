@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test } from '../tests/_test.setup';
-import { capturePanel } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { test } from '../../../tests/_test.setup';
+import { capturePanel } from '../../helpers/screenshot-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,

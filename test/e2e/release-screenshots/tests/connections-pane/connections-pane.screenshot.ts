@@ -6,10 +6,10 @@
 import { expect } from '@playwright/test';
 import * as fs from 'fs';
 import { join } from 'path';
-import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { clearAnnotations } from './helpers/annotate-utils';
+import { test } from '../../../tests/_test.setup';
+import { captureFullWindow } from '../../helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../../helpers/layout-utils';
+import { clearAnnotations } from '../../helpers/annotate-utils';
 
 test.use({
 	suiteId: __filename,
