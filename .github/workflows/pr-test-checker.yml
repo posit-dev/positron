@@ -1,8 +1,17 @@
 name: "PR Test Checker"
 
 # Grades whether the PR has adequate test coverage and posts a verdict comment.
-# Pilot scope: only runs for PR authors / commenters in the allowlist below.
-# To widen the pilot, edit both ALLOWLIST refs in this file (kept in sync).
+# Scope: runs only for PR authors / commenters in the posit-dev `positron-dev`
+# team. GitHub Actions `if:` has no team-membership predicate, and the default
+# GITHUB_TOKEN cannot read org membership, so a dedicated `gate` job resolves
+# membership at runtime via the GitHub API. It uses a fine-grained PAT loaded
+# from 1Password (op://Positron/PositronService-GitHub/pr-test-checker-PAT),
+# scoped to the posit-dev org with `Members: read` and nothing else, and
+# exposes an `ok` output the grading jobs depend on via `needs`. The gate
+# FAILS CLOSED: if the PAT is missing or any API call fails, `ok=false` and
+# nothing is graded. Membership is always live -- there is no allowlist to
+# maintain. To change who PETE runs for, edit the `positron-dev` team on
+# GitHub, not this file.
 #
 # Trigger recovery: we listen for `opened`, `synchronize`, AND `ready_for_review`
 # on `pull_request`, not just `opened`. GitHub occasionally drops `opened`
@@ -22,7 +31,7 @@ name: "PR Test Checker"
 # Read/Grep/Glob tools). The analyzer is invoked from the base checkout via
 # `uses: ./base/.github/actions/pr-test-checker` so that PR-head code is never
 # executed with secrets in scope. This closes the "pwn request" pattern where
-# a fork PR modifies action code, and an allowlisted user comments
+# a fork PR modifies action code, and a positron-dev member comments
 # /recheck-tests (an `issue_comment` event that runs in base context with
 # full secrets, unlike `pull_request` events which strip secrets for forks).
 
@@ -37,11 +46,84 @@ on:
       - created
 
 jobs:
+  # Resolve positron-dev team membership at runtime. This is a pure GitHub API
+  # read with a read-only PAT; it checks out no PR code, so it is safe to run in
+  # base context. Emits `ok=true` only when the relevant user(s) are *active*
+  # team members, and FAILS CLOSED (`ok=false`) on a missing token or any API
+  # error. The grading jobs depend on this via `needs: gate`.
+  gate:
+    name: Check positron-dev membership
+    # Cheap event-shape pre-filter so we don't spin up a runner (or hit the API)
+    # for every PR comment -- only PR events and `/recheck-tests` comments on PRs
+    # reach the membership check below.
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '/recheck-tests'))
+    runs-on: ubuntu-latest
+    # No GITHUB_TOKEN scopes needed: the check uses the PAT in GH_TOKEN below.
+    permissions: {}
+    concurrency:
+      group: pr-test-checker-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: true
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - name: Load membership-read PAT from 1Password
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PETE_PAT: "op://Positron/PositronService-GitHub/pr-test-checker-PAT"
+
+      - name: Check team membership
+        id: check
+        env:
+          # PAT loaded from 1Password above: fine-grained, scoped to the
+          # posit-dev org with `Members: read` only. If it is missing the gh
+          # calls fail and the gate stays ok=false -- fail closed.
+          GH_TOKEN: ${{ env.PETE_PAT }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+
+          # Active member -> HTTP 200 {"state":"active"}; non-member -> 404
+          # (gh exits non-zero, stdout empty). Pending invite -> "pending".
+          is_member() {
+            local state
+            state=$(gh api "orgs/posit-dev/teams/positron-dev/memberships/$1" --jq '.state' 2>/dev/null)
+            [ "$state" = "active" ]
+          }
+
+          ok=false
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # on-open: the PR author must be a team member.
+            if is_member "$PR_AUTHOR"; then
+              ok=true
+            fi
+          else
+            # on-recheck: BOTH the commenter and the PR author must be members,
+            # so an attacker can't bait /recheck-tests by commenting on a PR
+            # whose author is outside the team.
+            if is_member "$COMMENTER" && is_member "$ISSUE_AUTHOR"; then
+              ok=true
+            fi
+          fi
+
+          echo "Membership gate result: ok=$ok"
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
   on-open:
     name: Grade on PR change
+    needs: gate
     if: |
       github.event_name == 'pull_request' &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.pull_request.user.login)
+      needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -89,20 +171,21 @@ jobs:
 
   on-recheck:
     name: Re-grade on /recheck-tests
-    # Fires when an allowlisted user comments `/recheck-tests` on a PR.
+    needs: gate
+    # Fires when a positron-dev member comments `/recheck-tests` on a PR.
     # The issue_comment event runs in base-repo context with full secrets
     # even when the PR is from a fork, so two layers of defense:
-    #   1. BOTH the commenter AND the PR author must be allowlisted (the
-    #      PR-author check blocks comments on fork PRs by non-allowlisted
-    #      authors -- attackers can't bait /recheck-tests on their own PRs).
+    #   1. The `gate` job requires BOTH the commenter AND the PR author to be
+    #      positron-dev members (the PR-author check blocks comments on fork
+    #      PRs by non-members -- attackers can't bait /recheck-tests on a PR
+    #      whose author is outside the team).
     #   2. The job checks out the base branch to RUN the action and the
     #      PR head only as READ-ONLY DATA -- PR-head code never executes.
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
       contains(github.event.comment.body, '/recheck-tests') &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.comment.user.login) &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.issue.user.login)
+      needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
