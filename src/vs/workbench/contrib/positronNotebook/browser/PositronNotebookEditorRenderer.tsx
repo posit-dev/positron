@@ -33,6 +33,8 @@ export class PositronNotebookEditorRenderer extends Disposable {
 	 */
 	public readonly overlayContainer: HTMLElement;
 
+	public readonly notebookContainer: HTMLElement;
+
 	private readonly _renderer: PositronReactRenderer;
 
 	constructor(
@@ -55,11 +57,11 @@ export class PositronNotebookEditorRenderer extends Disposable {
 		this.overlayContainer = DOM.$('.positron-notebook-overlay-container');
 		this.editorContainer.appendChild(this.overlayContainer);
 
-		const container = DOM.$('.positron-notebook-container');
-		container.tabIndex = -1;
-		this._notebookShell.appendChild(container);
+		this.notebookContainer = DOM.$('.positron-notebook-container');
+		this.notebookContainer.tabIndex = -1;
+		this._notebookShell.appendChild(this.notebookContainer);
 
-		this._renderer = this._register(new PositronReactRenderer(container));
+		this._renderer = this._register(new PositronReactRenderer(this.notebookContainer));
 	}
 
 	render(

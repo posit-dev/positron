@@ -107,7 +107,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Dom element that contains the notebook is rendered in.
 	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
-	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+	public readonly container: IObservable<HTMLElement | undefined>;
 
 	/**
 	 * Disposables for the editor container event listeners
@@ -184,7 +184,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #endregion
 
 	get currentContainer(): HTMLElement | undefined {
-		return this.container.get();
+		return this._renderer.notebookContainer;
 	}
 
 	get overlayContainer(): HTMLElement {
@@ -459,6 +459,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
 		parentContainer.appendChild(this._renderer.editorContainer);
+
+		// TODO: Can we remove this observable given it never changes anymore?
+		this.container = observableValue<HTMLElement | undefined>('positronNotebookContainer', this._renderer.notebookContainer);
 
 		// TODO: It'd be simpler if this could be scoped to the parentContainer.
 		//   Would that break anything?
