@@ -220,6 +220,22 @@ describe('CellTagsBar', () => {
 		expect(tags.get()).toEqual(['keep', 'rename-me']);
 	});
 
+	it('notifies the user when an edit fails to write', async () => {
+		// renameTag returns 'failed' when the write can't be applied; the bar must
+		// surface the generic write-failure toast rather than dropping the rename.
+		const user = userEvent.setup();
+		const { cell, renameTag } = createTagCell(['old']);
+		renameTag.mockReturnValue('failed');
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Edit tag old' }));
+		const input = screen.getByRole('textbox');
+		await user.clear(input);
+		await user.type(input, 'new{Enter}');
+
+		expect(notificationInfo).toHaveBeenCalledWith(expect.stringContaining('Could not update'));
+	});
+
 	it('removes a tag via its close affordance', async () => {
 		const user = userEvent.setup();
 		const { cell, removeTag, tags } = createTagCell(['keep', 'drop']);
@@ -229,6 +245,19 @@ describe('CellTagsBar', () => {
 
 		expect(removeTag).toHaveBeenCalledWith('drop');
 		expect(tags.get()).toEqual(['keep']);
+	});
+
+	it('notifies the user when a removal fails to write', async () => {
+		// removeTag returns false when the write can't be applied; the bar must
+		// surface the generic write-failure toast rather than silently no-op.
+		const user = userEvent.setup();
+		const { cell, removeTag } = createTagCell(['keep', 'drop']);
+		removeTag.mockReturnValue(false);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Remove tag drop' }));
+
+		expect(notificationInfo).toHaveBeenCalledWith(expect.stringContaining('Could not update'));
 	});
 
 	it('keeps the surviving pills in order after removing a middle tag', async () => {
