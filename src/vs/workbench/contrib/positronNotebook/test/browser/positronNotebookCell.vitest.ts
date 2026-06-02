@@ -118,6 +118,21 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['dup', 'x']);
 	});
 
+	it('drops non-string tag entries and de-duplicates the rest', () => {
+		// tags is untrusted file data; an external writer can violate the
+		// string-array contract. Non-string entries are filtered out (rather than
+		// rendered as garbage) and survivors are de-duplicated.
+		const cell = createCellWithMetadata({ metadata: { tags: ['ok', 42, null, 'ok', { x: 1 }] } });
+		expect(cell.tags.get()).toEqual(['ok']);
+	});
+
+	it('treats a non-array tags value as no tags', () => {
+		// A malformed scalar/object tags value must not throw when read (e.g.
+		// spreading a non-iterable); it is ignored entirely.
+		const cell = createCellWithMetadata({ metadata: { tags: 'not-an-array' } });
+		expect(cell.tags.get()).toEqual([]);
+	});
+
 	it('ignores tags at the non-persisted top-level metadata location', () => {
 		// The ipynb serializer never writes top-level cell metadata to the file,
 		// so tags found there are not real and must be ignored.
