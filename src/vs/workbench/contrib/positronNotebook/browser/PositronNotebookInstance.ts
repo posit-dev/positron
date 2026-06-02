@@ -922,6 +922,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	//#endregion INotebookEditor
 
 	override dispose() {
+		this._isDisposed = true;
 
 		this._logService.debug(this.id, 'dispose');
 
