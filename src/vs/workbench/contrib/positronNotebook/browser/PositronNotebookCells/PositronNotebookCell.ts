@@ -13,8 +13,8 @@ import { Range } from '../../../../../editor/common/core/range.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
-import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
+import { CellEditType, CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, AddTagResult } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
@@ -75,6 +75,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
 	protected readonly _internalMetadata;
+	/** Cell tags, derived from the nested nbformat `metadata.metadata.tags`. */
+	public readonly tags: IObservable<string[]>;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
@@ -103,6 +105,16 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			this,
 			this.model.onDidChangeInternalMetadata,
 			() => /** @description internalMetadata */ this.model.internalMetadata,
+		);
+
+		// Observable of the cell's tags, sourced from the nested nbformat
+		// metadata (`metadata.metadata.tags`). This nested location is the only
+		// one the ipynb serializer persists to the file, so reading it here lets
+		// tags round-trip across save/reload.
+		this.tags = observableFromEvent(
+			this,
+			this.model.onDidChangeMetadata,
+			() => /** @description cellTags */((this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags as string[] | undefined) ?? [],
 		);
 
 		// Track this cell's current execution
@@ -183,6 +195,51 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	delete(): void {
 		this._instance.deleteCell(this);
+	}
+
+	setTags(tags: string[]): void {
+		const textModel = this._instance.textModel;
+		if (!textModel) {
+			return;
+		}
+		const index = this.index;
+		if (index < 0) {
+			return;
+		}
+		// nbformat tags live under the nested `metadata.metadata.tags`, which is
+		// the only location the ipynb serializer writes to the file. PartialMetadata
+		// is a shallow top-level merge, so spread the existing nested object to
+		// preserve sibling keys (vscode.languageId, collapsed, etc.) rather than
+		// replacing it. Drop the `tags` key entirely when empty, per nbformat
+		// convention. computeUndoRedo stays true so tag changes remain undoable.
+		const nestedMetadata: Record<string, unknown> = {
+			...((this.model.metadata.metadata as Record<string, unknown> | undefined) ?? {})
+		};
+		if (tags.length > 0) {
+			nestedMetadata.tags = tags;
+		} else {
+			delete nestedMetadata.tags;
+		}
+		textModel.applyEdits([
+			{
+				editType: CellEditType.PartialMetadata,
+				index,
+				metadata: { metadata: nestedMetadata }
+			}
+		], true, undefined, () => undefined, undefined, true);
+	}
+
+	addTag(tag: string): AddTagResult {
+		const value = tag.trim();
+		if (!value) {
+			return 'empty';
+		}
+		const existing = this.tags.get();
+		if (existing.includes(value)) {
+			return 'duplicate';
+		}
+		this.setTags([...existing, value]);
+		return 'added';
 	}
 
 	// Add placeholder run method to be overridden by subclasses

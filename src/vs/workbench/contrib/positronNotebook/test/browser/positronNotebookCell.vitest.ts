@@ -86,6 +86,92 @@ describe('PositronNotebookCell', () => {
 
 });
 
+describe('PositronNotebookCell tags', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().build();
+
+	/** Create a single-code-cell notebook, seeding the cell's metadata. */
+	function createCellWithMetadata(metadata: Record<string, unknown>): PositronNotebookCodeCell {
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata,
+			internalMetadata: {},
+		}], ctx);
+		return notebook.cells.get()[0] as PositronNotebookCodeCell;
+	}
+
+	it('reads tags from the nested nbformat metadata location', () => {
+		// On reload the ipynb deserializer stores the file's cell metadata under
+		// `metadata.metadata`, so the observable must read tags from there.
+		const cell = createCellWithMetadata({ metadata: { tags: ['seeded'] } });
+		expect(cell.tags.get()).toEqual(['seeded']);
+	});
+
+	it('ignores tags at the non-persisted top-level metadata location', () => {
+		// The ipynb serializer never writes top-level cell metadata to the file,
+		// so tags found there are not real and must be ignored.
+		const cell = createCellWithMetadata({ tags: ['ignored'] });
+		expect(cell.tags.get()).toEqual([]);
+	});
+
+	it('setTags writes to the nested location, not the top level', () => {
+		const cell = createCellWithMetadata({});
+		cell.setTags(['important', 'wip']);
+
+		expect((cell.model.metadata.metadata as Record<string, unknown>).tags).toEqual(['important', 'wip']);
+		expect(cell.model.metadata.tags).toBeUndefined();
+		expect(cell.tags.get()).toEqual(['important', 'wip']);
+	});
+
+	it('setTags preserves sibling nested metadata keys', () => {
+		// PartialMetadata is a shallow top-level merge, so the nested object is
+		// replaced wholesale unless setTags spreads it. Verify collapsed state
+		// and the vscode language id survive a tag edit.
+		const cell = createCellWithMetadata({
+			metadata: { collapsed: true, vscode: { languageId: 'python' } },
+		});
+		cell.setTags(['tag']);
+
+		expect(cell.model.metadata.metadata).toEqual({
+			collapsed: true,
+			vscode: { languageId: 'python' },
+			tags: ['tag'],
+		});
+	});
+
+	it('setTags([]) drops the tags key per nbformat convention', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['gone'], collapsed: true } });
+		cell.setTags([]);
+
+		expect(cell.model.metadata.metadata).toEqual({ collapsed: true });
+		expect(cell.tags.get()).toEqual([]);
+	});
+
+	it('addTag trims, appends, and reports "added"', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+
+		expect(cell.addTag('  second  ')).toBe('added');
+		expect(cell.tags.get()).toEqual(['first', 'second']);
+	});
+
+	it('addTag reports "empty" and adds nothing for a whitespace-only tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+
+		expect(cell.addTag('   ')).toBe('empty');
+		expect(cell.tags.get()).toEqual(['first']);
+	});
+
+	it('addTag reports "duplicate" and adds nothing for an existing tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['dup'] } });
+
+		expect(cell.addTag('  dup  ')).toBe('duplicate');
+		expect(cell.tags.get()).toEqual(['dup']);
+	});
+});
+
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 describe('PositronNotebookCell Test Harness', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
