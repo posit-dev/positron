@@ -438,6 +438,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             throw new Error(`Python interpreter path is missing: ${extraData.pythonPath}`);
         }
 
+        // If PET's first-pass discovery is still in flight, wait for it before checking
+        // registeredPythonRuntimes. This prevents session.start() from calling
+        // getInterpreterDetails() before PET has resolved the path, which would poison
+        // the 30-second undefined cache in nativeAPI.ts:resolveEnv().
+        await this.interpreterService.getRefreshPromise();
+
         // Replace the metadata if we can find the runtime in the registered runtimes
         let registeredMetadata = this.registeredPythonRuntimes.get(extraData.pythonPath);
 
