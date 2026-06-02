@@ -74,6 +74,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { notifyTagResult } from './notebookCells/cellTagNotifications.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NOTEBOOK_HAS_SOMETHING_RUNNING } from '../../notebook/common/notebookContextKeys.js';
@@ -702,20 +703,10 @@ export class AddTagAction extends NotebookAction2 {
 			ignoreFocusLost: true,
 		});
 
-		// The cell enforces trim / empty / duplicate handling; surface a toast
-		// when the tag already exists (or the write failed) so the user knows
-		// nothing was added.
+		// The cell enforces trim / empty / duplicate handling and reports the
+		// outcome; surface a toast so the user knows when nothing was added.
 		const value = (tag ?? '').trim();
-		const result = cell.addTag(value);
-		if (result === 'duplicate') {
-			notificationService.info(
-				localize('positron.notebook.cellTag.duplicate', "Tag '{0}' is already on this cell.", value)
-			);
-		} else if (result === 'failed') {
-			notificationService.info(
-				localize('positron.notebook.cellTag.addFailed', "Could not add tag '{0}'.", value)
-			);
-		}
+		notifyTagResult(notificationService, cell.addTag(value), value);
 	}
 }
 registerAction2(AddTagAction);
