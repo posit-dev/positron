@@ -650,7 +650,7 @@ KeybindingsRegistry.registerKeybindingRule({
 // Add Tag - prompts for a tag name and appends it to the active cell's tags.
 // This is the entry point for the first tag; once a cell has tags, further
 // tags can be added inline via the tag bar's "+" affordance.
-registerAction2(class extends NotebookAction2 {
+export class AddTagAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.addTag',
@@ -704,15 +704,22 @@ registerAction2(class extends NotebookAction2 {
 		});
 
 		// The cell enforces trim / empty / duplicate handling; surface a toast
-		// when the tag already exists so the user knows nothing was added.
+		// when the tag already exists (or the write failed) so the user knows
+		// nothing was added.
 		const value = (tag ?? '').trim();
-		if (cell.addTag(value) === 'duplicate') {
+		const result = cell.addTag(value);
+		if (result === 'duplicate') {
 			notificationService.info(
 				localize('positron.notebook.cellTag.duplicate', "Tag '{0}' is already on this cell.", value)
 			);
+		} else if (result === 'failed') {
+			notificationService.info(
+				localize('positron.notebook.cellTag.addFailed', "Could not add tag '{0}'.", value)
+			);
 		}
 	}
-});
+}
+registerAction2(AddTagAction);
 
 registerAction2(class extends NotebookAction2 {
 	constructor() {

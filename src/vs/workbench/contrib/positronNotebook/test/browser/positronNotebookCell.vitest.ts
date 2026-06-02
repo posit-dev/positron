@@ -173,6 +173,16 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual([]);
 	});
 
+	it('setTags ignores a non-object nested metadata value instead of spreading it', () => {
+		// metadata.metadata is untrusted; spreading a scalar would inject numeric
+		// keys (e.g. {0:'a',1:'b',...}). A malformed value is dropped and only the
+		// tag metadata is written.
+		const cell = createCellWithMetadata({ metadata: 'abc' });
+		cell.setTags(['tag']);
+
+		expect(cell.model.metadata.metadata).toEqual({ tags: ['tag'] });
+	});
+
 	it('addTag trims, appends, and reports "added"', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 

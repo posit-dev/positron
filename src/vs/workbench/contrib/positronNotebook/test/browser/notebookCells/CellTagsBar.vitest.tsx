@@ -129,6 +129,21 @@ describe('CellTagsBar', () => {
 		expect(notificationInfo).toHaveBeenCalledWith(expect.stringContaining('data'));
 	});
 
+	it('notifies the user when a committed add fails to write', async () => {
+		// addTag returns 'failed' when the write can't be applied (detached cell,
+		// no text model). The bar must surface that rather than dropping the tag
+		// silently.
+		const user = userEvent.setup();
+		const { cell, addTag } = createTagCell(['data']);
+		addTag.mockReturnValue('failed');
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Add tag' }));
+		await user.type(screen.getByRole('textbox'), 'oops{Enter}');
+
+		expect(notificationInfo).toHaveBeenCalledWith(expect.stringContaining('oops'));
+	});
+
 	it('edits a tag in place', async () => {
 		const user = userEvent.setup();
 		const { cell, setTags } = createTagCell(['old']);

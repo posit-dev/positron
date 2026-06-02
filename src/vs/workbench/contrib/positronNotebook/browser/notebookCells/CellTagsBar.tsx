@@ -87,9 +87,15 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		setAdding(false);
 		const value = raw.trim();
 		// The cell enforces trim / empty / duplicate handling; surface a toast
-		// when the tag already exists so the committed input doesn't just vanish.
-		if (cell.addTag(value) === 'duplicate') {
+		// when the tag already exists (or the write failed) so the committed
+		// input doesn't just vanish without feedback.
+		const result = cell.addTag(value);
+		if (result === 'duplicate') {
 			notifyDuplicate(value);
+		} else if (result === 'failed') {
+			notificationService.info(
+				localize('positron.notebook.cellTag.addFailed', "Could not add tag '{0}'.", value)
+			);
 		}
 	};
 
