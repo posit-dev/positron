@@ -11,7 +11,6 @@ import { CellKind, ICellDto2 } from '../../../notebook/common/notebookCommon.js'
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { MockNotebookCell } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 import { positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { stubNotebookEditorServices } from '../../../../../test/vitest/presets/notebookEditor.js';
@@ -20,15 +19,7 @@ import { ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../edit
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
-
-/**
- * Test subclass of PositronNotebookInstance that exposes disposable registration.
- * This allows test infrastructure to register disposables (editors, text models, etc.)
- * with the notebook's lifecycle.
- */
-export class TestPositronNotebookInstance extends PositronNotebookInstance {
-	instantiationService!: ITestInstantiationService;
-}
+import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 
 /**
  * Creates an instantiation service for Positron notebook tests.
@@ -82,7 +73,7 @@ function cellToDto(cell: TestCellInput): ICellDto2 {
 export function createTestPositronNotebookInstance(
 	cells: TestCellInput[],
 	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
-): TestPositronNotebookInstance {
+): PositronNotebookInstance {
 	return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
 }
 
@@ -94,7 +85,7 @@ export function createTestPositronNotebookInstance(
 export function createLabelledTestNotebook(
 	n: number,
 	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
-): TestPositronNotebookInstance {
+): PositronNotebookInstance {
 	const labels = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i));
 	return createTestPositronNotebookInstance(
 		labels.map(v => [v, 'python', CellKind.Code]),
@@ -116,18 +107,17 @@ export function instantiateTestNotebookInstance(
 	cells: TestCellInput[],
 	instantiationService: ITestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
-): TestPositronNotebookInstance {
+): PositronNotebookInstance {
 	// Create the notebook instance with a unique ID and URI so multiple
 	// instances can coexist in the same ModelService without collisions.
 	const id = nextInstanceId++;
 	const viewType = 'jupyter-notebook';
 	const notebook = disposables.add(instantiationService.createInstance(
-		TestPositronNotebookInstance,
+		PositronNotebookInstance,
 		`test-instance-${id}`,
 		viewType,
 		undefined, // creationOptions
 	));
-	notebook.instantiationService = instantiationService;
 
 	// Create the notebook text model directly (before attachView, matching
 	// PositronNotebookEditor.setInput production order).
