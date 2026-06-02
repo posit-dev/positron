@@ -1,0 +1,83 @@
+name: "PETE App Token Smoke Test (temporary)"
+
+# TEMPORARY / THROWAWAY -- delete once the question is answered.
+#
+# Verifies whether the existing "Positron Projects" GitHub App (secrets
+# POSITRON_PROJECTS_CLIENT_ID + POSITRON_PROJECTS_PEM, used by
+# release-generate-sbom.yml) can mint a posit-dev org token with
+# `Members: read`. That decides whether the PETE membership `gate` could use
+# the App via actions/create-github-app-token instead of the 1Password PAT.
+#
+# Triggered on push to this branch (not workflow_dispatch, which only appears in
+# the UI for workflows on the default branch). A same-repo push keeps secrets in
+# scope, unlike fork events. Scoped to this file's path so it only runs when the
+# smoke test itself changes, not on every push to the branch.
+
+on:
+  push:
+    branches:
+      - jonv/pete-team-membership-gate
+    paths:
+      - .github/workflows/pete-app-token-smoke-test.yml
+
+jobs:
+  probe:
+    name: Probe posit-dev / positron-dev via App token
+    runs-on: ubuntu-latest
+    # The probe authenticates with the App token below, not GITHUB_TOKEN.
+    permissions: {}
+    steps:
+      - name: Mint org-scoped App token
+        id: token
+        # Don't fail the job here -- a failure is itself a meaningful result
+        # (App not installed on posit-dev). The diagnose step reports it.
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Diagnose
+        env:
+          TOKEN_OUTCOME: ${{ steps.token.outcome }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          # A known ACTIVE member of positron-dev, so a non-active result means a
+          # permission problem (no Members:read), not actual non-membership.
+          PROBE_USER: jonvanausdeln
+        run: |
+          set -uo pipefail
+          echo "## PETE App-token smoke test"
+          echo
+
+          # --- Condition 1: can the App mint a posit-dev org token? ---
+          if [ "$TOKEN_OUTCOME" != "success" ]; then
+            echo "RESULT: FAIL (condition 1 -- installation)"
+            echo "create-github-app-token could not mint a posit-dev org token."
+            echo "=> The Positron App is not installed on the posit-dev org (or"
+            echo "   cannot issue an org-scoped token). The App route requires the"
+            echo "   App to be installed on posit-dev first."
+            exit 1
+          fi
+          echo "[OK] Condition 1: minted an org-scoped token for posit-dev."
+          echo
+
+          # --- Condition 2: can that token read team membership? ---
+          echo "Probing GET /orgs/posit-dev/teams/positron-dev/memberships/$PROBE_USER ..."
+          resp=$(gh api --include "orgs/posit-dev/teams/positron-dev/memberships/$PROBE_USER" 2>&1 || true)
+          printf '%s\n' "$resp" | head -1   # HTTP status line
+
+          if printf '%s' "$resp" | grep -q '"state"[[:space:]]*:[[:space:]]*"active"'; then
+            echo "[OK] Condition 2: token read positron-dev membership (state=active)."
+            echo
+            echo "RESULT: PASS"
+            echo "=> The App works for the PETE gate. We can rewire gate to use"
+            echo "   create-github-app-token (owner: posit-dev) and drop the PAT."
+          else
+            echo "RESULT: FAIL (condition 2 -- permission)"
+            echo "=> Token minted but could not read positron-dev membership. The"
+            echo "   App likely lacks Organization -> Members: Read. Add that"
+            echo "   permission to the App and have an org owner approve it, or keep"
+            echo "   the 1Password PAT."
+            exit 1
+          fi
