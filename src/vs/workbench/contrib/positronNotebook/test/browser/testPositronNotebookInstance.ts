@@ -110,10 +110,12 @@ export function instantiateTestNotebookInstance(
 ): PositronNotebookInstance {
 	// Create the notebook instance with a unique ID and URI so multiple
 	// instances can coexist in the same ModelService without collisions.
+	const parentContainer = document.createElement('div');
 	const id = nextInstanceId++;
 	const viewType = 'jupyter-notebook';
 	const notebook = disposables.add(instantiationService.createInstance(
 		PositronNotebookInstance,
+		parentContainer,
 		`test-instance-${id}`,
 		viewType,
 		undefined, // creationOptions

@@ -176,8 +176,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		this._notebookInstance = this.instantiationService.createInstance(
 			PositronNotebookInstance,
-			// TODO: Make container an arg and remove attachView.
-			// parent,
+			parent,
 			this._identifier,
 			'jupyter-notebook',
 			undefined,

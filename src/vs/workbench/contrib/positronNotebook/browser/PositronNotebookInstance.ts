@@ -435,6 +435,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param creationOptions Options for opening notebook.
 	 */
 	constructor(
+		parentContainer: HTMLElement,
 		public readonly id: string,
 		public readonly viewType: string,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
@@ -578,6 +579,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
+		parentContainer.appendChild(this._renderer.editorContainer);
 
 		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.editorContainer));
 		this.scopedInstantiationService = this._instantiationService.createChild(
