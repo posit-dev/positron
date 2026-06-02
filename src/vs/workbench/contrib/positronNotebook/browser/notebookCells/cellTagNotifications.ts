@@ -12,8 +12,8 @@ import { AddTagResult } from '../PositronNotebookCells/IPositronNotebookCell.js'
  * the inline tag bar and the "Add Tag" command so the result -> notification
  * mapping (and its localized strings) lives in one place.
  *
- * `'duplicate'` and `'failed'` show an info toast; `'added'` and `'empty'` are
- * silent -- a successful write needs no toast, and a blank input just closes.
+ * `'duplicate'` and `'failed'` show an info toast; `'added'` is silent -- a
+ * successful write (or a blank no-op input) needs no toast.
  */
 export function notifyTagResult(notificationService: INotificationService, result: AddTagResult, tag: string): void {
 	if (result === 'duplicate') {
