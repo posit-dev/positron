@@ -24,7 +24,7 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
+	await setScreenshotWindowSize(app, { width: 960, height: 640 });
 });
 
 test.afterEach(async ({ page, hotKeys }) => {
