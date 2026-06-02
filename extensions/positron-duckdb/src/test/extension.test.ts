@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import * as vscode from 'vscode';
 import {
 	BackendState,
@@ -400,6 +401,57 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		} finally {
 			// Clean up the temporary file
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('gzipped parquet (.parquet.gz)', async () => {
+		// DuckDB's parquet reader can't unwrap an outer gzip container, so this
+		// exercises the JS decompress + temp-file path in createTableFromUri.
+		const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+		const tempPath = path.join(__dirname, 'temp_flights.parquet.gz');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zlib.gzipSync(parquetBytes));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 100, num_columns: 19 });
+		} finally {
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('zstd-compressed CSV (.csv.zst)', async function () {
+		// zstdCompressSync (added to zlib after the pinned @types/node) is only
+		// needed to build the fixture; skip if the test runtime predates it.
+		// Reading is done natively by DuckDB.
+		const zstdCompressSync = (zlib as typeof zlib & {
+			zstdCompressSync?: (buf: Uint8Array) => Buffer;
+		}).zstdCompressSync;
+		if (typeof zstdCompressSync !== 'function') {
+			this.skip();
+		}
+		const csvContent = 'a,b\n1,x\n2,y\n3,z\n';
+		const tempPath = path.join(__dirname, 'temp_zstd_test.csv.zst');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zstdCompressSync(Buffer.from(csvContent, 'utf8')));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 3, num_columns: 2 });
+		} finally {
 			try {
 				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
 			} catch {
