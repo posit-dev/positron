@@ -39,18 +39,15 @@ import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
-import { EnvironentProvider } from './EnvironmentProvider.js';
 
 export interface PositronNotebookComponentProps {
 	notebookInstance: IPositronNotebookInstance;
 	onReload: () => void;
-	scopedContextKeyService: IPositronNotebookInstance['scopedContextKeyService'];
 }
 
 export function PositronNotebookComponent({
 	notebookInstance,
 	onReload,
-	scopedContextKeyService,
 }: PositronNotebookComponentProps) {
 	const { logService } = usePositronReactServicesContext();
 	return <NotebookErrorBoundary
@@ -60,11 +57,7 @@ export function PositronNotebookComponent({
 		onReload={onReload}
 	>
 		<NotebookInstanceProvider instance={notebookInstance}>
-			<EnvironentProvider environmentBundle={{
-				scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
-			}}>
-				<NotebookBody />
-			</EnvironentProvider>
+			<NotebookBody />
 		</NotebookInstanceProvider>
 	</NotebookErrorBoundary>;
 }
