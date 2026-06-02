@@ -124,6 +124,9 @@ jobs:
         id: runtimes
         uses: ./.github/actions/setup-release-screenshot-runtimes
 
+      - name: Pre-warm matplotlib font cache
+        run: python -c "import matplotlib.pyplot as plt; plt.figure()"
+
       - name: Clone positron-website (public)
         if: env.MODE == 'nightly'
         run: |
