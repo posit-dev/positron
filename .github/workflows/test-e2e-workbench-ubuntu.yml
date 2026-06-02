@@ -41,9 +41,25 @@ permissions:
 
 jobs:
   e2e-workbench:
-    name: ${{ inputs.display_name || 'e2e-workbench' }}
+    name: ${{ inputs.display_name || 'e2e-workbench' }} (${{ matrix.shard.name }})
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: default
+            credentials: ''
+            grep: '@:workbench'
+            grep_invert: '@:workbench-(snowflake|databricks)'
+          - name: snowflake
+            credentials: 'snowflake'
+            grep: '@:workbench-snowflake'
+            grep_invert: ''
+          - name: databricks
+            credentials: 'databricks'
+            grep: '@:workbench-databricks'
+            grep_invert: ''
 
     env:
       POSITRON_BUILD_NUMBER: 0
@@ -134,6 +150,7 @@ jobs:
         uses: ./.github/actions/setup-workbench-docker
         with:
           install-mode: ${{ inputs.install_mode }}
+          credentials: ${{ matrix.shard.credentials }}
           wb-password: ${{ secrets.WB_PASSWORD }}
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
@@ -151,7 +168,7 @@ jobs:
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: e2e-workbench
+          identifier: e2e-workbench-${{ matrix.shard.name }}
 
       - name: 🧪 Run Playwright Workbench Tests
         shell: bash
@@ -170,7 +187,13 @@ jobs:
           REPORTER_REPO_NAME: positron
         run: |
           export DISPLAY=:10
-          npx playwright test --project e2e-workbench --retries=1 --workers=1
+          GREP_INVERT_ARG=""
+          if [ -n "${{ matrix.shard.grep_invert }}" ]; then
+            GREP_INVERT_ARG="--grep-invert=${{ matrix.shard.grep_invert }}"
+          fi
+          npx playwright test --project e2e-workbench --retries=1 --workers=1 \
+            --grep="${{ matrix.shard.grep }}" \
+            $GREP_INVERT_ARG
 
       - name: Upload HTML report to S3
         if: always()
@@ -183,7 +206,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-workbench-ubuntu-logs
+          name: e2e-workbench-ubuntu-logs-${{ matrix.shard.name }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
