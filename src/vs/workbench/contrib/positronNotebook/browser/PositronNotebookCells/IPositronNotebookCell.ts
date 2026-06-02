@@ -19,11 +19,12 @@ import { ICellRevealOptions } from './PositronNotebookCell.js';
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 /**
- * The outcome of {@link IPositronNotebookCell.addTag}. `'empty'` means the tag
- * was blank after trimming; `'duplicate'` means it already existed; `'failed'`
+ * The outcome of {@link IPositronNotebookCell.addTag} and
+ * {@link IPositronNotebookCell.renameTag}. `'empty'` means the tag was blank
+ * after trimming; `'duplicate'` means it already existed on the cell; `'failed'`
  * means the write could not be applied (e.g. no text model, or the cell is no
- * longer in the notebook). Callers use this to decide whether to surface
- * feedback (e.g. a notification on a duplicate).
+ * longer in the notebook). Callers pass this to `notifyTagResult` to surface
+ * feedback.
  */
 export type AddTagResult = 'added' | 'duplicate' | 'empty' | 'failed';
 
@@ -108,19 +109,29 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly tags: IObservable<string[]>;
 
 	/**
-	 * Replace the cell's tags. Writes through to the nested `metadata.metadata.tags`
-	 * (see {@link tags}) and persists to the notebook document. Returns `true` if
-	 * the write was applied, or `false` if it was skipped (no text model, or the
-	 * cell is no longer in the notebook) so callers can report the real outcome.
-	 */
-	setTags(tags: string[]): boolean;
-
-	/**
 	 * Append a single tag, enforcing the tag-set invariant: the tag is trimmed,
-	 * and an empty or duplicate tag is ignored. Delegates to {@link setTags}.
-	 * Returns the {@link AddTagResult} so callers can surface feedback.
+	 * and an empty or duplicate tag is ignored. Persists to the notebook document
+	 * (see {@link tags}). Returns the {@link AddTagResult} so callers can surface
+	 * feedback.
 	 */
 	addTag(tag: string): AddTagResult;
+
+	/**
+	 * Remove a tag from the cell. A tag that isn't present is a no-op. Persists to
+	 * the notebook document. Returns `true` if the resulting state was applied
+	 * (including the no-op case), or `false` if the write was skipped (no text
+	 * model, or the cell is no longer in the notebook) so callers can surface the
+	 * real outcome.
+	 */
+	removeTag(tag: string): boolean;
+
+	/**
+	 * Rename an existing tag, enforcing the tag-set invariant: the new value is
+	 * trimmed, and a rename onto an empty, missing, or duplicate target is rejected
+	 * without writing. Persists to the notebook document. Returns the
+	 * {@link AddTagResult} so callers can surface feedback.
+	 */
+	renameTag(oldTag: string, newTag: string): AddTagResult;
 
 	/**
 	 * Delete this cell

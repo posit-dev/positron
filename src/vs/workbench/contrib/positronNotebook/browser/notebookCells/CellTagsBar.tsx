@@ -17,6 +17,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
+import { notifyTagResult } from './cellTagNotifications.js';
 
 // Tag-bar clicks must not bubble to the cell wrapper's selection handler, which
 // would re-focus the cell container and blur an open tag input.
@@ -46,57 +47,30 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		return null;
 	}
 
-	const notifyDuplicate = (tag: string) => {
-		notificationService.info(
-			localize('positron.notebook.cellTag.duplicate', "Tag '{0}' is already on this cell.", tag)
-		);
-	};
-
 	const removeTag = (tag: string) => {
-		const latestTags = cell.tags.get();
-		if (!latestTags.includes(tag)) {
-			return;
+		// The cell owns the membership check and the write; only surface a failed
+		// write (e.g. detached cell), otherwise removal is silent.
+		if (!cell.removeTag(tag)) {
+			notifyTagResult(notificationService, 'failed', tag);
 		}
-		cell.setTags(latestTags.filter(t => t !== tag));
 	};
 
 	const commitEdit = (originalTag: string, raw: string) => {
 		setEditingTag(null);
-		const latestTags = cell.tags.get();
-		const index = latestTags.indexOf(originalTag);
-		if (index < 0) {
-			return;
-		}
-		const value = raw.trim();
-		if (!value) {
+		// Clearing the input removes the tag; otherwise the cell owns trim /
+		// missing / duplicate handling and reports the outcome to surface.
+		if (!raw.trim()) {
 			removeTag(originalTag);
 			return;
 		}
-		// Renaming onto an existing tag is rejected; tell the user why rather
-		// than silently reverting.
-		if (latestTags.some((t, i) => i !== index && t === value)) {
-			notifyDuplicate(value);
-			return;
-		}
-		const next = [...latestTags];
-		next[index] = value;
-		cell.setTags(next);
+		notifyTagResult(notificationService, cell.renameTag(originalTag, raw), raw.trim());
 	};
 
 	const commitAdd = (raw: string) => {
 		setAdding(false);
-		const value = raw.trim();
-		// The cell enforces trim / empty / duplicate handling; surface a toast
-		// when the tag already exists (or the write failed) so the committed
-		// input doesn't just vanish without feedback.
-		const result = cell.addTag(value);
-		if (result === 'duplicate') {
-			notifyDuplicate(value);
-		} else if (result === 'failed') {
-			notificationService.info(
-				localize('positron.notebook.cellTag.addFailed', "Could not add tag '{0}'.", value)
-			);
-		}
+		// The cell enforces trim / empty / duplicate handling and reports the
+		// outcome; surface a toast so a rejected input doesn't vanish silently.
+		notifyTagResult(notificationService, cell.addTag(raw), raw.trim());
 	};
 
 	return (

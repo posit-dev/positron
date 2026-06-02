@@ -219,7 +219,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.deleteCell(this);
 	}
 
-	setTags(tags: string[]): boolean {
+	private setTags(tags: string[]): boolean {
 		// Skip no-op writes: applyEdits replaces the metadata object and fires a
 		// change even for identical content, which would add an undo entry and
 		// dirty the notebook. A no-op leaves the desired state in place, so report
@@ -276,6 +276,39 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// Report the actual write outcome rather than assuming success: setTags
 		// no-ops when the text model is unavailable or the cell is detached.
 		return this.setTags([...existing, value]) ? 'added' : 'failed';
+	}
+
+	removeTag(tag: string): boolean {
+		const existing = this.tags.get();
+		if (!existing.includes(tag)) {
+			// Already absent: the desired state holds, so report success without
+			// writing (mirrors the no-op skip in setTags).
+			return true;
+		}
+		return this.setTags(existing.filter(t => t !== tag));
+	}
+
+	renameTag(oldTag: string, newTag: string): AddTagResult {
+		const value = newTag.trim();
+		if (!value) {
+			return 'empty';
+		}
+		const existing = this.tags.get();
+		const index = existing.indexOf(oldTag);
+		if (index < 0) {
+			// The tag being renamed is gone (the cell changed underneath us).
+			return 'failed';
+		}
+		// Reject a rename onto a different existing tag. Renaming to the unchanged
+		// value matches only its own index, so it falls through to a setTags no-op.
+		if (existing.some((t, i) => i !== index && t === value)) {
+			return 'duplicate';
+		}
+		const next = [...existing];
+		next[index] = value;
+		// Report the actual write outcome rather than assuming success: setTags
+		// no-ops when the text model is unavailable or the cell is detached.
+		return this.setTags(next) ? 'added' : 'failed';
 	}
 
 	// Add placeholder run method to be overridden by subclasses
