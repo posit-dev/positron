@@ -971,8 +971,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	layout(dimension: DOM.Dimension): void {
 		this.size.set(dimension, undefined);
-		// TODO: Do we really need to call DOM.size?
-		// DOM.size(this._editorContainer, dimension.width, dimension.height);
 	}
 
 	private _refreshSelectedKernel() {
