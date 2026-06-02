@@ -1014,6 +1014,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * setting up the initial state of the notebook.
 	 */
 	setModel(model: NotebookTextModel | undefined): void {
+		if (this._textModel.get() === model) {
+			// No change.
+			return;
+		}
+
 		this._textModel.set(model, undefined);
 
 		// Refresh the selected kernel given the new model,
@@ -1054,6 +1059,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: How do we *schedule* renders?... Does it matter?
 		// TODO: Do we also want a viewModel?... What lives there?
 		this._renderer.render(this);
+	}
+
+	private _detachModel(): void {
 	}
 
 	/**
