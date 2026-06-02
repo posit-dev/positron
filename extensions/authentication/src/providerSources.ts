@@ -190,7 +190,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Gemini 2.5 Flash (Vertex)',
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('googleVertex'),
+				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
 				...(vertexFromEnv && {
 					autoconfigure: {

@@ -252,7 +252,10 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
 				},
 				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
