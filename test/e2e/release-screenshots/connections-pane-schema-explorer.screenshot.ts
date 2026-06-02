@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import * as fs from 'fs';
 import { join } from 'path';
 import { test } from '../tests/_test.setup';
 import { captureFullWindow } from './helpers/screenshot-utils';
@@ -42,24 +41,18 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		const { sessions, console, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		const nycflightsDbPath = join(app.workspacePathOrFolder, 'db', 'nycflights13.sqlite').replace(/\\/g, '/');
-
-		// Build the nycflights13-schema SQLite database silently (no echo) so
-		// the CREATE TABLE boilerplate never appears in the editor or console.
-		// The nycflights13 R package is not installed in CI's R 4.5.2 env.
-		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
+		// Run the same script that's open in the editor to build and register
+		// the connection. This matches the reference screenshot exactly.
 		await executeCode('R', [
+			'path <- dbplyr::nycflights13_sqlite(path = "db/")',
+			'',
 			'library(DBI)',
-			'library(RSQLite)',
-			`db_path <- "${nycflightsDbPath}"`,
-			'dir.create(dirname(db_path), recursive = TRUE, showWarnings = FALSE)',
-			'tmp <- dbConnect(SQLite(), db_path)',
-			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS airlines (carrier TEXT, name TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS airports (faa TEXT, name TEXT, lat REAL, lon REAL, alt INTEGER, tz INTEGER, dst TEXT, tzone TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS flights (year INTEGER, month INTEGER, day INTEGER, dep_time INTEGER, arr_time INTEGER, carrier TEXT, flight INTEGER, tailnum TEXT, origin TEXT, dest TEXT, air_time REAL, distance REAL)")',
-			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS planes (tailnum TEXT, year INTEGER, type TEXT, manufacturer TEXT, model TEXT, engines INTEGER, seats INTEGER, speed REAL, engine TEXT)")',
-			'dbExecute(tmp, "CREATE TABLE IF NOT EXISTS weather (origin TEXT, year INTEGER, month INTEGER, day INTEGER, hour INTEGER, temp REAL, dewp REAL, humid REAL, wind_dir REAL, wind_speed REAL, wind_gust REAL, precip REAL, pressure REAL, visib REAL, time_hour TEXT)")',
-			'dbDisconnect(tmp)',
+			'con <- dbConnect(',
+			'  RSQLite::SQLite(),',
+			'  dbname = "db/nycflights13.sqlite",',
+			'  bigint = "integer64"',
+			')',
+			'connections::connection_view(con)',
 		].join('\n'), { maximizeConsole: false, timeout: 60000 });
 
 		// Open the checked-in workspace script (same pattern as chinook-sqlite.r).
