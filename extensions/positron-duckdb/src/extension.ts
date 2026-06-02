@@ -81,6 +81,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as zlib from 'zlib';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
@@ -93,6 +94,8 @@ const DEBUG_LOG = false;
  */
 class QueryResult {
 	private _columns: any[][] | undefined;
+	private _rows: any[] | undefined;
+	private _columnNames: string[] | undefined;
 
 	constructor(private readonly result: DuckDBResultReader) { }
 
@@ -108,18 +111,30 @@ class QueryResult {
 
 	/** The names of the columns, in column order. */
 	get columnNames(): string[] {
-		return this.result.columnNames();
+		if (this._columnNames === undefined) {
+			this._columnNames = this.result.columnNames();
+		}
+		return this._columnNames;
 	}
+
+	// Note: the JS accessors (getRowObjectsJS / getColumnsJS) coerce values to
+	// plain JS (e.g. Date for temporal types, number for DECIMAL) rather than
+	// node-api's DuckDBValue wrapper objects, so values that aren't explicitly
+	// CAST to VARCHAR in SQL still render and serialize sanely. Integer types
+	// remain bigint; count/stat call sites wrap those in Number(...).
 
 	/** The result rows as plain objects keyed by column name. */
 	toArray(): any[] {
-		return this.result.getRowObjects();
+		if (this._rows === undefined) {
+			this._rows = this.result.getRowObjectsJS();
+		}
+		return this._rows;
 	}
 
 	/** The values for the column at the given index. */
 	columnAt(index: number): any[] {
 		if (this._columns === undefined) {
-			this._columns = this.result.getColumns();
+			this._columns = this.result.getColumnsJS();
 		}
 		return this._columns[index];
 	}
@@ -133,16 +148,22 @@ class QueryResult {
 class DuckDBInstance {
 	runningQuery: Promise<any> = Promise.resolve();
 
-	constructor(readonly con: DuckDBConnection) { }
+	constructor(private readonly instance: NeoDuckDBInstance, readonly con: DuckDBConnection) { }
 
-	static async create(_ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
+	static async create(): Promise<DuckDBInstance> {
 		// Create an in-memory database backed by the native DuckDB binary.
 		const instance = await NeoDuckDBInstance.create(':memory:');
 		const con = await instance.connect();
 		await con.run(`LOAD icu;
 		SET TIMEZONE=\'UTC\';
 		`);
-		return new DuckDBInstance(con);
+		return new DuckDBInstance(instance, con);
+	}
+
+	/** Closes the connection and releases the native database handle. */
+	close(): void {
+		this.con.closeSync();
+		this.instance.closeSync();
 	}
 
 	async runQuery(query: string): Promise<QueryResult> {
@@ -312,6 +333,29 @@ function quoteIdentifier(fieldName: string) {
  */
 function quoteLiteral(value: string) {
 	return value.replace(/'/g, '\'\'');
+}
+
+/**
+ * Decompresses a gzip- or zstd-compressed buffer. Used for Parquet files, whose
+ * reader cannot unwrap an outer compression container the way DuckDB's CSV/TSV
+ * readers can.
+ * @param data The compressed bytes
+ * @param compression The compression scheme
+ * @returns The decompressed bytes
+ */
+function decompress(data: Uint8Array, compression: 'gzip' | 'zstd'): Uint8Array {
+	if (compression === 'gzip') {
+		return zlib.gunzipSync(data);
+	}
+	// zstdDecompressSync was added to Node's zlib after the @types/node version
+	// pinned here, so reach for it through a narrowed type.
+	const zstd = (zlib as typeof zlib & {
+		zstdDecompressSync?: (buf: Uint8Array) => Buffer;
+	}).zstdDecompressSync;
+	if (typeof zstd !== 'function') {
+		throw new Error('Zstandard decompression is not supported by this runtime');
+	}
+	return zstd(data);
 }
 
 function anyValue(unquotedName: string) {
@@ -1582,10 +1626,10 @@ END`;
 		const exportQueryOutput = async (query: string,
 			columns: Array<SchemaEntry>): Promise<ExportedData> => {
 			const result = await this.db.runQuery(query);
+			const names = result.columnNames;
 			const unboxed = [
 				columns.map(s => s.column_name),
-				// TODO: maybe this can be made more efficient
-				...result.toArray().map(row => result.columnNames.map(name => row[name]))
+				...result.toArray().map(row => names.map(name => row[name]))
 			];
 
 			let data;
@@ -1858,11 +1902,16 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 */
 	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions) {
 		let fileExt = path.extname(uri.path);
-		const isGzipped = fileExt === '.gz';
-
-		if (isGzipped) {
-			fileExt = path.extname(uri.path.slice(0, -3));
+		// DuckDB transparently decompresses gzip/zstd-wrapped CSV/TSV by file
+		// extension, so we strip the compression extension to detect the inner
+		// format. Parquet is handled separately below (its reader can't unwrap an
+		// outer compression container).
+		const compressionExt = fileExt === '.gz' || fileExt === '.zst' ? fileExt : '';
+		const compression = fileExt === '.gz' ? 'gzip' : fileExt === '.zst' ? 'zstd' : undefined;
+		if (compression) {
+			fileExt = path.extname(uri.path.slice(0, -compressionExt.length));
 		}
+		const isParquet = fileExt === '.parquet' || fileExt === '.parq';
 
 		const getCsvImportQuery = (_filePath: string, options: Array<string>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
@@ -1893,23 +1942,31 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			}
 		};
 
-		// Native DuckDB reads files directly from disk and transparently handles
-		// compressed (.gz/.zst) CSV/TSV files, so we can hand it the real path.
-		// For non-file URI schemes (e.g. untitled or virtual documents) DuckDB
-		// has no path to open, so we spill the contents to a temporary file.
+		// Resolve a filesystem path DuckDB can read directly. For local files we
+		// can usually hand DuckDB the real path; it reads .gz/.zst-compressed
+		// CSV/TSV transparently. We spill to a temporary file when either (a) the
+		// URI is not a local file (e.g. untitled or virtual documents), or (b) it
+		// is a compressed Parquet, whose outer container DuckDB's Parquet reader
+		// cannot unwrap, so we decompress it ourselves first.
 		let filePath: string;
 		let tempPath: string | undefined;
-		if (uri.scheme === 'file') {
+		if (uri.scheme === 'file' && !(isParquet && compression)) {
 			filePath = uri.fsPath;
 		} else {
-			const fileContents = await vscode.workspace.fs.readFile(uri);
-			tempPath = path.join(os.tmpdir(), `positron-duckdb-${randomUUID()}-${path.basename(uri.path)}`);
+			let fileContents = await vscode.workspace.fs.readFile(uri);
+			let tempName = path.basename(uri.path);
+			if (isParquet && compression) {
+				fileContents = decompress(fileContents, compression);
+				// Drop the compression extension now that the bytes are decompressed.
+				tempName = path.basename(uri.path, compressionExt);
+			}
+			tempPath = path.join(os.tmpdir(), `positron-duckdb-${randomUUID()}-${tempName}`);
 			await fs.promises.writeFile(tempPath, fileContents);
 			filePath = tempPath;
 		}
 
 		try {
-			if (fileExt === '.parquet' || fileExt === '.parq') {
+			if (isParquet) {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
 				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
 				await this.db.runQuery(query);
@@ -2026,9 +2083,11 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
  * @param context An ExtensionContext that contains the extension context.
  */
 export async function activate(context: vscode.ExtensionContext) {
-	// Register a simple command that runs a DuckDB-Wasm query
-	const db = await DuckDBInstance.create(context);
+	// Create the native DuckDB database and close it when the extension unloads.
+	const db = await DuckDBInstance.create();
+	context.subscriptions.push({ dispose: () => db.close() });
 
+	// Register a simple command that runs a DuckDB query
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-duckdb.runQuery',
 			async (query: string) => {

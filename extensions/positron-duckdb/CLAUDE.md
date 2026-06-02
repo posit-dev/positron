@@ -204,7 +204,7 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 
 #### Common Issues
 1. **Native Binding Loading**: `@duckdb/node-api` loads the platform-specific `@duckdb/node-bindings-*` package, installed automatically as a transitive optional dependency for the build host's architecture. Positron ships arch-specific packages, so each build carries only its matching binding.
-2. **File Reading**: Files are read directly from disk by path (`uri.fsPath`); native DuckDB handles `.gz`/`.zst` compression. Non-`file:` URIs are spilled to a temp file first.
+2. **File Reading**: Files are read directly from disk by path (`uri.fsPath`); native DuckDB transparently decompresses `.gz`/`.zst` CSV/TSV. Non-`file:` URIs (and compressed Parquet, which DuckDB's reader can't unwrap, decompressed in JS via `decompress()`) are spilled to a temp file first.
 3. **SQL Generation**: Ensure proper identifier quoting with `quoteIdentifier()` and string-literal escaping (file paths) with `quoteLiteral()`
 4. **Memory Management**: Clean up resources and event handlers
 5. **Type Conversions**: node-api returns `BigInt` for integer types and `DuckDBValue` wrappers for temporal/decimal types; most queries `CAST(... AS VARCHAR)` so values arrive as strings. Wrap counts in `Number(...)`.
