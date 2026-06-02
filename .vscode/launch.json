@@ -784,25 +784,10 @@
 			}
 		},
 		{
-			"name": "VS Code Agents",
+			"name": "Positron (Hot Reload)",
 			"stopAll": true,
 			"configurations": [
-				"Launch VS Code Agents Internal",
-				"Attach to Main Process",
-				"Attach to Extension Host",
-				"Attach to Shared Process",
-			],
-			"preLaunchTask": "Ensure Prelaunch Dependencies",
-			"presentation": {
-				"group": "0_vscode",
-				"order": 1
-			}
-		},
-		{
-			"name": "VS Code (Hot Reload)",
-			"stopAll": true,
-			"configurations": [
-				"Launch VS Code Internal (Hot Reload)",
+				"Launch Positron Internal (Hot Reload)",
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
