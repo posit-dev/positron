@@ -19,7 +19,7 @@ export async function validateDeepSeekApiKey(
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
 	const baseUrl = (
-		config.baseUrl ?? 'https://api.deepseek.com'
+		config.baseUrl?.trim() || 'https://api.deepseek.com'
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 

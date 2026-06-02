@@ -18,7 +18,7 @@ export async function validateOpenaiApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
-	const baseUrl = (config.baseUrl ?? 'https://api.openai.com/v1')
+	const baseUrl = (config.baseUrl?.trim() || 'https://api.openai.com/v1')
 		.replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 
