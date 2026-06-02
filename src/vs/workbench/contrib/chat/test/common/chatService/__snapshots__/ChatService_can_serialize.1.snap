@@ -77,6 +77,8 @@
       confirmation: undefined,
       editedFileEvents: undefined,
       modelId: undefined,
+      modeInfo: undefined,
+      terminalExecutionId: undefined,
       responseId: undefined,
       result: { metadata: { metadataKey: "value" } },
       responseMarkdownInfo: undefined,
@@ -93,6 +95,7 @@
         completedAt: undefined
       },
       vote: undefined,
+      tokenUsage: undefined,
       voteDownReason: undefined,
       slashCommand: undefined,
       usedContext: {
@@ -114,8 +117,7 @@
       },
       contentReferences: [  ],
       codeCitations: [  ],
-      timeSpentWaiting: 0,
-      tokenUsage: undefined
+      timeSpentWaiting: 0
     },
     {
       requestId: undefined,
@@ -163,6 +165,8 @@
       confirmation: undefined,
       editedFileEvents: undefined,
       modelId: undefined,
+      modeInfo: undefined,
+      terminalExecutionId: undefined,
       responseId: undefined,
       result: {  },
       responseMarkdownInfo: undefined,
@@ -172,13 +176,13 @@
         completedAt: undefined
       },
       vote: undefined,
+      tokenUsage: undefined,
       voteDownReason: undefined,
       slashCommand: undefined,
       usedContext: undefined,
       contentReferences: [  ],
       codeCitations: [  ],
-      timeSpentWaiting: 0,
-      tokenUsage: undefined
+      timeSpentWaiting: 0
     }
   ]
 }

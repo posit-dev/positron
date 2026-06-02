@@ -98,14 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:126
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:116
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:126
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}

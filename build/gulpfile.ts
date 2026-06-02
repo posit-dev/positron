@@ -47,9 +47,7 @@ const compileClientTask = task.define('compile-client', task.series(util.rimraf(
 gulp.task(compileClientTask);
 
 // Remove watch codicons since we maintain a custom codicon.ttf in the repo that includes Positron-specific icons. Copying from the npm package would overwrite these with the standard font that lacks Positron icons.
-const watchClientTask = useEsbuildTranspile
-	? task.define('watch-client', task.parallel(compilation.watchTask('out', false, 'src', { noEmit: true }), copyESMPackageDependenciesTask, compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask))
-	: task.define('watch-client', task.series(util.rimraf('out'), copyESMPackageDependenciesTask, task.parallel(compilation.watchTask('out', false), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask)));
+const watchClientTask = task.define('watch-client', task.parallel(compilation.watchTypeCheckTask('src'), compilation.watchApiProposalNamesTask, compilation.watchExtensionPointNamesTask /*, compilation.watchCodiconsTask */));
 gulp.task(watchClientTask);
 
 // --- End Positron ---

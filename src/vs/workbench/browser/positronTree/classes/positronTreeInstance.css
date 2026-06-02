@@ -1,0 +1,87 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-tree-row {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	width: 100%;
+	box-sizing: border-box;
+	cursor: pointer;
+	user-select: none;
+}
+
+.positron-tree-row.focused {
+	outline: 1px solid var(--vscode-list-focusOutline);
+	outline-offset: -1px;
+}
+
+.positron-tree-row.selected {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+}
+
+.positron-tree-row.selected.focused {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.positron-tree-indent {
+	flex: 0 0 auto;
+	height: 100%;
+}
+
+.positron-tree-twisty {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 100%;
+	background: transparent;
+	border: 0;
+	padding: 0;
+	margin: 0 0 0 4px;
+	color: inherit;
+	font: inherit;
+}
+
+.positron-tree-twisty:focus,
+.positron-tree-twisty:focus-visible {
+	outline: none !important;
+}
+
+/* The leaf twisty (an empty placeholder for alignment) is not clickable. */
+.positron-tree-twisty-leaf,
+.positron-tree-twisty-loading {
+	cursor: default;
+}
+
+.positron-tree-twisty-collapsed,
+.positron-tree-twisty-expanded,
+.positron-tree-twisty-error {
+	cursor: pointer;
+}
+
+/* Codicons don't reliably inherit color from ancestors; set it on the glyph itself. */
+.positron-tree-twisty-glyph {
+	font-size: 14px;
+	color: var(--vscode-icon-foreground);
+}
+
+.positron-tree-twisty-glyph-error {
+	color: var(--vscode-errorForeground);
+}
+
+.positron-tree-content {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	height: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}

@@ -676,8 +676,13 @@ export class DebugService implements IDebugService {
 
 		const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
 		// --- Start Positron ---
-		// Open debug viewlet based on the visibility of the side bar and openDebug setting.
-		// Do not open for 'run without debug' or for background sessions (suppressDebugToolbar).
+		// Retain the pre-1.118 condition so the debug viewlet still opens on first
+		// session start even when openDebug is 'openOnDebugBreak' (the default).
+		// Upstream deferred this to debugSession when a breakpoint is hit, but doing
+		// so constructs VariablesView AFTER focusStackFrame has already fired -- the
+		// view then misses the event and never auto-expands the Locals scope.
+		// Also do not open for 'run without debug' or for background sessions
+		// (suppressDebugToolbar).
 		if (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug !== 'neverOpen' && this.viewModel.firstSessionStart)) && !session.suppressDebugView && !session.suppressDebugToolbar) {
 			// --- End Positron ---
 			await this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
@@ -1289,8 +1294,8 @@ export class DebugService implements IDebugService {
 		this.debugStorage.storeBreakpoints(this.model);
 	}
 
-	async removeInstructionBreakpoints(instructionReference?: string, offset?: number): Promise<void> {
-		this.model.removeInstructionBreakpoints(instructionReference, offset);
+	async removeInstructionBreakpoints(instructionReference?: string, offset?: number, address?: bigint): Promise<void> {
+		this.model.removeInstructionBreakpoints(instructionReference, offset, address);
 		this.debugStorage.storeBreakpoints(this.model);
 		await this.sendInstructionBreakpoints();
 	}

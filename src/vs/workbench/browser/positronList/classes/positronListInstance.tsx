@@ -10,9 +10,8 @@ import './positronListInstance.css';
 import { JSX, ReactNode } from 'react';
 
 // Other dependencies.
-import { Emitter, Event } from '../../../../base/common/event.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * PositronListItemContext interface. Passed to the caller's itemRenderer so the rendered item
@@ -122,7 +121,8 @@ type PositronListSectionOptions<TSection> = [TSection] extends [never]
 export type PositronListInstanceOptions<TItem, TSection> =
 	& PositronListBaseOptions
 	& PositronListItemOptions<TItem>
-	& PositronListSectionOptions<TSection>;
+	& PositronListSectionOptions<TSection>
+	& SelectionCursorOptions;
 
 /**
  * PositronListInstance class.
@@ -152,17 +152,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	// The current section renderer, if any.
 	private _sectionRenderer?: PositronListSectionRenderer<TSection>;
 
-	// Fires when the user activates an item (Enter key on a focused row).
-	private readonly _onDidActivateEmitter = this._register(new Emitter<TItem>());
-
 	//#endregion Private Properties
-
-	//#region Public Events
-
-	// Fires when the user activates an item (Enter key on a focused row).
-	readonly onDidActivate: Event<TItem> = this._onDidActivateEmitter.event;
-
-	//#endregion Public Events
 
 	//#region Constructor
 
@@ -191,6 +181,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			internalCursor: false,
 			selection: true,
 			selectionMode: options.selectionMode ?? 'list-single-selection',
+			...selectionCursorOptions(options),
 		});
 
 		// Default to applying the built-in focused/selected classes.
@@ -405,20 +396,6 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
 		await this.mouseSelectRow(rowIndex, mouseSelectionType);
-	}
-
-	/**
-	 * Fires onDidActivate for the currently focused item. PositronList wraps this with its
-	 * onActivate prop. The cursor should already be on an item -- section rows are skipped by
-	 * keyboard navigation and rejected by click handling -- so this is a defensive guard.
-	 */
-	override async onEnterKey(): Promise<void> {
-		const entry = this._entries[this.cursorRowIndex];
-		if (entry === undefined || entry.kind !== 'item') {
-			return;
-		}
-
-		this._onDidActivateEmitter.fire(entry.item);
 	}
 
 	//#endregion DataGridInstance Implementation

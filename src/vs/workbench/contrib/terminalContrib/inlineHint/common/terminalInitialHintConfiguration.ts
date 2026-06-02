@@ -9,7 +9,8 @@ import { IConfigurationPropertySchema } from '../../../../../platform/configurat
 import { TerminalSettingId } from '../../../../../platform/terminal/common/terminal.js';
 
 export const enum TerminalInitialHintSettingId {
-	Enabled = 'terminal.integrated.initialHint'
+	Enabled = 'terminal.integrated.initialHint',
+	CopilotCli = 'terminal.integrated.initialHintCopilotCli',
 }
 
 export const terminalInitialHintConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
@@ -21,5 +22,15 @@ export const terminalInitialHintConfiguration: IStringDictionary<IConfigurationP
 		// Disable the terminal initial hint by default for https://github.com/posit-dev/positron/issues/13227
 		default: false
 		// --- End Positron ---
+	},
+	[TerminalInitialHintSettingId.CopilotCli]: {
+		restricted: true,
+		markdownDescription: localize('terminal.integrated.initialHintCopilotCli', "When enabled, the terminal initial hint will suggest using Copilot CLI by typing {0} instead of opening Copilot Chat.", '`copilot`'),
+		type: 'boolean',
+		default: false,
+		tags: ['experimental'],
+		experiment: {
+			mode: 'auto'
+		},
 	}
 };

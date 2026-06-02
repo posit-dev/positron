@@ -1288,32 +1288,6 @@ export const POSITRON_MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerCol
 	hcLight: '#007acc'
 }, localize('positronModalDialog.textInputSelectionBackground', "Positron modal dialog text input selection background color."));
 
-// < --- Positron Modal Dialog Checkbox --- >
-
-// Positron modal dialog checkbox background color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('positronModalDialog.checkboxBackground', {
-	dark: '#292f32',
-	light: '#ffffff',
-	hcDark: checkboxBackground,
-	hcLight: checkboxBackground
-}, localize('positronModalDialog.checkboxBackground', "Positron modal dialog checkbox background color."));
-
-// Positron modal dialog checkbox foreground color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('positronModalDialog.checkboxForeground', {
-	dark: foreground,
-	light: '#000000',
-	hcDark: checkboxForeground,
-	hcLight: checkboxForeground
-}, localize('positronModalDialog.checkboxForeground', "Positron modal dialog checkbox foreground."));
-
-// Positron modal dialog checkbox border color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModalDialog.checkboxBorder', {
-	dark: '#292f32',
-	light: '#a6a6a6',
-	hcDark: checkboxBorder,
-	hcLight: checkboxBorder
-}, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
-
 // < --- Positron Modal Dialog Radio Button --- >
 
 // Positron modal dialog radio button background color.
@@ -1487,6 +1461,32 @@ export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDr
 	hcDark: menuBorder,
 	hcLight: menuBorder
 }, localize('positronDropDownListBox.separatorBackground', "Positron drop down list box separator background color."));
+
+// < --- Positron Base Checkbox --- >
+
+// Positron base checkbox background color.
+export const POSITRON_CHECKBOX_BACKGROUND = registerColor('positronCheckbox.background', {
+	dark: '#292f32',
+	light: '#ffffff',
+	hcDark: checkboxBackground,
+	hcLight: checkboxBackground
+}, localize('positronCheckbox.background', "Positron base checkbox background color."));
+
+// Positron base checkbox foreground color.
+export const POSITRON_CHECKBOX_FOREGROUND = registerColor('positronCheckbox.foreground', {
+	dark: foreground,
+	light: '#000000',
+	hcDark: checkboxForeground,
+	hcLight: checkboxForeground
+}, localize('positronCheckbox.foreground', "Positron base checkbox foreground color."));
+
+// Positron base checkbox border color.
+export const POSITRON_CHECKBOX_BORDER = registerColor('positronCheckbox.border', {
+	dark: '#292f32',
+	light: '#a6a6a6',
+	hcDark: checkboxBorder,
+	hcLight: checkboxBorder
+}, localize('positronCheckbox.border', "Positron base checkbox border color."));
 
 // < --- Positron Console --- >
 
