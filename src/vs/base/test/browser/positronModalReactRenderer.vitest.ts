@@ -312,6 +312,71 @@ describe('PositronModalReactRenderer', () => {
 	});
 
 	/**
+	 * disposeTopPopups test suite.
+	 */
+	describe('disposeTopPopups', () => {
+		it('disposes popups above a dialog, leaving the dialog open', () => {
+			const container = createMockContainer();
+
+			// A modal dialog (no bounds provider) at the bottom of the stack.
+			let dialogDisposed = false;
+			const dialog = disposables.add(new PositronModalReactRenderer({
+				container,
+				onDisposed: () => { dialogDisposed = true; }
+			}));
+			dialog.render(createMockReactElement());
+
+			// A dropdown popup (registers bounds) on top of the dialog.
+			let popupDisposed = false;
+			const popup = disposables.add(new PositronModalReactRenderer({
+				container,
+				onDisposed: () => { popupDisposed = true; }
+			}));
+			popup.render(createMockReactElement());
+			popup.setBoundsProvider(() => new DOMRect(0, 0, 100, 100));
+
+			PositronModalReactRenderer.disposeTopPopups();
+
+			expect({ dialogDisposed, popupDisposed, remaining: container.children.length })
+				.toEqual({ dialogDisposed: false, popupDisposed: true, remaining: 1 });
+
+			dialog.dispose();
+		});
+
+		it('disposes the whole stack when every renderer is a popup', () => {
+			const container = createMockContainer();
+
+			const popup1 = disposables.add(new PositronModalReactRenderer({ container }));
+			popup1.render(createMockReactElement());
+			popup1.setBoundsProvider(() => new DOMRect(0, 0, 100, 100));
+
+			const popup2 = disposables.add(new PositronModalReactRenderer({ container }));
+			popup2.render(createMockReactElement());
+			popup2.setBoundsProvider(() => new DOMRect(50, 50, 100, 100));
+
+			PositronModalReactRenderer.disposeTopPopups();
+
+			expect(container.children.length).toBe(0);
+		});
+
+		it('is a no-op when the top renderer is not a popup', () => {
+			const container = createMockContainer();
+			const dialog = disposables.add(new PositronModalReactRenderer({ container }));
+			dialog.render(createMockReactElement());
+
+			PositronModalReactRenderer.disposeTopPopups();
+
+			expect(container.children.length).toBe(1);
+
+			dialog.dispose();
+		});
+
+		it('is a no-op on an empty stack', () => {
+			expect(() => PositronModalReactRenderer.disposeTopPopups()).not.toThrow();
+		});
+	});
+
+	/**
 	 * isInsideAnyPopup / setBoundsProvider test suite.
 	 */
 	describe('isInsideAnyPopup', () => {
