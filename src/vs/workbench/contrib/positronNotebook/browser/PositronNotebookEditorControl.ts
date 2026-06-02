@@ -44,6 +44,8 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 			// entering edit mode) - not just when the selection state changes.
 			this._activeCodeEditor = activeCell?.editor.read(reader);
 		}));
+
+		// TODO: Do we need to reset when the model changes?
 	}
 
 	/**

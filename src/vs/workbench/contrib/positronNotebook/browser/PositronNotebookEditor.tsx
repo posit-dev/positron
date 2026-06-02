@@ -7,7 +7,6 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -61,7 +60,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	/**
 	 * The editor control, used by other features to access the code editor widget of the selected cell.
 	 */
-	private readonly _control = this._register(new MutableDisposable<PositronNotebookEditorControl>());
+	private _control: PositronNotebookEditorControl | undefined;
 
 	constructor(
 		readonly _group: IEditorGroup,
@@ -191,6 +190,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			})
 		));
 
+		// This has to be done before we `await super.setInput` since that fires events
+		// with listeners that call `this.getControl()` expecting an up-to-date control
+		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
+		// TODO: Can we remove a separate editor control and use the notebook instance?
+		this._control = new PositronNotebookEditorControl(this._notebookInstance);
 	}
 
 	override layout(
@@ -218,15 +222,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// - loadEditorViewState: loaded from persisted storage (e.g. after reload)
 		const viewState = options?.viewState
 			?? this.loadEditorViewState(input, context);
-
-		// Update the editor control given the notebook instance.
-		// This has to be done before we `await super.setInput` since that fires events
-		// with listeners that call `this.getControl()` expecting an up-to-date control
-		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		// TODO: Can probably remove control given that we now always create a notebook instance and it implements a lot of INotebookEditor?
-		if (this._notebookInstance) {
-			this._control.value = new PositronNotebookEditorControl(this._notebookInstance);
-		}
 
 		await super.setInput(input, options, context, token);
 
@@ -260,14 +255,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 	}
 
-	override clearInput(): void {
-		this._logService.debug(this._identifier, 'clearInput');
-
-		super.clearInput();
-
-		this._control.clear();
-	}
-
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
 		// Called when the editor is already open and receives new options.
 		// Should update the editor to reflect the given options,
@@ -282,7 +269,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	}
 
 	override getControl() {
-		return this._control.value;
+		return this._control;
 	}
 
 	/**
