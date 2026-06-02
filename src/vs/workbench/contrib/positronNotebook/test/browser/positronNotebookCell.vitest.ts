@@ -140,23 +140,24 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual([]);
 	});
 
-	it('setTags writes to the nested location, not the top level', () => {
+	it('a tag write lands in the nested location, not the top level', () => {
 		const cell = createCellWithMetadata({});
-		cell.setTags(['important', 'wip']);
+		expect(cell.addTag('important')).toBe('added');
+		expect(cell.addTag('wip')).toBe('added');
 
 		expect((cell.model.metadata.metadata as Record<string, unknown>).tags).toEqual(['important', 'wip']);
 		expect(cell.model.metadata.tags).toBeUndefined();
 		expect(cell.tags.get()).toEqual(['important', 'wip']);
 	});
 
-	it('setTags preserves sibling nested metadata keys', () => {
+	it('a tag write preserves sibling nested metadata keys', () => {
 		// PartialMetadata is a shallow top-level merge, so the nested object is
-		// replaced wholesale unless setTags spreads it. Verify collapsed state
+		// replaced wholesale unless the write spreads it. Verify collapsed state
 		// and the vscode language id survive a tag edit.
 		const cell = createCellWithMetadata({
 			metadata: { collapsed: true, vscode: { languageId: 'python' } },
 		});
-		cell.setTags(['tag']);
+		expect(cell.addTag('tag')).toBe('added');
 
 		expect(cell.model.metadata.metadata).toEqual({
 			collapsed: true,
@@ -165,33 +166,33 @@ describe('PositronNotebookCell tags', () => {
 		});
 	});
 
-	it('setTags([]) drops the tags key per nbformat convention', () => {
+	it('removing the last tag drops the tags key per nbformat convention', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['gone'], collapsed: true } });
-		cell.setTags([]);
+		expect(cell.removeTag('gone')).toBe(true);
 
 		expect(cell.model.metadata.metadata).toEqual({ collapsed: true });
 		expect(cell.tags.get()).toEqual([]);
 	});
 
-	it('setTags ignores a non-object nested metadata value instead of spreading it', () => {
+	it('a tag write ignores a non-object nested metadata value instead of spreading it', () => {
 		// metadata.metadata is untrusted; spreading a scalar would inject numeric
 		// keys (e.g. {0:'a',1:'b',...}). A malformed value is dropped and only the
 		// tag metadata is written.
 		const cell = createCellWithMetadata({ metadata: 'abc' });
-		cell.setTags(['tag']);
+		expect(cell.addTag('tag')).toBe('added');
 
 		expect(cell.model.metadata.metadata).toEqual({ tags: ['tag'] });
 	});
 
-	it('setTags skips the write when the tag list is unchanged', () => {
+	it('a no-op tag write is skipped and leaves the metadata object untouched', () => {
 		// applyEdits replaces the metadata object (a new reference) and fires a
 		// change even for identical content, which would add an undo entry and
-		// dirty the notebook. A no-op (e.g. committing a tag edit without changes)
+		// dirty the notebook. Renaming a tag to its current value is a no-op and
 		// must leave the metadata object untouched.
 		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
 		const before = cell.model.metadata;
 
-		expect(cell.setTags(['a', 'b'])).toBe(true);
+		expect(cell.renameTag('a', 'a')).toBe('added');
 		expect(cell.model.metadata).toBe(before);
 	});
 
@@ -217,12 +218,63 @@ describe('PositronNotebookCell tags', () => {
 	});
 
 	it('addTag reports "failed" when the write cannot be applied to a detached cell', () => {
-		// Once the cell is removed from the notebook its index is -1, so setTags
+		// Once the cell is removed from the notebook its index is -1, so the write
 		// no-ops. addTag must report that instead of claiming the tag was added.
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 		cell.delete();
 
 		expect(cell.addTag('second')).toBe('failed');
+	});
+
+	it('removeTag filters the tag and reports success', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b', 'c'] } });
+
+		expect(cell.removeTag('b')).toBe(true);
+		expect(cell.tags.get()).toEqual(['a', 'c']);
+	});
+
+	it('removeTag is a no-op success for a tag that is not present', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
+		const before = cell.model.metadata;
+
+		expect(cell.removeTag('missing')).toBe(true);
+		expect(cell.model.metadata).toBe(before);
+		expect(cell.tags.get()).toEqual(['a']);
+	});
+
+	it('removeTag reports failure when the write cannot be applied to a detached cell', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
+		cell.delete();
+
+		expect(cell.removeTag('a')).toBe(false);
+	});
+
+	it('renameTag trims, replaces in place, and reports "added"', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['old', 'keep'] } });
+
+		expect(cell.renameTag('old', '  new  ')).toBe('added');
+		expect(cell.tags.get()).toEqual(['new', 'keep']);
+	});
+
+	it('renameTag reports "empty" and writes nothing for a whitespace-only value', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['old'] } });
+
+		expect(cell.renameTag('old', '   ')).toBe('empty');
+		expect(cell.tags.get()).toEqual(['old']);
+	});
+
+	it('renameTag reports "duplicate" when the new value is another existing tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
+
+		expect(cell.renameTag('a', 'b')).toBe('duplicate');
+		expect(cell.tags.get()).toEqual(['a', 'b']);
+	});
+
+	it('renameTag reports "failed" when the original tag is no longer present', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
+
+		expect(cell.renameTag('missing', 'new')).toBe('failed');
+		expect(cell.tags.get()).toEqual(['a']);
 	});
 });
 
