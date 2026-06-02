@@ -113,22 +113,28 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// one the ipynb serializer persists to the file, so reading it here lets
 		// tags round-trip across save/reload.
 		//
-		// nbformat tags are a set of labels, but an externally authored file can
-		// carry duplicate entries. Collapse them on read so the tag-bar UI's
-		// "values are unique" assumption holds (no colliding React keys, and
-		// edit/remove can't mis-target or drop a sibling occurrence). A later
-		// setTags write persists the de-duplicated list back to the file.
+		// nbformat tags are meant to be an array of string labels, but this is
+		// untrusted file data an external notebook or extension can violate.
+		// Normalize on read: ignore a non-array value, drop non-string entries,
+		// and collapse duplicates so the tag-bar UI's "values are unique"
+		// assumption holds (no colliding React keys, and edit/remove can't
+		// mis-target or drop a sibling occurrence) and a malformed value can't
+		// throw or render garbage. A later setTags write persists the normalized
+		// list back to the file.
 		//
 		// onDidChangeMetadata fires for any metadata change (execution status,
 		// collapse, language id), so a structural comparator keeps the observable
-		// stable -- a fresh-but-equal array from de-duplication won't notify and
+		// stable -- a fresh-but-equal array from normalization won't notify and
 		// re-render the tag bar on unrelated changes.
 		this.tags = observableFromEventOpts(
 			{ owner: this, debugName: 'cellTags', equalsFn: arraysEqual },
 			this.model.onDidChangeMetadata,
 			() => {
-				const raw = (this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags as string[] | undefined;
-				return raw ? [...new Set(raw)] : [];
+				const raw = (this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags;
+				if (!Array.isArray(raw)) {
+					return [];
+				}
+				return [...new Set(raw.filter((tag): tag is string => typeof tag === 'string'))];
 			},
 		);
 
