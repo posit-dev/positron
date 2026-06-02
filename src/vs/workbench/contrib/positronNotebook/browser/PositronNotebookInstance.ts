@@ -109,10 +109,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
-	private _scopedContextKeyService: IContextKeyService | undefined;
-
-	private _scopedInstantiationService = this._register(new MutableDisposable<IInstantiationService>());
-
 	/**
 	 * Disposables for the editor container event listeners
 	 */
@@ -146,11 +142,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The DOM element that contains the cells for the notebook.
 	 */
 	private _cellsContainer: HTMLElement | undefined = undefined;
-
-	/**
-	 * The DOM element for contributions (like find widget) to render into.
-	 */
-	private _overlayContainer: HTMLElement | undefined = undefined;
 
 	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
@@ -196,8 +187,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.container.get();
 	}
 
-	get overlayContainer(): HTMLElement | undefined {
-		return this._overlayContainer;
+	get overlayContainer(): HTMLElement {
+		return this._renderer.overlayContainer;
 	}
 
 	getFocusedCell(): IPositronNotebookCell | null {
@@ -246,6 +237,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Properties
 
+	public readonly scopedContextKeyService: IScopedContextKeyService;
+	public readonly scopedInstantiationService: IInstantiationService;
+
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.
 	 * This is the top-level container used for focus tracking.
@@ -271,20 +265,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get cellsContainer(): HTMLElement | undefined {
 		return this._cellsContainer;
-	}
-
-	get scopedContextKeyService(): IContextKeyService {
-		if (!this._scopedContextKeyService) {
-			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
-		}
-		return this._scopedContextKeyService;
-	}
-
-	get scopedInstantiationService(): IInstantiationService {
-		if (!this._scopedInstantiationService.value) {
-			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
-		}
-		return this._scopedInstantiationService.value;
 	}
 
 	/**
@@ -598,6 +578,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
+
+		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.editorContainer));
+		this.scopedInstantiationService = this._instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, this.scopedContextKeyService]));
 
 		this._positronNotebookService.registerInstance(this);
 	}
@@ -972,7 +956,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._positronNotebookService.unregisterInstance(this);
 
 		super.dispose();
-		this.detachView();
 	}
 
 	// #endregion
@@ -1907,41 +1890,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Attaches the notebook view to a DOM container.
-	 * @param container The DOM element to render the notebook into
-	 */
-	async attachView(
-		container: HTMLElement,
-		scopedContextKeyService: IScopedContextKeyService,
-		overlayContainer: HTMLElement,
-		editorContainer: HTMLElement
-	) {
-		this.detachView();
-		// Each cell's Monaco editor creates a child dependency-injection
-		// container under this one. That child overrides the context-key
-		// service with one scoped to the cell's DOM. Disposing this container
-		// also disposes every child container under it. The render cache keeps
-		// cell React trees alive across tab switches, and those cells still
-		// reference their child containers. If we rebuild this container on
-		// every attachView, those children get disposed. The next keystroke
-		// in a cached cell would then throw "InstantiationService has been
-		// disposed". Reuse the existing container when the context-key service
-		// hasn't changed.
-		if (this._scopedContextKeyService !== scopedContextKeyService || !this._scopedInstantiationService.value) {
-			this._scopedContextKeyService = scopedContextKeyService;
-			this._scopedInstantiationService.value = this._instantiationService.createChild(
-				new ServiceCollection([IContextKeyService, scopedContextKeyService]));
-		}
-		// Set container last -- contributions react to this observable, and they
-		// may need scopedContextKeyService to already be available.
-		this.container.set(container, undefined);
-		this._overlayContainer = overlayContainer;
-		this.contextManager.setContainer(editorContainer);
-
-		this._logService.debug(this.id, 'attachView');
-	}
-
-	/**
 	 * Gets the base cell editor options for the given language.
 	 * If they don't exist yet, they will be created.
 	 * @param language The language to get the options for.
@@ -2072,17 +2020,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		return undefined;
-	}
-
-	/**
-	 * Detach the view so contribution lifecycle (find, etc.) sees the
-	 * detach. Does NOT dispose _notebookOptions -- a cached React tree
-	 * retains references to it that must stay valid while parked off-DOM.
-	 */
-	detachView(): void {
-		this.container.set(undefined, undefined);
-		this._overlayContainer = undefined;
-		this._logService.debug(this.id, 'detachView');
 	}
 
 	/** Whether this instance's view is currently attached to `container`. */

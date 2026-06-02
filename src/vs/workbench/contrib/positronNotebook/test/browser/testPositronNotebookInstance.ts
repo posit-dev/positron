@@ -17,7 +17,6 @@ import { ITestInstantiationService } from '../../../../test/browser/workbenchTes
 import { stubNotebookEditorServices } from '../../../../../test/vitest/presets/notebookEditor.js';
 import { instantiateTestCodeEditor } from '../../../../../editor/test/browser/testCodeEditor.js';
 import { ITextBuffer, ITextBufferFactory, ITextModel } from '../../../../../editor/common/model.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
@@ -148,15 +147,6 @@ export function instantiateTestNotebookInstance(
 		}
 	));
 	notebook.setModel(model);
-
-	// Attach view with DOM containers
-	const editorContainer = document.createElement('div');
-	const notebookContainer = document.createElement('div');
-	const overlayContainer = document.createElement('div');
-	editorContainer.appendChild(notebookContainer);
-	editorContainer.appendChild(overlayContainer);
-	const scopedContextKeyService = instantiationService.invokeFunction(accessor => accessor.get(IContextKeyService)).createScoped(editorContainer);
-	notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
 	// Auto-attach test editors to all cells (initial and dynamically added).
 	// This mirrors what React's CellEditorMonacoWidget does in production.

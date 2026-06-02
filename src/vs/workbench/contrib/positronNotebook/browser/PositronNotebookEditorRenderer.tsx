@@ -15,7 +15,7 @@ export class PositronNotebookEditorRenderer extends Disposable {
 	 * Top-level container for the entire notebook editor.
 	 * Contains both the notebook content and contributions.
 	 */
-	private readonly _editorContainer: HTMLElement;
+	public readonly editorContainer: HTMLElement;
 
 	/**
 	 * Stable shell element that hosts the active per-entry notebook container.
@@ -31,7 +31,7 @@ export class PositronNotebookEditorRenderer extends Disposable {
 	 * Inherits scoped context keys from _editorContainer.
 	 * Hidden when switching notebooks to prevent stale widgets from showing.
 	 */
-	private readonly _overlayContainer: HTMLElement;
+	public readonly overlayContainer: HTMLElement;
 
 	private readonly _renderer: PositronReactRenderer;
 
@@ -41,7 +41,7 @@ export class PositronNotebookEditorRenderer extends Disposable {
 		super();
 
 		// Create the top-level editor container
-		this._editorContainer = DOM.$('.positron-notebook-editor');
+		this.editorContainer = DOM.$('.positron-notebook-editor');
 
 		// TODO: Maybe the parent should do this...?
 		// editorContainer.appendChild(this._container);
@@ -49,18 +49,17 @@ export class PositronNotebookEditorRenderer extends Disposable {
 		// Stable shell; per-entry containers are created lazily on cache miss
 		// (see _renderFreshForInput) and reparented in/out of this shell.
 		this._notebookShell = DOM.$('.positron-notebook-shell');
-		this._editorContainer.appendChild(this._notebookShell);
+		this.editorContainer.appendChild(this._notebookShell);
 
 		// Create the overlay container for widgets (find, etc)
-		this._overlayContainer = DOM.$('.positron-notebook-overlay-container');
-		this._editorContainer.appendChild(this._overlayContainer);
+		this.overlayContainer = DOM.$('.positron-notebook-overlay-container');
+		this.editorContainer.appendChild(this.overlayContainer);
 
 		const container = DOM.$('.positron-notebook-container');
 		container.tabIndex = -1;
 		this._notebookShell.appendChild(container);
 
-		// TODO: Continue here...
-		this._renderer = new PositronReactRenderer(container);
+		this._renderer = this._register(new PositronReactRenderer(container));
 	}
 
 	render(
@@ -82,6 +81,6 @@ export class PositronNotebookEditorRenderer extends Disposable {
 	override dispose(): void {
 		this._logService.debug('PositronNotebookEditorView', 'dispose');
 		super.dispose();
-		this._editorContainer.remove();
+		this.editorContainer.remove();
 	}
 }

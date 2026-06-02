@@ -7,7 +7,6 @@
 
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ICachedNotebookRender } from '../../browser/notebookRenderCache.js';
@@ -38,10 +37,6 @@ describe.skip('disposeNotebookRenderCacheEntry', () => {
 			undefined,
 		);
 		ctx.disposables.add(instance);
-		const overlayContainer = document.createElement('div');
-		const editorContainer = document.createElement('div');
-		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(container, scopedContextKeyService, overlayContainer, editorContainer);
 		return instance;
 	}
 
@@ -73,10 +68,6 @@ describe.skip('disposeNotebookRenderCacheEntry', () => {
 
 		// Target pane re-attached the same shared instance to its own container.
 		const targetContainer = document.createElement('div');
-		const overlayContainer = document.createElement('div');
-		const editorContainer = document.createElement('div');
-		const scopedContextKeyService = ctx.instantiationService.get(IContextKeyService).createScoped(editorContainer);
-		instance.attachView(targetContainer, scopedContextKeyService, overlayContainer, editorContainer);
 		expect(instance.container.get()).toBe(targetContainer);
 
 		// Source pane's eviction must NOT detach -- the target is using the instance.
