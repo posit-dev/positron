@@ -19,6 +19,7 @@ import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHour
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { CellTagsBar } from './CellTagsBar.js';
 
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
@@ -37,6 +38,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// Debounce "clearing" transitions to prevent visual flash during fast re-executions.
 	// Only delay transitions to running/pending/undefined; new values propagate immediately.
 	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
+	const tags = useObservedValue(cell.tags);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
@@ -85,10 +87,17 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	const isPending = executionStatus === 'pending';
 
+	// Whether the footer shows any execution metadata (icon and/or timing text)
+	// ahead of the tag row. Gates the divider so a tag-only footer (or the
+	// standalone markdown placement) doesn't render an orphan separator.
+	const hasMetadata = isCurrentlyRunning || isPending || hasTimingInfo;
+
 	// Collapse the footer when there's no execution info to display.
 	// This covers cells that have never been run and cells only run in a previous session.
 	// isPending guard keeps the clock icon visible for queued cells.
-	const isCollapsed = !isPending && !hasCurrentSessionContent;
+	// Tags also keep the footer open, since they now live here.
+	const hasTags = tags.length > 0;
+	const isCollapsed = !isPending && !hasCurrentSessionContent && !hasTags;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -198,6 +207,8 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		>
 			{renderIcon()}
 			{renderText()}
+			{hasMetadata && hasTags && <span aria-hidden='true' className='code-cell-footer-tags-separator' data-testid='cell-footer-tags-separator' />}
+			<CellTagsBar cell={cell} />
 		</div>
 	);
 }

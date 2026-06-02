@@ -1,0 +1,133 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-cell-tags {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	/* Small, consistent gaps between pills and the add control. */
+	gap: 4px;
+}
+
+/* Standalone placement (markdown / raw cells, which have no footer). */
+.positron-notebook-cell-tags.standalone {
+	margin: 4px 1rem 6px 1rem;
+}
+
+/* Quiet pill: a thin outline, fully rounded, with no fill so it reads as calm
+metadata, not a button. */
+.positron-notebook-cell-tag {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	height: 18px;
+	padding: 0 8px;
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 999px;
+	background: transparent;
+	/* Muted footer text; also drives the close icon color via inherit. */
+	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+}
+
+.positron-notebook-cell-tag-label {
+	border: none;
+	background: transparent;
+	color: inherit;
+	font-size: 11px;
+	line-height: 1;
+	padding: 0;
+	cursor: text;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Close affordance: hidden at rest, revealed on hover / keyboard focus with a
+brief width + opacity transition so a row of tags stays calm rather than jumping. */
+.positron-notebook-cell-tag-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 0;
+	height: 14px;
+	opacity: 0;
+	overflow: hidden;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	padding: 0;
+	transition: width 120ms ease, opacity 120ms ease, margin-left 120ms ease;
+}
+
+.positron-notebook-cell-tag:hover .positron-notebook-cell-tag-remove,
+.positron-notebook-cell-tag:focus-within .positron-notebook-cell-tag-remove {
+	width: 14px;
+	margin-left: 2px;
+	opacity: 1;
+}
+
+/* Hovering the close icon itself brightens it toward the primary text color. */
+.positron-notebook-cell-tag-remove:hover {
+	color: var(--vscode-foreground);
+}
+
+/* Ghost add affordance: no border or fill, matching the footer's metadata icon
+color at rest. */
+.positron-notebook-cell-tag-add {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border: none;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+	cursor: pointer;
+	padding: 0;
+	transition: color 120ms ease, background-color 120ms ease;
+}
+
+/* On hover the add control picks up the accent/link color with a faint
+accent-tinted fill (the accent token mixed down to a low-opacity wash). */
+.positron-notebook-cell-tag-add:hover {
+	color: var(--vscode-textLink-foreground);
+	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
+}
+
+/* Color + centering for the close / add codicons. */
+/* The base rule .codicon[class*='codicon-'] has specificity (0,2,0), so this */
+/* override matches its structure to win -- including the color. color:inherit */
+/* lets each affordance drive its own glyph color per state (otherwise the */
+/* glyph resolves to a higher-contrast icon foreground up the cascade). */
+.codicon[class*='codicon-'].positron-notebook-cell-tag-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	font-size: 7px;
+	line-height: 1;
+	color: inherit;
+	/* Some codicon glyphs (close/plus) aren't centered within their glyph */
+	/* canvas -- see IconedButton.css. Nudge in em so it scales with size. */
+	transform: translate(0.04em, 0.04em);
+}
+
+.positron-notebook-cell-tag-input {
+	height: 18px;
+	min-width: 50px;
+	width: 70px;
+	border-radius: 999px;
+	border: 1px solid var(--vscode-focusBorder);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 11px;
+	line-height: 1;
+	padding: 0 8px;
+	outline: none;
+}

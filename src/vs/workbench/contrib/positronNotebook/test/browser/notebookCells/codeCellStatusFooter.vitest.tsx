@@ -7,6 +7,7 @@
 
 import { screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { CodeCellStatusFooter } from '../../../browser/notebookCells/CodeCellStatusFooter.js';
@@ -19,10 +20,14 @@ interface CellState {
 	lastExecutionDuration?: number;
 	lastRunEndTime?: number;
 	lastRunSuccess?: boolean;
+	tags?: string[];
 }
 
 describe('CodeCellStatusFooter', () => {
-	const rtl = setupRTLRenderer();
+	// The footer embeds CellTagsBar, which reads the React services context, so
+	// render through the provider tree rather than the prop-only renderer.
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderFooter(state: CellState = {}, hasError = false) {
 		const cell = stubInterface<PositronNotebookCodeCell>({
@@ -31,6 +36,8 @@ describe('CodeCellStatusFooter', () => {
 			lastExecutionDuration: observableValue<number | undefined>('lastExecutionDuration', state.lastExecutionDuration),
 			lastRunEndTime: observableValue<number | undefined>('lastRunEndTime', state.lastRunEndTime),
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
+			tags: observableValue<string[]>('tags', state.tags ?? []),
+			setTags: vi.fn(),
 			isInViewport: () => true,
 		});
 
@@ -116,5 +123,21 @@ describe('CodeCellStatusFooter', () => {
 		renderFooter({ lastExecutionOrder: 1 });
 
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
+	});
+
+	describe('tag separator', () => {
+		it('renders the separator only when both execution metadata and tags are present', () => {
+			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] });
+
+			expect(screen.getByTestId('cell-footer-tags-separator')).toBeInTheDocument();
+		});
+
+		it('omits the separator for a tag-only footer so there is no orphan divider', () => {
+			// No execution metadata: tags keep the footer open, but the separator
+			// would be an orphan with nothing before it, so it must not render.
+			renderFooter({ tags: ['wip'] });
+
+			expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
+		});
 	});
 });
