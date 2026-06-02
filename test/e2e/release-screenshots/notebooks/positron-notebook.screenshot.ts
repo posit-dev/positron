@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { join } from 'path';
 import { test as base } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
@@ -26,10 +25,15 @@ test.use({
 	suiteId: __filename,
 });
 
-test.afterEach(async ({ page, hotKeys }) => {
+test.beforeAll(async ({ app }) => {
+	await app.workbench.assistant.loginModelProvider('anthropic-api');
+});
+
+test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
+	await cleanup.discardAllChanges();
 });
 
 test.describe('Release Screenshots - Positron Notebook', () => {
@@ -38,7 +42,6 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-editor-kernel-selector.png', async ({ app, page, python }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -102,9 +105,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, quickaccess, quickInput, editors, assistant } = app.workbench;
-
-		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
+		const { notebooksPositron, variables, hotKeys, layouts, quickaccess, quickInput, editors, positAssistant } = app.workbench;
 
 		// Create notebook and run energy data code.
 		await notebooksPositron.createNewNotebook();
@@ -148,9 +149,14 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await hotKeys.showSecondarySidebar();
 		await variables.focusVariablesView();
 
-		// Open assistant chat on the left and ask about the notebook.
-		await assistant.openPositronAssistantChat();
-		await assistant.sendChatMessageAndWait('Tell me about this notebook', { timeout: 120_000 });
+		// Open Posit Assistant chat on the left and ask about the notebook.
+		await positAssistant.open();
+		await positAssistant.waitForReady();
+		await positAssistant.startNewConversation();
+		await positAssistant.sendMessage('Tell me about this notebook', false);
+		await positAssistant.allowToolForSession();
+		await positAssistant.waitForResponseComplete();
+		await layouts.resizeSidebar({ x: 100 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

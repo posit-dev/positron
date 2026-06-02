@@ -101,6 +101,22 @@ export class Layouts {
 	}
 
 	/**
+	 * Resize the primary sidebar by dragging its right edge.
+	 * Positive x widens the sidebar, negative x narrows it.
+	 */
+	async resizeSidebar(delta: { x: number }): Promise<void> {
+		const sidebar = this.code.driver.currentPage.locator(SIDEBAR);
+		const box = await sidebar.boundingBox();
+		if (!box) {
+			throw new Error('sidebar not found or not visible');
+		}
+		await this.code.driver.clickAndDrag({
+			from: { x: box.x + box.width, y: box.y + box.height / 2 },
+			delta: { x: delta.x },
+		});
+	}
+
+	/**
 	 * Resize the secondary sidebar (auxiliary bar / variables-side) by
 	 * dragging its left edge. Negative x widens the bar, positive x narrows.
 	 */
