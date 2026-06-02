@@ -12,7 +12,7 @@ import React from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { useNotebookInstance, useNotebookOptions } from './NotebookInstanceProvider.js';
+import { NotebookInstanceProvider, useNotebookInstance, useNotebookOptions } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
@@ -33,14 +33,43 @@ import { createBareFontInfoFromRawSettings } from '../../../../editor/common/con
 import { useContextKeyValue } from './useContextKeyValue.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { IDeletionSentinel } from './IPositronNotebookInstance.js';
+import { IDeletionSentinel, IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookErrorBoundary } from './NotebookErrorBoundary.js';
 import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
+import { EnvironentProvider } from './EnvironmentProvider.js';
 
-export function PositronNotebookComponent() {
+export interface PositronNotebookComponentProps {
+	notebookInstance: IPositronNotebookInstance;
+	onReload: () => void;
+	scopedContextKeyService: IPositronNotebookInstance['scopedContextKeyService'];
+}
+
+export function PositronNotebookComponent({
+	notebookInstance,
+	onReload,
+	scopedContextKeyService,
+}: PositronNotebookComponentProps) {
+	const { logService } = usePositronReactServicesContext();
+	return <NotebookErrorBoundary
+		componentName='PositronNotebookComponent'
+		level='editor'
+		logService={logService}
+		onReload={onReload}
+	>
+		<NotebookInstanceProvider instance={notebookInstance}>
+			<EnvironentProvider environmentBundle={{
+				scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
+			}}>
+				<NotebookBody />
+			</EnvironentProvider>
+		</NotebookInstanceProvider>
+	</NotebookErrorBoundary>;
+}
+
+function NotebookBody() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
 
