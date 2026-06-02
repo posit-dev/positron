@@ -20,10 +20,12 @@ export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 /**
  * The outcome of {@link IPositronNotebookCell.addTag}. `'empty'` means the tag
- * was blank after trimming; `'duplicate'` means it already existed. Callers use
- * this to decide whether to surface feedback (e.g. a notification on a duplicate).
+ * was blank after trimming; `'duplicate'` means it already existed; `'failed'`
+ * means the write could not be applied (e.g. no text model, or the cell is no
+ * longer in the notebook). Callers use this to decide whether to surface
+ * feedback (e.g. a notification on a duplicate).
  */
-export type AddTagResult = 'added' | 'duplicate' | 'empty';
+export type AddTagResult = 'added' | 'duplicate' | 'empty' | 'failed';
 
 export enum CellSelectionStatus {
 	Unselected = 'unselected',
@@ -107,9 +109,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 
 	/**
 	 * Replace the cell's tags. Writes through to the nested `metadata.metadata.tags`
-	 * (see {@link tags}) and persists to the notebook document.
+	 * (see {@link tags}) and persists to the notebook document. Returns `true` if
+	 * the write was applied, or `false` if it was skipped (no text model, or the
+	 * cell is no longer in the notebook) so callers can report the real outcome.
 	 */
-	setTags(tags: string[]): void;
+	setTags(tags: string[]): boolean;
 
 	/**
 	 * Append a single tag, enforcing the tag-set invariant: the tag is trimmed,

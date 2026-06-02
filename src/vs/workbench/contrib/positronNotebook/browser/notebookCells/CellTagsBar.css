@@ -5,14 +5,21 @@
 
 .positron-notebook-cell-tags {
 	display: inline-flex;
-	flex-wrap: wrap;
+	flex: 1 1 auto;
+	flex-wrap: nowrap;
 	align-items: center;
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
 	/* Small, consistent gaps between pills and the add control. */
 	gap: 4px;
 }
 
 /* Standalone placement (markdown / raw cells, which have no footer). */
 .positron-notebook-cell-tags.standalone {
+	flex: initial;
+	flex-wrap: wrap;
+	overflow: visible;
 	margin: 4px 1rem 6px 1rem;
 }
 
@@ -22,6 +29,7 @@ metadata, not a button. */
 	display: inline-flex;
 	align-items: center;
 	box-sizing: border-box;
+	flex-shrink: 0;
 	height: 18px;
 	padding: 0 8px;
 	border: 1px solid var(--vscode-widget-border);
@@ -81,6 +89,7 @@ color at rest. */
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	flex-shrink: 0;
 	width: 16px;
 	height: 16px;
 	border: none;
@@ -119,6 +128,7 @@ accent-tinted fill (the accent token mixed down to a low-opacity wash). */
 }
 
 .positron-notebook-cell-tag-input {
+	flex: 0 0 auto;
 	height: 18px;
 	min-width: 50px;
 	width: 70px;

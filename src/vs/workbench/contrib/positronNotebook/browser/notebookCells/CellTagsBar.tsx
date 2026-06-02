@@ -38,7 +38,7 @@ function stopCellSelection(e: React.MouseEvent) {
 export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell; standalone?: boolean }) {
 	const { notificationService } = usePositronReactServicesContext();
 	const tags = useObservedValue(cell.tags);
-	const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+	const [editingTag, setEditingTag] = React.useState<string | null>(null);
 	const [adding, setAdding] = React.useState(false);
 
 	// No tags -> no UI at all (including the add affordance).
@@ -52,24 +52,33 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		);
 	};
 
-	const removeTag = (index: number) => {
-		cell.setTags(tags.filter((_, i) => i !== index));
+	const removeTag = (tag: string) => {
+		const latestTags = cell.tags.get();
+		if (!latestTags.includes(tag)) {
+			return;
+		}
+		cell.setTags(latestTags.filter(t => t !== tag));
 	};
 
-	const commitEdit = (index: number, raw: string) => {
-		setEditingIndex(null);
+	const commitEdit = (originalTag: string, raw: string) => {
+		setEditingTag(null);
+		const latestTags = cell.tags.get();
+		const index = latestTags.indexOf(originalTag);
+		if (index < 0) {
+			return;
+		}
 		const value = raw.trim();
 		if (!value) {
-			removeTag(index);
+			removeTag(originalTag);
 			return;
 		}
 		// Renaming onto an existing tag is rejected; tell the user why rather
 		// than silently reverting.
-		if (tags.some((t, i) => i !== index && t === value)) {
+		if (latestTags.some((t, i) => i !== index && t === value)) {
 			notifyDuplicate(value);
 			return;
 		}
-		const next = [...tags];
+		const next = [...latestTags];
 		next[index] = value;
 		cell.setTags(next);
 	};
@@ -86,17 +95,18 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 
 	return (
 		<div className={positronClassNames('positron-notebook-cell-tags', { standalone })} data-testid='cell-tags-bar'>
-			{tags.map((tag, index) =>
-				editingIndex === index ? (
-					// Keys are the tag value (tags are unique), so a mid-list removal
-					// doesn't re-key surviving pills by position and misassociate an
-					// open input. The `edit-` prefix differs from the display key so
-					// switching modes remounts TagInput (re-running its focus effect).
+			{tags.map((tag) =>
+				editingTag === tag ? (
+					// The edit target is tracked by tag value (tags are unique), not by
+					// position, so a tag-list change while an input is open can't shift
+					// the open input onto a different pill. Keys are the tag value for
+					// the same reason. The `edit-` prefix differs from the display key
+					// so switching modes remounts TagInput (re-running its focus effect).
 					<TagInput
 						key={`edit-${tag}`}
 						initialValue={tag}
-						onCancel={() => setEditingIndex(null)}
-						onCommit={(value) => commitEdit(index, value)}
+						onCancel={() => setEditingTag(null)}
+						onCommit={(value) => commitEdit(tag, value)}
 					/>
 				) : (
 					<span key={tag} className='positron-notebook-cell-tag'>
@@ -105,7 +115,7 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 							className='positron-notebook-cell-tag-label'
 							title={localize('positron.notebook.cellTag.editHint', "Click to edit tag")}
 							type='button'
-							onClick={(e) => { stopCellSelection(e); setEditingIndex(index); }}
+							onClick={(e) => { stopCellSelection(e); setEditingTag(tag); }}
 						>
 							{tag}
 						</button>
@@ -114,7 +124,7 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 							className='positron-notebook-cell-tag-remove'
 							title={localize('positron.notebook.cellTag.remove', "Remove tag {0}", tag)}
 							type='button'
-							onClick={(e) => { stopCellSelection(e); removeTag(index); }}
+							onClick={(e) => { stopCellSelection(e); removeTag(tag); }}
 						>
 							<Icon className='positron-notebook-cell-tag-icon' icon={Codicon.close} />
 						</button>
