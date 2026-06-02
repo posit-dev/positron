@@ -1263,8 +1263,10 @@ export function registerPositronConsoleActions() {
 				keybinding: {
 					primary: KeyCode.DownArrow,
 					// Ctrl+N ("Next") is a GNU readline keybinding bound only on
-					// macOS. On Windows/Linux raw Ctrl+N opens a new window.
-					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyN },
+					// macOS. On Windows/Linux raw Ctrl+N opens a new window. The
+					// mac override repeats the DownArrow primary so the arrow key
+					// stays bound on macOS.
+					mac: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
 					when: ContextKeyExpr.and(
 						PositronConsoleFocused,
 						SuggestContext.Visible.toNegated(),
@@ -1314,8 +1316,10 @@ export function registerPositronConsoleActions() {
 				keybinding: {
 					primary: KeyCode.UpArrow,
 					// Ctrl+P ("Previous") is a GNU readline keybinding bound only on
-					// macOS. On Windows/Linux raw Ctrl+P opens the Command Palette.
-					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyP },
+					// macOS. On Windows/Linux raw Ctrl+P opens the Command Palette. The
+					// mac override repeats the UpArrow primary so the arrow key stays
+					// bound on macOS.
+					mac: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
 					when: ContextKeyExpr.and(
 						PositronConsoleFocused,
 						SuggestContext.Visible.toNegated(),
