@@ -1867,8 +1867,12 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
 
 			if (uri.scheme !== 'duckdb') {
-				// Watch file for changes.
-				const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(uri, '*'), true);
+				// Watch this dataset's file for changes. Scope the pattern to the
+				// file itself (parent directory as base, exact file name as glob)
+				// rather than the whole directory, so that changes to unrelated
+				// sibling files don't trigger a spurious re-import of this dataset.
+				const watchPattern = new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), path.basename(uri.path));
+				const watcher = vscode.workspace.createFileSystemWatcher(watchPattern, true);
 				watcher.onDidChange(async () => {
 					try {
 						const newTableName = `positron_${this._tableIndex++}`;
