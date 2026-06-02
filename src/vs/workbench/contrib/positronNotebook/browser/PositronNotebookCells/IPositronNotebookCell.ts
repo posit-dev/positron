@@ -18,6 +18,13 @@ import { ICellRevealOptions } from './PositronNotebookCell.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
+/**
+ * The outcome of {@link IPositronNotebookCell.addTag}. `'empty'` means the tag
+ * was blank after trimming; `'duplicate'` means it already existed. Callers use
+ * this to decide whether to surface feedback (e.g. a notification on a duplicate).
+ */
+export type AddTagResult = 'added' | 'duplicate' | 'empty';
+
 export enum CellSelectionStatus {
 	Unselected = 'unselected',
 	Selected = 'selected',
@@ -89,6 +96,27 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * Code cells override this to return their outputs observable.
 	 */
 	readonly outputs: IObservable<NotebookCellOutputs[]> | undefined;
+
+	/**
+	 * The cell's tags as an observable. In the .ipynb file these live in the
+	 * nbformat cell's `metadata.tags` array; the ipynb serializer maps that onto
+	 * the nested `metadata.metadata.tags` of the VS Code cell model, which is
+	 * what this observable reads. Tags round-trip across save/reload.
+	 */
+	readonly tags: IObservable<string[]>;
+
+	/**
+	 * Replace the cell's tags. Writes through to the nested `metadata.metadata.tags`
+	 * (see {@link tags}) and persists to the notebook document.
+	 */
+	setTags(tags: string[]): void;
+
+	/**
+	 * Append a single tag, enforcing the tag-set invariant: the tag is trimmed,
+	 * and an empty or duplicate tag is ignored. Delegates to {@link setTags}.
+	 * Returns the {@link AddTagResult} so callers can surface feedback.
+	 */
+	addTag(tag: string): AddTagResult;
 
 	/**
 	 * Delete this cell
