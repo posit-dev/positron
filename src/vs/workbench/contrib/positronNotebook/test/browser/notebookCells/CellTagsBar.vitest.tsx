@@ -24,7 +24,10 @@ import { AddTagResult, IPositronNotebookCell } from '../../../browser/PositronNo
  * handlers that read the latest tag state.
  */
 function createTagCell(initial: string[] = []) {
-	const tags = observableValue<string[]>('tags', initial);
+	// The real cell model de-duplicates tags on read, so the bar never sees
+	// duplicate values. Mirror that here so this stub is a faithful stand-in for
+	// a file loaded with duplicate tags.
+	const tags = observableValue<string[]>('tags', [...new Set(initial)]);
 	const setTags = vi.fn((next: string[]) => tags.set(next, undefined));
 	const addTag = vi.fn((tag: string): AddTagResult => {
 		const value = tag.trim();
@@ -175,6 +178,43 @@ describe('CellTagsBar', () => {
 		expect(screen.queryByText('b')).not.toBeInTheDocument();
 		expect(screen.getByText('a')).toBeInTheDocument();
 		expect(screen.getByText('c')).toBeInTheDocument();
+	});
+
+	it('renders one pill per value for a file loaded with duplicate tags', () => {
+		// The cell model collapses duplicates on read, so the bar shows a single
+		// pill per value with no colliding keys.
+		const { cell } = createTagCell(['dup', 'dup', 'x']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		expect(screen.getAllByText('dup')).toHaveLength(1);
+		expect(screen.getByText('x')).toBeInTheDocument();
+	});
+
+	it('removes only the de-duplicated tag, leaving the others', async () => {
+		// removeTag operates on the de-duplicated list, so it can't drop a sibling
+		// occurrence -- only 'x' survives.
+		const user = userEvent.setup();
+		const { cell, setTags } = createTagCell(['dup', 'dup', 'x']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Remove tag dup' }));
+
+		expect(setTags).toHaveBeenCalledWith(['x']);
+	});
+
+	it('edits the de-duplicated tag without mis-targeting a sibling', async () => {
+		// commitEdit resolves against the de-duplicated list, so the rename lands
+		// on the single 'dup' occurrence and leaves 'x' untouched.
+		const user = userEvent.setup();
+		const { cell, setTags } = createTagCell(['dup', 'dup', 'x']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Edit tag dup' }));
+		const input = screen.getByRole('textbox');
+		await user.clear(input);
+		await user.type(input, 'renamed{Enter}');
+
+		expect(setTags).toHaveBeenCalledWith(['renamed', 'x']);
 	});
 
 	it('removes a tag when an edit commits empty', async () => {

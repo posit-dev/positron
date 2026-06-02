@@ -110,6 +110,14 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['seeded']);
 	});
 
+	it('de-duplicates tags read from an externally authored file', () => {
+		// nbformat tags are a set of labels, but a hand-edited file can carry
+		// duplicates. Collapsing them on read (first occurrence wins, order
+		// preserved) keeps the tag-bar UI's "values are unique" assumption true.
+		const cell = createCellWithMetadata({ metadata: { tags: ['dup', 'dup', 'x'] } });
+		expect(cell.tags.get()).toEqual(['dup', 'x']);
+	});
+
 	it('ignores tags at the non-persisted top-level metadata location', () => {
 		// The ipynb serializer never writes top-level cell metadata to the file,
 		// so tags found there are not real and must be ignored.

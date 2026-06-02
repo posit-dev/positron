@@ -17,7 +17,8 @@ import { CellEditType, CellKind, NotebookCellExecutionState } from '../../../not
 import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, AddTagResult } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservable, IObservableSignal, observableFromEvent, observableFromEventOpts, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { equals as arraysEqual } from '../../../../../base/common/arrays.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -111,10 +112,24 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// metadata (`metadata.metadata.tags`). This nested location is the only
 		// one the ipynb serializer persists to the file, so reading it here lets
 		// tags round-trip across save/reload.
-		this.tags = observableFromEvent(
-			this,
+		//
+		// nbformat tags are a set of labels, but an externally authored file can
+		// carry duplicate entries. Collapse them on read so the tag-bar UI's
+		// "values are unique" assumption holds (no colliding React keys, and
+		// edit/remove can't mis-target or drop a sibling occurrence). A later
+		// setTags write persists the de-duplicated list back to the file.
+		//
+		// onDidChangeMetadata fires for any metadata change (execution status,
+		// collapse, language id), so a structural comparator keeps the observable
+		// stable -- a fresh-but-equal array from de-duplication won't notify and
+		// re-render the tag bar on unrelated changes.
+		this.tags = observableFromEventOpts(
+			{ owner: this, debugName: 'cellTags', equalsFn: arraysEqual },
 			this.model.onDidChangeMetadata,
-			() => /** @description cellTags */((this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags as string[] | undefined) ?? [],
+			() => {
+				const raw = (this.model.metadata.metadata as Record<string, unknown> | undefined)?.tags as string[] | undefined;
+				return raw ? [...new Set(raw)] : [];
+			},
 		);
 
 		// Track this cell's current execution
