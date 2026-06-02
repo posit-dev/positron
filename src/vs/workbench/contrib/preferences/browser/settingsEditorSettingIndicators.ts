@@ -368,14 +368,10 @@ export class SettingsTreeIndicatorsLabel implements IDisposable {
 		const label = disposables.add(new SimpleIconLabel(element));
 		label.text = badge.label;
 
-		const showHover = (focus: boolean) => {
-			return this.hoverService.showInstantHover({
-				...this.defaultHoverOptions,
-				content: badge.description,
-				target: element
-			}, focus);
-		};
-		this.addHoverDisposables(disposables, element, showHover);
+		disposables.add(this.hoverService.setupDelayedHover(element, {
+			...this.defaultHoverOptions,
+			content: badge.description,
+		}, { setupKeyboardEvents: true }));
 
 		return { element, label, disposables };
 	}
