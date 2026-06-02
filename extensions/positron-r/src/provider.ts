@@ -27,6 +27,10 @@ import { discoverRVersionsBinaries } from './provider-rversions.js';
 export const R_DOCUMENT_SELECTORS = [
 	{ language: 'r', scheme: 'untitled' },
 	{ language: 'r', scheme: 'inmemory' },  // Console
+	// Synthetic per-cell models for R chunks in Quarto documents. Positron's
+	// workbench creates these (scheme 'quarto-cell', see QUARTO_CELL_SCHEME) so
+	// the console LSP can serve completions/hover inside .qmd code chunks.
+	{ language: 'r', scheme: 'quarto-cell' },
 	// Assistant code confirmation widget: https://github.com/posit-dev/positron/issues/7750
 	{ language: 'r', scheme: 'assistant-code-confirmation-widget' },
 	{ language: 'r', pattern: '**/*.{r,R}' },

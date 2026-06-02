@@ -45,6 +45,9 @@ import '../common/positronQuartoConfig.js';
 // Import commands to ensure they're registered
 import './quartoCommands.js';
 
+// Import language features (cell completions) to ensure they're registered
+import './quartoLanguageFeatures.contribution.js';
+
 // Import CSS styles
 import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';

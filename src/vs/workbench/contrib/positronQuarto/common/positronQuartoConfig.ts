@@ -114,6 +114,18 @@ export function usingQuartoInlineOutput(configurationService: IConfigurationServ
 export const QUARTO_LANGUAGE_IDS = ['quarto', 'rmd'];
 
 /**
+ * URI scheme for the synthetic per-cell text models that back the code chunks
+ * of a Quarto document. Positron creates one such model per code cell, in the
+ * cell's language, so the per-language servers (Python, R) see the cell as an
+ * open document and Positron can forward language-feature requests to them.
+ *
+ * NOTE: This string is duplicated in the positron-python and positron-r LSP
+ * document selectors (extensions cannot import workbench code). Keep the two
+ * in sync.
+ */
+export const QUARTO_CELL_SCHEME = 'quarto-cell';
+
+/**
  * Helper function to check if a file path is a Quarto or RMarkdown document.
  * Supports .qmd (Quarto), .Rmd and .rmd (R Markdown) extensions.
  * @param path The file path to check
