@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import { join } from 'path';
 import { test as base } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
@@ -97,60 +98,73 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	/**
 	 * Img Path: https://positron.posit.co/images/positron-notebook.png
 	 *
-	 * Full notebook view: code cell + matplotlib chart output, assistant
-	 * panel visible on the left, variables panel on the right.
+	 * Energy-data notebook with bar chart output, assistant chat open on the
+	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, layouts } = app.workbench;
+		const { notebooksPositron, variables, hotKeys, quickaccess, quickInput, editors, assistant } = app.workbench;
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
 
-		// Open a new notebook and select the Python interpreter
+		// Create notebook and run energy data code.
 		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await notebooksPositron.kernel.select('Python');
 
-		// Build a small chart-producing cell. Inline string instead of split-and-join
-		// because each line starts in column 0 (no leading-space hygiene issue).
 		const code = [
-			'import matplotlib.pyplot as plt',
 			'import pandas as pd',
+			'import numpy as np',
+			'import matplotlib.pyplot as plt',
 			'',
-			'months = ["2024-11", "2024-12", "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08"]',
-			'daily_energy = pd.DataFrame({"month": months, "kwh": [1100, 1450, 1800, 1900, 1700, 1300, 1150, 1200, 1850, 1300]})',
-			'monthly_avg = daily_energy.set_index("month")',
+			'np.random.seed(42)',
 			'',
-			'fig, ax = plt.subplots(figsize=(8, 4))',
-			'ax.bar(monthly_avg.index, monthly_avg["kwh"], color="#5b8def")',
-			'ax.set_title("Monthly Electricity Usage (kWh)")',
-			'ax.set_xlabel("Month")',
-			'ax.set_ylabel("kWh")',
+			'# Hourly energy readings for ~410 days',
+			'dates_hourly = pd.date_range("2024-10-01", periods=9840, freq="h")',
+			'energy_df = pd.DataFrame({',
+			'    "Day": dates_hourly,',
+			'    "Daily Total": np.random.uniform(20, 80, 9840)',
+			'})',
+			'',
+			'# Daily gas readings',
+			'gas_df = pd.DataFrame({',
+			'    "Day": pd.date_range("2024-10-01", periods=410, freq="D"),',
+			'    "Daily Total": np.random.uniform(5, 40, 410)',
+			'})',
+			'',
+			'daily_energy = energy_df.groupby("Day")["Daily Total"].first().reset_index()',
+			'daily_energy["Month"] = daily_energy["Day"].dt.to_period("M")',
+			'monthly_kwh = daily_energy.groupby("Month")["Daily Total"].sum()',
+			'',
+			'monthly_kwh.plot(kind="bar", figsize=(10, 4), title="Monthly Electricity Usage (kWh)")',
+			'plt.ylabel("kWh")',
+			'plt.xticks(rotation=45)',
 			'plt.tight_layout()',
 			'plt.show()',
 		].join('\n');
 		await notebooksPositron.addCodeToCell(0, code, { fast: true });
 
-		// Run manually + wait for the rendered chart instead of the spinner.
-		// matplotlib + pandas cold-start can exceed runCodeAtIndex's 10s
-		// DEFAULT_TIMEOUT on CI, and asserting on the image is a stronger check.
-		// Scope to the cell-output testid so Monaco's overview-ruler canvas
-		// inside the cell editor doesn't match first.
 		const cell = page.locator('[data-testid="notebook-cell"]').first();
 		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
 		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
 
-		// Customize layout: close primary sidebar (file explorer), keep secondary
-		// side bar visible (variables), close bottom panel.
-		await hotKeys.closePrimarySidebar();
-		await hotKeys.toggleBottomPanel();
-		await layouts.expectBottomPanelToBeVisible(false);
+		// Save as explore-energy-data.ipynb (extension added automatically).
+		await quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
+		await quickInput.waitForQuickInputOpened();
+		await quickInput.type(join(app.workspacePathOrFolder, 'explore-energy-data'));
+		await quickInput.clickOkButton();
+		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
-		// Make sure variables view is visible on the right.
+		// Show variables on the right.
+		await hotKeys.showSecondarySidebar();
 		await variables.focusVariablesView();
+
+		// Open assistant chat on the left and ask about the notebook.
+		await assistant.openPositronAssistantChat();
+		await assistant.sendChatMessageAndWait('Tell me about this notebook', { timeout: 120_000 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks-2');
 		await captureFullWindow(page, 'positron-notebook.png');
 	});
 });
