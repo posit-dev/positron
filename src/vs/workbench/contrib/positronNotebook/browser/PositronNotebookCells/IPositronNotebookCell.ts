@@ -20,13 +20,13 @@ export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 /**
  * The outcome of {@link IPositronNotebookCell.addTag} and
- * {@link IPositronNotebookCell.renameTag}. `'empty'` means the tag was blank
- * after trimming; `'duplicate'` means it already existed on the cell; `'failed'`
- * means the write could not be applied (e.g. no text model, or the cell is no
- * longer in the notebook). Callers pass this to `notifyTagResult` to surface
- * feedback.
+ * {@link IPositronNotebookCell.renameTag}. `'added'` is a silent success
+ * (including a blank input, which is a no-op); `'duplicate'` means the tag
+ * already existed on the cell; `'failed'` means the write could not be applied
+ * (e.g. no text model, or the cell is no longer in the notebook). Callers pass
+ * this to `notifyTagResult` to surface feedback.
  */
-export type AddTagResult = 'added' | 'duplicate' | 'empty' | 'failed';
+export type AddTagResult = 'added' | 'duplicate' | 'failed';
 
 export enum CellSelectionStatus {
 	Unselected = 'unselected',

@@ -267,7 +267,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	addTag(tag: string): AddTagResult {
 		const value = tag.trim();
 		if (!value) {
-			return 'empty';
+			// Blank input is a silent no-op; report it as a (vacuous) success.
+			return 'added';
 		}
 		const existing = this.tags.get();
 		if (existing.includes(value)) {
@@ -291,7 +292,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	renameTag(oldTag: string, newTag: string): AddTagResult {
 		const value = newTag.trim();
 		if (!value) {
-			return 'empty';
+			// Blank input is a silent no-op; report it as a (vacuous) success.
+			return 'added';
 		}
 		const existing = this.tags.get();
 		const index = existing.indexOf(oldTag);

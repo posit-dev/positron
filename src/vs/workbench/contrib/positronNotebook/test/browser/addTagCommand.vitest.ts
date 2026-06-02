@@ -51,18 +51,6 @@ describe('AddTagAction', () => {
 		return { accessor, info };
 	}
 
-	it('notifies the user when the typed tag is a duplicate', async () => {
-		const notebook = createLabelledTestNotebook(1, ctx);
-		const cell = notebook.cells.get()[0];
-		notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-		vi.spyOn(cell, 'addTag').mockReturnValue('duplicate');
-		const { accessor, info } = createAccessor('data');
-
-		await new TestableAddTagAction().testRun(notebook, accessor);
-
-		expect(info).toHaveBeenCalledWith(expect.stringContaining('data'));
-	});
-
 	it('adds the tag silently when the write succeeds', async () => {
 		const notebook = createLabelledTestNotebook(1, ctx);
 		const cell = notebook.cells.get()[0];

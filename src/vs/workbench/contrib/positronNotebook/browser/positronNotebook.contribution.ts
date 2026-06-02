@@ -681,9 +681,9 @@ export class AddTagAction extends NotebookAction2 {
 		const notificationService = accessor.get(INotificationService);
 
 		const state = notebook.selectionStateMachine.state.get();
-		// Prefer the active cell; fall back to the first selected cell so the
-		// command works from the palette/action bar without a single active cell.
-		const cell = getActiveCell(state) ?? getSelectedCells(state)[0];
+		// Every selection state except NoCells has an active cell, and NoCells has
+		// no selection either, so the active cell is the only target to consider.
+		const cell = getActiveCell(state);
 		if (!cell) {
 			notificationService.info(
 				localize('positron.notebook.cellTag.noCell', "Select a cell to add a tag.")

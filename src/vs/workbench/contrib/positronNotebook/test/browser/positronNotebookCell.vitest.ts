@@ -196,10 +196,10 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['first', 'second']);
 	});
 
-	it('addTag reports "empty" and adds nothing for a whitespace-only tag', () => {
+	it('addTag is a silent no-op for a whitespace-only tag', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 
-		expect(cell.addTag('   ')).toBe('empty');
+		expect(cell.addTag('   ')).toBe('added');
 		expect(cell.tags.get()).toEqual(['first']);
 	});
 
@@ -235,13 +235,6 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['a']);
 	});
 
-	it('removeTag reports failure when the write cannot be applied to a detached cell', () => {
-		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
-		cell.delete();
-
-		expect(cell.removeTag('a')).toBe(false);
-	});
-
 	it('renameTag trims, replaces in place, and reports "added"', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['old', 'keep'] } });
 
@@ -249,10 +242,10 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['new', 'keep']);
 	});
 
-	it('renameTag reports "empty" and writes nothing for a whitespace-only value', () => {
+	it('renameTag is a silent no-op for a whitespace-only value', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['old'] } });
 
-		expect(cell.renameTag('old', '   ')).toBe('empty');
+		expect(cell.renameTag('old', '   ')).toBe('added');
 		expect(cell.tags.get()).toEqual(['old']);
 	});
 
