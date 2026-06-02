@@ -19,6 +19,7 @@ import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.j
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 
 /**
  * A resolved scroll position pointing to a live cell and an offset from that cell.
@@ -146,6 +147,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly container: IObservable<HTMLElement | undefined>;
 
 	/**
+	 * Observable of the size of the notebook editor container.
+	 */
+	readonly size: IObservable<ISize>;
+
+	/**
 	 * Instantiation service scoped to this notebook instance.
 	 */
 	readonly scopedInstantiationService: IInstantiationService;
@@ -243,14 +249,19 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	// ===== Methods =====
 
 	/**
-	 * Sets the notebook editor as visible.
+	 * Sets the notebook editor as visible, called by {@link PositronNotebookEditor}.
 	 */
 	onVisible(): void;
 
 	/**
-	 * Sets the notebook editor as hidden.
+	 * Sets the notebook editor as hidden, called by {@link PositronNotebookEditor}.
 	 */
 	onHide(): void;
+
+	/**
+	 * Layout the contents of this notebook instance, called by {@link PositronNotebookEditor}.
+	 */
+	layout(dimension: ISize): void;
 
 	/**
 	 * Executes the specified cells in order.

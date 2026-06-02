@@ -58,6 +58,7 @@ import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './positronNotebookEditorTypes.js';
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -121,6 +122,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Read by the React component on mount to restore the scroll position.
 	 */
 	private _restoredScrollPosition: IPositronNotebookResolvedScrollPosition | undefined;
+
+	/**
+	 * Observable of the size of the notebook editor container.
+	 */
+	public readonly size = observableValue<ISize>('size', { width: 0, height: 0 });
 
 	/**
 	 * Observable tracking if the editor is currently visible
@@ -276,14 +282,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
 		}
 		return this._scopedInstantiationService.value;
-	}
-
-	onVisible(): void {
-		this.isVisible.set(true, undefined);
-	}
-
-	onHide(): void {
-		this.isVisible.set(false, undefined);
 	}
 
 	/**
@@ -979,6 +977,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	getId(): string {
 		return this.id;
+	}
+
+	onVisible(): void {
+		this.isVisible.set(true, undefined);
+	}
+
+	onHide(): void {
+		this.isVisible.set(false, undefined);
+	}
+
+	layout(dimension: DOM.Dimension): void {
+		this.size.set(dimension, undefined);
+		// TODO: Do we really need to call DOM.size?
+		// DOM.size(this._editorContainer, dimension.width, dimension.height);
 	}
 
 	/**

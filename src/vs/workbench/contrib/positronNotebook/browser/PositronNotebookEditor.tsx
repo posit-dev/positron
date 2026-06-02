@@ -198,12 +198,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		dimension: DOM.Dimension,
 		position?: DOM.IDomPosition | undefined
 	): void {
-		if (!this._editorContainer) {
-			return;
-		}
-		DOM.size(this._editorContainer, dimension.width, dimension.height);
-
-		this._size.set(dimension, undefined);
+		this._notebookInstance?.layout(dimension);
 	}
 
 	override async setInput(

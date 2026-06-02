@@ -20,7 +20,6 @@ import { IEditorProgressService } from '../../../../../platform/progress/common/
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useEnvironment } from '../EnvironmentProvider.js';
 import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
@@ -97,7 +96,6 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
  */
 export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
-	const environment = useEnvironment();
 	const instance = useNotebookInstance();
 	const cellContextKeyService = useCellScopedContextKeyService();
 
@@ -297,7 +295,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		// Resize the editor as the window resizes.
 		disposables.add(autorun(reader => {
-			environment.size.read(reader);
+			instance.size.read(reader);
 			resizeEditor();
 		}));
 
@@ -308,7 +306,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, cellContextKeyService, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
+	}, [cell, cellContextKeyService, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {
