@@ -140,21 +140,12 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		].join('\n');
 		await notebooksPositron.addCodeToCell(0, code, { fast: true });
 
-		const cell = page.locator('[data-testid="notebook-cell"]').first();
-		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
-		// Wait for the chart to confirm the run completed and variables are populated.
-		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
-
 		// Save as explore-energy-data.ipynb (extension added automatically).
 		await quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
 		await quickInput.waitForQuickInputOpened();
 		await quickInput.type(join(app.workspacePathOrFolder, 'explore-energy-data'));
 		await quickInput.clickOkButton();
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
-
-		// Show variables on the right.
-		await hotKeys.showSecondarySidebar();
-		await variables.focusVariablesView();
 
 		// Open Posit Assistant chat on the left and ask about the notebook.
 		await positAssistant.open();
@@ -165,7 +156,19 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.waitForResponseComplete();
 		await layouts.resizeSidebar({ x: 100 });
 
-		// capture screenshot
+		// Run the notebook cell to populate variables and generate the chart output
+		const cell = page.locator('[data-testid="notebook-cell"]').first();
+		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
+		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
+		await expect(page.locator('building the font cache')).not.toBeVisible();
+
+		// Expand the "daily_energy" variable
+		await hotKeys.minimizeBottomPanel();
+		await hotKeys.showSecondarySidebar();
+		await variables.waitForVariableRow('daily_energy');
+		await variables.expandVariable('daily_energy');
+
+		// Capture screenshot
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks-2');
 		await captureFullWindow(page, 'positron-notebook.png');
