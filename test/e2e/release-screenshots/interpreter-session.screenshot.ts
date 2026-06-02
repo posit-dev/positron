@@ -114,11 +114,10 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 */
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
 		const { sessions, hotKeys, layouts } = app.workbench;
-		// Smaller window so the chrome and Sessions cards read proportionally
-		// larger in the docs page; matches astropy.png sizing.
+
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		await sessions.start(['python', 'r']);
-		await sessions.expectAllSessionsToBeReady();
+		const [rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
 		await openFile('basics.R');

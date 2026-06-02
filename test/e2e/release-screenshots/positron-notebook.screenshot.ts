@@ -25,10 +25,6 @@ test.use({
 	suiteId: __filename,
 });
 
-test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app, { width: 960, height: 640 });
-});
-
 test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -41,6 +37,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-editor-kernel-selector.png', async ({ app, page, python }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -70,6 +67,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-assistant-action-bar.png', async ({ app, page, python, settings }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
 
@@ -101,6 +99,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-assistant-panel.png', async ({ app, page, python, settings }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
 
@@ -132,7 +131,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * Full notebook view: code cell + matplotlib chart output, assistant
 	 * panel visible on the left, variables panel on the right.
 	 */
-	test('Release Screenshot - positron-notebook.png', async ({ app, page, python, settings }) => {
+	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
 		const { notebooksPositron, variables, hotKeys, layouts } = app.workbench;
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
