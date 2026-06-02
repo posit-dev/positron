@@ -132,9 +132,10 @@ export class SettingsEditor2 extends EditorPane {
 		'@tag:experimental',
 		`@tag:${ADVANCED_SETTING_TAG}`,
 		// --- Start Positron ---
-		// Suggest a filter for every registered setting badge, so badge tags stay
-		// discoverable without maintaining a second list. See POSITRON_SETTING_BADGES.
+		// Suggest a filter for every registered setting badge (e.g. legacy). See POSITRON_SETTING_BADGES.
 		...POSITRON_SETTING_BADGES.map(badge => `@tag:${badge.tag}`),
+		// positronNotebook is a filter-only tag (no badge), so suggest it explicitly.
+		'@tag:positronNotebook',
 		// --- End Positron ---
 		`@${ID_SETTING_TAG}`,
 		`@${EXTENSION_SETTING_TAG}`,

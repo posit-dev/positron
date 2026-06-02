@@ -8,8 +8,8 @@
 import { POSITRON_SETTING_BADGES, getActiveBadges } from '../../common/positronSettingBadges.js';
 
 describe('positronSettingBadges', () => {
-	it('registers the legacy and positronNotebook badges with labels', () => {
-		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toEqual(['legacy', 'positronNotebook']);
+	it('registers the legacy badge with a label', () => {
+		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toEqual(['legacy']);
 		for (const badge of POSITRON_SETTING_BADGES) {
 			expect(badge.label).toBeTruthy();
 			expect(badge.description).toBeTruthy();
@@ -21,13 +21,12 @@ describe('positronSettingBadges', () => {
 		expect(getActiveBadges(new Set())).toEqual([]);
 	});
 
-	it('returns only the badges whose tag is present, ignoring unknown tags', () => {
-		const active = getActiveBadges(new Set(['positronNotebook', 'experimental']));
-		expect(active.map(b => b.tag)).toEqual(['positronNotebook']);
+	it('returns the legacy badge for a legacy-tagged setting, ignoring other tags', () => {
+		const active = getActiveBadges(new Set(['legacy', 'experimental']));
+		expect(active.map(b => b.tag)).toEqual(['legacy']);
 	});
 
-	it('returns multiple badges when the setting carries multiple badge tags', () => {
-		const active = getActiveBadges(new Set(['legacy', 'positronNotebook']));
-		expect(active.map(b => b.tag)).toEqual(['legacy', 'positronNotebook']);
+	it('returns no badge for the positronNotebook filter-only tag', () => {
+		expect(getActiveBadges(new Set(['positronNotebook']))).toEqual([]);
 	});
 });
