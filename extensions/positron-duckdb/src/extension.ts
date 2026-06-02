@@ -77,7 +77,6 @@ function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
 }
 import { DuckDBConnection, DuckDBInstance as NeoDuckDBInstance, DuckDBResultReader } from '@duckdb/node-api';
-import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -1949,7 +1948,8 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		// is a compressed Parquet, whose outer container DuckDB's Parquet reader
 		// cannot unwrap, so we decompress it ourselves first.
 		let filePath: string;
-		let tempPath: string | undefined;
+		let tempDir: string | undefined;
+		let spillContents: Uint8Array | undefined;
 		if (uri.scheme === 'file' && !(isParquet && compression)) {
 			filePath = uri.fsPath;
 		} else {
@@ -1960,12 +1960,20 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				// Drop the compression extension now that the bytes are decompressed.
 				tempName = path.basename(uri.path, compressionExt);
 			}
-			tempPath = path.join(os.tmpdir(), `positron-duckdb-${randomUUID()}-${tempName}`);
-			await fs.promises.writeFile(tempPath, fileContents);
-			filePath = tempPath;
+			// Spill into a private (mode 0700) per-import directory so the
+			// contents aren't readable by other users on shared hosts. os.tmpdir()
+			// honors TMPDIR (POSIX) and TMP/TEMP (Windows). Creating the directory
+			// before the try below guarantees the finally always cleans it up,
+			// even if the write or import fails.
+			tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'positron-duckdb-'));
+			filePath = path.join(tempDir, tempName);
+			spillContents = fileContents;
 		}
 
 		try {
+			if (spillContents !== undefined) {
+				await fs.promises.writeFile(filePath, spillContents);
+			}
 			if (isParquet) {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
 				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
@@ -1974,8 +1982,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				await importDelimited(filePath);
 			}
 		} finally {
-			if (tempPath !== undefined) {
-				await fs.promises.rm(tempPath, { force: true });
+			if (tempDir !== undefined) {
+				// Best-effort cleanup; a failure here (e.g. a lingering handle on
+				// Windows) must not mask the import result or error.
+				await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => { });
 			}
 		}
 	}
