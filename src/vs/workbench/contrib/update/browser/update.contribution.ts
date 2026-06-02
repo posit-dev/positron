@@ -83,7 +83,7 @@ export class ShowReleaseNotesAction extends Action2 {
 		if (isWeb) {
 			const openerService = accessor.get(IOpenerService);
 			const docsService = accessor.get(IPositronDocsService);
-			await openerService.open(URI.parse(docsService.getUrl('release-notes')));
+			await openerService.open(URI.parse(docsService.getUrl('release-notes.html')));
 			return;
 		}
 
