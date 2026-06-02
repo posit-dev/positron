@@ -36,7 +36,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -319,7 +319,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * The current selected notebook kernel.
 	 */
-	kernel;
+	kernel = observableValue<RuntimeNotebookKernel | undefined>('positronNotebookInstanceKernel', undefined);
 
 	runtimeSession;
 
@@ -502,29 +502,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		// Observe the current selected kernel from the notebook kernel service
-		this.kernel = observableFromEvent(
-			this,
-			Event.filter(this.notebookKernelService.onDidChangeSelectedNotebooks, ({ notebook }) => this._isThisNotebook(notebook)),
-			() => {
-				/** @description positronNotebookInstanceKernel */
-				if (!this.textModel) {
-					// No notebook model is set, cannot infer a kernel.
-					return;
-				}
-				const { selected } = this.notebookKernelService.getMatchingKernel({
-					uri: this.textModel.uri,
-					notebookType: this.textModel.viewType,
-				});
-				if (selected) {
-					if (selected instanceof RuntimeNotebookKernel) {
-						return selected;
-					} else {
-						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.textModel.uri}`);
-					}
-				}
-				return;
-			},
-		);
+		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(({ notebook }) => {
+			if (this._isThisNotebook(notebook)) {
+				this.refreshSelectedKernel();
+			}
+		}));
 
 		// If a new kernel is selected for this notebook, attach its runtime
 		this._register(runOnChange(this.kernel, (oldKernel, newKernel) => {
@@ -993,6 +975,27 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// DOM.size(this._editorContainer, dimension.width, dimension.height);
 	}
 
+	private refreshSelectedKernel() {
+		if (!this.textModel) {
+			// No notebook model is set, unset the selected kernel.
+			this.kernel.set(undefined, undefined);
+			return;
+		}
+		const { selected } = this.notebookKernelService.getMatchingKernel({
+			uri: this.textModel.uri,
+			notebookType: this.textModel.viewType,
+		});
+		if (selected) {
+			if (selected instanceof RuntimeNotebookKernel) {
+				this.kernel.set(selected, undefined);
+			} else {
+				this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.textModel.uri}`);
+			}
+		} else {
+			this.kernel.set(undefined, undefined);
+		}
+	}
+
 	/**
 	 * Handle logic associated with the text model for notebook. This
 	 * includes setting up listeners for changes to the model and
@@ -1001,10 +1004,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	setModel(model: NotebookTextModel): void {
 		this._textModel.set(model, undefined);
 
-		// Attach existing runtime session for the notebook if any
+		// Refresh the selected kernel given the new model,
+		// *before* refreshing the runtime session since that
+		// references the selected kernel.
+		this.refreshSelectedKernel();
+
+		// Refresh the runtime session given the new model.
 		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(model.uri);
 		if (runtimeSession) {
 			this._maybeAttachSession(runtimeSession);
+		} else {
+			this.runtimeSession.set(undefined, undefined);
 		}
 
 		this._modelStore.clear();
@@ -2133,7 +2143,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if the uri is the same as the notebook's uri, false otherwise.
 	 */
 	private _isThisNotebook(uri: URI): boolean {
-		return isEqual(uri, this.uri);
+		if (this.textModel) {
+			return isEqual(uri, this.textModel.uri);
+		}
+		return false;
 	}
 
 	/**
