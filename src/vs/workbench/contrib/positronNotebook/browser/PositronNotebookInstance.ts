@@ -504,7 +504,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Observe the current selected kernel from the notebook kernel service
 		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(({ notebook }) => {
 			if (this._isThisNotebook(notebook)) {
-				this.refreshSelectedKernel();
+				this._refreshSelectedKernel();
 			}
 		}));
 
@@ -975,7 +975,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// DOM.size(this._editorContainer, dimension.width, dimension.height);
 	}
 
-	private refreshSelectedKernel() {
+	private _refreshSelectedKernel() {
 		if (!this.textModel) {
 			// No notebook model is set, unset the selected kernel.
 			this.kernel.set(undefined, undefined);
@@ -996,45 +996,57 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
-	/**
-	 * Handle logic associated with the text model for notebook. This
-	 * includes setting up listeners for changes to the model and
-	 * setting up the initial state of the notebook.
-	 */
-	setModel(model: NotebookTextModel): void {
-		this._textModel.set(model, undefined);
-
-		// Refresh the selected kernel given the new model,
-		// *before* refreshing the runtime session since that
-		// references the selected kernel.
-		this.refreshSelectedKernel();
-
-		// Refresh the runtime session given the new model.
-		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(model.uri);
+	private _refreshRuntimeSession() {
+		if (!this.textModel) {
+			// No notebook model is set, unset the runtime session.
+			this.runtimeSession.set(undefined, undefined);
+			return;
+		}
+		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.textModel.uri);
 		if (runtimeSession) {
 			this._maybeAttachSession(runtimeSession);
 		} else {
 			this.runtimeSession.set(undefined, undefined);
 		}
+	}
+
+	/**
+	 * Handle logic associated with the text model for notebook. This
+	 * includes setting up listeners for changes to the model and
+	 * setting up the initial state of the notebook.
+	 */
+	setModel(model: NotebookTextModel | undefined): void {
+		this._textModel.set(model, undefined);
+
+		// Refresh the selected kernel given the new model,
+		// *before* refreshing the runtime session since that
+		// references the selected kernel.
+		this._refreshSelectedKernel();
+
+		// Refresh the runtime session given the new model.
+		this._refreshRuntimeSession();
 
 		this._modelStore.clear();
-		this._modelStore.add(model.onDidChangeContent((e) => {
-			// Check if cells are in the same order by comparing references
-			const newCells = model.cells;
 
-			if (
-				// If there are the same number of cells...
-				newCells.length === this.cells.get().length &&
-				// ... and they are in the same order...
-				newCells.every((cell, i) => this.cells.get()[i].model === cell)
-			) {
-				// ... then we don't need to sync the cells.
-				return;
-			}
+		if (model) {
+			this._modelStore.add(model.onDidChangeContent((e) => {
+				// Check if cells are in the same order by comparing references
+				const newCells = model.cells;
 
-			// Fire content change event before syncing
-			this._onDidChangeContent.fire();
-		}));
+				if (
+					// If there are the same number of cells...
+					newCells.length === this.cells.get().length &&
+					// ... and they are in the same order...
+					newCells.every((cell, i) => this.cells.get()[i].model === cell)
+				) {
+					// ... then we don't need to sync the cells.
+					return;
+				}
+
+				// Fire content change event before syncing
+				this._onDidChangeContent.fire();
+			}));
+		}
 
 		this._onDidChangeContent.fire();
 

@@ -242,6 +242,12 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		this._notebookInstance?.restoreEditorViewState(viewState);
 	}
 
+	override clearInput(): void {
+		super.clearInput();
+
+		this._notebookInstance?.setModel(undefined);
+	}
+
 	/**
 	 * Called when this composite should receive keyboard focus.
 	 */
