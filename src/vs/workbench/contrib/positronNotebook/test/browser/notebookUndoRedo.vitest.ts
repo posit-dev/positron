@@ -15,10 +15,8 @@ import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
 import { NotebookOperationType } from '../../browser/IPositronNotebookInstance.js';
-import {
-	createTestPositronNotebookInstance,
-	TestPositronNotebookInstance,
-} from './testPositronNotebookInstance.js';
+import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
+import { PositronNotebookInstance } from '../../browser/PositronNotebookInstance.js';
 
 describe('PositronNotebookInstance undo/redo', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -295,7 +293,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 		// exercised -- the model-level describes call IUndoRedoService.undo(uri)
 		// and skip both.
 
-		function makeNotebookEditorPane(notebook: TestPositronNotebookInstance): IEditorPane {
+		function makeNotebookEditorPane(notebook: PositronNotebookInstance): IEditorPane {
 			// `notebookInstance` is not on IEditorPane; production code at
 			// notebookUtils.ts:80 widens via the same cast to read it off
 			// PositronNotebookEditor.

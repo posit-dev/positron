@@ -23,7 +23,7 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { NotebookContextKeyManager } from './NotebookContextKeyManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { EditorLayoutMetadata, IDeletionSentinel, IPositronNotebookInstance, IPositronNotebookResolvedScrollPosition, NotebookKernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
@@ -307,7 +307,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	cells;
 	selectionStateMachine;
-	contextManager: PositronNotebookContextKeyManager;
+	contextManager: NotebookContextKeyManager;
 	visibleRanges: ICellRange[] = [];
 	hoverManager: PositronActionBarHoverManager;
 
@@ -457,6 +457,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
+		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
+		parentContainer.appendChild(this._renderer.editorContainer);
+
+		// TODO: It'd be simpler if this could be scoped to the parentContainer.
+		//   Would that break anything?
+		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.editorContainer));
+		this.scopedInstantiationService = this._instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, this.scopedContextKeyService]));
+
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
 		const { startupPhase } = this._languageRuntimeService;
@@ -532,7 +541,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		this.contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this)
+			this.scopedInstantiationService.createInstance(
+				NotebookContextKeyManager,
+				parentContainer,
+				this,
+			)
 		);
 
 		// Create hover manager for notebook action button tooltips
@@ -541,7 +554,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		this.selectionStateMachine = this._register(
-			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
+			this.scopedInstantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
 		this._register(runOnChange(this.selectionStateMachine.state, (_state) => {
@@ -574,16 +587,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
 		for (const desc of contributions) {
+			// TODO: Should this use the scoped instantiation service?
 			const contribution = this._instantiationService.createInstance(desc.ctor, this);
 			this._contributions.set(desc.id, contribution);
 		}
-
-		this._renderer = this._register(this._instantiationService.createInstance(PositronNotebookEditorRenderer));
-		parentContainer.appendChild(this._renderer.editorContainer);
-
-		this.scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._renderer.editorContainer));
-		this.scopedInstantiationService = this._instantiationService.createChild(
-			new ServiceCollection([IContextKeyService, this.scopedContextKeyService]));
 
 		this._positronNotebookService.registerInstance(this);
 	}
