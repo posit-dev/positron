@@ -136,6 +136,9 @@ describe('CodeCellStatusFooter', () => {
 			// would be an orphan with nothing before it, so it must not render.
 			renderFooter({ tags: ['wip'] });
 
+			// Tags alone keep the footer open (the tag bar lives here); without this
+			// the bar would render into a collapsed, zero-height footer.
+			expect(getFooter()).not.toHaveClass('collapsed');
 			expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
 		});
 	});

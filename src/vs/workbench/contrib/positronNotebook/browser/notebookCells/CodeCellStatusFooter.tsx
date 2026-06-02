@@ -88,8 +88,8 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const isPending = executionStatus === 'pending';
 
 	// Whether the footer shows any execution metadata (icon and/or timing text)
-	// ahead of the tag row. Gates the divider so a tag-only footer (or the
-	// standalone markdown placement) doesn't render an orphan separator.
+	// ahead of the tag row. Gates the divider so a tag-only footer doesn't render
+	// an orphan separator.
 	const hasMetadata = isCurrentlyRunning || isPending || hasTimingInfo;
 
 	// Collapse the footer when there's no execution info to display.
