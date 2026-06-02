@@ -740,7 +740,7 @@ export function registerPositronConsoleActions() {
 									logService.warn(
 										nextStatementRange.line ?
 											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
-											"Can't compute advancement due to a syntax error."
+											`Can't compute advancement due to a syntax error.`
 									);
 									break;
 								}
@@ -1262,6 +1262,11 @@ export function registerPositronConsoleActions() {
 				category,
 				keybinding: {
 					primary: KeyCode.DownArrow,
+					// Ctrl+N ("Next") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+N opens a new window. The
+					// mac override repeats the DownArrow primary so the arrow key
+					// stays bound on macOS.
+					mac: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
 					when: ContextKeyExpr.and(
 						PositronConsoleFocused,
 						SuggestContext.Visible.toNegated(),
@@ -1310,6 +1315,11 @@ export function registerPositronConsoleActions() {
 				category,
 				keybinding: {
 					primary: KeyCode.UpArrow,
+					// Ctrl+P ("Previous") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+P opens the Command Palette. The
+					// mac override repeats the UpArrow primary so the arrow key stays
+					// bound on macOS.
+					mac: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
 					when: ContextKeyExpr.and(
 						PositronConsoleFocused,
 						SuggestContext.Visible.toNegated(),
