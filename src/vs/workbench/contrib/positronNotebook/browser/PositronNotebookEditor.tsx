@@ -7,7 +7,7 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -46,13 +46,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	static count = 0;
 
 	private _identifier = `Positron Notebook | Editor(${PositronNotebookEditor.count++}) |`;
-
-	/**
-	 * A disposable store for disposables attached to the editor instance.
-	 */
-	private readonly _instanceDisposableStore = this._register(
-		new DisposableStore()
-	);
 
 	protected override _input: PositronNotebookEditorInput | undefined;
 
@@ -190,6 +183,14 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			'jupyter-notebook',
 			undefined,
 		);
+
+		// Trigger the selection change event when the notebook is edited.
+		this._register(this._notebookInstance.onDidChangeContent(() =>
+			this._onDidChangeSelection.fire({
+				reason: EditorPaneSelectionChangeReason.EDIT
+			})
+		));
+
 	}
 
 	override layout(
@@ -243,15 +244,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 		// Set the notebook instance model
 		this._notebookInstance?.setModel(model.notebook);
-
-		// Trigger the selection change event when the notebook was edited.
-		this._instanceDisposableStore.add(
-			model.notebook.onDidChangeContent(() =>
-				this._onDidChangeSelection.fire({
-					reason: EditorPaneSelectionChangeReason.EDIT
-				})
-			)
-		);
 
 		this._notebookInstance?.restoreEditorViewState(viewState);
 	}
