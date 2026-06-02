@@ -170,6 +170,15 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.addTag('  dup  ')).toBe('duplicate');
 		expect(cell.tags.get()).toEqual(['dup']);
 	});
+
+	it('addTag reports "failed" when the write cannot be applied to a detached cell', () => {
+		// Once the cell is removed from the notebook its index is -1, so setTags
+		// no-ops. addTag must report that instead of claiming the tag was added.
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+		cell.delete();
+
+		expect(cell.addTag('second')).toBe('failed');
+	});
 });
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */

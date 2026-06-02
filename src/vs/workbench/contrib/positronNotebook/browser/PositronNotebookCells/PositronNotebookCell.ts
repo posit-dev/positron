@@ -197,14 +197,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.deleteCell(this);
 	}
 
-	setTags(tags: string[]): void {
+	setTags(tags: string[]): boolean {
 		const textModel = this._instance.textModel;
 		if (!textModel) {
-			return;
+			return false;
 		}
 		const index = this.index;
 		if (index < 0) {
-			return;
+			return false;
 		}
 		// nbformat tags live under the nested `metadata.metadata.tags`, which is
 		// the only location the ipynb serializer writes to the file. PartialMetadata
@@ -227,6 +227,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 				metadata: { metadata: nestedMetadata }
 			}
 		], true, undefined, () => undefined, undefined, true);
+		return true;
 	}
 
 	addTag(tag: string): AddTagResult {
@@ -238,8 +239,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		if (existing.includes(value)) {
 			return 'duplicate';
 		}
-		this.setTags([...existing, value]);
-		return 'added';
+		// Report the actual write outcome rather than assuming success: setTags
+		// no-ops when the text model is unavailable or the cell is detached.
+		return this.setTags([...existing, value]) ? 'added' : 'failed';
 	}
 
 	// Add placeholder run method to be overridden by subclasses

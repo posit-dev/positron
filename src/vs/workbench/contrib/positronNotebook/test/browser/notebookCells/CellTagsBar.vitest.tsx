@@ -18,16 +18,28 @@ import { AddTagResult, IPositronNotebookCell } from '../../../browser/PositronNo
 /**
  * A minimal cell exposing just the tag surface the bar touches. `setTags` is a
  * spy that also writes through to the observable, so the rendered pills reflect
- * the new state after edit/remove (mirroring the real cell model). `addTag` is a
- * spy that returns `'added'` by default; its trim/dedup/append invariant is
- * covered by the cell-model tests, so the bar tests just drive its return value.
+ * the new state after edit/remove (mirroring the real cell model). `addTag`
+ * mirrors the real trim/dedup/append behavior and also writes through, which
+ * lets tests cover interactions between blur-committed adds and same-click
+ * handlers that read the latest tag state.
  */
 function createTagCell(initial: string[] = []) {
 	const tags = observableValue<string[]>('tags', initial);
 	const setTags = vi.fn((next: string[]) => tags.set(next, undefined));
-	const addTag = vi.fn((_tag: string): AddTagResult => 'added');
+	const addTag = vi.fn((tag: string): AddTagResult => {
+		const value = tag.trim();
+		if (!value) {
+			return 'empty';
+		}
+		const latestTags = tags.get();
+		if (latestTags.includes(value)) {
+			return 'duplicate';
+		}
+		setTags([...latestTags, value]);
+		return 'added';
+	});
 	const cell = stubInterface<IPositronNotebookCell>({ tags, setTags, addTag });
-	return { cell, setTags, addTag };
+	return { cell, tags, setTags, addTag };
 }
 
 describe('CellTagsBar', () => {
@@ -175,5 +187,31 @@ describe('CellTagsBar', () => {
 		await user.keyboard('{Enter}');
 
 		expect(setTags).toHaveBeenCalledWith([]);
+	});
+
+	it('keeps a blur-committed add when the same click removes another tag', async () => {
+		const user = userEvent.setup();
+		const { cell, tags } = createTagCell(['keep']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Add tag' }));
+		await user.type(screen.getByRole('textbox'), 'fresh');
+		await user.click(screen.getByRole('button', { name: 'Remove tag keep' }));
+
+		expect(tags.get()).toEqual(['fresh']);
+	});
+
+	it('keeps a blur-committed edit when the same click removes another tag', async () => {
+		const user = userEvent.setup();
+		const { cell, tags } = createTagCell(['rename-me', 'drop']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Edit tag rename-me' }));
+		const input = screen.getByRole('textbox');
+		await user.clear(input);
+		await user.type(input, 'renamed');
+		await user.click(screen.getByRole('button', { name: 'Remove tag drop' }));
+
+		expect(tags.get()).toEqual(['renamed']);
 	});
 });
