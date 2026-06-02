@@ -27,6 +27,7 @@ import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
+import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
 const NOTEBOOK_URI = URI.file('/tmp/notebook.ipynb');
 
@@ -62,7 +63,7 @@ describe('KernelStatusBadge', () => {
 			kernelStatus: observableValue<NotebookKernelStatus>('test-kernelStatus', kernelStatus),
 			kernel: observableValue('test-kernel', kernel),
 			runtimeSession: observableValue<ILanguageRuntimeSession | undefined>('test-runtimeSession', session),
-			container: observableValue('test-container', undefined),
+			scopedContextKeyService: stubInterface<IScopedContextKeyService>(),
 		});
 	}
 
