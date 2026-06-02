@@ -173,13 +173,14 @@ if (shouldSpawnCli) {
 
 		// --- Start Positron ---
 		// Start the kernel supervisor only after the license check in
-		// getRemoteExtensionHostAgentServer() passes. If the license is
-		// missing or invalid, createServer() calls process.exit(1) before
-		// reaching this point, so the supervisor is never spawned and no
-		// orphaned kcserver processes accumulate on repeated restart attempts.
+		// getRemoteExtensionHostAgentServer() passes.
 		//
-		// If hasWebUi is false this is a headless REH server (e.g. remote
-		// SSH) that manages its own kernels and does not require a license.
+		// In web mode (used in Posit Workbench), start the Positron Kernel
+		// Supervisor process that will manage all the kernels for all the windows
+		// that connect to this server.
+		//
+		// If hasWebUi is false, then this is a headless REH server (probably remote
+		// SSH) and we'll let it manage its own kernels.
 		const hasWebUi =
 			fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
 		if (hasWebUi) {
