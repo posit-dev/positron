@@ -97,7 +97,8 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		<div className={positronClassNames('positron-notebook-cell-tags', { standalone })} data-testid='cell-tags-bar'>
 			{tags.map((tag) =>
 				editingTag === tag ? (
-					// The edit target is tracked by tag value (tags are unique), not by
+					// The edit target is tracked by tag value (the cell model
+					// de-duplicates tags on read, so values are unique), not by
 					// position, so a tag-list change while an input is open can't shift
 					// the open input onto a different pill. Keys are the tag value for
 					// the same reason. The `edit-` prefix differs from the display key
