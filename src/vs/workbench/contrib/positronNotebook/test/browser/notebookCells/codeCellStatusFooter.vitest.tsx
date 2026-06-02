@@ -37,7 +37,6 @@ describe('CodeCellStatusFooter', () => {
 			lastRunEndTime: observableValue<number | undefined>('lastRunEndTime', state.lastRunEndTime),
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
 			tags: observableValue<string[]>('tags', state.tags ?? []),
-			setTags: vi.fn(),
 			isInViewport: () => true,
 		});
 
