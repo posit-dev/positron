@@ -62,6 +62,45 @@ describe('AddTagAction', () => {
 
 		await new TestableAddTagAction().testRun(notebook, accessor);
 
-		expect(info).toHaveBeenCalledWith(expect.stringContaining('oops'));
+		// The shared helper shows a generic write-failure toast (no tag value).
+		expect(info).toHaveBeenCalledWith(expect.stringContaining('Could not update'));
+	});
+
+	it('notifies the user when the typed tag is a duplicate', async () => {
+		const notebook = createLabelledTestNotebook(1, ctx);
+		const cell = notebook.cells.get()[0];
+		notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+		vi.spyOn(cell, 'addTag').mockReturnValue('duplicate');
+		const { accessor, info } = createAccessor('data');
+
+		await new TestableAddTagAction().testRun(notebook, accessor);
+
+		expect(info).toHaveBeenCalledWith(expect.stringContaining('data'));
+	});
+
+	it('adds the tag silently when the write succeeds', async () => {
+		const notebook = createLabelledTestNotebook(1, ctx);
+		const cell = notebook.cells.get()[0];
+		notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+		const addTag = vi.spyOn(cell, 'addTag').mockReturnValue('added');
+		const { accessor, info } = createAccessor('fresh');
+
+		await new TestableAddTagAction().testRun(notebook, accessor);
+
+		expect(addTag).toHaveBeenCalledWith('fresh');
+		// A successful add needs no toast.
+		expect(info).not.toHaveBeenCalled();
+	});
+
+	it('prompts the user to select a cell when none is selected', async () => {
+		// With no active or selected cell (an empty notebook) the command can't
+		// target anything, so it surfaces guidance instead of opening the quick
+		// input.
+		const notebook = createLabelledTestNotebook(0, ctx);
+		const { accessor, info } = createAccessor('ignored');
+
+		await new TestableAddTagAction().testRun(notebook, accessor);
+
+		expect(info).toHaveBeenCalledWith(expect.stringContaining('Select a cell'));
 	});
 });
