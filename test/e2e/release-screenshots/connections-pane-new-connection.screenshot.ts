@@ -37,7 +37,7 @@ test.describe('Release Screenshots - Connections Pane New Connection', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
-		await layouts.resizeAuxiliaryBar({ x: -150 });
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 
 		// open the new-connection modal with PostgreSQL pre-selected
 		await connections.initiateConnection('R', 'PostgreSQL');

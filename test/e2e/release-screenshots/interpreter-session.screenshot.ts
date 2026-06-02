@@ -116,7 +116,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		const { sessions, hotKeys, layouts } = app.workbench;
 
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		const [rSession] = await sessions.start(['python', 'r']);
+		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);

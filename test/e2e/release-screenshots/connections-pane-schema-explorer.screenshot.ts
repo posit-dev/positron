@@ -79,17 +79,6 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// in the aux bar.
 		await connections.openConnectionPane();
 
-		// connection_open() may auto-navigate to schema view. In that case the
-		// list-item arrow icon disappears and clicking it would time out.
-		// Check first; skip the click if already in schema view.
-		const inSchemaView = await connections.currentConnectionName
-			.filter({ hasText: 'SQLiteConnection' }).isVisible();
-		if (!inSchemaView) {
-			await page.locator('.connections-list-item').filter({ hasText: 'SQLiteConnection' })
-				.locator('.codicon-arrow-circle-right').click({ timeout: 30_000 });
-			await expect(connections.currentConnectionName.filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 15_000 });
-		}
-
 		// Wait for the schema tree root node to load before expanding children.
 		await expect(page.locator('.connections-item').filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 30_000 });
 
@@ -103,6 +92,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// larger portion of the window, matching the ~50/50 editor/console
 		// split in the docs reference.
 		await layouts.resizePanel({ y: -120 });
+		await console.focus();
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
