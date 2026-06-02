@@ -117,7 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Smaller window so the chrome and Sessions cards read proportionally
 		// larger in the docs page; matches astropy.png sizing.
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		await sessions.start(['r', 'python']);
+		await sessions.start(['python', 'r']);
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'basics.R'), BASICS_R);
@@ -133,7 +133,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await annotate(page, [
-			{ selector: '.top-action-bar-session-manager-face', label: '', color: ANNOTATION_COLOR, padding: 3 },
+			{ selector: 'button:has(.top-action-bar-session-manager-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);
 		await captureFullWindow(page, 'active-interpreter-session.png');
 	});
