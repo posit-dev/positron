@@ -20,6 +20,7 @@ import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { timeout } from '../../../../base/common/async.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -67,6 +68,7 @@ import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
@@ -99,6 +101,7 @@ enum PositronNotebookCellActionGroup {
 	Insert = '2_insert',
 	Order = '3_order',
 	Execution = '4_execution',
+	Tags = '5_tags',
 }
 
 /**
@@ -642,6 +645,73 @@ KeybindingsRegistry.registerKeybindingRule({
 // Register delete command with UI in one call
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
+
+// Add Tag - prompts for a tag name and appends it to the active cell's tags.
+// This is the entry point for the first tag; once a cell has tags, further
+// tags can be added inline via the tag bar's "+" affordance.
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.addTag',
+			title: localize2('positronNotebook.cell.addTag', "Add Tag"),
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			f1: true,
+			// Don't refocus the cell before running -- we're about to open a quick
+			// input and want it to keep focus.
+			grabFocusOnRun: false,
+			precondition: NotebookContextKeys.editorFocused,
+			menu: [{
+				// The cell action bar "..." submenu -- the only general cell menu
+				// available on code cells (their right-click menu is output-only).
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Tags,
+			}, {
+				// Right-click menu -- currently wired up on markdown cells.
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Tags,
+			}]
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+		// Extract services up front; the accessor is only valid synchronously.
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		const state = notebook.selectionStateMachine.state.get();
+		// Prefer the active cell; fall back to the first selected cell so the
+		// command works from the palette/action bar without a single active cell.
+		const cell = getActiveCell(state) ?? getSelectedCells(state)[0];
+		if (!cell) {
+			notificationService.info(
+				localize('positron.notebook.cellTag.noCell', "Select a cell to add a tag.")
+			);
+			return;
+		}
+
+		// The menu/palette that launched this command is still closing and will
+		// restore focus to the notebook cell. Wait a tick so that happens first,
+		// otherwise it steals focus from the quick input and dismisses it.
+		await timeout(0);
+
+		const tag = await quickInputService.input({
+			prompt: localize('positron.notebook.cellTag.prompt', "Tag name"),
+			placeHolder: localize('positron.notebook.cellTag.placeholder', "tag"),
+			// Belt and suspenders: if focus is still stolen momentarily, don't
+			// auto-dismiss the input.
+			ignoreFocusLost: true,
+		});
+
+		// The cell enforces trim / empty / duplicate handling; surface a toast
+		// when the tag already exists so the user knows nothing was added.
+		const value = (tag ?? '').trim();
+		if (cell.addTag(value) === 'duplicate') {
+			notificationService.info(
+				localize('positron.notebook.cellTag.duplicate', "Tag '{0}' is already on this cell.", value)
+			);
+		}
+	}
+});
 
 registerAction2(class extends NotebookAction2 {
 	constructor() {
