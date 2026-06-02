@@ -8,8 +8,8 @@
 import { POSITRON_SETTING_BADGES, getActiveBadges } from '../../common/positronSettingBadges.js';
 
 describe('positronSettingBadges', () => {
-	it('registers the legacy and native badges with labels', () => {
-		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toEqual(['legacy', 'native']);
+	it('registers the legacy and positronNotebook badges with labels', () => {
+		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toEqual(['legacy', 'positronNotebook']);
 		for (const badge of POSITRON_SETTING_BADGES) {
 			expect(badge.label).toBeTruthy();
 			expect(badge.description).toBeTruthy();
@@ -22,12 +22,12 @@ describe('positronSettingBadges', () => {
 	});
 
 	it('returns only the badges whose tag is present, ignoring unknown tags', () => {
-		const active = getActiveBadges(new Set(['native', 'experimental']));
-		expect(active.map(b => b.tag)).toEqual(['native']);
+		const active = getActiveBadges(new Set(['positronNotebook', 'experimental']));
+		expect(active.map(b => b.tag)).toEqual(['positronNotebook']);
 	});
 
 	it('returns multiple badges when the setting carries multiple badge tags', () => {
-		const active = getActiveBadges(new Set(['legacy', 'native']));
-		expect(active.map(b => b.tag)).toEqual(['legacy', 'native']);
+		const active = getActiveBadges(new Set(['legacy', 'positronNotebook']));
+		expect(active.map(b => b.tag)).toEqual(['legacy', 'positronNotebook']);
 	});
 });

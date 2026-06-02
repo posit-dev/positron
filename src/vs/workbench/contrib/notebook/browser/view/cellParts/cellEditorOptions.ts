@@ -190,7 +190,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: 'off',
 			markdownDescription: localize('notebook.lineNumbers', "Controls the display of line numbers in the cell editor."),
 			// --- Start Positron ---
-			tags: ['legacy', 'native']
+			tags: ['legacy', 'positronNotebook']
 			// --- End Positron ---
 		}
 	}

@@ -990,7 +990,7 @@ const editorOptionsCustomizationSchema: IConfigurationPropertySchema = {
 	],
 	// --- Start Positron ---
 	// tags: ['notebookLayout']
-	tags: ['notebookLayout', 'legacy', 'native']
+	tags: ['notebookLayout', 'legacy', 'positronNotebook']
 	// --- End Positron ---
 };
 
@@ -1089,7 +1089,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			// --- Start Positron ---
 			// tags: ['notebookLayout']
-			tags: ['notebookLayout', 'legacy', 'native']
+			tags: ['notebookLayout', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.compactView]: {
@@ -1223,7 +1223,7 @@ configurationRegistry.registerConfiguration({
 			default: 30,
 			// --- Start Positron ---
 			// tags: ['notebookLayout', 'notebookOutputLayout'],
-			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'positronNotebook'],
 			// --- End Positron ---
 			minimum: 1,
 		},
@@ -1251,7 +1251,7 @@ configurationRegistry.registerConfiguration({
 			default: 0,
 			// --- Start Positron ---
 			// tags: ['notebookLayout']
-			tags: ['notebookLayout', 'legacy', 'native']
+			tags: ['notebookLayout', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.markdownLineHeight]: {
@@ -1260,7 +1260,7 @@ configurationRegistry.registerConfiguration({
 			default: 0,
 			// --- Start Positron ---
 			// tags: ['notebookLayout']
-			tags: ['notebookLayout', 'legacy', 'native']
+			tags: ['notebookLayout', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.cellEditorOptionsCustomizations]: editorOptionsCustomizationSchema,
@@ -1285,7 +1285,7 @@ configurationRegistry.registerConfiguration({
 			default: 0,
 			// --- Start Positron ---
 			// tags: ['notebookLayout', 'notebookOutputLayout']
-			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native']
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.outputFontFamily]: {
@@ -1301,7 +1301,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			// --- Start Positron ---
 			// tags: ['notebookLayout', 'notebookOutputLayout'],
-			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: typeof product.quality === 'string' && product.quality !== 'stable' // only enable as default in insiders
 		},
@@ -1310,7 +1310,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			// --- Start Positron ---
 			// tags: ['notebookLayout', 'notebookOutputLayout'],
-			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'native'],
+			tags: ['notebookLayout', 'notebookOutputLayout', 'legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: false
 		},
@@ -1319,7 +1319,7 @@ configurationRegistry.registerConfiguration({
 			type: ['string', 'null'],
 			default: null,
 			// --- Start Positron ---
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			// --- End Positron ---
 			enum: DefaultFormatter.extensionIds,
 			enumItemLabels: DefaultFormatter.extensionItemLabels,
@@ -1330,7 +1330,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			// --- Start Positron ---
 			// tags: ['notebookLayout'],
-			tags: ['notebookLayout', 'legacy', 'native'],
+			tags: ['notebookLayout', 'legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: false
 		},
@@ -1339,7 +1339,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			// --- Start Positron ---
 			// tags: ['notebookLayout'],
-			tags: ['notebookLayout', 'legacy', 'native'],
+			tags: ['notebookLayout', 'legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: false
 		},
@@ -1347,7 +1347,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.formatOnCellExecution', "Format a notebook cell upon execution. A formatter must be available."),
 			type: 'boolean',
 			// --- Start Positron ---
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: false
 		},
@@ -1397,7 +1397,7 @@ configurationRegistry.registerConfiguration({
 			default: typeof product.quality === 'string' && product.quality !== 'stable', // only enable as default in insiders
 			// --- Start Positron ---
 			// tags: ['experimental']
-			tags: ['experimental', 'legacy', 'native']
+			tags: ['experimental', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		[NotebookSetting.scrollToRevealCell]: {
@@ -1456,7 +1456,7 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.backup.sizeLimit', "The limit of notebook output size in kilobytes (KB) where notebook files will no longer be backed up for hot reload. Use 0 for unlimited."),
 			type: 'number',
 			// --- Start Positron ---
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			// --- End Positron ---
 			default: 10000
 		},
@@ -1474,7 +1474,7 @@ configurationRegistry.registerConfiguration({
 			default: '',
 			// --- Start Positron ---
 			// tags: ['notebookLayout']
-			tags: ['notebookLayout', 'legacy', 'native']
+			tags: ['notebookLayout', 'legacy', 'positronNotebook']
 			// --- End Positron ---
 		},
 		// --- Start Positron ---
@@ -1482,21 +1482,21 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports [variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}`. If this setting doesn't resolve to an existing directory, it defaults to the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
 			type: 'string',
 			default: '',
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		[NotebookSetting.saveExecutionCounts]: {
 			markdownDescription: nls.localize('notebook.save.executionCounts', "Save execution counts to the notebook file. Disable for version-control-friendly notebooks."),
 			type: 'boolean',
 			default: true,
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		[NotebookSetting.saveOutputs]: {
 			markdownDescription: nls.localize('notebook.save.outputs', "Save outputs to the notebook file."),
 			type: 'boolean',
 			default: true,
-			tags: ['legacy', 'native'],
+			tags: ['legacy', 'positronNotebook'],
 			scope: ConfigurationScope.RESOURCE
 		},
 		// --- End Positron ---
