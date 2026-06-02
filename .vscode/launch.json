@@ -378,7 +378,11 @@
 			// To debug observables you also need the extension "ms-vscode.debug-value-editor"
 			"type": "chrome",
 			"request": "launch",
-			"name": "Launch VS Code Internal (Hot Reload)",
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "Launch VS Code Internal (Hot Reload)",
+			"name": "Launch Positron Internal (Hot Reload)",
+			// --- End Positron ---
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
