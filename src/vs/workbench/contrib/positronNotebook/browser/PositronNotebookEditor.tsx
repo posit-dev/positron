@@ -10,7 +10,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
-import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -56,15 +56,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 	protected override _input: PositronNotebookEditorInput | undefined;
 
-	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
-
 	/**
 	 * Expose the notebook's scoped context to the editor pane so that `when`
 	 * clauses for menus and `precondition` clauses for actions on the editor
 	 * action bar can resolve notebook scoped context keys (e.g. NOTEBOOK_KERNEL).
 	 */
 	override get scopedContextKeyService(): IContextKeyService | undefined {
-		return this._containerScopedContextKeyService;
+		return this._notebookInstance?.scopedContextKeyService;
 	}
 
 	/**
