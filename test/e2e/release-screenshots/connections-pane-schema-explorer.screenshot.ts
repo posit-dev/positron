@@ -11,6 +11,8 @@ import { captureFullWindow } from './helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
 import { clearAnnotations } from './helpers/annotate-utils';
 
+const NYCFLIGHTS_R_SCRIPT = join('workspaces', 'nycflights-sqlite-r', 'nycflights-sqlite.r');
+
 test.use({
 	suiteId: __filename,
 });
@@ -37,10 +39,9 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	 * tree drilled into a table so the column types are visible.
 	 */
 	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, console, connections, layouts } = app.workbench;
+		const { sessions, console, connections, layouts, quickaccess } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		const scriptName = 'nycflights-sqlite.r';
 		const nycflightsDbPath = join(app.workspacePathOrFolder, 'db', 'nycflights13.sqlite').replace(/\\/g, '/');
 
 		// Build the nycflights13-schema SQLite database silently (no echo) so
@@ -61,38 +62,26 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 			'dbDisconnect(tmp)',
 		].join('\n'), { maximizeConsole: false, timeout: 60000 });
 
-		// Write a short display script — only the connection-open lines visible
-		// in the editor and echoed in the console, matching the docs reference.
-		// Use file.path(getwd(), ...) so the path looks natural (R's getwd()
-		// resolves to the workspace root where we created the db/ directory).
-		const displayScript = [
-			'library(connections)',
-			'library(DBI)',
-			'library(RSQLite)',
-			'',
-			'db_path <- file.path(getwd(), "db", "nycflights13.sqlite")',
-			'con <- connection_open(SQLite(), db_path)',
-		].join('\n');
-		fs.writeFileSync(join(app.workspacePathOrFolder, scriptName), displayScript);
-		await openFile(scriptName);
+		// Open the checked-in workspace script (same pattern as chinook-sqlite.r).
+		// The script uses file.path(getwd(), "db", "nycflights13.sqlite") which
+		// resolves to the db/ directory we just created above.
+		await openFile(NYCFLIGHTS_R_SCRIPT);
 
-		// Clear the R startup banner so the console area shows only the
-		// short script echo (line-by-line `>` prompts), matching the reference.
+		// Clear the R startup banner so the console shows only the script output.
 		await console.clearButton.click();
 
-		// source(echo=TRUE) prints each line as it executes and registers the
-		// connection in Positron's pane via connection_open().
-		await executeCode('R', `source("${scriptName}", echo=TRUE)`, { maximizeConsole: false, timeout: 60000 });
+		// Source the open file — connection_open() registers the connection in
+		// Positron's Connections pane.
+		await quickaccess.runCommand('r.sourceCurrentFile');
 
 		// Layout: keep the primary sidebar (file explorer) open so the editor
 		// is narrower, matching the reference. Only open the connections pane
 		// in the aux bar.
 		await connections.openConnectionPane();
 
-		// connection_open from the R connections package may auto-navigate to schema
-		// view even when executed via executeCode (not just r.sourceCurrentFile).
-		// In that case, the active connection's arrow icon disappears, so the
-		// list-click would time out. Check first; skip the click if already there.
+		// connection_open() may auto-navigate to schema view. In that case the
+		// list-item arrow icon disappears and clicking it would time out.
+		// Check first; skip the click if already in schema view.
 		const inSchemaView = await connections.currentConnectionName
 			.filter({ hasText: 'SQLiteConnection' }).isVisible();
 		if (!inSchemaView) {
