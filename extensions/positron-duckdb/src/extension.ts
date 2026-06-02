@@ -1870,12 +1870,22 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				// Watch file for changes.
 				const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(uri, '*'), true);
 				watcher.onDidChange(async () => {
-					const newTableName = `positron_${this._tableIndex++}`;
+					try {
+						const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromUri(uri, newTableName);
+						await this.createTableFromUri(uri, newTableName);
 
-					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
-					await tableView.onFileUpdated(newTableName, newSchema);
+						const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+						await tableView.onFileUpdated(newTableName, newSchema);
+					} catch (error) {
+						// The file may have been changed-then-deleted, or otherwise
+						// become unreadable, between the change event firing and the
+						// re-import. This async handler must not throw: an unhandled
+						// rejection here would surface unpredictably (e.g. failing an
+						// unrelated test). Log and leave the existing table in place.
+						const errorMessage = error instanceof Error ? error.message : String(error);
+						console.error(`Failed to reload dataset after file change (${uri.toString()}): ${errorMessage}`);
+					}
 				});
 				// Stop watching deleted files.
 				watcher.onDidDelete(() => watcher.dispose());
