@@ -343,16 +343,6 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
-		onSave: async (config) => {
-			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.snowflake-cortex')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
-			}
-		},
 	});
 	provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(

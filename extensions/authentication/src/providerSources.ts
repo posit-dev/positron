@@ -141,7 +141,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		{
 			type: positron.PositronLanguageModelType.Chat,
 			provider: PROVIDER_METADATA.snowflake,
-			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
+			supportedOptions: ['apiKey', 'toolCalls', 'autoconfigure'],
 			defaults: {
 				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',

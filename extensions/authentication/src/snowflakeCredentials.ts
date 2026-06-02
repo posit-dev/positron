@@ -230,14 +230,6 @@ export async function checkForUpdatedSnowflakeCredentials(
  * @returns Base URL string with account identifier filled in if possible
  */
 export function getSnowflakeDefaultBaseUrl(): string {
-	// Prefer a baseUrl previously saved by the user via the config dialog.
-	const savedBaseUrl = vscode.workspace
-		.getConfiguration('authentication.snowflake-cortex')
-		.get<string>('baseUrl');
-	if (savedBaseUrl) {
-		return savedBaseUrl;
-	}
-
 	// Try to get the account from settings or environment variables
 	const configSettings = vscode.workspace
 		.getConfiguration('authentication.snowflake')
