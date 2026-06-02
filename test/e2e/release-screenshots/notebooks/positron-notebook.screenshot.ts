@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { join } from 'path';
 import { test as base } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
@@ -27,6 +28,10 @@ test.use({
 
 test.beforeAll(async ({ app }) => {
 	await app.workbench.assistant.loginModelProvider('anthropic-api');
+});
+
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
 });
 
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
@@ -133,10 +138,12 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'plt.tight_layout()',
 			'plt.show()',
 		].join('\n');
-		await notebooksPositron.addCodeToCell(0, code, { fast: true, run: true, waitForSpinner: true });
+		await notebooksPositron.addCodeToCell(0, code, { fast: true });
 
 		const cell = page.locator('[data-testid="notebook-cell"]').first();
 		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
+		// Wait for the chart to confirm the run completed and variables are populated.
+		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
 
 		// Save as explore-energy-data.ipynb (extension added automatically).
 		await quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
