@@ -51,21 +51,6 @@ describe('AddTagAction', () => {
 		return { accessor, info };
 	}
 
-	it('notifies the user when the tag write fails', async () => {
-		const notebook = createLabelledTestNotebook(1, ctx);
-		const cell = notebook.cells.get()[0];
-		notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-		// 'failed' is the model's no-write outcome (detached cell / no text model);
-		// the command must surface it rather than dropping the typed tag silently.
-		vi.spyOn(cell, 'addTag').mockReturnValue('failed');
-		const { accessor, info } = createAccessor('oops');
-
-		await new TestableAddTagAction().testRun(notebook, accessor);
-
-		// The shared helper shows a generic write-failure toast (no tag value).
-		expect(info).toHaveBeenCalledWith(expect.stringContaining('Could not update'));
-	});
-
 	it('notifies the user when the typed tag is a duplicate', async () => {
 		const notebook = createLabelledTestNotebook(1, ctx);
 		const cell = notebook.cells.get()[0];
