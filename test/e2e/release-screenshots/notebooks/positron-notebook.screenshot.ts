@@ -161,8 +161,18 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await notebooksPositron.runAllCells();
 		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('building the font cache')).not.toBeVisible();
+
+		// Scroll the notebook down so the full chart is visible (not cut off).
+		const notebookEditor = page.locator('.notebook-editor');
+		const editorBox = await notebookEditor.boundingBox();
+		if (editorBox) {
+			await page.mouse.move(editorBox.x + editorBox.width / 2, editorBox.y + editorBox.height / 2);
+			await page.mouse.wheel(0, 400);
+		}
+
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();
+		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await variables.waitForVariableRow('daily_energy');
 		await variables.expandVariable('daily_energy');
 
