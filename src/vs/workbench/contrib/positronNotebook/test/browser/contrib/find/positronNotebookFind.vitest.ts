@@ -21,14 +21,15 @@ import { CellKind } from '../../../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookFindController } from '../../../../browser/contrib/find/controller.js';
 import { PositronFindInstance } from '../../../../browser/contrib/find/PositronFindInstance.js';
-import { instantiateTestNotebookInstance, TestPositronNotebookInstance } from '../../testPositronNotebookInstance.js';
+import { instantiateTestNotebookInstance } from '../../testPositronNotebookInstance.js';
 import { transaction } from '../../../../../../../base/common/observable.js';
 import { IModelService } from '../../../../../../../editor/common/services/model.js';
 import { Disposable, IDisposable } from '../../../../../../../base/common/lifecycle.js';
 import { runWithFakedTimers } from '../../../../../../../base/test/common/timeTravelScheduler.js';
+import { PositronNotebookInstance } from '../../../../browser/PositronNotebookInstance.js';
 
 /** Get the find controller for a notebook. */
-function getController(notebook: TestPositronNotebookInstance): PositronNotebookFindController {
+function getController(notebook: PositronNotebookInstance): PositronNotebookFindController {
 	const controller = PositronNotebookFindController.get(notebook);
 	expect(controller, 'Find controller should be registered').toBeDefined();
 	return controller!;
@@ -241,7 +242,7 @@ describe('PositronNotebookFindController', () => {
 
 		it('wholeWord=true only matches full words', async () => {
 			const { notebook, controller, find } = findFixture([['cat catch category', 'python', CellKind.Code]]);
-			const configService = notebook.instantiationService.invokeFunction(accessor => accessor.get(IConfigurationService)) as TestConfigurationService;
+			const configService = notebook.scopedInstantiationService.invokeFunction(accessor => accessor.get(IConfigurationService)) as TestConfigurationService;
 			await configService.setUserConfiguration('editor.wordSeparators', USUAL_WORD_SEPARATORS);
 
 			transaction((tx) => {
