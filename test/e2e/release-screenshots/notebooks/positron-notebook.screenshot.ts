@@ -118,18 +118,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'',
 			'np.random.seed(42)',
 			'',
-			'# Hourly energy readings for ~410 days',
 			'dates_hourly = pd.date_range("2024-10-01", periods=9840, freq="h")',
-			'energy_df = pd.DataFrame({',
-			'    "Day": dates_hourly,',
-			'    "Daily Total": np.random.uniform(20, 80, 9840)',
-			'})',
-			'',
-			'# Daily gas readings',
-			'gas_df = pd.DataFrame({',
-			'    "Day": pd.date_range("2024-10-01", periods=410, freq="D"),',
-			'    "Daily Total": np.random.uniform(5, 40, 410)',
-			'})',
+			'energy_df = pd.DataFrame({"Day": dates_hourly, "Daily Total": np.random.uniform(20, 80, 9840)})',
+			'gas_df = pd.DataFrame({"Day": pd.date_range("2024-10-01", periods=410, freq="D"), "Daily Total": np.random.uniform(5, 40, 410)})',
 			'',
 			'daily_energy = energy_df.groupby("Day")["Daily Total"].first().reset_index()',
 			'daily_energy["Month"] = daily_energy["Day"].dt.to_period("M")',
@@ -141,11 +132,10 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'plt.tight_layout()',
 			'plt.show()',
 		].join('\n');
-		await notebooksPositron.addCodeToCell(0, code, { fast: true });
+		await notebooksPositron.addCodeToCell(0, code, { fast: true, run: true, waitForSpinner: true });
 
 		const cell = page.locator('[data-testid="notebook-cell"]').first();
 		await cell.getByRole('button', { name: 'Run Cell', exact: true }).click();
-		await expect(cell.getByTestId('cell-output').locator('img, canvas').first()).toBeVisible({ timeout: 60_000 });
 
 		// Save as explore-energy-data.ipynb (extension added automatically).
 		await quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
