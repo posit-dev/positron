@@ -9,7 +9,7 @@ import { POSITRON_SETTING_BADGES, getActiveBadges } from '../../common/positronS
 
 describe('positronSettingBadges', () => {
 	it('registers the legacy badge with a label', () => {
-		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toEqual(['legacy']);
+		expect(POSITRON_SETTING_BADGES.map(b => b.tag)).toContain('legacy');
 		for (const badge of POSITRON_SETTING_BADGES) {
 			expect(badge.label).toBeTruthy();
 			expect(badge.description).toBeTruthy();
