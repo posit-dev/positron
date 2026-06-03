@@ -48,9 +48,13 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	 * SQLite connection expanded in the Connections pane, with the schema
 	 * tree drilled into a table so the column types are visible.
 	 */
-	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, r }) => {
+	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, settings, r }) => {
 		const { sessions, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
+
+		// Turn off occurrence highlighting so the editor doesn't box every
+		// instance of the word under the cursor (e.g. "path") in the capture.
+		await settings.set({ 'editor.occurrencesHighlight': 'off' }, { keepOpen: false });
 
 		// Write the script to the workspace root so the file explorer shows a
 		// clean single file rather than a nested workspaces/ subdirectory.
