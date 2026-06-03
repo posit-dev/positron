@@ -143,16 +143,25 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			await app.workbench.layouts.enterLayout('stacked');
 		});
 
+		test.afterAll('Reset Settings', async function ({ settings }) {
+			// `assistant.enabled` is worker-scoped; clear it once so it doesn't leak to other files
+			await settings.remove(['assistant.enabled']);
+		});
 
-		test('Verify Assistant Layout displays all three main parts', async function ({ app }) {
+
+		test('Verify Assistant Layout displays all three main parts and opens the legacy chat view', async function ({ app, settings }) {
 			const layouts = app.workbench.layouts;
+
+			// Pin the legacy fallback branch (Posit Assistant disabled)
+			await settings.set({ 'assistant.enabled': false });
 
 			// Enter assistant layout
 			await layouts.enterLayout('assistant');
 
 			// ------ Sidebar -------
-			// Should be visible with the Chat view
+			// Should open and focus the legacy Chat view
 			await expect(layouts.sidebar).toBeVisible();
+			await layouts.expectActiveSidebarView('Chat');
 
 			// ------ Panel -------
 			// Should be visible with Console and Terminal tabs
@@ -173,6 +182,21 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			// Both sections should be expanded
 			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
 			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
+		});
+
+		test('Verify Assistant Layout opens the Posit Assistant view when enabled', async function ({ app, settings }) {
+			const layouts = app.workbench.layouts;
+
+			// Enable Posit Assistant so the layout targets its view container
+			await settings.set({ 'assistant.enabled': true });
+
+			// Enter assistant layout
+			await layouts.enterLayout('assistant');
+
+			// ------ Sidebar -------
+			// Should open and focus the Posit Assistant view
+			await expect(layouts.sidebar).toBeVisible();
+			await app.workbench.positAssistant.expectViewOpen();
 		});
 	});
 });

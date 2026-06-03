@@ -78,7 +78,7 @@ registerAction2(class extends PositronLayoutAction {
 		// Prefer Posit Assistant when enabled; fall back to the legacy Positron Assistant chat view container.
 		const configurationService = accessor.get(IConfigurationService);
 		const sidebarContainerId = configurationService.getValue<boolean>('assistant.enabled')
-			? 'posit-assistant'
+			? 'workbench.view.extension.posit-assistant'
 			: 'workbench.panel.chat';
 
 		const layoutDescriptor: CustomPositronLayoutDescription = {
