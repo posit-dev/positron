@@ -19,12 +19,9 @@ import { ICellRevealOptions } from './PositronNotebookCell.js';
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 /**
- * The outcome of {@link IPositronNotebookCell.addTag} and
- * {@link IPositronNotebookCell.renameTag}. `'added'` is a silent success
- * (including a blank input, which is a no-op); `'duplicate'` means the tag
- * already existed on the cell; `'failed'` means the write could not be applied
- * (e.g. no text model, or the cell is no longer in the notebook). Callers pass
- * this to `notifyTagResult` to surface feedback.
+ * The outcome of a tag write. `'added'` is success (a blank input is a vacuous
+ * success), `'duplicate'` means the tag already existed, and `'failed'` means
+ * the write could not be applied (no text model, or the cell left the notebook).
  */
 export type AddTagResult = 'added' | 'duplicate' | 'failed';
 
@@ -101,58 +98,41 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly outputs: IObservable<NotebookCellOutputs[]> | undefined;
 
 	/**
-	 * The cell's tags as an observable. In the .ipynb file these live in the
-	 * nbformat cell's `metadata.tags` array; the ipynb serializer maps that onto
-	 * the nested `metadata.metadata.tags` of the VS Code cell model, which is
-	 * what this observable reads. Tags round-trip across save/reload.
+	 * The cell's tags, normalized to a unique string list. Persisted to the
+	 * notebook document so they round-trip across save/reload.
 	 */
 	readonly tags: IObservable<string[]>;
 
 	/**
-	 * Append a single tag, enforcing the tag-set invariant: the tag is trimmed,
-	 * and an empty or duplicate tag is ignored. Persists to the notebook document
-	 * (see {@link tags}). Returns the {@link AddTagResult} so callers can surface
-	 * feedback.
+	 * Append a trimmed tag. Blank or duplicate input is ignored. Returns the write
+	 * {@link AddTagResult}.
 	 */
 	addTag(tag: string): AddTagResult;
 
 	/**
-	 * Remove a tag from the cell. A tag that isn't present is a no-op. Persists to
-	 * the notebook document. Returns `true` if the resulting state was applied
-	 * (including the no-op case), or `false` if the write was skipped (no text
-	 * model, or the cell is no longer in the notebook) so callers can surface the
-	 * real outcome.
+	 * Remove a tag (an absent tag is a no-op). Returns `false` only if the write
+	 * was skipped (no text model, or the cell left the notebook).
 	 */
 	removeTag(tag: string): boolean;
 
 	/**
-	 * Rename an existing tag, enforcing the tag-set invariant: the new value is
-	 * trimmed, and a rename onto an empty, missing, or duplicate target is rejected
-	 * without writing. Persists to the notebook document. Returns the
-	 * {@link AddTagResult} so callers can surface feedback.
+	 * Rename a tag to a trimmed value. A blank, missing, or duplicate target is
+	 * rejected without writing. Returns the write {@link AddTagResult}.
 	 */
 	renameTag(oldTag: string, newTag: string): AddTagResult;
 
 	/**
-	 * Whether an inline tag-add input should be shown for this cell. The "Add Tag"
-	 * command and the tag bar's add affordance turn this on; the bar turns it off
-	 * when the input commits or is cancelled. It lives on the cell (rather than the
-	 * bar's local React state) so the command can open the inline input from
-	 * outside React, and so the code cell footer can stay expanded while the input
+	 * Whether an inline tag-add input should be shown for this cell. Lives on the
+	 * cell rather than the bar's React state so the "Add Tag" command can open the
+	 * input from outside React, and the code cell footer can stay expanded while it
 	 * is open.
 	 */
 	readonly isAddingTag: IObservable<boolean>;
 
-	/**
-	 * Request the inline tag-add input for this cell (the "Add Tag" command entry
-	 * point). The tag bar reacts by showing a focused, empty tag input.
-	 */
+	/** Show the inline tag-add input (the "Add Tag" command entry point). */
 	beginAddTag(): void;
 
-	/**
-	 * Dismiss the inline tag-add input for this cell (called by the bar once the
-	 * input commits or is cancelled).
-	 */
+	/** Hide the inline tag-add input (after the input commits or is cancelled). */
 	endAddTag(): void;
 
 	/**

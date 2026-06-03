@@ -112,24 +112,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			() => /** @description internalMetadata */ this.model.internalMetadata,
 		);
 
-		// Observable of the cell's tags, sourced from the nested nbformat
-		// metadata (`metadata.metadata.tags`). This nested location is the only
-		// one the ipynb serializer persists to the file, so reading it here lets
-		// tags round-trip across save/reload.
-		//
-		// nbformat tags are meant to be an array of string labels, but this is
-		// untrusted file data an external notebook or extension can violate.
-		// Normalize on read: ignore a non-array value, drop non-string entries,
-		// and collapse duplicates so the tag-bar UI's "values are unique"
-		// assumption holds (no colliding React keys, and edit/remove can't
-		// mis-target or drop a sibling occurrence) and a malformed value can't
-		// throw or render garbage. A later setTags write persists the normalized
-		// list back to the file.
-		//
-		// onDidChangeMetadata fires for any metadata change (execution status,
-		// collapse, language id), so a structural comparator keeps the observable
-		// stable -- a fresh-but-equal array from normalization won't notify and
-		// re-render the tag bar on unrelated changes.
+		// Read tags from the nested nbformat metadata (see applyTagsToNestedMetadata).
+		// This is untrusted file data, so normalize on read: ignore a non-array,
+		// drop non-string entries, and dedupe -- the tag bar relies on values being
+		// unique (React keys, edit/remove targeting). equalsFn keeps the observable
+		// stable since onDidChangeMetadata fires on any metadata change, not just tags.
 		this.tags = observableFromEventOpts(
 			{ owner: this, debugName: 'cellTags', equalsFn: arraysEqual },
 			this.model.onDidChangeMetadata,
@@ -198,11 +185,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._instance.uri;
 	}
 
-	/**
-	 * Notebook-wide tag visibility, surfaced on the cell so the tag bar and footer
-	 * (which only hold the cell) can react without reaching for the notebook
-	 * instance. Delegates to the owning instance.
-	 */
+	/** Notebook-wide tag visibility; delegates to the owning instance. */
 	get cellTagsHidden(): IObservable<boolean> {
 		return this._instance.cellTagsHidden;
 	}
@@ -247,10 +230,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		if (index < 0) {
 			return false;
 		}
-		// nbformat tags live under the nested `metadata.metadata.tags`, the only
-		// location the ipynb serializer writes to the file (see
-		// applyTagsToNestedMetadata). computeUndoRedo stays true so tag changes
-		// remain undoable.
+		// Write to the nested nbformat location (see applyTagsToNestedMetadata). The
+		// trailing `true` is computeUndoRedo, so tag changes remain undoable.
 		const nestedMetadata = applyTagsToNestedMetadata(this.model.metadata.metadata, tags);
 		textModel.applyEdits([
 			{
@@ -272,8 +253,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		if (existing.includes(value)) {
 			return 'duplicate';
 		}
-		// Report the actual write outcome rather than assuming success: setTags
-		// no-ops when the text model is unavailable or the cell is detached.
+		// setTags reports false if the write was skipped; surface that as 'failed'.
 		return this.setTags([...existing, value]) ? 'added' : 'failed';
 	}
 
@@ -306,8 +286,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 		const next = [...existing];
 		next[index] = value;
-		// Report the actual write outcome rather than assuming success: setTags
-		// no-ops when the text model is unavailable or the cell is detached.
+		// setTags reports false if the write was skipped; surface that as 'failed'.
 		return this.setTags(next) ? 'added' : 'failed';
 	}
 
