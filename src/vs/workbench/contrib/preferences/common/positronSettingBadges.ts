@@ -20,11 +20,6 @@ export interface IPositronSettingBadge {
 	readonly label: string;
 	/** Localized hover description explaining the badge. */
 	readonly description: string;
-	/**
-	 * Optional CSS class for per-badge styling. Reserved for future color customization.
-	 * All badges currently reuse the shared `.setting-item-preview` style.
-	 */
-	readonly cssClass?: string;
 }
 
 /**

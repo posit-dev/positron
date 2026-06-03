@@ -321,8 +321,7 @@ export class SettingsTreeIndicatorsLabel implements IDisposable {
 	// --- Start Positron ---
 	private createPositronBadgeIndicator(badge: IPositronSettingBadge): SettingIndicator {
 		const disposables = new DisposableStore();
-		// Add css style for badge if specified, otherwise rely on shared badge styles.
-		const element = $(`span.setting-indicator.setting-item-preview${badge.cssClass ? '.' + badge.cssClass : ''}`);
+		const element = $('span.setting-indicator.setting-item-preview');
 		// Hidden until updatePositronBadgeIndicators shows it for matching settings.
 		element.style.display = 'none';
 		const label = disposables.add(new SimpleIconLabel(element));
