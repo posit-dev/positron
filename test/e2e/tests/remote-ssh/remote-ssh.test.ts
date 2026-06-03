@@ -141,14 +141,21 @@ test.describe('Remote SSH', {
 	});
 });
 
-const flaskAppCode = `from flask import Flask
-
-app = Flask(__name__)
-
-@app.route('/')
-def hello():
-	return 'Hello, World!'
-
-if __name__ == '__main__':
-	app.run(debug=True)
-`;
+// Built as an array of lines so the embedded Python keeps its 4-space indentation
+// (it is typed into Monaco, which auto-indents new lines with spaces; a literal tab
+// here would mix tabs and spaces and raise a Python TabError). Authoring the spaces
+// as string content -- rather than source-line indentation -- also satisfies the
+// tabs-only hygiene check.
+const flaskAppCode = [
+	'from flask import Flask',
+	'',
+	'app = Flask(__name__)',
+	'',
+	'@app.route(\'/\')',
+	'def hello():',
+	'    return \'Hello, World!\'',
+	'',
+	'if __name__ == \'__main__\':',
+	'    app.run(debug=True)',
+	'',
+].join('\n');
