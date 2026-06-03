@@ -35,7 +35,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
 		const existingProject = this.project(folderToOpen);
 
 		try {
@@ -54,7 +54,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		await this.newSessionButton.click();
 		await this.positronProButton.click();
 
@@ -65,6 +65,14 @@ export class DashboardPage {
 
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
+
+		// Azure JIT-provisioned users (rstudio-ide-test) don't have qa-example-content in their
+		// home directory. Skip the Open Folder step — the launched session is enough to trigger
+		// PAM session start and home directory creation, which is what the Azure tests verify.
+		if (managedCredentials === 'azure') {
+			return;
+		}
+
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
@@ -77,7 +85,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
@@ -106,7 +114,7 @@ export class DashboardPage {
 	 * @param managedCredentials Credential to set up: 'snowflake' sets up only Snowflake, 'databricks'
 	 *                           sets up only Databricks. If undefined, no credentials are configured.
 	 */
-	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		if (managedCredentials === undefined) {
 			return;
 		}
@@ -149,9 +157,9 @@ export class DashboardPage {
 
 		this.code.logger.log('Setting up Databricks OAuth...');
 
-		const serviceAccountEmail = process.env.DATABRICKS_SERVICE_ACCOUNT_EMAIL!;
-		const serviceAccountPassword = process.env.DATABRICKS_SERVICE_ACCOUNT_PASSWORD!;
-		const otpSecret = process.env.DATABRICKS_SERVICE_ACCOUNT_OTP_SECRET!;
+		const serviceAccountEmail = process.env.IDE_SERVICE_ACCOUNT_EMAIL!;
+		const serviceAccountPassword = process.env.IDE_SERVICE_ACCOUNT_PASSWORD!;
+		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET!;
 
 		// Click Databricks sign in - opens OAuth in new tab
 		const [oauthPage] = await Promise.all([

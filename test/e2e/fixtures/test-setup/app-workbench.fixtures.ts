@@ -27,8 +27,13 @@ export async function WorkbenchApp(
 	const start = async () => {
 		await app.connectToExternalServer();
 
-		// Workbench: Login to Posit Workbench
-		await app.positWorkbench.auth.signIn();
+		// Workbench: Login to Posit Workbench. The Azure shard signs in via OIDC against the
+		// rstudio-ide-test service account in Azure AD; everything else uses local user1 creds.
+		if (managedCredentials === 'azure') {
+			await app.positWorkbench.auth.signInWithAzure();
+		} else {
+			await app.positWorkbench.auth.signIn();
+		}
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
 
 		// Get the browser context for OAuth flows
@@ -65,7 +70,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks'): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}

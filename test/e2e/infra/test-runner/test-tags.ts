@@ -92,6 +92,7 @@ export enum TestTags {
 	WORKBENCH_STABLE = '@:workbench-stable',
 	WORKBENCH_SNOWFLAKE = '@:workbench-snowflake',
 	WORKBENCH_DATABRICKS = '@:workbench-databricks',
+	WORKBENCH_AZURE = '@:workbench-azure',
 	REMOTE_SSH = '@:remote-ssh',
 
 	// soft fail tag for tests that shouldn't fail merge to main
