@@ -142,12 +142,13 @@ needs neither the opaque backdrop nor the sticky pin. */
 	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
 }
 
-/* Color + centering for the close / add codicons. */
-/* The base rule .codicon[class*='codicon-'] has specificity (0,2,0), so this */
-/* override matches its structure to win -- including the color. color:inherit */
-/* lets each affordance drive its own glyph color per state (otherwise the */
-/* glyph resolves to a higher-contrast icon foreground up the cascade). */
-.codicon[class*='codicon-'].positron-notebook-cell-tag-icon {
+/* Color + centering for the close codicon. The workbench base rule
+.monaco-workbench .codicon[class*='codicon-'] forces font-size: 16px at
+specificity (0,3,0), so this override is scoped under the tag bar to reach (0,4,0)
+and win -- otherwise the smaller size and inherited color are ignored. color:inherit
+lets the affordance drive its own glyph color per state (otherwise the glyph
+resolves to a higher-contrast icon foreground up the cascade). */
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -161,10 +162,14 @@ needs neither the opaque backdrop nor the sticky pin. */
 	transform: translate(0.04em, 0.04em);
 }
 
-/* The add pill sits the plus glyph inline next to its label, so it wants a
-readable glyph size rather than the tiny centered-icon treatment above. */
-.codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
-	font-size: 11px;
+/* The add pill sits the plus glyph inline next to its label. Codicons scale with
+font-size, and `add-small` is drawn to fill most of its em box, so it reads heavy
+at the label's 11px -- size it down so the plus matches the label's cap height
+rather than overpowering it. Scoped under the tag bar to reach specificity (0,4,0)
+and beat the workbench base `.monaco-workbench .codicon[class*='codicon-']` 16px
+rule (0,3,0). */
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
+	font-size: 10px;
 	line-height: 1;
 	color: inherit;
 }
