@@ -3,9 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Disposable, toDisposable } from '../../../../base/common/lifecycle.js';
-import { URI } from '../../../../base/common/uri.js';
 import { ResourceSet } from '../../../../base/common/map.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IMarkerData, IMarkerService, IRelatedInformation } from '../../../../platform/markers/common/markers.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import { QUARTO_CELL_DIAGNOSTICS_OWNER } from '../common/positronQuartoConfig.js';
@@ -37,6 +38,17 @@ export class QuartoCellDiagnostics extends Disposable {
 
 	private readonly _documentUri: URI;
 
+	// The actual re-projection is deferred via a scheduler rather than run
+	// inline. Writing markers directly inside the `onMarkerChanged` handler
+	// would re-enter {@link IMarkerService}'s microtask emitter mid-dispatch:
+	// the re-fired change for the document resource is coalesced into the
+	// in-flight batch and dropped before other listeners (notably the editor's
+	// marker-decorations renderer) observe it, so the squiggle would not appear
+	// until the next, unrelated marker change. Deferring lets our write fire
+	// its own clean event, and coalesces bursts of cell-marker changes into a
+	// single re-projection.
+	private readonly _reprojectScheduler = this._register(new RunOnceScheduler(() => this._reproject(), 0));
+
 	constructor(
 		private readonly _documentModel: IQuartoDocumentModel,
 		private readonly _cellModelService: IQuartoCellModelService,
@@ -46,19 +58,19 @@ export class QuartoCellDiagnostics extends Disposable {
 
 		this._documentUri = this._documentModel.uri;
 
-		this._reproject();
+		this._reprojectScheduler.schedule();
 
 		// A cell's markers changed (server re-published after a chunk edit).
 		this._register(this._markerService.onMarkerChanged(resources => {
 			if (this._touchesOwnCell(resources)) {
-				this._reproject();
+				this._reprojectScheduler.schedule();
 			}
 		}));
 
 		// A reparse may have shifted chunk line offsets without changing chunk
 		// text, so the cell-space markers are unchanged but their document-space
 		// projection is stale.
-		this._register(this._documentModel.onDidParse(() => this._reproject()));
+		this._register(this._documentModel.onDidParse(() => this._reprojectScheduler.schedule()));
 
 		// Clear our projected markers when the document closes.
 		this._register(toDisposable(() => {
