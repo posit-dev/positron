@@ -13,6 +13,8 @@
 	overflow-y: hidden;
 	/* Small, consistent gaps between pills and the add control. */
 	gap: 4px;
+	/* Tag-bar typography for footer and standalone (markdown / raw) placement. */
+	font-size: 11px;
 }
 
 /* Standalone placement (markdown / raw cells, which have no footer). */
@@ -42,12 +44,20 @@ metadata, not a button. */
 	transition: padding-inline-end 120ms ease;
 }
 
-.positron-notebook-cell-tag-label {
+/* Button typography in the tag bar. The workbench reset
+`.monaco-workbench button { font-size: 100% }` is (0,1,1) and beats a single tag-bar
+class on its own; code cells only looked correct because the footer sets 11px so
+100% still computed to 11px -- standalone markdown / raw cells do not. Scoped under
+the tag bar (0,2,1) so explicit 11px wins in every placement. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-label {
 	border: none;
 	background: transparent;
 	color: inherit;
 	font-size: 11px;
-	line-height: 1;
+	/* overflow:hidden (for the ellipsis) clips the line box, and at line-height:1
+	that box is too short for descenders (j/p/g) -- give it room; the 18px pill
+	centers the taller line box with space to spare. */
+	line-height: 1.4;
 	padding: 0;
 	cursor: text;
 	max-width: 200px;
@@ -58,7 +68,7 @@ metadata, not a button. */
 
 /* Close affordance: hidden at rest, revealed on hover / keyboard focus with a
 brief width + opacity transition so a row of tags stays calm rather than jumping. */
-.positron-notebook-cell-tag-remove {
+.positron-notebook-cell-tags .positron-notebook-cell-tag-remove {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -74,8 +84,8 @@ brief width + opacity transition so a row of tags stays calm rather than jumping
 	transition: width 120ms ease, opacity 120ms ease, margin-left 120ms ease;
 }
 
-.positron-notebook-cell-tag:hover .positron-notebook-cell-tag-remove,
-.positron-notebook-cell-tag:focus-within .positron-notebook-cell-tag-remove {
+.positron-notebook-cell-tags .positron-notebook-cell-tag:hover .positron-notebook-cell-tag-remove,
+.positron-notebook-cell-tags .positron-notebook-cell-tag:focus-within .positron-notebook-cell-tag-remove {
 	width: 14px;
 	margin-left: 2px;
 	opacity: 1;
@@ -83,13 +93,13 @@ brief width + opacity transition so a row of tags stays calm rather than jumping
 
 /* The revealed close icon carries whitespace within its own glyph canvas, so trim
 the pill's trailing padding on hover to keep the right inset balanced with the left. */
-.positron-notebook-cell-tag:hover,
-.positron-notebook-cell-tag:focus-within {
+.positron-notebook-cell-tags .positron-notebook-cell-tag:hover,
+.positron-notebook-cell-tags .positron-notebook-cell-tag:focus-within {
 	padding-inline-end: 3px;
 }
 
 /* Hovering the close icon itself brightens it toward the primary text color. */
-.positron-notebook-cell-tag-remove:hover {
+.positron-notebook-cell-tags .positron-notebook-cell-tag-remove:hover {
 	color: var(--vscode-foreground);
 }
 
@@ -97,7 +107,7 @@ the pill's trailing padding on hover to keep the right inset balanced with the l
 Hidden at rest and revealed on hover of the tag bar (or keyboard focus) so an
 untouched row stays calm. Sticks to the right edge when the row overflows
 horizontally, so it stays reachable even in large tag sets. */
-.positron-notebook-cell-tag-add {
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add {
 	display: inline-flex;
 	align-items: center;
 	box-sizing: border-box;
@@ -130,13 +140,13 @@ horizontally, so it stays reachable even in large tag sets. */
 /* On hover the add pill picks up the accent/link color with a faint accent-tinted
 fill. The wash is mixed over the opaque footer background (not transparent) so the
 pill stays opaque while sticky. */
-.positron-notebook-cell-tag-add:hover {
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add:hover {
 	color: var(--vscode-textLink-foreground);
 	border-color: var(--vscode-textLink-foreground);
 	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, var(--vscode-notebook-cellEditorBackground));
 }
 
-.positron-notebook-cell-tag-add-label {
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add-label {
 	white-space: nowrap;
 }
 
@@ -184,11 +194,16 @@ rule (0,3,0). */
 	color: inherit;
 }
 
-.positron-notebook-cell-tag-input {
+/* Intrinsic width from current value (grows while editing); capped to match the
+display pill: 200px label + 16px horizontal padding + 2px border. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-input {
 	flex: 0 0 auto;
+	box-sizing: border-box;
 	height: 18px;
-	min-width: 50px;
-	width: 70px;
+	min-width: 70px;
+	max-width: 218px;
+	width: auto;
+	field-sizing: content;
 	border-radius: 999px;
 	border: 1px solid var(--vscode-focusBorder);
 	background-color: var(--vscode-input-background);
