@@ -37,6 +37,9 @@ metadata, not a button. */
 	background: transparent;
 	/* Muted footer text; also drives the close icon color via inherit. */
 	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+	/* Animate the trailing-padding trim on hover (see the :hover rule below) so it
+	moves in step with the close icon's reveal. */
+	transition: padding-inline-end 120ms ease;
 }
 
 .positron-notebook-cell-tag-label {
@@ -76,6 +79,13 @@ brief width + opacity transition so a row of tags stays calm rather than jumping
 	width: 14px;
 	margin-left: 2px;
 	opacity: 1;
+}
+
+/* The revealed close icon carries whitespace within its own glyph canvas, so trim
+the pill's trailing padding on hover to keep the right inset balanced with the left. */
+.positron-notebook-cell-tag:hover,
+.positron-notebook-cell-tag:focus-within {
+	padding-inline-end: 3px;
 }
 
 /* Hovering the close icon itself brightens it toward the primary text color. */
@@ -154,7 +164,7 @@ resolves to a higher-contrast icon foreground up the cascade). */
 	justify-content: center;
 	width: 100%;
 	height: 100%;
-	font-size: 7px;
+	font-size: 10px;
 	line-height: 1;
 	color: inherit;
 	/* Some codicon glyphs (close/plus) aren't centered within their glyph */
