@@ -138,7 +138,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 		});
 	});
 
-	test.describe('Assistant Layout', () => {
+	test.describe('Assistant Layout', { tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT] }, () => {
 		test.afterEach('Reset Layout', async function ({ app }) {
 			await app.workbench.layouts.enterLayout('stacked');
 		});
