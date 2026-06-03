@@ -378,7 +378,11 @@
 			// To debug observables you also need the extension "ms-vscode.debug-value-editor"
 			"type": "chrome",
 			"request": "launch",
-			"name": "Launch VS Code Internal (Hot Reload)",
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "Launch VS Code Internal (Hot Reload)",
+			"name": "Launch Positron Internal (Hot Reload)",
+			// --- End Positron ---
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
@@ -436,21 +440,24 @@
 				"order": 2
 			}
 		},
-		{
-			"type": "node",
-			"request": "launch",
-			"name": "VS Code Agent Host",
-			"outputCapture": "std",
-			"program": "./scripts/code-agent-host.js",
-			"args": ["--port", "7777", "--without-connection-token"],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"presentation": {
-				"group": "0_vscode",
-				"order": 2
-			}
-		},
+		// --- Start Positron ---
+		// Skip the Agent Host launch target for Positron.
+		// {
+		// 	"type": "node",
+		// 	"request": "launch",
+		// 	"name": "VS Code Agent Host",
+		// 	"outputCapture": "std",
+		// 	"program": "./scripts/code-agent-host.js",
+		// 	"args": ["--port", "7777", "--without-connection-token"],
+		// 	"outFiles": [
+		// 		"${workspaceFolder}/out/**/*.js"
+		// 	],
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 2
+		// 	}
+		// },
+		// --- End Positron ---
 		{
 			"type": "node",
 			"request": "launch",
@@ -768,7 +775,11 @@
 	],
 	"compounds": [
 		{
+			// --- Start Positron ---
+			// Rename this to "Positron".
+			// "name": "VS Code",
 			"name": "Positron",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
 				"Launch Positron Internal",
@@ -783,26 +794,38 @@
 				"order": 1
 			}
 		},
+		// --- Start Positron ---
+		// Remove the VS Code Agents launch target, since this doesn't exist in
+		// Positron.
+		// {
+		// 	"name": "VS Code Agents",
+		// 	"stopAll": true,
+		// 	"configurations": [
+		// 		"Launch VS Code Agents Internal",
+		// 		"Attach to Main Process",
+		// 		"Attach to Extension Host",
+		// 		"Attach to Shared Process",
+		// 	],
+		// 	"preLaunchTask": "Ensure Prelaunch Dependencies",
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 1
+		// 	}
+		// },
+		// --- End Positron ---
 		{
-			"name": "VS Code Agents",
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "VS Code (Hot Reload)",
+			"name": "Positron (Hot Reload)",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
-				"Launch VS Code Agents Internal",
-				"Attach to Main Process",
-				"Attach to Extension Host",
-				"Attach to Shared Process",
-			],
-			"preLaunchTask": "Ensure Prelaunch Dependencies",
-			"presentation": {
-				"group": "0_vscode",
-				"order": 1
-			}
-		},
-		{
-			"name": "VS Code (Hot Reload)",
-			"stopAll": true,
-			"configurations": [
-				"Launch VS Code Internal (Hot Reload)",
+				// --- Start Positron ---
+				// Rename this to "Positron"
+				// "Launch VS Code Internal (Hot Reload)",
+				"Launch Positron Internal (Hot Reload)",
+				// --- End Positron ---
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
