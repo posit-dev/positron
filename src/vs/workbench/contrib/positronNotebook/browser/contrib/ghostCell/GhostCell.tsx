@@ -558,10 +558,11 @@ export const GhostCell: React.FC = () => {
 		const renderer = new PositronModalReactRenderer({
 			container: workbenchLayoutService.getContainer(DOM.getWindow(containerRef.current))
 		});
-		// Extract modelName from state if available
-		const modelName = ghostCellState.status === 'ready' ? ghostCellState.modelName : undefined;
+		// Read modelName from the current state if available
+		const currentState = controller.ghostCellState.get();
+		const modelName = currentState.status === 'ready' ? currentState.modelName : undefined;
 		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
-	}, [workbenchLayoutService, ghostCellState]);
+	}, [workbenchLayoutService, controller]);
 
 	// Opt-in prompt handlers
 	const handleOptInEnable = React.useCallback(() => {
@@ -588,7 +589,7 @@ export const GhostCell: React.FC = () => {
 
 	// Model picker handler
 	const handleChangeModel = React.useCallback(() => {
-		services.commandService.executeCommand('positron-assistant.selectGhostCellModel');
+		services.commandService.executeCommand('positronNotebook.selectGhostCellModel');
 	}, [services.commandService]);
 
 	// Get automatic mode from state (for immediate UI feedback) or fall back to controller method

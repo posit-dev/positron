@@ -29,6 +29,7 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY = 'positron.assistan
 // Command IDs for ghost cell actions
 export const REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
 export const SHOW_GHOST_CELL_INFO_COMMAND_ID = 'positronNotebook.showGhostCellInfo';
+export const SELECT_GHOST_CELL_MODEL_COMMAND_ID = 'positronNotebook.selectGhostCellModel';
 
 // Register ghost cell configuration settings
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
@@ -78,7 +79,7 @@ configurationRegistry.registerConfiguration({
 			default: ['haiku', 'mini'],
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.model',
-				'Model patterns for ghost cell suggestions. [Select a model](command:positron-assistant.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
+				'Model patterns for ghost cell suggestions. [Select a model](command:positronNotebook.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],

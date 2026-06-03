@@ -9,10 +9,12 @@ import { CancellationTokenSource } from '../../../../../../base/common/cancellat
 import { generateUuid } from '../../../../../../base/common/uuid.js';
 import { CommandsRegistry, ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { RawContextKey, IContextKey } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { localize } from '../../../../../../nls.js';
+import { GhostCellGenerator } from './generation/generator.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { INotebookExecutionStateService, NotebookExecutionType } from '../../../../notebook/common/notebookExecutionStateService.js';
@@ -82,6 +84,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		private readonly _notebook: IPositronNotebookInstance,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
@@ -232,6 +235,15 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		this._ghostCellCancellationToken = new CancellationTokenSource();
 		const token = this._ghostCellCancellationToken.token;
 
+		// Check if the headless LM service path should be used.
+		// Intentional hidden flag: not registered in config.ts, so it's settable via
+		// settings.json only while the headless path is in migration. See README.
+		const useHeadlessService = this._configurationService.getValue<boolean>('positron.assistant.notebook.ghostCellSuggestions.useHeadlessService') ?? false;
+		if (useHeadlessService) {
+			this._triggerViaHeadlessService(executedCellIndex);
+			return;
+		}
+
 		// Register callback command for streaming updates
 		const callbackCommandId = `positron-notebook-ghost-cell-callback-${generateUuid()}`;
 		const callbackDisposable = CommandsRegistry.registerCommand(
@@ -296,14 +308,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 				message: error instanceof Error ? error.message : String(error)
 			}, undefined);
 
-			// Auto-dismiss error after 5 seconds
-			this._errorDismissTimer = setTimeout(() => {
-				this._errorDismissTimer = undefined;
-				const currentState = this._ghostCellState.get();
-				if (currentState.status === 'error') {
-					this._ghostCellState.set({ status: 'hidden' }, undefined);
-				}
-			}, 5000);
+			this._scheduleErrorAutoDismiss();
 		});
 	}
 
@@ -541,6 +546,106 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	}
 
 	// ===== Private Helpers =====
+
+	/**
+	 * Trigger a ghost cell suggestion using the headless LM service.
+	 * This path bypasses the extension command and uses the GhostCellGenerator directly.
+	 */
+	private static readonly GENERATION_TIMEOUT_MS = 60_000;
+
+	/**
+	 * Schedules the error banner to auto-dismiss after a short delay, clearing it only
+	 * if the ghost cell is still in the error state when the timer fires.
+	 */
+	private _scheduleErrorAutoDismiss(): void {
+		this._errorDismissTimer = setTimeout(() => {
+			this._errorDismissTimer = undefined;
+			const currentState = this._ghostCellState.get();
+			if (currentState.status === 'error') {
+				this._ghostCellState.set({ status: 'hidden' }, undefined);
+			}
+		}, 5000);
+	}
+
+	private async _triggerViaHeadlessService(executedCellIndex: number): Promise<void> {
+		const textModel = this._notebook.textModel;
+		if (!textModel) {
+			this._ghostCellState.set({ status: 'hidden' }, undefined);
+			return;
+		}
+
+		this._ghostCellState.set({ status: 'loading', executedCellIndex, automatic: this._isAutomaticMode() }, undefined);
+
+		const generator = this._instantiationService.createInstance(GhostCellGenerator);
+		const cts = this._ghostCellCancellationToken;
+		if (!cts) {
+			this._ghostCellState.set({ status: 'hidden' }, undefined);
+			return;
+		}
+		const token = cts.token;
+
+		let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+		let timedOut = false;
+		try {
+			const result = await Promise.race([
+				generator.generate(
+					textModel,
+					this._notebook.uri,
+					executedCellIndex,
+					token,
+					(partial) => {
+						if (token.isCancellationRequested) { return; }
+						const currentState = this._ghostCellState.get();
+						this._ghostCellState.set({
+							status: 'streaming',
+							executedCellIndex,
+							code: partial.code ?? (currentState.status === 'streaming' ? currentState.code : ''),
+							explanation: partial.explanation ?? (currentState.status === 'streaming' ? currentState.explanation : ''),
+							automatic: this._isAutomaticMode(),
+						}, undefined);
+					},
+				),
+				new Promise<null>((_, reject) => {
+					timeoutHandle = setTimeout(() => {
+						if (!token.isCancellationRequested) {
+							timedOut = true;
+							cts.cancel();
+						}
+						reject(new Error('Ghost cell generation timed out'));
+					}, GhostCellController.GENERATION_TIMEOUT_MS);
+				}),
+			]);
+			clearTimeout(timeoutHandle);
+
+			if (token.isCancellationRequested) { return; }
+
+			if (result) {
+				this._ghostCellState.set({
+					status: 'ready',
+					executedCellIndex,
+					code: result.code,
+					explanation: result.explanation,
+					language: result.language,
+					automatic: this._isAutomaticMode(),
+					modelName: result.modelName,
+				}, undefined);
+			} else {
+				this._ghostCellState.set({ status: 'hidden' }, undefined);
+			}
+		} catch (error: unknown) {
+			clearTimeout(timeoutHandle);
+			if (token.isCancellationRequested && !timedOut) { return; }
+
+			this._logService.error('[ghost-cell] Headless service generation failed:', error);
+			this._ghostCellState.set({
+				status: 'error',
+				executedCellIndex,
+				message: error instanceof Error ? error.message : String(error)
+			}, undefined);
+
+			this._scheduleErrorAutoDismiss();
+		}
+	}
 
 	/**
 	 * Check if ghost cell suggestions are enabled for this notebook.
