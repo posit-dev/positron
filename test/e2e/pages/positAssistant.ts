@@ -92,6 +92,16 @@ export class PositAssistant {
 		if (isSelected !== 'true') {
 			await button.click();
 		}
+		await this.expectViewOpen();
+	}
+
+	/**
+	 * Assert the Posit Assistant view is the active view in the sidebar by checking
+	 * that its activity bar button is selected. This avoids waiting on the webview
+	 * to load, so it is a reliable signal that the view container itself is open.
+	 */
+	async expectViewOpen(): Promise<void> {
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
 	}
 
