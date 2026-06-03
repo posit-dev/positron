@@ -37,6 +37,9 @@ test.describe('Remote WSL', {
 	});
 
 	test('Verify Positron connects to a WSL distro', async function ({ app }) {
+		// Connecting installs/starts the remote server in the distro the first time, which can be
+		// slow (a cold REH download). Triple the default test timeout to absorb that.
+		test.slow();
 
 		const wslWin = await test.step(`Connect to WSL distro "${WSL_DISTRO}"`, async () => {
 			// Connecting opens the workbench in a new window, so arm the listener before triggering.
@@ -57,7 +60,7 @@ test.describe('Remote WSL', {
 			// starts the server. Once connected, the remote indicator reads "WSL: <distro>". Allow a
 			// generous timeout to cover the one-time server install.
 			const remoteIndicator = wslWin.locator('.statusbar-item[id="status.host"]');
-			await expect(remoteIndicator).toContainText(`WSL: ${WSL_DISTRO}`, { timeout: 120_000 });
+			await expect(remoteIndicator).toContainText(`WSL: ${WSL_DISTRO}`, { timeout: 180_000 });
 
 			return wslWin;
 		});
