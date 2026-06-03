@@ -735,17 +735,26 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		'notebook.diff.ignoreMetadata': {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('notebook.diff.ignoreMetadata', "Hide Metadata Differences")
+			markdownDescription: localize('notebook.diff.ignoreMetadata', "Hide Metadata Differences"),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		'notebook.diff.ignoreOutputs': {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('notebook.diff.ignoreOutputs', "Hide Outputs Differences")
+			markdownDescription: localize('notebook.diff.ignoreOutputs', "Hide Outputs Differences"),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		'notebook.diff.experimental.toggleInline': {
 			type: 'boolean',
 			default: typeof product.quality === 'string' && product.quality !== 'stable', // only enable as default in insiders
-			markdownDescription: localize('notebook.diff.toggleInline', "Enable the command to toggle the experimental notebook inline diff editor.")
+			markdownDescription: localize('notebook.diff.toggleInline', "Enable the command to toggle the experimental notebook inline diff editor."),
+			// --- Start Positron ---
+			tags: ['experimental', 'legacy']
+			// --- End Positron ---
 		},
 	}
 });
