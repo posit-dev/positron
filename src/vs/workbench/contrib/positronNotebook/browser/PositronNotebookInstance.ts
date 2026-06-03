@@ -613,6 +613,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const output_pixel_ratio = win.devicePixelRatio;
 
 		// Best case: measure an existing outputs-inner element directly.
+		// eslint-disable-next-line no-restricted-syntax
 		const outputsInner = domNode.querySelector<HTMLElement>(
 			'.positron-notebook-code-cell-outputs-inner'
 		);
@@ -634,6 +635,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const containerPadding = (parseFloat(containerStyle.paddingLeft) || 0)
 				+ (parseFloat(containerStyle.paddingRight) || 0);
 
+			// eslint-disable-next-line no-restricted-syntax
 			const cell = container.querySelector<HTMLElement>('.positron-notebook-cell');
 			const cellMarginLeft = cell
 				? parseFloat(win.getComputedStyle(cell).marginLeft) || 0
@@ -644,6 +646,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// an element exists; otherwise approximate from the
 			// .positron-notebook-code-cell-outputs-inner rule (0.5rem
 			// inline = 8px each side at default font size).
+			// eslint-disable-next-line no-restricted-syntax
 			const innerEl = container.querySelector<HTMLElement>(
 				'.positron-notebook-code-cell-outputs-inner'
 			);
@@ -1081,9 +1084,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @throws Error if no cells are provided
 	 */
 	async runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		if (!cells) {
-			throw new Error(localize('noCells', "No cells to run"));
-		}
 		await this._runCells(cells);
 	}
 
@@ -1217,7 +1217,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Get the underlying cell model to access all properties
 		const cellModel = textModel.cells[cellIndex];
-		if (!cellModel) {
+		if (cellModel === undefined) {
 			return;
 		}
 
@@ -1345,7 +1345,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			true,
 			{ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] },
 			() => {
-				if (nextCellAfterContainingSelection) {
+				if (nextCellAfterContainingSelection !== undefined) {
 					const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
 					return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
 				} else {
@@ -1567,7 +1567,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const cellIndex = cell.index;
 		const cellModel = textModel.cells[cellIndex];
-		if (!cellModel) {
+		if (cellModel === undefined) {
 			return;
 		}
 
@@ -1640,7 +1640,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Merge content from all selected cells, using the first cell's EOL
 		const firstCell = sortedCells[0];
 		const firstCellModel = textModel.cells[firstCell.index];
-		if (!firstCellModel) {
+		if (firstCellModel === undefined) {
 			return;
 		}
 		const eol = firstCellModel.textBuffer.getEOL();
@@ -1751,7 +1751,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const activeCellModel = textModel.cells[cellIndex];
 		const keepCellModel = textModel.cells[keepIndex];
-		if (!activeCellModel || !keepCellModel) {
+		if (activeCellModel === undefined || keepCellModel === undefined) {
 			return;
 		}
 
@@ -2594,7 +2594,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const cell = cells[cellIndex];
-		if (!cell) {
+		if (cell === undefined) {
 			return;
 		}
 
