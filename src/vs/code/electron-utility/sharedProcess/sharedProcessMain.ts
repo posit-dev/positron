@@ -149,6 +149,10 @@ import { LocalGitService } from '../../../platform/git/node/localGitService.js';
 
 // --- Start Positron ---
 import { PositronBootstrapExtensionsInitializer } from '../../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
+// eslint-disable-next-line local/code-import-patterns -- LM service will move to vs/platform: https://github.com/posit-dev/positron/issues/13983
+import { PositronLMNode, PositronLMChannel } from '../../../workbench/services/positronLM/node/positronLMService.js';
+// eslint-disable-next-line local/code-import-patterns -- see https://github.com/posit-dev/positron/issues/13983
+import { POSITRON_LM_CHANNEL_NAME } from '../../../workbench/services/positronLM/common/positronLMService.js';
 // --- End Positron ---
 //
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
@@ -533,6 +537,17 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Tunnel Host
 		const tunnelHostChannel = ProxyChannel.fromService(accessor.get(ITunnelAgentHostHostingService), this._store);
 		this.server.registerChannel(TUNNEL_HOST_CHANNEL, tunnelHostChannel);
+
+		// --- Start Positron ---
+		// Positron LM
+		try {
+			const positronLMService = accessor.get(IInstantiationService).createInstance(PositronLMNode);
+			const positronLMChannel = new PositronLMChannel(positronLMService);
+			this.server.registerChannel(POSITRON_LM_CHANNEL_NAME, positronLMChannel);
+		} catch (err) {
+			accessor.get(ILogService).error('[PositronLM] Failed to register LM channel:', err);
+		}
+		// --- End Positron ---
 	}
 
 	private registerErrorHandler(logService: ILogService): void {

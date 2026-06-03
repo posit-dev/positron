@@ -116,6 +116,8 @@ import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentE
 import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
 import { PositronIdleTrackingService } from '../../platform/positronIdleTracking/node/positronIdleTrackingService.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannel } from '../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
+import { PositronLMNode, PositronLMChannel } from '../../workbench/services/positronLM/node/positronLMService.js';
+import { POSITRON_LM_CHANNEL_NAME } from '../../workbench/services/positronLM/common/positronLMService.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -343,6 +345,15 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		// Idle Tracking
 		const idleTrackingChannel = new PositronIdleTrackingChannel(accessor.get(IPositronIdleTrackingService));
 		socketServer.registerChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME, idleTrackingChannel);
+
+		// Positron LM
+		try {
+			const positronLMService = instantiationService.createInstance(PositronLMNode);
+			const positronLMChannel = new PositronLMChannel<RemoteAgentConnectionContext>(positronLMService);
+			socketServer.registerChannel(POSITRON_LM_CHANNEL_NAME, positronLMChannel);
+		} catch (err) {
+			logService.error('[PositronLM] Failed to register LM channel:', err);
+		}
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

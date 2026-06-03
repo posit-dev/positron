@@ -98,6 +98,7 @@ import './services/power/electron-browser/powerService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/electron-browser/ephemeralStateService.js';
+import './services/positronLM/electron-browser/positronLMService.js';
 import './services/positronMemoryUsage/electron-browser/positronMemoryUsageElectronService.js';
 // --- End Positron ---
 

@@ -99,6 +99,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/positronLM",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/runtimeNotebookKernel",
 			"project": "vscode-workbench"
 		},
