@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -61,6 +61,7 @@ import { IPositronNotebookViewState, IPositronNotebookScrollPosition } from './p
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronNotebookEditorRenderer } from './PositronNotebookEditorRenderer.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
+import { getWindow } from '../../../../base/browser/dom.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -564,6 +565,80 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._positronNotebookService.registerInstance(this);
+
+		// TODO: Is there not a better way to do this?
+		// Watch for exit-editor transitions to return focus to the focus trap
+		let pendingFrame: number | undefined;
+		this._register(toDisposable(() => {
+			if (pendingFrame !== undefined) {
+				getWindow(this.currentContainer).cancelAnimationFrame(pendingFrame);
+			}
+		}));
+		const instance = this;
+		this._register(autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
+			if (lastValue === undefined) {
+				// First run: no previous state to compare against, do nothing
+				return;
+			}
+			// Check if we transitioned from editing to selecting a single cell
+			if (!(lastValue.type === SelectionState.EditingSelection &&
+				newValue.type === SelectionState.SingleSelection &&
+				lastValue.active === newValue.active)) {
+				return;
+			}
+
+			const cell = newValue.active;
+
+			// TODO: This *should* no longer be possible given that instances are scoped to an editor pane?
+			// Don't steal focus if the user navigated to a different editor pane
+			// (e.g. clicking a cell in a side-by-side notebook).
+			const activeEl = cell.container?.ownerDocument.activeElement;
+			if (activeEl && !instance.currentContainer?.contains(activeEl)) {
+				return;
+			}
+
+			const restoreCellFocus = () => {
+				// Only focus the focus trap if the cell has outputs.
+				// When there are no outputs, the focus trap has tabIndex=-1
+				// (not in tab order), so focusing it would disrupt keyboard
+				// navigation. In that case, focus the cell container instead.
+				const currentOutputs = cell.outputs?.get() ?? [];
+				const hasOutputs = currentOutputs.length > 0;
+				if (hasOutputs) {
+					cell.cellEditor?.focus();
+				} else {
+					cell.container?.focus();
+				}
+			};
+
+			if (!activeEl) {
+				// activeElement is transiently null during blur/focus
+				// handoff. Defer to the next frame so the browser settles
+				// on the actual target before we decide.
+				const win = getWindow(cell.container);
+				if (pendingFrame !== undefined) {
+					win.cancelAnimationFrame(pendingFrame);
+				}
+				pendingFrame = win.requestAnimationFrame(() => {
+					pendingFrame = undefined;
+					// Re-check selection state: if the user moved to
+					// another cell during the deferred frame, bail out.
+					const currentState = instance.selectionStateMachine.state.get();
+					if (currentState.type !== SelectionState.SingleSelection ||
+						currentState.active !== cell) {
+						return;
+					}
+					const resolved = cell.container?.ownerDocument.activeElement;
+					if (resolved && !instance.currentContainer?.contains(resolved)) {
+						return;
+					}
+					restoreCellFocus();
+				});
+				return;
+			}
+
+			restoreCellFocus();
+		}));
 	}
 
 	//#region INotebookEditor

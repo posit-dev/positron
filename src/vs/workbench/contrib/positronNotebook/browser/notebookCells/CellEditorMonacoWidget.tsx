@@ -12,28 +12,12 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 
-import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
-import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-
-import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
-import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
-import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
-import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
-import { CellSelectionType, SelectionState } from '../selectionMachine.js';
-import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
-import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
-import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
-import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { useCellScopedContextKeyService } from './CellProvider.js';
+import { NotebookCellEditor } from './NotebookCellEditor.js';
 
 /**
  *
@@ -41,7 +25,11 @@ import { useCellScopedContextKeyService } from './CellProvider.js';
  * @returns An editor widget for the cell
  */
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
-	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
+	const editorPartRef = React.useRef<HTMLDivElement>(null);
+	const focusTargetRef = React.useRef<HTMLDivElement>(null);
+	const services = usePositronReactServicesContext();
+	const { logService } = services;
+	const instance = useNotebookInstance();
 
 	/**
 	 * Observe outputs reactively so hasOutputs updates when outputs are added/removed.
@@ -71,6 +59,46 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 		}
 	};
 
+	// Create the editor
+	React.useEffect(() => {
+		if (!editorPartRef.current ||
+			!focusTargetRef.current ||
+			!cell.scopedInstantiationService) {
+			return;
+		}
+		const disposables = new DisposableStore();
+
+		const cellEditor = disposables.add(cell.scopedInstantiationService.createInstance(
+			NotebookCellEditor,
+			editorPartRef.current,
+			focusTargetRef.current,
+			cell,
+			instance,
+		));
+		const { editor } = cellEditor;
+		// TODO: Maybe this should happen somewhere else?...
+		cell.attachEditor(cellEditor);
+
+		// Request model for cell and pass to editor.
+		// TODO: When/how to do this part?...
+		// TODO: codeBlockPart does an interesting thing here where they
+		//   use their own text model but still create a model reference
+		//   to its uri to stop it from getting disposed when other consumers
+		//   acquire/release it. We have the text model from the notebook so
+		//   maybe we can do the same.
+		cell.getTextEditorModel().then(model => {
+			editor.setModel(model);
+		});
+
+		logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
+
+		return () => {
+			logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
+			disposables.dispose();
+			cell.detachEditor();
+		};
+	}, [cell, instance, logService]);
+
 	return <>
 		<div
 			ref={editorPartRef}
@@ -87,344 +115,4 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 			onKeyDown={handleKeyDown}
 		/>
 	</>;
-}
-
-/**
- * Create a cell editor widget for a cell.
- * @param cell Cell whose editor is to be created
- * @returns Refs to place the editor and the wrapping div
- */
-export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
-	const services = usePositronReactServicesContext();
-	const instance = useNotebookInstance();
-	const cellContextKeyService = useCellScopedContextKeyService();
-
-	// Create an element ref to contain the editor
-	const editorPartRef = React.useRef<HTMLDivElement>(null);
-
-	// Create the editor
-	React.useEffect(() => {
-		if (!editorPartRef.current || !cellContextKeyService) { return; }
-
-		const disposables = new DisposableStore();
-
-		const language = cell.model.language;
-
-		// Create a scoped context key service for this editor as a child of the cell's scope.
-		// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
-		// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
-		// from this one for editor-specific keys.
-		const editorContextKeyService = cellContextKeyService.createScoped(editorPartRef.current);
-		disposables.add(editorContextKeyService);
-
-		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
-		// This tells Monaco it's part of a composite (notebook) and not a standalone editor
-		// Without this flag, certain standalone editor keybindings would still fire
-		EditorContextKeys.inCompositeEditor.bindTo(editorContextKeyService).set(true);
-
-		// We need to ensure the EditorProgressService (or a fake) is available
-		// in the service collection because monaco editors will try and access
-		// it even though it's not available in the notebook context. This feels
-		// hacky but VSCode notebooks do the same thing so I guess it's easier
-		// than fixing it at the monaco level.
-		const serviceCollection = new ServiceCollection(
-			[
-				IEditorProgressService,
-				// Create a simple no-op IEditorProgressService for editor contributions
-				// Based on pattern from codeBlockPart.ts in chat contrib
-				new class implements IEditorProgressService {
-					_serviceBrand: undefined;
-					show() {
-						// No-op progress indicator for notebook cell editors
-						return { done: () => { }, total: () => { }, worked: () => { } };
-					}
-					async showWhile(promise: Promise<any>): Promise<void> {
-						await promise;
-					}
-				}],
-			[IContextKeyService, editorContextKeyService]
-		);
-
-		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
-		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
-
-		const defaultOptions = editorOptions.getDefaultValue();
-		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
-			...defaultOptions,
-			// Override padding for Positron notebooks to add breathing room between action bar and editor content
-			padding: { top: 16, bottom: 16 },
-			scrollbar: {
-				...defaultOptions.scrollbar,
-				// Smaller scrollbars since we embed many editor widgets
-				verticalScrollbarSize: 8,
-				horizontalScrollbarSize: 8
-			},
-			tabIndex: -1, // Remove editor from tab order - use Enter to focus
-			dimension: {
-				width: 0,
-				height: 0,
-			},
-		}, {
-			contributions: getNotebookEditorContributions()
-		}));
-		cell.attachEditor(editor);
-
-		// Request model for cell and pass to editor.
-		cell.getTextEditorModel().then(model => {
-			editor.setModel(model);
-		});
-
-		// Bind the cell editor focused context key to the editor's internal scoped service
-		// (CodeEditorWidget creates this synchronously in its constructor)
-		const cellEditorFocusedKey = NotebookContextKeys.cellEditorFocused.bindTo(editor.contextKeyService);
-
-		// Track whether the most recent mousedown had modifier keys held.
-		// Monaco's _onMouseDown calls focus() BEFORE emitting onMouseDown,
-		// so editor.onMouseDown fires AFTER onDidFocusEditorWidget. We use a
-		// native DOM capture-phase listener which fires before Monaco's
-		// handler to detect modifier keys early enough.
-		let hadModifierMouseDown = false;
-		const editorContainer = editor.getContainerDomNode();
-		const nativeMouseDownHandler = (e: MouseEvent) => {
-			hadModifierMouseDown = e.shiftKey || e.ctrlKey || e.metaKey;
-		};
-		disposables.add(addDisposableListener(editorContainer, 'mousedown', nativeMouseDownHandler, true));
-
-		// Also handle multi-selection from editor.onMouseDown (fires after
-		// focus) as a secondary path for cases where the focus handler
-		// couldn't prevent enterEditor in time.
-		disposables.add(editor.onMouseDown((e) => {
-			if (e.event.shiftKey || e.event.ctrlKey || e.event.metaKey) {
-				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Add);
-			}
-		}));
-
-		disposables.add(editor.onDidFocusEditorWidget(() => {
-			// Consume and reset the modifier flag so it doesn't affect
-			// subsequent programmatic focus calls.
-			const wasModifierClick = hadModifierMouseDown;
-			hadModifierMouseDown = false;
-
-			// If the user shift/ctrl/cmd-clicked, the wrapper's onClick handler
-			// will handle multi-selection. Don't override that by entering edit mode.
-			if (wasModifierClick) {
-				cellEditorFocusedKey.set(true);
-				return;
-			}
-
-			// enterEditor() automatically detects that editor has focus and skips focus management.
-			// This also handles plain clicks during MultiSelection, collapsing the selection
-			// into EditingSelection for this cell.
-			instance.selectionStateMachine.enterEditor(cell);
-			cellEditorFocusedKey.set(true);
-		}));
-
-		disposables.add(editor.onDidBlurEditorWidget(() => {
-			// Clear any stale modifier flag so it doesn't incorrectly suppress
-			// enterEditor() on a later keyboard/programmatic focus.
-			hadModifierMouseDown = false;
-			cellEditorFocusedKey.set(false);
-
-			// Check where focus moved to - don't exit edit mode if focus moved to VS Code overlays
-			// or is still within the notebook editor scope.
-			// This prevents the command palette, quick open, find widget, etc. from closing
-			// immediately when opened from a cell in edit mode.
-			const activeElement = editor.getContainerDomNode().ownerDocument.activeElement;
-			if (!activeElement) {
-				// No active element - focus has truly left, exit edit mode
-				instance.selectionStateMachine.exitEditor(cell);
-				return;
-			}
-
-			const contextKeyContext = services.contextKeyService.getContext(activeElement);
-
-			// Context keys that indicate focus is still within VS Code overlays or related UI
-			const shouldKeepEditModeContextKeys = [
-				// VS Code overlays (command palette, quick open, etc.)
-				InQuickPickContextKey.key,
-				// Other editor inputs (find widget, etc.)
-				EditorContextKeys.textInputFocus.key,
-				// Find input box
-				CONTEXT_FIND_INPUT_FOCUSED.key,
-				// Replace input box
-				CONTEXT_REPLACE_INPUT_FOCUSED.key,
-				// Chat-related contexts (assistant inline or panel chat)
-				CTX_INLINE_CHAT_FOCUSED.key,
-				// Other editors like find widget etc..
-				EditorContextKeys.textInputFocus.key,
-				// Action widget menus (model switcher, etc.)
-				// Not exported anywhere but set in src/vs/platform/actionWidget/browser/actionWidget.ts
-				'codeActionMenuVisible',
-			];
-
-			const shouldKeepEditMode = shouldKeepEditModeContextKeys.some(contextKey => contextKeyContext.getValue(contextKey));
-			if (shouldKeepEditMode) {
-				return;
-			}
-
-			// Check if focus is still within the notebook editor container
-			// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
-			if (instance.currentContainer?.contains(activeElement)) {
-				return;
-			}
-
-			// Focus has truly left the notebook editor - exit edit mode
-			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
-			// This handles the race condition where a user clicks from one cell editor into another.
-			instance.selectionStateMachine.exitEditor(cell);
-		}));
-
-		/**
-		 * Resize the editor widget to fill the width of its container and the height of its
-		 * content.
-		 * @param height Height to set. Defaults to checking content height.
-		 */
-		function resizeEditor(height: number = editor.getContentHeight()) {
-			if (!editorPartRef.current) { return; }
-			editor.layout({
-				height,
-				width: editorPartRef.current.offsetWidth,
-			});
-		}
-
-		// Resize the editor when its content size changes
-		disposables.add(editor.onDidContentSizeChange(e => {
-			if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
-			resizeEditor(e.contentHeight);
-		}));
-
-		// Resize the editor as the window resizes.
-		disposables.add(autorun(reader => {
-			instance.size.read(reader);
-			resizeEditor();
-		}));
-
-		services.logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
-
-		return () => {
-			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
-			disposables.dispose();
-			cell.detachEditor();
-		};
-	}, [cell, cellContextKeyService, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
-
-	// Watch for editor focus requests from the cell
-	React.useLayoutEffect(() => {
-		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
-		const disposable = autorun(reader => {
-			cell.editorFocusRequested.read(reader);
-			const editor = cell.currentEditor;
-			// Check if THIS cell is still the one being edited
-			// This prevents stale focus requests when user rapidly navigates between cells
-			const state = instance.selectionStateMachine.state.read(reader);
-			const shouldFocus = state.type === SelectionState.EditingSelection && state.active === cell;
-
-			if (!shouldFocus) {
-				return;
-			}
-
-			if (editor) {
-				editor.focus();
-			}
-		});
-
-		return () => disposable.dispose();
-	}, [cell, instance.selectionStateMachine]);
-
-	// Create a ref for the focus target element
-	const focusTargetRef = React.useRef<HTMLDivElement>(null);
-
-	// Watch for exit-editor transitions to return focus to the focus trap
-	React.useEffect(() => {
-		let pendingFrame: number | undefined;
-		const disposable = autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
-			// Check if we transitioned from editing THIS cell to single selection of THIS cell
-			if (lastValue?.type === SelectionState.EditingSelection &&
-				lastValue.active === cell &&
-				newValue.type === SelectionState.SingleSelection &&
-				newValue.active === cell) {
-				// Don't steal focus if the user navigated to a different editor
-				// (e.g. clicking a cell in a side-by-side notebook). This mirrors
-				// the guard in the onDidBlurEditorWidget handler above.
-				const activeEl = cell.container?.ownerDocument.activeElement;
-				if (activeEl && !instance.currentContainer?.contains(activeEl)) {
-					return;
-				}
-
-				const restoreCellFocus = () => {
-					// Only focus the focus trap if the cell has outputs.
-					// When there are no outputs, the focus trap has tabIndex=-1
-					// (not in tab order), so focusing it would disrupt keyboard
-					// navigation. In that case, focus the cell container instead.
-					const currentOutputs = cell.outputs?.get() ?? [];
-					const hasOutputs = currentOutputs.length > 0;
-					if (hasOutputs) {
-						focusTargetRef.current?.focus();
-					} else {
-						cell.container?.focus();
-					}
-				};
-
-				if (!activeEl) {
-					// activeElement is transiently null during blur/focus
-					// handoff. Defer to the next frame so the browser settles
-					// on the actual target before we decide.
-					const win = getWindow(cell.container);
-					if (pendingFrame !== undefined) {
-						win.cancelAnimationFrame(pendingFrame);
-					}
-					pendingFrame = win.requestAnimationFrame(() => {
-						pendingFrame = undefined;
-						// Re-check selection state: if the user moved to
-						// another cell during the deferred frame, bail out.
-						const currentState = instance.selectionStateMachine.state.get();
-						if (currentState.type !== SelectionState.SingleSelection ||
-							currentState.active !== cell) {
-							return;
-						}
-						const resolved = cell.container?.ownerDocument.activeElement;
-						if (resolved && !instance.currentContainer?.contains(resolved)) {
-							return;
-						}
-						restoreCellFocus();
-					});
-					return;
-				}
-
-				restoreCellFocus();
-			}
-		});
-		return () => {
-			disposable.dispose();
-			if (pendingFrame !== undefined) {
-				getWindow(cell.container).cancelAnimationFrame(pendingFrame);
-			}
-		};
-	}, [cell, instance.currentContainer, instance.selectionStateMachine]);
-
-	return { editorPartRef, focusTargetRef };
-}
-
-
-/**
- * Get the notebook options for the editor widget.
- * Taken directly from `getDefaultNotebookCreationOptions()` in notebookEditorWidget.ts
-*/
-function getNotebookEditorContributions(): IEditorContributionDescription[] {
-	// Taken directly from `getDefaultNotebookCreationOptions()` in notebookEditorWidget.ts
-
-	const skipContributions = [
-		'editor.contrib.review',
-		FloatingEditorClickMenu.ID,
-		'editor.contrib.dirtydiff',
-		'editor.contrib.testingOutputPeek',
-		'editor.contrib.testingDecorations',
-		'store.contrib.stickyScrollController',
-		'editor.contrib.findController',
-		'editor.contrib.emptyTextEditorHint'
-	];
-
-	// In the future we may want to be more selective about which contributions we include if our
-	// feature set diverges more drastically from the standaard notebooks.
-	return EditorExtensionsRegistry.getEditorContributions().filter(c => skipContributions.indexOf(c.id) === -1);
 }

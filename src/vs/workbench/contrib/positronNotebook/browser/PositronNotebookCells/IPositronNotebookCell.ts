@@ -15,6 +15,7 @@ import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
 import { ICellRevealOptions } from './PositronNotebookCell.js';
+import { INotebookCellEditor } from '../notebookCells/INotebookCellEditor.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
@@ -227,6 +228,8 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 */
 	get container(): HTMLElement | undefined;
 
+	readonly cellEditor: INotebookCellEditor | undefined;
+
 	/**
 	 * Check if this cell is currently visible in the viewport.
 	 * A cell is considered visible if at least {@link MIN_CELL_VISIBILITY_RATIO} of it is within the viewport.
@@ -238,7 +241,7 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 *
 	 * @param editor Code editor widget associated with cell.
 	 */
-	attachEditor(editor: ICodeEditor): void;
+	attachEditor(editor: INotebookCellEditor): void;
 
 	/**
 	 * Detach the editor from the cell

@@ -150,7 +150,12 @@ export function instantiateTestNotebookInstance(
 				attachedCells.add(cell);
 				const textModel = disposables.add(instantiationService.invokeFunction(createTestNotebookCellTextModel, cell));
 				const editor = disposables.add(instantiateTestCodeEditor(instantiationService, textModel));
-				cell.attachEditor(editor);
+				const cellEditor = {
+					editor,
+					// TODO: Does this need to do anything?
+					focus: () => { },
+				};
+				cell.attachEditor(cellEditor);
 				// NotebookTextModel.onModelAdded automatically sets cell.model.textModel = textModel
 			}
 		}
