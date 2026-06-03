@@ -107,7 +107,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * secondary side bar.
 	 */
 	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, variables, hotKeys, layouts } = app.workbench;
+		const { sessions, variables, hotKeys, layouts, plots } = app.workbench;
 
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 		await sessions.expectAllSessionsToBeReady();
@@ -121,11 +121,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await hotKeys.showSecondarySidebar();
 
 		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
-		// The header click is a toggle, so assert the pane ends up collapsed in case a prior run
-		// already left it that way (the click would otherwise re-expand it).
-		const plotsSection = page.locator('.part.auxiliarybar [aria-label="Plots Section"]');
-		await plotsSection.click();
-		await expect(plotsSection).toHaveAttribute('aria-expanded', 'false');
+		await plots.collapsePlotsPane();
 		await variables.focusVariablesView();
 		await layouts.resizeAuxiliaryBar({ x: -250 });
 		await expect(variables.variablesPane).toBeVisible();

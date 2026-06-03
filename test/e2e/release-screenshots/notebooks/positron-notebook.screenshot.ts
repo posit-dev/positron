@@ -110,11 +110,10 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, layouts, quickaccess, quickInput, editors, positAssistant } = app.workbench;
+		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant } = app.workbench;
 
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
-			// 'positron.assistant.enable': false
 		}, { keepOpen: false });
 		await setScreenshotWindowSize(app);
 
@@ -160,17 +159,22 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.sendMessage('Tell me about this notebook', false);
 		await positAssistant.allowToolForSession();
 		await positAssistant.waitForResponseComplete();
-		await layouts.resizeSidebar({ x: 100 });
+		await layouts.resizeSidebar({ x: 50 });
+		await plots.collapsePlotsPane();
 
 		// Run the notebook cell to populate variables and generate the chart output
 		await notebooksPositron.runAllCells();
 		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
-		// await expect(page.locator('building the font cache')).not.toBeVisible();
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await variables.waitForVariableRow('daily_energy');
 		await variables.expandVariable('daily_energy');
+
+		// Move focus out of the notebook editor so the selected cell's blue focus
+		// ring dims to the inactive border. Escape won't do this -- it only exits a
+		// cell's edit mode; a cell stays selected and focus stays inside the notebook.
+		await variables.focusVariablesView();
 
 		// Capture screenshot
 		await prepareForScreenshot(app, page);
