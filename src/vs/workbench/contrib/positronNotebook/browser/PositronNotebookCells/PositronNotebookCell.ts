@@ -30,7 +30,7 @@ import { PositronNotebookCodeCell } from './PositronNotebookCodeCell.js';
 import { PositronNotebookMarkdownCell } from './PositronNotebookMarkdownCell.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
-import { NotebookCellEditor } from '../notebookCells/NotebookCellEditor.js';
+import { CellEditor } from '../notebookCells/CellEditor.js';
 import { INotebookCellEditor } from '../notebookCells/INotebookCellEditor.js';
 
 /**
@@ -77,7 +77,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _scopedInstantiationService: IInstantiationService | undefined;
 	private _contextKeys: CellContextKeyManager | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
-	private _cellEditor?: NotebookCellEditor;
+	private _cellEditor?: CellEditor;
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
 	protected readonly _internalMetadata;
@@ -275,7 +275,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._cellEditor;
 	}
 
-	attachEditor(cellEditor: NotebookCellEditor): void {
+	attachEditor(cellEditor: CellEditor): void {
 		this._cellEditor = cellEditor;
 		this._editor.set(cellEditor.editor, undefined);
 	}

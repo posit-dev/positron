@@ -7,7 +7,7 @@
 // notebooks extension. It's setup to be less restrictive on the types needed for the constructor
 // and also so that we can have our own settings in the future.
 
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IBaseCellEditorOptions, INotebookEditorDelegate } from '../../notebook/browser/notebookBrowser.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
@@ -45,7 +45,13 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		return this._value;
 	}
 
-	constructor(readonly notebookEditor: Pick<INotebookEditorDelegate, 'onDidChangeModel' | 'hasModel' | 'onDidChangeOptions' | 'isReadOnly'>, readonly notebookOptions: NotebookOptions, readonly configurationService: IConfigurationService, readonly language: string) {
+	constructor(
+		private readonly notebookEditor: Pick<INotebookEditorDelegate,
+			'onDidChangeModel' | 'hasModel' | 'onDidChangeOptions' | 'isReadOnly'>,
+		private readonly notebookOptions: NotebookOptions,
+		private readonly configurationService: IConfigurationService,
+		private language: string | undefined = undefined,
+	) {
 		super();
 		this._register(configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('editor') || e.affectsConfiguration('notebook')) {
@@ -103,5 +109,36 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		});
 
 		return computed;
+	}
+
+	setLanguage(language: string | undefined): void {
+		if (language === this.language) { return; }
+		this._value = this._computeEditorOptions();
+		this._onDidChange.fire();
+	}
+}
+
+export class SwitchableBaseCellEditorOptions extends Disposable implements IBaseCellEditorOptions {
+	private readonly _onDidChange = this._register(new Emitter<void>());
+	readonly onDidChange = this._onDidChange.event;
+	private _inner: IBaseCellEditorOptions;
+	private readonly _innerListener = this._register(new MutableDisposable());
+
+	constructor(initial: IBaseCellEditorOptions) {
+		super();
+		this._inner = initial;
+		this._innerListener.value = this._register(initial.onDidChange(() => this._onDidChange.fire()));
+	}
+
+	get value(): IEditorOptions {
+		return this._inner.value;
+	}
+
+	/** Swap to a different language's options. */
+	setInner(newInner: IBaseCellEditorOptions): void {
+		if (newInner === this._inner) { return; }
+		this._inner = newInner;
+		this._innerListener.value = this._register(newInner.onDidChange(() => this._onDidChange.fire()));
+		this._onDidChange.fire(); // notify downstream that values changed
 	}
 }

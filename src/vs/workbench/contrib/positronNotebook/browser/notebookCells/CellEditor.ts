@@ -3,13 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { addDisposableListener } from '../../../../../base/browser/dom.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { autorun } from '../../../../../base/common/observable.js';
+import { addDisposableListener, $ } from '../../../../../base/browser/dom.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { autorun, observableValue } from '../../../../../base/common/observable.js';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
+import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
+import { GlyphHoverController } from '../../../../../editor/contrib/hover/browser/glyphHoverController.js';
+import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -21,19 +24,22 @@ import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../inlineChat/common/inlineChat.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
+import { SwitchableBaseCellEditorOptions } from '../BaseCellEditorOptions.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
-import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { INotebookCellEditor } from './INotebookCellEditor.js';
 
-export class NotebookCellEditor extends Disposable implements INotebookCellEditor {
+export class CellEditor extends Disposable implements INotebookCellEditor {
+	public readonly container: HTMLElement;
+	public readonly focusTarget: HTMLElement;
+	// TODO: Try to make this not observable
+	private _cell = observableValue<IPositronNotebookCell | undefined>('cellEditorCell', undefined);
+	private readonly _cellDisposables = this._register(new DisposableStore());
 	public readonly editor: CodeEditorWidget;
+	private _baseOptions: SwitchableBaseCellEditorOptions;
 
 	constructor(
-		private readonly _container: HTMLElement,
-		private readonly _focusTarget: HTMLElement,
-		// TODO: Depend on interface and move required methods to it?
-		private readonly _cell: PositronNotebookCellGeneral,
 		private readonly _notebookInstance: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -42,11 +48,31 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 	) {
 		super();
 
+		this.container = $('.positron-cell-editor-monaco-widget');
+		this.container.tabIndex = -1;
+
+		this.focusTarget = $('.positron-cell-editor-focus-target');
+		this.focusTarget.ariaLabel = localize('editCell', 'Edit cell - Press Enter to edit');
+		this.focusTarget.role = 'button';
+		// TODO: Set tab index to 0 when there are outputs
+		this.focusTarget.tabIndex = -1;
+		// Focus the editor on 'Enter'
+		this.focusTarget.onkeydown = (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				this.editor.focus();
+			}
+		};
+
+		this._baseOptions = new SwitchableBaseCellEditorOptions(
+			this._notebookInstance.getBaseCellEditorOptions()
+		);
+
 		// Create a scoped context key service for this editor as a child of the cell's scope.
 		// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
 		// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
 		// from this one for editor-specific keys.
-		const scopedContextKeyService = this._register(this._contextKeyService.createScoped(this._container));
+		const scopedContextKeyService = this._register(this._contextKeyService.createScoped(this.container));
 
 		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
 		// This tells Monaco it's part of a composite (notebook) and not a standalone editor
@@ -101,12 +127,21 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 		// focus) as a secondary path for cases where the focus handler
 		// couldn't prevent enterEditor in time.
 		this._register(this.editor.onMouseDown((e) => {
+			if (!this._currentCell) {
+				// No cell attached.
+				return;
+			}
 			if (e.event.shiftKey || e.event.ctrlKey || e.event.metaKey) {
-				this._notebookInstance.selectionStateMachine.selectCell(this._cell, CellSelectionType.Add);
+				this._notebookInstance.selectionStateMachine.selectCell(this._currentCell, CellSelectionType.Add);
 			}
 		}));
 
 		this._register(this.editor.onDidFocusEditorWidget(() => {
+			if (!this._currentCell) {
+				// No cell attached.
+				return;
+			}
+
 			// Consume and reset the modifier flag so it doesn't affect
 			// subsequent programmatic focus calls.
 			const wasModifierClick = hadModifierMouseDown;
@@ -122,12 +157,17 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 			// enterEditor() automatically detects that editor has focus and skips focus management.
 			// This also handles plain clicks during MultiSelection, collapsing the selection
 			// into EditingSelection for this cell.
-			this._notebookInstance.selectionStateMachine.enterEditor(this._cell);
+			this._notebookInstance.selectionStateMachine.enterEditor(this._currentCell);
 			cellEditorFocusedKey.set(true);
 		}));
 
 		// TODO: There must be a better way to do this...
 		this._register(this.editor.onDidBlurEditorWidget(() => {
+			if (!this._currentCell) {
+				// No cell attached.
+				return;
+			}
+
 			// Clear any stale modifier flag so it doesn't incorrectly suppress
 			// enterEditor() on a later keyboard/programmatic focus.
 			hadModifierMouseDown = false;
@@ -140,7 +180,7 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 			const activeElement = this.editor.getContainerDomNode().ownerDocument.activeElement;
 			if (!activeElement) {
 				// No active element - focus has truly left, exit edit mode
-				this._notebookInstance.selectionStateMachine.exitEditor(this._cell);
+				this._notebookInstance.selectionStateMachine.exitEditor(this._currentCell);
 				return;
 			}
 
@@ -180,7 +220,7 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 			// Focus has truly left the notebook editor - exit edit mode
 			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
 			// This handles the race condition where a user clicks from one cell editor into another.
-			this._notebookInstance.selectionStateMachine.exitEditor(this._cell);
+			this._notebookInstance.selectionStateMachine.exitEditor(this._currentCell);
 		}));
 
 		// Resize the editor when its content size changes
@@ -195,16 +235,22 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 			this._resizeEditor();
 		}));
 
-
+		// TODO: Might have to register this only when cells are attached.
+		//       Or this could make more sense to live in the cell class.
 		// Watch for editor focus requests from the cell
 		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
 		this._register(autorun(reader => {
-			this._cell.editorFocusRequested.read(reader);
-			const editor = this._cell.currentEditor;
+			const cell = this._cell.read(reader);
+			if (!cell) {
+				// No cell attached.
+				return;
+			}
+			cell.editorFocusRequested.read(reader);
+			const editor = cell.currentEditor;
 			// Check if THIS cell is still the one being edited
 			// This prevents stale focus requests when user rapidly navigates between cells
 			const state = this._notebookInstance.selectionStateMachine.state.read(reader);
-			const shouldFocus = state.type === SelectionState.EditingSelection && state.active === this._cell;
+			const shouldFocus = state.type === SelectionState.EditingSelection && state.active === cell;
 
 			if (!shouldFocus) {
 				return;
@@ -218,16 +264,20 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 		logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 	}
 
+	private get _currentCell(): IPositronNotebookCell | undefined {
+		return this._cell.get();
+	}
+
 	private _createEditor(
 		instantiationService: IInstantiationService,
 	): CodeEditorWidget {
 		const editorOptions = new CellEditorOptions(
-			this._notebookInstance.getBaseCellEditorOptions(this._cell.model.language),
+			this._baseOptions,
 			this._notebookInstance.notebookOptions,
 			this._configurationService
 		);
 		const defaultOptions = editorOptions.getDefaultValue();
-		return this._register(instantiationService.createInstance(CodeEditorWidget, this._container, {
+		return this._register(instantiationService.createInstance(CodeEditorWidget, this.container, {
 			...defaultOptions,
 			// Override padding for Positron notebooks to add breathing room between action bar and editor content
 			padding: { top: 16, bottom: 16 },
@@ -259,8 +309,50 @@ export class NotebookCellEditor extends Disposable implements INotebookCellEdito
 		});
 	}
 
+	setCell(cell: IPositronNotebookCell | undefined): void {
+		if (this._currentCell === cell) {
+			return;
+		}
+		this._cell.set(cell, undefined);
+		this._cellDisposables.clear();
+
+		if (cell) {
+			const options = this._notebookInstance.getBaseCellEditorOptions(cell.model.language);
+			this._baseOptions.setInner(options);
+
+			/**
+			 * Observe outputs reactively so hasOutputs updates when outputs are added/removed.
+			 * For code cells, cell.outputs is an observable; for markdown cells it's undefined.
+			 * When undefined, useObservedValue returns the default empty array.
+			 *
+			 * Skip focus trap when cell has no outputs (avoids double-tab with same visual).
+			 * When there are no outputs, the focus trap and cell container share the same visual
+			 * styling, requiring users to tab twice to see any change.
+			 */
+			const outputs = cell.outputs;
+			if (outputs) {
+				this._cellDisposables.add(autorun((reader) => {
+					const o = outputs.read(reader);
+					if (o.length > 0) {
+						this.focusTarget.tabIndex = 0;
+					}
+				}));
+			}
+		}
+	}
+
+	reset(): void {
+		this.clearWidgets();
+		this._cell.set(undefined, undefined);
+	}
+
+	private clearWidgets() {
+		ContentHoverController.get(this.editor)?.hideContentHover();
+		GlyphHoverController.get(this.editor)?.hideGlyphHover();
+	}
+
 	focus(): void {
-		this._focusTarget.focus();
+		this.focusTarget.focus();
 	}
 }
 

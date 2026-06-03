@@ -137,7 +137,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
 	 */
-	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+	private _baseCellEditorOptions: Map<string | undefined, IBaseCellEditorOptions> = new Map();
 
 	/**
 	 * Cached font information for the notebook editor.
@@ -2000,7 +2000,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * If they don't exist yet, they will be created.
 	 * @param language The language to get the options for.
 	 */
-	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions {
+	getBaseCellEditorOptions(language?: string): IBaseCellEditorOptions {
 		const existingOptions = this._baseCellEditorOptions.get(language);
 
 		if (existingOptions) {

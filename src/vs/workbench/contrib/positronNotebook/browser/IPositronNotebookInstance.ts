@@ -469,7 +469,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * If they don't exist yet, they will be created.
 	 * @param language The language to get the options for.
 	 */
-	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+	getBaseCellEditorOptions(language?: string): IBaseCellEditorOptions;
 
 	/**
 	 * Gets a registered notebook contribution by its ID.
