@@ -75,7 +75,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// Grow the bottom panel so the console (with script echo) takes a
 		// larger portion of the window, matching the ~50/50 editor/console
 		// split in the docs reference.
-		await layouts.resizePanel({ y: -50 });
+		await layouts.resizePanel({ y: -150 });
 		await console.focus();
 
 		// capture screenshot

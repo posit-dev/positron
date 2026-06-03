@@ -160,16 +160,16 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.allowToolForSession();
 		await positAssistant.waitForResponseComplete();
 		await layouts.resizeSidebar({ x: 50 });
-		await plots.collapsePlotsPane();
 
 		// Run the notebook cell to populate variables and generate the chart output
 		await notebooksPositron.runAllCells();
 		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();
-		await layouts.resizeAuxiliaryBar({ x: -300 });
+		await layouts.resizeAuxiliaryBar({ x: -150 });
 		await variables.waitForVariableRow('daily_energy');
 		await variables.expandVariable('daily_energy');
+		await plots.collapsePlotsPane();
 
 		// Move focus out of the notebook editor so the selected cell's blue focus
 		// ring dims to the inactive border. Escape won't do this -- it only exits a
