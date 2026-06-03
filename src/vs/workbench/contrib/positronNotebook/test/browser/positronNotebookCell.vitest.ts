@@ -103,34 +103,24 @@ describe('PositronNotebookCell tags', () => {
 		return notebook.cells.get()[0] as PositronNotebookCodeCell;
 	}
 
-	it('reads tags from the nested nbformat metadata location', () => {
-		// On reload the ipynb deserializer stores the file's cell metadata under
-		// `metadata.metadata`, so the observable must read tags from there.
-		const cell = createCellWithMetadata({ metadata: { tags: ['seeded'] } });
-		expect(cell.tags.get()).toEqual(['seeded']);
-	});
+	it('normalizes tags read from cell metadata', () => {
+		// tags live under the nested `metadata.metadata` (the only location the
+		// ipynb serializer persists) and are untrusted file data, so the read drops
+		// non-strings, dedupes, and ignores a non-array or a top-level value.
+		const tagsFor = (metadata: Record<string, unknown>) =>
+			createCellWithMetadata(metadata).tags.get();
 
-	it('drops non-string tag entries and de-duplicates the rest', () => {
-		// tags is untrusted file data; an external writer can violate the
-		// string-array contract. Non-string entries are filtered out (rather than
-		// rendered as garbage) and duplicate survivors are collapsed (the repeated
-		// 'ok' yields a single entry).
-		const cell = createCellWithMetadata({ metadata: { tags: ['ok', 42, null, 'ok', { x: 1 }] } });
-		expect(cell.tags.get()).toEqual(['ok']);
-	});
-
-	it('treats a non-array tags value as no tags', () => {
-		// A malformed scalar/object tags value must not throw when read (e.g.
-		// spreading a non-iterable); it is ignored entirely.
-		const cell = createCellWithMetadata({ metadata: { tags: 'not-an-array' } });
-		expect(cell.tags.get()).toEqual([]);
-	});
-
-	it('ignores tags at the non-persisted top-level metadata location', () => {
-		// The ipynb serializer never writes top-level cell metadata to the file,
-		// so tags found there are not real and must be ignored.
-		const cell = createCellWithMetadata({ tags: ['ignored'] });
-		expect(cell.tags.get()).toEqual([]);
+		expect({
+			nested: tagsFor({ metadata: { tags: ['seeded'] } }),
+			malformedEntries: tagsFor({ metadata: { tags: ['ok', 42, null, 'ok', { x: 1 }] } }),
+			nonArray: tagsFor({ metadata: { tags: 'not-an-array' } }),
+			topLevel: tagsFor({ tags: ['ignored'] }),
+		}).toEqual({
+			nested: ['seeded'],
+			malformedEntries: ['ok'],
+			nonArray: [],
+			topLevel: [],
+		});
 	});
 
 	it('a tag write lands in the nested location, not the top level', () => {
