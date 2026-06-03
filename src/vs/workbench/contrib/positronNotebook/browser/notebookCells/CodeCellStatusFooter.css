@@ -106,11 +106,9 @@
 	background-color: var(--vscode-widget-border);
 }
 
-/* Vertical separator between the execution metadata and the tag row. Shares the
-1px widget-border look of the duration/timestamp separator above, but is a real
-flex item rather than a ::after pseudo-element because it divides two flex
-children of the footer (metadata vs tag bar) instead of two inline text spans.
-The two rules intentionally use different mechanisms -- don't merge them. */
+/* Vertical separator between the execution metadata and the tag bar. A real flex
+item (not a ::after like the duration separator above) since it divides two flex
+children rather than two inline text spans. */
 .code-cell-footer-tags-separator {
 	flex-shrink: 0;
 	width: 1px;
