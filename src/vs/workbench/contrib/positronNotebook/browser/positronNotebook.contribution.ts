@@ -725,6 +725,32 @@ export class ToggleCellTagsAction extends NotebookAction2 {
 }
 registerAction2(ToggleCellTagsAction);
 
+// Remove All Cell Tags - clears every tag from every cell in the notebook in a
+// single undoable edit.
+export class RemoveAllCellTagsAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.removeAllCellTags',
+			title: localize2('positronNotebook.removeAllCellTags', "Remove All Cell Tags"),
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			f1: true,
+			precondition: NotebookContextKeys.editorFocused,
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Tags,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Tags,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance) {
+		notebook.removeAllCellTags();
+	}
+}
+registerAction2(RemoveAllCellTagsAction);
+
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({

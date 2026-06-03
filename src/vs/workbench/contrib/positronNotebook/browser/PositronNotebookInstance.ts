@@ -16,6 +16,7 @@ import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
+import { applyTagsToNestedMetadata } from './PositronNotebookCells/cellTagsMetadata.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
@@ -2351,6 +2352,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	toggleCellTagsHidden(): void {
 		this._cellTagsHidden.set(!this._cellTagsHidden.get(), undefined);
+	}
+
+	/**
+	 * Removes every tag from every cell in the notebook in a single undoable edit.
+	 * A no-op when no cell has tags.
+	 */
+	removeAllCellTags(): void {
+		this._assertTextModel();
+		const textModel = this.textModel;
+		const cells = this.cells.get();
+		const edits: ICellEditOperation[] = [];
+		for (let index = 0; index < cells.length; index++) {
+			// `this.cells` and `textModel.cells` are index-aligned (see
+			// clearCellOutputsByIndex). Skip cells with no tags so undo only spans
+			// the cells that actually changed.
+			if (cells[index].tags.get().length === 0) {
+				continue;
+			}
+			edits.push({
+				editType: CellEditType.PartialMetadata,
+				index,
+				metadata: { metadata: applyTagsToNestedMetadata(textModel.cells[index].metadata.metadata, []) }
+			});
+		}
+		if (edits.length === 0) {
+			return;
+		}
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		textModel.applyEdits(edits, true, undefined, () => undefined, undefined, computeUndoRedo);
 	}
 
 	/**

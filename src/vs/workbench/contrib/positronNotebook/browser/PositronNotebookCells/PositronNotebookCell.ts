@@ -19,7 +19,7 @@ import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableFromEventOpts, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 import { equals as arraysEqual } from '../../../../../base/common/arrays.js';
-import { isObject } from '../../../../../base/common/types.js';
+import { applyTagsToNestedMetadata } from './cellTagsMetadata.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -247,25 +247,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		if (index < 0) {
 			return false;
 		}
-		// nbformat tags live under the nested `metadata.metadata.tags`, which is
-		// the only location the ipynb serializer writes to the file. PartialMetadata
-		// is a shallow top-level merge, so spread the existing nested object to
-		// preserve sibling keys (vscode.languageId, collapsed, etc.) rather than
-		// replacing it. Drop the `tags` key entirely when empty, per nbformat
-		// convention. computeUndoRedo stays true so tag changes remain undoable.
-		//
-		// metadata.metadata is untrusted file data; only spread it when it is a
-		// plain object, otherwise spreading a scalar/array would inject numeric
-		// keys into the persisted metadata.
-		const existingNested = this.model.metadata.metadata;
-		const nestedMetadata: Record<string, unknown> = isObject(existingNested)
-			? { ...(existingNested as Record<string, unknown>) }
-			: {};
-		if (tags.length > 0) {
-			nestedMetadata.tags = tags;
-		} else {
-			delete nestedMetadata.tags;
-		}
+		// nbformat tags live under the nested `metadata.metadata.tags`, the only
+		// location the ipynb serializer writes to the file (see
+		// applyTagsToNestedMetadata). computeUndoRedo stays true so tag changes
+		// remain undoable.
+		const nestedMetadata = applyTagsToNestedMetadata(this.model.metadata.metadata, tags);
 		textModel.applyEdits([
 			{
 				editType: CellEditType.PartialMetadata,
