@@ -42,6 +42,19 @@ export async function WorkbenchApp(
 
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
+
+		// For the Azure shard, the dashboard's createNewProject skipped the Open Folder step
+		// because the JIT user (rstudio-ide-test) doesn't have qa-example-content in their home
+		// dir at launch time. Now that PAM has created /home/rstudio-ide-test (triggered by the
+		// session launch), copy the workspace in and open it the same way the other shards do.
+		if (managedCredentials === 'azure') {
+			await runDockerCommand(
+				`docker exec test bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
+				'Copy qa-example-content into rstudio-ide-test home (Azure JIT user)'
+			);
+			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
+		}
+
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 

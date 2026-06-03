@@ -67,12 +67,21 @@ export class DashboardPage {
 		await this.launchButton.click();
 
 		// Azure JIT-provisioned users (rstudio-ide-test) don't have qa-example-content in their
-		// home directory. Skip the Open Folder step — the launched session is enough to trigger
-		// PAM session start and home directory creation, which is what the Azure tests verify.
+		// home directory at launch time. The fixture handles copying the workspace into the JIT
+		// user's home and calling openWorkspaceFolder() once Positron is up.
 		if (managedCredentials === 'azure') {
 			return;
 		}
 
+		await this.openWorkspaceFolder(folderToOpen);
+	}
+
+	/**
+	 * Opens the given folder via Positron's welcome view "Open Folder" button + quick input.
+	 * Used both from the dashboard flow (after Launch) and externally by the Azure fixture once
+	 * the JIT user's workspace has been copied into place.
+	 */
+	async openWorkspaceFolder(folderToOpen: string): Promise<void> {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
@@ -189,24 +198,44 @@ export class DashboardPage {
 		await expect(verifyButton).toBeVisible({ timeout: 10000 });
 		await verifyButton.click();
 
-		// Complete 2FA authentication
+		// Complete 2FA authentication. TOTPs roll every 30s and Okta rejects reused codes, so a
+		// parallel shard (e.g. Azure) consuming the same code seconds earlier can knock us out.
+		// Retry up to 3 times: wait past the TOTP window boundary between attempts, then re-fill.
 		await oauthPage.waitForLoadState('networkidle', { timeout: 10000 });
 		const otpField = oauthPage.locator('input[type="text"], input[type="tel"], input[autocomplete="one-time-code"]').first();
-		await expect(otpField).toBeVisible({ timeout: 15000 });
-
-		const totpCode = generateTOTP(otpSecret);
-		this.code.logger.log('Generated TOTP code for Databricks');
-		await otpField.fill(totpCode);
-
 		const verifyOtpButton = oauthPage.locator('button:has-text("Verify"), input[value="Verify"]');
-		await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
-		await verifyOtpButton.click();
 
-		// Wait for OAuth redirect to Workbench
+		const maxOtpAttempts = 3;
+		let otpAccepted = false;
+		for (let attempt = 1; attempt <= maxOtpAttempts; attempt++) {
+			await expect(otpField).toBeVisible({ timeout: 15000 });
+			await otpField.fill('');
+			await otpField.fill(generateTOTP(otpSecret));
+			this.code.logger.log(`Submitted TOTP code for Databricks (attempt ${attempt}/${maxOtpAttempts})`);
+			await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
+			await verifyOtpButton.click();
+
+			try {
+				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
+				otpAccepted = true;
+				break;
+			} catch {
+				if (attempt === maxOtpAttempts) {
+					this.code.logger.log(`OTP not accepted after ${maxOtpAttempts} attempts; falling through to widget-state check`);
+					break;
+				}
+				this.code.logger.log('OTP rejected, waiting for next TOTP window before retry');
+				await oauthPage.waitForTimeout(20000);
+			}
+		}
+
 		try {
-			await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
-			await oauthPage.waitForTimeout(2000);
-			await oauthPage.close();
+			if (otpAccepted) {
+				await oauthPage.waitForTimeout(2000);
+			}
+			if (!oauthPage.isClosed()) {
+				await oauthPage.close();
+			}
 		} catch {
 			this.code.logger.log('OAuth page closed or timed out (may be expected)');
 		}
