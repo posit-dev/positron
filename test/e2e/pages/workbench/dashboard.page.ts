@@ -220,6 +220,13 @@ export class DashboardPage {
 				otpAccepted = true;
 				break;
 			} catch {
+				// The OAuth tab sometimes closes itself on success (or on certain Okta errors).
+				// A closed tab here is more likely "OAuth completed" than "OTP rejected" — bail
+				// out of the retry loop and let the enabledWidget check below decide success.
+				if (oauthPage.isClosed()) {
+					this.code.logger.log('OAuth page closed before URL match; treating as completed and deferring to widget check');
+					break;
+				}
 				if (attempt === maxOtpAttempts) {
 					this.code.logger.log(`OTP not accepted after ${maxOtpAttempts} attempts; falling through to widget-state check`);
 					break;
