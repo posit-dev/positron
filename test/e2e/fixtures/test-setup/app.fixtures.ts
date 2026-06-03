@@ -15,7 +15,7 @@ export interface AppFixtureOptions {
 	logsPath: string;
 	logger: MultiLogger;
 	workerInfo: playwright.WorkerInfo;
-	managedCredentials?: 'snowflake' | 'databricks';
+	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
 }
 
 /**
