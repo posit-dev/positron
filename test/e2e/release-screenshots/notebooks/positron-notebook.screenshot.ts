@@ -110,7 +110,6 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		const { notebooksPositron, variables, hotKeys, layouts, quickaccess, quickInput, editors, positAssistant } = app.workbench;
 
 		await settings.set({ 'positron.assistant.notebook.ghostCellSuggestions.enabled': false }, { keepOpen: false });
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Create notebook and run energy data code.
 		await notebooksPositron.createNewNotebook();
@@ -154,6 +153,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.sendMessage('Tell me about this notebook', false);
 		await positAssistant.allowToolForSession();
 		await positAssistant.waitForResponseComplete();
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 		await layouts.resizeSidebar({ x: 100 });
 
 		// Run the notebook cell to populate variables and generate the chart output
