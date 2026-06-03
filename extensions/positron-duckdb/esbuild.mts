@@ -12,6 +12,9 @@ run({
 	platform: 'node',
 	entryPoints: {
 		'extension': path.join(srcDir, 'extension.ts'),
+		// The DuckDB native instance runs in this child process (forked by
+		// extension.ts) so a native abort cannot take down the extension host.
+		'duckdbWorker': path.join(srcDir, 'duckdbWorker.ts'),
 	},
 	srcDir,
 	outdir: outDir,

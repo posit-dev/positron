@@ -47,6 +47,9 @@ import {
 	ColumnSummaryStats
 } from '../interfaces';
 import { randomBytes, randomUUID } from 'crypto';
+import * as os from 'os';
+import * as fs from 'fs';
+import { DuckDBInstance } from '../extension';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -3278,5 +3281,43 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				}
 			}
 		});
+	});
+});
+
+suite('DuckDB worker isolation', () => {
+	// A stub worker that speaks the IPC protocol, so we can exercise crash
+	// recovery without depending on the native binding or a real out-of-memory
+	// condition. It crashes hard on a sentinel query and otherwise returns a
+	// trivial one-row result.
+	const STUB_WORKER = `
+		process.on('message', (req) => {
+			if (req.sql === 'CRASH') { process.exit(1); return; }
+			process.send({ kind: 'result', id: req.id, columnNames: ['x'], columns: [[1n]] });
+		});
+	`;
+
+	test('survives a worker crash, rejects the in-flight query, and respawns', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		const db = await DuckDBInstance.create(stubPath);
+		let crashCount = 0;
+		const crashListener = db.onDidCrash(() => { crashCount++; });
+		try {
+			// Normal query round-trips through the worker.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+
+			// A crashing query rejects (rather than hanging) and fires onDidCrash.
+			await assert.rejects(db.runQuery('CRASH'), /terminated unexpectedly/);
+			assert.strictEqual(crashCount, 1, 'onDidCrash should fire exactly once');
+
+			// The next query transparently respawns the worker and succeeds.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+		} finally {
+			crashListener.dispose();
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
 	});
 });
