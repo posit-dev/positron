@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,6 +20,8 @@ export interface ILicenseValidationResult {
 	licensee?: string;
 	/** The issuer name, if validation was successful. */
 	issuer?: string;
+	/** Whether this is an academic license. */
+	isAcademic?: boolean;
 }
 
 /**
@@ -60,6 +62,12 @@ interface LicenseKey {
 	 * valid Positron license issuing agent.
 	 */
 	signature: string;
+
+	/**
+	 * The type of license, e.g. "academic". Used to display appropriate notices
+	 * in the UI.
+	 */
+	license_type?: string;
 }
 
 /**
@@ -244,6 +252,7 @@ export async function validateLicense(connectionToken: string, license: string):
 	return {
 		valid: true,
 		licensee: licenseKey.licensee,
-		issuer: licenseKey.issuer
+		issuer: licenseKey.issuer,
+		isAcademic: licenseKey.license_type === 'academic',
 	};
 }

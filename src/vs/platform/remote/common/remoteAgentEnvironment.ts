@@ -12,6 +12,7 @@ import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.j
 export interface IPositronLicenseeInfo {
 	licensee?: string;
 	issuer?: string;
+	isAcademic?: boolean;
 }
 // --- End Positron ---
 
@@ -39,7 +40,7 @@ export interface IRemoteAgentEnvironment {
 	};
 	isUnsupportedGlibc: boolean;
 	reconnectionGraceTime?: number;
-  // --- Start Positron ---
+	// --- Start Positron ---
 	positronLicenseeInfo?: IPositronLicenseeInfo;
 	// --- End Positron ---
 }
