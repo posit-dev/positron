@@ -43,7 +43,7 @@
         "command": "workbench.action.positronFourPaneDataScienceLayout" // Views: Stacked Layout
     },
     {
-        "key": "cmd+r r",
+        "key": "cmd+b r",
         "command": "workbench.action.reloadWindow"
     },
     {
