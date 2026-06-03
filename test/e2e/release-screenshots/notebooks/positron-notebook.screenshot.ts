@@ -109,7 +109,11 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
 		const { notebooksPositron, variables, hotKeys, layouts, quickaccess, quickInput, editors, positAssistant } = app.workbench;
 
-		await settings.set({ 'positron.assistant.notebook.ghostCellSuggestions.enabled': false }, { keepOpen: false });
+		await settings.set({
+			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
+			'positron.assistant.enable': false
+		}, { keepOpen: false });
+		await setScreenshotWindowSize(app);
 
 		// Create notebook and run energy data code.
 		await notebooksPositron.createNewNotebook();
