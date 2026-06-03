@@ -201,6 +201,14 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly selectionStateMachine: SelectionStateMachine;
 
 	/**
+	 * Whether cell tags are hidden across this notebook. Toggled by the "Toggle
+	 * Cell Tag Visibility" command via {@link toggleCellTagsHidden}. This is
+	 * transient view state -- it is not persisted, so reopening the notebook shows
+	 * tags again.
+	 */
+	readonly cellTagsHidden: IObservable<boolean>;
+
+	/**
 	 * Find the cell that currently has DOM focus within the notebook container.
 	 * Useful for keyboard navigation where Tab moves focus but doesn't change selection.
 	 * @returns The focused cell, or null if no cell has focus
@@ -551,4 +559,10 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Grabs focus for this notebook based on the current selection state.
 	 */
 	grabFocus(): void;
+
+	/**
+	 * Toggle whether cell tags are shown across this notebook (see
+	 * {@link cellTagsHidden}).
+	 */
+	toggleCellTagsHidden(): void;
 }

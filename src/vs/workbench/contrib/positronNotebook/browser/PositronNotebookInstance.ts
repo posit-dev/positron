@@ -112,6 +112,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
+	/**
+	 * Whether cell tags are hidden across this notebook. Transient view state (not
+	 * persisted); toggled by the "Toggle Cell Tag Visibility" command.
+	 */
+	private readonly _cellTagsHidden = observableValue<boolean>('positronNotebookCellTagsHidden', false);
+	public readonly cellTagsHidden: IObservable<boolean> = this._cellTagsHidden;
+
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	private _scopedInstantiationService = this._register(new MutableDisposable<IInstantiationService>());
@@ -2336,6 +2343,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this.currentContainer?.focus({ preventScroll: true });
 				break;
 		}
+	}
+
+	/**
+	 * Toggle whether cell tags are shown across this notebook (see
+	 * {@link cellTagsHidden}).
+	 */
+	toggleCellTagsHidden(): void {
+		this._cellTagsHidden.set(!this._cellTagsHidden.get(), undefined);
 	}
 
 	/**

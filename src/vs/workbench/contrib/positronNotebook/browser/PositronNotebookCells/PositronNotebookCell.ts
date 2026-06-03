@@ -199,6 +199,15 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	/**
+	 * Notebook-wide tag visibility, surfaced on the cell so the tag bar and footer
+	 * (which only hold the cell) can react without reaching for the notebook
+	 * instance. Delegates to the owning instance.
+	 */
+	get cellTagsHidden(): IObservable<boolean> {
+		return this._instance.cellTagsHidden;
+	}
+
+	/**
 	 * Get the handle number for cell from cell model
 	 */
 	get handle(): number {

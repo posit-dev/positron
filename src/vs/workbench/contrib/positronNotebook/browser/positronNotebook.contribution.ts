@@ -697,6 +697,33 @@ export class AddTagAction extends NotebookAction2 {
 }
 registerAction2(AddTagAction);
 
+// Toggle Cell Tag Visibility - hides or shows all cell tags across the notebook.
+// Transient per-notebook view state (see IPositronNotebookInstance.cellTagsHidden);
+// not persisted, so reopening the notebook shows tags again.
+export class ToggleCellTagsAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleCellTags',
+			title: localize2('positronNotebook.toggleCellTags', "Toggle Cell Tag Visibility"),
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			f1: true,
+			precondition: NotebookContextKeys.editorFocused,
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.Tags,
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.Tags,
+			}]
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance) {
+		notebook.toggleCellTagsHidden();
+	}
+}
+registerAction2(ToggleCellTagsAction);
+
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
