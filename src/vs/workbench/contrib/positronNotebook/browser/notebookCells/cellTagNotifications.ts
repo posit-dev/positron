@@ -8,9 +8,10 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { AddTagResult } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
- * Surface user feedback for a tag write outcome ({@link AddTagResult}). Shared by
- * the inline tag bar and the "Add Tag" command so the result -> notification
- * mapping (and its localized strings) lives in one place.
+ * Surface user feedback for a tag write outcome ({@link AddTagResult}). Used by
+ * the inline tag bar's add / edit / remove paths so the result -> notification
+ * mapping (and its localized strings) lives in one place and is unit-testable in
+ * isolation.
  *
  * `'duplicate'` and `'failed'` show an info toast; `'added'` is silent -- a
  * successful write (or a blank no-op input) needs no toast.
