@@ -1416,9 +1416,7 @@ export function registerPositronConsoleActions() {
 					primary: KeyMod.CtrlCmd | KeyCode.KeyR,
 					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyR },
 					when: PositronConsoleFocused,
-					// Ensure reverse history search wins over "Open Recent..."
-					// while the console is focused.
-					weight: KeybindingWeight.WorkbenchContrib + 1,
+					weight: KeybindingWeight.WorkbenchContrib,
 				},
 			});
 		}
