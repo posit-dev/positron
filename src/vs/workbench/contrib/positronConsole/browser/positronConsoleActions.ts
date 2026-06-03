@@ -61,6 +61,7 @@ const enum PositronConsoleCommandId {
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	EngageHistoryInfixSearch = 'workbench.action.positronConsole.engageHistoryInfixSearch',
 	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
@@ -1386,6 +1387,52 @@ export function registerPositronConsoleActions() {
 				accessor.get(INotificationService).notify({
 					severity: Severity.Info,
 					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
+			}
+		}
+	});
+
+	/**
+	 * Register the action to engage a reverse history search using infix matching.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.EngageHistoryInfixSearch,
+				title: {
+					value: localize('workbench.action.positronConsole.engageHistoryInfixSearch', "Reverse History Search"),
+					original: 'Reverse History Search'
+				},
+				f1: true,
+				category,
+				keybinding: {
+					// Ctrl+R on all platforms (like GNU readline's reverse-i-search).
+					// CtrlCmd is Ctrl on Windows/Linux; the mac override uses WinCtrl
+					// (raw Ctrl) so macOS gets Ctrl+R rather than Cmd+R.
+					primary: KeyMod.CtrlCmd | KeyCode.KeyR,
+					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyR },
+					when: PositronConsoleFocused,
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.engageHistoryInfixSearch();
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.engageHistoryInfixSearch.noActiveConsole', "Cannot search input history. A console is not active."),
 					sticky: false
 				});
 			}

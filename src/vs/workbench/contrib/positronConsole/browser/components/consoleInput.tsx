@@ -552,26 +552,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
-			// Ctrl-R handling.
-			case KeyCode.KeyR: {
-				// When Ctrl-R is pressed, engage a reverse history search (like bash).
-				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					const isDebugMode = isForegroundDebugSession(services.contextKeyService);
-					const entries =
-						services.executionHistoryService.getInputEntries(
-							props.positronConsoleInstance.runtimeMetadata.languageId
-						).filter(entry => {
-							// Show debug entries when in debug mode, non-debug entries otherwise.
-							const isDebugEntry = entry.debug && entry.debug !== 'inactive';
-							return isDebugMode ? isDebugEntry : !isDebugEntry;
-						});
-					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
-					consumeEvent();
-				}
-
-				break;
-			}
-
 			case KeyCode.KeyU: {
 				// Bind Ctrl+U to `deleteAllLeft`
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
@@ -1027,6 +1007,23 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			} else {
 				navigateHistoryUp();
 			}
+
+			// Focus the code editor widget.
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidEngageHistoryInfixSearch event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidEngageHistoryInfixSearch(() => {
+			// Engage a reverse history search (like bash) using the infix match strategy.
+			const isDebugMode = isForegroundDebugSession(services.contextKeyService);
+			const entries = services.executionHistoryService.getInputEntries(
+				props.positronConsoleInstance.runtimeMetadata.languageId
+			).filter(entry => {
+				// Show debug entries when in debug mode, non-debug entries otherwise.
+				const isDebugEntry = entry.debug && entry.debug !== 'inactive';
+				return isDebugMode ? isDebugEntry : !isDebugEntry;
+			});
+			engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 
 			// Focus the code editor widget.
 			codeEditorWidget.focus();
