@@ -199,6 +199,30 @@ function waitForSchemaUpdate(uri: vscode.Uri, timeoutMs = 15000): Promise<void> 
 	});
 }
 
+/**
+ * Repeatedly writes `content` to `uri` on a short interval until the returned
+ * disposable is disposed. A freshly created file-system watcher is not armed the
+ * instant `createFileSystemWatcher` returns; on a loaded CI machine a single write
+ * can land before the watcher starts listening and the change is missed entirely.
+ * Re-issuing the write guarantees at least one change event is observed once the
+ * watcher is ready, without depending on a fixed setup delay.
+ */
+function rewriteUntilStopped(uri: vscode.Uri, content: Buffer): vscode.Disposable {
+	let active = true;
+	const pump = async () => {
+		while (active) {
+			try {
+				await vscode.workspace.fs.writeFile(uri, content);
+			} catch {
+				// The file may have been deleted during teardown; stop quietly.
+			}
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+	};
+	void pump();
+	return { dispose: () => { active = false; } };
+}
+
 async function getSchema(tableName: string) {
 	const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 	const state = await getState(uri);
@@ -3204,8 +3228,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				// Overwrite with a new shape (extra row and column). The watcher
 				// should re-import the file and emit a schema_update event.
 				const updated = waitForSchemaUpdate(uri);
-				await vscode.workspace.fs.writeFile(uri, Buffer.from('a,b,c\n1,x,p\n2,y,q\n3,z,r\n', 'utf8'));
-				await updated;
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('a,b,c\n1,x,p\n2,y,q\n3,z,r\n', 'utf8'));
+				try {
+					await updated;
+				} finally {
+					rewriting.dispose();
+				}
 
 				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 3, num_columns: 3 });
 			} finally {
@@ -3230,10 +3258,16 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 				// Corrupt the file. The re-import fails; the watcher's handler must
 				// swallow the error (no unhandled rejection, no schema_update) and
-				// leave the previously loaded table queryable.
+				// leave the previously loaded table queryable. Re-issue the corrupt
+				// write until the watcher fires so the negative assertion proves the
+				// reload was actually attempted and swallowed, not merely missed.
 				const updated = waitForSchemaUpdate(uri, 4000);
-				await vscode.workspace.fs.writeFile(uri, Buffer.from('not a parquet file', 'utf8'));
-				await assert.rejects(updated, /Timed out/, 'A failed re-import must not emit schema_update');
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('not a parquet file', 'utf8'));
+				try {
+					await assert.rejects(updated, /Timed out/, 'A failed re-import must not emit schema_update');
+				} finally {
+					rewriting.dispose();
+				}
 
 				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
 			} finally {
