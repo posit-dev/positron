@@ -57,6 +57,11 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 
 // Global callback registry for column profile events
 const columnProfileCallbacks = new Map<string, (value: any) => void>();
+
+// Global listeners for schema_update UI events, invoked with the dataset uri.
+// The file-watcher tests use these to observe reloads triggered by on-disk
+// file changes (see waitForSchemaUpdate).
+const schemaUpdateListeners = new Set<(uri: string) => void>();
 let globalCommandRegistered = false;
 
 // Not sure why it is not possible to use Mocha's 'before' for this
@@ -74,6 +79,10 @@ async function activateExtension() {
 					if (callback) {
 						callback(event.params);
 						columnProfileCallbacks.delete(event.params.callback_id);
+					}
+				} else if (event.method === 'schema_update') {
+					for (const listener of schemaUpdateListeners) {
+						listener(event.uri);
 					}
 				}
 			}
@@ -163,6 +172,30 @@ async function getState(uri: vscode.Uri): Promise<BackendState> {
 		method: DataExplorerBackendRequest.GetState,
 		uri: uri.toString(),
 		params: {}
+	});
+}
+
+/**
+ * Resolves when a schema_update UI event is emitted for the given uri, which
+ * the extension does after re-importing a watched file that changed on disk.
+ * Rejects on timeout so a watcher that never fires surfaces as a clear failure
+ * rather than hanging the suite.
+ */
+function waitForSchemaUpdate(uri: vscode.Uri, timeoutMs = 15000): Promise<void> {
+	const target = uri.toString();
+	return new Promise<void>((resolve, reject) => {
+		const listener = (eventUri: string) => {
+			if (eventUri === target) {
+				clearTimeout(timer);
+				schemaUpdateListeners.delete(listener);
+				resolve();
+			}
+		};
+		const timer = setTimeout(() => {
+			schemaUpdateListeners.delete(listener);
+			reject(new Error(`Timed out waiting for schema_update event for ${target}`));
+		}, timeoutMs);
+		schemaUpdateListeners.add(listener);
 	});
 }
 
@@ -3155,5 +3188,61 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// This should work now that the table view has been restored
 		await profileRpcCall(); // Should not throw an error
+	});
+
+	suite('File watcher', () => {
+		test('reloads the dataset when the watched file changes on disk', async function () {
+			this.timeout(20000);
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.csv`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, Buffer.from('a,b\n1,x\n2,y\n', 'utf8'));
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 2, num_columns: 2 });
+
+				// Overwrite with a new shape (extra row and column). The watcher
+				// should re-import the file and emit a schema_update event.
+				const updated = waitForSchemaUpdate(uri);
+				await vscode.workspace.fs.writeFile(uri, Buffer.from('a,b,c\n1,x,p\n2,y,q\n3,z,r\n', 'utf8'));
+				await updated;
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 3, num_columns: 3 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
+
+		test('leaves the existing table in place when a changed file becomes unreadable', async function () {
+			this.timeout(20000);
+			const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.parquet`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, parquetBytes);
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+
+				// Corrupt the file. The re-import fails; the watcher's handler must
+				// swallow the error (no unhandled rejection, no schema_update) and
+				// leave the previously loaded table queryable.
+				const updated = waitForSchemaUpdate(uri, 4000);
+				await vscode.workspace.fs.writeFile(uri, Buffer.from('not a parquet file', 'utf8'));
+				await assert.rejects(updated, /Timed out/, 'A failed re-import must not emit schema_update');
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
 	});
 });
