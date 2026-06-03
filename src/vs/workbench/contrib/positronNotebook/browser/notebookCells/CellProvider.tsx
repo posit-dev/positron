@@ -54,6 +54,5 @@ export function useCodeCell(): IPositronNotebookCodeCell {
  * @returns The scoped context key service, or undefined if outside a CellProvider.
  */
 export function useCellScopedContextKeyService(): IScopedContextKeyService | undefined {
-	const cell = React.useContext(CellContext);
-	return cell?.scopedContextKeyService;
+	return useCell().scopedContextKeyService;
 }

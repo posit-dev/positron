@@ -10,7 +10,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IModelDeltaDecoration, ITextModel } from '../../../../../editor/common/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { Range } from '../../../../../editor/common/core/range.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
@@ -28,6 +28,8 @@ import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 import { CellContextKeyManager } from './CellContextKeyManager.js';
 import { PositronNotebookCodeCell } from './PositronNotebookCodeCell.js';
 import { PositronNotebookMarkdownCell } from './PositronNotebookMarkdownCell.js';
+import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * Minimum visibility ratio required for a cell to be considered visible in the viewport.
@@ -70,6 +72,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	private readonly _containerDisposables = this._register(new DisposableStore());
 	private _scopedContextKeyService: IScopedContextKeyService | undefined;
+	private _scopedInstantiationService: IInstantiationService | undefined;
 	private _contextKeys: CellContextKeyManager | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
@@ -227,6 +230,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._scopedContextKeyService;
 	}
 
+	get scopedInstantiationService(): IInstantiationService | undefined {
+		return this._scopedInstantiationService;
+	}
+
 	/** Context keys scoped to this cell, available after container attachment. */
 	get contextKeys(): CellContextKeyManager | undefined {
 		return this._contextKeys;
@@ -242,8 +249,17 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._scopedContextKeyService = this._containerDisposables.add(
 			this._instance.scopedContextKeyService.createScoped(container)
 		);
+		this._scopedInstantiationService = this._containerDisposables.add(
+			this._instance.scopedInstantiationService.createChild(
+				new ServiceCollection([IContextKeyService, this._scopedContextKeyService])
+			)
+		);
 		this._contextKeys = this._containerDisposables.add(
-			new CellContextKeyManager(this, this._scopedContextKeyService, this._instance)
+			this._scopedInstantiationService.createInstance(
+				CellContextKeyManager,
+				this,
+				this._instance
+			)
 		);
 	}
 
