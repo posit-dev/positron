@@ -162,36 +162,28 @@ needs neither the opaque backdrop nor the sticky pin. */
 	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
 }
 
-/* Color + centering for the close codicon. The workbench base rule
-.monaco-workbench .codicon[class*='codicon-'] forces font-size: 16px at
-specificity (0,3,0), so this override is scoped under the tag bar to reach (0,4,0)
-and win -- otherwise the smaller size and inherited color are ignored. color:inherit
-lets the affordance drive its own glyph color per state (otherwise the glyph
-resolves to a higher-contrast icon foreground up the cascade). */
+/* Tag codicons (close + plus) are scoped under the tag bar to reach specificity
+(0,4,0) and beat the workbench base `.monaco-workbench .codicon[class*='codicon-']`
+16px rule (0,3,0) -- otherwise the 10px size and inherited color are ignored.
+`add-small` in particular is drawn to fill its em box, so it reads heavy at the
+label's 11px; 10px keeps the plus at the label's cap height. color:inherit lets
+each affordance drive its own glyph color per state. */
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon,
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
+	font-size: 10px;
+	line-height: 1;
+	color: inherit;
+}
+
+/* The close glyph also fills and centers within the pill's flex box. Some codicon
+glyphs aren't centered in their canvas (see IconedButton.css), so nudge in em. */
 .positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 100%;
 	height: 100%;
-	font-size: 10px;
-	line-height: 1;
-	color: inherit;
-	/* Some codicon glyphs (close/plus) aren't centered within their glyph */
-	/* canvas -- see IconedButton.css. Nudge in em so it scales with size. */
 	transform: translate(0.04em, 0.04em);
-}
-
-/* The add pill sits the plus glyph inline next to its label. Codicons scale with
-font-size, and `add-small` is drawn to fill most of its em box, so it reads heavy
-at the label's 11px -- size it down so the plus matches the label's cap height
-rather than overpowering it. Scoped under the tag bar to reach specificity (0,4,0)
-and beat the workbench base `.monaco-workbench .codicon[class*='codicon-']` 16px
-rule (0,3,0). */
-.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
-	font-size: 10px;
-	line-height: 1;
-	color: inherit;
 }
 
 /* Intrinsic width from current value (grows while editing); capped to match the
