@@ -83,28 +83,62 @@ brief width + opacity transition so a row of tags stays calm rather than jumping
 	color: var(--vscode-foreground);
 }
 
-/* Ghost add affordance: no border or fill, matching the footer's metadata icon
-color at rest. */
+/* Add affordance, styled to match the tag pills (thin outline, fully rounded).
+Hidden at rest and revealed on hover of the tag bar (or keyboard focus) so an
+untouched row stays calm. Sticks to the right edge when the row overflows
+horizontally, so it stays reachable even in large tag sets. */
 .positron-notebook-cell-tag-add {
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
+	box-sizing: border-box;
 	flex-shrink: 0;
-	width: 16px;
-	height: 16px;
-	border: none;
+	gap: 3px;
+	height: 18px;
+	padding: 0 8px;
+	border: 1px solid var(--vscode-widget-border);
 	border-radius: 999px;
-	background: transparent;
+	/* Opaque so tags scrolling underneath it (while sticky) don't bleed through. */
+	background-color: var(--vscode-notebook-cellEditorBackground);
 	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+	font-size: 11px;
+	line-height: 1;
 	cursor: pointer;
-	padding: 0;
-	transition: color 120ms ease, background-color 120ms ease;
+	position: sticky;
+	right: 0;
+	/* Revealed via opacity (kept in layout) so hovering doesn't reflow the row. */
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 
-/* On hover the add control picks up the accent/link color with a faint
-accent-tinted fill (the accent token mixed down to a low-opacity wash). */
+.positron-notebook-cell-tags:hover .positron-notebook-cell-tag-add,
+.positron-notebook-cell-tags:focus-within .positron-notebook-cell-tag-add {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* On hover the add pill picks up the accent/link color with a faint accent-tinted
+fill. The wash is mixed over the opaque footer background (not transparent) so the
+pill stays opaque while sticky. */
 .positron-notebook-cell-tag-add:hover {
 	color: var(--vscode-textLink-foreground);
+	border-color: var(--vscode-textLink-foreground);
+	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, var(--vscode-notebook-cellEditorBackground));
+}
+
+.positron-notebook-cell-tag-add-label {
+	white-space: nowrap;
+}
+
+/* Standalone (markdown / raw) cells render the bar on the cell background with no
+footer chrome behind it, and the row wraps instead of scrolling -- so the add pill
+needs neither the opaque backdrop nor the sticky pin. */
+.positron-notebook-cell-tags.standalone .positron-notebook-cell-tag-add {
+	position: static;
+	background-color: transparent;
+}
+
+.positron-notebook-cell-tags.standalone .positron-notebook-cell-tag-add:hover {
 	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
 }
 
@@ -125,6 +159,14 @@ accent-tinted fill (the accent token mixed down to a low-opacity wash). */
 	/* Some codicon glyphs (close/plus) aren't centered within their glyph */
 	/* canvas -- see IconedButton.css. Nudge in em so it scales with size. */
 	transform: translate(0.04em, 0.04em);
+}
+
+/* The add pill sits the plus glyph inline next to its label, so it wants a
+readable glyph size rather than the tiny centered-icon treatment above. */
+.codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
+	font-size: 11px;
+	line-height: 1;
+	color: inherit;
 }
 
 .positron-notebook-cell-tag-input {

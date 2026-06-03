@@ -126,7 +126,10 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 					type='button'
 					onClick={(e) => { stopCellSelection(e); setAdding(true); }}
 				>
-					<Icon className='positron-notebook-cell-tag-icon' icon={Codicon.add} />
+					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.add} />
+					<span className='positron-notebook-cell-tag-add-label'>
+						{localize('positron.notebook.cellTag.add', "Add tag")}
+					</span>
 				</button>
 			)}
 		</div>
