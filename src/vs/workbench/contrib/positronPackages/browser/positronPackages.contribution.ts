@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -289,8 +289,8 @@ class InstallPackageAction extends Action2 {
 		const cts = new CancellationTokenSource();
 
 		try {
-			const performSearch = async (q: string) => {
-				return await service.searchPackages(q, cts.token);
+			const performSearch = async (q: string, token: CancellationToken) => {
+				return await service.searchPackages(q, token);
 			};
 
 			const performSearchVersions = async (pkg: string) => {
