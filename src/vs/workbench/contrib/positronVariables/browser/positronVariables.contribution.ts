@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { KeyMod, KeyCode, KeyChord } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -96,9 +96,19 @@ class PositronVariablesContribution extends Disposable implements IWorkbenchCont
 		// Used to consolidate multiple rapid visibility changes into a single update.
 		let visibilityUpdateScheduled = false;
 
+		// Tracks whether this contribution is still active (not disposed).
+		// Used to stop a scheduled visibility update from running once the
+		// variables service has been disposed.
+		let active = true;
+		this._register(toDisposable(() => { active = false; }));
+
 		// Recomputes the visibility of the variables view and notifies the variables service.
 		const updateVariablesViewVisibility = () => {
 			visibilityUpdateScheduled = false;
+			// If the contribution has been disposed, do not attempt to update the service.
+			if (!active) {
+				return;
+			}
 			// Find the container the variables view is currently in (if any)
 			const container = this._viewDescriptorService.getViewContainerByViewId(POSITRON_VARIABLES_VIEW_ID);
 			// The variables view is visible if it is in a container and that container considers it visible.
