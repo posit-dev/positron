@@ -21,6 +21,7 @@ interface CellState {
 	lastRunEndTime?: number;
 	lastRunSuccess?: boolean;
 	tags?: string[];
+	isAddingTag?: boolean;
 }
 
 describe('CodeCellStatusFooter', () => {
@@ -37,6 +38,7 @@ describe('CodeCellStatusFooter', () => {
 			lastRunEndTime: observableValue<number | undefined>('lastRunEndTime', state.lastRunEndTime),
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
 			tags: observableValue<string[]>('tags', state.tags ?? []),
+			isAddingTag: observableValue<boolean>('isAddingTag', state.isAddingTag ?? false),
 			isInViewport: () => true,
 		});
 
@@ -122,6 +124,14 @@ describe('CodeCellStatusFooter', () => {
 		renderFooter({ lastExecutionOrder: 1 });
 
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
+	});
+
+	it('stays open while a tag-add is in progress, even with no execution metadata or tags', () => {
+		// The "Add Tag" command flips isAddingTag to open the inline input; the
+		// footer must un-collapse so the input has somewhere to render.
+		renderFooter({ isAddingTag: true });
+
+		expect(getFooter()).not.toHaveClass('collapsed');
 	});
 
 	describe('tag separator', () => {

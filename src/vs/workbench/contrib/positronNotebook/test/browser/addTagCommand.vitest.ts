@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 import { ServiceIdentifier, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { IQuickInputService } from '../../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService, NotificationMessage } from '../../../../../platform/notification/common/notification.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -16,9 +15,10 @@ import { AddTagAction } from '../../browser/positronNotebook.contribution.js';
 import { createLabelledTestNotebook } from './testPositronNotebookInstance.js';
 
 /**
- * Verifies the "Add Tag" command surfaces feedback for the non-write outcomes
- * the cell model reports. The command body lives in `runNotebookAction`, so a
- * test-only subclass exposes it without standing up an active editor pane.
+ * Verifies the "Add Tag" command opens the active cell's inline tag input (via
+ * the cell's `beginAddTag` signal) and surfaces guidance when there's no cell to
+ * target. The command body lives in `runNotebookAction`, so a test-only subclass
+ * exposes it without standing up an active editor pane.
  */
 describe('AddTagAction', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -30,18 +30,14 @@ describe('AddTagAction', () => {
 	}
 
 	/**
-	 * Builds an accessor whose quick input resolves to `typed`, returning the
-	 * notification spy so the test can assert what the command surfaced.
+	 * Builds an accessor exposing a notification spy so the test can assert what
+	 * the command surfaced.
 	 */
-	function createAccessor(typed: string) {
+	function createAccessor() {
 		const info = vi.fn<(message: NotificationMessage | NotificationMessage[]) => void>();
-		const quickInput = stubInterface<IQuickInputService>({ input: async () => typed });
 		const notifications = stubInterface<INotificationService>({ info });
 		const accessor: ServicesAccessor = {
 			get<T>(id: ServiceIdentifier<T>): T {
-				if (id === IQuickInputService) {
-					return quickInput as unknown as T;
-				}
 				if (id === INotificationService) {
 					return notifications as unknown as T;
 				}
@@ -51,26 +47,25 @@ describe('AddTagAction', () => {
 		return { accessor, info };
 	}
 
-	it('adds the tag silently when the write succeeds', async () => {
+	it('opens the inline tag input on the active cell', async () => {
 		const notebook = createLabelledTestNotebook(1, ctx);
 		const cell = notebook.cells.get()[0];
 		notebook.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-		const addTag = vi.spyOn(cell, 'addTag').mockReturnValue('added');
-		const { accessor, info } = createAccessor('fresh');
+		const beginAddTag = vi.spyOn(cell, 'beginAddTag');
+		const { accessor, info } = createAccessor();
 
 		await new TestableAddTagAction().testRun(notebook, accessor);
 
-		expect(addTag).toHaveBeenCalledWith('fresh');
-		// A successful add needs no toast.
+		expect(beginAddTag).toHaveBeenCalled();
+		// Opening the input needs no toast.
 		expect(info).not.toHaveBeenCalled();
 	});
 
 	it('prompts the user to select a cell when none is selected', async () => {
 		// With no active or selected cell (an empty notebook) the command can't
-		// target anything, so it surfaces guidance instead of opening the quick
-		// input.
+		// target anything, so it surfaces guidance instead of opening the input.
 		const notebook = createLabelledTestNotebook(0, ctx);
-		const { accessor, info } = createAccessor('ignored');
+		const { accessor, info } = createAccessor();
 
 		await new TestableAddTagAction().testRun(notebook, accessor);
 

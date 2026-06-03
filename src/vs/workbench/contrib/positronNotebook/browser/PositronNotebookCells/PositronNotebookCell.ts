@@ -79,6 +79,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected readonly _internalMetadata;
 	/** Cell tags, derived from the nested nbformat `metadata.metadata.tags`. */
 	public readonly tags: IObservable<string[]>;
+	/** Whether the inline tag-add input is currently requested for this cell. */
+	private readonly _isAddingTag = observableValue<boolean>('cellIsAddingTag', false);
+	public readonly isAddingTag: IObservable<boolean> = this._isAddingTag;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
@@ -311,6 +314,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// Report the actual write outcome rather than assuming success: setTags
 		// no-ops when the text model is unavailable or the cell is detached.
 		return this.setTags(next) ? 'added' : 'failed';
+	}
+
+	beginAddTag(): void {
+		this._isAddingTag.set(true, undefined);
+	}
+
+	endAddTag(): void {
+		this._isAddingTag.set(false, undefined);
 	}
 
 	// Add placeholder run method to be overridden by subclasses
