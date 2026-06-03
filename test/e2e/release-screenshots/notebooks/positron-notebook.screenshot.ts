@@ -30,10 +30,6 @@ test.beforeAll(async ({ app }) => {
 	await app.workbench.assistant.loginModelProvider('anthropic-api');
 });
 
-test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
-});
-
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -77,9 +73,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-assistant-action-bar.png', async ({ app, page, python, settings }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -112,6 +108,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
 		const { notebooksPositron, variables, hotKeys, layouts, quickaccess, quickInput, editors, positAssistant } = app.workbench;
+
+		await settings.set({ 'positron.assistant.notebook.ghostCellSuggestions.enabled': false }, { keepOpen: false });
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Create notebook and run energy data code.
 		await notebooksPositron.createNewNotebook();
@@ -160,15 +159,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		// Run the notebook cell to populate variables and generate the chart output
 		await notebooksPositron.runAllCells();
 		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
-		await expect(page.locator('building the font cache')).not.toBeVisible();
 
 		// Scroll the notebook down so the full chart is visible (not cut off).
-		const notebookEditor = page.locator('.notebook-editor');
-		const editorBox = await notebookEditor.boundingBox();
-		if (editorBox) {
-			await page.mouse.move(editorBox.x + editorBox.width / 2, editorBox.y + editorBox.height / 2);
-			await page.mouse.wheel(0, 400);
-		}
+		await notebooksPositron.cellOutput(0).scrollIntoViewIfNeeded();
 
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();

@@ -127,11 +127,11 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await plotsSection.click();
 		await expect(plotsSection).toHaveAttribute('aria-expanded', 'false');
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -300 });
+		await layouts.resizeAuxiliaryBar({ x: -250 });
 		await expect(variables.variablesPane).toBeVisible();
 
 		// capture screenshot
-		await layouts.resizePanel({ y: 30 });
+		await layouts.resizePanel({ y: 150 });
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');

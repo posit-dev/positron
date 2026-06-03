@@ -23,10 +23,6 @@ test.use({
 	suiteId: __filename,
 });
 
-test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app, { width: 960, height: 640 });
-});
-
 test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -41,6 +37,7 @@ test.describe('Release Screenshots - Positron Notebook Assistant Panel', () => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
