@@ -76,114 +76,190 @@ import {
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
 }
-import { DuckDBConnection, DuckDBInstance as NeoDuckDBInstance, DuckDBResultReader } from '@duckdb/node-api';
+import { ChildProcess, fork } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
+import { WorkerQueryRequest, WorkerQueryResponse } from './duckdbWorkerProtocol';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
 /**
- * A thin wrapper over a materialized `@duckdb/node-api` result that exposes the
- * small set of shapes the rest of the extension relies on.
+ * A query result materialized in the DuckDB worker and reconstructed here from
+ * the column-oriented form that crosses the IPC boundary. Exposes the small set
+ * of shapes the rest of the extension relies on.
  */
 class QueryResult {
-	private _columns: any[][] | undefined;
 	private _rows: any[] | undefined;
-	private _columnNames: string[] | undefined;
 
-	constructor(private readonly result: DuckDBResultReader) { }
+	constructor(
+		private readonly _columnNames: string[],
+		// One array of values per column, in column order.
+		private readonly _columns: any[][]
+	) { }
 
 	/** The number of columns in the result. */
 	get numCols(): number {
-		return this.result.columnCount;
+		return this._columns.length;
 	}
 
 	/** The number of rows in the (materialized) result. */
 	get numRows(): number {
-		return this.result.currentRowCount;
+		return this._columns.length > 0 ? this._columns[0].length : 0;
 	}
 
 	/** The names of the columns, in column order. */
 	get columnNames(): string[] {
-		if (this._columnNames === undefined) {
-			this._columnNames = this.result.columnNames();
-		}
 		return this._columnNames;
 	}
 
-	// Note: the JS accessors (getRowObjectsJS / getColumnsJS) coerce values to
-	// plain JS (e.g. Date for temporal types, number for DECIMAL) rather than
-	// node-api's DuckDBValue wrapper objects, so values that aren't explicitly
-	// CAST to VARCHAR in SQL still render and serialize sanely. Integer types
-	// remain bigint; count/stat call sites wrap those in Number(...).
+	// Note: values are already coerced to plain JS in the worker (Date for
+	// temporal types, number for DECIMAL, bigint for integers, etc.), so values
+	// that aren't explicitly CAST to VARCHAR in SQL still render and serialize
+	// sanely. Integer types remain bigint; count/stat call sites wrap those in
+	// Number(...).
 
 	/** The result rows as plain objects keyed by column name. */
 	toArray(): any[] {
 		if (this._rows === undefined) {
-			this._rows = this.result.getRowObjectsJS();
+			const numRows = this.numRows;
+			const rows: any[] = new Array(numRows);
+			for (let r = 0; r < numRows; r++) {
+				const row: { [name: string]: any } = {};
+				for (let c = 0; c < this._columnNames.length; c++) {
+					row[this._columnNames[c]] = this._columns[c][r];
+				}
+				rows[r] = row;
+			}
+			this._rows = rows;
 		}
 		return this._rows;
 	}
 
 	/** The values for the column at the given index. */
 	columnAt(index: number): any[] {
-		if (this._columns === undefined) {
-			this._columns = this.result.getColumnsJS();
-		}
 		return this._columns[index];
 	}
 
 	/** The values for the column with the given name. */
 	columnByName(name: string): any[] {
-		return this.columnAt(this.columnNames.indexOf(name));
+		return this.columnAt(this._columnNames.indexOf(name));
 	}
 }
 
-class DuckDBInstance {
-	runningQuery: Promise<any> = Promise.resolve();
+/**
+ * Host-side proxy for DuckDB. The native database runs in a separate child
+ * process (`duckdbWorker.ts`); this class forks it, forwards queries over IPC,
+ * and reconstructs results. Isolating the native binding means a query that
+ * exhausts memory aborts only the child: a native abort cannot be caught
+ * in-process, so the child dying is the only thing that keeps the extension
+ * host alive. When the worker dies, in-flight queries reject with a clear
+ * error, `onDidCrash` fires, and the next query transparently respawns it.
+ */
+export class DuckDBInstance {
+	/** Resolved path to the bundled worker entry, emitted next to this module. */
+	private static readonly defaultWorkerPath = path.join(__dirname, 'duckdbWorker.js');
 
-	constructor(private readonly instance: NeoDuckDBInstance, readonly con: DuckDBConnection) { }
+	private _worker: ChildProcess | undefined;
+	private _nextId = 0;
+	private readonly _pending = new Map<number, { resolve: (result: QueryResult) => void; reject: (error: Error) => void }>();
+	private _disposed = false;
 
-	static async create(): Promise<DuckDBInstance> {
-		// Create an in-memory database backed by the native DuckDB binary.
-		const instance = await NeoDuckDBInstance.create(':memory:');
-		const con = await instance.connect();
-		await con.run(`LOAD icu;
-		SET TIMEZONE=\'UTC\';
-		`);
-		return new DuckDBInstance(instance, con);
+	private readonly _onDidCrash = new vscode.EventEmitter<void>();
+	/** Fires when the worker process terminates unexpectedly (e.g. out of memory). */
+	readonly onDidCrash: vscode.Event<void> = this._onDidCrash.event;
+
+	private constructor(private readonly workerPath: string) { }
+
+	/**
+	 * Create a DuckDB instance. `workerPath` overrides the worker entry point and
+	 * exists only for tests (to exercise crash recovery with a stub worker).
+	 */
+	static async create(workerPath: string = DuckDBInstance.defaultWorkerPath): Promise<DuckDBInstance> {
+		const instance = new DuckDBInstance(workerPath);
+		instance.spawnWorker();
+		return instance;
 	}
 
-	/** Closes the connection and releases the native database handle. */
-	close(): void {
-		this.con.closeSync();
-		this.instance.closeSync();
+	private spawnWorker(): void {
+		// "advanced" serialization uses the V8 structured-clone algorithm, which
+		// preserves bigint and Date values returned by DuckDB.
+		const worker = fork(this.workerPath, [], { serialization: 'advanced' });
+		worker.on('message', (message: unknown) => {
+			const response = message as WorkerQueryResponse;
+			const pending = this._pending.get(response.id);
+			if (!pending) {
+				return;
+			}
+			this._pending.delete(response.id);
+			if (response.kind === 'result') {
+				pending.resolve(new QueryResult(response.columnNames, response.columns));
+			} else {
+				pending.reject(new Error(response.error));
+			}
+		});
+		worker.on('exit', (code, signal) => this.onWorkerGone(`exited (code=${code}, signal=${signal})`));
+		worker.on('error', (error) => this.onWorkerGone(`failed to start: ${error.message}`));
+		this._worker = worker;
 	}
 
-	async runQuery(query: string): Promise<QueryResult> {
-		await this.runningQuery;
-		try {
-			const startTime = Date.now();
-			this.runningQuery = this.con.runAndReadAll(query);
+	/**
+	 * Handle the worker process going away. Reject every in-flight query so
+	 * callers fail gracefully rather than hanging, and notify listeners. The
+	 * worker is respawned lazily on the next query.
+	 */
+	private onWorkerGone(detail: string): void {
+		if (this._worker === undefined) {
+			// Already handled (e.g. both 'error' and 'exit' fired), or disposed.
+			return;
+		}
+		this._worker = undefined;
 
-			const result = await this.runningQuery;
-			const elapsedMs = Date.now() - startTime;
-			if (DEBUG_LOG) {
-				console.log(`Took ${elapsedMs} ms to run:\n${query}`);
-			}
-			return new QueryResult(result);
-		} catch (error) {
-			if (DEBUG_LOG) {
-				console.log(`Failed to execute:\n${query}`);
-			}
-			this.runningQuery = Promise.resolve();
-			return Promise.reject(error);
+		const reason = new Error(`The DuckDB process terminated unexpectedly (${detail}). This usually means a query exhausted available memory.`);
+		for (const pending of this._pending.values()) {
+			pending.reject(reason);
+		}
+		this._pending.clear();
+
+		if (!this._disposed) {
+			this._onDidCrash.fire();
 		}
 	}
 
+	/** Closes the worker process and rejects any in-flight queries. */
+	close(): void {
+		this._disposed = true;
+		const worker = this._worker;
+		this._worker = undefined;
+		worker?.kill();
+		for (const pending of this._pending.values()) {
+			pending.reject(new Error('The DuckDB instance was disposed.'));
+		}
+		this._pending.clear();
+		this._onDidCrash.dispose();
+	}
+
+	runQuery(query: string): Promise<QueryResult> {
+		if (this._disposed) {
+			return Promise.reject(new Error('The DuckDB instance was disposed.'));
+		}
+		// Lazily (re)spawn the worker, e.g. after a crash.
+		if (this._worker === undefined) {
+			this.spawnWorker();
+		}
+
+		const id = this._nextId++;
+		const request: WorkerQueryRequest = { id, sql: query };
+		return new Promise<QueryResult>((resolve, reject) => {
+			this._pending.set(id, { resolve, reject });
+			if (DEBUG_LOG) {
+				console.log(`Running query ${id}:\n${query}`);
+			}
+			this._worker!.send(request);
+		});
+	}
 }
 
 type RpcResponse<Type> = Promise<Type | string>;
@@ -1842,10 +1918,17 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	private _tableIndex: number = 0;
 	private _watchers: vscode.Disposable[] = [];
+	private readonly _crashListener: vscode.Disposable;
 
-	constructor(private readonly db: DuckDBInstance) { }
+	constructor(private readonly db: DuckDBInstance) {
+		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
+		// are gone with it. Drop the cached table views so the next request for a
+		// dataset re-imports it into the freshly respawned worker.
+		this._crashListener = this.db.onDidCrash(() => this._uriToTableView.clear());
+	}
 
 	dispose() {
+		this._crashListener.dispose();
 		vscode.Disposable.from(...this._watchers).dispose();
 	}
 
