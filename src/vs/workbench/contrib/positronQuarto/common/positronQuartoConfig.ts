@@ -126,6 +126,15 @@ export const QUARTO_LANGUAGE_IDS = ['quarto', 'rmd'];
 export const QUARTO_CELL_SCHEME = 'quarto-cell';
 
 /**
+ * Marker owner under which Positron re-projects the diagnostics published by the
+ * per-language servers against the synthetic {@link QUARTO_CELL_SCHEME} cell
+ * models onto the host `.qmd` document (with ranges translated into document
+ * coordinates). One owner is shared across all documents; markers are keyed by
+ * the document resource, so open documents never collide.
+ */
+export const QUARTO_CELL_DIAGNOSTICS_OWNER = 'quartoCellDiagnostics';
+
+/**
  * Helper function to check if a file path is a Quarto or RMarkdown document.
  * Supports .qmd (Quarto), .Rmd and .rmd (R Markdown) extensions.
  * @param path The file path to check
