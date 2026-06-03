@@ -59,6 +59,26 @@ export function reportExtensionsGalleryEnv(
 	}
 	return parsed;
 }
+
+/**
+ * Decides what happens when the Positron gallery source setting changes. When
+ * EXTENSIONS_GALLERY is set it overrides the setting, so notify the user that the
+ * change won't take effect and skip the restart prompt; otherwise request a restart.
+ * Exported for unit testing -- the host class wires services in.
+ */
+export function handleGallerySourceSettingChange(
+	envValue: string | undefined,
+	notificationService: Pick<INotificationService, 'info'>,
+	requestRestart: () => void,
+): void {
+	if (envValue) {
+		notificationService.info(localize(
+			'positron.extensionsGallery.settingIgnoredByEnv',
+			"The EXTENSIONS_GALLERY environment variable is set and overrides the extension gallery source setting. Unset the environment variable for this setting to take effect."));
+		return;
+	}
+	requestRestart();
+}
 // --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
@@ -148,13 +168,7 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			// --- Start Positron ---
 			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
-				if (env['EXTENSIONS_GALLERY']) {
-					this.notificationService.info(localize(
-						'positron.extensionsGallery.settingIgnoredByEnv',
-						"The EXTENSIONS_GALLERY environment variable is set and overrides the extension gallery source setting. Unset the environment variable for this setting to take effect."));
-					return;
-				}
-				this.requestRestart();
+				handleGallerySourceSettingChange(env['EXTENSIONS_GALLERY'], this.notificationService, () => this.requestRestart());
 				return;
 			}
 			// --- End Positron ---

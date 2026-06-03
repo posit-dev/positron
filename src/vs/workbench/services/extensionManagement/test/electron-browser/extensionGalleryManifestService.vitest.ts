@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { reportExtensionsGalleryEnv } from '../../electron-browser/extensionGalleryManifestService.js';
+import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv } from '../../electron-browser/extensionGalleryManifestService.js';
 
 function makeServices() {
 	return {
@@ -42,5 +42,24 @@ describe('reportExtensionsGalleryEnv', () => {
 		expect(svc.logService.warn).toHaveBeenCalledOnce();
 		expect(svc.notificationService.warn).toHaveBeenCalledOnce();
 		expect(svc.logService.info).not.toHaveBeenCalled();
+	});
+});
+
+describe('handleGallerySourceSettingChange', () => {
+
+	it('notifies and skips the restart when the env var is set', () => {
+		const notificationService = { info: vi.fn() };
+		const requestRestart = vi.fn();
+		handleGallerySourceSettingChange('{"serviceUrl":"https://example.com/gallery"}', notificationService, requestRestart);
+		expect(notificationService.info).toHaveBeenCalledOnce();
+		expect(requestRestart).not.toHaveBeenCalled();
+	});
+
+	it('requests a restart and does not notify when the env var is unset', () => {
+		const notificationService = { info: vi.fn() };
+		const requestRestart = vi.fn();
+		handleGallerySourceSettingChange(undefined, notificationService, requestRestart);
+		expect(requestRestart).toHaveBeenCalledOnce();
+		expect(notificationService.info).not.toHaveBeenCalled();
 	});
 });
