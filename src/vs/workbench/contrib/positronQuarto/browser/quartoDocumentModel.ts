@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
@@ -55,7 +55,6 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private _primaryLanguage: string | undefined;
 	private _jupyterKernel: string | undefined;
 	private _cellsById = new Map<string, QuartoCodeCell>();
-	private _parseTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _onDidChangeCells = this._register(new Emitter<QuartoCellChangeEvent>());
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent> = this._onDidChangeCells.event;
@@ -75,25 +74,12 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		// Initial parse
 		this._parseDocument();
 
-		// Listen for changes with debouncing
-		this._register(this._textModel.onDidChangeContent(() => {
-			if (this._parseTimeout) {
-				clearTimeout(this._parseTimeout);
-			}
-			this._parseTimeout = setTimeout(() => {
-				this._parseTimeout = undefined;
-				this._parseDocument();
-			}, 100); // 100ms debounce
-		}));
-
-		this._register({
-			dispose: () => {
-				if (this._parseTimeout) {
-					clearTimeout(this._parseTimeout);
-					this._parseTimeout = undefined;
-				}
-			}
-		} satisfies IDisposable);
+		// Parse eagerly on every content change. This ensures the cell
+		// structure and per-cell models are always up to date, which is
+		// critical for LSP servers. The parse itself is fairly cheap, and
+		// expensive consumers of onDidParse debounce themselves (output view
+		// zones, cell toolbars).
+		this._register(this._textModel.onDidChangeContent(() => this._parseDocument()));
 	}
 
 	get uri(): URI {

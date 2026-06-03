@@ -5,6 +5,7 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
@@ -455,10 +456,14 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const model = this._editor.getModel();
 		if (model) {
 			const quartoModel = this._documentModelService.getModel(model);
+			// The document model parses on every keystroke, but we only need to
+			// run the more expensive view zone position updater after the user
+			// has stopped typing, so we debounce it.
+			const updateViewZonePositionsScheduler = this._outputHandlingDisposables.add(
+				new RunOnceScheduler(() => this._updateViewZonePositionsImmediate(), 100));
 			this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
 				if (this._featureEnabled) {
-					// No debounce needed - the document model is already parsed
-					this._updateViewZonePositionsImmediate();
+					updateViewZonePositionsScheduler.schedule();
 				}
 			}));
 		}
