@@ -30,6 +30,10 @@ test.beforeAll(async ({ app }) => {
 	await app.workbench.assistant.loginModelProvider('anthropic-api');
 });
 
+test.beforeEach(async ({ app }) => {
+	await setScreenshotWindowSize(app);
+});
+
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -43,7 +47,6 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-editor-kernel-selector.png', async ({ app, page, python }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -73,9 +76,9 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-assistant-action-bar.png', async ({ app, page, python, settings }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		await settings.set({ 'positron.assistant.enable': true }, { keepOpen: false });
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
@@ -111,7 +114,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
-			'positron.assistant.enable': false
+			// 'positron.assistant.enable': false
 		}, { keepOpen: false });
 		await setScreenshotWindowSize(app);
 
@@ -157,16 +160,12 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.sendMessage('Tell me about this notebook', false);
 		await positAssistant.allowToolForSession();
 		await positAssistant.waitForResponseComplete();
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 		await layouts.resizeSidebar({ x: 100 });
 
 		// Run the notebook cell to populate variables and generate the chart output
 		await notebooksPositron.runAllCells();
 		await expect(page.getByRole('img', { name: 'output image' })).toBeVisible({ timeout: 20_000 });
-
-		// Scroll the notebook down so the full chart is visible (not cut off).
-		await notebooksPositron.cellOutput(0).scrollIntoViewIfNeeded();
-
+		// await expect(page.locator('building the font cache')).not.toBeVisible();
 		await hotKeys.minimizeBottomPanel();
 		await hotKeys.showSecondarySidebar();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
