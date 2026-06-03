@@ -67,6 +67,39 @@ test.afterEach(async ({ page, hotKeys }) => {
 
 test.describe('Release Screenshots - Interpreter Session', () => {
 	/**
+	 * Img Path: https://positron.posit.co/images/variables-pane.png
+	 *
+	 * R session with several variables assigned, Variables view visible in the
+	 * secondary side bar.
+	 */
+	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
+		const { sessions, variables, hotKeys, layouts, plots } = app.workbench;
+
+		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
+		await sessions.expectAllSessionsToBeReady();
+
+		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
+		await openFile('data_types.R');
+		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
+
+		// customize the layout
+		await hotKeys.closePrimarySidebar();
+		await hotKeys.showSecondarySidebar();
+
+		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
+		await plots.collapsePlotsPane();
+		await variables.focusVariablesView();
+		await layouts.resizeAuxiliaryBar({ x: -250 });
+		await expect(variables.variablesPane).toBeVisible();
+
+		// capture screenshot
+		await layouts.resizePanel({ y: -250 });
+		await prepareForScreenshot(app, page);
+		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await captureFullWindow(page, 'variables-pane.png');
+	});
+
+	/**
 	 * Img Path: https://positron.posit.co/images/active-interpreter-session.png
 	 *
 	 * R and Python sessions running side-by-side, Sessions list visible in the
@@ -98,38 +131,5 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 			{ selector: 'button:has(.top-action-bar-session-manager-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);
 		await captureFullWindow(page, 'active-interpreter-session.png');
-	});
-
-	/**
-	 * Img Path: https://positron.posit.co/images/variables-pane.png
-	 *
-	 * R session with several variables assigned, Variables view visible in the
-	 * secondary side bar.
-	 */
-	test('Release Screenshot - variables-pane.png', async ({ app, page, openFile, executeCode, r }) => {
-		const { sessions, variables, hotKeys, layouts, plots } = app.workbench;
-
-		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
-		await sessions.expectAllSessionsToBeReady();
-
-		writeFileSync(join(app.workspacePathOrFolder, 'data_types.R'), DATA_TYPES_R);
-		await openFile('data_types.R');
-		await executeCode('R', DATA_TYPES_R, { maximizeConsole: false });
-
-		// customize the layout
-		await hotKeys.closePrimarySidebar();
-		await hotKeys.showSecondarySidebar();
-
-		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
-		await plots.collapsePlotsPane();
-		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -250 });
-		await expect(variables.variablesPane).toBeVisible();
-
-		// capture screenshot
-		await layouts.resizePanel({ y: 150 });
-		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
-		await captureFullWindow(page, 'variables-pane.png');
 	});
 });
