@@ -25,6 +25,11 @@ import { getWindow } from '../../../../base/browser/dom.js';
 export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	readonly allowEditorOverflow = false;
 
+	// Static counter is shared across all instances
+	private static _idCounter = 0;
+	// Unique identifier for this toolbar instance
+	private readonly _id = `quarto-cell-toolbar-${QuartoCellToolbar._idCounter++}`;
+
 	private readonly _domNode: HTMLElement;
 	private _runButton!: HTMLButtonElement;
 	private _runAboveButton!: HTMLButtonElement;
@@ -71,8 +76,13 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		this._updatePosition();
 	}
 
+	/**
+	 * Get a unique identifier of the toolbar.
+	 *
+	 * Not tied to the cell contents!
+	 */
 	getId(): string {
-		return `quarto-cell-toolbar-${this._cell.id}`;
+		return this._id;
 	}
 
 	getDomNode(): HTMLElement {
