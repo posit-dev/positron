@@ -53,10 +53,6 @@ import { CountTokensCallback, createToolSchemaUri, IBeginToolCallOptions, IExter
 import { getToolConfirmationAlert } from '../accessibility/chatAccessibilityProvider.js';
 import { IChatWidgetService } from '../chat.js';
 
-// --- Start Positron ---
-import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
-// --- End Positron ---
-
 const jsonSchemaRegistry = Registry.as<JSONContributionRegistry.IJSONContributionRegistry>(JSONContributionRegistry.Extensions.JSONContribution);
 
 interface IToolEntry {
@@ -999,12 +995,7 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 	}
 
 	private ensureToolDetails(dto: IToolInvocation, toolResult: IToolResult, toolData: IToolData, toolInvocation: ChatToolInvocation | undefined): void {
-		// --- Start Positron ---
-		// `positron.assistant.toolDetails.enable` forces tool input/output to render even when
-		// the upstream conditions wouldn't otherwise (used for debugging Positron Assistant).
-		const areToolDetailsEnabled = this._configurationService.getValue<boolean>('positron.assistant.toolDetails.enable');
-		if (areToolDetailsEnabled || (!toolResult.toolResultDetails && (toolData.alwaysDisplayInputOutput || (this.toolResultHasImages(toolResult) && !this.toolResultMessageHasImageFileWidgets(toolResult, toolInvocation))))) {
-			// --- End Positron ---
+		if (!toolResult.toolResultDetails && (toolData.alwaysDisplayInputOutput || (this.toolResultHasImages(toolResult) && !this.toolResultMessageHasImageFileWidgets(toolResult, toolInvocation)))) {
 			toolResult.toolResultDetails = {
 				input: this.formatToolInput(dto),
 				output: this.toolResultToIO(toolResult),
@@ -1416,33 +1407,6 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		}
 		return result;
 	}
-
-	// --- Start Positron ---
-	// Determines if a tool should be enabled for the currently selected language model.
-	// Based on the logic from chatToolPicker.ts
-	isToolEnabledForModel(toolId: string, selectedLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
-		// If no model is selected, enable all tools
-		if (!selectedLanguageModel) {
-			return true;
-		}
-
-		// Check if the user is using a Copilot model
-		const usingCopilotModel = selectedLanguageModel.metadata.vendor === 'copilot';
-		// Check if the user has opted-in to always include Copilot tools.
-		const alwaysIncludeCopilotTools = this._configurationService.getValue('positron.assistant.alwaysIncludeCopilotTools') as boolean;
-		// Check if the tool is provided by Copilot
-		const copilotTool = toolId.startsWith('copilot_');
-
-		// Enable Copilot tools only if using a Copilot model;
-		// otherwise, enable all non-Copilot tools
-		if (copilotTool) {
-			return usingCopilotModel || alwaysIncludeCopilotTools;
-		}
-
-		// All non-Copilot tools are enabled for all models
-		return true;
-	};
-	// --- End Positron ---
 
 	toFullReferenceNames(map: IToolAndToolSetEnablementMap): string[] {
 		const result: string[] = [];

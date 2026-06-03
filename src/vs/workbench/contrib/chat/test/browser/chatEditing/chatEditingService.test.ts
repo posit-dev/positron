@@ -53,10 +53,6 @@ import { MockPromptsService } from '../../common/promptSyntax/service/mockPrompt
 import { IChatDebugService } from '../../../common/chatDebugService.js';
 import { ChatDebugServiceImpl } from '../../../common/chatDebugServiceImpl.js';
 
-// --- Start Positron ---
-import { IPositronAssistantConfigurationService } from '../../../../positronAssistant/common/interfaces/positronAssistantService.js';
-// --- End Positron ---
-
 function getAgentData(id: string): IChatAgentData {
 	return {
 		name: id,
@@ -112,12 +108,6 @@ suite('ChatEditingService', function () {
 				return false;
 			}
 		});
-		// --- Start Positron ---
-		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
-			override copilotEnabled: boolean = true;
-		});
-		// --- End Positron ---
-
 		const insta = store.add(store.add(workbenchInstantiationService(undefined, store)).createChild(collection));
 		store.add(insta.get(IEditorWorkerService) as TestWorkerService);
 		const value = insta.get(IChatEditingService);

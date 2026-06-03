@@ -20,7 +20,12 @@ import { localize, localize2 } from '../../../../../nls.js';
 import { IActionViewItemService } from '../../../../../platform/actions/browser/actionViewItemService.js';
 import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+// --- Start Positron ---
+// import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+// ConfigurationTarget is only referenced by the neutered teardown logic below
+// (kept as a comment), so it is dropped here to avoid an unused-import error.
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IsWebContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -758,6 +763,14 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 
 			const defaultChatExtension = this.extensionsWorkbenchService.local.find(value => ExtensionIdentifier.equals(value.identifier.id, defaultChat.chatExtensionId));
 			if (defaultChatExtension?.local && this.extensionEnablementService.isEnabled(defaultChatExtension.local)) {
+				// --- Start Positron ---
+				// Upstream resets `chat.disableAIFeatures` to false whenever the default
+				// chat extension becomes enabled, because upstream disables that extension
+				// to turn AI features off. Positron never disables the extension (it
+				// provides the `vscode.lm` model provider), so the extension is always
+				// enabled and this reset would wipe the user's `chat.disableAIFeatures`
+				// setting on every load. Intentionally do nothing.
+				/*
 				if (defaultChatExtension.enablementState === EnablementState.EnabledWorkspace) {
 					if (this.configurationService.inspect(ChatConfiguration.AIDisabled).workspaceValue === true) {
 						this.configurationService.updateValue(ChatConfiguration.AIDisabled, false, ConfigurationTarget.WORKSPACE);
@@ -765,18 +778,31 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 				} else {
 					this.configurationService.updateValue(ChatConfiguration.AIDisabled, false);
 				}
+				*/
+				// --- End Positron ---
 			}
 		}));
 	}
 
-	private async maybeEnableOrDisableExtension(state: EnablementState.EnabledGlobally | EnablementState.EnabledWorkspace | EnablementState.DisabledGlobally | EnablementState.DisabledWorkspace): Promise<void> {
+	private async maybeEnableOrDisableExtension(_state: EnablementState.EnabledGlobally | EnablementState.EnabledWorkspace | EnablementState.DisabledGlobally | EnablementState.DisabledWorkspace): Promise<void> {
+		// --- Start Positron ---
+		// Upstream couples AI features to the default chat extension's enablement:
+		// `chat.disableAIFeatures` disables the whole extension. In Positron the
+		// chat extension (GitHub Copilot) contributes a language model provider
+		// through the `vscode.lm` API that we want available regardless of this
+		// setting, so we never toggle the extension's enablement here. The setting
+		// still gates the Chat UI via chat context keys. Upstream implementation
+		// kept below for merge reference:
+		/*
 		const defaultChatExtension = this.extensionsWorkbenchService.local.find(value => ExtensionIdentifier.equals(value.identifier.id, defaultChat.chatExtensionId));
 		if (!defaultChatExtension) {
 			return;
 		}
 
-		await this.extensionsWorkbenchService.setEnablement([defaultChatExtension], state);
-		await this.extensionsWorkbenchService.updateRunningExtensions(state === EnablementState.EnabledGlobally || state === EnablementState.EnabledWorkspace ? localize('restartExtensionHost.reason.enable', "Enabling AI features") : localize('restartExtensionHost.reason.disable', "Disabling AI features"));
+		await this.extensionsWorkbenchService.setEnablement([defaultChatExtension], _state);
+		await this.extensionsWorkbenchService.updateRunningExtensions(_state === EnablementState.EnabledGlobally || _state === EnablementState.EnabledWorkspace ? localize('restartExtensionHost.reason.enable', "Enabling AI features") : localize('restartExtensionHost.reason.disable', "Disabling AI features"));
+		*/
+		// --- End Positron ---
 	}
 
 	private maybeHideAuxiliaryBar(): void {

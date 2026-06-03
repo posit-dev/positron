@@ -188,9 +188,6 @@ export class ConfigureToolsAction extends Action2 {
 		});
 
 		try {
-			// --- Start Positron ---
-			// The upstream call now natively supports passing the language model for tool filtering
-			// --- End Positron ---
 			const result = await instaService.invokeFunction(showToolsPicker, placeholder, source, description, () => entriesMap.get(), widget.input.selectedLanguageModel.get()?.metadata, cts.token);
 			if (result) {
 				widget.input.selectedToolsModel.set(result, false);

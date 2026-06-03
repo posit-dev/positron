@@ -549,14 +549,7 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 						return true;
 					},
 					referencesExpandedWhenEmptyResponse: false,
-					// --- Start Positron ---
-					/*
-				progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask,
-					*/
-					// Always show progress message at bottom of response to make it more apparent
-					// in all modes.
-					progressMessageAtBottomOfResponse: true,
-					// --- End Positron ---
+					progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask,
 				},
 				editorOverflowWidgetsDomNode,
 				enableImplicitContext: true,
@@ -1023,12 +1016,6 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 		let availableSessionsHeight = height - this.sessionsTitleContainer.offsetHeight;
 		if (this.sessionsViewerOrientation === AgentSessionsViewerOrientation.Stacked) {
 			availableSessionsHeight -= Math.max(ChatViewPane.MIN_CHAT_WIDGET_HEIGHT, this._widget?.input?.height.get() ?? 0);
-			// --- Start Positron ---
-			// Cap sessions height to at most 30% of the total height so the
-			// Positron Assistant welcome content can display below the session list.
-			const maxSessionsHeight = Math.floor(height * 0.3);
-			availableSessionsHeight = Math.min(availableSessionsHeight, maxSessionsHeight);
-			// --- End Positron ---
 		} else {
 			availableSessionsHeight -= this.sessionsNewButtonContainer?.offsetHeight ?? 0;
 		}
