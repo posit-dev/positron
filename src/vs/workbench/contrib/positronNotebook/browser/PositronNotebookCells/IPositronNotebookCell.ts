@@ -134,6 +134,28 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	renameTag(oldTag: string, newTag: string): AddTagResult;
 
 	/**
+	 * Whether an inline tag-add input should be shown for this cell. The "Add Tag"
+	 * command and the tag bar's add affordance turn this on; the bar turns it off
+	 * when the input commits or is cancelled. It lives on the cell (rather than the
+	 * bar's local React state) so the command can open the inline input from
+	 * outside React, and so the code cell footer can stay expanded while the input
+	 * is open.
+	 */
+	readonly isAddingTag: IObservable<boolean>;
+
+	/**
+	 * Request the inline tag-add input for this cell (the "Add Tag" command entry
+	 * point). The tag bar reacts by showing a focused, empty tag input.
+	 */
+	beginAddTag(): void;
+
+	/**
+	 * Dismiss the inline tag-add input for this cell (called by the bar once the
+	 * input commits or is cancelled).
+	 */
+	endAddTag(): void;
+
+	/**
 	 * Delete this cell
 	 */
 	delete(): void;

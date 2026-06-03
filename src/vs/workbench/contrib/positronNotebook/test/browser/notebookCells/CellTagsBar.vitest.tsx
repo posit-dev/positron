@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
@@ -25,6 +25,7 @@ import { AddTagResult, IPositronNotebookCell } from '../../../browser/PositronNo
  */
 function createTagCell(initial: string[] = []) {
 	const tags = observableValue<string[]>('tags', [...initial]);
+	const isAddingTag = observableValue<boolean>('isAddingTag', false);
 	const addTag = vi.fn((tag: string): AddTagResult => {
 		tags.set([...tags.get(), tag], undefined);
 		return 'added';
@@ -37,8 +38,12 @@ function createTagCell(initial: string[] = []) {
 		tags.set(tags.get().map(t => (t === oldTag ? newTag : t)), undefined);
 		return 'added';
 	});
-	const cell = stubInterface<IPositronNotebookCell>({ tags, addTag, removeTag, renameTag });
-	return { cell, tags, addTag, removeTag, renameTag };
+	// The bar reads isAddingTag and drives it through begin/endAddTag (the same
+	// signal the "Add Tag" command flips), so wire them to the observable.
+	const beginAddTag = vi.fn(() => isAddingTag.set(true, undefined));
+	const endAddTag = vi.fn(() => isAddingTag.set(false, undefined));
+	const cell = stubInterface<IPositronNotebookCell>({ tags, isAddingTag, addTag, removeTag, renameTag, beginAddTag, endAddTag });
+	return { cell, tags, isAddingTag, addTag, removeTag, renameTag, beginAddTag, endAddTag };
 }
 
 describe('CellTagsBar', () => {
@@ -71,6 +76,19 @@ describe('CellTagsBar', () => {
 		rtl.render(<CellTagsBar standalone cell={cell} />);
 
 		expect(screen.getByTestId('cell-tags-bar')).toHaveClass('standalone');
+	});
+
+	it('opens a focused inline input on an untagged cell when a tag-add is requested', () => {
+		// The "Add Tag" command flips the cell's isAddingTag signal; the bar must
+		// open the inline input even though an untagged cell renders nothing at rest.
+		const { cell, isAddingTag } = createTagCell([]);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+
+		act(() => isAddingTag.set(true, undefined));
+
+		expect(screen.getByRole('textbox')).toHaveFocus();
 	});
 
 	it('forwards an Enter-committed add to cell.addTag', async () => {

@@ -28,9 +28,11 @@ function stopCellSelection(e: React.MouseEvent) {
 /**
  * Renders the tag pills for a cell along with inline add / edit affordances.
  *
- * Renders nothing until the cell has at least one tag -- by design, the add
- * affordance only appears once the first tag exists. The first tag is added
- * via the "Add Tag" command (right-click menu / command palette).
+ * Renders nothing until the cell has at least one tag or a tag-add has been
+ * requested. The passive add affordance (a pill revealed on hover) only appears
+ * once the first tag exists; the first tag is added through the "Add Tag" command
+ * (right-click menu / command palette), which opens the inline input by flipping
+ * the cell's `isAddingTag` signal.
  *
  * On code cells this is embedded in the cell footer alongside the execution
  * status; markdown / raw cells (which have no footer) render it standalone at
@@ -39,11 +41,13 @@ function stopCellSelection(e: React.MouseEvent) {
 export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell; standalone?: boolean }) {
 	const { notificationService } = usePositronReactServicesContext();
 	const tags = useObservedValue(cell.tags);
+	const isAddingTag = useObservedValue(cell.isAddingTag);
 	const [editingTag, setEditingTag] = React.useState<string | null>(null);
-	const [adding, setAdding] = React.useState(false);
 
-	// No tags -> no UI at all (including the add affordance).
-	if (tags.length === 0) {
+	// Nothing to show unless the cell has a tag or a tag-add was requested (via
+	// the command or the hover add pill). The passive add pill only appears once
+	// the first tag exists; tag-add requests open the inline input below.
+	if (tags.length === 0 && !isAddingTag) {
 		return null;
 	}
 
@@ -67,7 +71,7 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 	};
 
 	const commitAdd = (raw: string) => {
-		setAdding(false);
+		cell.endAddTag();
 		// The cell enforces trim / empty / duplicate handling and reports the
 		// outcome; surface a toast so a rejected input doesn't vanish silently.
 		notifyTagResult(notificationService, cell.addTag(raw), raw.trim());
@@ -112,10 +116,10 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 					</span>
 				)
 			)}
-			{adding ? (
+			{isAddingTag ? (
 				<TagInput
 					initialValue=''
-					onCancel={() => setAdding(false)}
+					onCancel={() => cell.endAddTag()}
 					onCommit={commitAdd}
 				/>
 			) : (
@@ -124,7 +128,7 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 					className='positron-notebook-cell-tag-add'
 					title={localize('positron.notebook.cellTag.add', "Add tag")}
 					type='button'
-					onClick={(e) => { stopCellSelection(e); setAdding(true); }}
+					onClick={(e) => { stopCellSelection(e); cell.beginAddTag(); }}
 				>
 					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.add} />
 					<span className='positron-notebook-cell-tag-add-label'>

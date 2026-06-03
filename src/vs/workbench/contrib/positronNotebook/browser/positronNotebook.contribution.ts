@@ -67,13 +67,11 @@ import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { notifyTagResult } from './notebookCells/cellTagNotifications.js';
 import { PositronNotebookPromptContribution } from './positronNotebookPrompt.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NOTEBOOK_HAS_SOMETHING_RUNNING } from '../../notebook/common/notebookContextKeys.js';
@@ -648,9 +646,10 @@ KeybindingsRegistry.registerKeybindingRule({
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
 
-// Add Tag - prompts for a tag name and appends it to the active cell's tags.
-// This is the entry point for the first tag; once a cell has tags, further
-// tags can be added inline via the tag bar's "+" affordance.
+// Add Tag - opens the inline tag input on the active cell by flipping the cell's
+// isAddingTag signal (the tag bar reacts by showing a focused input). This is the
+// entry point for the first tag; once a cell has tags, the bar's hover add pill
+// adds further tags.
 export class AddTagAction extends NotebookAction2 {
 	constructor() {
 		super({
@@ -658,8 +657,8 @@ export class AddTagAction extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.addTag', "Add Tag"),
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			f1: true,
-			// Don't refocus the cell before running -- we're about to open a quick
-			// input and want it to keep focus.
+			// Don't refocus the cell before running -- we're about to open the inline
+			// tag input and want it to keep focus.
 			grabFocusOnRun: false,
 			precondition: NotebookContextKeys.editorFocused,
 			menu: [{
@@ -676,8 +675,6 @@ export class AddTagAction extends NotebookAction2 {
 	}
 
 	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
-		// Extract services up front; the accessor is only valid synchronously.
-		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
 
 		const state = notebook.selectionStateMachine.state.get();
@@ -693,21 +690,10 @@ export class AddTagAction extends NotebookAction2 {
 
 		// The menu/palette that launched this command is still closing and will
 		// restore focus to the notebook cell. Wait a tick so that happens first,
-		// otherwise it steals focus from the quick input and dismisses it.
+		// otherwise the cell refocus would steal focus from the inline tag input we
+		// are about to open (blur-committing it as empty before the user types).
 		await timeout(0);
-
-		const tag = await quickInputService.input({
-			prompt: localize('positron.notebook.cellTag.prompt', "Tag name"),
-			placeHolder: localize('positron.notebook.cellTag.placeholder', "tag"),
-			// Belt and suspenders: if focus is still stolen momentarily, don't
-			// auto-dismiss the input.
-			ignoreFocusLost: true,
-		});
-
-		// The cell enforces trim / empty / duplicate handling and reports the
-		// outcome; surface a toast so the user knows when nothing was added.
-		const value = (tag ?? '').trim();
-		notifyTagResult(notificationService, cell.addTag(value), value);
+		cell.beginAddTag();
 	}
 }
 registerAction2(AddTagAction);

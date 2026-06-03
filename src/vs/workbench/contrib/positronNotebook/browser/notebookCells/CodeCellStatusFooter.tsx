@@ -39,6 +39,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// Only delay transitions to running/pending/undefined; new values propagate immediately.
 	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
 	const tags = useObservedValue(cell.tags);
+	const isAddingTag = useObservedValue(cell.isAddingTag);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
@@ -97,7 +98,9 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// isPending guard keeps the clock icon visible for queued cells.
 	// Tags also keep the footer open, since they now live here.
 	const hasTags = tags.length > 0;
-	const isCollapsed = !isPending && !hasCurrentSessionContent && !hasTags;
+	// An in-progress tag add keeps the footer open even on a cold cell, so the
+	// inline tag input the "Add Tag" command opens has somewhere to render.
+	const isCollapsed = !isPending && !hasCurrentSessionContent && !hasTags && !isAddingTag;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
