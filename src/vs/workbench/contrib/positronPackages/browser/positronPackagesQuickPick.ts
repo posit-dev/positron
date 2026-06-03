@@ -103,15 +103,18 @@ export const updatePackage = async (
 	}
 
 	async function pickPackage(input: MultiStepInput, state: State) {
-		state.packages = await performGetPackages('');
 		const selection = await input.showQuickPick({
 			title,
 			step: 1,
 			totalSteps: 2,
 			placeholder: localize('positronPackages.updatePackagePlaceholder', 'Pick a package to update...'),
-			items: state.packages.map((result) => ({
-				label: result.name,
-			})),
+			items: [],
+			// Show the picker immediately rather than blocking on the package
+			// list before anything appears.
+			loadItems: async () => {
+				state.packages = await performGetPackages('');
+				return state.packages.map((result) => ({ label: result.name }));
+			},
 		});
 
 		state.selectedPackage = selection.label;
@@ -120,16 +123,20 @@ export const updatePackage = async (
 	}
 
 	async function pickVersion(input: MultiStepInput, state: State) {
-		const versions = await performLookup(state.selectedPackage ?? '');
-		const sortedVersions = sortVersionsDescending(versions);
-		state.versions = sortedVersions.map((v) => ({ name: v }));
-
 		const selection = await input.showQuickPick({
 			title,
 			step: 2,
 			totalSteps: 2,
 			placeholder: localize('positronPackages.pickVersionPlaceholder', "Pick a version of {0} to update", state.selectedPackage),
-			items: state.versions.map((version) => ({ label: version.name })),
+			items: [],
+			// Load versions after the picker is shown so a slow lookup doesn't
+			// freeze the previous step on a disabled list.
+			loadItems: async () => {
+				const versions = await performLookup(state.selectedPackage ?? '');
+				const sortedVersions = sortVersionsDescending(versions);
+				state.versions = sortedVersions.map((v) => ({ name: v }));
+				return state.versions.map((version) => ({ label: version.name }));
+			},
 		});
 
 		state.selectedVersion = selection.label;
@@ -166,15 +173,18 @@ export const uninstallPackage = async (
 	}
 
 	async function pickPackage(input: MultiStepInput, state: State) {
-		state.packages = await performGetPackages('');
 		const selection = await input.showQuickPick({
 			title,
 			step: 1,
 			totalSteps: 1,
 			placeholder: localize('positronPackages.uninstallPackagePlaceholder', 'Pick a package to uninstall...'),
-			items: state.packages.map((result) => ({
-				label: result.name,
-			})),
+			items: [],
+			// Show the picker immediately rather than blocking on the package
+			// list before anything appears.
+			loadItems: async () => {
+				state.packages = await performGetPackages('');
+				return state.packages.map((result) => ({ label: result.name }));
+			},
 		});
 
 		state.selectedPackage = selection.label;
@@ -254,6 +264,9 @@ export const installPackage = async (
 			noResultsItem: (query: string) => ({
 				label: localize('positronPackages.noPackagesFound', "No packages found for '{0}'", query),
 			}),
+			errorItem: () => ({
+				label: localize('positronPackages.errorSearchingPackages', 'Error searching packages.'),
+			}),
 		});
 
 		state.selectedPackage = selection.label;
@@ -317,6 +330,13 @@ interface SearchableQuickPickParameters<T extends QuickPickItem> {
 	 * cannot be picked (selecting it is a no-op). Omit to leave the list empty.
 	 */
 	noResultsItem?: (query: string) => T;
+	/**
+	 * Builds the single, non-selectable item shown when {@link search} throws
+	 * (a non-cancellation error), so a failed search reads as an error rather
+	 * than a blank or a false "no results". Cannot be picked. Omit to leave the
+	 * list empty on error.
+	 */
+	errorItem?: (query: string) => T;
 	buttons?: IQuickInputButton[];
 	ignoreFocusOut?: boolean;
 }
@@ -476,6 +496,7 @@ class MultiStepInput {
 		value,
 		search,
 		noResultsItem,
+		errorItem,
 		buttons,
 		ignoreFocusOut,
 	}: P) {
@@ -484,9 +505,9 @@ class MultiStepInput {
 		// cancel it, both to abort the network request and to discard a stale
 		// out-of-order response.
 		let queryCts: CancellationTokenSource | undefined;
-		// The current no-results placeholder item (if shown), held by identity
-		// so selecting it can be ignored.
-		let noResultsPick: T | undefined;
+		// The current non-selectable status placeholder (no-results or error
+		// message), held by identity so selecting it can be ignored.
+		let messagePick: T | undefined;
 		const cancelInFlight = () => {
 			queryCts?.cancel();
 			queryCts?.dispose();
@@ -519,7 +540,7 @@ class MultiStepInput {
 						cancelInFlight();
 						if (!query.trim()) {
 							// Empty query: clear results, don't hit the backend.
-							noResultsPick = undefined;
+							messagePick = undefined;
 							input.items = [];
 							input.busy = false;
 							return;
@@ -527,12 +548,12 @@ class MultiStepInput {
 						queryCts = new CancellationTokenSource();
 						const token = queryCts.token;
 						input.busy = true;
-						if (noResultsPick) {
-							// The "no results" message states a negative about the
+						if (messagePick) {
+							// A status message (no-results / error) describes the
 							// previous query; drop it so it doesn't linger (and read
 							// as a premature verdict) while the new query runs. Real
 							// results are left in place to avoid flicker.
-							noResultsPick = undefined;
+							messagePick = undefined;
 							input.items = [];
 						}
 						try {
@@ -544,19 +565,27 @@ class MultiStepInput {
 								// Show a non-selectable placeholder so an empty
 								// result reads as "nothing found" rather than a
 								// blank, possibly-broken picker.
-								noResultsPick = noResultsItem(query);
-								input.items = [noResultsPick];
+								messagePick = noResultsItem(query);
+								input.items = [messagePick];
 							} else {
-								noResultsPick = undefined;
+								messagePick = undefined;
 								input.items = items;
 							}
 						} catch (error) {
 							if (token.isCancellationRequested || isCancellationError(error)) {
 								return;
 							}
-							// Surface nothing rather than stale results on error.
-							noResultsPick = undefined;
-							input.items = [];
+							if (errorItem) {
+								// Show a non-selectable error placeholder so a
+								// failed search reads as "something went wrong"
+								// rather than a blank (or false "nothing found").
+								messagePick = errorItem(query);
+								input.items = [messagePick];
+							} else {
+								// Surface nothing rather than stale results on error.
+								messagePick = undefined;
+								input.items = [];
+							}
 						} finally {
 							if (!token.isCancellationRequested) {
 								input.busy = false;
@@ -582,7 +611,7 @@ class MultiStepInput {
 					disposables.add(
 						input.onDidChangeSelection((items) => {
 							// Ignore selection of the no-results placeholder.
-							if (items[0] && items[0] !== noResultsPick) {
+							if (items[0] && items[0] !== messagePick) {
 								resolve(items[0]);
 							}
 						}),
