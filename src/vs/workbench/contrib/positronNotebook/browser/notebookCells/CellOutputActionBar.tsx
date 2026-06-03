@@ -16,7 +16,7 @@ import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useWheelForwarding } from './useWheelForwarding.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useCellScopedContextKeyService } from './CellProvider.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 

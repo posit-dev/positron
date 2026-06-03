@@ -14,10 +14,3 @@
 .positron-data-connections-container:focus-visible {
 	outline: none !important;
 }
-
-.positron-data-connections .panels {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-}

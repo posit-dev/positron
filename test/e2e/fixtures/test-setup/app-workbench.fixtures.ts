@@ -19,8 +19,8 @@ export { RunResult };
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment();
+	const { options, managedCredentials } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials);
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -33,7 +33,7 @@ export async function WorkbenchApp(
 
 		// Get the browser context for OAuth flows
 		const context = app.code.driver.currentPage.context();
-		await app.positWorkbench.dashboard.openSession('qa-example-content', context);
+		await app.positWorkbench.dashboard.openSession('qa-example-content', context, managedCredentials);
 
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
@@ -59,9 +59,16 @@ export async function WorkbenchApp(
 }
 
 /**
- * Setup the complete Workbench environment: Docker container, configuration, and permissions
+ * Setup the complete Workbench environment: Docker container, configuration, and permissions.
+ *
+ * `managedCredentials` indicates which credential (if any) was provisioned in the container by
+ * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
+ * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks'): Promise<{ workspacePath: string; userDataDir: string }> {
+	if (managedCredentials) {
+		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
+	}
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'

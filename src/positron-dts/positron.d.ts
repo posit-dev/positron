@@ -1235,6 +1235,15 @@ declare module 'positron' {
 		 */
 		attached?: boolean;
 
+		/**
+		 * Whether the installed version is strictly older than the latest
+		 * available version. Computed by the language runtime using its own
+		 * native version semantics (`numeric_version` for R, PEP 440 for
+		 * Python) and surfaced as a precomputed boolean so the frontend
+		 * never re-implements version comparison.
+		 */
+		outdated?: boolean;
+
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
 	}
@@ -1933,6 +1942,15 @@ declare module 'positron' {
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
+		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupSchemas = 'group-schemas',
+		GroupTables = 'group-tables',
+		GroupViews = 'group-views',
+		GroupColumns = 'group-columns',
+		GroupIndexes = 'group-indexes',
+		GroupTriggers = 'group-triggers',
+		Trigger = 'trigger',
+		Index = 'index',
 	}
 
 	export interface DataConnectionNode {
@@ -2341,6 +2359,28 @@ declare module 'positron' {
 		 * `deactivate()` if cleanup needs to happen there.
 		 */
 		export const onWillShutdown: vscode.Event<ShutdownReason>;
+
+		/**
+		 * Fires when a file is uploaded into the workspace through the
+		 * Positron file explorer (drag-and-drop or "Upload..."). The event
+		 * value is the URI of the uploaded file in its new location in the
+		 * workspace. Folder uploads fire one event per file written.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been written.
+		 */
+		export const onDidUploadFile: vscode.Event<vscode.Uri>;
+
+		/**
+		 * Fires when a file is downloaded from the workspace through the
+		 * Positron file explorer ("Download..."). The event value is the URI
+		 * of the source file in the workspace. Folder downloads fire one
+		 * event per file read.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been read.
+		 */
+		export const onDidDownloadFile: vscode.Event<vscode.Uri>;
 
 	}
 

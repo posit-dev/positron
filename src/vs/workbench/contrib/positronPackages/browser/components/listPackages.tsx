@@ -19,7 +19,6 @@ import React, {
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ViewsProps } from '../positronPackages.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
@@ -30,11 +29,12 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { applyFilterToQuery, applySortToQuery, PackagesFilter, PackagesSortOrder, parseQuery } from './packagesQuery.js';
+import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilter, PackagesSortOrder, parseQuery, removeFilterFromQuery } from './packagesQuery.js';
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
+import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
+import { usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -70,13 +70,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
 
-	const [refreshLoading, setRefreshLoading] = useState<boolean>(false);
-	const [installLoading, setInstallLoading] = useState<boolean>(false);
-	const [updateLoading, setUpdateLoading] = useState<boolean>(false);
-	const [updateAllLoading, setUpdateAllLoading] = useState<boolean>(false);
-	const [uninstallLoading, setUninstallLoading] = useState<boolean>(false);
-
-	const loading = refreshLoading || installLoading || updateLoading || updateAllLoading || uninstallLoading;
+	const loading = usePositronContextKey<boolean>(POSITRON_PACKAGES_IS_BUSY.key);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -84,28 +78,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return;
 		}
 
-		setPackages(activeInstance.packages);
-		const disposables = new DisposableStore();
-		disposables.add(activeInstance.onDidRefreshPackagesInstance((packages) => {
+		const disposable = activeInstance.onDidRefreshPackagesInstance((packages) => {
 			setPackages(packages);
-		}));
-		disposables.add(activeInstance.onDidChangeRefreshState((isLoading) => {
-			setRefreshLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeInstallState((isLoading) => {
-			setInstallLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUpdateState((isLoading) => {
-			setUpdateLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUpdateAllState((isLoading) => {
-			setUpdateAllLoading(isLoading);
-		}));
-		disposables.add(activeInstance.onDidChangeUninstallState((isLoading) => {
-			setUninstallLoading(isLoading);
-		}));
+		});
 
-		return () => disposables.dispose();
+		setPackages(activeInstance.packages);
+
+		return () => disposable.dispose();
 	}, [activeInstance]);
 
 	useEffect(() => {
@@ -169,7 +148,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// so the menu's checked state updates without waiting for the debounce.
 	const currentQuery = useMemo(() => parseQuery(queryText), [queryText]);
 	const currentSort = currentQuery.sort;
-	const currentFilter = currentQuery.filter;
+	const currentFilters = currentQuery.filters;
 
 	// PositronListInstance. Recreated when itemSize changes so each mode gets its own row
 	// height; the renderer is set later via setItemRenderer so it can close over the latest
@@ -215,9 +194,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const filteredPackages = useMemo(() => {
 		let result = deduplicatedPackages;
 
-		if (debouncedQuery.filter === PackagesFilter.Outdated) {
-			result = result.filter((pkg) => pkg.latestVersion && pkg.latestVersion !== pkg.version);
-		} else if (debouncedQuery.filter === PackagesFilter.Attached) {
+		// Active filters intersect: each one narrows the result independently.
+		if (debouncedQuery.filters.includes(PackagesFilter.Outdated)) {
+			result = result.filter((pkg) => pkg.outdated === true);
+		}
+		if (debouncedQuery.filters.includes(PackagesFilter.Attached)) {
 			result = result.filter((pkg) => pkg.attached === true);
 		}
 
@@ -298,8 +279,12 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached, description } = pkg;
-			const hasUpdate = latestVersion && latestVersion !== version;
+			const { name, displayName, version, latestVersion, attached, outdated, description } = pkg;
+			// Display the update indicator only when the runtime has confirmed the
+			// package is outdated *and* we know which version to advertise. The
+			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
+			// tooltip; without it we'd render "Update available: undefined".
+			const hasUpdate = outdated === true && !!latestVersion;
 
 			const showRowContextMenu = (anchor: { x: number; y: number }) => {
 				services.contextMenuService.showContextMenu({
@@ -352,6 +337,17 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				});
 			};
 
+			const helpButton = (
+				<Button
+					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
+					className='packages-list-item-help'
+					tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
+					onPressed={() => { void showHelpForPackage(name); }}
+				>
+					<span className='codicon codicon-book' />
+				</Button>
+			);
+
 			return (
 				// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 				<div
@@ -388,6 +384,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									&#x2191;
 								</div>
 							)}
+							{itemSize === 'card' && helpButton}
 						</div>
 						{itemSize === 'card' && (
 							<div className='packages-list-item-description-row'>
@@ -407,28 +404,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
-					<Button
-						ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-						className='packages-list-item-help'
-						tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
-						onPressed={() => { void showHelpForPackage(name); }}
-					>
-						<span className='codicon codicon-book' />
-					</Button>
+					{itemSize === 'row' && helpButton}
 				</div>
 			);
 		};
 
 		listInstance.setItemRenderer(renderItem);
 	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage]);
-
-	// Enter on the focused row sets selection to that row.
-	useEffect(() => {
-		const disposable = listInstance.onDidActivate(() => {
-			listInstance.selectRow(listInstance.cursorRowIndex);
-		});
-		return () => disposable.dispose();
-	}, [listInstance]);
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
@@ -467,30 +449,43 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		filterRef.current?.focus();
 	};
 
-	// Rewrite the filter input to reflect the selected category filter.
-	const selectFilter = (filter: PackagesFilter) => {
-		const newText = applyFilterToQuery(queryText, filter);
+	// Add or remove a category filter from the input. The menu surfaces each
+	// filter as an independent checkbox, so we add when it's off and remove
+	// when it's on; an empty active set means "all packages".
+	const toggleFilter = (filter: PackagesFilter) => {
+		const newText = currentFilters.includes(filter)
+			? removeFilterFromQuery(queryText, filter)
+			: addFilterToQuery(queryText, filter);
 		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
 		filterRef.current?.focus();
 	};
 
+	// Clear all category filters. Free text and sort are preserved.
+	const clearAllFilters = useCallback(() => {
+		const newText = clearFiltersFromQuery(queryText);
+		filterRef.current?.setFilterText(newText === '' ? '' : `${newText} `);
+		filterRef.current?.focus();
+	}, [queryText]);
+
 	// Build the Filter submenu entries. Evaluated lazily so the checked state
-	// reflects the current input when the submenu is opened.
+	// reflects the current input when the submenu is opened. "All Packages"
+	// reads as checked when no filters are active, otherwise clicking it
+	// clears the active set.
 	const filterSubmenuEntries = (): CustomContextMenuEntry[] => [
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByAll', "All Packages"),
-			checked: currentFilter === PackagesFilter.All,
-			onSelected: () => selectFilter(PackagesFilter.All),
+			checked: currentFilters.length === 0,
+			onSelected: () => clearAllFilters(),
 		}),
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByOutdated', "Outdated"),
-			checked: currentFilter === PackagesFilter.Outdated,
-			onSelected: () => selectFilter(PackagesFilter.Outdated),
+			checked: currentFilters.includes(PackagesFilter.Outdated),
+			onSelected: () => toggleFilter(PackagesFilter.Outdated),
 		}),
 		new CustomContextMenuItem({
 			label: localize('positronPackages.filterByAttached', "Attached"),
-			checked: currentFilter === PackagesFilter.Attached,
-			onSelected: () => selectFilter(PackagesFilter.Attached),
+			checked: currentFilters.includes(PackagesFilter.Attached),
+			onSelected: () => toggleFilter(PackagesFilter.Attached),
 		}),
 	];
 
@@ -531,9 +526,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 	};
 
-	// Only show the "No packages found" message when the user has an active filter query.
-	// An unfiltered empty list renders the (empty) data grid, matching prior behavior.
-	const emptyListRenderer = debouncedQuery.text
+	// Only show the "No packages found" message when the user has narrowed the
+	// list (free text or active category filters). An unfiltered empty list
+	// renders the (empty) data grid, matching prior behavior.
+	const emptyListRenderer = (debouncedQuery.filters.length > 0 || debouncedQuery.text)
 		? () => localize('positronPackages.noPackagesFound', "No packages found.")
 		: undefined;
 
@@ -545,7 +541,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				<ActionBarFilter
 					ref={filterRef}
 					showClearAlways
-					clearButtonIcon={Codicon.clearAll}
 					filterButtonTooltip={localize('positronPackages.filterOptions', "Filter options")}
 					placeholder={localize('positronPackages.filterPlaceholder', "Filter packages")}
 					size='md'

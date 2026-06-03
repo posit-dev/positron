@@ -108,10 +108,29 @@ export async function serveFile(filePath: string, cacheControl: CacheControl, lo
 		}
 		// --- End PWB ---
 
-		res.writeHead(200, responseHeaders);
-
-		// Data
-		createReadStream(filePath).pipe(res);
+		// Create the stream first and wait for it to open before sending
+		// headers so that errors (e.g. ENOENT race) can still produce a
+		// proper 404 response instead of aborting a half-sent 200.
+		const fileStream = createReadStream(filePath);
+		await new Promise<void>((resolve, reject) => {
+			fileStream.on('error', reject);
+			fileStream.on('open', () => {
+				// File opened successfully - send headers and pipe
+				res.writeHead(200, responseHeaders);
+				fileStream.pipe(res);
+				// Destroy the read stream if the response is closed prematurely
+				// (e.g. client disconnect) to avoid leaking the file descriptor.
+				res.once('close', () => fileStream.destroy());
+				fileStream.on('end', resolve);
+				// Replace the initial error handler now that headers are sent
+				fileStream.removeAllListeners('error');
+				fileStream.on('error', error => {
+					logService.error(error);
+					console.error(error.toString());
+					res.destroy();
+				});
+			});
+		});
 	} catch (error) {
 		if (error.code !== 'ENOENT') {
 			logService.error(error);
@@ -317,7 +336,8 @@ export class WebClientServer {
 		const context = await this._requestService.request({
 			type: 'GET',
 			url: uri.toString(true),
-			headers
+			headers,
+			callSite: 'webClientServer.fetchAndWriteFile'
 		}, CancellationToken.None);
 
 		const status = context.res.statusCode || 500;
@@ -568,7 +588,7 @@ export class WebClientServer {
 		}
 
 		// --- Start PWB: Conditionally inject rsLoginCheck.js script if it exists in the build ---
-		// Uses cached value from constructor to avoid blocking I/O on every request
+		// Uses cached value from constructor to avoid blocking I/O on every request.
 		const rsLoginCheckScript = this._rsLoginCheckScriptTag
 			.replace('{{VS_BASE}}', effectiveVsBase)
 			.replace('{{STATIC_ROUTE}}', effectiveStaticRoute);

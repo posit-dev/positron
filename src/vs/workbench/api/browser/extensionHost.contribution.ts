@@ -100,6 +100,7 @@ import './mainThreadChatSessions.js';
 import './mainThreadDataChannels.js';
 import './mainThreadMeteredConnection.js';
 import './mainThreadGitExtensionService.js';
+import './mainThreadBrowsers.js';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime.js';
@@ -115,6 +116,7 @@ import './positron/mainThreadPlotsService.js';
 import './positron/mainThreadNotebookFeatures.js';
 import './positron/mainThreadPositronEphemeralStorage.js';
 import './positron/mainThreadLifecycle.js';
+import './positron/mainThreadFileTransfer.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

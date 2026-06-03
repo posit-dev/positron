@@ -8,7 +8,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
-import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
+import type { API as GitAPI, GitExtension, Repository, Change } from './typings/git.d.ts';
+import { Status } from './typings/git.constants.js';
 import { MARKDOWN_DIR } from './constants';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { getCandidateModels as getOrderedCandidateModels } from './modelSelection.js';

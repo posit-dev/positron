@@ -12,12 +12,20 @@ import { IInstantiationService, ServicesAccessor } from '../../../../platform/in
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+// --- Start Positron ---
+// Add IUpdate, DisablementReason for Positron's update workflow.
 import { IUpdateService, State as UpdateState, StateType, IUpdate, DisablementReason } from '../../../../platform/update/common/update.js';
+// --- End Positron ---
 import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
+// --- Start Positron ---
+// isMacintosh / isWindows are used by Positron's update notification flow;
+// toAction is used to build notification action buttons.
 import { isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
+import { toAction } from '../../../../base/common/actions.js';
+// --- End Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RawContextKey, IContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { MenuRegistry, MenuId, registerAction2, Action2 } from '../../../../platform/actions/common/actions.js';
@@ -29,11 +37,11 @@ import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys
 import { Promises, Throttler } from '../../../../base/common/async.js';
 import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/common/userDataSync.js';
 import { Event } from '../../../../base/common/event.js';
-import { toAction } from '../../../../base/common/actions.js';
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { getInternalOrg } from '../../../../platform/assignment/common/assignment.js';
 
 // --- Start Positron ---
+// Upstream's IVersion / tryParseVersion are unused — Positron uses calver parsing below.
 import { IPositronVersion, parse } from '../../../../platform/update/common/positronVersion.js';
 // --- End Positron ---
 
@@ -151,20 +159,12 @@ export function appendUpdateMenuItems(menuId: MenuId, group: string): void {
 }
 
 // --- Start Positron ---
+// Positron uses calver so we override the upstream semver parsing/comparison logic.
+// The upstream `IVersion { major; minor; patch; }` and `tryParseVersion` are not used here.
 export function storeLastUpdateVersion(accessor: ServicesAccessor, version: string): void {
 	const storageService = accessor.get(IStorageService);
 	storageService.store(ProductContribution.KEY, version, StorageScope.APPLICATION, StorageTarget.MACHINE);
 }
-
-/*
-Positron uses calver so we override the semver parsing and comparison logic to handle calendar versions.
-
-interface IVersion {
-	major: number;
-	minor: number;
-	patch: number;
-}
-*/
 
 function parseVersion(version: string): IPositronVersion | undefined {
 	return parse(version);
@@ -201,19 +201,24 @@ export class ProductContribution implements IWorkbenchContribution {
 			}
 
 			// --- Start Positron ---
+			// Positron uses its calver `parseVersion` (rather than upstream's semver `tryParseVersion`),
+			// `productService.positronVersion`, `productService.downloadUrl`, and gates on the Positron
+			// `update.positron.channel === 'releases'` setting.
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
+			const shouldShowPostInstallInfo = configurationService.getValue<boolean>('update.showPostInstallInfo');
 			const downloadUrl = productService.downloadUrl;
 			const channel = configurationService.getValue<string>('update.positron.channel');
 
-			// was there a major/minor update? if so, open release notes
-			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes
+			// was there a major/minor update? if so, open release notes (unless post-install info is enabled, which takes over)
+			if (shouldShowReleaseNotes && !shouldShowPostInstallInfo && !environmentService.skipReleaseNotes
 				&& downloadUrl && lastVersion && currentVersion
 				&& isMajorMinorUpdate(lastVersion, currentVersion)
 				&& channel === 'releases'
 			) {
 				showReleaseNotesInEditor(instantiationService, productService.positronVersion, false)
+				// --- End Positron ---
 					.then(undefined, () => {
 						notificationService.prompt(
 							severity.Info,
@@ -248,22 +253,29 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 	// --- End Positron ---
 
 	constructor(
+		// --- Start Positron ---
+		// Positron's customizations call this.notificationService / this.openerService /
+		// this.configurationService / this.storageService inside methods that upstream removed
+		// or moved. Keep them injected as private fields until those flows are reconciled.
 		@IStorageService private readonly storageService: IStorageService,
+		// --- End Positron ---
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@INotificationService private readonly notificationService: INotificationService,
 		@IDialogService private readonly dialogService: IDialogService,
 		@IUpdateService private readonly updateService: IUpdateService,
 		@IActivityService private readonly activityService: IActivityService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 		@IProductService private readonly productService: IProductService,
+		@IHostService private readonly hostService: IHostService,
+		// --- Start Positron ---
+		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService private readonly openerService: IOpenerService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IHostService private readonly hostService: IHostService
+		// --- End Positron ---
 	) {
 		super();
 		this.state = updateService.state;
-		this.updateStateContextKey = CONTEXT_UPDATE_STATE.bindTo(this.contextKeyService);
-		this.majorMinorUpdateAvailableContextKey = MAJOR_MINOR_UPDATE_AVAILABLE.bindTo(this.contextKeyService);
+		this.updateStateContextKey = CONTEXT_UPDATE_STATE.bindTo(contextKeyService);
+		this.majorMinorUpdateAvailableContextKey = MAJOR_MINOR_UPDATE_AVAILABLE.bindTo(contextKeyService);
 
 		this._register(updateService.onStateChange(this.onUpdateStateChange, this));
 		this.onUpdateStateChange(this.updateService.state);
@@ -277,12 +289,12 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		*/
 
 		const currentVersion = this.productService.commit;
-		const lastKnownVersion = this.storageService.get('update/lastKnownVersion', StorageScope.APPLICATION);
+		const lastKnownVersion = storageService.get('update/lastKnownVersion', StorageScope.APPLICATION);
 
 		// if current version != stored version, clear both fields
 		if (currentVersion !== lastKnownVersion) {
-			this.storageService.remove('update/lastKnownVersion', StorageScope.APPLICATION);
-			this.storageService.remove('update/updateNotificationTime', StorageScope.APPLICATION);
+			storageService.remove('update/lastKnownVersion', StorageScope.APPLICATION);
+			storageService.remove('update/updateNotificationTime', StorageScope.APPLICATION);
 		}
 
 		this.registerGlobalActivityActions();
@@ -322,10 +334,9 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				break;
 			// --- End Positron ---
 
+
 			case StateType.Idle:
-				if (state.error) {
-					this.onError(state.error);
-				} else if (this.state.type === StateType.CheckingForUpdates && this.state.explicit && await this.hostService.hadLastFocus()) {
+				if (this.state.type === StateType.CheckingForUpdates && this.state.explicit && !state.error && await this.hostService.hadLastFocus()) {
 					this.onUpdateNotAvailable();
 				}
 				// --- Start Positron ---
@@ -337,11 +348,11 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				// --- End Positron ---
 				break;
 
+			// --- Start Positron ---
 			case StateType.AvailableForDownload:
 				this.onUpdateAvailable(state.update);
 				break;
 
-			// --- Start Positron ---
 			case StateType.Downloading:
 				// With auto-update, we go directly from CheckingForUpdates to Downloading
 				// Show notification for explicit checks since they never see AvailableForDownload
@@ -349,11 +360,12 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 					this.onUpdateDownloading();
 				}
 				break;
-			// --- End Positron ---
 
 			case StateType.Downloaded:
 				this.onUpdateDownloaded(state.update);
 				break;
+			// --- End Positron ---
+
 
 			case StateType.Ready: {
 				// --- Start Positron ---
@@ -361,30 +373,26 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				// Use version fallback like we do elsewhere
 				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
-					// const currentVersion = parseVersion(this.productService.version);
-					// const nextVersion = parseVersion(productVersion);
-					// this.majorMinorUpdateAvailableContextKey.set(Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion)));
-					// Try to set major/minor update context, but don't let it block showing the notification
+					// --- Start Positron ---
+					// Use Positron's calver `parseVersion` and tolerate failures (we still want
+					// to surface the update notification even if we can't compute major/minor).
 					try {
 						const currentVersion = parseVersion(this.productService.version);
 						const nextVersion = parseVersion(productVersion);
 						const isMajorMinor = Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion));
 						this.majorMinorUpdateAvailableContextKey.set(isMajorMinor);
 					} catch (e) {
-						// Just set to false if we can't determine
 						this.majorMinorUpdateAvailableContextKey.set(false);
 					}
 					this.onUpdateReady(state.update);
 				} else {
-					// Still try to show notification without version
 					try {
 						this.onUpdateReady(state.update);
 					} catch (e) {
 					}
 				}
 
-				// Reset explicitCheck after showing the Ready notification
-				// The manual check flow is now complete
+				// Reset explicitCheck after showing the Ready notification — the manual check flow is now complete.
 				this.explicitCheck = false;
 				// --- End Positron ---
 				break;
@@ -410,20 +418,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		}
 
 		this.state = state;
-	}
-
-	private onError(error: string): void {
-		if (/The request timed out|The network connection was lost/i.test(error)) {
-			return;
-		}
-
-		error = error.replace(/See https:\/\/github\.com\/Squirrel\/Squirrel\.Mac\/issues\/182 for more information/, 'This might mean the application was put on quarantine by macOS. See [this link](https://github.com/microsoft/vscode/issues/7426#issuecomment-425093469) for more information');
-
-		this.notificationService.notify({
-			severity: Severity.Error,
-			message: error,
-			source: nls.localize('update service', "Update Service"),
-		});
 	}
 
 	private onUpdateNotAvailable(): void {
@@ -589,6 +583,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 		return diffDays > 5;
 	}
+	// --- End Positron ---
 
 	private registerGlobalActivityActions(): void {
 		CommandsRegistry.registerCommand('update.check', () => this.updateService.checkForUpdates(true));

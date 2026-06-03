@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,8 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleInputCursorBoundary } from '../../../common/contextkeys.js';
+import { Context as SuggestContext } from '../../../../editor/contrib/suggest/browser/suggest.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -40,11 +41,11 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { usingQuartoInlineOutput, isQuartoDocument, QUARTO_INLINE_OUTPUT_ENABLED, IS_QUARTO_DOCUMENT } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { getNotebookUriFromActiveEditor } from './getNotebookUriFromActiveEditor.js';
 import { IQuartoExecutionManager } from '../../positronQuarto/common/quartoExecutionTypes.js';
+import { NotebookContextKeys } from '../../positronNotebook/common/notebookContextKeys.js';
 
 /**
  * Positron console command ID's.
@@ -280,7 +281,7 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				icon: Codicon.clearAll,
+				icon: Codicon.trash,
 			});
 		}
 
@@ -362,7 +363,7 @@ export function registerPositronConsoleActions() {
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
 					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					NotebookContextKeys.cellEditorFocused.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -739,7 +740,7 @@ export function registerPositronConsoleActions() {
 									logService.warn(
 										nextStatementRange.line ?
 											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
-											"Can't compute advancement due to a syntax error."
+											`Can't compute advancement due to a syntax error.`
 									);
 									break;
 								}
@@ -977,7 +978,7 @@ export function registerPositronConsoleActions() {
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
 					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					NotebookContextKeys.cellEditorFocused.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -1119,7 +1120,7 @@ export function registerPositronConsoleActions() {
 					ContextKeyExpr.and(
 						EditorContextKeys.editorTextFocus,
 						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+						NotebookContextKeys.cellEditorFocused.toNegated()
 					)
 				),
 				keybinding: {
@@ -1170,7 +1171,7 @@ export function registerPositronConsoleActions() {
 					ContextKeyExpr.and(
 						EditorContextKeys.editorTextFocus,
 						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+						NotebookContextKeys.cellEditorFocused.toNegated()
 					)
 				),
 				keybinding: {
@@ -1259,6 +1260,21 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.DownArrow,
+					// Ctrl+N ("Next") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+N opens a new window. The
+					// mac override repeats the DownArrow primary so the arrow key
+					// stays bound on macOS.
+					mac: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('top'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1297,6 +1313,21 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.UpArrow,
+					// Ctrl+P ("Previous") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+P opens the Command Palette. The
+					// mac override repeats the UpArrow primary so the arrow key stays
+					// bound on macOS.
+					mac: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('bottom'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1335,6 +1366,11 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyMod.CtrlCmd | KeyCode.UpArrow,
+					when: PositronConsoleFocused,
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 

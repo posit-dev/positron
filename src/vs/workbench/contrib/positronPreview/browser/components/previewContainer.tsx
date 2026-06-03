@@ -62,7 +62,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 				if (webviewRef.current) {
 					const window = DOM.getWindow(webviewRef.current);
 					webview.webview.claim(this, window, undefined);
-					webview.webview.layoutWebviewOverElement(webviewRef.current);
+					webview.webview.setAnchorElement(webviewRef.current);
 					return () => {
 						webview?.webview.release(this);
 					};
@@ -81,7 +81,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	// every time the container is resized or moved.
 	useEffect(() => {
 		if (props.preview && webviewRef.current && props.visible) {
-			props.preview.webview.webview.layoutWebviewOverElement(webviewRef.current);
+			props.preview.webview.webview.setAnchorElement(webviewRef.current);
 		}
 	});
 

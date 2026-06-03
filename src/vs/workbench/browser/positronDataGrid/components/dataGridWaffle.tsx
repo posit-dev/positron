@@ -176,8 +176,10 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		// Applies the per-key selection policy around cursor navigation. In spreadsheet mode
 		// (the default), selection is cleared before the cursor moves so cursor and selection
 		// are independent. In either list mode, selection collapses onto the new cursor row
-		// after the move so the selection tracks the cursor. The `selection` guards keep these
-		// no-ops when selection is disabled on the grid.
+		// after the move so the selection tracks the cursor -- unless selectionFollowsCursor is
+		// false, in which case the cursor (focus) moves independently and the selection is left
+		// untouched. The `selection` guards keep these no-ops when selection is disabled on the
+		// grid.
 		const selectionMode = context.instance.selectionMode;
 		const isListMode = selectionMode === 'list-multiple-selection' || selectionMode === 'list-single-selection';
 		const navigationSelection = {
@@ -187,7 +189,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 			},
 			afterMoveCursor: () => {
-				if (context.instance.selection && isListMode) {
+				if (context.instance.selection && isListMode && context.instance.selectionFollowsCursor) {
 					context.instance.selectRow(context.instance.cursorRowIndex);
 				}
 			}
@@ -233,11 +235,18 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// If selection is enabled, process the key.
-				if (context.instance.selection) {
-					// Consume the event only if there's an action supported for it
+				// Plain Space: in the list modes, when spaceSelects is set, commit the selection to
+				// the cursor row. Then always raise onSpace so consumers can act on the cursor row
+				// independently of selection (e.g. expand/collapse in a tree).
+				if (!e.ctrlKey && !e.shiftKey) {
 					consumeEvent();
-
+					if (context.instance.selection && isListMode && context.instance.spaceSelects) {
+						context.instance.selectRow(context.instance.cursorRowIndex);
+					}
+					await context.instance.onSpaceKey();
+				} else if (context.instance.selection) {
+					// Modifier combinations build selections (spreadsheet / multi-select list).
+					consumeEvent();
 					if (e.ctrlKey && !e.shiftKey) {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {
@@ -260,7 +269,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Defer to the instance's Enter handler.
+				// In the list modes, when enterSelects is set, Enter commits the selection to the
+				// cursor row. Then always raise onEnter so consumers can act on the cursor row
+				// independently of selection (e.g. expand/collapse in a tree).
+				if (context.instance.selection && isListMode && context.instance.enterSelects) {
+					context.instance.selectRow(context.instance.cursorRowIndex);
+				}
 				await context.instance.onEnterKey();
 				break;
 			}

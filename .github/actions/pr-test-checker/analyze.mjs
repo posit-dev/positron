@@ -16,7 +16,7 @@ import { join } from 'node:path';
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const SKILL_PATH = mustEnv('SKILL_PATH');
-const MODEL = process.env.MODEL || 'claude-sonnet-4-6';
+const MODEL = process.env.MODEL || 'opus';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 25);
 const PROMPT_WARN_CHARS = parsePosIntEnv('PROMPT_WARN_CHARS', 400_000);
 // Same musl-resolver workaround as e2e-failure-analyzer.
@@ -154,6 +154,12 @@ async function runAgent(systemPrompt, userPrompt) {
 			allowedTools: ['Read', 'Glob', 'Grep'],
 			permissionMode: 'bypassPermissions',
 			maxTurns: MAX_TURNS,
+			// Extended thinking is disabled. With thinking on (the adaptive
+			// default), cancelling a parallel tool-call batch corrupts the
+			// in-flight thinking blocks and wedges the session with a repeating
+			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
+			// The report is built from text blocks only, so no output is lost.
+			thinking: { type: 'disabled' },
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {

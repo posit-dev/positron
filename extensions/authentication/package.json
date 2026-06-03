@@ -18,13 +18,15 @@
 		"onAuthenticationRequest:openai-api",
 		"onAuthenticationRequest:openai-compatible",
 		"onAuthenticationRequest:google",
+		"onAuthenticationRequest:google-cloud",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
-		"@aws-sdk/types": "^3.734.0"
+		"@aws-sdk/types": "^3.734.0",
+		"google-auth-library": "^9.15.1"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
@@ -62,6 +64,10 @@
 			{
 				"id": "google",
 				"label": "Gemini Code Assist"
+			},
+			{
+				"id": "google-cloud",
+				"label": "Google Vertex AI"
 			}
 		],
 		"commands": [
@@ -194,6 +200,44 @@
 						"advanced"
 					]
 				},
+				"authentication.googleVertex.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.googleVertex.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.googleVertex.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.googleVertex.credentials.description%",
+					"properties": {
+						"GOOGLE_VERTEX_PROJECT": {
+							"type": "string",
+							"default": null
+						},
+						"GOOGLE_VERTEX_LOCATION": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false,
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.googleVertex.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.googleVertex.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
@@ -208,7 +252,12 @@
 					"additionalProperties": {
 						"type": "string"
 					},
-					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%",
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
+				},
+				"assistant.provider.googleVertex.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
 					"tags": [
 						"experimental"
 					]

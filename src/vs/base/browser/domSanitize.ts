@@ -14,6 +14,7 @@ import dompurify, * as DomPurifyTypes from './dompurify/dompurify.js';
 export const basicMarkupHtmlTags = Object.freeze([
 	'a',
 	'abbr',
+	'audio',
 	'b',
 	'bdo',
 	'blockquote',

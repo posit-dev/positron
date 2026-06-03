@@ -14,3 +14,4 @@ ThirdPartyNotices.txt eol=crlf
 # Disable LFS for screenshot baselines so downstream forks (e.g. Positron) can clone without access to the upstream LFS server. Files are stored as regular blobs.
 # test/componentFixtures/.screenshots/**/*.png filter=lfs diff=lfs merge=lfs -text
 # --- End PWB ---
+
