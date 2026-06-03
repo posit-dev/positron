@@ -22,6 +22,7 @@ interface CellState {
 	lastRunSuccess?: boolean;
 	tags?: string[];
 	isAddingTag?: boolean;
+	cellTagsHidden?: boolean;
 }
 
 describe('CodeCellStatusFooter', () => {
@@ -39,6 +40,7 @@ describe('CodeCellStatusFooter', () => {
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
 			tags: observableValue<string[]>('tags', state.tags ?? []),
 			isAddingTag: observableValue<boolean>('isAddingTag', state.isAddingTag ?? false),
+			cellTagsHidden: observableValue<boolean>('cellTagsHidden', state.cellTagsHidden ?? false),
 			isInViewport: () => true,
 		});
 
@@ -132,6 +134,15 @@ describe('CodeCellStatusFooter', () => {
 		renderFooter({ isAddingTag: true });
 
 		expect(getFooter()).not.toHaveClass('collapsed');
+	});
+
+	it('collapses a tag-only footer and drops the divider when the notebook hides tags', () => {
+		// Tags are the only thing keeping this footer open; hiding them notebook-wide
+		// must collapse it rather than leave an empty row with an orphan divider.
+		renderFooter({ tags: ['wip'], cellTagsHidden: true });
+
+		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
+		expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
 	});
 
 	describe('tag separator', () => {

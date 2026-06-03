@@ -42,7 +42,13 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 	const { notificationService } = usePositronReactServicesContext();
 	const tags = useObservedValue(cell.tags);
 	const isAddingTag = useObservedValue(cell.isAddingTag);
+	const cellTagsHidden = useObservedValue(cell.cellTagsHidden);
 	const [editingTag, setEditingTag] = React.useState<string | null>(null);
+
+	// The notebook can hide all cell tags (a transient, per-notebook toggle).
+	if (cellTagsHidden) {
+		return null;
+	}
 
 	// Nothing to show unless the cell has a tag or a tag-add was requested (via
 	// the command or the hover add pill). The passive add pill only appears once

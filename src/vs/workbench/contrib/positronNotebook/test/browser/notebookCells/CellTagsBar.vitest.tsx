@@ -26,6 +26,7 @@ import { AddTagResult, IPositronNotebookCell } from '../../../browser/PositronNo
 function createTagCell(initial: string[] = []) {
 	const tags = observableValue<string[]>('tags', [...initial]);
 	const isAddingTag = observableValue<boolean>('isAddingTag', false);
+	const cellTagsHidden = observableValue<boolean>('cellTagsHidden', false);
 	const addTag = vi.fn((tag: string): AddTagResult => {
 		tags.set([...tags.get(), tag], undefined);
 		return 'added';
@@ -42,8 +43,8 @@ function createTagCell(initial: string[] = []) {
 	// signal the "Add Tag" command flips), so wire them to the observable.
 	const beginAddTag = vi.fn(() => isAddingTag.set(true, undefined));
 	const endAddTag = vi.fn(() => isAddingTag.set(false, undefined));
-	const cell = stubInterface<IPositronNotebookCell>({ tags, isAddingTag, addTag, removeTag, renameTag, beginAddTag, endAddTag });
-	return { cell, tags, isAddingTag, addTag, removeTag, renameTag, beginAddTag, endAddTag };
+	const cell = stubInterface<IPositronNotebookCell>({ tags, isAddingTag, cellTagsHidden, addTag, removeTag, renameTag, beginAddTag, endAddTag });
+	return { cell, tags, isAddingTag, cellTagsHidden, addTag, removeTag, renameTag, beginAddTag, endAddTag };
 }
 
 describe('CellTagsBar', () => {
@@ -69,6 +70,16 @@ describe('CellTagsBar', () => {
 		const { container } = rtl.render(<CellTagsBar cell={cell} />);
 
 		expect(container).toBeEmptyDOMElement();
+	});
+
+	it('renders nothing when the notebook hides cell tags', () => {
+		const { cell, cellTagsHidden } = createTagCell(['data']);
+		rtl.render(<CellTagsBar cell={cell} />);
+		expect(screen.getByTestId('cell-tags-bar')).toBeInTheDocument();
+
+		act(() => cellTagsHidden.set(true, undefined));
+
+		expect(screen.queryByTestId('cell-tags-bar')).not.toBeInTheDocument();
 	});
 
 	it('applies the standalone modifier for the non-footer placement', () => {

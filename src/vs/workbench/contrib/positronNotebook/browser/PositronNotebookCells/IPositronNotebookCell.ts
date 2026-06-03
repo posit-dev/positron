@@ -156,6 +156,13 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	endAddTag(): void;
 
 	/**
+	 * Whether cell tags are hidden across the owning notebook (a transient,
+	 * per-notebook toggle). Surfaced on the cell so the tag bar / footer can hide
+	 * tags without reaching for the notebook instance.
+	 */
+	readonly cellTagsHidden: IObservable<boolean>;
+
+	/**
 	 * Delete this cell
 	 */
 	delete(): void;

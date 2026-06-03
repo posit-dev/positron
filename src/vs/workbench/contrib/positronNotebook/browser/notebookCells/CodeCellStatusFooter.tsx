@@ -40,6 +40,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
 	const tags = useObservedValue(cell.tags);
 	const isAddingTag = useObservedValue(cell.isAddingTag);
+	const cellTagsHidden = useObservedValue(cell.cellTagsHidden);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
@@ -98,9 +99,13 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// isPending guard keeps the clock icon visible for queued cells.
 	// Tags also keep the footer open, since they now live here.
 	const hasTags = tags.length > 0;
-	// An in-progress tag add keeps the footer open even on a cold cell, so the
-	// inline tag input the "Add Tag" command opens has somewhere to render.
-	const isCollapsed = !isPending && !hasCurrentSessionContent && !hasTags && !isAddingTag;
+	// When the notebook hides tags, the tag bar (and its inline add input) render
+	// nothing, so a hidden tag row no longer keeps the footer open or warrants a
+	// divider. An in-progress tag add otherwise keeps a cold cell's footer open so
+	// the input the "Add Tag" command opens has somewhere to render.
+	const hasVisibleTags = hasTags && !cellTagsHidden;
+	const isAddingVisible = isAddingTag && !cellTagsHidden;
+	const isCollapsed = !isPending && !hasCurrentSessionContent && !hasVisibleTags && !isAddingVisible;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -210,7 +215,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		>
 			{renderIcon()}
 			{renderText()}
-			{hasMetadata && hasTags && <span aria-hidden='true' className='code-cell-footer-tags-separator' data-testid='cell-footer-tags-separator' />}
+			{hasMetadata && hasVisibleTags && <span aria-hidden='true' className='code-cell-footer-tags-separator' data-testid='cell-footer-tags-separator' />}
 			<CellTagsBar cell={cell} />
 		</div>
 	);
