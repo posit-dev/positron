@@ -128,39 +128,31 @@ describe('CodeCellStatusFooter', () => {
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
 	});
 
-	it('stays open while a tag-add is in progress, even with no execution metadata or tags', () => {
-		// The "Add Tag" command flips isAddingTag to open the inline input; the
-		// footer must un-collapse so the input has somewhere to render.
-		renderFooter({ isAddingTag: true });
+	// The footer hosts the tag bar, so its collapse/divider layout depends on tag
+	// state as well as execution metadata: visible tags or an in-progress tag-add
+	// keep it open, hiding tags notebook-wide collapses it, and the divider only
+	// appears when execution metadata precedes the tags (otherwise it is an orphan
+	// with nothing before it).
+	const tagLayoutCases: { name: string; state: CellState; collapsed: boolean; separator: boolean }[] = [
+		{ name: 'execution metadata and tags', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] }, collapsed: false, separator: true },
+		{ name: 'tags only', state: { tags: ['wip'] }, collapsed: false, separator: false },
+		{ name: 'tags hidden notebook-wide', state: { tags: ['wip'], cellTagsHidden: true }, collapsed: true, separator: false },
+		{ name: 'a tag-add in progress', state: { isAddingTag: true }, collapsed: false, separator: false },
+	];
 
-		expect(getFooter()).not.toHaveClass('collapsed');
-	});
+	it.each(tagLayoutCases)('tag footer layout with $name', ({ state, collapsed, separator }) => {
+		renderFooter(state);
+		const footer = getFooter({ hidden: true });
 
-	it('collapses a tag-only footer and drops the divider when the notebook hides tags', () => {
-		// Tags are the only thing keeping this footer open; hiding them notebook-wide
-		// must collapse it rather than leave an empty row with an orphan divider.
-		renderFooter({ tags: ['wip'], cellTagsHidden: true });
-
-		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
-		expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
-	});
-
-	describe('tag separator', () => {
-		it('renders the separator only when both execution metadata and tags are present', () => {
-			renderFooter({ ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] });
-
+		if (collapsed) {
+			expect(footer).toHaveClass('collapsed');
+		} else {
+			expect(footer).not.toHaveClass('collapsed');
+		}
+		if (separator) {
 			expect(screen.getByTestId('cell-footer-tags-separator')).toBeInTheDocument();
-		});
-
-		it('omits the separator for a tag-only footer so there is no orphan divider', () => {
-			// No execution metadata: tags keep the footer open, but the separator
-			// would be an orphan with nothing before it, so it must not render.
-			renderFooter({ tags: ['wip'] });
-
-			// Tags alone keep the footer open (the tag bar lives here); without this
-			// the bar would render into a collapsed, zero-height footer.
-			expect(getFooter()).not.toHaveClass('collapsed');
+		} else {
 			expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
-		});
+		}
 	});
 });

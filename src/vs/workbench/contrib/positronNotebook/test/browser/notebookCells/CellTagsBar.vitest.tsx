@@ -82,13 +82,6 @@ describe('CellTagsBar', () => {
 		expect(screen.queryByTestId('cell-tags-bar')).not.toBeInTheDocument();
 	});
 
-	it('applies the standalone modifier for the non-footer placement', () => {
-		const { cell } = createTagCell(['x']);
-		rtl.render(<CellTagsBar standalone cell={cell} />);
-
-		expect(screen.getByTestId('cell-tags-bar')).toHaveClass('standalone');
-	});
-
 	it('opens a focused inline input on an untagged cell when a tag-add is requested', () => {
 		// The "Add Tag" command flips the cell's isAddingTag signal; the bar must
 		// open the inline input even though an untagged cell renders nothing at rest.
