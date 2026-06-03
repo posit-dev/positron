@@ -565,4 +565,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * {@link cellTagsHidden}).
 	 */
 	toggleCellTagsHidden(): void;
+
+	/**
+	 * Remove every tag from every cell in the notebook (a single undoable edit).
+	 */
+	removeAllCellTags(): void;
 }
