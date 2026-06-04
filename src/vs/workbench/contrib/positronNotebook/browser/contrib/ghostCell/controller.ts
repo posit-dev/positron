@@ -587,7 +587,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 		let timedOut = false;
 		try {
-			const result = await Promise.race([
+			const outcome = await Promise.race([
 				generator.generate(
 					textModel,
 					this._notebook.uri,
@@ -605,7 +605,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 						}, undefined);
 					},
 				),
-				new Promise<null>((_, reject) => {
+				new Promise<never>((_, reject) => {
 					timeoutHandle = setTimeout(() => {
 						if (!token.isCancellationRequested) {
 							timedOut = true;
@@ -619,18 +619,29 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 
 			if (token.isCancellationRequested) { return; }
 
-			if (result) {
-				this._ghostCellState.set({
-					status: 'ready',
-					executedCellIndex,
-					code: result.code,
-					explanation: result.explanation,
-					language: result.language,
-					automatic: this._isAutomaticMode(),
-					modelName: result.modelName,
-				}, undefined);
-			} else {
-				this._ghostCellState.set({ status: 'hidden' }, undefined);
+			switch (outcome.kind) {
+				case 'suggestion':
+					this._ghostCellState.set({
+						status: 'ready',
+						executedCellIndex,
+						code: outcome.result.code,
+						explanation: outcome.result.explanation,
+						language: outcome.result.language,
+						automatic: this._isAutomaticMode(),
+						modelName: outcome.result.modelName,
+					}, undefined);
+					break;
+				case 'silent':
+					this._ghostCellState.set({ status: 'hidden' }, undefined);
+					break;
+				case 'unavailable':
+					this._ghostCellState.set({
+						status: 'error',
+						executedCellIndex,
+						message: outcome.message,
+					}, undefined);
+					this._scheduleErrorAutoDismiss();
+					break;
 			}
 		} catch (error: unknown) {
 			clearTimeout(timeoutHandle);

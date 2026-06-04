@@ -25,6 +25,27 @@ export interface GhostCellResult {
 	modelName?: string;
 }
 
+/**
+ * The outcome of a generation attempt. A single channel for every result so the
+ * controller can map outcomes to UI states without knowing anything about the
+ * language model service or its failure taxonomy.
+ *
+ * - `suggestion`: a usable suggestion was produced.
+ * - `silent`: no suggestion, but nothing the user needs to see (cancelled, the
+ *   model returned nothing usable, or an internal guard). The ghost cell stays hidden.
+ * - `unavailable`: generation could not be performed (no model, missing/expired
+ *   credentials, or the provider was unreachable). Carries a user-facing message.
+ */
+export type GhostCellOutcome =
+	| { kind: 'suggestion'; result: GhostCellResult }
+	| { kind: 'silent' }
+	| { kind: 'unavailable'; message: string };
+
+// User-facing message shown when a suggestion could not be requested or completed.
+// Deliberately generic: it signals "something went wrong" without leaking which
+// provider/credential cause fired (the cause is still logged for diagnosis).
+const UNAVAILABLE_MESSAGE = localize('positron.ghostCell.unavailable', "Unable to generate a suggestion.");
+
 // ===== System Prompt =====
 
 const GHOST_CELL_SYSTEM_PROMPT = `You are an AI assistant suggesting the next cell for a data science notebook in Positron. Your task is to analyze the just-executed cell and its output to suggest a single, focused next step.
@@ -108,7 +129,8 @@ export class GhostCellGenerator {
 	 * @param executedCellIndex Index of the cell that was just executed
 	 * @param token Cancellation token
 	 * @param onProgress Optional callback for streaming partial results
-	 * @returns The result, or null if generation failed, was cancelled, or no model is available
+	 * @returns A {@link GhostCellOutcome} describing whether a suggestion was produced,
+	 *          nothing surfaceable happened, or generation was unavailable.
 	 */
 	async generate(
 		notebook: INotebookTextModel,
@@ -116,11 +138,11 @@ export class GhostCellGenerator {
 		executedCellIndex: number,
 		token: CancellationToken,
 		onProgress?: (partial: { code?: string; explanation?: string }) => void
-	): Promise<GhostCellResult | null> {
+	): Promise<GhostCellOutcome> {
 		// Validate cell index
 		if (executedCellIndex < 0 || executedCellIndex >= notebook.cells.length) {
 			this._logService.warn('[ghost-cell-generator] Invalid cell index:', executedCellIndex);
-			return null;
+			return { kind: 'silent' };
 		}
 
 		const cell = notebook.cells[executedCellIndex];
@@ -148,7 +170,7 @@ export class GhostCellGenerator {
 
 		if (hasKey(streamResult, { failure: true })) {
 			this._logService.debug('[ghost-cell-generator] No language model available:', streamResult.failure);
-			return null;
+			return { kind: 'unavailable', message: UNAVAILABLE_MESSAGE };
 		}
 
 		const { stream, modelName } = streamResult;
@@ -195,7 +217,7 @@ export class GhostCellGenerator {
 		try {
 			for await (const chunk of stream) {
 				if (token.isCancellationRequested) {
-					return null;
+					return { kind: 'silent' };
 				}
 				await lexer.process(chunk);
 			}
@@ -204,23 +226,27 @@ export class GhostCellGenerator {
 			await lexer.flush();
 		} catch (error) {
 			if (token.isCancellationRequested) {
-				return null;
+				return { kind: 'silent' };
 			}
 			this._logService.error('[ghost-cell-generator] Error during streaming:', error);
-			return null;
+			return { kind: 'unavailable', message: UNAVAILABLE_MESSAGE };
 		}
 
-		// Validate that we got code from the response
+		// Validate that we got code from the response. The model answered but gave
+		// nothing usable -- treat as no suggestion rather than a surfaced failure.
 		if (!code) {
 			this._logService.warn('[ghost-cell-generator] No code parsed from LM response');
-			return null;
+			return { kind: 'silent' };
 		}
 
 		return {
-			code,
-			explanation: explanation || localize('positron.ghostCell.defaultExplanation', "Suggested next step"),
-			language,
-			modelName,
+			kind: 'suggestion',
+			result: {
+				code,
+				explanation: explanation || localize('positron.ghostCell.defaultExplanation', "Suggested next step"),
+				language,
+				modelName,
+			},
 		};
 	}
 }
