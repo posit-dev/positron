@@ -20,8 +20,6 @@ export interface ILicenseValidationResult {
 	licensee?: string;
 	/** The issuer name, if validation was successful. */
 	issuer?: string;
-	/** Whether this is an academic license. */
-	isAcademic?: boolean;
 }
 
 /**
@@ -253,6 +251,5 @@ export async function validateLicense(connectionToken: string, license: string):
 		valid: true,
 		licensee: licenseKey.licensee,
 		issuer: licenseKey.issuer,
-		isAcademic: licenseKey.license_type === 'academic',
 	};
 }

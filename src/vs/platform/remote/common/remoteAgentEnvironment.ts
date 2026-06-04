@@ -12,7 +12,6 @@ import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.j
 export interface IPositronLicenseeInfo {
 	licensee?: string;
 	issuer?: string;
-	isAcademic?: boolean;
 }
 // --- End Positron ---
 

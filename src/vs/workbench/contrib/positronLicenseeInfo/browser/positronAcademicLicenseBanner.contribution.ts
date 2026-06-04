@@ -10,7 +10,6 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IBannerService } from '../../../services/banner/browser/bannerService.js';
-import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 const BANNER_ID = 'positron.academicLicense';
@@ -23,24 +22,12 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 
 	constructor(
 		@IBannerService private readonly _bannerService: IBannerService,
-		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 
 		// Only show on web builds that are not Posit Workbench.
 		if (!isWeb || isWorkbench) {
-			return;
-		}
-
-		this._showBannerIfNeeded().catch(err =>
-			console.error('Failed to check academic license banner:', err)
-		);
-	}
-
-	private async _showBannerIfNeeded(): Promise<void> {
-		const environment = await this._remoteAgentService.getEnvironment();
-		if (!environment?.positronLicenseeInfo?.isAcademic) {
 			return;
 		}
 

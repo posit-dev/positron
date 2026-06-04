@@ -29,7 +29,6 @@ export interface IGetExtensionHostExitInfoArguments {
 export interface IPositronLicenseeInfoDTO {
 	licensee?: string;
 	issuer?: string;
-	isAcademic?: boolean;
 }
 // --- End Positron ---
 
