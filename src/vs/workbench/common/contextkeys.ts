@@ -33,7 +33,7 @@ export const RemoteNameContext = new RawContextKey<string>('remoteName', '', loc
 export const VirtualWorkspaceContext = new RawContextKey<string>('virtualWorkspace', '', localize('virtualWorkspace', "The scheme of the current workspace is from a virtual file system or an empty string."));
 export const TemporaryWorkspaceContext = new RawContextKey<boolean>('temporaryWorkspace', false, localize('temporaryWorkspace', "The scheme of the current workspace is from a temporary file system."));
 
-export const IsSessionsWindowContext = new RawContextKey<boolean>('isSessionsWindow', false, localize('isSessionsWindow', "Whether the current window is a sessions window."));
+export const IsSessionsWindowContext = new RawContextKey<boolean>('isSessionsWindow', false, localize('isSessionsWindow', "Whether the current window is a agent sessions window."));
 
 export const HasWebFileSystemAccess = new RawContextKey<boolean>('hasWebFileSystemAccess', false, true); // Support for FileSystemAccess web APIs (https://wicg.github.io/file-system-access)
 
@@ -102,6 +102,8 @@ export const EditorPartMaximizedEditorGroupContext = new RawContextKey<boolean>(
 export const EditorPartModalContext = new RawContextKey<boolean>('editorPartModal', false, localize('editorPartModal', "Whether focus is in a modal editor part"));
 export const EditorPartModalMaximizedContext = new RawContextKey<boolean>('editorPartModalMaximized', false, localize('editorPartModalMaximized', "Whether the modal editor part is maximized"));
 export const EditorPartModalNavigationContext = new RawContextKey<boolean>('editorPartModalNavigation', false, localize('editorPartModalNavigation', "Whether the modal editor part has navigation context"));
+export const EditorPartModalSidebarContext = new RawContextKey<boolean>('editorPartModalSidebar', false, localize('editorPartModalSidebar', "Whether the modal editor part has a sidebar"));
+export const EditorPartModalSidebarVisibleContext = new RawContextKey<boolean>('editorPartModalSidebarVisible', false, localize('editorPartModalSidebarVisible', "Whether the modal editor part sidebar is visible"));
 
 // Editor Layout Context Keys
 export const EditorsVisibleContext = new RawContextKey<boolean>('editorIsOpen', false, localize('editorIsOpen', "Whether an editor is open"));
@@ -143,6 +145,7 @@ export const PositronTopActionBarFocused = new RawContextKey<boolean>('positronT
 export const PositronTopActionBarVisibleContext = new RawContextKey<boolean>('positronTopActionBarVisible', true, localize('positronTopActionBarVisible', "Whether Positron Top Action Bar is visible"));
 export const PositronConsoleFocused = new RawContextKey<boolean>('positronConsoleFocused', false, localize('positronConsoleFocused', "Whether Positron Console has keyboard focus"));
 export const PositronConsoleTabFocused = new RawContextKey<boolean>('positronConsoleTabFocused', false, localize('positronConsoleTabFocused', "Whether Positron Console Tab has keyboard focus"));
+export const PositronConsoleInputCursorBoundary = new RawContextKey<'none' | 'top' | 'bottom' | 'both'>('positronConsoleInputCursorBoundary', 'none', localize('positronConsoleInputCursorBoundary', "Position of the cursor in the Positron Console input: 'top', 'bottom', 'both', or 'none'"));
 export const PositronConsoleInstancesExistContext = new RawContextKey<boolean>('positronConsoleInstancesExist', false, localize('positronConsoleInstancesExist', "Whether any Positron Console instances exist"));
 export const PositronConsoleFindVisible = new RawContextKey<boolean>('positronConsoleFindVisible', false, localize('positronConsoleFindVisible', "Whether the Positron Console find widget is visible"));
 export const PositronConsoleFindInputFocused = new RawContextKey<boolean>('positronConsoleFindInputFocused', false, localize('positronConsoleFindInputFocused', "Whether the Positron Console find input has focus"));

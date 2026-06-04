@@ -22,6 +22,7 @@ import { disposableWindowInterval } from '../../../../../base/browser/dom.js';
 import { isNewUser } from './chatStatus.js';
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
+import { ChatConfiguration } from '../../common/constants.js';
 
 // --- Start Positron ---
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -138,7 +139,7 @@ export class ChatStatus extends Disposable {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.SignInTitleBarEnabled)) {
 				this.update();
 			}
 		}));
@@ -297,7 +298,7 @@ export class ChatStatus extends Disposable {
 					store.add(token.onCancellationRequested(() => {
 						store.dispose();
 					}));
-					const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store);
+					const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, undefined);
 
 					// todo@connor4312/@benibenj: workaround for #257923
 					store.add(disposableWindowInterval(mainWindow, () => {

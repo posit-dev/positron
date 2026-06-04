@@ -19,7 +19,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
 // Configuration key that gates the Positron Data Connections feature.
-const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'positron.dataConnections.enabled';
+const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
 
 // Register the configuration setting.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
@@ -32,8 +32,8 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.dataConnections.enabled',
-				'Enable the Positron Data Connections panel. Requires a reload to take effect.'
+				'dataConnections.enabled',
+				'Enable the Data Connections panel. Requires a reload to take effect.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.APPLICATION,
@@ -65,7 +65,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 		const positronDataConnectionsViewIcon = registerIcon(
 			'positron-data-connections-view-icon',
 			Codicon.positronDataConnections,
-			localize('positronDataConnectionsViewIcon', 'View icon of the Positron Data Connections view.')
+			localize('positronDataConnectionsViewIcon', 'View icon of the Data Connections view.')
 		);
 
 		// Register the Positron data connections view container.
@@ -73,8 +73,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			{
 				id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 				title: {
-					value: localize('positron.dataConnections', "Data Connections"),
-					original: 'Data Connections'
+					value: localize('positron.dataConnections', "Data"),
+					original: 'Data'
 				},
 				icon: positronDataConnectionsViewIcon,
 				order: 2,
@@ -93,7 +93,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 		Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 			id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 			name: {
-				value: localize('positron.dataConnections', "Data Connections"),
+				value: localize('positron.dataConnections', "Data"),
 				original: 'Data Connections'
 			},
 			containerIcon: positronDataConnectionsViewIcon,
@@ -103,7 +103,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			positronAlwaysOpenView: true,
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.toggleDataConnections',
-				mnemonicTitle: localize({ key: 'miToggleDataConnections', comment: ['&& denotes a mnemonic'] }, "&&Data Connections"),
+				mnemonicTitle: localize({ key: 'miToggleDataConnections', comment: ['&& denotes a mnemonic'] }, "&&Data"),
 				keybindings: {},
 				order: 3,
 			}

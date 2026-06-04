@@ -114,7 +114,6 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			ViewContainerLocation.AuxiliaryBar,
 			Extensions.Auxiliary,
 			MenuId.AuxiliaryBarTitle,
-			undefined,
 			notificationService,
 			storageService,
 			contextMenuService,
@@ -205,10 +204,7 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			pinnedViewContainersKey: AuxiliaryBarPart.pinnedViewsKey,
 			placeholderViewContainersKey: AuxiliaryBarPart.placeholdeViewContainersKey,
 			viewContainersWorkspaceStateKey: AuxiliaryBarPart.viewContainersWorkspaceStateKey,
-			// --- Start Positron ---
-			// Do not use icons.
-			icon: false,
-			// --- End Positron ---
+			icon: !this.configuration.showLabels,
 			orientation: ActionsOrientation.HORIZONTAL,
 			recomputeSizes: true,
 			activityHoverOptions: {

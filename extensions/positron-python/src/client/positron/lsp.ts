@@ -85,13 +85,17 @@ export class PythonLsp implements vscode.Disposable {
      * activated.
      *
      * @param port The port on which the language server is listening.
+     * @param host The host on which the language server is listening. Must match
+     *   the bind address passed to `startPositronLsp`, otherwise the connect can
+     *   resolve to a different address family than the server bound to (e.g.
+     *   `::1` when the server is bound to `127.0.0.1` and IPv4 is disabled).
      */
-    public async activate(port: number): Promise<void> {
+    public async activate(port: number, host: string): Promise<void> {
         // Clean up disposables from any previous activation
         this.activationDisposables.forEach((d) => d.dispose());
         this.activationDisposables = [];
 
-        // Define server options for the language server. Connects to `port`.
+        // Define server options for the language server. Connects to `host:port`.
         const serverOptions = async (): Promise<StreamInfo> => {
             const out = new PromiseHandles<StreamInfo>();
             const socket = new Socket();
@@ -106,7 +110,7 @@ export class PythonLsp implements vscode.Disposable {
             socket.on('error', (error) => {
                 out.reject(error);
             });
-            socket.connect(port);
+            socket.connect(port, host);
 
             return out.promise;
         };
@@ -344,6 +348,21 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         this._outputChannel.appendLine('Waiting for client to initialize before stopping');
         await this._initializing;
+
+        // Suppress the "Connection to server got closed" toast that
+        // vscode-languageclient force-shows when the connection close races
+        // with `stop()`: if the socket close handler fires while `$state ===
+        // Stopping` (between `connection.dispose()` and the `finally` block
+        // in `shutdown()`), our `PythonErrorHandler.closed()` is bypassed and
+        // the notification is forced. See posit-dev/positron#7593.
+        const origError = this._client.error.bind(this._client);
+        this._client.error = (message, data, showNotification) => {
+            if (typeof message === 'string' && /Connection to server got closed/.test(message)) {
+                origError(message, data, false);
+                return;
+            }
+            origError(message, data, showNotification);
+        };
 
         // Ideally we'd just wait for `this._client!.stop()`. In practice, the
         // promise returned by `stop()` never resolves if the server side is

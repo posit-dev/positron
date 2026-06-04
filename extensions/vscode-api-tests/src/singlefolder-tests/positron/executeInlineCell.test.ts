@@ -213,6 +213,34 @@ class TestLanguageRuntimeManager implements positron.LanguageRuntimeManager {
 }
 
 /**
+ * Register a test runtime manager and wait for its runtime to appear in the
+ * registry.
+ *
+ * Why the manual `onDidDiscoverRuntimeEmitter.fire`: the late-registration IIFE
+ * in `extHostLanguageRuntime.registerLanguageRuntimeManager` is gated on
+ * `_runtimeDiscoveryComplete`. If that flag isn't set when the test runs
+ * (depends on startup timing and prior test cleanup), the IIFE never runs and
+ * `discoverAllRuntimes()` is never called. The `onDidDiscoverRuntime`
+ * subscription is wired up unconditionally, so firing the emitter forces the
+ * runtime through that path instead.
+ */
+async function registerTestRuntime(languageId: string, disposables: Disposable[]): Promise<TestLanguageRuntimeManager> {
+	const manager = new TestLanguageRuntimeManager();
+	disposables.push(positron.runtime.registerLanguageRuntimeManager(languageId, manager));
+
+	manager.onDidDiscoverRuntimeEmitter.fire(manager['_metadata']);
+
+	await poll(
+		async () => (await positron.runtime.getRegisteredRuntimes())
+			.filter(runtime => runtime.languageId === languageId),
+		runtimes => runtimes.length > 0,
+		`${languageId} runtime should be registered`,
+	);
+
+	return manager;
+}
+
+/**
  * Tests for the positron.runtime.executeInlineCell API.
  *
  * This API is used to execute code cells inline in Quarto documents (e.g., .qmd files).
@@ -255,18 +283,7 @@ suite('positron API - executeInlineCell', () => {
 	});
 
 	test('executeInlineCell executes code in the correct session', async () => {
-		// Register a test runtime manager for the 'testquarto' language
-		const manager = new TestLanguageRuntimeManager();
-		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('testquarto', manager);
-		disposables.push(managerDisposable);
-
-		// Wait for the runtime to be registered
-		await poll(
-			async () => (await positron.runtime.getRegisteredRuntimes())
-				.filter(runtime => runtime.languageId === 'testquarto'),
-			runtimes => runtimes.length > 0,
-			'test runtime should be registered',
-		);
+		const manager = await registerTestRuntime('testquarto', disposables);
 
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');
@@ -303,18 +320,7 @@ suite('positron API - executeInlineCell', () => {
 	});
 
 	test('executeInlineCell handles non-existent cell range gracefully', async () => {
-		// Register a test runtime manager
-		const manager = new TestLanguageRuntimeManager();
-		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('testquarto', manager);
-		disposables.push(managerDisposable);
-
-		// Wait for the runtime to be registered
-		await poll(
-			async () => (await positron.runtime.getRegisteredRuntimes())
-				.filter(runtime => runtime.languageId === 'testquarto'),
-			runtimes => runtimes.length > 0,
-			'test runtime should be registered',
-		);
+		const manager = await registerTestRuntime('testquarto', disposables);
 
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');
@@ -344,18 +350,7 @@ suite('positron API - executeInlineCell', () => {
 
 	suite('Execution Options', () => {
 		test('strips option lines from executed code', async () => {
-			// Register a test runtime manager
-			const manager = new TestLanguageRuntimeManager();
-			const managerDisposable = positron.runtime.registerLanguageRuntimeManager('testquarto', manager);
-			disposables.push(managerDisposable);
-
-			// Wait for the runtime to be registered
-			await poll(
-				async () => (await positron.runtime.getRegisteredRuntimes())
-					.filter(runtime => runtime.languageId === 'testquarto'),
-				runtimes => runtimes.length > 0,
-				'test runtime should be registered',
-			);
+			const manager = await registerTestRuntime('testquarto', disposables);
 
 			const workspaceFolders = vscode.workspace.workspaceFolders;
 			assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');
@@ -394,22 +389,7 @@ suite('positron API - executeInlineCell', () => {
 		});
 
 		test('eval: false skips cells in multi-cell execution but executes when single cell', async () => {
-			// Register a test runtime manager
-			const manager = new TestLanguageRuntimeManager();
-			const managerDisposable = positron.runtime.registerLanguageRuntimeManager('testquarto', manager);
-			disposables.push(managerDisposable);
-
-			// Manually fire discovery event to ensure runtime is registered
-			// This is needed because previous test's cleanup may interfere with automatic discovery
-			manager.onDidDiscoverRuntimeEmitter.fire(manager['_metadata']);
-
-			// Wait for the runtime to be registered
-			await poll(
-				async () => (await positron.runtime.getRegisteredRuntimes())
-					.filter(runtime => runtime.languageId === 'testquarto'),
-				runtimes => runtimes.length > 0,
-				'test runtime should be registered',
-			);
+			const manager = await registerTestRuntime('testquarto', disposables);
 
 			const workspaceFolders = vscode.workspace.workspaceFolders;
 			assert.ok(workspaceFolders && workspaceFolders.length > 0, 'Should have a workspace folder');

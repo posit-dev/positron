@@ -63,14 +63,16 @@ test.describe('Release Screenshots - Extension Publisher', () => {
 	test('Release Screenshot - extension-verified-publisher.png', async ({ app, page }) => {
 		const { extensions } = app.workbench;
 
-		// Air ships pre-installed and is published by Posit, so it
-		// reliably has the verified-publisher badge.
+		// Air is published by Posit, so it reliably has the verified-publisher badge.
 		const id = 'posit.air-vscode';
 		await extensions.openExtensionDetails(id);
 
 		const header = page.locator('.extension-editor .header');
 		await expect(header).toBeVisible();
 		await expect(header.locator('.publisher')).toBeVisible();
+
+		// Ensure the extension is installed so the verified-publisher badge is visible.
+		await extensions.installFromEditorIfNotInstalled();
 
 		await hideToasts(app);
 

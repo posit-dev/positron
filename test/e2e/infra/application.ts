@@ -233,7 +233,7 @@ export class Application {
 	 */
 	private async checkPositronReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronReady: wait for monaco workbench',
 			this.logger
 		);
@@ -272,7 +272,7 @@ export class Application {
 	 */
 	private async checkPositronServerReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.currentPage.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronServerReady: wait for monaco workbench',
 			this.logger
 		);

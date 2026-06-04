@@ -81,6 +81,10 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	addToRecentlyUsedList(_modelIdentifier: string): void { }
 	clearRecentlyUsedList(): void { }
 	getModelsControlManifest(): IModelsControlManifest { return { free: {}, paid: {} }; }
+	getModelConfiguration(_modelId: string) { return undefined; }
+	async setModelConfiguration(): Promise<void> { }
+	getModelConfigurationActions(_modelId: string) { return []; }
+	async configureModel(): Promise<void> { }
 }
 // --- End Positron ---
 

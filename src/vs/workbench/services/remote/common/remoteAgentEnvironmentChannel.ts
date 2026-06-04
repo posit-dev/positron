@@ -36,6 +36,7 @@ export interface IRemoteAgentEnvironmentDTO {
 	pid: number;
 	connectionToken: string;
 	appRoot: UriComponents;
+	execPath: string;
 	tmpDir: UriComponents;
 	settingsPath: UriComponents;
 	mcpResource: UriComponents;
@@ -77,6 +78,7 @@ export class RemoteExtensionEnvironmentChannelClient {
 			pid: data.pid,
 			connectionToken: data.connectionToken,
 			appRoot: URI.revive(data.appRoot),
+			execPath: data.execPath,
 			tmpDir: URI.revive(data.tmpDir),
 			settingsPath: URI.revive(data.settingsPath),
 			mcpResource: URI.revive(data.mcpResource),

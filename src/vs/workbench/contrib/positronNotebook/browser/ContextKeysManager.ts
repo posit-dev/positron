@@ -1,152 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
-import { localize } from '../../../../nls.js';
-import { ContextKeyValue, IContextKey, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
-
-/**
- * Context key that is set when the Positron notebook editor container is focused.
- */
-export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorFocused', false, localize('positronNotebookFocused', "Whether a Positron notebook editor or a notebook editor widget (e.g. a cell editor or the find widget) has focus"));
-
-/**
- * Context key that is set when a cell editor (Monaco editor within a notebook cell) is focused.
- * This is more specific than EditorContextKeys.editorTextFocus which applies to ANY Monaco editor.
- */
-export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused"));
-
-/**
- * Context key mirroring the `positron.notebook.experimental` configuration.
- * Used to gate experimental notebook features in `when:` clauses.
- */
-export const POSITRON_NOTEBOOK_EXPERIMENTAL = new RawContextKey<boolean>('positronNotebook.experimental', false, localize('positronNotebookExperimental', "Whether experimental Positron Notebook features are enabled"));
-
-// Cell state context keys
-export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
-export const POSITRON_NOTEBOOK_CELL_IS_MARKDOWN = new RawContextKey<boolean>('positronNotebookCellIsMarkdown', false);
-/**
- * A cell of type 'raw' i.e. one that contains plain text without any rendered outputs or execution capabilities.
- */
-export const POSITRON_NOTEBOOK_CELL_IS_RAW = new RawContextKey<boolean>('positronNotebookCellIsRaw', false);
-export const POSITRON_NOTEBOOK_CELL_IS_RUNNING = new RawContextKey<boolean>('positronNotebookCellIsRunning', false);
-export const POSITRON_NOTEBOOK_CELL_IS_PENDING = new RawContextKey<boolean>('positronNotebookCellIsPending', false);
-export const POSITRON_NOTEBOOK_CELL_IS_FIRST = new RawContextKey<boolean>('positronNotebookCellIsFirst', false);
-export const POSITRON_NOTEBOOK_CELL_IS_LAST = new RawContextKey<boolean>('positronNotebookCellIsLast', false);
-export const POSITRON_NOTEBOOK_CELL_IS_ONLY = new RawContextKey<boolean>('positronNotebookCellIsOnly', false);
-/**
- * Context key that is true when the markdown editor of a cell is open for editing.
- */
-export const POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN = new RawContextKey<boolean>('positronNotebookCellMarkdownEditorOpen', false);
-/**
- * Context key that is true when a cell is selected which is relevant for multi-cell selection scenarios.
- */
-export const POSITRON_NOTEBOOK_CELL_IS_SELECTED = new RawContextKey<boolean>('positronNotebookCellIsSelected', false);
-/**
- * Context key that is true when the cell is the active/focused cell. In multi-selection contexts,
- * only one cell is active. The active cell is the one that displays its action bar and where cell
- * level keyboard actions take effect.
- */
-export const POSITRON_NOTEBOOK_CELL_IS_ACTIVE = new RawContextKey<boolean>('positronNotebookCellIsActive', false);
-
-export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP = new RawContextKey<boolean>('positronNotebookCellCanMoveUp', false);
-export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('positronNotebookCellCanMoveDown', false);
-
-// Output-related context keys
-export const POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS = new RawContextKey<boolean>('positronNotebookCellHasOutputs', false);
-export const POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellImageOutputCount', 0);
-export const POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT = new RawContextKey<number>('positronNotebookCellJsonOutputCount', 0);
-export const POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED = new RawContextKey<boolean>('positronNotebookCellOutputIsCollapsed', false);
-export const POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS = new RawContextKey<boolean>('positronNotebookCellOutputOverflows', false, localize('positronNotebookCellOutputOverflows', "Whether the cell's text output exceeds the line limit"));
-export const POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING = new RawContextKey<boolean>('positronNotebookCellOutputScrolling', false, localize('positronNotebookCellOutputScrolling', "Whether the cell's output is in scrolling mode"));
-
-/**
- * Interaction-driven context key set to true when the user right-clicks on an
- * image in the output area, or opens the ellipsis menu for a cell with image
- * output. This key tracks the current menu interaction and is NOT part of the
- * cell context key set or bindCellContextKeys.
- */
-export const POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED = new RawContextKey<boolean>('positronNotebookOutputImageTargeted', false);
-export const POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED = new RawContextKey<boolean>('positronNotebookOutputJsonTargeted', false);
-
-// All cell context keys in one place so we can easily operate on them all at once
-export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
-	isCode: POSITRON_NOTEBOOK_CELL_IS_CODE,
-	isMarkdown: POSITRON_NOTEBOOK_CELL_IS_MARKDOWN,
-	isRaw: POSITRON_NOTEBOOK_CELL_IS_RAW,
-	isRunning: POSITRON_NOTEBOOK_CELL_IS_RUNNING,
-	isPending: POSITRON_NOTEBOOK_CELL_IS_PENDING,
-	isFirst: POSITRON_NOTEBOOK_CELL_IS_FIRST,
-	isLast: POSITRON_NOTEBOOK_CELL_IS_LAST,
-	isOnly: POSITRON_NOTEBOOK_CELL_IS_ONLY,
-	markdownEditorOpen: POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN,
-	isSelected: POSITRON_NOTEBOOK_CELL_IS_SELECTED,
-	isActive: POSITRON_NOTEBOOK_CELL_IS_ACTIVE,
-	canMoveUp: POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP,
-	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
-	hasOutputs: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-	imageOutputCount: POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT,
-	jsonOutputCount: POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT,
-	outputIsCollapsed: POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED,
-	outputOverflows: POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
-	outputScrolling: POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING,
-} as const;
-
-// Interface for the cell context keys
-export type IPositronNotebookCellContextKeys = {
-	readonly [K in keyof typeof POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS]: IContextKey<ContextKeyValue>;
-};
-
-
-/**
- * Bind all cell context keys to a scoped context key service
- */
-export function bindCellContextKeys(service: IScopedContextKeyService): IPositronNotebookCellContextKeys {
-	return {
-		isCode: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isCode.bindTo(service),
-		isMarkdown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isMarkdown.bindTo(service),
-		isRaw: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isRaw.bindTo(service),
-		isRunning: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isRunning.bindTo(service),
-		isPending: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isPending.bindTo(service),
-		isFirst: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isFirst.bindTo(service),
-		isLast: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isLast.bindTo(service),
-		isOnly: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isOnly.bindTo(service),
-		markdownEditorOpen: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.markdownEditorOpen.bindTo(service),
-		isSelected: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isSelected.bindTo(service),
-		isActive: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isActive.bindTo(service),
-		canMoveUp: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp.bindTo(service),
-		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
-		hasOutputs: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.hasOutputs.bindTo(service),
-		imageOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.imageOutputCount.bindTo(service),
-		jsonOutputCount: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.jsonOutputCount.bindTo(service),
-		outputIsCollapsed: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputIsCollapsed.bindTo(service),
-		outputOverflows: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputOverflows.bindTo(service),
-		outputScrolling: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.outputScrolling.bindTo(service),
-	} satisfies IPositronNotebookCellContextKeys;
-}
-
-
-/**
- * Reset all cell context keys to their default values
- *
- * @param keys - The cell context keys object to reset, or undefined if not available
- */
-export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | undefined): void {
-	if (!keys) {
-		return;
-	}
-
-	// Reset each context key to its default value in a type-safe manner
-	Object.values(keys).forEach(contextKey => {
-		contextKey.reset();
-	});
-}
-
+import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 
 /**
  * Class to handle context keys for positron notebook editor
@@ -175,7 +36,7 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 		const { scopedContextKeyService, scopedInstantiationService } = this._notebookInstance;
 
-		const positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(scopedContextKeyService);
+		const positronEditorFocus = NotebookContextKeys.editorFocused.bindTo(scopedContextKeyService);
 
 		disposables.add(toDisposable(() => positronEditorFocus.reset()));
 

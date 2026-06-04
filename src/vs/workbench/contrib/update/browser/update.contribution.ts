@@ -9,8 +9,11 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { MenuId, registerAction2, Action2 } from '../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ProductContribution, UpdateContribution, CONTEXT_UPDATE_STATE, SwitchProductQualityContribution, showReleaseNotesInEditor, DefaultAccountUpdateContribution } from './update.js';
-import { UpdateStatusBarEntryContribution } from './updateStatusBarEntry.js';
+import { UpdateTitleBarContribution } from './updateTitleBarEntry.js';
+import { PostUpdateWidgetContribution } from './postUpdateWidget.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import product from '../../../../platform/product/common/product.js';
 import { IUpdateService, StateType } from '../../../../platform/update/common/update.js';
@@ -30,8 +33,10 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 // eslint-disable-next-line no-duplicate-imports
 import { storeLastUpdateVersion } from './update.js';
+// eslint-disable-next-line no-duplicate-imports
+import { isWeb } from '../../../../base/common/platform.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
 // --- End Positron ---
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
@@ -40,7 +45,8 @@ workbench.registerWorkbenchContribution(ProductContribution, LifecyclePhase.Rest
 workbench.registerWorkbenchContribution(UpdateContribution, LifecyclePhase.Restored);
 workbench.registerWorkbenchContribution(SwitchProductQualityContribution, LifecyclePhase.Restored);
 workbench.registerWorkbenchContribution(DefaultAccountUpdateContribution, LifecyclePhase.Eventually);
-workbench.registerWorkbenchContribution(UpdateStatusBarEntryContribution, LifecyclePhase.Restored);
+workbench.registerWorkbenchContribution(UpdateTitleBarContribution, LifecyclePhase.Restored);
+workbench.registerWorkbenchContribution(PostUpdateWidgetContribution, LifecyclePhase.Restored);
 
 // Release notes
 
@@ -70,6 +76,16 @@ export class ShowReleaseNotesAction extends Action2 {
 		const productService = accessor.get(IProductService);
 		// --- Start Positron ---
 		// const openerService = accessor.get(IOpenerService);
+		// In a web context (e.g. Posit Workbench), the local update service
+		// cannot serve release notes, so open the docs URL externally instead.
+		// IPositronDocsService honors POSITRON_DOCS_URL and otherwise falls
+		// back to the public Positron docs site.
+		if (isWeb) {
+			const openerService = accessor.get(IOpenerService);
+			const docsService = accessor.get(IPositronDocsService);
+			await openerService.open(URI.parse(docsService.getUrl('release-notes.html')));
+			return;
+		}
 
 		try {
 			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
@@ -308,3 +324,25 @@ class DeveloperSetLastUpdateVersion extends Action2 {
 
 registerAction2(DeveloperSetLastUpdateVersion);
 // --- End Positron ---
+
+registerAction2(class ShowUpdateInfoAction extends Action2 {
+	constructor() {
+		super({
+			id: 'update.showUpdateInfo',
+			title: localize2('showUpdateInfo', "Show Update Info"),
+			category: Categories.Developer,
+			f1: true,
+			precondition: IsWebContext.negate(),
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const markdown = await quickInputService.input({ prompt: localize('showUpdateInfo.prompt', "Enter markdown to render, or JSON with markdown/buttons (leave empty to load from URL)") });
+		if (markdown === undefined) {
+			return; // cancelled
+		}
+		await commandService.executeCommand('_update.showUpdateInfo', markdown || undefined);
+	}
+});

@@ -289,14 +289,10 @@
   },
   "devDependencies": {
     "@types/node": "^16.17.1",
-    "@types/webpack": "^5.28.2",
     "@typescript-eslint/eslint-plugin": "^6.5.0",
     "@typescript-eslint/parser": "^6.5.0",
     "eslint": "^8.48.0",
     "eslint-plugin-jsdoc": "^46.5.1",
-    "ts-loader": "^9.4.4",
-    "typescript": "^5.2.2",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "typescript": "^5.2.2"
   }
 }

@@ -807,6 +807,11 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('tips.enabled', "When enabled, will show the watermark tips when no editor is open.")
 			},
+			[LayoutSettings.SHADOWS]: {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('shadows', "Controls whether shadow effects are shown around the side panels and other workbench elements.")
+			},
 		}
 	});
 
@@ -852,7 +857,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 			},
 			[LayoutSettings.COMMAND_CENTER]: {
 				type: 'boolean',
+				// --- Start Positron ---
+				// Positron hides the command center by default; users can opt-in to display it in the title bar.
+				/*
 				default: true,
+				*/
+				default: false,
+				// --- End Positron ---
 				markdownDescription: isWeb ?
 					localize('window.commandCenterWeb', "Show command launcher together with the window title.") :
 					localize({ key: 'window.commandCenter', comment: ['{0}, {1} is a placeholder for a setting identifier.'] }, "Show command launcher together with the window title. This setting only has an effect when {0} is not set to {1}.", '`#window.customTitleBarVisibility#`', '`never`')
@@ -997,6 +1008,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('zenMode.hideActivityBar', "Controls whether turning on Zen Mode also hides the activity bar either at the left or right of the workbench.")
 			},
+			// --- Start Positron ---
+			'zenMode.hideTopActionBar': {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('positron.zenMode.hideTopActionBar', "Controls whether turning on Zen Mode also hides the top action bar.")
+			},
+			// --- End Positron ---
 			'zenMode.hideLineNumbers': {
 				'type': 'boolean',
 				'default': true,
@@ -1075,19 +1093,6 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 			const result: ConfigurationKeyValuePairs = [['zenMode.hideTabs', { value: undefined }]];
 			if (value === true) {
 				result.push(['zenMode.showTabs', { value: 'single' }]);
-			}
-			return result;
-		}
-	}]);
-
-Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
-	.registerConfigurationMigrations([{
-		key: 'workbench.editor.useModal', migrateFn: (value: unknown) => {
-			const result: ConfigurationKeyValuePairs = [];
-			if (value === 'default') {
-				result.push(['workbench.editor.useModal', { value: 'some' }]);
-			} else if (value === 'on') {
-				result.push(['workbench.editor.useModal', { value: 'all' }]);
 			}
 			return result;
 		}

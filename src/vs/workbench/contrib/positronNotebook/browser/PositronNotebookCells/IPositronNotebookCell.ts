@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
@@ -216,6 +217,12 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	attachContainer(container: HTMLElement): void;
 
 	/**
+	 * The cell's scoped context key service.
+	 * Created when the cell's container is attached; undefined before that.
+	 */
+	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
+
+	/**
 	 * Get the container that the cell is attached to
 	 */
 	get container(): HTMLElement | undefined;
@@ -391,7 +398,7 @@ export type ParsedOutput = ParsedTextOutput |
 	dataUrl: string;
 } |
 {
-	type: 'interupt';
+	type: 'interrupt';
 	trace: string;
 } |
 {

@@ -17,7 +17,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
-import { MemoryUsageMeter, MEMORY_METER_FIXED_WIDTH, MEMORY_METER_COMPACT_FIXED_WIDTH } from './memoryUsageMeter.js';
+import { MemoryUsageMeter, MEMORY_METER_CHROME_WIDTH, MEMORY_METER_NO_BAR_WIDTH, MEMORY_BAR_MAX_WIDTH, MEMORY_BAR_MIN_WIDTH, MEMORY_METER_WARNING_WIDTH } from './memoryUsageMeter.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
@@ -38,8 +38,8 @@ const kFilterTimeout = 800;
 /**
  * Localized strings.
  */
-const positronRefreshObjects = localize('positronRefreshObjects', "Refresh objects");
-const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete all objects");
+const positronRefreshObjects = localize('positronRefreshObjects', "Refresh Objects");
+const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete All Objects");
 
 /**
  * ActionBars component.
@@ -194,8 +194,17 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 		kPaddingLeft + kPaddingRight;
 
 	// Include the memory meter when enabled and the action bar is wide enough.
-	// Three visual states: full (bar + label), compact (label only), hidden.
+	// Three visual states based on available space:
+	//   - Bar + label + arrow: bar scales between MIN and MAX widths.
+	//   - Label + arrow: bar omitted when even a minimum-width bar won't fit.
+	//   - Hidden: not enough room for the label.
 	// When no snapshot is available yet, show in loading state with "Mem" label.
+	//
+	// Note: we pre-compute the meter's full pixel width and pass it via
+	// `fixedWidth` rather than letting DynamicActionBar measure the label
+	// itself. DAB's measurement uses a 12px-font exemplar, but the label
+	// renders at 10px (see memoryUsageMeter.css), so DAB would over-allocate
+	// the meter cell and steal space from the sorting button.
 	if (memoryEnabled) {
 		const loading = !memorySnapshot;
 		const sizeLabel = loading
@@ -205,29 +214,41 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				memorySnapshot.positronOverheadBytes +
 				memorySnapshot.extensionHostOverheadBytes
 			);
-		// Approximate the text width at 12px font. The DynamicActionBar
-		// measures precisely via Canvas; this just needs to be close enough
-		// for the show/hide threshold (slightly under is fine -- the
-		// DynamicActionBar handles overflow gracefully if we're off by a few px).
-		const textWidth = sizeLabel.length * 5.5;
-		const fullMeterWidth = MEMORY_METER_FIXED_WIDTH + textWidth + DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
-		const compactMeterWidth = MEMORY_METER_COMPACT_FIXED_WIDTH + textWidth + DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
+		// Approximate the label's rendered width at 10px font, clamped to the
+		// CSS min-width on .memory-size-label. Slightly conservative so the
+		// content never overflows the cell.
+		const labelWidth = Math.max(35, Math.ceil(sizeLabel.length * 6));
 
-		if (actionBarWidth >= baseWidth + fullMeterWidth) {
-			// Full meter: bar + label + arrow.
+		// The low-memory warning icon adds a fixed amount of chrome to the left
+		// of the bar when the system is in a low-memory state.
+		const warningWidth = memorySnapshot?.lowMemory ? MEMORY_METER_WARNING_WIDTH : 0;
+
+		// Space remaining for the meter after the other actions and a separator.
+		const meterSpace = actionBarWidth - baseWidth - DEFAULT_ACTION_BAR_SEPARATOR_WIDTH;
+		const spaceForBar = meterSpace - MEMORY_METER_CHROME_WIDTH - labelWidth - warningWidth;
+
+		if (spaceForBar >= MEMORY_BAR_MIN_WIDTH) {
+			// Bar + label + arrow (+ warning icon when low on memory).
+			const barWidth = Math.min(MEMORY_BAR_MAX_WIDTH, Math.floor(spaceForBar));
 			rightActions.push({
-				fixedWidth: MEMORY_METER_FIXED_WIDTH,
-				text: sizeLabel,
+				fixedWidth: MEMORY_METER_CHROME_WIDTH + barWidth + labelWidth + warningWidth,
+				separator: true,
+				component: <MemoryUsageMeter barWidth={barWidth} loading={loading} snapshot={memorySnapshot} />
+			});
+		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth) {
+			// Label + arrow (+ warning icon when low on memory), no bar.
+			rightActions.push({
+				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth + warningWidth,
 				separator: true,
 				component: <MemoryUsageMeter loading={loading} snapshot={memorySnapshot} />
 			});
-		} else if (actionBarWidth >= baseWidth + compactMeterWidth) {
-			// Compact meter: label + arrow only (no bar).
+		} else if (meterSpace >= MEMORY_METER_NO_BAR_WIDTH + labelWidth) {
+			// Too narrow for the warning icon: drop the icon but keep the
+			// label + arrow rather than hiding the meter entirely.
 			rightActions.push({
-				fixedWidth: MEMORY_METER_COMPACT_FIXED_WIDTH,
-				text: sizeLabel,
+				fixedWidth: MEMORY_METER_NO_BAR_WIDTH + labelWidth,
 				separator: true,
-				component: <MemoryUsageMeter compact loading={loading} snapshot={memorySnapshot} />
+				component: <MemoryUsageMeter loading={loading} showWarning={false} snapshot={memorySnapshot} />
 			});
 		}
 		// Otherwise: hidden entirely.
@@ -260,14 +281,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronDeleteAllObjects}
-					icon={ThemeIcon.fromId('clear-all')}
+					icon={ThemeIcon.fromId('trash')}
 					tooltip={positronDeleteAllObjects}
 					onPressed={deleteAllObjectsHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.deleteAllObjects',
-				icon: 'clear-all',
+				icon: 'trash',
 				label: positronDeleteAllObjects,
 				onSelected: deleteAllObjectsHandler
 			}

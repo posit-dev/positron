@@ -51,5 +51,6 @@ export const PositronList = <TItem, TSection = never>({ id, instance, emptyListR
 		);
 	}
 
+	// Render the data grid.
 	return <PositronDataGrid id={id} instance={instance} />;
 };

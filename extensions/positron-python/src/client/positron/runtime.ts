@@ -25,6 +25,8 @@ import {
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
+import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
+import { isParentPath } from '../pythonEnvironments/common/externalDependencies';
 
 /**
  * Module metadata for Python interpreters discovered via environment modules.
@@ -43,6 +45,51 @@ export interface PythonRuntimeExtraData {
     supported?: boolean;
     /** Module metadata for interpreters discovered via environment modules */
     moduleMetadata?: PythonModuleMetadata;
+}
+
+/**
+ * Decide whether this interpreter should be eligible for Positron's cross-window
+ * discovery cache. Cacheable runtimes are persisted across windows and short-circuit
+ * full discovery on warm starts; project-bound or proxy/shim interpreters must be
+ * rediscovered every open and so are excluded.
+ */
+function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolderPaths: string[]): boolean {
+    // Need a real on-disk binary to fingerprint.
+    if (!interpreter.path) {
+        return false;
+    }
+
+    // Module-managed interpreters depend on environment-modules state that's loaded
+    // at session start; the binary at `path` doesn't behave correctly without it.
+    if (interpreter.envType === EnvironmentType.Module || moduleMetadataMap.has(interpreter.path)) {
+        return false;
+    }
+
+    // Virtual envs (Venv, VirtualEnv, Poetry, Pipenv, Pixi, Uv, Hatch,
+    // VirtualEnvWrapper) and ActiveState envs are project-scoped or workspace-bound.
+    if (virtualEnvTypes.includes(interpreter.envType) || interpreter.envType === EnvironmentType.ActiveState) {
+        return false;
+    }
+
+    // Pyenv/asdf shims aren't real binaries; their effective version is per-project.
+    const shimSegment = `${path.sep}shims${path.sep}`;
+    if (interpreter.path.includes(shimSegment)) {
+        return false;
+    }
+
+    // Anything under a workspace folder is project-scoped (covers conda envs created
+    // with `--prefix ./conda`, in-tree Pythons, etc.) regardless of envType.
+    for (const folder of workspaceFolderPaths) {
+        if (
+            folder &&
+            (isParentPath(interpreter.path, folder) ||
+                (interpreter.envPath && isParentPath(interpreter.envPath, folder)))
+        ) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -187,6 +234,10 @@ export async function createPythonRuntimeMetadata(
             ? positron.LanguageRuntimeSessionLocation.Machine
             : positron.LanguageRuntimeSessionLocation.Workspace;
 
+    // Determine whether this runtime is eligible for the discovery cache.
+    const workspaceFolderPaths = (workspaceService.workspaceFolders ?? []).map((f) => f.uri.fsPath).filter((p) => !!p);
+    const cacheable = isPythonRuntimeCacheable(interpreter, workspaceFolderPaths);
+
     // Create the metadata for the language runtime
     const metadata: positron.LanguageRuntimeMetadata = {
         runtimeId,
@@ -204,6 +255,7 @@ export async function createPythonRuntimeMetadata(
         startupBehavior,
         sessionLocation,
         extraRuntimeData,
+        cacheable,
     };
 
     return metadata;

@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { getWindow, addDisposableListener } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { isHTMLOutputWebviewMessage, isWheelForwardMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { isDoubleClickMessage, isHTMLOutputWebviewMessage, isWheelForwardMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
@@ -50,6 +50,11 @@ export class WebviewMountError extends Error {
 	}
 }
 
+interface WebviewMountOptions {
+	readonly onDoubleClick?: () => void;
+	readonly onFocus?: () => void;
+}
+
 /**
  * A custom React hook that mounts and manages a notebook output webview. It:
  *  1. Claims and releases the webview on visibility changes
@@ -57,6 +62,7 @@ export class WebviewMountError extends Error {
  *  3. Cleans up listeners and disposables on unmount
  *
  * @param webview A promise resolving to an INotebookOutputWebview
+ * @param options Mounting options for webview interactions.
  * @returns An object with a containerRef for rendering, a loading state, and an error
  *
  * @example
@@ -64,18 +70,21 @@ export class WebviewMountError extends Error {
  *
  * @throws {WebviewMountError} When the webview fails to mount or during layout operations
  */
-export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
+export function useWebviewMount(webview: Promise<INotebookOutputWebview>, options?: WebviewMountOptions) {
 	// State tracking: loading or error
 	const [isLoading, setIsLoading] = React.useState<boolean>(true);
 	const [error, setError] = React.useState<WebviewMountError | null>(null);
 
 	// References to the container DOM element
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const updateWebviewLayoutRef = React.useRef<((immediate?: boolean) => void) | undefined>(undefined);
 
 	// Retrieve relevant context
 	const notebookInstance = useNotebookInstance();
 	const visibilityObservable = useNotebookVisibility();
 	const services = usePositronReactServicesContext();
+	const onDoubleClick = options?.onDoubleClick;
+	const onFocus = options?.onFocus;
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
@@ -86,6 +95,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				boundedHeight = 0;
 			}
 			containerRef.current.style.height = `${boundedHeight}px`;
+			updateWebviewLayoutRef.current?.(true);
 			return;
 		}
 
@@ -101,7 +111,11 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				container.scrollTop += normalizeWheelDeltaY(message.deltaMode, message.deltaY, container);
 			}
 		}
-	}, [notebookInstance]);
+
+		if (isDoubleClickMessage(message)) {
+			onDoubleClick?.();
+		}
+	}, [notebookInstance, onDoubleClick]);
 
 	React.useEffect(() => {
 		// Abort controller for canceling ongoing tasks if needed
@@ -124,10 +138,11 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			if (!webviewElement || !containerRef.current) {
 				return;
 			}
+			const targetWindow = getWindow(containerRef.current);
 
 			// Clear any pending layout update
 			if (layoutFrame !== undefined) {
-				window.cancelAnimationFrame(layoutFrame);
+				targetWindow.cancelAnimationFrame(layoutFrame);
 				layoutFrame = undefined;
 			}
 
@@ -136,9 +151,8 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 					if (!containerRef.current || !notebookInstance.cellsContainer) {
 						return;
 					}
-					webviewElement?.layoutWebviewOverElement(
+					webviewElement?.setAnchorElement(
 						containerRef.current,
-						undefined,
 						notebookInstance.cellsContainer
 					);
 				} catch (err) {
@@ -149,15 +163,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			if (immediate) {
 				doLayout();
 			} else {
-				layoutFrame = window.requestAnimationFrame(doLayout);
+				layoutFrame = targetWindow.requestAnimationFrame(doLayout);
 				disposables.add(toDisposable(() => {
 					if (layoutFrame !== undefined) {
-						window.cancelAnimationFrame(layoutFrame);
+						targetWindow.cancelAnimationFrame(layoutFrame);
 						layoutFrame = undefined;
 					}
 				}));
 			}
 		}
+		updateWebviewLayoutRef.current = updateWebviewLayout;
 
 		/**
 		 * Claims the webview, instructing it to position itself over our container.
@@ -208,6 +223,9 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 				setIsLoading(false);
 				webviewElement = resolvedWebview.webview;
+				disposables.add(webviewElement.onDidFocus(() => {
+					onFocus?.();
+				}));
 
 				// Position it initially
 				claimWebview();
@@ -293,9 +311,10 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		return () => {
 			controller.abort();
 			releaseWebview();
+			updateWebviewLayoutRef.current = undefined;
 			disposables.dispose();
 		};
-	}, [webview, notebookInstance, visibilityObservable, handleWebviewMessage]);
+	}, [webview, notebookInstance, visibilityObservable, handleWebviewMessage, onFocus]);
 
 	// Return the container reference plus loading/error states
 	return {

@@ -1,0 +1,183 @@
+name: "Build: Remote SSH (Linux x64)"
+
+on:
+  workflow_call:
+    outputs:
+      artifact-name:
+        description: "Name of the deb artifact uploaded"
+        value: ${{ jobs.build-deb.outputs.artifact-name }}
+      reh-artifact-name:
+        description: "Name of the REH artifact uploaded"
+        value: ${{ jobs.build-reh.outputs.artifact-name }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-deb:
+    name: Build Positron DEB for Remote SSH Tests
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 180
+    outputs:
+      artifact-name: positron-deb-remote-ssh-x64
+    container:
+      image: ghcr.io/posit-dev/positron-builds-rocky8:3
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      BUILD_SOURCEVERSION: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory '*'
+          git rev-parse --show-toplevel
+
+      - name: Install build dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: x64
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
+        run: |
+          # Check versions
+          g++ --version
+          python3 --version
+          pip --version
+
+          # Install build dependencies
+          npm install --prefix build --fetch-timeout 120000
+
+          # Install main dependencies
+          npm ci --fetch-timeout 120000
+
+      - name: Build Positron Client
+        env:
+          npm_config_arch: x64
+          MANGLER_WORKER_POOL_SIZE: 1
+        run: |
+          echo "Building Positron Client with commit SHA: ${{ env.BUILD_SOURCEVERSION }}"
+          npm run gulp vscode-linux-x64
+
+      - name: Correct Permissions
+        run: |
+          pushd ../VSCode-linux-x64/resources/app/extensions
+          find . -type f -name "*.ts" -exec chmod -x {} +
+          sed -i 's|#!/usr/bin/env python\b|#!/usr/bin/env python3|g' positron-python/python_files/lib/ipykernel/py3/jupyter_core/troubleshoot.py
+          popd
+
+      - name: Prepare Linux packages
+        env:
+          STRIP: /usr/bin/true
+          PERL5LIB: /root/.cpan/build:$PERL5LIB
+        run: |
+          npm run gulp vscode-linux-x64-prepare-deb
+
+      - name: Build DEB package
+        env:
+          STRIP: /usr/bin/true
+        run: |
+          echo "Building Positron DEB with commit SHA: ${{ env.BUILD_SOURCEVERSION }}"
+          npm run gulp vscode-linux-x64-build-deb
+          DEB_FILENAME="Positron-remote-ssh-x64.deb"
+          mv .build/linux/deb/*/deb/*.deb "$DEB_FILENAME"
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-deb-remote-ssh-x64
+          path: Positron-remote-ssh-x64.deb
+          retention-days: 1
+
+  build-reh:
+    name: Build Positron REH for Remote SSH Tests
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 180
+    outputs:
+      artifact-name: positron-reh-remote-ssh-x64
+    container:
+      image: ghcr.io/posit-dev/positron-builds-rocky8:3
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      BUILD_SOURCEVERSION: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure Git safe directory
+        run: |
+          git config --global --add safe.directory '*'
+          git rev-parse --show-toplevel
+
+      - name: Install build dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          npm_config_arch: x64
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: scl enable gcc-toolset-14 -- bash -eo pipefail {0}
+        run: |
+          # Check versions
+          g++ --version
+          python3 --version
+          pip --version
+
+          # Install build dependencies
+          npm install --prefix build --fetch-timeout 120000
+
+          # Install main dependencies
+          npm ci --fetch-timeout 120000
+
+      - name: Build Positron Remote Extension Host
+        env:
+          npm_config_arch: x64
+          MANGLER_WORKER_POOL_SIZE: 1
+        run: |
+          echo "Building Positron REH with commit SHA: ${{ env.BUILD_SOURCEVERSION }}"
+          npm run gulp vscode-reh-linux-x64
+          cd ..
+          tar czvf positron/positron-reh-remote-ssh-x64.tar.gz vscode-reh-linux-x64
+
+      - name: Upload REH artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: positron-reh-remote-ssh-x64
+          path: positron-reh-remote-ssh-x64.tar.gz
+          retention-days: 1

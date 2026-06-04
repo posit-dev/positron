@@ -32,6 +32,8 @@ let renamedLogsPath = 'not-set';
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
+	managedCredentials: [undefined, { scope: 'worker', option: true }],
+
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
@@ -104,8 +106,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
+	app: [async ({ options, logsPath, logger, managedCredentials, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials });
 
 		try {
 			await start();
@@ -516,6 +518,7 @@ export interface TestFixtures {
 
 export interface WorkerFixtures {
 	suiteId: string;
+	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

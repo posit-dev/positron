@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -37,19 +37,23 @@ export function useNotebookInstance() {
 
 /**
  * Grab notebook config options from the current notebook instance.
+ *
+ * notebookOptions itself is not mutable but the options it provides
+ * can be updated. This hook forces a re-render whenever options change
+ * so that consumers get the latest values.
+ *
  * @returns Notebook options for the current notebook instance.
  */
 export function useNotebookOptions() {
 	const instance = useNotebookInstance();
-	// Wrap in a usestate so we can trigger rerendering of notebooks when options change.
-	const [notebookOptions, setNotebookOptions] = React.useState(instance.notebookOptions);
+	const [, forceUpdate] = React.useReducer((count: number) => count + 1, 0);
 
 	React.useEffect(() => {
 		const listener = instance.notebookOptions.onDidChangeOptions(() => {
-			setNotebookOptions(instance.notebookOptions);
+			forceUpdate();
 		});
 		return () => listener.dispose();
 	}, [instance.notebookOptions]);
 
-	return notebookOptions;
+	return instance.notebookOptions;
 }

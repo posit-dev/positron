@@ -44,6 +44,11 @@
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
 		position: relative;
+
+		&:focus {
+			outline: none;
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		}
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
@@ -70,7 +75,7 @@
 
 		& .notebook-error,
 		& .notebook-stderr {
-			color: var(--vscode-positronNotebook-error-color);
+			color: var(--vscode-positronNotebook-errorForeground);
 		}
 
 		/*

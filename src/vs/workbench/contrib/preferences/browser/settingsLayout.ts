@@ -156,6 +156,11 @@ export const tocData: ITOCEntry<string> = {
 					id: 'workbench/screencastmode',
 					label: localize('screencastMode', "Screencast Mode"),
 					settings: ['screencastMode.*']
+				},
+				{
+					id: 'workbench/browser',
+					label: localize('browser', "Browser"),
+					settings: ['workbench.browser.*']
 				}
 			]
 		},
@@ -383,7 +388,11 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/notebook',
 					label: localize('notebook', 'Notebook'),
-					settings: ['notebook.*', 'interactiveWindow.*']
+					// --- Start Positron ---
+					// settings: ['notebook.*', 'interactiveWindow.*']
+					// Surface the Positron notebook editor settings in this group too.
+					settings: ['notebook.*', 'positron.notebook.*', 'positron.assistant.notebook.*']
+					// --- End Positron ---
 				},
 				{
 					id: 'features/mergeEditor',
@@ -394,7 +403,7 @@ export const tocData: ITOCEntry<string> = {
 				{
 					id: 'features/packages',
 					label: localize('packages', "Packages"),
-					settings: ['positron.packages.*']
+					settings: ['packages.*', 'positron.packages.*']
 				},
 				{
 					id: 'features/plots',

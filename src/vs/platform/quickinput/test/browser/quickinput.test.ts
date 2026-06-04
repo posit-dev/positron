@@ -19,7 +19,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/c
 import { toDisposable } from '../../../../base/common/lifecycle.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { QuickPick } from '../../browser/quickInput.js';
-import { IQuickPickItem, ItemActivation } from '../../common/quickInput.js';
+import { IQuickPickItem, ItemActivation, isKeyModified, NO_KEY_MODS } from '../../common/quickInput.js';
 import { TestInstantiationService } from '../../../instantiation/test/common/instantiationServiceMock.js';
 import { IThemeService } from '../../../theme/common/themeService.js';
 import { IConfigurationService } from '../../../configuration/common/configuration.js';
@@ -66,8 +66,7 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 		instantiationService.stub(IAccessibilityService, new TestAccessibilityService());
 		instantiationService.stub(IListService, store.add(new ListService()));
-		// eslint-disable-next-line local/code-no-any-casts
-		instantiationService.stub(ILayoutService, { activeContainer: fixture, onDidLayoutContainer: Event.None } as any);
+		instantiationService.stub(ILayoutService, { _serviceBrand: undefined, activeContainer: fixture, onDidLayoutContainer: Event.None });
 		instantiationService.stub(IContextViewService, store.add(instantiationService.createInstance(ContextViewService)));
 		instantiationService.stub(IContextKeyService, store.add(instantiationService.createInstance(ContextKeyService)));
 		instantiationService.stub(IKeybindingService, {
@@ -117,6 +116,27 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		// initial layout
 		controller.layout({ height: 20, width: 40 }, 0);
 	});
+
+	// --- Start Positron ---
+	test('modal inert is applied only while quick input is visible', () => {
+		const modalContainer = document.createElement('div');
+		modalContainer.className = 'positron-modal-dialog-box';
+		const modalContent = document.createElement('button');
+		modalContainer.appendChild(modalContent);
+		controller.container.appendChild(modalContainer);
+		store.add(toDisposable(() => modalContainer.remove()));
+
+		const quickpick = store.add(controller.createQuickPick());
+
+		assert.strictEqual(modalContent.inert, false);
+
+		quickpick.show();
+		assert.strictEqual(modalContent.inert, true);
+
+		quickpick.hide();
+		assert.strictEqual(modalContent.inert, false);
+	});
+	// --- End Positron ---
 
 	test('pick - basecase', async () => {
 		const item = { label: 'foo' };
@@ -278,5 +298,17 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 
 		assert.strictEqual(activeItemsFromEvent.length, 0);
 		assert.strictEqual(quickpick.activeItems.length, 0);
+	});
+
+	test('isKeyModified - returns false when no modifiers are pressed', () => {
+		assert.strictEqual(isKeyModified(NO_KEY_MODS), false);
+		assert.strictEqual(isKeyModified({ ctrlCmd: false, alt: false, shift: false }), false);
+	});
+
+	test('isKeyModified - returns true when any modifier is pressed', () => {
+		assert.strictEqual(isKeyModified({ ctrlCmd: true, alt: false, shift: false }), true);
+		assert.strictEqual(isKeyModified({ ctrlCmd: false, alt: true, shift: false }), true);
+		assert.strictEqual(isKeyModified({ ctrlCmd: false, alt: false, shift: true }), true);
+		assert.strictEqual(isKeyModified({ ctrlCmd: true, alt: true, shift: true }), true);
 	});
 });

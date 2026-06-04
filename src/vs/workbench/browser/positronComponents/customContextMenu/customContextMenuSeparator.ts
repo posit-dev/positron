@@ -7,4 +7,10 @@
  * CustomContextMenuSeparator class.
  */
 export class CustomContextMenuSeparator {
+	/**
+	 * Constructor.
+	 * @param title An optional title to render as a section header below the separator line.
+	 */
+	constructor(readonly title?: string) {
+	}
 }

@@ -37,7 +37,7 @@ export function createNativeAboutDialogDetails(productService: IProductService, 
 				productService.commit || 'Unknown',
 				productService.date ? `${productService.date}${useAgo ? ' (' + fromNow(new Date(productService.date), true) + ')' : ''}` : 'Unknown',
 			);
-			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
+			return localize({ key: 'aboutDetailPositron', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
 				"{0}\nElectron: {1}\nChromium: {2}\nNode.js: {3}\nV8: {4}\nOS: {5}",
 				productDetail,
 				process.versions['electron'],

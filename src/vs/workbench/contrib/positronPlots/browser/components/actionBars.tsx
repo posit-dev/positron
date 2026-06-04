@@ -16,7 +16,7 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { DarkFilter, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, PlotOpenTarget, PlotsDisplayLocation, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
@@ -42,14 +42,13 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 // Localized strings.
-const showPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
-const showNextPlot = localize('positronShowNextPlot', "Show next plot");
-const savePlot = localize('positronSavePlot', "Save plot");
-const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy plot to clipboard");
-const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open plot in new window");
-const openInEditorTab = localize('positronOpenPlotInEditorTab', "Open in editor tab");
-const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open plots gallery in new window");
-const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+const showPreviousPlot = localize('positronShowPreviousPlot', "Show Previous Plot");
+const showNextPlot = localize('positronShowNextPlot', "Show Next Plot");
+const savePlot = localize('positronSavePlot', "Save Plot");
+const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy Plot to Clipboard");
+const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open Plot in New Window");
+const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open Plots Gallery in New Window");
+const clearAllPlots = localize('positronClearAllPlots', "Clear All Plots");
 // dark filter localized strings
 const darkFilterLabel = localize('positron.darkFilter', "Dark Filter");
 const darkFilterNoneLabel = localize('positron.darkFilterNone', "No Filter");
@@ -85,21 +84,25 @@ const openSourceFile = localize('positronPlots.openSourceFile', "Open Source Fil
 // Open in editor command interface and data.
 interface OpenInEditorCommand {
 	editorTarget: AUX_WINDOW_GROUP_TYPE | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
+	openTarget: PlotOpenTarget;
 	label: string;
 }
 
 const openInEditorCommands: Array<OpenInEditorCommand> = [
 	{
 		editorTarget: AUX_WINDOW_GROUP,
-		label: localize('positron-editor-new-window', "Open in new window")
+		openTarget: PlotOpenTarget.EditorNewWindow,
+		label: localize('positron-editor-new-window', "Open in New Window")
 	},
 	{
 		editorTarget: ACTIVE_GROUP,
-		label: localize('positron-editor-new-tab', "Open in editor tab")
+		openTarget: PlotOpenTarget.EditorTab,
+		label: localize('positron-editor-new-tab', "Open in Editor Tab")
 	},
 	{
 		editorTarget: SIDE_GROUP,
-		label: localize('positron-editor-new-tab-right', "Open in editor tab to the Side")
+		openTarget: PlotOpenTarget.EditorTabToSide,
+		label: localize('positron-editor-new-tab-right', "Open in Editor Tab to the Side")
 	},
 ];
 
@@ -139,15 +142,52 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		plotClientForPolicy?.sizingPolicy.getName(plotClientForPolicy) ?? ''
 	);
 
-	// State for open in editor default action.
-	const [defaultEditorAction, setDefaultEditorAction] = useState<number>(
-		services.positronPlotsService.getPreferredEditorGroup()
+	// State for the remembered "Open in..." target. This is the user's explicit
+	// menu selection, persisted in the service so it survives remounts.
+	const [rememberedOpenTarget, setRememberedOpenTarget] = useState<PlotOpenTarget>(() =>
+		services.positronPlotsService.getDefaultOpenTarget()
 	);
 
-	// Handler to open plot in editor and update default action.
-	const openEditorPlotHandler = useCallback((groupType: number) => {
-		services.commandService.executeCommand(PlotsEditorAction.ID, groupType);
-		setDefaultEditorAction(groupType);
+	const getFallbackOpenTarget = (availableTargets: readonly PlotOpenTarget[]): PlotOpenTarget => {
+		const preferredEditorGroup = services.positronPlotsService.getPreferredEditorGroup();
+		const preferredEditorCommand = openInEditorCommands.find(command =>
+			command.editorTarget === preferredEditorGroup
+			&& availableTargets.includes(command.openTarget)
+		);
+		if (preferredEditorCommand) {
+			return preferredEditorCommand.openTarget;
+		}
+
+		const firstAvailableEditorCommand = openInEditorCommands.find(command =>
+			availableTargets.includes(command.openTarget)
+		);
+		if (firstAvailableEditorCommand) {
+			return firstAvailableEditorCommand.openTarget;
+		}
+
+		if (availableTargets.includes(PlotOpenTarget.Popout)) {
+			return PlotOpenTarget.Popout;
+		}
+
+		if (availableTargets.includes(PlotOpenTarget.Gallery)) {
+			return PlotOpenTarget.Gallery;
+		}
+
+		return availableTargets[0] ?? PlotOpenTarget.Gallery;
+	};
+
+	const resolveOpenTarget = (target: PlotOpenTarget, availableTargets: readonly PlotOpenTarget[]): PlotOpenTarget => {
+		if (availableTargets.includes(target)) {
+			return target;
+		}
+
+		return getFallbackOpenTarget(availableTargets);
+	};
+
+	// Handler to open plot in editor and update the remembered target.
+	const openEditorPlotHandler = useCallback(async (command: OpenInEditorCommand) => {
+		await services.commandService.executeCommand(PlotsEditorAction.ID, command.editorTarget);
+		setRememberedOpenTarget(command.openTarget);
 	}, [services.commandService]);
 
 	// Only show the sizing policy controls when Positron is in control of the
@@ -209,12 +249,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
 
-	const popoutPlotHandler = () => {
-		services.commandService.executeCommand(PlotsPopoutAction.ID);
+	const popoutPlotHandler = async () => {
+		await services.commandService.executeCommand(PlotsPopoutAction.ID);
+		setRememberedOpenTarget(PlotOpenTarget.Popout);
+		services.positronPlotsService.setDefaultOpenTarget(PlotOpenTarget.Popout);
 	};
 
-	const openGalleryInNewWindowHandler = () => {
-		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
+	const openGalleryInNewWindowHandler = async () => {
+		await services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
+		setRememberedOpenTarget(PlotOpenTarget.Gallery);
+		services.positronPlotsService.setDefaultOpenTarget(PlotOpenTarget.Gallery);
 	};
 
 	// Track dark filter mode changes.
@@ -454,26 +498,75 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		});
 	});
 
-	// Open in editor actions builder.
+	// Open in actions builder. The editor targets and popout target are shown
+	// only when available for the selected plot; gallery is always available.
 	const openInEditorActions = (): IAction[] => {
-		return openInEditorCommands.map(command => ({
-			id: `${PlotsEditorAction.ID}.${command.editorTarget}`,
-			label: command.label,
-			tooltip: '',
-			class: undefined,
-			checked: defaultEditorAction === command.editorTarget,
-			enabled: true,
-			run: () => openEditorPlotHandler(command.editorTarget)
-		}));
+		const availableOpenTargets: Array<{
+			target: PlotOpenTarget;
+			id: string;
+			label: string;
+			run: () => Promise<void>;
+		}> = [];
+		if (showOpenInEditorButton) {
+			openInEditorCommands.forEach(command => availableOpenTargets.push({
+				target: command.openTarget,
+				id: `${PlotsEditorAction.ID}.${command.editorTarget}`,
+				label: command.label,
+				run: () => openEditorPlotHandler(command)
+			}));
+		} else if (enablePopoutPlot) {
+			availableOpenTargets.push({
+				target: PlotOpenTarget.Popout,
+				id: PlotsPopoutAction.ID,
+				label: openPlotInNewWindow,
+				run: () => popoutPlotHandler()
+			});
+		}
+
+		availableOpenTargets.push({
+			target: PlotOpenTarget.Gallery,
+			id: PlotsGalleryInNewWindowAction.ID,
+			label: openPlotsGalleryInNewWindow,
+			run: () => openGalleryInNewWindowHandler()
+		});
+
+		const resolvedOpenTarget = resolveOpenTarget(
+			rememberedOpenTarget,
+			availableOpenTargets.map(action => action.target)
+		);
+
+		const actions: IAction[] = [];
+		availableOpenTargets.forEach((action, index) => {
+			if (action.target === PlotOpenTarget.Gallery && index > 0) {
+				actions.push(new Separator());
+			}
+
+			actions.push({
+				id: action.id,
+				label: action.label,
+				tooltip: '',
+				class: undefined,
+				checked: action.target === resolvedOpenTarget,
+				enabled: true,
+				run: action.run
+			});
+		});
+
+		return actions;
 	};
 
 	// A function that converts the open in editor IAction[] to CustomContextMenuItem[] for the overflow menu.
-	const openInEditorOverflowEntries = () => openInEditorActions().map(action => new CustomContextMenuItem({
-		label: action.label,
-		checked: action.checked,
-		disabled: !action.enabled,
-		onSelected: () => action.run()
-	}));
+	const openInEditorOverflowEntries = () => openInEditorActions().map(action => {
+		if (action instanceof Separator) {
+			return new CustomContextMenuSeparator();
+		}
+		return new CustomContextMenuItem({
+			label: action.label,
+			checked: action.checked,
+			disabled: !action.enabled,
+			onSelected: () => action.run()
+		});
+	});
 
 	// Plot code actions builder.
 	const plotCodeActions = (): IAction[] => {
@@ -576,7 +669,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Next plot button.
 	leftActions.push({
 		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-		separator: enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot,
+		separator: enableSizingPolicy || enableSavingPlots || enableZoomPlot,
 		component: (
 			<ActionBarButton
 				ariaLabel={showNextPlot}
@@ -608,7 +701,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	if (enableCopyPlot) {
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-			separator: false,
+			separator: enableZoomPlot,
 			component: (
 				<ActionBarButton
 					ariaLabel={copyPlotToClipboard}
@@ -672,47 +765,23 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		});
 	}
 
-	// Popout plot button.
-	if (enablePopoutPlot) {
-		leftActions.push({
-			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-			separator: false,
-			component: (
-				<ActionBarButton
-					ariaLabel={openPlotInNewWindow}
-					icon={ThemeIcon.fromId('positron-open-in-new-window')}
-					tooltip={openPlotInNewWindow}
-					onPressed={popoutPlotHandler}
-				/>
-			),
-			overflowContextMenuItem: {
-				icon: 'positron-open-in-new-window',
-				label: openPlotInNewWindow,
-				onSelected: popoutPlotHandler
-			}
-		});
-	}
-
-	// Open in editor menu button.
-	if (showOpenInEditorButton) {
+	// Dark filter menu button.
+	if (enableDarkFilter) {
 		leftActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: false,
 			component: (
 				<ActionBarMenuButton
-					actions={openInEditorActions}
-					ariaLabel={openInEditorTab}
-					dropdownAriaLabel={openInEditorDropdownLabel}
-					dropdownIndicator='enabled-split'
-					dropdownTooltip={openInEditorDropdownLabel}
-					icon={ThemeIcon.fromId('go-to-file')}
-					tooltip={openInEditorTab}
+					actions={darkFilterActions}
+					ariaLabel={darkFilterTooltip}
+					icon={ThemeIcon.fromId(iconForDarkFilter(darkFilterMode))}
+					tooltip={darkFilterTooltip}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: 'go-to-file',
-				label: openInEditorLabel,
-				entries: openInEditorOverflowEntries
+				icon: iconForDarkFilter(darkFilterMode),
+				label: darkFilterLabel,
+				entries: darkFilterOverflowEntries
 			}
 		});
 	}
@@ -739,49 +808,30 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Build right actions array.
 	const rightActions: DynamicActionBarAction[] = [];
-	// Dark filter menu button.
-	if (enableDarkFilter) {
+
+	// Open in... menu button. Always visible in the main window. Its menu
+	// contents adapt to the current plot type, and the gallery option is
+	// always present at the bottom.
+	if (props.displayLocation === PlotsDisplayLocation.MainWindow) {
 		rightActions.push({
 			fixedWidth: DEFAULT_ACTION_BAR_DROPDOWN_BUTTON_WIDTH,
 			separator: true,
 			component: (
 				<ActionBarMenuButton
-					actions={darkFilterActions}
+					actions={openInEditorActions}
 					align='right'
-					ariaLabel={darkFilterTooltip}
-					icon={ThemeIcon.fromId(iconForDarkFilter(darkFilterMode))}
-					tooltip={darkFilterTooltip}
+					ariaLabel={openInEditorDropdownLabel}
+					dropdownAriaLabel={openInEditorDropdownLabel}
+					dropdownIndicator='enabled-split'
+					dropdownTooltip={openInEditorDropdownLabel}
+					icon={ThemeIcon.fromId('positron-open-in-new-window')}
+					tooltip={openInEditorDropdownLabel}
 				/>
 			),
 			overflowContextMenuSubmenu: {
-				icon: iconForDarkFilter(darkFilterMode),
-				label: darkFilterLabel,
-				// pass in the helper function that returns the CustomContextMenuItem[] for the submenu entries
-				entries: darkFilterOverflowEntries
-			}
-		});
-	}
-
-	// Gallery in new window button.
-	if (props.displayLocation === PlotsDisplayLocation.MainWindow) {
-		// Add separator if dark filter wasn't added (it has separator: true).
-		const needsSeparator = !enableDarkFilter;
-		rightActions.push({
-			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-			separator: needsSeparator,
-			component: (
-				<ActionBarButton
-					align='right'
-					ariaLabel={openPlotsGalleryInNewWindow}
-					icon={ThemeIcon.fromId('window')}
-					tooltip={openPlotsGalleryInNewWindow}
-					onPressed={openGalleryInNewWindowHandler}
-				/>
-			),
-			overflowContextMenuItem: {
-				icon: 'window',
-				label: openPlotsGalleryInNewWindow,
-				onSelected: openGalleryInNewWindowHandler
+				icon: 'positron-open-in-new-window',
+				label: openInEditorLabel,
+				entries: openInEditorOverflowEntries
 			}
 		});
 	}
@@ -795,13 +845,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				align='right'
 				ariaLabel={clearAllPlots}
 				disabled={noPlots}
-				icon={ThemeIcon.fromId('clear-all')}
+				icon={ThemeIcon.fromId('trash')}
 				tooltip={clearAllPlots}
 				onPressed={clearAllPlotsHandler}
 			/>
 		),
 		overflowContextMenuItem: {
-			icon: 'clear-all',
+			icon: 'trash',
 			label: clearAllPlots,
 			disabled: noPlots,
 			onSelected: clearAllPlotsHandler

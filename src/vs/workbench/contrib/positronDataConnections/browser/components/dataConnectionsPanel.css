@@ -5,16 +5,21 @@
 
 .data-connections-panel {
 	flex: 1;
-	display: none;
+	display: flex;
 	min-height: 0;
 	flex-direction: column;
-}
-
-.data-connections-panel.active {
-	display: flex;
 }
 
 .data-connections-panel .data-connection-profiles-list {
 	flex: 1;
 	min-height: 0;
+}
+
+.no-data-connections {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 8px 8px 0 8px;
+	color: var(--vscode-descriptionForeground);
 }

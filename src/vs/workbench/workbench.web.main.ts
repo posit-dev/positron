@@ -70,8 +70,8 @@ import './services/userDataProfile/browser/userDataProfileStorageService.js';
 import './services/configurationResolver/browser/configurationResolverService.js';
 import '../platform/extensionResourceLoader/browser/extensionResourceLoaderService.js';
 import './services/auxiliaryWindow/browser/auxiliaryWindowService.js';
-import './services/browserElements/browser/webBrowserElementsService.js';
 import './services/power/browser/powerService.js';
+import '../platform/sandbox/browser/sandboxHelperService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/browser/ephemeralStateService.js';
@@ -183,6 +183,9 @@ import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
 import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
 import './contrib/positronLicenseeInfo/browser/positronLicenseeInfo.contribution.js';
 import './contrib/positronIdleReporter/browser/positronIdleReporter.js';
-// --- End Positron
+// --- End Positron ---
+
+// Browser View
+import './contrib/browserView/browser/browserView.contribution.js';
 
 //#endregion

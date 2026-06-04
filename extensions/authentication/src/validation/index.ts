@@ -5,7 +5,9 @@
 
 export { validateAnthropicApiKey } from './anthropic';
 export { validateCustomProviderApiKey } from './customProvider';
+export { validateDeepSeekApiKey } from './deepseek';
 export { normalizeToV1Url, validateFoundryApiKey } from './foundry';
 export { validateGeminiApiKey } from './gemini';
+export { validateGoogleVertexCredentials } from './googleVertex';
 export { validateOpenaiApiKey } from './openai';
 export { validateSnowflakeApiKey } from './snowflake';

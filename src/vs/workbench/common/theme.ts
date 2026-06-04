@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../nls.js';
-import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, scrollbarShadow } from '../../platform/theme/common/colorRegistry.js';
+import { registerColor, editorBackground, contrastBorder, transparent, editorWidgetBackground, editorWidgetBorder, textLinkForeground, lighten, darken, focusBorder, activeContrastBorder, editorWidgetForeground, editorErrorForeground, editorWarningForeground, editorInfoForeground, treeIndentGuidesStroke, errorForeground, listActiveSelectionBackground, listActiveSelectionForeground, editorForeground, toolbarHoverBackground, inputBorder, widgetBorder, scrollbarShadow } from '../../platform/theme/common/colorRegistry.js';
 import { IColorTheme } from '../../platform/theme/common/themeService.js';
 import { Color } from '../../base/common/color.js';
 import { ColorScheme } from '../../platform/theme/common/theme.js';
@@ -1288,32 +1288,6 @@ export const POSITRON_MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerCol
 	hcLight: '#007acc'
 }, localize('positronModalDialog.textInputSelectionBackground', "Positron modal dialog text input selection background color."));
 
-// < --- Positron Modal Dialog Checkbox --- >
-
-// Positron modal dialog checkbox background color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('positronModalDialog.checkboxBackground', {
-	dark: '#292f32',
-	light: '#ffffff',
-	hcDark: checkboxBackground,
-	hcLight: checkboxBackground
-}, localize('positronModalDialog.checkboxBackground', "Positron modal dialog checkbox background color."));
-
-// Positron modal dialog checkbox foreground color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('positronModalDialog.checkboxForeground', {
-	dark: foreground,
-	light: '#000000',
-	hcDark: checkboxForeground,
-	hcLight: checkboxForeground
-}, localize('positronModalDialog.checkboxForeground', "Positron modal dialog checkbox foreground."));
-
-// Positron modal dialog checkbox border color.
-export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModalDialog.checkboxBorder', {
-	dark: '#292f32',
-	light: '#a6a6a6',
-	hcDark: checkboxBorder,
-	hcLight: checkboxBorder
-}, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
-
 // < --- Positron Modal Dialog Radio Button --- >
 
 // Positron modal dialog radio button background color.
@@ -1487,6 +1461,32 @@ export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDr
 	hcDark: menuBorder,
 	hcLight: menuBorder
 }, localize('positronDropDownListBox.separatorBackground', "Positron drop down list box separator background color."));
+
+// < --- Positron Base Checkbox --- >
+
+// Positron base checkbox background color.
+export const POSITRON_CHECKBOX_BACKGROUND = registerColor('positronCheckbox.background', {
+	dark: '#292f32',
+	light: '#ffffff',
+	hcDark: checkboxBackground,
+	hcLight: checkboxBackground
+}, localize('positronCheckbox.background', "Positron base checkbox background color."));
+
+// Positron base checkbox foreground color.
+export const POSITRON_CHECKBOX_FOREGROUND = registerColor('positronCheckbox.foreground', {
+	dark: foreground,
+	light: '#000000',
+	hcDark: checkboxForeground,
+	hcLight: checkboxForeground
+}, localize('positronCheckbox.foreground', "Positron base checkbox foreground color."));
+
+// Positron base checkbox border color.
+export const POSITRON_CHECKBOX_BORDER = registerColor('positronCheckbox.border', {
+	dark: '#292f32',
+	light: '#a6a6a6',
+	hcDark: checkboxBorder,
+	hcLight: checkboxBorder
+}, localize('positronCheckbox.border', "Positron base checkbox border color."));
 
 // < --- Positron Console --- >
 
@@ -2027,6 +2027,38 @@ export const POSITRON_NOTEBOOK_CELL_FOOTER_FOREGROUND = registerColor('positronN
 	hcDark: editorForeground,
 	hcLight: editorForeground
 }, localize('positronNotebook.cellFooterForeground', "Positron notebook cell footer foreground color for execution status, duration, and timestamp."));
+
+// Positron notebook default foreground color.
+export const POSITRON_NOTEBOOK_FOREGROUND = registerColor('positronNotebook.foreground', editorForeground, localize('positronNotebook.foreground', "Positron notebook default foreground color."));
+
+// Positron notebook error output foreground color.
+export const POSITRON_NOTEBOOK_ERROR_FOREGROUND = registerColor('positronNotebook.errorForeground', editorErrorForeground, localize('positronNotebook.errorForeground', "Positron notebook error output foreground color."));
+
+// Positron notebook deferred image placeholder background color.
+export const POSITRON_NOTEBOOK_IMG_PLACEHOLDER_BACKGROUND = registerColor('positronNotebook.imgPlaceholderBackground', listActiveSelectionBackground, localize('positronNotebook.imgPlaceholderBackground', "Positron notebook deferred image placeholder background color."));
+
+// Positron notebook cell border color.
+export const POSITRON_NOTEBOOK_CELL_BORDER = registerColor('positronNotebook.cellBorder', {
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronNotebook.cellBorder', "Positron notebook cell border color when not focused or hovered."));
+
+// Positron notebook cell border color when hovered.
+export const POSITRON_NOTEBOOK_CELL_HOVER_BORDER = registerColor('positronNotebook.cellHoverBorder', editorWidgetBorder, localize('positronNotebook.cellHoverBorder', "Positron notebook cell border color when hovered."));
+
+// Positron notebook cell border color when focused or being edited.
+export const POSITRON_NOTEBOOK_CELL_FOCUSED_BORDER = registerColor('positronNotebook.cellFocusedBorder', focusBorder, localize('positronNotebook.cellFocusedBorder', "Positron notebook cell border color when focused or being edited."));
+
+// Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus.
+export const POSITRON_NOTEBOOK_CELL_INACTIVE_FOCUSED_BORDER = registerColor('positronNotebook.cellInactiveFocusedBorder', POSITRON_NOTEBOOK_CELL_BORDER, localize('positronNotebook.cellInactiveFocusedBorder', "Positron notebook cell border color when selected or being edited in a notebook pane that does not currently have focus."));
+
+// Positron notebook cell action bar background color.
+export const POSITRON_NOTEBOOK_ACTION_BAR_BACKGROUND = registerColor('positronNotebook.actionBarBackground', editorBackground, localize('positronNotebook.actionBarBackground', "Positron notebook cell action bar background color."));
+
+// Positron notebook cell action bar border and separator color.
+export const POSITRON_NOTEBOOK_ACTION_BAR_BORDER = registerColor('positronNotebook.actionBarBorder', editorWidgetBorder, localize('positronNotebook.actionBarBorder', "Positron notebook cell action bar border and separator color."));
 
 // *************************************************************************************************
 // *************************************************************************************************

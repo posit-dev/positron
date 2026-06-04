@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference types="vitest/globals" />
-
+/// <reference types="@testing-library/jest-dom/vitest" />
 
 import React, { type ReactElement } from 'react';
 import { render, cleanup, type RenderResult } from '@testing-library/react';
 import { PositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
 import { PositronActionBarContextProvider } from '../../platform/positronActionBar/browser/positronActionBarContext.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TestServices = Record<string, any>;
 
 /**
@@ -70,6 +69,7 @@ export function setupRTLRenderer(services?: TestServices | (() => TestServices))
 			// provided yet -- all existing tests automatically pick it up.
 			const wrapper = resolvedServices
 				? ({ children }: { children: React.ReactNode }) => (
+					// eslint-disable-next-line local/code-no-any-casts
 					<PositronReactServicesContext.Provider value={resolvedServices as any}>
 						<PositronActionBarContextProvider>
 							{children}

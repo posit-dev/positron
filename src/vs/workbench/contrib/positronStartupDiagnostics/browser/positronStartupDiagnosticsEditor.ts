@@ -11,7 +11,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { ITimerService } from '../../../services/timer/browser/timerService.js';
+import { IStartupMetrics, ITimerService } from '../../../services/timer/browser/timerService.js';
 import { IDisposable, dispose } from '../../../../base/common/lifecycle.js';
 import { raceTimeout } from '../../../../base/common/async.js';
 import { IExtensionService, IResponsiveStateChangeEvent } from '../../../services/extensions/common/extensions.js';
@@ -29,6 +29,10 @@ import { getWorkbenchContribution } from '../../../common/contributions.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import {
+	IRuntimeDiscoveryCache,
+	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING
+} from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
@@ -142,6 +146,7 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IOutputService private readonly _outputService: IOutputService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IRuntimeDiscoveryCache private readonly _discoveryCache: IRuntimeDiscoveryCache,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 	) {
 		this._disposables.push(this._extensionService.onDidChangeResponsiveChange(
@@ -167,13 +172,20 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 
 			writeTransientState(this._model, { wordWrapOverride: 'off' }, this._editorService);
 		}
-		this._updateModel();
+		this._updateModel().catch(() => {
+			// _updateModel is best-effort; failures leave the model showing the
+			// initial placeholder rather than blocking the editor from opening.
+		});
 		return Promise.resolve(this._model);
 	}
 
-	private _updateModel(): void {
+	private async _updateModel(): Promise<void> {
 		Promise.all([
-			this._timerService.whenReady(),
+			// Wait for the timer service barrier so _addSystemInfo can read
+			// startupMetrics, but cap the wait. The diagnostics report's job is to
+			// surface state even when startup is wedged (which is exactly when the
+			// barrier may not open), so we render best-effort if the wait expires.
+			raceTimeout(this._timerService.whenReady(), 5000)
 		]).then(async () => {
 			if (this._model && !this._model.isDisposed()) {
 				const md = new MarkdownBuilder();
@@ -201,20 +213,64 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addDiscoveredRuntimes(md);
 				md.blank();
+				this._addDiscoveryCache(md);
+				md.blank();
 				this._addExtensionHostStatus(md);
 				md.blank();
 				await this._addOutputChannels(md);
-
-				this._model.setValue(md.value);
 			}
 		});
+
+		if (!this._model || this._model.isDisposed()) {
+			return;
+		}
+
+		const md = new MarkdownBuilder();
+		md.heading(1, 'Positron Runtime Startup Diagnostics');
+		md.blank();
+		this._addSystemInfo(md);
+		md.blank();
+		this._addAffiliatedRuntimes(md);
+		md.blank();
+		this._addActiveRuntimes(md);
+		md.blank();
+		this._addTimeToFirstRuntime(md);
+		md.blank();
+		this._addStartupPhaseTiming(md);
+		md.blank();
+		this._addRawPerfMarks(md);
+		md.blank();
+		this._addPerSessionTiming(md);
+		md.blank();
+		this._addInterpreterSettings(md);
+		md.blank();
+		this._addAdminEnforcedSettings(md);
+		md.blank();
+		await this._addSessionLaunchInfo(md);
+		md.blank();
+		this._addDiscoveredRuntimes(md);
+		md.blank();
+		this._addExtensionHostStatus(md);
+		md.blank();
+		await this._addOutputChannels(md);
+
+		this._model.setValue(md.value);
 	}
 
 	private _addSystemInfo(md: MarkdownBuilder): void {
-		const metrics = this._timerService.startupMetrics;
 		md.heading(2, 'System Information');
 		md.li(`${this._productService.nameShort}: ${this._productService.positronVersion} build ${this._productService.positronBuildNumber} (Code OSS ${this._productService.version})`);
 		md.li(`Commit: ${this._productService.commit || 'unknown'}`);
+
+		// startupMetrics throws if accessed before the timer service barrier opens.
+		// Tolerate that: emit a note and continue so the rest of the report renders.
+		let metrics: IStartupMetrics | undefined;
+		try {
+			metrics = this._timerService.startupMetrics;
+		} catch {
+			md.li('Startup metrics: not yet available (timer service not ready)');
+			return;
+		}
 		md.li(`OS: ${metrics.platform}(${metrics.release})`);
 		if (metrics.cpus) {
 			md.li(`CPUs: ${metrics.cpus.model}(${metrics.cpus.count} x ${metrics.cpus.speed})`);
@@ -580,6 +636,103 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			]);
 		}
 		md.table(['Name', 'Language', 'Version', 'Source', 'Has Session', 'Session ID(s)'], table);
+	}
+
+	private _addDiscoveryCache(md: MarkdownBuilder): void {
+		md.heading(2, 'Discovery Cache');
+
+		const enabled = this._configurationService.getValue<boolean>(RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING);
+
+		if (enabled === false) {
+			md.blank();
+			md.li('_Discovery cache disabled by setting -- no entries are read or written this session._');
+			return;
+		}
+
+		const counters = this._discoveryCache.sessionCounters;
+		md.blank();
+		md.heading(3, 'This-session counters');
+		md.li(`Foreground cache-hit registrations: ${counters.foregroundHits}`);
+		md.li(`Background revalidations attempted / succeeded / failed: ${counters.revalidationsAttempted} / ${counters.revalidationsSucceeded} / ${counters.revalidationsFailed}`);
+		md.li(`Evictions this session: ${counters.evictions}`);
+		md.li(`Full-discovery passes this session: ${counters.fullDiscoveryRuns.length}`);
+		md.li(`Full-discovery passes triggered by root changes: ${counters.rootsChangedFullDiscoveries}`);
+		if (counters.fullDiscoveryRuns.length > 0) {
+			const reasonTable: Array<Array<string>> = counters.fullDiscoveryRuns.map(r => [
+				r.extensionId, r.languageId, r.reason, new Date(r.at).toISOString(),
+			]);
+			md.table(['Extension', 'Language', 'Reason', 'At'], reasonTable);
+		}
+
+		const buckets = this._discoveryCache.getAllBuckets();
+		md.blank();
+		md.heading(3, 'Per-bucket state');
+		if (buckets.length === 0) {
+			md.li('No cached entries.');
+			return;
+		}
+
+		const fmtAge = (ts: number): string => {
+			if (!ts) { return '-'; }
+			const ageMs = Date.now() - ts;
+			if (ageMs < 0) { return '-'; }
+			const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+			const hours = Math.floor((ageMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+			if (days > 0) { return `${days}d ${hours}h ago`; }
+			if (hours > 0) { return `${hours}h ago`; }
+			const minutes = Math.floor(ageMs / (60 * 1000));
+			return `${minutes}m ago`;
+		};
+
+		const rows: Array<Array<string>> = [];
+		for (const bucket of buckets) {
+			let oldestFirstSeen = 0;
+			let newestValidated = 0;
+			for (const entry of bucket.entries) {
+				if (oldestFirstSeen === 0 || entry.firstSeen < oldestFirstSeen) {
+					oldestFirstSeen = entry.firstSeen;
+				}
+				if (entry.lastValidated > newestValidated) {
+					newestValidated = entry.lastValidated;
+				}
+			}
+			rows.push([
+				bucket.extensionId,
+				bucket.languageId,
+				String(bucket.entries.length),
+				fmtAge(oldestFirstSeen),
+				fmtAge(newestValidated),
+				fmtAge(bucket.lastFullDiscovery),
+			]);
+		}
+		md.table(
+			['Extension', 'Language', 'Entries', 'Oldest firstSeen', 'Newest lastValidated', 'lastFullDiscovery'],
+			rows);
+
+		// Per-bucket root-signature breakdown. Renders the persisted snapshot
+		// of "the directories this manager scans for interpreters" so support
+		// can see whether a warm-start root-change check would have fired.
+		md.blank();
+		md.heading(3, 'Discovery Root Signatures');
+		const bucketsWithSignatures = buckets.filter(b => b.discoveryRootSignature);
+		if (bucketsWithSignatures.length === 0) {
+			md.li('No persisted root signatures. Either the cache predates the v2 schema, or no manager implements `getDiscoveryRootSignature`.');
+		} else {
+			for (const bucket of bucketsWithSignatures) {
+				const sig = bucket.discoveryRootSignature!;
+				md.blank();
+				md.heading(4, `${bucket.extensionId} / ${bucket.languageId}`);
+				md.li(`Roots: ${sig.entries.length}${sig.opaque ? ' (with opaque blob)' : ''}`);
+				if (sig.entries.length > 0) {
+					const sigRows: Array<Array<string>> = sig.entries.map(e => [
+						e.path,
+						e.exists ? 'yes' : 'no',
+						e.exists ? new Date(e.mtimeMs).toISOString() : '-',
+					]);
+					md.table(['Path', 'Exists', 'mtime'], sigRows);
+				}
+			}
+		}
 	}
 
 	private _addDiscoveredRuntimes(md: MarkdownBuilder): void {

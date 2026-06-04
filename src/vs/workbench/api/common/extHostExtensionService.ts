@@ -367,12 +367,23 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			return extUriBiasedIgnorePathCase.ignorePathCasing(key);
 		});
 		// const tst = TernarySearchTree.forUris<IExtensionDescription>(key => true);
+		// --- Start Positron ---
+		// Skip extensions whose location can't be resolved (e.g. directory was
+		// removed after a version swap). A single missing path used to reject
+		// the whole index and prevent the extension host from ever becoming
+		// ready.
 		await Promise.all(extensions.map(async (ext) => {
-			if (this._getEntryPoint(ext)) {
+			if (!this._getEntryPoint(ext)) {
+				return;
+			}
+			try {
 				const uri = await this._realPathExtensionUri(ext.extensionLocation);
 				tst.set(uri, ext);
+			} catch (err) {
+				this._logService.warn(`Skipping extension '${ext.identifier.value}' in path index; cannot resolve ${ext.extensionLocation.toString()}: ${err}`);
 			}
 		}));
+		// --- End Positron ---
 		return tst;
 	}
 
@@ -1013,19 +1024,30 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		// eslint-disable-next-line local/code-no-any-casts
 		extensionsDelta.toAdd.forEach((extension) => (<any>extension).extensionLocation = URI.revive(extension.extensionLocation));
 
-		const { globalRegistry, myExtensions } = applyExtensionsDelta(this._activationEventsReader, this._globalRegistry, this._myRegistry, extensionsDelta);
-		const newSearchTree = await this._createExtensionPathIndex(myExtensions);
-		const extensionsPaths = await this.getExtensionPathIndex();
-		extensionsPaths.setSearchTree(newSearchTree);
-		this._globalRegistry.set(globalRegistry.getAllExtensionDescriptions());
-		this._myRegistry.set(myExtensions);
+		// --- Start Positron ---
+		// Defend against the preamble throwing. If we let an error escape here,
+		// `_startExtensionHost()` is never called, `_readyToRunExtensions` is
+		// never opened, and every subsequent `$activate*` RPC hangs forever --
+		// the IDE stalls in "Preparing" with the extension host alive but
+		// useless.
+		try {
+			const { globalRegistry, myExtensions } = applyExtensionsDelta(this._activationEventsReader, this._globalRegistry, this._myRegistry, extensionsDelta);
+			const newSearchTree = await this._createExtensionPathIndex(myExtensions);
+			const extensionsPaths = await this.getExtensionPathIndex();
+			extensionsPaths.setSearchTree(newSearchTree);
+			this._globalRegistry.set(globalRegistry.getAllExtensionDescriptions());
+			this._myRegistry.set(myExtensions);
 
-		if (isCI) {
-			this._logService.info(`$startExtensionHost: global extensions: ${printExtIds(this._globalRegistry)}`);
-			this._logService.info(`$startExtensionHost: local extensions: ${printExtIds(this._myRegistry)}`);
+			if (isCI) {
+				this._logService.info(`$startExtensionHost: global extensions: ${printExtIds(this._globalRegistry)}`);
+				this._logService.info(`$startExtensionHost: local extensions: ${printExtIds(this._myRegistry)}`);
+			}
+		} catch (err) {
+			this._logService.error(`$startExtensionHost: error preparing extension registry; continuing with extension host startup`, err);
 		}
 
 		return this._startExtensionHost();
+		// --- End Positron ---
 	}
 
 	public $activateByEvent(activationEvent: string, activationKind: ActivationKind): Promise<void> {

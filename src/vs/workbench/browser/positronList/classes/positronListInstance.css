@@ -22,16 +22,15 @@
 .positron-list-row {
 	width: 100%;
 	height: 100%;
+	box-sizing: border-box;
+	border: 1px solid transparent;
 }
 
-/* Needs sensible design work */
 .positron-list-row.selected {
 	color: var(--vscode-list-activeSelectionForeground);
 	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
-/* Needs sensible design work */
 .positron-list-row.focused {
-	outline-offset: -1px;
-	outline: 1px solid var(--vscode-list-focusOutline);
+	border-color: var(--vscode-list-focusOutline);
 }

@@ -97,7 +97,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 	/**
 	 * Expose the notebook's scoped context to the editor pane so that `when`
-	 * clauses for menus and `precondition` clausess for actions on the editor
+	 * clauses for menus and `precondition` clauses for actions on the editor
 	 * action bar can resolve notebook scoped context keys (e.g. NOTEBOOK_KERNEL).
 	 */
 	override get scopedContextKeyService(): IContextKeyService | undefined {

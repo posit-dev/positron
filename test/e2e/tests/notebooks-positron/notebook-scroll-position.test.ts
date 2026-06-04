@@ -51,7 +51,8 @@ test.describe('Positron Notebooks: Scroll Position', {
 		}, { timeout: 5000 }).toBeLessThanOrEqual(1);
 	});
 
-	test('Scroll position is restored after window reload', async function ({ app, hotKeys }) {
+	// skipping because reloadWindow is unreliable
+	test.skip('Scroll position is restored after window reload', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Open the notebook

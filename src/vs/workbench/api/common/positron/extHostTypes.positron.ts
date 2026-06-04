@@ -484,6 +484,30 @@ export enum DataConnectionNodeKind {
 	Table = 'table',
 	View = 'view',
 	Field = 'field',
+	GroupSchemas = 'group-schemas',
+	GroupTables = 'group-tables',
+	GroupViews = 'group-views',
+	GroupColumns = 'group-columns',
+	GroupIndexes = 'group-indexes',
+	GroupTriggers = 'group-triggers',
+	Trigger = 'trigger',
+	Index = 'index',
+}
+
+/**
+ * The reason the Positron window is shutting down. Mirrors the workbench's
+ * internal `ShutdownReason` enum so extensions can distinguish a quit from a
+ * window reload.
+ */
+export enum ShutdownReason {
+	/** The window was closed (e.g. last window of the application). */
+	Close = 1,
+	/** The application is quitting. */
+	Quit = 2,
+	/** The window is reloading. */
+	Reload = 3,
+	/** The window is loading a different workspace. */
+	Load = 4,
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';

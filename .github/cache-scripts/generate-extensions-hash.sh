@@ -110,20 +110,32 @@ fi
 # Lock files are modified during npm install (postinstall updates), making them
 # unsuitable for cache keys. package.json only changes when dependencies are
 # intentionally added/removed/updated.
+#
+# Why `tr '\n' '\0' | xargs -0 cat` instead of `xargs cat`?
+# Some vendored fixtures have spaces in their paths (e.g.
+# extensions/copilot/test/simulation/.../simple-js-proj copy/package.json).
+# Plain `xargs` word-splits on whitespace, so cat would receive broken path
+# fragments, exit non-zero, and `set -o pipefail` would abort the whole script
+# ("hash generation failed"). NUL-delimiting passes each path as one argument.
+# (-0 is portable across GNU and BSD/macOS xargs; -d is not.)
 
 echo "Hashing package.json files..."
 
 if [ "$FILTER" == "volatile" ]; then
 	echo "  → Filtering: volatile extensions only"
 	FILTER_PATTERN=$(IFS='|'; echo "${VOLATILE_EXTENSIONS[*]}")
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | grep -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | grep -E "($FILTER_PATTERN)" | sort | tr '\n' '\0' | xargs -0 cat | sha256sum | cut -d' ' -f1)
 elif [ "$FILTER" == "stable" ]; then
 	echo "  → Filtering: stable extensions only"
+	# Enumerate via git ls-files (deterministic) instead of find (filesystem-
+	# dependent). The find variant produced different hashes across runs of
+	# identical code, so the stable cache key never matched and the cache
+	# missed every run.
 	FILTER_PATTERN=$(IFS='|'; echo "${VOLATILE_EXTENSIONS[*]}")
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | grep -v -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(git ls-files extensions .vscode | grep -E '(^|/)package\.json$' | grep -v '/node_modules/' | grep -v -E "($FILTER_PATTERN)" | sort | tr '\n' '\0' | xargs -0 cat | sha256sum | cut -d' ' -f1)
 else
 	echo "  → No filter: all extensions"
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | sort | tr '\n' '\0' | xargs -0 cat | sha256sum | cut -d' ' -f1)
 fi
 
 echo "  ✓ package.json hash: $FILES_HASH"
@@ -151,9 +163,13 @@ if [ "$FILTER" == "volatile" ]; then
 	GIT_TREE_HASH=$(echo "$GIT_TREE_HASH" | sha256sum | cut -d' ' -f1)
 elif [ "$FILTER" == "stable" ]; then
 	echo "  → Filtering: stable extensions only"
-	ALL_EXT_DIRS=$(find extensions -maxdepth 1 -type d -not -name "node_modules" | tail -n +2 | sort)
+	# Enumerate via git ls-tree (deterministic) instead of find / bash glob
+	# (filesystem-dependent). `tree` covers regular subdirs; `commit` covers
+	# submodules (e.g. extensions/positron-copilot-chat).
+	ALL_EXT_DIRS=$(git ls-tree HEAD extensions/ | awk '$2=="tree" || $2=="commit" {print $4}' | sort)
 	GIT_TREE_HASH=""
-	for ext_dir in $ALL_EXT_DIRS; do
+	while IFS= read -r ext_dir; do
+		[ -z "$ext_dir" ] && continue
 		# Check if this is a volatile extension (skip if it is)
 		is_volatile=false
 		for volatile_ext in "${VOLATILE_EXTENSIONS[@]}"; do
@@ -167,16 +183,15 @@ elif [ "$FILTER" == "stable" ]; then
 			TREE_HASH=$(git rev-parse "HEAD:$ext_dir" 2>/dev/null || echo "no-tree")
 			GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
 		fi
-	done
+	done <<< "$ALL_EXT_DIRS"
 
-	# Also hash .vscode/extensions/* (they're in the stable cache too!)
-	for vscode_ext_dir in .vscode/extensions/*/; do
-		if [ -d "$vscode_ext_dir" ]; then
-			vscode_ext_dir="${vscode_ext_dir%/}"
-			TREE_HASH=$(git rev-parse "HEAD:$vscode_ext_dir" 2>/dev/null || echo "no-tree")
-			GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
-		fi
-	done
+	# Also hash .vscode/extensions/* (they're in the stable cache too).
+	VSCODE_EXT_DIRS=$(git ls-tree HEAD .vscode/extensions/ | awk '$2=="tree" || $2=="commit" {print $4}' | sort)
+	while IFS= read -r vscode_ext_dir; do
+		[ -z "$vscode_ext_dir" ] && continue
+		TREE_HASH=$(git rev-parse "HEAD:$vscode_ext_dir" 2>/dev/null || echo "no-tree")
+		GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
+	done <<< "$VSCODE_EXT_DIRS"
 
 	GIT_TREE_HASH=$(echo "$GIT_TREE_HASH" | sha256sum | cut -d' ' -f1)
 else
