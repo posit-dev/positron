@@ -157,6 +157,21 @@ export abstract class AbstractPositronLMService extends Disposable implements IP
 			return;
 		}
 
+		// Warm the model cache here, in the constructor, rather than lazily inside the
+		// first streamText() call. This is already "pay on first hit": the service is a
+		// Delayed singleton, so construction (and this warm) runs at first injection --
+		// the first ghost-cell trigger or picker open -- not at app startup. Warming
+		// here rather than inside streamText() buys three things:
+		//   1. streamText()'s empty cache stays a *definitive* auth-required/no-providers
+		//      signal (see _resolveModelSelection). Warming on-demand inside streamText()
+		//      would make an empty cache ambiguous ("cold" vs "genuinely empty") and force
+		//      a stateful "have we warmed yet?" flag into the trickiest method.
+		//   2. The default tier/pattern selection searches *across* providers by priority,
+		//      so every provider must be warmed regardless -- doing it here keeps that
+		//      multi-provider fetch latency (up to the per-provider raceTimeout) out of the
+		//      first suggestion's latency budget.
+		//   3. availableModels is populated for the model picker, which has no stream to
+		//      piggyback on.
 		this._modelCacheReady = this._warmModelCache();
 
 		this._register(this._authenticationService.onDidChangeSessions(e => {

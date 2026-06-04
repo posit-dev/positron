@@ -149,9 +149,12 @@ import { LocalGitService } from '../../../platform/git/node/localGitService.js';
 
 // --- Start Positron ---
 import { PositronBootstrapExtensionsInitializer } from '../../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
-// eslint-disable-next-line local/code-import-patterns -- LM service will move to vs/platform: https://github.com/posit-dev/positron/issues/13983
+// The node/ service and common/ IPC types are platform-clean (no workbench deps), but
+// common/positronLMService.ts still mixes the workbench-facing API with the IPC contract,
+// so the move is deferred to a standalone PR rather than bundled with the feature.
+// eslint-disable-next-line local/code-import-patterns -- moves to vs/platform: https://github.com/posit-dev/positron/issues/13983
 import { PositronLMNode, PositronLMChannel } from '../../../workbench/services/positronLM/node/positronLMService.js';
-// eslint-disable-next-line local/code-import-patterns -- see https://github.com/posit-dev/positron/issues/13983
+// eslint-disable-next-line local/code-import-patterns -- moves to vs/platform: https://github.com/posit-dev/positron/issues/13983
 import { POSITRON_LM_CHANNEL_NAME } from '../../../workbench/services/positronLM/common/positronLMService.js';
 // --- End Positron ---
 //

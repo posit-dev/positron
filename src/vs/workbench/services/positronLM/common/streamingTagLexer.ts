@@ -6,11 +6,13 @@
 /**
  * This module is adapted from the MIT licensed https://github.com/posit-dev/databot repo.
  *
- * A sibling copy lives in the positron-assistant extension
- * (extensions/positron-assistant/src/streamingTagLexer.ts). The two cannot share
- * code across the extension-host / vs/workbench layering boundary. This copy is the
- * canonical go-forward version as headless LM features migrate out of the extension
- * (it also carries the single-quote attribute fix the extension copy still lacks).
+ * This is the canonical go-forward copy. A legacy copy lives in the positron-assistant
+ * extension (extensions/positron-assistant/src/streamingTagLexer.ts); the two cannot share
+ * code across the extension-host / vs/workbench layering boundary. The extension copy is
+ * still load-bearing for the chat participant's text/edit processors (defaultTextProcessor,
+ * replaceStringProcessor, replaceSelectionProcessor), so it persists until the
+ * positron-assistant extension is deprecated, not merely until headless ghost cells land.
+ * This copy carries a single-quote attribute fix the extension copy still lacks.
  */
 
 export type ProcessedText = {
