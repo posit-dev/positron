@@ -733,6 +733,10 @@
 			"positron.positron-assistant",
 			"posit.assistant"
 		],
+		"deepseek-api": [
+			"positron.authentication",
+			"posit.assistant"
+		],
 		"openai-compatible": [
 			"positron.authentication",
 			"positron.positron-assistant",
