@@ -37,6 +37,13 @@
 	border-radius: 2px;
 }
 
+.positron-list-harness-checkbox input {
+	width: auto;
+	padding: 0;
+	background-color: transparent;
+	border: none;
+}
+
 .positron-list-harness-stats {
 	margin-left: auto;
 	opacity: 0.7;
