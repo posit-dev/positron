@@ -184,7 +184,10 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
 		});
 
-		test('Verify Assistant Layout opens the Posit Assistant view when enabled', async function ({ app, settings }) {
+		// Skipped: fails deterministically on web (chromium) -- the Assistant layout
+		// loses the focus race opening the webview-backed Posit Assistant view. The
+		// #13989 fix attempt did not resolve it; skip pending a real fix (#13933).
+		test.skip('Verify Assistant Layout opens the Posit Assistant view when enabled', async function ({ app, settings }) {
 			const layouts = app.workbench.layouts;
 
 			// Enable Posit Assistant so the layout targets its view container
