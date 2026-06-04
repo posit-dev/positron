@@ -15,7 +15,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getSnowflakeDefaultBaseUrl } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -141,11 +141,13 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		{
 			type: positron.PositronLanguageModelType.Chat,
 			provider: PROVIDER_METADATA.snowflake,
-			supportedOptions: ['apiKey', 'toolCalls', 'autoconfigure'],
+			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 			defaults: {
 				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',
-				baseUrl: getSnowflakeDefaultBaseUrl(),
+				// baseUrl holds the bare account, not a URL: the Cortex URL is
+				// derived from the account. Don't make it a saved setting (#13750).
+				baseUrl: getConfiguredSnowflakeAccount(),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,

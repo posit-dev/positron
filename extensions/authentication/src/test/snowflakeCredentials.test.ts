@@ -19,6 +19,21 @@ suite('Snowflake Credentials', () => {
 		sinon.restore();
 	});
 
+	suite('Configuration', () => {
+		// Snowflake's base URL is derived from the account identifier, never set
+		// directly. Registering a baseUrl setting would let it diverge from the
+		// account. Guards against anyone adding one. See issue #13750.
+		test('does not contribute a Snowflake baseUrl setting', () => {
+			const manifest = vscode.extensions.getExtension('positron.authentication')?.packageJSON;
+			const properties = manifest?.contributes?.configuration?.properties ?? {};
+			const snowflakeBaseUrlKeys = Object.keys(properties).filter(
+				key => key.toLowerCase().includes('snowflake') && key.toLowerCase().includes('baseurl')
+			);
+
+			assert.deepStrictEqual(snowflakeBaseUrlKeys, []);
+		});
+	});
+
 	suite('Account Validation', () => {
 		test('isValidSnowflakeAccount accepts valid account formats', () => {
 			// Standard org-account format

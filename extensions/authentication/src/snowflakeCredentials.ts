@@ -248,3 +248,15 @@ export function getSnowflakeDefaultBaseUrl(): string {
 	// Fallback to placeholder if no account is available
 	return 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1';
 }
+
+/**
+ * Reads the configured Snowflake account identifier from settings, falling
+ * back to the SNOWFLAKE_ACCOUNT environment variable.
+ * @returns The account identifier, or an empty string if not set.
+ */
+export function getConfiguredSnowflakeAccount(): string {
+	const configSettings = vscode.workspace
+		.getConfiguration('authentication.snowflake')
+		.get<SnowflakeProviderVariables>('credentials', {});
+	return configSettings.SNOWFLAKE_ACCOUNT || process.env.SNOWFLAKE_ACCOUNT || '';
+}

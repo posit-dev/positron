@@ -6,23 +6,11 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { createOpenAICompatibleFetch } from '../openai-fetch-utils.js';
-import { SnowflakeModelProvider } from '../providers/snowflake/snowflakeProvider.js';
 
 suite('Snowflake Provider', () => {
 
 	teardown(() => {
 		sinon.restore();
-	});
-
-	suite('Supported Options', () => {
-		// The base URL is derived from the account identifier, not user-edited.
-		// See https://github.com/posit-dev/positron/issues/13750
-		test('does not support a user-editable baseUrl', () => {
-			assert.ok(
-				!SnowflakeModelProvider.source.supportedOptions.includes('baseUrl'),
-				'Snowflake Cortex supportedOptions should not include baseUrl'
-			);
-		});
 	});
 
 	suite('Error Message Enhancement', () => {

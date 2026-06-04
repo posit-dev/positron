@@ -343,6 +343,25 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
+		onSave: async (config) => {
+			// baseUrl holds the bare account; persist it as SNOWFLAKE_ACCOUNT,
+			// not as a baseUrl setting like other providers do (#13750).
+			const account = config.baseUrl?.trim();
+			if (!account) {
+				return;
+			}
+			// Read the global scope only, matching the resolve() sync above.
+			const cfg = vscode.workspace.getConfiguration('authentication.snowflake');
+			const inspection = cfg.inspect<Record<string, string>>('credentials');
+			const globalValue = inspection?.globalValue ?? {};
+			if (globalValue.SNOWFLAKE_ACCOUNT !== account) {
+				await cfg.update(
+					'credentials',
+					{ ...globalValue, SNOWFLAKE_ACCOUNT: account },
+					vscode.ConfigurationTarget.Global
+				);
+			}
+		},
 	});
 	provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(
