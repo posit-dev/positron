@@ -254,10 +254,37 @@
 					},
 					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
 				},
+				"authentication.deepseek-api.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.deepseek-api.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.deepseek-api.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.deepseek-api.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"assistant.provider.deepseek.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
 					"tags": [
 						"experimental"
 					]

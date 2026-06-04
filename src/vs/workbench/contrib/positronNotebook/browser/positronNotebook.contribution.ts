@@ -192,7 +192,6 @@ class PositronNotebookContribution extends Disposable {
 			info.globPattern,
 			editorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						(resource.scheme === Schemas.untitled ||
@@ -270,7 +269,6 @@ class PositronNotebookContribution extends Disposable {
 			// This does not seem to be an issue for file schemes (registered above).
 			cellEditorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;

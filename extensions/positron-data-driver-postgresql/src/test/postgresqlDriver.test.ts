@@ -1,0 +1,456 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as assert from 'assert';
+import * as positron from 'positron';
+import { PostgreSQLConnection, PostgreSQLConnectionConfig } from '../postgresqlConnection.js';
+import { createSchemaNode } from '../postgresqlNodes.js';
+
+// Default config for tests -- not used to connect, just to construct.
+const TEST_CONFIG: PostgreSQLConnectionConfig = {
+	host: 'localhost',
+	port: 5432,
+	database: 'testdb',
+	user: 'testuser',
+	password: 'testpass',
+	ssl: false,
+	readOnly: true
+};
+
+// Creates a mock pg Client with configurable query results.
+function createMockClient(queryHandler?: (sql: string, params?: any[]) => { rows: any[] }): any {
+	const defaultHandler = () => ({ rows: [] });
+	const handler = queryHandler || defaultHandler;
+	return {
+		connect: async () => { },
+		query: async (sql: string, params?: any[]) => handler(sql, params),
+		end: async () => { },
+	};
+}
+
+// Injects a mock client into a PostgreSQLConnection, bypassing the real pg Client.
+function createTestConnection(mockClient: any): PostgreSQLConnection {
+	const conn = new PostgreSQLConnection(TEST_CONFIG);
+	// eslint-disable-next-line local/code-no-any-casts
+	(conn as any)._client = mockClient;
+	return conn;
+}
+
+// Expands a schema node to its Tables group children (table nodes).
+async function tablesOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await schemaNode.getChildren!();
+	const tablesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupTables)!;
+	return tablesGroup.getChildren!();
+}
+
+// Expands a schema node to its Views group children (view nodes).
+async function viewsOf(schemaNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await schemaNode.getChildren!();
+	const viewsGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupViews)!;
+	return viewsGroup.getChildren!();
+}
+
+// Expands a table or view node to its Columns group children (field nodes).
+async function columnsOf(relationNode: positron.DataConnectionNode): Promise<positron.DataConnectionNode[]> {
+	const groups = await relationNode.getChildren!();
+	const columnsGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupColumns)!;
+	return columnsGroup.getChildren!();
+}
+
+suite('PostgreSQL Driver Tests', () => {
+
+	// --- Connection lifecycle ---
+
+	test('connect and disconnect', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql === 'SELECT 1') {
+				return { rows: [{ '?column?': 1 }] };
+			}
+			return { rows: [] };
+		});
+		const conn = createTestConnection(mock);
+
+		assert.strictEqual(await conn.isConnected(), true);
+		await conn.disconnect();
+		assert.strictEqual(await conn.isConnected(), false);
+	});
+
+	test('disconnect is idempotent', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+
+		await conn.disconnect();
+		await conn.disconnect();
+		assert.strictEqual(await conn.isConnected(), false);
+	});
+
+	test('connect failure throws', async () => {
+		const conn = new PostgreSQLConnection(TEST_CONFIG);
+		// eslint-disable-next-line local/code-no-any-casts
+		(conn as any)._client = {
+			connect: async () => { throw new Error('Connection refused'); },
+		};
+
+		await assert.rejects(
+			() => conn.connect(),
+			/Failed to connect to PostgreSQL/
+		);
+		// After failed connect, isConnected should return false.
+		assert.strictEqual(await conn.isConnected(), false);
+	});
+
+	test('connect on already-disconnected connection throws', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+		await conn.disconnect();
+
+		await assert.rejects(
+			() => conn.connect(),
+			/disconnected/
+		);
+	});
+
+	// --- isReadOnly ---
+
+	test('isReadOnly returns false', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+		assert.strictEqual(await conn.isReadOnly(), false);
+		await conn.disconnect();
+	});
+
+	// --- Root structure ---
+
+	test('getChildren returns a single Schemas group node', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+
+		const roots = await conn.getChildren();
+		assert.strictEqual(roots.length, 1);
+		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupSchemas);
+		assert.strictEqual(roots[0].name, 'Schemas');
+
+		await conn.disconnect();
+	});
+
+	test('Schemas group with no user schemas returns no children', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.schemata')) {
+				return { rows: [] };
+			}
+			return { rows: [] };
+		});
+		const conn = createTestConnection(mock);
+
+		const [schemasGroup] = await conn.getChildren();
+		const schemas = await schemasGroup.getChildren!();
+		assert.strictEqual(schemas.length, 0);
+
+		await conn.disconnect();
+	});
+
+	// --- Schema browsing ---
+
+	test('Schemas group expands to schema nodes', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.schemata')) {
+				return {
+					rows: [
+						{ schema_name: 'public' },
+						{ schema_name: 'app' },
+					]
+				};
+			}
+			return { rows: [] };
+		});
+		const conn = createTestConnection(mock);
+
+		const [schemasGroup] = await conn.getChildren();
+		const schemas = await schemasGroup.getChildren!();
+		assert.strictEqual(schemas.length, 2);
+
+		const names = schemas.map(c => c.name).sort();
+		assert.deepStrictEqual(names, ['app', 'public']);
+
+		schemas.forEach(c => {
+			assert.strictEqual(c.kind, positron.DataConnectionNodeKind.Schema);
+			assert.ok(c.getChildren, 'schema node should have getChildren');
+		});
+
+		await conn.disconnect();
+	});
+
+	// --- Tables and views within a schema ---
+
+	test('schema getChildren returns Tables and Views groups', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return {
+					rows: [
+						{ table_name: 'users' },
+						{ table_name: 'orders' },
+					]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('VIEW')) {
+				return {
+					rows: [
+						{ table_name: 'user_orders' },
+					]
+				};
+			}
+			return { rows: [] };
+		});
+
+		const schemaNode = createSchemaNode(mock, 'public');
+		const groups = await schemaNode.getChildren!();
+		assert.strictEqual(groups.length, 2);
+		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
+		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
+
+		// Tables.
+		const tables = await tablesOf(schemaNode);
+		const tableNames = tables.map(t => t.name).sort();
+		assert.deepStrictEqual(tableNames, ['orders', 'users']);
+		tables.forEach(t => {
+			assert.strictEqual(t.kind, positron.DataConnectionNodeKind.Table);
+			assert.ok(t.getChildren, `${t.name} should have getChildren`);
+			assert.ok(t.preview, `${t.name} should have preview`);
+		});
+
+		// Views.
+		const views = await viewsOf(schemaNode);
+		assert.deepStrictEqual(views.map(v => v.name), ['user_orders']);
+		views.forEach(v => {
+			assert.strictEqual(v.kind, positron.DataConnectionNodeKind.View);
+			assert.ok(v.getChildren, `${v.name} should have getChildren`);
+			assert.ok(v.preview, `${v.name} should have preview`);
+		});
+	});
+
+	// --- Field nodes (under each table's Columns group) ---
+
+	test('table Columns group returns field nodes with types', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.columns')) {
+				return {
+					rows: [
+						{
+							column_name: 'id',
+							data_type: 'integer',
+							udt_name: 'int4',
+							is_nullable: 'NO',
+							character_maximum_length: null,
+							numeric_precision: 32,
+							numeric_scale: 0,
+						},
+						{
+							column_name: 'name',
+							data_type: 'character varying',
+							udt_name: 'varchar',
+							is_nullable: 'YES',
+							character_maximum_length: 255,
+							numeric_precision: null,
+							numeric_scale: null,
+						},
+						{
+							column_name: 'price',
+							data_type: 'numeric',
+							udt_name: 'numeric',
+							is_nullable: 'YES',
+							character_maximum_length: null,
+							numeric_precision: 10,
+							numeric_scale: 2,
+						},
+						{
+							column_name: 'active',
+							data_type: 'boolean',
+							udt_name: 'bool',
+							is_nullable: 'NO',
+							character_maximum_length: null,
+							numeric_precision: null,
+							numeric_scale: null,
+						},
+					]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 'products' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schemaNode = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schemaNode);
+		const productsNode = tables.find(c => c.name === 'products')!;
+
+		const fields = await columnsOf(productsNode);
+		assert.strictEqual(fields.length, 4);
+
+		const idField = fields.find(f => f.name === 'id')!;
+		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
+		assert.strictEqual(idField.dataType, 'integer');
+
+		const nameField = fields.find(f => f.name === 'name')!;
+		assert.strictEqual(nameField.dataType, 'character varying(255)');
+
+		const priceField = fields.find(f => f.name === 'price')!;
+		assert.strictEqual(priceField.dataType, 'numeric(10,2)');
+
+		const activeField = fields.find(f => f.name === 'active')!;
+		assert.strictEqual(activeField.dataType, 'boolean');
+
+		// Field nodes should be leaves.
+		fields.forEach(f => {
+			assert.strictEqual(f.getChildren, undefined);
+			assert.strictEqual(f.preview, undefined);
+		});
+	});
+
+	// --- Indexes ---
+
+	test('table Indexes group returns index leaf nodes', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('pg_indexes')) {
+				return {
+					rows: [
+						{ indexname: 'products_pkey' },
+						{ indexname: 'products_name_idx' },
+					]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 'products' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schemaNode = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schemaNode);
+		const productsNode = tables.find(c => c.name === 'products')!;
+
+		const groups = await productsNode.getChildren!();
+		const indexesGroup = groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupIndexes)!;
+		const indexes = await indexesGroup.getChildren!();
+
+		assert.deepStrictEqual(indexes.map(i => i.name).sort(), ['products_name_idx', 'products_pkey']);
+		indexes.forEach(i => {
+			assert.strictEqual(i.kind, positron.DataConnectionNodeKind.Index);
+			assert.strictEqual(i.getChildren, undefined, 'indexes are leaves');
+		});
+	});
+
+	// --- Data type formatting ---
+
+	test('array types formatted correctly', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.columns')) {
+				return {
+					rows: [{
+						column_name: 'tags',
+						data_type: 'ARRAY',
+						udt_name: '_text',
+						is_nullable: 'YES',
+						character_maximum_length: null,
+						numeric_precision: null,
+						numeric_scale: null,
+					}]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schema = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
+		assert.strictEqual(fields[0].dataType, 'text[]');
+	});
+
+	test('user-defined types use udt_name', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.columns')) {
+				return {
+					rows: [{
+						column_name: 'status',
+						data_type: 'USER-DEFINED',
+						udt_name: 'order_status',
+						is_nullable: 'YES',
+						character_maximum_length: null,
+						numeric_precision: null,
+						numeric_scale: null,
+					}]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schema = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
+		assert.strictEqual(fields[0].dataType, 'order_status');
+	});
+
+	test('numeric without scale omits scale', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.columns')) {
+				return {
+					rows: [{
+						column_name: 'amount',
+						data_type: 'numeric',
+						udt_name: 'numeric',
+						is_nullable: 'YES',
+						character_maximum_length: null,
+						numeric_precision: 18,
+						numeric_scale: 0,
+					}]
+				};
+			}
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schema = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schema);
+		const fields = await columnsOf(tables[0]);
+		assert.strictEqual(fields[0].dataType, 'numeric(18)');
+	});
+
+	// --- getChildren after disconnect ---
+
+	test('getChildren after disconnect throws', async () => {
+		const mock = createMockClient();
+		const conn = createTestConnection(mock);
+		await conn.disconnect();
+
+		await assert.rejects(
+			() => conn.getChildren(),
+			/closed/
+		);
+	});
+
+	// --- Preview ---
+
+	test('preview does not throw', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
+				return { rows: [{ table_name: 't' }] };
+			}
+			return { rows: [] };
+		});
+
+		const schema = createSchemaNode(mock, 'public');
+		const tables = await tablesOf(schema);
+		assert.ok(tables[0].preview);
+		await tables[0].preview!();
+	});
+});

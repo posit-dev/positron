@@ -412,14 +412,6 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		listInstance.setItemRenderer(renderItem);
 	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage]);
 
-	// Enter on the focused row sets selection to that row.
-	useEffect(() => {
-		const disposable = listInstance.onDidActivate(() => {
-			listInstance.selectRow(listInstance.cursorRowIndex);
-		});
-		return () => disposable.dispose();
-	}, [listInstance]);
-
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
 	useEffect(() => {

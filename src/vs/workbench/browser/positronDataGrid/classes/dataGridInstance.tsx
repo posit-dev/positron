@@ -164,8 +164,60 @@ type DefaultCursorOptions = | {
 export type SelectionMode = 'spreadsheet' | 'list-multiple-selection' | 'list-single-selection';
 
 /**
- * SelectionOptions type. Discriminated on `selection`: when selection is disabled, there is
- * nothing for selectionMode to govern, so the type system rejects specifying it.
+ * ListSelectionMode type. The subset of SelectionMode in which a single cursor row drives the
+ * selection. The list-only selection options (selectionFollowsCursor, enterSelects, spaceSelects)
+ * apply only in these modes.
+ */
+type ListSelectionMode = Exclude<SelectionMode, 'spreadsheet'>;
+
+/**
+ * SelectionCursorOptions type. The cursor/commit options for the list selection modes,
+ * discriminated on `selectionFollowsCursor`: `enterSelects` and `spaceSelects` may be specified
+ * only when the selection does NOT follow the cursor. When it does, every navigation already
+ * selects the cursor row, so committing with Enter/Space would be redundant. Exported and reused
+ * by the PositronList and PositronTree option types so they expose and enforce the same shape.
+ */
+export type SelectionCursorOptions =
+	| {
+		// The selection follows the cursor: every navigation re-selects the cursor row. Because
+		// the cursor row is always selected, Enter/Space-to-select would be redundant and is
+		// therefore disallowed.
+		readonly selectionFollowsCursor?: true;
+		readonly enterSelects?: never;
+		readonly spaceSelects?: never;
+	}
+	| {
+		// The cursor (focus) moves independently of the selection. The selection changes only on
+		// explicit action, so Enter and Space can be opted in to commit the selection to the
+		// cursor row.
+		readonly selectionFollowsCursor: false;
+
+		// Whether pressing Enter selects the cursor row.
+		readonly enterSelects?: boolean;
+
+		// Whether pressing Space selects the cursor row.
+		readonly spaceSelects?: boolean;
+	};
+
+/**
+ * Forwards a SelectionCursorOptions value into a DataGridInstance subclass's super() call. The
+ * three fields cannot be passed individually because reading each off the options widens it to
+ * `boolean | undefined`, which loses the correlation the discriminated union relies on (that
+ * enterSelects/spaceSelects exist only when selectionFollowsCursor is false). Returning the slice
+ * as one discriminated value preserves it, so callers can spread `...selectionCursorOptions(opts)`
+ * into the base options. The base class applies the defaults.
+ */
+export function selectionCursorOptions(options: SelectionCursorOptions): SelectionCursorOptions {
+	return options.selectionFollowsCursor
+		? { selectionFollowsCursor: true }
+		: { selectionFollowsCursor: false, enterSelects: options.enterSelects, spaceSelects: options.spaceSelects };
+}
+
+/**
+ * SelectionOptions type. Discriminated on `selection`, `selectionMode`, and (within the list
+ * modes) `selectionFollowsCursor`. The list-only options are meaningful only when a single cursor
+ * row drives the selection, so the type system permits them only in a list mode; within a list
+ * mode the cursor/commit options follow SelectionCursorOptions.
  */
 type SelectionOptions =
 	| {
@@ -174,19 +226,30 @@ type SelectionOptions =
 		// (no highlighted selection) set this to false.
 		selection: false;
 
-		// Disallowed when selection is off, since there is no selection for the cursor to track.
+		// Disallowed when selection is off, since there is no selection to govern.
 		selectionMode?: never;
+		selectionFollowsCursor?: never;
+		enterSelects?: never;
+		spaceSelects?: never;
 	}
 	| {
-		// Selection enabled (the default): mouse clicks and keyboard navigation populate the
-		// cell/column/row selection buckets. Whether Shift and Ctrl/Cmd modifiers extend the
-		// selection depends on selectionMode.
+		// Selection enabled in spreadsheet mode (the default): mouse clicks and keyboard
+		// navigation populate the cell/column/row selection buckets, but the cursor and
+		// selection are independent, so the list-only options below do not apply.
 		selection?: true;
+		selectionMode?: 'spreadsheet';
 
-		// How cursor movement and modifier keys interact with selection. Defaults to
-		// 'spreadsheet'. See SelectionMode for details.
-		selectionMode?: SelectionMode;
-	};
+		// Disallowed in 'spreadsheet' mode, where the cursor and selection are always independent.
+		selectionFollowsCursor?: never;
+		enterSelects?: never;
+		spaceSelects?: never;
+	}
+	| ({
+		// Selection enabled in a list mode: a single cursor row drives the selection, so the
+		// cursor/commit options apply. See SelectionMode for how each list mode behaves.
+		selection?: true;
+		selectionMode: ListSelectionMode;
+	} & SelectionCursorOptions);
 
 /**
  * DataGridOptions type.
@@ -710,6 +773,24 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private readonly _selectionMode: SelectionMode;
 
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, the selection tracks
+	 * the cursor as it moves.
+	 */
+	private readonly _selectionFollowsCursor: boolean;
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Enter selects
+	 * the cursor row.
+	 */
+	private readonly _enterSelects: boolean;
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Space selects
+	 * the cursor row.
+	 */
+	private readonly _spaceSelects: boolean;
+
 	//#endregion Private Properties - Settings
 
 	//#region Private Properties
@@ -772,6 +853,16 @@ export abstract class DataGridInstance extends Disposable {
 	 * The onDidChangeColumnSorting event emitter.
 	 */
 	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
+
+	/**
+	 * The onEnter event emitter.
+	 */
+	private readonly _onEnterEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onSpace event emitter.
+	 */
+	private readonly _onSpaceEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Events
 
@@ -872,6 +963,13 @@ export abstract class DataGridInstance extends Disposable {
 		// SelectionOptions.
 		this._selection = options.selection ?? true;
 		this._selectionMode = options.selectionMode ?? 'spreadsheet';
+		// In the list modes, the selection does not follow the cursor by default; the cursor
+		// (focus) moves independently and Enter/Space commit the selection to the cursor row.
+		// When the selection does follow the cursor, every navigation already selects it, so
+		// Enter/Space-to-select default off (and are disallowed by the options type anyway).
+		this._selectionFollowsCursor = options.selectionFollowsCursor ?? false;
+		this._enterSelects = options.enterSelects ?? !this._selectionFollowsCursor;
+		this._spaceSelects = options.spaceSelects ?? !this._selectionFollowsCursor;
 
 		// Allocate and initialize the layout managers.
 		this._columnLayoutManager = new LayoutManager(this._defaultColumnWidth);
@@ -1090,6 +1188,31 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get selectionMode() {
 		return this._selectionMode;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, keyboard navigation
+	 * makes the selection track the cursor row. When false, the cursor (focus) moves
+	 * independently of the selection. Has no effect in 'spreadsheet' mode.
+	 */
+	get selectionFollowsCursor() {
+		return this._selectionFollowsCursor;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Enter selects
+	 * the cursor row. Has no effect in 'spreadsheet' mode.
+	 */
+	get enterSelects() {
+		return this._enterSelects;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Space selects
+	 * the cursor row. Has no effect in 'spreadsheet' mode.
+	 */
+	get spaceSelects() {
+		return this._spaceSelects;
 	}
 
 	/**
@@ -1331,6 +1454,20 @@ export abstract class DataGridInstance extends Disposable {
 	 * onDidChangeColumnSorting event.
 	 */
 	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
+
+	/**
+	 * onEnter event. Fires when the user presses Enter on the cursor row, regardless of whether
+	 * Enter also commits the selection (enterSelects). Lets consumers act on the cursor row
+	 * independently of selection (e.g. expand/collapse in a tree).
+	 */
+	readonly onEnter = this._onEnterEmitter.event;
+
+	/**
+	 * onSpace event. Fires when the user presses Space on the cursor row, regardless of whether
+	 * Space also commits the selection (spaceSelects). Lets consumers act on the cursor row
+	 * independently of selection (e.g. expand/collapse in a tree).
+	 */
+	readonly onSpace = this._onSpaceEmitter.event;
 
 	//#endregion Public Events
 
@@ -3484,14 +3621,29 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Called when the user presses Enter while the data grid has focus and the cursor is
-	 * already showing. Subclasses can override to implement an "activation" action (e.g.
-	 * expand/collapse a row, open the focused item). The base implementation does nothing.
+	 * Called when the user presses Enter while the data grid has focus and the cursor is showing.
+	 * Called regardless of whether Enter also commits the selection (enterSelects), so a tree can
+	 * expand/collapse the cursor row even while Enter selects it. The base implementation raises
+	 * the onEnter event; subclasses can override to implement a custom action instead.
 	 *
 	 * The host (DataGridWaffle) handles consuming the keyboard event and the showCursor()
 	 * gating before this is called, so overrides only need to implement the action itself.
 	 */
 	async onEnterKey(): Promise<void> {
+		this._onEnterEmitter.fire();
+	}
+
+	/**
+	 * Called when the user presses Space while the data grid has focus and the cursor is showing.
+	 * Called regardless of whether Space also commits the selection (spaceSelects), so a tree can
+	 * expand/collapse the cursor row even while Space selects it. The base implementation raises
+	 * the onSpace event; subclasses can override to implement a custom action instead.
+	 *
+	 * The host (DataGridWaffle) handles consuming the keyboard event and the showCursor()
+	 * gating before this is called, so overrides only need to implement the action itself.
+	 */
+	async onSpaceKey(): Promise<void> {
+		this._onSpaceEmitter.fire();
 	}
 
 	/**

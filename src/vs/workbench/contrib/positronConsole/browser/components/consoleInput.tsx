@@ -441,7 +441,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 			}
 		}
-	}
+	};
 
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
@@ -578,34 +578,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					consumeEvent();
 					services.commandService.executeCommand('deleteAllLeft');
 					break;
-				}
-				break;
-			}
-
-			case KeyCode.KeyP: {
-				// Bind Ctrl+P to navigate history up ("Previous"). This is a GNU
-				// readline keybinding.
-				//
-				// <C-N> and <C-P> are only bound on macOS. This is because on
-				// Windows and Linux, <C-P> is the binding for opening the
-				// Command Palette.
-				if (isMacintosh) {
-					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-						consumeEvent();
-						navigateHistoryUp(e);
-					}
-				}
-				break;
-			}
-
-			case KeyCode.KeyN: {
-				// Bind Ctrl+N to navigate history down ("Next"). This is a GNU
-				// readline keybinding.
-				if (isMacintosh) {
-					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-						consumeEvent();
-						navigateHistoryDown(e);
-					}
 				}
 				break;
 			}

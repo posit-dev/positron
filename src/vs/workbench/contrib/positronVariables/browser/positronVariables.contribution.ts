@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { KeyMod, KeyCode, KeyChord } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -17,7 +17,7 @@ import { PositronVariablesRefreshAction } from './positronVariablesActions.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
-import { Extensions as ViewContainerExtensions, IViewDescriptorService, IViewsRegistry } from '../../../common/views.js';
+import { Extensions as ViewContainerExtensions, IViewDescriptorService, IViewsRegistry, ViewContainer } from '../../../common/views.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND } from './positronVariablesIdentifiers.js';
 import { POSITRON_SESSION_CONTAINER, positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 
@@ -85,35 +85,103 @@ class PositronVariablesContribution extends Disposable implements IWorkbenchCont
 
 	/**
 	 * Registers the view visibility handler to notify the variables service
-	 * when the Variables pane is explicitly hidden or shown via the "Hide View"
-	 * action.
-	 *
-	 * This doesn't fire when simply switching to another view in the same panel.
+	 * when the Variables pane is explicitly hidden/shown via the "Hide View"
+	 * action, or when the view is dragged into a different view container.
 	 */
 	private _registerViewVisibilityHandler(): void {
+		// This mutable disposable tracks the listeners for the current container,
+		// so we can dispose them when the container changes.
+		const containerSubscriptions = this._register(new MutableDisposable<DisposableStore>());
+		// Tracks whether a visibility update is already scheduled.
+		// Used to consolidate multiple rapid visibility changes into a single update.
+		let visibilityUpdateScheduled = false;
+
+		// Tracks whether this contribution is still active (not disposed).
+		// Used to stop a scheduled visibility update from running once the
+		// variables service has been disposed.
+		let active = true;
+		this._register(toDisposable(() => { active = false; }));
+
+		// Recomputes the visibility of the variables view and notifies the variables service.
+		const updateVariablesViewVisibility = () => {
+			visibilityUpdateScheduled = false;
+			// If the contribution has been disposed, do not attempt to update the service.
+			if (!active) {
+				return;
+			}
+			// Find the container the variables view is currently in (if any)
+			const container = this._viewDescriptorService.getViewContainerByViewId(POSITRON_VARIABLES_VIEW_ID);
+			// The variables view is visible if it is in a container and that container considers it visible.
+			const visible = !!container && this._viewDescriptorService.getViewContainerModel(container).isVisible(POSITRON_VARIABLES_VIEW_ID);
+			// Notify the variables service of the current visibility.
+			this._positronVariablesService.setViewVisible(visible);
+		};
+
+		// Schedules a check to see if the variables view is visible.
+		const scheduleVisibilityUpdate = () => {
+			if (visibilityUpdateScheduled) {
+				return;
+			}
+			visibilityUpdateScheduled = true;
+
+			/**
+			 * When the variables view is dragged into a new container,
+			 * the source container fires onDidRemoveVisibleViewDescriptors and the
+			 * destination container fires onDidAddVisibleViewDescriptors back to back.
+			 *
+			 * If we set the variables view visibility to false on the remove event immediately,
+			 * the instance and its comm will be torn down before the add event has a chance to
+			 * fire which causes unnecessary teardown and setup of the variables instance.
+			 *
+			 * By deferring the update to the next microtask, we allow both events to be processed
+			 * before we check the visibility, so we only tear down the variables instance when
+			 * the view is actually hidden, not when it is moved between containers.
+			 */
+			queueMicrotask(updateVariablesViewVisibility);
+		};
+
+		// Attaches listeners to a container to track the visibility of the variables view within it.
+		const attachToContainer = (container: ViewContainer) => {
+			const model = this._viewDescriptorService.getViewContainerModel(container);
+			const store = new DisposableStore();
+
+			// Listen to the view being added to the container (e.g. via "Show View" or drag).
+			store.add(model.onDidAddVisibleViewDescriptors(added => {
+				if (added.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
+					// The view was added to this container. Check if it is visible, and notify the service.
+					scheduleVisibilityUpdate();
+				}
+			}));
+
+			// Listen to the view being removed from the container (e.g. via "Hide View" or drag).
+			store.add(model.onDidRemoveVisibleViewDescriptors(removed => {
+				if (removed.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
+					// The view was removed from this container. Check if it is still visible in another container, and notify the service.
+					scheduleVisibilityUpdate();
+				}
+			}));
+
+			// Track the current subscriptions so we can dispose them when the view moves to a different container.
+			containerSubscriptions.value = store;
+
+			// Schedule an initial check of the view's visibility in this container,
+			// in case it changed before listeners were registered.
+			scheduleVisibilityUpdate();
+		};
+
 		// Get the view container for the Variables view
 		const viewContainer = this._viewDescriptorService.getViewContainerByViewId(POSITRON_VARIABLES_VIEW_ID);
 		if (!viewContainer) {
 			return;
 		}
 
-		const viewContainerModel = this._viewDescriptorService.getViewContainerModel(viewContainer);
+		// Bind listeners that checks the visibility of the variables view to the initial container.
+		attachToContainer(viewContainer);
 
-		// Set initial visibility state based on whether the view is in the visible descriptors
-		const isVisible = viewContainerModel.isVisible(POSITRON_VARIABLES_VIEW_ID);
-		this._positronVariablesService.setViewVisible(isVisible);
-
-		// Listen for when the view is explicitly shown (via "Show View" or similar)
-		this._register(viewContainerModel.onDidAddVisibleViewDescriptors(added => {
-			if (added.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
-				this._positronVariablesService.setViewVisible(true);
-			}
-		}));
-
-		// Listen for when the view is explicitly hidden (via "Hide View" context menu)
-		this._register(viewContainerModel.onDidRemoveVisibleViewDescriptors(removed => {
-			if (removed.some(ref => ref.viewDescriptor.id === POSITRON_VARIABLES_VIEW_ID)) {
-				this._positronVariablesService.setViewVisible(false);
+		// Make sure we re-bind these listeners whenever the variables view parent container changes.
+		this._register(this._viewDescriptorService.onDidChangeContainer(e => {
+			if (e.views.some(v => v.id === POSITRON_VARIABLES_VIEW_ID)) {
+				attachToContainer(e.to);
 			}
 		}));
 	}

@@ -1942,6 +1942,15 @@ declare module 'positron' {
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
+		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupSchemas = 'group-schemas',
+		GroupTables = 'group-tables',
+		GroupViews = 'group-views',
+		GroupColumns = 'group-columns',
+		GroupIndexes = 'group-indexes',
+		GroupTriggers = 'group-triggers',
+		Trigger = 'trigger',
+		Index = 'index',
 	}
 
 	export interface DataConnectionNode {

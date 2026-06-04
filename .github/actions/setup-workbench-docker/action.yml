@@ -6,6 +6,10 @@ inputs:
     description: 'Installation mode: "ci" for latest daily build or "ci-stable" for stable release'
     required: false
     default: 'ci'
+  credentials:
+    description: 'Optional managed credential to provision: "snowflake", "databricks", or empty for none'
+    required: false
+    default: ''
   wb-password:
     description: 'Workbench password'
     required: true
@@ -87,6 +91,10 @@ runs:
     - name: Install Workbench in container
       shell: bash
       run: |
+        CREDENTIALS_FLAG=""
+        if [ -n "${{ inputs.credentials }}" ]; then
+          CREDENTIALS_FLAG="--credentials=${{ inputs.credentials }}"
+        fi
         docker exec \
           -e GITHUB_TOKEN="${{ inputs.github-token }}" \
           -e ARCH_SUFFIX=amd64 \
@@ -96,7 +104,8 @@ runs:
           -e SNOWFLAKE_ACCOUNT_="${SNOWFLAKE_ACCOUNT}" \
           -e SNOWFLAKE_CLIENT_ID_="${SNOWFLAKE_CLIENT_ID}" \
           -e SNOWFLAKE_CLIENT_SECRET_="${SNOWFLAKE_CLIENT_SECRET}" \
-          test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }}"
+          -e AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_="${AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET}" \
+          test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }} $CREDENTIALS_FLAG"
 
     - name: Install custom Positron build (if provided)
       if: inputs.custom-positron-tarball != ''

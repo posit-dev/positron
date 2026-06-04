@@ -63,7 +63,7 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		// Look for the specific quick input list items that appear during the publisher wizard
 		let publishWizardPresent = false;
 		try {
-			await page.locator('.quick-input-list').getByText('source', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
+			await page.locator('.quick-input-message').getByText('title', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
 			publishWizardPresent = true;
 		} catch {
 			publishWizardPresent = false;
@@ -71,12 +71,6 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		if (publishWizardPresent) {
 			// First run: need to complete setup wizard
-			await test.step('Publish with source code', async () => {
-				await app.workbench.quickInput.waitForQuickInputOpened();
-				await app.workbench.quickInput.type('source');
-				await page.keyboard.press('Enter');
-			});
-
 			await test.step('Enter title for application through quick-input', async () => {
 				await app.workbench.quickInput.waitForQuickInputOpened();
 				await app.workbench.quickInput.type('quarto-r-example');

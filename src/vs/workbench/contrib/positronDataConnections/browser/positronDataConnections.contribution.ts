@@ -73,8 +73,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			{
 				id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 				title: {
-					value: localize('positron.dataConnections', "Data Connections"),
-					original: 'Data Connections'
+					value: localize('positron.dataConnections', "Data"),
+					original: 'Data'
 				},
 				icon: positronDataConnectionsViewIcon,
 				order: 2,
@@ -93,7 +93,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 		Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 			id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 			name: {
-				value: localize('positron.dataConnections', "Data Connections"),
+				value: localize('positron.dataConnections', "Data"),
 				original: 'Data Connections'
 			},
 			containerIcon: positronDataConnectionsViewIcon,
@@ -103,7 +103,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			positronAlwaysOpenView: true,
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.toggleDataConnections',
-				mnemonicTitle: localize({ key: 'miToggleDataConnections', comment: ['&& denotes a mnemonic'] }, "&&Data Connections"),
+				mnemonicTitle: localize({ key: 'miToggleDataConnections', comment: ['&& denotes a mnemonic'] }, "&&Data"),
 				keybindings: {},
 				order: 3,
 			}
