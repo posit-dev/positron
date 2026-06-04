@@ -140,11 +140,6 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 
 	test.describe('Assistant Layout', { tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT] }, () => {
 		test.afterEach('Reset Layout', async function ({ app }) {
-			// The Posit Assistant view is a webview. If it holds focus, opening the
-			// command palette to switch layouts is unreliable on web (the palette
-			// blurs back to the iframe and closes), so move focus to the console --
-			// visible in the assistant layout -- before resetting.
-			await app.workbench.hotKeys.focusConsole();
 			await app.workbench.layouts.enterLayout('stacked');
 		});
 
@@ -194,18 +189,6 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 
 			// Enable Posit Assistant so the layout targets its view container
 			await settings.set({ 'assistant.enabled': true });
-
-			// Warm the extension before exercising the layout: open the Posit
-			// Assistant view once so the extension host has activated it and
-			// registered its view container, then switch the sidebar away via the
-			// stacked layout (which shows the Explorer). This keeps the test
-			// focused on what it should verify -- that the Assistant layout
-			// switches the sidebar to the Posit Assistant view -- without racing
-			// cold-start extension activation, which is slower on web than on
-			// desktop.
-			await app.workbench.positAssistant.open();
-			await layouts.enterLayout('stacked');
-			await app.workbench.positAssistant.expectViewClosed();
 
 			// Enter assistant layout
 			await layouts.enterLayout('assistant');

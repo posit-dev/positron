@@ -110,17 +110,6 @@ export class PositAssistant {
 	}
 
 	/**
-	 * Assert the Posit Assistant view is NOT the active view in the sidebar by
-	 * checking that its activity bar button is not selected. The inverse of
-	 * {@link expectViewOpen}; useful for confirming a layout switched the sidebar
-	 * away from the assistant before asserting it can switch back.
-	 */
-	async expectViewClosed(): Promise<void> {
-		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
-		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'false');
-	}
-
-	/**
 	 * Accepts the workspace trust dialog if it appears.
 	 * This dialog may or may not appear depending on workspace state.
 	 */
