@@ -1,0 +1,49 @@
+name: "CI: Approve Fork PR"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  approve:
+    if: >
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/run-ci')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check team membership
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+        run: |
+          STATUS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "orgs/posit-dev/teams/positron-dev/memberships/${{ github.event.comment.user.login }}" \
+            --jq '.state' 2>/dev/null || echo "not_found")
+
+          if [ "$STATUS" != "active" ]; then
+            echo "::error::User ${{ github.event.comment.user.login }} is not a member of posit-dev/positron-dev"
+            exit 1
+          fi
+
+      - name: Add run-ci label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "run-ci"
+
+      - name: React to comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content='rocket'

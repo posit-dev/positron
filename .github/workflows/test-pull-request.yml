@@ -7,7 +7,7 @@ on:
       - main
       - "prerelease/**"
       - "release/**"
-    types: [opened, synchronize, labeled]
+    types: [opened, synchronize, labeled, unlabeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,9 +17,10 @@ jobs:
   authorize:
     runs-on: ubuntu-latest
     if: >
+      github.event.action != 'unlabeled' &&
       (github.event.action != 'labeled' || github.event.label.name == 'run-ci') &&
       (github.event.pull_request.head.repo.full_name == github.repository ||
-       contains(github.event.pull_request.labels.*.name, 'run-ci'))
+       (github.event.action == 'labeled' && github.event.label.name == 'run-ci'))
     steps:
       - run: true
 
