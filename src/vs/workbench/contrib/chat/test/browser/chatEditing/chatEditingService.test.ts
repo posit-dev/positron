@@ -53,6 +53,10 @@ import { MockPromptsService } from '../../common/promptSyntax/service/mockPrompt
 import { IChatDebugService } from '../../../common/chatDebugService.js';
 import { ChatDebugServiceImpl } from '../../../common/chatDebugServiceImpl.js';
 
+// --- Start Positron ---
+import { IPositronAssistantConfigurationService } from '../../../../positronAssistant/common/interfaces/positronAssistantService.js';
+// --- End Positron ---
+
 function getAgentData(id: string): IChatAgentData {
 	return {
 		name: id,
@@ -81,6 +85,13 @@ suite('ChatEditingService', function () {
 		const collection = new ServiceCollection();
 		collection.set(IWorkbenchAssignmentService, new NullWorkbenchAssignmentService());
 		collection.set(IChatAgentService, new SyncDescriptor(ChatAgentService));
+		// --- Start Positron ---
+		// ChatAgentService depends on IPositronAssistantConfigurationService, so it
+		// must be registered for the SyncDescriptor above to resolve.
+		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			override copilotEnabled: boolean = true;
+		});
+		// --- End Positron ---
 		collection.set(IChatVariablesService, new MockChatVariablesService());
 		collection.set(IChatSlashCommandService, new class extends mock<IChatSlashCommandService>() { });
 		collection.set(IChatTransferService, new SyncDescriptor(ChatTransferService));
