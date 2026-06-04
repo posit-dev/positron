@@ -40,11 +40,11 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 			icon: undefined,
 			message: localize(
 				'positron.academicLicense.banner',
-				"You are using Positron under an academic license."
+				"By using Positron, you agree to the terms of the Positron license and the Education License Rider."
 			),
 			actions: [
 				{
-					label: localize('positron.academicLicense.viewTerms', "View License Terms"),
+					label: localize('positron.academicLicense.viewTerms', "View Terms"),
 					href: LICENSE_TERMS_URL,
 				}
 			],
