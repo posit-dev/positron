@@ -26,7 +26,7 @@ test.describe('Posit Assistant', {
 				// Ensure we're running the latest Posit Assistant dev build.
 				// Enables the auto dev-build update check, triggers the check,
 				// and accepts the resulting "Update Now" / "Reload" toasts.
-				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess, { toastTimeout: 10000 });
 			});
 
 			test(`${provider} - Open Posit Assistant and verify welcome page`, async function ({ app }) {

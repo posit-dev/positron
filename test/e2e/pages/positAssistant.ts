@@ -27,8 +27,8 @@ const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 // Welcome/landing page elements
 const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
 
-// Chat input area
-const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see commands"]';
+// Chat input area (contenteditable div, not textarea — placeholder rendered as sibling element)
+const CHAT_INPUT = '[contenteditable="true"]';
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
 
@@ -111,7 +111,7 @@ export class PositAssistant {
 	 */
 	async acceptTrustDialogIfPresent(): Promise<void> {
 		const trustDialog = this.frame.locator(TRUST_DIALOG);
-		const isVisible = await trustDialog.isVisible().catch(() => false);
+		const isVisible = await trustDialog.isVisible({ timeout: 5000 }).catch(() => false);
 		if (isVisible) {
 			await trustDialog.locator(TRUST_BUTTON).click();
 		}
