@@ -37,7 +37,6 @@ import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../.
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
-import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -92,52 +91,6 @@ function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernel
  * - Manages the lifecycle of the notebook view
  */
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
-
-	// ===== Statics =====
-	// #region Statics
-	/** Map of all active notebook instances, keyed by notebook URI */
-	static _instanceMap = new ResourceMap<PositronNotebookInstance>();
-
-	/**
-	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
-	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
-	 * @param id Unique identifier for the notebook instance
-	 * @param uri URI of the notebook resource
-	 * @param viewType The view type of the notebook
-	 * @param creationOptions Options for opening notebook
-	 * @param instantiationService Instantiation service for creating instance with proper DI.
-	 * @returns Instance of the notebook, either retrieved from existing or created.
-	 */
-	static getOrCreate(
-		id: string,
-		uri: URI,
-		viewType: string,
-		creationOptions: INotebookEditorCreationOptions | undefined,
-		instantiationService: IInstantiationService,
-	): PositronNotebookInstance {
-
-		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
-		if (existingInstance) {
-			// Do NOT detach here -- attachView's internal detachView handles
-			// any re-attachment, and the unconditional detach this used to do
-			// would tear down a render cached in PositronNotebookEditor.
-			existingInstance._creationOptions = creationOptions;
-			return existingInstance;
-		}
-
-		const instance = instantiationService.createInstance(
-			PositronNotebookInstance,
-			id,
-			uri,
-			viewType,
-			creationOptions
-		);
-		PositronNotebookInstance._instanceMap.set(uri, instance);
-		return instance;
-	}
-
-	// #endregion
-
 	// =============================================================================================
 	// #region Private Properties
 
@@ -996,8 +949,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells.get().forEach(cell => cell.dispose());
 
 		this._positronNotebookService.unregisterInstance(this);
-		// Remove from the instance map
-		PositronNotebookInstance._instanceMap.delete(this.uri);
 
 		super.dispose();
 		this.detachView();
