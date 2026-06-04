@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IMemoryUsageSnapshot, LowMemoryUnit } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -159,6 +160,11 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading, showWarning = tr
 		/>
 	) : null;
 
+	// When the meter is too narrow to show the warning icon, color the size
+	// label with the warning foreground so the low-memory state is still
+	// indicated.
+	const lowMemoryLabel = !!lowMemory && !showWarning;
+
 	// Loading state: draw an empty bar with a "Mem" label.
 	if (loading || !snapshot) {
 		const handleLoadingClick = () => {
@@ -256,7 +262,7 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading, showWarning = tr
 			{barWidth !== undefined && (
 				<MemoryUsageBar snapshot={snapshot} style={{ width: barWidth }} />
 			)}
-			<span className='memory-size-label'>{sizeLabel}</span>
+			<span className={positronClassNames('memory-size-label', { 'low-memory': lowMemoryLabel })}>{sizeLabel}</span>
 			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>
 	);

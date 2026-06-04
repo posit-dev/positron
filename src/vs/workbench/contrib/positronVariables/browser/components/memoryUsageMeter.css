@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .memory-usage-meter {
-	width: 100%;
+	/* Shrink-wrap the content and hug the right edge of the cell so the hover
+	   background tracks the content rather than the full (over-allocated) cell
+	   width, which would otherwise leave empty space to the left. */
+	width: fit-content;
+	max-width: 100%;
+	margin-inline-start: auto;
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
@@ -93,6 +98,12 @@
 	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 	user-select: none;
+}
+
+/* When the meter is too narrow to show the warning icon, color the size label
+   with the warning foreground (matching the icon) to indicate low memory. */
+.memory-usage-meter .memory-size-label.low-memory {
+	color: var(--vscode-editorWarning-foreground);
 }
 
 .memory-usage-meter .memory-low-warning.codicon {
