@@ -31,7 +31,8 @@ test.describe('Python Venv Auto-Creation', {
 		await openFolder(`${fixtureBase}/with-requirements`);
 		await app.workbench.sessions.expectNoStartUpMessaging();
 
-		await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
+		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
+		await expect(toast).toBeVisible({ timeout: 60000 });
 		await app.workbench.toasts.expectToastWithTitle(/uv/);
 		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
 	});
@@ -53,7 +54,8 @@ test.describe('Python Venv Auto-Creation', {
 			await openFolder('qa-example-content/venv-creation-test');
 			await app.workbench.sessions.expectNoStartUpMessaging();
 
-			await app.workbench.toasts.waitForAppear(/requirements\.txt/, { timeout: 60000 });
+			const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
+			await expect(toast).toBeVisible({ timeout: 60000 });
 			await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
 
 			const venvPath = path.join(tempWorkspace, '.venv');
