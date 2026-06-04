@@ -47,6 +47,15 @@
         "command": "workbench.action.reloadWindow"
     },
     {
+        // Disable the dev-only Ctrl+R reload binding (ReloadWindowAction, gated on
+        // IsDevelopmentContext) so it does not shadow the console's Ctrl+R reverse
+        // history search. This binding only exists in the compiled build the e2e
+        // suite runs against, not in built Positron; reload is driven via the entry
+        // above instead.
+        "key": "cmd+r",
+        "command": "-workbench.action.reloadWindow"
+    },
+    {
         "key": "cmd+j x",
         "command": "resetGettingStartedProgress" // Reset Welcome Walkthrough Progress
     },
