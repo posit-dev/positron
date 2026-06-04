@@ -35,13 +35,13 @@ An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/tests
 
 ### Environment Variables
 
-In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. There is an example env file available, just copy this into root of repo `.env.e2e`:
+In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. Copy `.env.e2e.example` to `.env.e2e` in the root of the repo and update the values:
 
 ```bash
-export POSITRON_PY_VER_SEL="3.11.5"
-export POSITRON_R_VER_SEL="4.2.1"
-export POSITRON_PY_ALT_VER_SEL='3.13.0 (Pyenv)'
-export POSITRON_R_ALT_VER_SEL='4.4.2'
+POSITRON_PY_VER_SEL=3.11.5
+POSITRON_R_VER_SEL=4.2.1
+POSITRON_PY_ALT_VER_SEL=3.13.0 (Pyenv)
+POSITRON_R_ALT_VER_SEL=4.4.2
 ```
 
 Make sure you have the selected R and Python version installed that you are using for the environment variables.
