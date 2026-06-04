@@ -10,6 +10,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
+import { SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID } from './positronAcademicLicenseBanner.contribution.js';
 
 /**
  * Status bar entry ID for the licensee info display.
@@ -52,7 +53,8 @@ class PositronLicenseeInfoStatusBarContribution extends Disposable implements IW
 				name: localize('positronLicenseeInfo.name', "License Info"),
 				text: localize('positronLicenseeInfo.text', "Licensed to: {0}", licenseeInfo.licensee),
 				tooltip,
-				ariaLabel: tooltip
+				ariaLabel: tooltip,
+				command: SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID
 			},
 			POSITRON_LICENSEE_INFO_STATUS_ID,
 			StatusbarAlignment.RIGHT,
