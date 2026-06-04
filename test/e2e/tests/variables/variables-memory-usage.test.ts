@@ -59,13 +59,15 @@ test.describe('Variables: Memory Usage', {
 	test('Low memory warning icon appears when memory is low', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
-		// Set a fast polling interval and a 90% threshold. With the threshold
-		// this high the system is effectively always "low" on memory (any
-		// machine using more than 10% of its memory qualifies), which lets us
-		// deterministically exercise the low-memory warning.
+		// Set a fast polling interval and a 99% threshold. Free memory can never
+		// exceed total memory, so a 99% threshold means the system is treated as
+		// "low" on memory as long as it is using even 1% of it. This holds on
+		// essentially any real machine (including lightly-loaded CI runners that
+		// report most memory as free), letting us deterministically exercise the
+		// low-memory warning.
 		await settings.set({
 			'memoryUsage.pollingIntervalMs': 1000,
-			'memoryUsage.lowMemoryThresholdPercent': 90,
+			'memoryUsage.lowMemoryThresholdPercent': 99,
 		});
 
 		// Start a Python session so the variables pane shows a memory meter.
