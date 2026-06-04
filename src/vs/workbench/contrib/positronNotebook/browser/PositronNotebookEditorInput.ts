@@ -14,7 +14,6 @@ import { INotebookEditorModelResolverService } from '../../notebook/common/noteb
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
 import { FileFilter, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
@@ -87,8 +86,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	// This is a reference to the model that is currently being edited in the editor.
 	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
 
-	notebookInstance: PositronNotebookInstance;
-
 	//#endregion Static Properties
 	//#region Constructor & Dispose
 	/**
@@ -102,7 +99,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -110,22 +106,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	) {
 		// Call the base class's constructor.
 		super();
-
-		this.notebookInstance = PositronNotebookInstance.getOrCreate(
-			this.uniqueId,
-			this.resource,
-			this.viewType,
-			undefined,
-			instantiationService
-		);
 	}
 
 	/**
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		this.notebookInstance.dispose();
-
 		// Dispose the editor model reference, if one exists
 		this._editorModelReference?.dispose();
 		this._editorModelReference = null;
