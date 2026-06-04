@@ -68,8 +68,8 @@ const PositronListHarness = () => {
 		const list = new PositronListInstance<string, string>({
 			itemRenderer: item => <div className='positron-list-harness-item'>{item}</div>,
 			sectionRenderer: section => <div className='positron-list-harness-section'>{section}</div>,
-			defaultItemHeight: DEFAULT_ITEM_HEIGHT,
-			defaultSectionHeight: DEFAULT_SECTION_HEIGHT,
+			itemHeight: DEFAULT_ITEM_HEIGHT,
+			sectionHeight: DEFAULT_SECTION_HEIGHT,
 			...cursorOptions,
 		});
 		setInstance(list);
