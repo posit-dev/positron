@@ -140,6 +140,11 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 
 	test.describe('Assistant Layout', { tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT] }, () => {
 		test.afterEach('Reset Layout', async function ({ app }) {
+			// The Posit Assistant view is a webview. If it holds focus, opening the
+			// command palette to switch layouts is unreliable on web (the palette
+			// blurs back to the iframe and closes), so move focus to the console --
+			// visible in the assistant layout -- before resetting.
+			await app.workbench.hotKeys.focusConsole();
 			await app.workbench.layouts.enterLayout('stacked');
 		});
 
