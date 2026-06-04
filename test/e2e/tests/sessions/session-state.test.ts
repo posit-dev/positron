@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions: State', {
+test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }]
 }, () => {
