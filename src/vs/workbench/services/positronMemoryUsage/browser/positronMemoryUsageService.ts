@@ -21,6 +21,8 @@ import {
 	computeLowMemoryStatus,
 	ILowMemoryThresholds,
 	LowMemoryUnit,
+	LOW_MEMORY_PERCENT_SETTING,
+	LOW_MEMORY_MB_SETTING,
 	IMemorySessionUsage,
 	IMemoryUsageSnapshot,
 	IPositronMemoryInfoProvider,
@@ -32,8 +34,6 @@ const UNFOCUSED_POLLING_INTERVAL_MS = 60000;
 const POST_EXECUTION_DELAY_MS = 2000;
 const POLLING_INTERVAL_SETTING = 'memoryUsage.pollingIntervalMs';
 const ENABLED_SETTING = 'memoryUsage.enabled';
-const LOW_MEMORY_PERCENT_SETTING = 'memoryUsage.lowMemoryThresholdPercent';
-const LOW_MEMORY_MB_SETTING = 'memoryUsage.lowMemoryThresholdMB';
 const LOW_MEMORY_NOTIFICATION_SETTING = 'memoryUsage.lowMemoryNotification';
 
 // Legacy (positron.* prefixed) setting keys, honored for users who configured

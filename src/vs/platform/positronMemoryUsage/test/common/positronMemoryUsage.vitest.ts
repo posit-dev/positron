@@ -22,7 +22,7 @@ describe('computeLowMemoryStatus', () => {
 	it('reports the percentage unit when the percent threshold is reached', () => {
 		// 4% free, below the 5% threshold; no megabyte threshold.
 		const status = computeLowMemoryStatus(0.04 * total, total, { percent: 5, megabytes: 0 });
-		expect(status).toEqual({ unit: LowMemoryUnit.Percent, remaining: 4 });
+		expect(status).toEqual({ unit: LowMemoryUnit.Percent, threshold: 5, remaining: 4 });
 	});
 
 	it('reports the megabyte unit when only the megabyte threshold is reached', () => {
@@ -30,7 +30,7 @@ describe('computeLowMemoryStatus', () => {
 		// triggers -- use a high total so percent does not trip but MB does.
 		const bigTotal = 100 * GB;
 		const status = computeLowMemoryStatus(100 * MB, bigTotal, { percent: 0, megabytes: 200 });
-		expect(status).toEqual({ unit: LowMemoryUnit.Megabytes, remaining: 100 });
+		expect(status).toEqual({ unit: LowMemoryUnit.Megabytes, threshold: 200, remaining: 100 });
 	});
 
 	it('reports the percentage when both thresholds are reached', () => {
@@ -41,7 +41,7 @@ describe('computeLowMemoryStatus', () => {
 
 	it('triggers exactly at the threshold (<=)', () => {
 		const status = computeLowMemoryStatus(0.05 * total, total, { percent: 5 });
-		expect(status).toEqual({ unit: LowMemoryUnit.Percent, remaining: 5 });
+		expect(status).toEqual({ unit: LowMemoryUnit.Percent, threshold: 5, remaining: 5 });
 	});
 
 	it('treats a zero or undefined threshold as disabled', () => {

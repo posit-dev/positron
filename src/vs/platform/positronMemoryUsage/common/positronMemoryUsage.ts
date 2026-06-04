@@ -76,12 +76,26 @@ export interface ILowMemoryThresholds {
 }
 
 /**
- * Describes a low-memory condition: which threshold was reached and how much
- * memory remains, expressed in the unit of the triggering threshold.
+ * Setting key for the low-memory threshold expressed as a percentage of total
+ * memory.
+ */
+export const LOW_MEMORY_PERCENT_SETTING = 'memoryUsage.lowMemoryThresholdPercent';
+
+/**
+ * Setting key for the low-memory threshold expressed in megabytes.
+ */
+export const LOW_MEMORY_MB_SETTING = 'memoryUsage.lowMemoryThresholdMB';
+
+/**
+ * Describes a low-memory condition: which threshold was reached, the configured
+ * threshold value, and how much memory remains, all expressed in the unit of the
+ * triggering threshold.
  */
 export interface ILowMemoryStatus {
 	/** The unit of the threshold that triggered the low-memory state. */
 	unit: LowMemoryUnit;
+	/** The configured threshold value that triggered the low-memory state, in the triggering unit. */
+	threshold: number;
 	/** Remaining free memory in the triggering unit (percent: 0-100; megabytes: MB). */
 	remaining: number;
 }
@@ -110,10 +124,10 @@ export function computeLowMemoryStatus(freeBytes: number, totalBytes: number, th
 	const megabytesLow = thresholds.megabytes !== undefined && thresholds.megabytes > 0 && megabytesRemaining <= thresholds.megabytes;
 
 	if (percentLow) {
-		return { unit: LowMemoryUnit.Percent, remaining: percentRemaining };
+		return { unit: LowMemoryUnit.Percent, threshold: thresholds.percent!, remaining: percentRemaining };
 	}
 	if (megabytesLow) {
-		return { unit: LowMemoryUnit.Megabytes, remaining: megabytesRemaining };
+		return { unit: LowMemoryUnit.Megabytes, threshold: thresholds.megabytes!, remaining: megabytesRemaining };
 	}
 	return undefined;
 }
