@@ -15,6 +15,7 @@ import { localize } from '../../../../nls.js';
 import { hasKey } from '../../../../base/common/types.js';
 import {
 	FAST_CHEAP_DEFAULT_PATTERNS,
+	FastCheap,
 	IAvailableModel,
 	IPositronLMService,
 	IStreamTextParams,
@@ -196,7 +197,7 @@ export abstract class AbstractPositronLMService extends Disposable implements IP
 			await Promise.allSettled(this._pendingRefreshes);
 		}
 
-		const selection = params.model ?? { tier: 'fast-cheap' as const };
+		const selection = params.model ?? FastCheap;
 		let resolved = this._resolveModelSelection(selection);
 
 		// On cache miss, attempt a single on-demand re-warm before giving up
@@ -493,6 +494,8 @@ export abstract class AbstractPositronLMService extends Disposable implements IP
 	}
 
 	private _getAuthConfigKey(authProviderId: string): string {
+		// The auth provider id ('anthropic-api') differs from its user-facing config
+		// namespace ('anthropic'). Mirrors the mapping in positron-assistant/src/config.ts.
 		switch (authProviderId) {
 			case 'anthropic-api':
 				return 'anthropic';
