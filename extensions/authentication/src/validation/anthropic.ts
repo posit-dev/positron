@@ -15,7 +15,7 @@ class ApiKeyValidationError extends Error {
 }
 
 export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
-	const baseUrl = (config.baseUrl ?? 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+	const baseUrl = (config.baseUrl?.trim() || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 
 	const controller = new AbortController();

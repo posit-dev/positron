@@ -7,19 +7,20 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 
-class OpenaiValidationError extends Error {
+class DeepSeekValidationError extends Error {
 	constructor(message: string) {
 		super(message);
-		this.name = 'OpenaiValidationError';
+		this.name = 'DeepSeekValidationError';
 	}
 }
 
-export async function validateOpenaiApiKey(
+export async function validateDeepSeekApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
-	const baseUrl = (config.baseUrl?.trim() || 'https://api.openai.com/v1')
-		.replace(/\/+$/, '');
+	const baseUrl = (
+		config.baseUrl?.trim() || 'https://api.deepseek.com'
+	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 
 	const controller = new AbortController();
@@ -38,27 +39,27 @@ export async function validateOpenaiApiKey(
 		}
 
 		if (response.status === 401 || response.status === 403) {
-			throw new OpenaiValidationError(
-				vscode.l10n.t('Invalid OpenAI API key')
+			throw new DeepSeekValidationError(
+				vscode.l10n.t('Invalid DeepSeek API key')
 			);
 		}
 
-		throw new OpenaiValidationError(vscode.l10n.t(
-			'Unable to validate OpenAI API key (HTTP {0})',
+		throw new DeepSeekValidationError(vscode.l10n.t(
+			'Unable to validate DeepSeek API key (HTTP {0})',
 			String(response.status)
 		));
 	} catch (err) {
 		if (err instanceof Error && err.name === 'AbortError') {
-			throw new OpenaiValidationError(vscode.l10n.t(
-				'Could not validate OpenAI API key within {0} seconds',
+			throw new DeepSeekValidationError(vscode.l10n.t(
+				'Could not validate DeepSeek API key within {0} seconds',
 				String(KEY_VALIDATION_TIMEOUT_MS / 1000)
 			));
 		}
-		if (err instanceof OpenaiValidationError) {
+		if (err instanceof DeepSeekValidationError) {
 			throw err;
 		}
-		throw new OpenaiValidationError(vscode.l10n.t(
-			'Could not validate OpenAI API key. Check your network connection and try again.'
+		throw new DeepSeekValidationError(vscode.l10n.t(
+			'Could not validate DeepSeek API key. Check your network connection and try again.'
 		));
 	} finally {
 		clearTimeout(timeout);

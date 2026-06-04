@@ -95,10 +95,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.6.3",
+			"version": "2026.6.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "c6c92cf0c9bb1a3411484e4283e531109db1879c9b0c06e526db4bf136ded7cf",
+			"sha256": "b5b01d809dd07693554c71bc918590a48f07772db340c5849aa316528a0cf830",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -241,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.6",
+			"version": "2.7.7",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -252,8 +252,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.132.0",
-			"sha256": "fe54121a32cae2b1bd9e6b8560fcfcbacc23515587abb09dd735110d3246245b",
+			"version": "1.133.0",
+			"sha256": "784b52b2bf42f2a73141c04f173d4d36530a6a4831d221c92ec2ad2a5734f068",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -305,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.9",
-			"sha256": "40e8c099477a5dd7667adc5f2e88d9867fd38f1ed92d2e5a1f5100550c89f752",
+			"version": "0.5.10",
+			"sha256": "b31464b50644f54706941095e9fdf9feaad7585404dd221407670f55c95feb36",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -731,6 +731,10 @@
 		"openai-api": [
 			"positron.authentication",
 			"positron.positron-assistant",
+			"posit.assistant"
+		],
+		"deepseek-api": [
+			"positron.authentication",
 			"posit.assistant"
 		],
 		"openai-compatible": [
