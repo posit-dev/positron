@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import {
 	isValidSnowflakeAccount,
 	constructSnowflakeBaseUrl,
-	getSnowflakeDefaultBaseUrl,
 	detectSnowflakeCredentials,
 } from '../snowflakeCredentials';
 
@@ -78,58 +77,6 @@ suite('Snowflake Credentials', () => {
 				() => constructSnowflakeBaseUrl('invalid@account'),
 				/Invalid Snowflake account identifier/
 			);
-		});
-	});
-
-	suite('Default Base URL', () => {
-		let mockWorkspaceConfig: sinon.SinonStub;
-		let getConfigurationStub: sinon.SinonStub;
-		let processEnvStub: sinon.SinonStub;
-
-		setup(() => {
-			mockWorkspaceConfig = sinon.stub();
-			const mockConfig: vscode.WorkspaceConfiguration = {
-				get: mockWorkspaceConfig,
-				has: sinon.stub(),
-				inspect: sinon.stub(),
-				update: sinon.stub()
-			};
-			getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfig);
-			processEnvStub = sinon.stub(process, 'env').value({});
-		});
-
-		teardown(() => {
-			getConfigurationStub.restore();
-			processEnvStub.restore();
-		});
-
-		test('getSnowflakeDefaultBaseUrl uses account from configuration', () => {
-			mockWorkspaceConfig.withArgs('credentials', {}).returns({ SNOWFLAKE_ACCOUNT: 'config-account' });
-
-			const url = getSnowflakeDefaultBaseUrl();
-			assert.strictEqual(url, 'https://config-account.snowflakecomputing.com/api/v2/cortex/v1');
-		});
-
-		test('getSnowflakeDefaultBaseUrl uses account from environment', () => {
-			mockWorkspaceConfig.withArgs('credentials', {}).returns({});
-			processEnvStub.value({ SNOWFLAKE_ACCOUNT: 'env-account' });
-
-			const url = getSnowflakeDefaultBaseUrl();
-			assert.strictEqual(url, 'https://env-account.snowflakecomputing.com/api/v2/cortex/v1');
-		});
-
-		test('getSnowflakeDefaultBaseUrl falls back to placeholder when no account available', () => {
-			mockWorkspaceConfig.withArgs('credentials', {}).returns({});
-
-			const url = getSnowflakeDefaultBaseUrl();
-			assert.strictEqual(url, 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1');
-		});
-
-		test('getSnowflakeDefaultBaseUrl falls back to placeholder for invalid account', () => {
-			mockWorkspaceConfig.withArgs('credentials', {}).returns({ SNOWFLAKE_ACCOUNT: 'invalid@account' });
-
-			const url = getSnowflakeDefaultBaseUrl();
-			assert.strictEqual(url, 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1');
 		});
 	});
 
