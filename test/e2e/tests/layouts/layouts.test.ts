@@ -190,6 +190,18 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			// Enable Posit Assistant so the layout targets its view container
 			await settings.set({ 'assistant.enabled': true });
 
+			// Warm the extension before exercising the layout: open the Posit
+			// Assistant view once so the extension host has activated it and
+			// registered its view container, then switch the sidebar away via the
+			// stacked layout (which shows the Explorer). This keeps the test
+			// focused on what it should verify -- that the Assistant layout
+			// switches the sidebar to the Posit Assistant view -- without racing
+			// cold-start extension activation, which is slower on web than on
+			// desktop.
+			await app.workbench.positAssistant.open();
+			await layouts.enterLayout('stacked');
+			await app.workbench.positAssistant.expectViewClosed();
+
 			// Enter assistant layout
 			await layouts.enterLayout('assistant');
 
