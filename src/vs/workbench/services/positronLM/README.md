@@ -128,6 +128,20 @@ Consumer (your code)
 
 No extension host involved. Works on both desktop (Electron shared process) and server-hosted (remote agent) deployments.
 
+## Egress Routing (where the HTTP call originates)
+
+The `node/` implementation is the egress point -- it makes the actual streaming HTTP calls to model providers. It runs in one of two hosts, chosen by the workbench impl's channel selection:
+
+| Deployment | Workbench impl | Channel | `node/` runs in | Egress from |
+|---|---|---|---|---|
+| Local desktop (no remote) | `electron-browser/` | shared process | local Electron utility process | local machine |
+| **Remote SSH (desktop)** | `electron-browser/` | **remote agent** (falls back to shared process if no connection) | **remote server** | **remote server** |
+| Web / server-hosted | `browser/` | remote agent | server | server |
+
+**Why remote egress in Remote SSH:** every other Positron LLM feature egresses from the remote host there. Both LM-provider extensions (`positron-assistant`, `copilot`) have a `main` entry point and no explicit `extensionKind`, so they default to `['workspace']` and run in the *remote* extension host (`extensionManifestPropertiesService.ts` -> `nativeExtensionService.ts` host picker). Assistant chat, completions, and the prior `vscode.lm`-based ghost-cell path therefore all egress from the server. Routing this service the same way keeps egress uniform across LLM features and supports air-gapped-remote setups where only the server can reach the model gateway.
+
+**Credentials:** resolved in the renderer and forwarded as channel-call arguments. In Remote SSH they cross to the remote server -- the same secrets that already reach the remote extension host for the assistant, so this is not a new exposure. On plain local desktop they cross only a local IPC boundary.
+
 ## Model Selection
 
 The service eagerly caches model lists at activation so most `streamText()` calls resolve instantly from memory:
