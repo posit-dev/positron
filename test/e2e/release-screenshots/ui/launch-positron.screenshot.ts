@@ -25,7 +25,7 @@ test.describe('Release Screenshots - Launch Positron', () => {
 
 		// open the command palette and search for the positron path command
 		await hotKeys.openCommandPalette();
-		await quickInput.type('positron command path');
+		await page.keyboard.type('positron command path');
 
 		// ensure the command is visible in the palette
 		await expect(quickInput.widget).toBeVisible();
