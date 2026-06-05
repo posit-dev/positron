@@ -1,7 +1,7 @@
 {
   "name": "positron-notebooks-helpers",
-  "displayName": "Positron Notebooks Helpers",
-  "description": "Positron Notebook Helpers",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "1.0.0",
   "publisher": "positron",
   "icon": "icon.png",
@@ -19,15 +19,15 @@
     "commands": [
       {
         "command": "positronNotebookHelpers.convertImageToBase64",
-        "title": "Convert Image to Base64"
+        "title": "%command.positronNotebookHelpers.convertImageToBase64.title%"
       },
       {
         "command": "positronNotebookHelpers.fetchRemoteImage",
-        "title": "Fetch Remote Image"
+        "title": "%command.positronNotebookHelpers.fetchRemoteImage.title%"
       },
       {
         "command": "positronNotebookHelpers.walkthrough.enableNotebook",
-        "title": "Open Positron Notebook Editor Settings"
+        "title": "%command.positronNotebookHelpers.walkthrough.enableNotebook.title%"
       }
     ],
     "menus": {
