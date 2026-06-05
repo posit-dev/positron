@@ -42,6 +42,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	/** Map of created ipywidgets webviews keyed by output ID for Positron notebooks. */
 	private readonly _widgetWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
 
+	/** Map of created PDF webviews keyed by output ID for Positron notebooks. */
+	private readonly _pdfWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
 
@@ -149,8 +152,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(toDisposable(() => {
 			const outputIds = this._outputIdsByNotebookId.get(notebookId);
 			if (outputIds) {
-				// Remove all cached webview promises for this notebook's outputs
-				outputIds.forEach(outputId => this._widgetWebviewsByOutputId.delete(outputId));
+				outputIds.forEach(outputId => {
+					this._widgetWebviewsByOutputId.delete(outputId);
+					this._pdfWebviewsByOutputId.delete(outputId);
+				});
 				this._outputIdsByNotebookId.delete(notebookId);
 			}
 			this._messagesByNotebookId.delete(notebookId);
@@ -211,11 +216,19 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			// If so, route through the PDF server for proper rendering.
 			const pdfIframeInfo = extractPdfIframeInfo(rawHtml);
 			if (pdfIframeInfo) {
+				const existingWebview = this._pdfWebviewsByOutputId.get(outputId);
+				if (existingWebview) {
+					return { preloadMessageType: 'display', webview: existingWebview };
+				}
+
 				const notebookDir = rawHtmlBaseUri?.fsPath ?? '';
-				return {
-					preloadMessageType: 'display',
-					webview: this._createPdfNotebookWebview(instance, outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri),
-				};
+				const webviewPromise = this._createPdfNotebookWebview(instance, outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri)
+					.catch(err => {
+						this._pdfWebviewsByOutputId.delete(outputId);
+						throw err;
+					});
+				this._pdfWebviewsByOutputId.set(outputId, webviewPromise);
+				return { preloadMessageType: 'display', webview: webviewPromise };
 			}
 
 			return {
@@ -300,6 +313,12 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookDir: string,
 		baseUri: import('../../../../base/common/uri.js').URI | undefined,
 	): Promise<INotebookOutputWebview> {
+		// Track this output ID for cache cleanup when notebook is disposed.
+		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		if (outputIds) {
+			outputIds.add(outputId);
+		}
+
 		// Resolve relative paths against the notebook's directory.
 		const pdfPath = path.isAbsolute(pdfInfo.src)
 			? pdfInfo.src
