@@ -10,12 +10,13 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
 import { IRemoteAgentService } from '../../../services/remote/common/remoteAgentService.js';
-import { SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID } from './positronAcademicLicenseBanner.contribution.js';
 
 /**
  * Status bar entry ID for the licensee info display.
  */
 const POSITRON_LICENSEE_INFO_STATUS_ID = 'status.positronLicenseeInfo';
+
+const SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID = 'positron.showAcademicLicenseBanner';
 
 /**
  * Workbench contribution that displays licensee info in the status bar.
