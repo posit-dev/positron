@@ -186,11 +186,13 @@ Step-through behavior:
 Reference template for default step-through render (4 lines + prompt, NO trace):
 ```
 [N] <basename> :: <scenario>
-Verdict: <Move down -> Vitest> (<confidence>)
+Verdict: <Move down -> Vitest | Add -> Vitest | Add -> E2E Playwright | ...> (<confidence>)
 What changes: <one-line action>
 
 [a] approve  [c] change  [s] skip  [e] expand
 ```
+
+**`Add` verdicts MUST name the target bucket** — `Add -> Vitest`, `Add -> E2E Playwright`, `Add -> ext-host Mocha`, etc. Never just `Add (high)` without a bucket.
 
 **Move down verdicts add one extra line** — a stability prompt so the dev can weigh migration cost at the gate:
 ```
