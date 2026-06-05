@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -1526,6 +1526,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Fires the ready event.
 	 */
 	private markReady(reason: string) {
+		this._restarting = false;
 		// Move into the ready state if we're not already there
 		if (this._runtimeState !== positron.RuntimeState.Ready) {
 			this.onStateChange(positron.RuntimeState.Ready, reason);
@@ -1988,6 +1989,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param reason The reason for the state change
 	 */
 	private onStateChange(newState: positron.RuntimeState, reason: string) {
+		if (this._restarting && (newState === positron.RuntimeState.Idle || newState === positron.RuntimeState.Ready)) {
+			this.log(`Suppressing transient '${newState}' during restart (${reason})`, vscode.LogLevel.Debug);
+			return;
+		}
 		if (newState === positron.RuntimeState.Ready) {
 			// We're ready now!
 			this.log(`Kernel is ready.`);
