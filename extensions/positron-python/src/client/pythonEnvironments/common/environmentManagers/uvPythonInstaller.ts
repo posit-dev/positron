@@ -202,7 +202,9 @@ async function createVenvHandlingExisting(
  * Shows a quick pick for selecting a Python version to install.
  * @returns The selected version (and identifier on Windows ARM64), or undefined if cancelled
  */
-async function selectPythonVersion(): Promise<{ version: string; identifier?: string } | undefined> {
+async function selectPythonVersion(): Promise<
+    { version: string; identifier?: string; isInstalled: boolean; path?: string } | undefined
+> {
     const versions = await getAvailablePythonVersions();
 
     if (versions.length === 0) {
@@ -213,6 +215,8 @@ async function selectPythonVersion(): Promise<{ version: string; identifier?: st
     interface VersionQuickPickItem extends vscode.QuickPickItem {
         version: string;
         identifier: string;
+        isInstalled: boolean;
+        path?: string;
     }
 
     const items: VersionQuickPickItem[] = versions.map((v) => ({
@@ -221,6 +225,8 @@ async function selectPythonVersion(): Promise<{ version: string; identifier?: st
         detail: v.path,
         version: v.version,
         identifier: v.identifier,
+        isInstalled: v.isInstalled,
+        path: v.path,
     }));
 
     const selected = await vscode.window.showQuickPick(items, {
@@ -235,8 +241,13 @@ async function selectPythonVersion(): Promise<{ version: string; identifier?: st
     // On Windows ARM64, return the identifier so we can install the correct architecture
     // On other platforms, just return the version
     return isWindowsArm64()
-        ? { version: selected.version, identifier: selected.identifier }
-        : { version: selected.version };
+        ? {
+              version: selected.version,
+              identifier: selected.identifier,
+              isInstalled: selected.isInstalled,
+              path: selected.path,
+          }
+        : { version: selected.version, isInstalled: selected.isInstalled, path: selected.path };
 }
 
 /**
@@ -256,7 +267,10 @@ export interface InstallPythonResult {
  * Flow: install uv if needed -> pick version -> install Python -> offer venv creation
  */
 export async function installPythonViaUv(): Promise<InstallPythonResult> {
-    return vscode.window.withProgress(
+    let installedVersion: string | undefined;
+    let wasAlreadyInstalled = false;
+
+    const result = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: InterpreterQuickPickList.UvInstall.installingPython },
         async (progress) => {
             try {
@@ -276,15 +290,22 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     return { success: false, error: 'Cancelled' };
                 }
 
-                progress.report({
-                    message: InterpreterQuickPickList.UvInstall.installingPythonVersion(selected.version),
-                });
-                const pythonPath = await installPythonVersionAndGetPath(selected.version, selected.identifier);
-                if (!pythonPath) {
-                    return {
-                        success: false,
-                        error: InterpreterQuickPickList.UvInstall.installFailed(selected.version),
-                    };
+                let pythonPath: string | undefined;
+                if (selected.isInstalled && selected.path) {
+                    // Version is already installed locally - skip the install step
+                    pythonPath = selected.path;
+                    wasAlreadyInstalled = true;
+                } else {
+                    progress.report({
+                        message: InterpreterQuickPickList.UvInstall.installingPythonVersion(selected.version),
+                    });
+                    pythonPath = await installPythonVersionAndGetPath(selected.version, selected.identifier);
+                    if (!pythonPath) {
+                        return {
+                            success: false,
+                            error: InterpreterQuickPickList.UvInstall.installFailed(selected.version),
+                        };
+                    }
                 }
 
                 // Create venv - either in workspace or in global location
@@ -292,29 +313,21 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 let venvPython: string | undefined;
 
                 if (workspaces && workspaces.length > 0) {
-                    // Workspace is open - offer to create venv there
-                    const createVenv = await vscode.window.showQuickPick(
-                        [
-                            { label: InterpreterQuickPickList.UvInstall.yesRecommended, id: 'yes' },
-                            { label: Common.bannerLabelNo, id: 'no' },
-                        ],
-                        { title: InterpreterQuickPickList.UvInstall.createVenvPrompt },
+                    const createVenv = await vscode.window.showInformationMessage(
+                        InterpreterQuickPickList.UvInstall.createVenvPrompt(selected.version, workspaces[0].name),
+                        InterpreterQuickPickList.UvInstall.yesRecommended,
+                        Common.bannerLabelNo,
                     );
 
-                    if (createVenv?.id === 'yes') {
+                    if (createVenv === InterpreterQuickPickList.UvInstall.yesRecommended) {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.creatingVenv });
                         const workspace = workspaces[0];
-                        const result = await createVenvHandlingExisting(workspace, () =>
+                        const venvResult = await createVenvHandlingExisting(workspace, () =>
                             createUvVenv(workspace, selected.version, progress),
                         );
-                        venvPython = result.venvPython;
-                        if (result.attempted) {
-                            if (venvPython) {
-                                vscode.window.showInformationMessage(InterpreterQuickPickList.UvInstall.venvCreated);
-                            } else {
-                                // Venv creation failed - warn the user
-                                vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
-                            }
+                        venvPython = venvResult.venvPython;
+                        if (venvResult.attempted && !venvPython) {
+                            progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
                         }
                     }
                 } else {
@@ -326,18 +339,12 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         name: 'home',
                         index: 0,
                     };
-                    const result = await createVenvHandlingExisting(homeFolder, () =>
+                    const venvResult = await createVenvHandlingExisting(homeFolder, () =>
                         createGlobalVenv(selected.version, progress),
                     );
-                    venvPython = result.venvPython;
-                    if (result.attempted) {
-                        if (venvPython) {
-                            vscode.window.showInformationMessage(
-                                InterpreterQuickPickList.UvInstall.globalVenvCreated(getGlobalVenvPath()),
-                            );
-                        } else {
-                            vscode.window.showWarningMessage(InterpreterQuickPickList.UvInstall.venvCreationFailed);
-                        }
+                    pythonPath = venvResult.venvPython;
+                    if (venvResult.attempted && !venvPython) {
+                        progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
                     }
                 }
 
@@ -348,16 +355,21 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     traceError(`Failed to refresh environments: ${err}`);
                 });
 
-                // Return the venv Python if created, otherwise fall back to base Python
-                const finalPythonPath = venvPython ?? pythonPath;
-                vscode.window.showInformationMessage(
-                    InterpreterQuickPickList.UvInstall.installSuccess(selected.version),
-                );
-                return { success: true, pythonPath: finalPythonPath };
+                installedVersion = selected.version;
+                return { success: true, pythonPath: pythonPath };
             } catch (error) {
                 traceError(`installPythonViaUv failed: ${error}`);
                 return { success: false, error: String(error) };
             }
         },
     );
+
+    if (result.success && installedVersion) {
+        const msg = wasAlreadyInstalled
+            ? InterpreterQuickPickList.UvInstall.configureSuccess(installedVersion)
+            : InterpreterQuickPickList.UvInstall.installSuccess(installedVersion);
+        vscode.window.showInformationMessage(msg);
+    }
+
+    return result;
 }

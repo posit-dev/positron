@@ -301,9 +301,15 @@ export namespace InterpreterQuickPickList {
         export const pythonVersionLabel = (version: string) => l10n.t('Python {0}', version);
         export const installingPythonVersion = (version: string) => l10n.t('Installing Python {0}', version);
         export const installSuccess = (version: string) => l10n.t('Python {0} installed successfully', version);
+        export const configureSuccess = (version: string) => l10n.t('Python {0} configured successfully', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv');
-        export const createVenvPrompt = l10n.t('Create a virtual environment in your workspace?');
+        export const createVenvPrompt = (version: string, workspaceFolder: string) =>
+            l10n.t(
+                'Python {0} was installed. Would you like to use this version to create a virtual environment at: `{1}`?',
+                version,
+                `${workspaceFolder}/.venv`,
+            );
         export const yesRecommended = l10n.t('Yes (recommended)');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');
