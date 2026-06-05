@@ -62,7 +62,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// execute the same script to build the DB and register the connection.
 		await executeCode('R', SCRIPT, { maximizeConsole: false, timeout: 60000 });
 		await connections.openConnectionPane();
-		await connections.viewConnection('SQLiteConnection');
+		// connection_view(con) in the script auto-navigates to schema view; just wait for it.
 		await expect(connections.currentConnectionName).toContainText('SQLiteConnection', { timeout: 30_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
