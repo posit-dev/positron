@@ -126,18 +126,6 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await annotate(page, [
 			{ selector: 'button:has(.top-action-bar-session-manager-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);
-		await captureFullWindow(page, 'active-interpreter-session-neg-100.png');
-
-		await layouts.resizePanelToHeight(200); // back to default
-		await captureFullWindow(page, 'active-interpreter-session-pos-200.png');
-		await layouts.resizePanelToHeight(250);
-		await captureFullWindow(page, 'active-interpreter-session-pos-250.png');
-		await layouts.resizePanelToHeight(300);
-		await captureFullWindow(page, 'active-interpreter-session-pos-300.png');
-		await layouts.resizePanelToHeight(350);
-		await captureFullWindow(page, 'active-interpreter-session-pos-350.png');
-		await layouts.resizePanelToHeight(400);
-		await captureFullWindow(page, 'active-interpreter-session-pos-400.png');
-
+		await captureFullWindow(page, 'active-interpreter-session.png');
 	});
 });
