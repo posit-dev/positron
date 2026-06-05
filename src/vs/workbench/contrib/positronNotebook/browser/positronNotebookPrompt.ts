@@ -96,7 +96,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 				{
 					label: localize('positron.notebook.prompt.learnMore', 'Learn more'),
 					run: () => {
-						this.openerService.open(URI.parse(this.docsService.getUrl('positron-notebook-editor')));
+						this.openerService.open(URI.parse(this.docsService.getUrl('positron-notebook-editor.html')));
 					}
 				},
 				{

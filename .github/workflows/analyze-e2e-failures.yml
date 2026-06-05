@@ -68,4 +68,5 @@ jobs:
           run-url: ${{ inputs.run_url }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           e2e-insights-api-key: ${{ env.E2E_INSIGHTS_KEY }}
+          webhook-secret: ${{ secrets.E2E_INSIGHTS_WEBHOOK_SECRET }}
           model: ${{ inputs.model }}

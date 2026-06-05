@@ -9,6 +9,7 @@ import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
@@ -79,6 +80,11 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 		displayName: 'Custom Provider',
 		settingName: 'customProvider',
+	},
+	deepseek: {
+		id: DEEPSEEK_AUTH_PROVIDER_ID,
+		displayName: 'DeepSeek',
+		settingName: 'deepseek',
 	},
 };
 
@@ -224,6 +230,22 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				model: 'openai-compatible',
 				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
 				toolCalls: true,
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.deepseek,
+			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
+			defaults: {
+				name: 'DeepSeek',
+				model: 'deepseek-chat',
+				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
+				toolCalls: true,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+					key: 'DEEPSEEK_API_KEY',
+					signedIn: false,
+				},
 			},
 		},
 	];

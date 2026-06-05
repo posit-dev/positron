@@ -51,7 +51,7 @@ jobs:
           - name: default
             credentials: ''
             grep: '@:workbench'
-            grep_invert: '@:workbench-(snowflake|databricks)'
+            grep_invert: '@:workbench-(snowflake|databricks|azure)'
           - name: snowflake
             credentials: 'snowflake'
             grep: '@:workbench-snowflake'
@@ -59,6 +59,10 @@ jobs:
           - name: databricks
             credentials: 'databricks'
             grep: '@:workbench-databricks'
+            grep_invert: ''
+          - name: azure
+            credentials: 'azure'
+            grep: '@:workbench-azure'
             grep_invert: ''
 
     env:
@@ -108,14 +112,15 @@ jobs:
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
           DATABRICKS_URL: "op://Positron/Databricks-WB-Auto/url"
           DATABRICKS_CLIENT_ID: "op://Positron/Databricks-WB-Auto/client-id"
-          DATABRICKS_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
-          DATABRICKS_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
-          DATABRICKS_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
+          IDE_SERVICE_ACCOUNT_EMAIL: "op://Positron/RStudioIDE_Service_Account/service-account-email"
+          IDE_SERVICE_ACCOUNT_PASSWORD: "op://Positron/RStudioIDE_Service_Account/service-account-password"
+          IDE_SERVICE_ACCOUNT_OTP_SECRET: "op://Positron/RStudioIDE_Service_Account/service-account-otp-secret"
           SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
           SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
           SNOWFLAKE_USERNAME: "op://Positron/Snowflake-WB-Auto/username"
           SNOWFLAKE_PASSWORD: "op://Positron/Snowflake-WB-Auto/password"
+          AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET: "op://Positron/RStudioIDE_Service_Account/azure-service-principal-client-secret"
           WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
           CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
 
