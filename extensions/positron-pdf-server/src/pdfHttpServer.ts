@@ -143,7 +143,7 @@ export class PdfHttpServer {
 				html = html.replace('</head>', `${openWithCss}\n</head>`);
 
 				// Inject "Open With..." button after the "Open" button in secondary toolbar.
-				const openWithButton = '\n\t\t\t\t\t\t<button id="notebookOpenWith" class="toolbarButton labeled" type="button" tabindex="0" title="Open With...">\n\t\t\t\t\t\t\t<span>Open With…</span>\n\t\t\t\t\t\t</button>';
+				const openWithButton = '\n\t\t\t\t\t\t<button id="notebookOpenWith" class="toolbarButton labeled" type="button" tabindex="0" title="Open With...">\n\t\t\t\t\t\t\t<span>Open With...</span>\n\t\t\t\t\t\t</button>';
 				html = html.replace(
 					/(<button id="secondaryOpenFile"[^]*?<\/button>)/,
 					`$1\n${openWithButton}`
