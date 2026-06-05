@@ -85,7 +85,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
 		await plots.collapsePlotsPane();
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -275 });
+		await layouts.resizeAuxiliaryBar({ x: -250 });
 		await expect(variables.variablesPane).toBeVisible();
 
 		// capture screenshot
@@ -117,7 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanel({ y: 30 });
+		await layouts.resizePanelToHeight(350);
 		await sessions.resizeSessionList({ x: -80 });
 
 		// capture screenshot
@@ -126,6 +126,18 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await annotate(page, [
 			{ selector: 'button:has(.top-action-bar-session-manager-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);
-		await captureFullWindow(page, 'active-interpreter-session.png');
+		await captureFullWindow(page, 'active-interpreter-session-neg-100.png');
+
+		await layouts.resizePanelToHeight(200); // back to default
+		await captureFullWindow(page, 'active-interpreter-session-pos-200.png');
+		await layouts.resizePanelToHeight(250);
+		await captureFullWindow(page, 'active-interpreter-session-pos-250.png');
+		await layouts.resizePanelToHeight(300);
+		await captureFullWindow(page, 'active-interpreter-session-pos-300.png');
+		await layouts.resizePanelToHeight(350);
+		await captureFullWindow(page, 'active-interpreter-session-pos-350.png');
+		await layouts.resizePanelToHeight(400);
+		await captureFullWindow(page, 'active-interpreter-session-pos-400.png');
+
 	});
 });
