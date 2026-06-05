@@ -20,12 +20,9 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app);
 });
 
-test.afterEach(async ({ page, hotKeys }) => {
+test.afterEach(async ({ app, page, hotKeys }) => {
 	await page.keyboard.press('Escape');
-	const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
-	if (await backButton.isVisible()) {
-		await backButton.click();
-	}
+	await app.workbench.connections.navigateBack();
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
 });

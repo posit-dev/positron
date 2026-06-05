@@ -122,7 +122,7 @@ test.describe('Release Screenshots - Snippets', () => {
 		// the visible bottom. Target: python at the 3rd visible row so the
 		// docs framing shows powershell, properties, python, quarto, r.
 		const TARGET_CONTEXT_ROWS = 2;
-		const listBox = await page.locator('.quick-input-list').boundingBox();
+		const listBox = await quickInput.quickInputList.boundingBox();
 		const pythonBoxAfterScroll = await pythonRow.boundingBox();
 		if (listBox && pythonBoxAfterScroll) {
 			const rowHeight = pythonBoxAfterScroll.height;

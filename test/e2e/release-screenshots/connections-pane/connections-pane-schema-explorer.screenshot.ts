@@ -31,12 +31,9 @@ test.beforeEach(async ({ app }) => {
 	await setScreenshotWindowSize(app);
 });
 
-test.afterEach(async ({ page, hotKeys }) => {
+test.afterEach(async ({ app, page, hotKeys }) => {
 	await page.keyboard.press('Escape');
-	const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
-	if (await backButton.isVisible()) {
-		await backButton.click();
-	}
+	await app.workbench.connections.navigateBack();
 	await clearAnnotations(page);
 	await hotKeys.closeAllEditors();
 });
@@ -67,8 +64,8 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 
 
 		await connections.openConnectionPane();
-		await page.locator('.codicon.codicon-arrow-circle-right').click();
-		await expect(page.locator('.connections-item').filter({ hasText: 'SQLiteConnection' })).toBeVisible({ timeout: 30_000 });
+		await connections.viewConnection('SQLiteConnection');
+		await expect(connections.currentConnectionName).toContainText('SQLiteConnection', { timeout: 30_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		// the columns are visible (matches the 3 expanded tables in the docs ref).

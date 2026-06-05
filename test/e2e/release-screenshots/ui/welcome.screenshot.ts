@@ -23,7 +23,7 @@ test.beforeEach(async ({ app }) => {
  */
 test.describe('Release Screenshots - Welcome Page', () => {
 	test('Release Screenshot - astropy.png', async ({ app, page, openFolder, openFile, hotKeys, executeCode }) => {
-		const { sessions, editors, plots, variables, quickaccess, layouts } =
+		const { sessions, editors, plots, variables, quickaccess, quickInput, layouts } =
 			app.workbench;
 
 		// open workspace
@@ -65,7 +65,7 @@ test.describe('Release Screenshots - Welcome Page', () => {
 		await quickaccess.runCommand('workbench.action.gotoLine', {
 			keepOpen: true,
 		});
-		await page.keyboard.type('182');
+		await quickInput.type('182');
 		await page.keyboard.press('Enter');
 		await variables.toggleVariable({
 			variableName: 'gc_frame',
