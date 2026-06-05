@@ -212,7 +212,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
-				metadata: { outputType, [outputIdKey]: message.output_id, executionCount, metadata: message.metadata },
+				metadata: { outputType, [outputIdKey]: message.output_id, executionCount, metadata: message.outputMetadata },
 			}]
 		}]);
 	}

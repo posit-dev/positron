@@ -51,13 +51,14 @@ describe('Notebook Output Utils', () => {
 		});
 
 		it('retina dimensions are not lost on save/reload', () => {
-			// Simulate execution: runtimeNotebookCellExecution stores message.metadata
-			// under a nested `metadata` key in output.metadata
-			const messageMetadata = { 'image/png': { width: 320, height: 240 } };
+			// Simulate execution: runtimeNotebookCellExecution stores the message's
+			// output-level metadata (message.outputMetadata) under a nested
+			// `metadata` key in output.metadata
+			const messageOutputMetadata = { 'image/png': { width: 320, height: 240 } };
 			const outputMetadata = {
 				outputType: 'display_data',
 				executionCount: 1,
-				metadata: messageMetadata,
+				metadata: messageOutputMetadata,
 			};
 
 			// Simulate save: ipynb serializer reads output.metadata.metadata
