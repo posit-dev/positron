@@ -50,20 +50,20 @@ test.describe('Release Screenshots - Open Folder', () => {
 		await quickaccess.runCommand('workbench.action.openWalkthrough');
 		await expect(page.locator('.positron-welcome-page-start').first()).toBeVisible({ timeout: 15000 });
 
-		// Layout customizations BEFORE opening the menu (they steal focus and
-		// would close the modal popup).
+		// Layout customizations and prepareForScreenshot BEFORE opening the menu —
+		// both steal focus / move the mouse and would close the modal popup.
 		await hotKeys.closePrimarySidebar();
 		await quickaccess.runCommand('workbench.action.closePanel');
 		await layouts.expectBottomPanelToBeVisible(false);
+		await prepareForScreenshot(app, page);
 
 		// Click the top-right Folder Selector dropdown to reveal the menu.
 		await page.locator('.top-action-bar-custom-folder-menu').click();
 		const menu = page.locator('.positron-modal-popup');
 		await expect(menu).toBeVisible();
 
-		// Capture screenshot
-		await prepareForScreenshot(app, page);
 		await annotate(page, [
+			{ selector: '.top-action-bar-container [aria-label="Open"]', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
 			{ selector: '.top-action-bar-custom-folder-menu', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
 			{ selector: '.positron-welcome-page-start', label: '', color: ANNOTATION_COLOR, padding: 6, borderWidth: 3 },
 			{ selector: '.positron-modal-popup', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
