@@ -5,6 +5,7 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
@@ -134,10 +135,24 @@ export class UpdateTooltip extends Disposable {
 
 		// Populate static product info
 		this.updateCurrentVersion();
+
+		// --- Start Positron ---
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('update.positron.channel')) {
+				this.updateReleaseNotesButtonVisibility();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private updateCurrentVersion() {
+		// --- Start Positron ---
+		// Use Positron calver, not Code-OSS base version.
+		/*
 		const productVersion = this.productService.version;
+		*/
+		const productVersion = this.productService.positronVersion;
+		// --- End Positron ---
 		if (productVersion) {
 			const currentCommitId = this.productService.commit?.substring(0, 7);
 			this.currentVersionNode.textContent = currentCommitId
@@ -390,17 +405,41 @@ export class UpdateTooltip extends Disposable {
 			this.releaseDateNode.style.display = 'none';
 		}
 
+		// --- Start Positron ---
+		// Use Positron calver for the release-notes lookup, and route the button
+		// visibility through `updateReleaseNotesButtonVisibility` so we can gate
+		// on the Positron `update.positron.channel === 'releases'` setting.
+		/*
 		// Release notes button
 		this.releaseNotesVersion = version ?? this.productService.version;
 		this.releaseNotesButton.style.display = this.releaseNotesVersion ? '' : 'none';
 		this.releaseNotesButton.style.marginRight = this.releaseNotesVersion ? 'auto' : '';
 		this.buttonBar.style.display = this.releaseNotesVersion ? '' : 'none';
+		*/
+		this.releaseNotesVersion = version ?? this.productService.positronVersion;
+		this.updateReleaseNotesButtonVisibility();
+		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	// Hide Release Notes on the daily channel: only `releases` publishes per-version notes.
+	private updateReleaseNotesButtonVisibility() {
+		const channel = this.configurationService.getValue<string>('update.positron.channel');
+		const show = !!this.releaseNotesVersion && channel === 'releases';
+		this.releaseNotesButton.style.display = show ? '' : 'none';
+		this.releaseNotesButton.style.marginRight = show ? 'auto' : '';
+		this.buttonBar.style.display = show ? '' : 'none';
+	}
+	// --- End Positron ---
 
 	private renderActionButton(label: string, commandId: string) {
 		this.actionButton.textContent = label;
 		this.actionButton.dataset.commandId = commandId;
 		this.actionButton.style.display = '';
+		// --- Start Positron ---
+		// Ensure the bar shows when only the action button is visible.
+		this.buttonBar.style.display = '';
+		// --- End Positron ---
 	}
 
 	private renderMessage(message: string, icon?: ThemeIcon) {
@@ -439,7 +478,14 @@ export class UpdateTooltip extends Disposable {
 	}
 
 	private runCommandAndClose(command: string, ...args: unknown[]) {
+		// --- Start Positron ---
+		// Surface action errors (e.g. missing release notes) instead of
+		// silently swallowing them as an unhandled rejection.
+		/*
 		this.commandService.executeCommand(command, ...args);
+		*/
+		this.commandService.executeCommand(command, ...args).catch(onUnexpectedError);
+		// --- End Positron ---
 		this.hoverService.hideHover(true);
 	}
 }
