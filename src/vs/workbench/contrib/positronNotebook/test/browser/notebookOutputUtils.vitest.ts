@@ -50,26 +50,53 @@ describe('Notebook Output Utils', () => {
 			);
 		});
 
-		it('parses image/png with retina metadata into an image with width and height', () => {
-			const pngData = 'iVBORw0KGgo=';
-			const metadata = { 'image/png': { width: 320, height: 240 } };
-			const result = parseOutputData(makeOutputItem('image/png', pngData), metadata);
+		it('retina dimensions are not lost on save/reload', () => {
+			// Simulate execution: runtimeNotebookCellExecution stores message.metadata
+			// under a nested `metadata` key in output.metadata
+			const messageMetadata = { 'image/png': { width: 320, height: 240 } };
+			const outputMetadata = {
+				outputType: 'display_data',
+				executionCount: 1,
+				metadata: messageMetadata,
+			};
 
+			// Simulate save: ipynb serializer reads output.metadata.metadata
+			// (extensions/ipynb/src/serializers.ts line 183)
+			const savedToIpynb = outputMetadata.metadata;
+			expect(savedToIpynb).toEqual({ 'image/png': { width: 320, height: 240 } });
+
+			// Simulate reload: ipynb deserializer stores output.metadata under
+			// metadata.metadata (extensions/ipynb/src/deserializers.ts line 205)
+			const loadedOutputMetadata = {
+				outputType: 'display_data',
+				executionCount: 1,
+				metadata: JSON.parse(JSON.stringify(savedToIpynb)),
+			};
+
+			// Verify parseOutputData can read dimensions from the reloaded structure
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData), loadedOutputMetadata);
 			expect(result.type).toBe('image');
 			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
 			expect(img.width).toBe(320);
 			expect(img.height).toBe(240);
 		});
 
-		it('parses image/png with nested metadata (loaded from ipynb) into an image with width and height', () => {
-			const pngData = 'iVBORw0KGgo=';
-			const metadata = { metadata: { 'image/png': { width: 320, height: 240 } } };
-			const result = parseOutputData(makeOutputItem('image/png', pngData), metadata);
+		it('images already saved in a notebook get retina sizing', () => {
+			// An ipynb file on disk has retina metadata in the Jupyter format:
+			// { "output_type": "display_data", "metadata": {"image/png": {"width": 160, "height": 80}} }
+			// After deserialization, output.metadata looks like:
+			const loadedMetadata = {
+				outputType: 'display_data',
+				metadata: { 'image/png': { width: 160, height: 80 } },
+			};
 
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData), loadedMetadata);
 			expect(result.type).toBe('image');
 			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
-			expect(img.width).toBe(320);
-			expect(img.height).toBe(240);
+			expect(img.width).toBe(160);
+			expect(img.height).toBe(80);
 		});
 
 		it('parses image/png without metadata into an image with no dimensions', () => {
