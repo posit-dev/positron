@@ -30,10 +30,6 @@ test.beforeAll(async ({ app }) => {
 	await app.workbench.assistant.loginModelProvider('anthropic-api');
 });
 
-test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
-});
-
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -47,6 +43,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 */
 	test('Release Screenshot - positron-notebook-editor-kernel-selector.png', async ({ app, page, python }) => {
 		const { notebooksPositron, hotKeys, layouts } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
