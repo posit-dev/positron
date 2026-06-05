@@ -27,7 +27,7 @@
       },
       {
         "command": "positronNotebookHelpers.walkthrough.enableNotebook",
-        "title": "Enable the Positron Notebook Editor"
+        "title": "Open Positron Notebook Editor Settings"
       }
     ],
     "walkthroughs": [

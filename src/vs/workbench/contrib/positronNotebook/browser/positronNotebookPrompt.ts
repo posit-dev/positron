@@ -22,8 +22,8 @@ import { IPositronDocsService } from '../../../services/positronDocs/browser/pos
 const NOTEBOOK_PROMPT_DISMISSED_KEY = 'positron.notebook.promptDismissed';
 
 /**
- * Workbench contribution that prompts users to try the new Positron notebook editor
- * when they open a .ipynb file without having the new notebook editor enabled.
+ * Workbench contribution that prompts users to try the native Positron notebook editor
+ * when they open a .ipynb file without having the native notebook editor enabled.
  */
 export class PositronNotebookPromptContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.positronNotebookPrompt';
@@ -71,7 +71,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 			return;
 		}
 
-		// Check if the new notebook editor is already enabled
+		// Check if the native notebook editor is already enabled
 		const notebookEnabled = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 		if (notebookEnabled) {
 			return;
