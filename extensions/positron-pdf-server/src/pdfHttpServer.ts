@@ -69,6 +69,17 @@ export class PdfHttpServer {
 	}
 
 	/**
+	 * Read viewer.html from disk and inject the keyboard forwarder script.
+	 */
+	private async readBaseViewerHtml(): Promise<string> {
+		const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
+		let html = await fs.promises.readFile(viewerPath, 'utf-8');
+		const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
+		html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
+		return html;
+	}
+
+	/**
 	 * Setup Express routes.
 	 */
 	private setupRoutes(): void {
@@ -80,14 +91,7 @@ export class PdfHttpServer {
 		// Serve PDF.js viewer.html with keyboard forwarder script injected.
 		this.app.get('/pdfjs/web/viewer.html', async (req: express.Request, res: express.Response) => {
 			try {
-				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
-				let html = await fs.promises.readFile(viewerPath, 'utf-8');
-
-				// Inject our keyboard forwarder script in the <head> BEFORE PDF.js scripts.
-				// This ensures our capture-phase event listeners are registered first.
-				const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
-				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
-
+				const html = await this.readBaseViewerHtml();
 				res.type('text/html');
 				return res.send(html);
 			} catch (err) {
@@ -116,8 +120,7 @@ export class PdfHttpServer {
 		// "Open With..." button injected. Called directly (no wrapper redirect).
 		this.app.get('/pdfjs-notebook/web/viewer.html', async (req: express.Request, res: express.Response) => {
 			try {
-				const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
-				let html = await fs.promises.readFile(viewerPath, 'utf-8');
+				let html = await this.readBaseViewerHtml();
 
 				// Set theme via pdf.js's webviewerloaded event, which fires after
 				// the viewer is constructed but before it reads preferences.
@@ -128,10 +131,7 @@ export class PdfHttpServer {
 						PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
 					});
 				</script>`;
-
-				// Inject keyboard forwarder.
-				const keyboardScript = '<script src="/keyboard-forwarder.js"></script>';
-				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}\n${keyboardScript}`);
+				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}`);
 
 				// Inject CSS for the "Open With..." button icon (reuses the Open button's icon).
 				const openWithCss = `<style>
