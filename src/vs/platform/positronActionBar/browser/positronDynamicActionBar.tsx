@@ -82,6 +82,15 @@ export interface DynamicActionBarAction {
 	 * truncating its content (e.g. via CSS text-overflow: ellipsis).
 	 */
 	growable?: boolean;
+
+	/**
+	 * The maximum (preferred) width of the action in pixels. When set, the
+	 * action is allocated its {@link fixedWidth} during layout and then grows
+	 * into any leftover space (the gap between the left and right action
+	 * groups) up to this width. The action's component is responsible for
+	 * adapting its content to the granted width (e.g. via a ResizeObserver).
+	 */
+	maxWidth?: number;
 }
 
 /**
@@ -344,6 +353,25 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 		// Text measurement is complete. Remove the canvas.
 		canvas.remove();
+
+		// Distribute any leftover space (the gap that would otherwise become the
+		// '1fr' column) to actions that declare a maxWidth, growing them up to
+		// their preferred width. This lets an action such as the console
+		// resource monitor expand into available space and shrink as the action
+		// bar narrows.
+		const growableEntries = [...rightGridEntries, ...leftGridEntries].filter(entry => entry.action.maxWidth);
+		for (const entry of growableEntries) {
+			if (layoutWidth <= 0) {
+				break;
+			}
+			const headroom = entry.action.maxWidth! - entry.width;
+			if (headroom <= 0) {
+				continue;
+			}
+			const grant = Math.min(headroom, layoutWidth);
+			entry.width += grant;
+			layoutWidth -= grant;
+		}
 
 		/**
 		 * Lays out the grid entries.

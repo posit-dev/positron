@@ -13,9 +13,12 @@ import { useEffect, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
+import { useResourceUsageHistory } from './useResourceUsageHistory.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
+import { ConsoleResourceMonitor, RESOURCE_MONITOR_MAX_WIDTH } from './consoleResourceMonitor.js';
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
@@ -126,6 +129,15 @@ export const ActionBar = (props: ActionBarProps) => {
 	const [stateLabel, setStateLabel] = useState('');
 	const [directoryLabel, setDirectoryLabel] = useState('');
 
+	// Resource monitor state. We track the active console's resource usage
+	// history, the console state (so we can hide the monitor once exited), and
+	// the showResourceMonitor setting.
+	const resourceUsageHistory = useResourceUsageHistory(activePositronConsoleInstance);
+	const [consoleState, setConsoleState] = useState(activePositronConsoleInstance?.state);
+	const [showResourceMonitor, setShowResourceMonitor] = useState(
+		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+	);
+
 	// Localized strings with placeholders
 	const positronRestartSession = localize('positronRestartSession', "Restart {0}", activePositronConsoleInstance?.runtimeMetadata.languageName ?? localize('positronSession', "Session"));
 
@@ -144,6 +156,29 @@ export const ActionBar = (props: ActionBarProps) => {
 			disposables.dispose();
 		};
 	}, [services.positronConsoleService]);
+
+	// Track the console state of the active instance so we can hide the
+	// resource monitor once the session has exited.
+	useEffect(() => {
+		setConsoleState(activePositronConsoleInstance?.state);
+		if (!activePositronConsoleInstance) {
+			return;
+		}
+		const disposable = activePositronConsoleInstance.onDidChangeState(setConsoleState);
+		return () => disposable.dispose();
+	}, [activePositronConsoleInstance]);
+
+	// Track the showResourceMonitor setting.
+	useEffect(() => {
+		const disposable = services.configurationService.onDidChangeConfiguration((e: IConfigurationChangeEvent) => {
+			if (e.affectsConfiguration('console.showResourceMonitor')) {
+				setShowResourceMonitor(
+					services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+				);
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.configurationService]);
 
 	// Active Positron console instance useEffect hook.
 	useEffect(() => {
@@ -401,6 +436,25 @@ export const ActionBar = (props: ActionBarProps) => {
 					<div className={'action-bar-button-icon	interrupt codicon codicon-positron-interrupt-runtime'} />
 				</ActionBarButton>
 			)
+		});
+	}
+
+	// Resource monitor. Only shown when there is a single console (when the
+	// session list, which has its own monitor, is hidden), the setting is
+	// enabled, we have resource data, and the session has not exited. The
+	// monitor grows into the available space and shrinks its content as the
+	// action bar narrows.
+	const showResourceMonitorAction =
+		positronConsoleContext.consoleSessionListCollapsed &&
+		showResourceMonitor &&
+		resourceUsageHistory.length > 0 &&
+		consoleState !== PositronConsoleState.Exited;
+	if (showResourceMonitorAction) {
+		rightActions.push({
+			fixedWidth: 0,
+			maxWidth: RESOURCE_MONITOR_MAX_WIDTH,
+			separator: false,
+			component: <ConsoleResourceMonitor data={resourceUsageHistory} />
 		});
 	}
 
