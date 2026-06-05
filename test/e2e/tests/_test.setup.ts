@@ -518,7 +518,7 @@ export interface TestFixtures {
 
 export interface WorkerFixtures {
 	suiteId: string;
-	managedCredentials: 'snowflake' | 'databricks' | undefined;
+	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

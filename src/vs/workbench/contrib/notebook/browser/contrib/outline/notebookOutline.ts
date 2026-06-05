@@ -865,27 +865,42 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		[NotebookSetting.outlineShowMarkdownHeadersOnly]: {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('outline.showMarkdownHeadersOnly', "When enabled, notebook outline will show only markdown cells containing a header.")
+			markdownDescription: localize('outline.showMarkdownHeadersOnly', "When enabled, notebook outline will show only markdown cells containing a header."),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		[NotebookSetting.outlineShowCodeCells]: {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('outline.showCodeCells', "When enabled, notebook outline shows code cells.")
+			markdownDescription: localize('outline.showCodeCells', "When enabled, notebook outline shows code cells."),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		[NotebookSetting.outlineShowCodeCellSymbols]: {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('outline.showCodeCellSymbols', "When enabled, notebook outline shows code cell symbols. Relies on `#notebook.outline.showCodeCells#` being enabled.")
+			markdownDescription: localize('outline.showCodeCellSymbols', "When enabled, notebook outline shows code cell symbols. Relies on `#notebook.outline.showCodeCells#` being enabled."),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		[NotebookSetting.breadcrumbsShowCodeCells]: {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('breadcrumbs.showCodeCells', "When enabled, notebook breadcrumbs contain code cells.")
+			markdownDescription: localize('breadcrumbs.showCodeCells', "When enabled, notebook breadcrumbs contain code cells."),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 		[NotebookSetting.gotoSymbolsAllSymbols]: {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('notebook.gotoSymbols.showAllSymbols', "When enabled, the Go to Symbol Quick Pick will display full code symbols from the notebook, as well as Markdown headers.")
+			markdownDescription: localize('notebook.gotoSymbols.showAllSymbols', "When enabled, the Go to Symbol Quick Pick will display full code symbols from the notebook, as well as Markdown headers."),
+			// --- Start Positron ---
+			tags: ['legacy']
+			// --- End Positron ---
 		},
 	}
 });

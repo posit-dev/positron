@@ -35,7 +35,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
 		const existingProject = this.project(folderToOpen);
 
 		try {
@@ -54,7 +54,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		await this.newSessionButton.click();
 		await this.positronProButton.click();
 
@@ -65,6 +65,23 @@ export class DashboardPage {
 
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
+
+		// Azure JIT-provisioned users (rstudio-ide-test) don't have qa-example-content in their
+		// home directory at launch time. The fixture handles copying the workspace into the JIT
+		// user's home and calling openWorkspaceFolder() once Positron is up.
+		if (managedCredentials === 'azure') {
+			return;
+		}
+
+		await this.openWorkspaceFolder(folderToOpen);
+	}
+
+	/**
+	 * Opens the given folder via Positron's welcome view "Open Folder" button + quick input.
+	 * Used both from the dashboard flow (after Launch) and externally by the Azure fixture once
+	 * the JIT user's workspace has been copied into place.
+	 */
+	async openWorkspaceFolder(folderToOpen: string): Promise<void> {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
@@ -77,7 +94,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
@@ -106,7 +123,7 @@ export class DashboardPage {
 	 * @param managedCredentials Credential to set up: 'snowflake' sets up only Snowflake, 'databricks'
 	 *                           sets up only Databricks. If undefined, no credentials are configured.
 	 */
-	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		if (managedCredentials === undefined) {
 			return;
 		}
@@ -149,9 +166,9 @@ export class DashboardPage {
 
 		this.code.logger.log('Setting up Databricks OAuth...');
 
-		const serviceAccountEmail = process.env.DATABRICKS_SERVICE_ACCOUNT_EMAIL!;
-		const serviceAccountPassword = process.env.DATABRICKS_SERVICE_ACCOUNT_PASSWORD!;
-		const otpSecret = process.env.DATABRICKS_SERVICE_ACCOUNT_OTP_SECRET!;
+		const serviceAccountEmail = process.env.IDE_SERVICE_ACCOUNT_EMAIL!;
+		const serviceAccountPassword = process.env.IDE_SERVICE_ACCOUNT_PASSWORD!;
+		const otpSecret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET!;
 
 		// Click Databricks sign in - opens OAuth in new tab
 		const [oauthPage] = await Promise.all([
@@ -181,24 +198,51 @@ export class DashboardPage {
 		await expect(verifyButton).toBeVisible({ timeout: 10000 });
 		await verifyButton.click();
 
-		// Complete 2FA authentication
+		// Complete 2FA authentication. TOTPs roll every 30s and Okta rejects reused codes, so a
+		// parallel shard (e.g. Azure) consuming the same code seconds earlier can knock us out.
+		// Retry up to 3 times: wait past the TOTP window boundary between attempts, then re-fill.
 		await oauthPage.waitForLoadState('networkidle', { timeout: 10000 });
 		const otpField = oauthPage.locator('input[type="text"], input[type="tel"], input[autocomplete="one-time-code"]').first();
-		await expect(otpField).toBeVisible({ timeout: 15000 });
-
-		const totpCode = generateTOTP(otpSecret);
-		this.code.logger.log('Generated TOTP code for Databricks');
-		await otpField.fill(totpCode);
-
 		const verifyOtpButton = oauthPage.locator('button:has-text("Verify"), input[value="Verify"]');
-		await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
-		await verifyOtpButton.click();
 
-		// Wait for OAuth redirect to Workbench
+		const maxOtpAttempts = 3;
+		let otpAccepted = false;
+		for (let attempt = 1; attempt <= maxOtpAttempts; attempt++) {
+			await expect(otpField).toBeVisible({ timeout: 15000 });
+			await otpField.fill('');
+			await otpField.fill(generateTOTP(otpSecret));
+			this.code.logger.log(`Submitted TOTP code for Databricks (attempt ${attempt}/${maxOtpAttempts})`);
+			await expect(verifyOtpButton).toBeVisible({ timeout: 10000 });
+			await verifyOtpButton.click();
+
+			try {
+				await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
+				otpAccepted = true;
+				break;
+			} catch {
+				// The OAuth tab sometimes closes itself on success (or on certain Okta errors).
+				// A closed tab here is more likely "OAuth completed" than "OTP rejected" — bail
+				// out of the retry loop and let the enabledWidget check below decide success.
+				if (oauthPage.isClosed()) {
+					this.code.logger.log('OAuth page closed before URL match; treating as completed and deferring to widget check');
+					break;
+				}
+				if (attempt === maxOtpAttempts) {
+					this.code.logger.log(`OTP not accepted after ${maxOtpAttempts} attempts; falling through to widget-state check`);
+					break;
+				}
+				this.code.logger.log('OTP rejected, waiting for next TOTP window before retry');
+				await oauthPage.waitForTimeout(20000);
+			}
+		}
+
 		try {
-			await oauthPage.waitForURL(/oauth_redirect_callback|localhost:8787/, { timeout: 15000 });
-			await oauthPage.waitForTimeout(2000);
-			await oauthPage.close();
+			if (otpAccepted) {
+				await oauthPage.waitForTimeout(2000);
+			}
+			if (!oauthPage.isClosed()) {
+				await oauthPage.close();
+			}
 		} catch {
 			this.code.logger.log('OAuth page closed or timed out (may be expected)');
 		}

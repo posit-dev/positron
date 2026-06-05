@@ -19,7 +19,7 @@ export async function validateGeminiApiKey(
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
 	const baseUrl = (
-		config.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta'
+		config.baseUrl?.trim() || 'https://generativelanguage.googleapis.com/v1beta'
 	).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 

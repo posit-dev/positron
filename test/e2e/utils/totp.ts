@@ -12,7 +12,7 @@ import * as OTPAuth from 'otpauth';
  * @returns A 6-digit TOTP code valid for 30 seconds
  *
  * @example
- * const secret = process.env.DATABRICKS_SERVICE_ACCOUNT_OTP_SECRET;
+ * const secret = process.env.IDE_SERVICE_ACCOUNT_OTP_SECRET;
  * const code = generateTOTP(secret);
  * await page.fill('[name="otp"]', code);
  */

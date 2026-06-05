@@ -27,8 +27,12 @@ const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 // Welcome/landing page elements
 const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
 
-// Chat input area
-const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see commands"]';
+// Chat input area.
+// Posit Assistant migrated the chat input from a <textarea> to a TipTap/ProseMirror
+// rich-text editor: a contenteditable <div class="tiptap-input-editor">. The
+// placeholder is no longer a `placeholder` attribute -- it renders as a separate
+// aria-hidden overlay -- so target the editor element by its class instead.
+const CHAT_INPUT = '.tiptap-input-editor';
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
 
@@ -92,6 +96,16 @@ export class PositAssistant {
 		if (isSelected !== 'true') {
 			await button.click();
 		}
+		await this.expectViewOpen();
+	}
+
+	/**
+	 * Assert the Posit Assistant view is the active view in the sidebar by checking
+	 * that its activity bar button is selected. This avoids waiting on the webview
+	 * to load, so it is a reliable signal that the view container itself is open.
+	 */
+	async expectViewOpen(): Promise<void> {
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
 	}
 
@@ -172,7 +186,11 @@ export class PositAssistant {
 	async enterMessage(message: string): Promise<void> {
 		const chatInput = this.frame.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.fill(message);
+		// The input is a TipTap/ProseMirror contenteditable, not a plain textarea.
+		// Click to focus then type so ProseMirror processes the input through its
+		// normal keystroke handling; `fill()` is unreliable on rich-text editors.
+		await chatInput.click();
+		await chatInput.pressSequentially(message);
 	}
 
 	/**
