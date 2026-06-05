@@ -228,12 +228,22 @@ function extractSpecOutcomes(path) {
 	function walk(suite) {
 		for (const child of suite.suites || []) { walk(child); }
 		for (const spec of suite.specs || []) {
-			let ok = spec.ok;
-			if (typeof ok !== 'boolean') {
-				const statuses = (spec.tests || []).flatMap(t => (t.results || []).map(r => r?.status));
-				ok = statuses.includes('passed') && !statuses.every(s => FAIL.has(s));
+			const statuses = (spec.tests || []).flatMap(t => (t.results || []).map(r => r?.status));
+			const ranStatuses = statuses.filter(s => s && s !== 'skipped');
+			let status;
+			if (ranStatuses.length === 0) {
+				// No non-skipped result -> the spec was skipped on this run. Tracked
+				// so siblings can exclude it (matching Path B's e2e-process-s3.js):
+				// a skipped sibling is NOT evidence shared setup/fixtures ran.
+				status = 'skipped';
+			} else {
+				let ok = spec.ok;
+				if (typeof ok !== 'boolean') {
+					ok = statuses.includes('passed') && !statuses.every(s => FAIL.has(s));
+				}
+				status = ok ? 'passed' : 'failed';
 			}
-			out.push({ file: spec.file || spec.location?.file, title: spec.title, ok: !!ok });
+			out.push({ file: spec.file || spec.location?.file, title: spec.title, status });
 		}
 	}
 
@@ -538,7 +548,7 @@ const siblingsByFile = new Map(); // normalizedFile -> [{title, ok}]
 for (const s of extractSpecOutcomes(resolvedReportPath)) {
 	const key = normalizeSpecPath(s.file);
 	if (!siblingsByFile.has(key)) { siblingsByFile.set(key, []); }
-	siblingsByFile.get(key).push({ title: s.title, ok: s.ok });
+	siblingsByFile.get(key).push({ title: s.title, status: s.status });
 }
 
 process.stderr.write('Scanning blob reports for failed tests and attachments...\n');
@@ -576,8 +586,8 @@ for (const testId of failedTestIds) {
 
 	// Sibling tests in the same file (passed siblings are the key signal).
 	const siblingTests = (siblingsByFile.get(normalizeSpecPath(testInfo?.file)) || [])
-		.filter(s => s.title !== testInfo?.title)
-		.map(s => ({ title: s.title, status: s.ok ? 'passed' : 'failed' }));
+		.filter(s => s.title !== testInfo?.title && s.status !== 'skipped')
+		.map(s => ({ title: s.title, status: s.status }));
 
 	for (let i = 0; i < traceAtts.length; i++) {
 		const traceAtt = traceAtts[i];
