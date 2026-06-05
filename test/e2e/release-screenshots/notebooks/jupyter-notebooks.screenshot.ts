@@ -40,9 +40,6 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		// toggleBottomPanel is a toggle, not an idempotent close — assert the
-		// post-condition so the test fails loudly if a prior step left the
-		// panel already closed and the toggle re-opened it.
 		await hotKeys.toggleBottomPanel();
 		await layouts.expectBottomPanelToBeVisible(false);
 

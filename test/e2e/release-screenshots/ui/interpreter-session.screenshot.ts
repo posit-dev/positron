@@ -85,7 +85,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// Collapse the Plots pane and focus on variables so the Plots header doesn't have focus state.
 		await plots.collapsePlotsPane();
 		await variables.focusVariablesView();
-		await layouts.resizeAuxiliaryBar({ x: -250 });
+		await layouts.resizeAuxiliaryBar({ x: -275 });
 		await expect(variables.variablesPane).toBeVisible();
 
 		// capture screenshot
