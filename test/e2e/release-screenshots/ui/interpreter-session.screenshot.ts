@@ -117,7 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanel({ y: 40 }); // blank is really tall, 30 is a little short.
+		await layouts.resizePanel({ y: 35 });
 		await sessions.resizeSessionList({ x: -80 });
 
 		// capture screenshot
