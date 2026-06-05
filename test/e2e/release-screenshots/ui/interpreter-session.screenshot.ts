@@ -105,7 +105,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * startup banner, not output from an earlier test's executeCode.
 	 */
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
-		const { sessions, hotKeys } = app.workbench;
+		const { sessions, hotKeys, layouts } = app.workbench;
 
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 		const [, rSession] = await sessions.start(['python', 'r']);
@@ -117,7 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		// await layouts.resizePanel({ y: 30 });
+		await layouts.resizePanel({ y: 40 }); // blank is really tall, 30 is a little short.
 		await sessions.resizeSessionList({ x: -80 });
 
 		// capture screenshot
