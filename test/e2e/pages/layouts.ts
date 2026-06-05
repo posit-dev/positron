@@ -149,6 +149,20 @@ export class Layouts {
 	}
 
 	/**
+	 * Resize the bottom panel to an exact pixel height, regardless of its
+	 * current size. More reliable than resizePanel() across environments where
+	 * the default panel height differs.
+	 */
+	async resizePanelToHeight(targetHeight: number): Promise<void> {
+		const panel = this.code.driver.currentPage.locator('.part.panel');
+		const box = await panel.boundingBox();
+		if (!box) {
+			throw new Error('panel not found or not visible');
+		}
+		await this.resizePanel({ y: box.height - targetHeight });
+	}
+
+	/**
 	 * A bounding box getting that errors if the element is not found rather than returning null.
 	 * @param locator Element locator to get bounding box of. E.g. `this.panelContent`.
 	 * @returns Bounding box object
