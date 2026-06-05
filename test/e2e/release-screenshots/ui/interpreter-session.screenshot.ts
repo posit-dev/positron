@@ -105,7 +105,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	 * startup banner, not output from an earlier test's executeCode.
 	 */
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
-		const { sessions, hotKeys, layouts } = app.workbench;
+		const { sessions, hotKeys } = app.workbench;
 
 		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
 		const [, rSession] = await sessions.start(['python', 'r']);

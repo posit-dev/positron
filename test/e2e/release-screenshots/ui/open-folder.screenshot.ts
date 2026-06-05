@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test } from '../../tests/_test.setup';
-import { captureFullWindow, captureRegion } from '../_helpers/screenshot-utils';
+import { captureRegion } from '../_helpers/screenshot-utils';
 import { prepareForScreenshot, reapplyCdpViewport, setScreenshotWindowSize } from '../_helpers/layout-utils';
 import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
 
@@ -61,7 +61,7 @@ test.describe('Release Screenshots - Open Folder', () => {
 		const menu = page.locator('.positron-modal-popup');
 		await expect(menu).toBeVisible();
 
-		// capture screenshot
+		// Capture screenshot
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
 			{ selector: '.top-action-bar-custom-folder-menu', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
