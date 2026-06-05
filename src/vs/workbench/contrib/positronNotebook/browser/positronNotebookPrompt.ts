@@ -90,7 +90,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 			Severity.Info,
 			localize(
 				'positron.notebook.prompt',
-				'Positron has a new editor for Jupyter notebooks designed with out-of-the-box integrated data exploration, AI assistance that understands notebooks, debugging, and more.'
+				'Positron has a native editor for Jupyter notebooks designed with out-of-the-box integrated data exploration, AI assistance that understands notebooks, debugging, and more. You\'re currently using the legacy notebook editor.'
 			),
 			[
 				{
@@ -100,7 +100,7 @@ export class PositronNotebookPromptContribution extends Disposable implements IW
 					}
 				},
 				{
-					label: localize('positron.notebook.prompt.tryNow', 'Try now'),
+					label: localize('positron.notebook.prompt.switch', 'Switch'),
 					run: () => {
 						this.commandService.executeCommand('workbench.action.openSettings', 'positron.notebook.enabled');
 					}
