@@ -368,6 +368,21 @@ export class Console {
 		}).toPass({ timeout: 10000 });
 	}
 
+	/**
+	 * Focuses the console by clicking its panel label, bypassing the `Cmd+K F`
+	 * chord that {@link focus} relies on. That chord silently leaks `F` into the
+	 * terminal when the terminal holds focus (e.g. after a terminal-based package
+	 * install/uninstall), so use this to take focus off the terminal deterministically.
+	 * Clicks unconditionally, unlike {@link clickConsoleTab} which only clicks when
+	 * the console input is hidden.
+	 */
+	async clickConsoleLabel() {
+		await this.code.driver.currentPage
+			.locator('a.action-label[aria-label="Console"]')
+			.first()
+			.click();
+	}
+
 	async interruptExecution() {
 		await this.code.driver.currentPage.getByLabel('Interrupt execution').click();
 	}
