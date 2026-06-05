@@ -62,15 +62,13 @@ test.describe('Variables: Memory Usage', {
 		// Set a fast polling interval and a 100% threshold. The warning fires when
 		// free memory is at or below this percentage of total memory, and free
 		// memory can never exceed total, so a 100% threshold ALWAYS qualifies as
-		// "low" regardless of how the underlying provider reports memory. This is
-		// deliberately the boundary value: anything less (even 99%) depends on the
-		// provider reporting some non-trivial amount of memory as used, which does
-		// not hold on the CI web server, where it reports nearly all memory as
-		// free (used ~0%). 100% removes that dependency entirely.
+		// "low" regardless of how the underlying provider reports memory.
+		//
+		// Reload on web since the live value update doesn't propagate there.
 		await settings.set({
 			'memoryUsage.pollingIntervalMs': 1000,
 			'memoryUsage.lowMemoryThresholdPercent': 100,
-		});
+		}, { reload: 'web' });
 
 		// Start a Python session so the variables pane shows a memory meter.
 		await sessions.start(['python']);
