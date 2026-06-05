@@ -51,6 +51,8 @@ Report a one-line summary of what was gathered, including which entry-point shap
 
 For source-file / branch / PR / feature-area inputs: for each changed file/symbol, list discrete behaviors that merit a test. Skip: pure renames, type-only edits, comment-only changes, trivial glue, config, docs, action-only files, files with reverted changes.
 
+**PR input: also read the PR body's Validation Steps.** When the PR body contains a "Validation Steps" section (or equivalent manual test steps), translate each step into a testable behavior and add it to the enumeration. These describe the user-visible workflow the author verified manually — they are the most direct signal for what E2E coverage is needed. Do not skip this even if the diff looks purely internal.
+
 ### Step 3. Classify each behavior into a bucket
 
 (Skip if the input is a test file or test directory - no enumerated behaviors to classify; go to Step 4.)
@@ -136,6 +138,8 @@ Why: source-pattern matching produces false positives - `MenuId.X` mentions in a
 - **Split** - some assertions are genuinely cross-system, others are unit-level value checks. Propose moving the unit-level subset down; keep the cross-system subset.
 - **Keep** - assertions genuinely depend on full-app integration, OS-level input, multi-pane state, or real runtime output not reproducible under unit conditions.
 - **Delete** - test asserts upstream Monaco/VS Code behavior, or duplicates coverage that already exists at the right level.
+
+**Before issuing Keep for an e2e test: scenario-match check.** Verify that the test's setup exercises the *specific code path changed by the PR*, not just the same general feature area. The trap: a test named "side-by-side" that sets up two *different* files does NOT cover the scenario of splitting *one* file — the changed code path (same URI → two instances) is never exercised. Ask: "Does this test's setup invoke the changed code path?" If no, the test is `Keep` for its own behaviors but a coverage gap exists — surface an `Add` item for the missing scenario. Do not count a nearby test as coverage for an untested scenario.
 
 **Signals an assertion may belong UP a bucket** (rare, weak signals):
 - Vitest test stubs >=5 fundamental services (`ICommandService`, `IRuntimeSessionService`, `IExtensionService`, etc.) and the assertions are about cross-service interactions, not the unit's own outputs.
