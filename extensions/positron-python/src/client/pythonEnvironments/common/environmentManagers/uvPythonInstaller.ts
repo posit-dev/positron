@@ -342,8 +342,8 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     const venvResult = await createVenvHandlingExisting(homeFolder, () =>
                         createGlobalVenv(selected.version, progress),
                     );
-                    pythonPath = venvResult.venvPython;
-                    if (venvResult.attempted && !venvPython) {
+                    pythonPath = venvResult.venvPython ?? pythonPath;
+                    if (venvResult.attempted && !venvResult.venvPython) {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
                     }
                 }
@@ -356,7 +356,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                 });
 
                 installedVersion = selected.version;
-                return { success: true, pythonPath: pythonPath };
+                return { success: true, pythonPath: venvPython ?? pythonPath };
             } catch (error) {
                 traceError(`installPythonViaUv failed: ${error}`);
                 return { success: false, error: String(error) };
