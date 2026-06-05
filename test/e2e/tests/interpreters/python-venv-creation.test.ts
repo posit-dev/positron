@@ -18,29 +18,12 @@ test.describe('Python Venv Auto-Creation', {
 }, () => {
 	test.slow();
 
-	const fixtureBase = 'qa-example-content/workspaces/python-venv-creation';
-
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
 			'python.createEnvironment.trigger': 'prompt',
 			'interpreters.startupBehavior': 'auto',
+			'python.defaultInterpreterPath': '/usr/bin/python3',
 		}, { reload: 'web' });
-	});
-
-	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
-		await openFolder(`${fixtureBase}/with-requirements`);
-		await app.workbench.sessions.expectNoStartUpMessaging();
-
-		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
-		await expect(toast).toBeVisible({ timeout: 60000 });
-		await app.workbench.toasts.expectToastWithTitle(/uv/);
-		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
-	});
-
-	test('No notification when .venv already exists', async function ({ app, openFolder }) {
-		await openFolder(`${fixtureBase}/with-existing-venv`);
-
-		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
@@ -65,5 +48,21 @@ test.describe('Python Venv Auto-Creation', {
 		} finally {
 			await fs.rm(tempWorkspace, { recursive: true, force: true }).catch(() => { });
 		}
+	});
+
+	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
+		await openFolder('workspaces/python-venv-creation/with-requirements');
+		await app.workbench.sessions.expectNoStartUpMessaging();
+
+		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
+		await expect(toast).toBeVisible({ timeout: 60000 });
+		await app.workbench.toasts.expectToastWithTitle(/uv/);
+		await app.workbench.toasts.closeWithHeader(/requirements\.txt/);
+	});
+
+	test('No notification when .venv already exists', async function ({ app, openFolder }) {
+		await openFolder('with-existing-venv');
+
+		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
 	});
 });
