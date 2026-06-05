@@ -30,6 +30,14 @@
         "title": "Open Positron Notebook Editor Settings"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "positronNotebookHelpers.walkthrough.enableNotebook",
+          "when": "false"
+        }
+      ]
+    },
     "walkthroughs": [
       {
         "id": "positron.notebooks.welcome",
@@ -66,18 +74,18 @@
               "markdown": "resources/walkthroughs/ai-assistant.md"
             },
             "completionEvents": [
-              "onCommand:workbench.action.chat.open"
+              "onCommand:workbench.view.extension.posit-assistant"
             ]
           },
           {
-            "id": "positron.notebooks.optIn",
-            "title": "%walkthrough.notebooks.optIn.title%",
-            "description": "%walkthrough.notebooks.optIn.description%",
+            "id": "positron.notebooks.learnMore",
+            "title": "%walkthrough.notebooks.learnMore.title%",
+            "description": "%walkthrough.notebooks.learnMore.description%",
             "media": {
-              "markdown": "resources/walkthroughs/opt-in.md"
+              "markdown": "resources/walkthroughs/learn-more.md"
             },
             "completionEvents": [
-              "onSettingChanged:positron.notebook.enabled"
+              "onLink:https://positron.posit.co/positron-notebook-editor"
             ]
           }
         ]
