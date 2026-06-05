@@ -58,6 +58,13 @@ function getProviderTermsOfServiceText(provider: IProvider) {
 			eula, tos, privacy,
 		);
 	}
+	if (provider.id === 'posit-ai') {
+		return localize(
+			'positron.languageModelConfig.positAI.tos',
+			'By using {0}, you agree to the {1} and {2}.',
+			provider.displayName, tos, privacy,
+		);
+	}
 	return localize(
 		'positron.languageModelConfig.tos',
 		'{0} is considered "Third Party Materials" as defined in the {1} and subject to the {0} {2} and {3}.',
@@ -72,11 +79,24 @@ function getProviderUsageDisclaimerText(provider: IProvider) {
 			'Your use of the custom provider is optional and at your sole risk.',
 		);
 	}
-	return localize(
+	const soleRisk = localize(
 		'positron.languageModelConfig.tos2',
 		'Your use of {0} is optional and at your sole risk.',
 		provider.displayName,
 	);
+	if (provider.id === 'posit-ai') {
+		const faq = linkFragment(
+			localize('positron.languageModelConfig.positAiFaq', 'Posit AI FAQ'),
+			'https://docs.posit.co/posit-ai/user/faq/#privacy-data-storage',
+		);
+		const faqNote = localize(
+			'positron.languageModelConfig.positAI.faqNote',
+			'See the {0} for details on privacy and data storage.',
+			faq,
+		);
+		return `${faqNote}\n\n${soleRisk}`;
+	}
+	return soleRisk;
 }
 
 function getProviderTermsOfServiceLink(providerId: string) {
@@ -87,6 +107,8 @@ function getProviderTermsOfServiceLink(providerId: string) {
 			return 'https://cloud.google.com/terms/service-terms';
 		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot';
+		case 'posit-ai':
+			return 'https://posit.co/about/posit-service-terms-of-use';
 		default:
 			return undefined;
 	}
@@ -100,6 +122,8 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 			return 'https://policies.google.com/privacy';
 		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect';
+		case 'posit-ai':
+			return 'https://posit.co/about/privacy-policy/';
 		default:
 			return undefined;
 	}
