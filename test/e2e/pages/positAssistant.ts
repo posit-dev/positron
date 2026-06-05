@@ -469,11 +469,17 @@ export class PositAssistant {
 
 	/**
 	 * Selects "Allow for this session" if the tool confirmation dropdown appears
-	 * within the given timeout. Silently does nothing if it never shows up.
+	 * before the response completes. Silently does nothing if the model responds
+	 * without triggering a tool call.
 	 */
-	async allowToolForSessionIfVisible(timeout = 5000): Promise<void> {
+	async allowToolForSessionIfVisible(timeout = 60000): Promise<void> {
 		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
-		if (await trigger.isVisible({ timeout }).catch(() => false)) {
+		const stopButton = this.frame.locator(STOP_BUTTON);
+		const appeared = await Promise.race([
+			trigger.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false),
+			stopButton.waitFor({ state: 'hidden', timeout }).then(() => false).catch(() => false),
+		]);
+		if (appeared) {
 			await trigger.click();
 			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
 		}
