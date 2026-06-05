@@ -1,5 +1,5 @@
 ---
-name: audit-test-coverage
+name: test-audit
 description: Use to audit test coverage for a Positron change - review whether existing tests are in the right bucket, whether new coverage is needed, and produce an explicit verdict per item. Triggers include "audit coverage for <feature>", "is my test placement right", "quality-check before merge", "are these e2e tests carrying their weight", "what coverage does this PR need", or as part of pre-PR review. Produces a cross-bucket test coverage audit (Core Mocha / Vitest / Extension host / E2E) with explicit verdicts (Keep / Move down / Move up / Split / Add / Delete / Skip) and confidence per item. Optionally orchestrates handoff to author-vitest-tests and author-e2e-tests.
 ---
 
@@ -164,7 +164,7 @@ Output the report using the Output format template below. **Always step through 
 
 Step-through behavior:
 - After the at-a-glance table, render ONE action item per turn in **trace-hidden form**: EXACTLY 4 content lines — basename + scenario, `Verdict:`, `What changes:`, prompt. **DO NOT include a `Trace:` block, `Why:` block, or any per-assertion enumeration in the default step-through render.** The example layouts shown in the Output format template below depict the EXPANDED form (rendered on `expand <N>` or `dump all` only), not the default step-through.
-- Ask `approve / change <verdict> / skip / expand <N> ?`. If the dev replies `expand <N>`, re-render that item with the full Trace / Why / Moves-to-Vitest / Stays-in-e2e block (whichever applies for the verdict), then re-ask. Otherwise advance to the next item.
+- Ask `[a] approve  [c] change  [s] skip  [e] expand`. Accept single-letter shortcuts: `a` = approve, `c` = change, `s` = skip, `e` = expand. If the dev replies `e` or `expand <N>`, re-render that item with the full Trace / Why / Moves-to-Vitest / Stays-in-e2e block (whichever applies for the verdict), then re-ask. Otherwise advance to the next item.
 - After the last action item, summarize decisions ("N/N processed: X approved, Y changed, Z skipped"), then ask any global gate questions.
 
 Reference template for default step-through render (4 lines + prompt, NO trace):
@@ -173,7 +173,7 @@ Reference template for default step-through render (4 lines + prompt, NO trace):
 Verdict: <Move down -> Vitest> (<confidence>)
 What changes: <one-line action>
 
-approve / change <verdict> / skip / expand <N> ?
+[a] approve  [c] change  [s] skip  [e] expand
 ```
 
 Dev overrides:
