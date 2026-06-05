@@ -1759,6 +1759,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
 		} catch (err) {
+			this._restarting = false;
 			if (isAxiosError(err)) {
 				throw new Error(summarizeAxiosError(err));
 			} else {
@@ -1989,8 +1990,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param reason The reason for the state change
 	 */
 	private onStateChange(newState: positron.RuntimeState, reason: string) {
+		// While a restart is in flight, the kernel can momentarily
+		// report Idle/Ready (as it handles the shutdown request). Surfacing it
+		// makes the session look ready before the restart has finished, so a command
+		// issued then (such as exit()) is absorbed by the restart (see onExited) and
+		// never takes effect. Defer transient Idle/Ready until the restart completes;
+		// markReady('restart complete') clears _restarting and lets the real state through.
 		if (this._restarting && (newState === positron.RuntimeState.Idle || newState === positron.RuntimeState.Ready)) {
-			this.log(`Suppressing transient '${newState}' during restart (${reason})`, vscode.LogLevel.Debug);
+			this.log(`Restart in progress; deferring transient '${newState}' state (kernel status: ${reason})`, vscode.LogLevel.Debug);
 			return;
 		}
 		if (newState === positron.RuntimeState.Ready) {
