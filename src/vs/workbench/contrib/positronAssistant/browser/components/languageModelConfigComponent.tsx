@@ -28,6 +28,16 @@ const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
+const POSIT_EULA_URL = 'https://posit.co/about/eula/';
+
+/**
+ * Builds a markdown link fragment `[label](href)` for `EmbeddedLink`, or plain
+ * label text when there's no URL (so the label still renders, just not linked).
+ */
+function linkFragment(label: string, href: string | undefined): string {
+	return href ? `[${label}](${href})` : label;
+}
+
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
@@ -38,16 +48,20 @@ const copilotSignoutGuidanceLabel = localize(
 );
 
 function getProviderTermsOfServiceText(provider: IProvider) {
+	const eula = linkFragment(positEulaLabel, POSIT_EULA_URL);
+	const tos = linkFragment(providerTermsOfServiceLabel, getProviderTermsOfServiceLink(provider.id));
+	const privacy = linkFragment(providerPrivacyPolicyLabel, getProviderPrivacyPolicyLink(provider.id));
 	if (provider.id === 'openai-compatible') {
 		return localize(
 			'positron.languageModelConfig.openAiCompatible.tos',
-			'A custom provider is considered "Third Party Materials" as defined in the {posit-eula} and subject to the its {provider-tos} and {provider-privacy-policy}.',
+			'A custom provider is considered "Third Party Materials" as defined in the {0} and subject to the its {1} and {2}.',
+			eula, tos, privacy,
 		);
 	}
 	return localize(
 		'positron.languageModelConfig.tos',
-		'{0} is considered "Third Party Materials" as defined in the {posit-eula} and subject to the {0} {provider-tos} and {provider-privacy-policy}.',
-		provider.displayName,
+		'{0} is considered "Third Party Materials" as defined in the {1} and subject to the {0} {2} and {3}.',
+		provider.displayName, eula, tos, privacy,
 	);
 }
 
@@ -89,42 +103,6 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 		default:
 			return undefined;
 	}
-}
-
-/**
- * Interpolates placeholders in a string with React nodes.
- *
- * Scans the input `text` for placeholders in the form `{key}` and replaces each with the result of the `value` function.
- * If `value(key)` returns `undefined`, the original placeholder is left in place.
- *
- * @param text The input string containing zero or more `{key}` placeholders.
- * @param value A function that takes a key and returns a React node to replace the corresponding placeholder, or `undefined` to leave it unchanged.
- * @returns An array of React nodes and strings representing the interpolated text.
- */
-function interpolate(text: string, value: (key: string) => React.ReactNode | undefined): React.ReactNode[] {
-	const nodes: React.ReactNode[] = [];
-	let index = 0;
-	for (const match of text.matchAll(/\{([^\}]+)\}/g)) {
-		// Push text before the match, if any.
-		if (index < match.index) {
-			nodes.push(text.slice(index, match.index));
-		}
-
-		// Push the interpolated value, if there is one, or the original text.
-		const key = match[1];
-		const replacement = value(key) ?? match[0];
-		nodes.push(replacement);
-
-		// Bump the index.
-		index = match.index + match[0].length;
-	}
-
-	// Push remaining text.
-	if (index < text.length) {
-		nodes.push(text.slice(index));
-	}
-
-	return nodes;
 }
 
 /**
@@ -263,43 +241,13 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	const termsOfServiceText = getProviderTermsOfServiceText(props.provider);
-	const termsOfService = interpolate(
-		termsOfServiceText,
-		(key) => {
-			switch (key) {
-				case 'posit-eula':
-					return <ExternalLink href='https://posit.co/about/eula/'>{positEulaLabel}</ExternalLink>;
-				case 'provider-tos': {
-					const link = getProviderTermsOfServiceLink(props.provider.id);
-					return link ?
-						<ExternalLink href={link}>{providerTermsOfServiceLabel}</ExternalLink> :
-						providerTermsOfServiceLabel;
-				}
-				case 'provider-privacy-policy': {
-					const link = getProviderPrivacyPolicyLink(props.provider.id);
-					return link ?
-						<ExternalLink href={link}>{providerPrivacyPolicyLabel}</ExternalLink> :
-						providerPrivacyPolicyLabel;
-				}
-				default:
-					return undefined;
-			}
-		},
-	)
-
-	const disclaimerText = getProviderUsageDisclaimerText(props.provider);
+	// Two paragraphs separated by a blank line; EmbeddedLink wraps each in a <p>
+	// and turns the markdown links into anchors.
+	const text = `${getProviderTermsOfServiceText(props.provider)}\n\n${getProviderUsageDisclaimerText(props.provider)}`;
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
-		<p>{termsOfService}</p>
-		<p>{disclaimerText}</p>
+		<EmbeddedLink>{text}</EmbeddedLink>
 	</div>;
-}
-
-const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
-	return <a href={props.href} rel='noreferrer' target='_blank'>
-		{props.children}
-	</a>;
 }
 
 const AutoconfiguredModel = (props: { provider: string; displayName: string; details?: IPositronLanguageModelAutoconfigure; supportsBaseUrl?: boolean }) => {
