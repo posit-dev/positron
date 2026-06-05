@@ -49,6 +49,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          # Fork code runs here under pull_request_target; do not leave the
+          # write-scoped GITHUB_TOKEN in .git/config for fork scripts to reuse.
+          persist-credentials: false
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh

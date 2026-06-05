@@ -45,6 +45,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.commit }}
+          # Fork code may run here; don't persist GITHUB_TOKEN in .git/config.
+          persist-credentials: false
           submodules: recursive
 
       - uses: actions/setup-node@v6
