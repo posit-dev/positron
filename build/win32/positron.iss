@@ -378,6 +378,14 @@ Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.pyi\D
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.pyi\shell\open"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#ExeBasename}.exe"""; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.pyi\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""%1"""; Tasks: associatewithfiles
 
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.qmd\OpenWithProgids"; ValueType: none; ValueName: "{#RegValueName}"; Flags: deletevalue uninsdeletevalue; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.qmd\OpenWithProgids"; ValueType: string; ValueName: "{#RegValueName}.qmd"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.qmd"; ValueType: string; ValueName: ""; ValueData: "{cm:SourceFile,Quarto}"; Flags: uninsdeletekey; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.qmd"; ValueType: string; ValueName: "AppUserModelID"; ValueData: "{#AppUserId}"; Flags: uninsdeletekey; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.qmd\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\resources\app\resources\win32\quarto.ico"; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.qmd\shell\open"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#ExeBasename}.exe"""; Tasks: associatewithfiles
+Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.qmd\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#ExeBasename}.exe"" ""%1"""; Tasks: associatewithfiles
+
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.r\OpenWithProgids"; ValueType: none; ValueName: "{#RegValueName}"; Flags: deletevalue uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\.r\OpenWithProgids"; ValueType: string; ValueName: "{#RegValueName}.r"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associatewithfiles
 Root: {#SoftwareClassesRootKey}; Subkey: "Software\Classes\{#RegValueName}.r"; ValueType: string; ValueName: ""; ValueData: "{cm:SourceFile,R}"; Flags: uninsdeletekey; Tasks: associatewithfiles
