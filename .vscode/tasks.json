@@ -490,7 +490,8 @@
 				"Kill Ext - Build",
 				"Kill Core - Transpile",
 				"Kill Core - Typecheck",
-				"Kill E2E Tests - Build"
+				"Kill E2E Tests - Build",
+				"Kill Copilot - Build"
 			],
 			"group": "build",
 			"problemMatcher": []
