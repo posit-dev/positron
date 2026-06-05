@@ -468,6 +468,18 @@ export class PositAssistant {
 	}
 
 	/**
+	 * Selects "Allow for this session" if the tool confirmation dropdown appears
+	 * within the given timeout. Silently does nothing if it never shows up.
+	 */
+	async allowToolForSessionIfVisible(timeout = 5000): Promise<void> {
+		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		if (await trigger.isVisible({ timeout }).catch(() => false)) {
+			await trigger.click();
+			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+		}
+	}
+
+	/**
 	 * Clicks the main "Allow" button on the tool confirmation dialog (allow once).
 	 */
 	async allowToolOnce(): Promise<void> {

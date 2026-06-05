@@ -49,7 +49,7 @@ test.describe('Release Screenshots - Connections Pane Variables Pane', () => {
 		await variables.focusVariablesView();
 		await layouts.resizeAuxiliaryBar({ x: -150 });
 
-		const connRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
+		const connRow = variables.variableRow('conn');
 		const dbIcon = connRow.locator('.right-column .viewer-icon.codicon-database');
 		await expect(dbIcon).toBeVisible();
 
@@ -59,8 +59,7 @@ test.describe('Release Screenshots - Connections Pane Variables Pane', () => {
 			{ selector: '.right-column .viewer-icon.codicon-database', label: '', color: ANNOTATION_COLOR, padding: 6, borderWidth: 3 },
 		]);
 
-		// Crop tightly to the aux-bar so the shot matches the docs reference
-		// (only the SESSION/CONNECTIONS header + Variables view shows).
+		// crop tightly to the aux-bar
 		const auxBar = page.locator('.part.auxiliarybar');
 		const auxBox = await auxBar.boundingBox();
 		const connRowBox = await connRow.boundingBox();

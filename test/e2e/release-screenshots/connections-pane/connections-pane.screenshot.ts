@@ -43,11 +43,6 @@ test.describe.skip('Release Screenshots - Connections Pane', () => {
 		await quickaccess.runCommand('r.sourceCurrentFile');
 
 		// 2. Python SQLAlchemy (sqlite backend): Positron recognizes sqlalchemy.engine.base.Engine
-		//    and shows the DB icon on it; clicking registers it in the Connections pane as
-		//    'SQLAlchemy (sqlite)' — visually distinct from the R SQLiteConnection.
-		//    Use python.execInConsole (write-to-file + run) rather than executeCode so
-		//    Python becomes the foreground console, allowing variables.focusVariablesView()
-		//    to show the Python session's variables.
 		const chinookDbPath = join(app.workspacePathOrFolder, 'data-files', 'chinook', 'chinook.db').replace(/\\/g, '/');
 		const pyScriptName = 'sqlalchemy-conn.py';
 		fs.writeFileSync(join(app.workspacePathOrFolder, pyScriptName), [
@@ -56,16 +51,15 @@ test.describe.skip('Release Screenshots - Connections Pane', () => {
 		].join('\n'));
 		await openFile(pyScriptName);
 		await quickaccess.runCommand('python.execInConsole');
-		// Explicitly re-select Python: R startup triggered by r.sourceCurrentFile
-		// may have stolen the foreground session before we reach the variables check.
+
+		// open the connection pane and view the Python connection to ensure both connections are visible in the aux bar
 		await sessions.select(pythonSession.id);
 		await variables.focusVariablesView();
-		const pyConnRow = page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: /^conn/ }).first();
+		const pyConnRow = variables.variableRow('conn');
 		await expect(pyConnRow.locator('.right-column .viewer-icon.codicon-database')).toBeVisible({ timeout: 20_000 });
 		await variables.clickDatabaseIconForVariableRow('conn');
 
-		// Layout: close primary sidebar, open connections pane, navigate back to list
-		// view if connection_open() or the Python DB-icon click auto-navigated to schema view.
+		// customize layout
 		await hotKeys.closePrimarySidebar();
 		await connections.openConnectionPane();
 		const backButton = page.locator('.positron-connections-schema-navigation .codicon-arrow-left');
@@ -75,7 +69,7 @@ test.describe.skip('Release Screenshots - Connections Pane', () => {
 		await expect(connections.connectionItems).toHaveCount(2, { timeout: 30_000 });
 		await layouts.resizeAuxiliaryBar({ x: -250 });
 
-		// Make R the foreground session + R file the active editor.
+		// make R the foreground session + R file the active editor.
 		await sessions.select(rSession.id);
 		await openFile(rScript);
 

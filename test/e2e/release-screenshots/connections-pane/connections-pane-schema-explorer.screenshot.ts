@@ -49,33 +49,25 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		const { sessions, console, connections, layouts } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
-		// Turn off occurrence highlighting so the editor doesn't box every
+		// turn off occurrence highlighting so the editor doesn't box every
 		// instance of the word under the cursor (e.g. "path") in the capture.
 		await settings.set({ 'editor.occurrencesHighlight': 'off' }, { keepOpen: false });
 
-		// Write the script to the workspace root so the file explorer shows a
+		// write the script to the workspace root so the file explorer shows a
 		// clean single file rather than a nested workspaces/ subdirectory.
 		fs.mkdirSync(join(app.workspacePathOrFolder, 'db'), { recursive: true });
 		fs.writeFileSync(join(app.workspacePathOrFolder, 'nycflights-sqlite.r'), SCRIPT);
 		await openFile('nycflights-sqlite.r');
 
-		// Execute the same script to build the DB and register the connection.
+		// execute the same script to build the DB and register the connection.
 		await executeCode('R', SCRIPT, { maximizeConsole: false, timeout: 60000 });
-
-
 		await connections.openConnectionPane();
 		await connections.viewConnection('SQLiteConnection');
 		await expect(connections.currentConnectionName).toContainText('SQLiteConnection', { timeout: 30_000 });
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
-		// the columns are visible (matches the 3 expanded tables in the docs ref).
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airports', /^planes$/]);
-		// Widen the connections pane so the full schema tree and column types
-		// are clearly visible, matching the reference.
 		await layouts.resizeAuxiliaryBar({ x: -300 });
-		// Grow the bottom panel so the console (with script echo) takes a
-		// larger portion of the window, matching the ~50/50 editor/console
-		// split in the docs reference.
 		await layouts.resizePanel({ y: -200 });
 		await console.focus();
 

@@ -154,7 +154,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.waitForReady();
 		await positAssistant.startNewConversation();
 		await positAssistant.sendMessage('Tell me about this notebook', false);
-		await positAssistant.allowToolForSession();
+		await positAssistant.allowToolForSessionIfVisible();
 		await positAssistant.waitForResponseComplete();
 		await layouts.resizeSidebar({ x: 50 });
 

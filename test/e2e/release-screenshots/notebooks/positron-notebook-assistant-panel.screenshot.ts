@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test as base } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
@@ -52,8 +51,7 @@ test.describe('Release Screenshots - Positron Notebook Assistant Panel', () => {
 
 		// click the "Ask Assistant" button to open the assistant panel
 		await notebooksPositron.clickAskAssistantButton();
-		const panel = page.locator('.positron-modal-dialog-box').filter({ hasText: 'Positron Notebook Assistant' });
-		await expect(panel).toBeVisible({ timeout: 10000 });
+		await notebooksPositron.expectNotebookAssistantModalVisible();
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
