@@ -20,18 +20,12 @@
  * `src/vs/platform/agentHost/node/copilot/copilotAgent.ts`.
  */
 export function createWorkerEnv(): NodeJS.ProcessEnv {
-	const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+	const env: NodeJS.ProcessEnv = { ...process.env };
 	delete env['NODE_OPTIONS'];
-	delete env['VSCODE_INSPECTOR_OPTIONS'];
-	delete env['VSCODE_ESM_ENTRYPOINT'];
-	delete env['VSCODE_HANDLES_UNCAUGHT_ERRORS'];
 	for (const key of Object.keys(env)) {
-		if (key === 'ELECTRON_RUN_AS_NODE') {
-			continue;
-		}
 		if (key.startsWith('VSCODE_') || key.startsWith('ELECTRON_')) {
 			delete env[key];
 		}
 	}
-	return env;
+	return { ...env, ELECTRON_RUN_AS_NODE: '1' };
 }
