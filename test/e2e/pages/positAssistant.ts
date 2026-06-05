@@ -469,22 +469,18 @@ export class PositAssistant {
 
 	/**
 	 * Selects "Allow for this session" if the tool confirmation dropdown appears
-	 * before the response starts streaming. Silently does nothing if the model
-	 * responds without triggering a tool call.
+	 * within the given timeout. Silently does nothing if it never shows up.
 	 *
-	 * Races the tool trigger against the stop button becoming visible (streaming
-	 * started). Tool confirmation appears before streaming begins, so whichever
-	 * wins first determines whether approval is needed.
+	 * The tool dialog can appear before OR after streaming begins, so this does
+	 * not race against the stop button — it simply waits the full timeout.
 	 */
-	async allowToolForSessionIfVisible(timeout = 60000): Promise<void> {
-		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
-		const stopButton = this.frame.locator(STOP_BUTTON);
-		const appeared = await Promise.race([
-			trigger.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false),
-			stopButton.waitFor({ state: 'visible', timeout }).then(() => false).catch(() => false),
-		]);
+	async allowToolForSessionIfVisible(timeout = 30000): Promise<void> {
+		const appeared = await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER)
+			.waitFor({ state: 'visible', timeout })
+			.then(() => true)
+			.catch(() => false);
 		if (appeared) {
-			await trigger.click();
+			await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
 			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
 		}
 	}
