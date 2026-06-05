@@ -142,14 +142,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit }}
           fetch-depth: 0
           submodules: recursive
-
-      - name: Checkout specific commit
-        if: ${{ inputs.commit != '' }}
-        run: |
-          git checkout ${{ inputs.commit }}
-          git submodule update --init --recursive
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4

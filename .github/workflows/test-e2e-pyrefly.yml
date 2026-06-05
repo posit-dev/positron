@@ -42,14 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit }}
           fetch-depth: 0
           submodules: recursive
-
-      - name: Checkout specific commit
-        if: ${{ inputs.commit != '' }}
-        run: |
-          git checkout ${{ inputs.commit }}
-          git submodule update --init --recursive
 
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env
