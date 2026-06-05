@@ -554,7 +554,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
 				getActiveWindow().document.execCommand('copy');
-				props.positronConsoleInstance.focusInput();
+				// Don't steal focus when the user has scrolled up to view history.
+				// Focusing the input causes the browser to scroll it into view.
+				if (!props.positronConsoleInstance.scrollLocked) {
+					props.positronConsoleInstance.focusInput();
+				}
 				return;
 			}
 		}
