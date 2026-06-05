@@ -125,6 +125,11 @@ Why: source-pattern matching produces false positives - `MenuId.X` mentions in a
 - Coverage redundancy: a unit test already exists - the e2e duplicates that assertion through a ~10x slower path.
 - Assertion is about data shape/format, not user experience.
 
+*Is migration worth the cost?* Before proposing Move down, weigh whether the e2e is already causing pain. Migration has overhead (new Vitest, PR review, deletion). If the test is stable and fast, that overhead may exceed the gain. Flag the tradeoff in the step-through so the dev decides:
+- **Worth migrating:** test is flaky, slow (>10s), or duplicates coverage already present at a lower level.
+- **Marginal:** test is stable and cheap (<5s) but logic is clearly unit-testable. Surface as Move down but note low friction either way.
+- **Not worth it:** test is stable, cheap, and the only coverage of the behavior. Keep.
+
 **Step 4D. Classify the test as a whole.**
 - **Move down fully** - every assertion could and should move lower. Propose a replacement at the lower bucket; flag the original for deletion (dev-driven).
 - **Move up** - *rare.* The current bucket can't faithfully exercise what the test asserts; the test belongs higher. Always paired with an alternative line in the report. See "Signals an assertion may belong UP a bucket" below for detection criteria + confidence rules.
@@ -176,9 +181,20 @@ What changes: <one-line action>
 [a] approve  [c] change  [s] skip  [e] expand
 ```
 
+**Move down verdicts add one extra line** — a stability prompt so the dev can weigh migration cost at the gate:
+```
+[N] <basename> :: <scenario>
+Verdict: Move down -> Vitest (high)
+What changes: <one-line action>
+Stability: Is this e2e currently flaky or slow? If stable and fast, migration may not be worth the overhead.
+
+[a] approve  [c] change  [s] skip  [e] expand
+```
+
 Dev overrides:
 - `dump all` — escape hatch: render all remaining action items at once with full trace.
 - `approve all remaining` — auto-approve everything that hasn't been visited yet.
+- `show low-confidence` — reveal suppressed low-confidence items.
 
 End with the global question:
 
@@ -199,7 +215,16 @@ After the dev's response at step 5, ask:
 
 **Context carry-forward on handoff:**
 - For new additions: pass just the file path. `author-vitest-tests`' Phase 2 plan-first gate is where test cases are chosen.
-- For e2e -> Vitest move proposals: pass the file path plus a one-line behavioral hint as free-form prose in `$ARGUMENTS`, e.g., *"Covers behaviors currently asserted in `test/e2e/.../console-clear.test.ts`: detects `\f` trigger, no-ops on partial sequence."*
+- For e2e -> Vitest move proposals: pass the **serialized trace** from Step 4A/4B as a starting hint — include the source file path, each assertion with its line number, the traced function/class, and the Vitest pattern (plain/builder/RTL). `author-vitest-tests` still does its own source-file read, existing-test check, and preset selection; the trace skips redundant assertion-enumeration and surfaces behaviors the e2e already exercised. Note: behaviors the e2e never hit won't appear in the trace — the author skill may surface additional gaps. Example format:
+
+  ```
+  Source: src/vs/.../clearHandler.ts
+  Replacing: test/e2e/.../console-clear.test.ts
+  Trace (starting hint — not exhaustive):
+  - L23 expect(parser.detect('\f')).toBe(true) -> clearHandler.detect() — Vitest plain
+  - L41 expect(consoleState).toBe('cleared') -> consoleReducer.reduce() — Vitest builder
+  - L58 expect(output).toEqual([]) -> clearHandler.flush() — Vitest plain
+  ```
 
 ## Output format
 
@@ -261,20 +286,17 @@ One example per verdict (showing the four shapes):
 **[N]** `src/vs/.../<file>.ts` :: <behavior> -- **Add** (high) - <pattern: plain / builder / RTL>
 **Why:** <one-line reason>
 
-### Low-confidence flags (FYI, ignore freely) - N items
-
-**[N]** `<path>` - Move down (low). <weak-signal reason>
-
 ## Skip
 **[N]** `<file>` - Skip (high). Docs-only / type-only / reverted / upstream / action-only.
 
 ## Summary
 - Add: <V vitest, E ext-host-flag, e2e>
-- Move down: <H high, M medium, L low>
+- Move down: <H high, M medium>
 - Move up: <N> (rare)
 - Split: <N>
 - Keep: <N> (X verified via hypothesis-verification trace)
 - Delete / Skip: <N>
+- Low-confidence (hidden): <N> — reply `show low-confidence` to reveal
 - Upstream awareness: <U items, X overlaps>
 - Total dev decisions at the gate: <N>
 ```
@@ -317,7 +339,7 @@ Reminders worth repeating:
 - For `Add`: *"add <pattern> Vitest at `<path>` covering <one-line behavior>"*.
 
 **Other rules:**
-- Low-confidence flags are listed under their own heading and called out as optional, in compact one-line form (path + verdict + reason; no `Why` / `Trace` block).
+- Low-confidence flags are **suppressed by default**. They appear in the Summary count only. The dev can reply `show low-confidence` to reveal them; when revealed, use compact one-line form (path + verdict + reason; no `Why` / `Trace` block).
 - Items are numbered across the whole report (`[1]`...`[N]`) so the dev can reply `approve all except 3,7,12` or `expand 6`.
 
 **Handling `expand <N>` requests:**
