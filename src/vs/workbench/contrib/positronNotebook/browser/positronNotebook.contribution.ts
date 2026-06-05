@@ -148,7 +148,7 @@ class PositronNotebookContribution extends Disposable {
 
 	private registerEditor(): void {
 		this.registerNotebookEditor({
-			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support'),
 			extension: '.ipynb',
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
