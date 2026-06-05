@@ -101,14 +101,22 @@ function getProviderUsageDisclaimerText(provider: IProvider) {
 
 function getProviderTermsOfServiceLink(providerId: string) {
 	switch (providerId) {
+		case 'amazon-bedrock':
+			return 'https://aws.amazon.com/service-terms/';
 		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/consumer-terms';
+		case 'ms-foundry':
+			return 'https://www.microsoft.com/licensing/terms/productoffering/MicrosoftAzure';
 		case 'google':
 			return 'https://cloud.google.com/terms/service-terms';
 		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot';
+		case 'openai-api':
+			return 'https://openai.com/policies/row-terms-of-use/';
 		case 'posit-ai':
 			return 'https://posit.co/about/posit-service-terms-of-use';
+		case 'snowflake-cortex':
+			return 'https://www.snowflake.com/en/legal/terms-of-service/';
 		default:
 			return undefined;
 	}
@@ -116,14 +124,22 @@ function getProviderTermsOfServiceLink(providerId: string) {
 
 function getProviderPrivacyPolicyLink(providerId: string) {
 	switch (providerId) {
+		case 'amazon-bedrock':
+			return 'https://aws.amazon.com/privacy/';
 		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/privacy';
+		case 'ms-foundry':
+			return 'https://privacy.microsoft.com/en-us/privacystatement';
 		case 'google':
 			return 'https://policies.google.com/privacy';
 		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect';
+		case 'openai-api':
+			return 'https://openai.com/policies/row-privacy-policy/';
 		case 'posit-ai':
 			return 'https://posit.co/about/privacy-policy/';
+		case 'snowflake-cortex':
+			return 'https://www.snowflake.com/en/legal/privacy/privacy-policy/';
 		default:
 			return undefined;
 	}
