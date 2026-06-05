@@ -14,6 +14,7 @@ import { DeferredPromise, asPromise, assertNoRpc, closeAllEditors, delay, dispos
 import * as positron from 'positron';
 // --- End Positron ---
 
+// TODO: this now became flaky with built-in copilot
 suite('chat', () => {
 
 	let disposables: Disposable[] = [];
@@ -25,10 +26,17 @@ suite('chat', () => {
 			displayName: 'Test LM Vendor',
 			settingName: 'testLmVendor'
 		});
+		// Register copilot provider metadata so it's enabled in Positron
+		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
+		positron.ai.registerProviderMetadata({
+			id: 'copilot-auth',
+			displayName: 'Test Copilot',
+			settingName: 'githubCopilot'
+		});
 		// --- End Positron ---
 
 		// Register a dummy default model which is required for a participant request to go through
-		disposables.push(lm.registerLanguageModelChatProvider('test-lm-vendor', {
+		disposables.push(lm.registerLanguageModelChatProvider('copilot', {
 			async provideLanguageModelChatInformation(_options, _token) {
 				return [{
 					id: 'test-lm',
@@ -71,6 +79,7 @@ suite('chat', () => {
 
 	test('participant and slash command history', async () => {
 		const onRequest = setupParticipant();
+		await commands.executeCommand('workbench.action.chat.newChat');
 		commands.executeCommand('workbench.action.chat.open', { query: '@participant /hello friend' });
 
 		const deferred = new DeferredPromise<void>();

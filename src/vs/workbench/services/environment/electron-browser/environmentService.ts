@@ -170,6 +170,9 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 	}
 	// --- End Positron ---
 
+	@memoize
+	get isSessionsWindow(): boolean { return !!this.configuration.isSessionsWindow; }
+
 	constructor(
 		private readonly configuration: INativeWindowConfiguration,
 		productService: IProductService

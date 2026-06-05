@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -84,6 +84,10 @@ test.describe('Editor Action Bar: Data Files', {
 			// Ensure the summary panel is visible
 			await dataExplorer.summaryPanel.show();
 
+			// Save button should NOT appear on the Data Explorer's editor
+			// action bar; the data explorer URI is virtual (not file-backed).
+			await editorActionBar.verifyButtonVisible('Save', false);
+
 			// Verify action bar behavior
 			await editorActionBar.selectSummaryOn(app.web, 'Left');
 			await editorActionBar.verifySummaryPosition('Left');
@@ -107,8 +111,8 @@ async function openDataExplorerViaVariablePane(app: Application, variable: strin
 	await test.step('Open data explorer via variable pane', async () => {
 		await app.workbench.editor.playButton.click();
 		await app.workbench.variables.doubleClickVariableRow(variable);
-		await app.code.driver.page.getByRole('tablist').locator('.tab').first().click();
-		await app.code.driver.page.getByLabel('Close').first().click();
-		await expect(app.code.driver.page.getByText(tabName, { exact: true })).toBeVisible();
+		await app.code.driver.currentPage.getByRole('tablist').locator('.tab').first().click();
+		await app.code.driver.currentPage.getByLabel('Close').first().click();
+		await expect(app.code.driver.currentPage.getByText(tabName, { exact: true })).toBeVisible();
 	});
 }

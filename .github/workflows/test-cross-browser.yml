@@ -25,15 +25,6 @@ on:
         description: "Override default grep pattern. Leave empty to use config default (@:cross-browser)"
         default: ""
         type: string
-      notify_on:
-        description: "Slack notification on:"
-        required: true
-        default: "always"
-        type: choice
-        options:
-        - failure
-        - always
-        - never
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -91,24 +82,7 @@ jobs:
     needs:
       [e2e-firefox, e2e-webkit, e2e-edge]
     runs-on: ubuntu-latest
-    env:
-      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'always' }}
     steps:
-      - run: |
-          echo "Will notify on: ${{ env.notify_on }}"
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
-          notify_on: ${{ env.notify_on }}
-          filter_jobs: "(e2e / ([^0-9]*))$"
-          include_job_durations: false
-          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
-
       - name: Checkout
         if: always()
         uses: actions/checkout@v6

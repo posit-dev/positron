@@ -18,6 +18,7 @@ const mode = 'Edit';
 export const pythonNoExecutionHallucination: EvalTestCase = {
 	id: 'python-no-execution-hallucination',
 	description: 'Ensure LLM does not hallucinate execution results',
+	fixme: 'Test needs updating to handle the removal of edit mode',
 	prompt,
 	mode,
 

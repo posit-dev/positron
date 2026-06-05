@@ -22,8 +22,6 @@ import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/comm
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { NOTEBOOK_CELL_TYPE } from '../../notebook/common/notebookContextKeys.js';
 
-export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
-
 /**
  * An action that executes the selected text in a notebook cell in the
  * associated console for the notebook.

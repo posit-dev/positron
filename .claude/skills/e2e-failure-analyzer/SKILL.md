@@ -26,7 +26,8 @@ Scripts live alongside this skill in `scripts/`. Use the base directory path sho
 ### Consolidated scripts (preferred -- fewer tool calls)
 
 - **`e2e-gather-run-info.js`** - Gathers all run metadata, failed jobs, artifacts, non-e2e job log excerpts, and commit info in one call. Replaces multiple `gh api` invocations.
-- **`e2e-process-project.js`** - Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
+- **`e2e-process-project.js`** - **Path A.** Processes a merged blob report project end-to-end: extracts failures, scans blobs, extracts/parses traces, extracts screenshots and error-context. Replaces multiple script + unzip invocations.
+- **`e2e-process-s3.js`** - **Path B.** Processes a CloudFront-hosted Playwright HTML report end-to-end: fetches `index.html`, decodes the embedded base64 `report.zip`, downloads trace + error-context attachments from S3, parses traces, and extracts screencast frames. Produces the same JSON shape as `e2e-process-project.js` so the downstream analyzer treats both paths identically.
 
 ### Standalone scripts (used by consolidated scripts internally, or for ad-hoc debugging)
 
@@ -99,99 +100,38 @@ Output JSON contains:
 - `testDetails` - array of per-test objects, each containing:
   - `testId`, `title`, `file`, `status`, `blob`, `attemptCount`
   - `attempts` - array of per-attempt objects with:
-    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `lastScreenshotSha1`
-    - `screenshotPath` - path to extracted last screenshot JPEG (view with Read tool)
-    - `errorContextPath` - path to extracted page snapshot markdown (view with Read tool if needed)
+    - `trace` - parsed trace data: `timeline` (human-readable string), `errors` (array), `screenshotShas` (array of `{sha1, timestamp}` in chronological order), `lastScreenshotSha1` (legacy: same as last entry of `screenshotShas`)
+    - `screenshotPaths` - chronological array of paths to extracted screenshot JPEGs (view with Read tool); the last entry is the failure-state frame, earlier entries show the moments before it
+    - `screenshotPath` - legacy alias pointing to the last entry of `screenshotPaths`
+    - `errorContextPath` - path to the extracted **page snapshot** markdown: Playwright's accessibility-tree snapshot of the page at the moment of failure (including content inside same-origin webview iframes), plus the failing selector and the relevant test source. Primary evidence for locator-not-found / not-visible / element-count / text-or-attribute failures -- Read it to tell a stale test selector from a real product regression (see the [analysis rubric](rubric.md))
   - `logHashes` - array of `{resourceHash, blob}` for logs (extract manually if needed)
 
-**IMPORTANT: View screenshots** using the `screenshotPath` fields with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts; comparing across retries reveals whether a failure is consistent or intermittent. Screenshots are the most revealing evidence for diagnosing failures.
+**IMPORTANT: View screenshots** using the `screenshotPaths` arrays with the Read tool. You MUST Read **all** screenshots in a **single message** with multiple parallel Read tool calls -- this results in only one approval prompt instead of one per screenshot. View all attempts and all frames per attempt; comparing across retries reveals whether a failure is consistent or intermittent, and comparing the trailing frames *within* an attempt often shows where the test went wrong before the visible error. Screenshots are the most revealing evidence for diagnosing failures. Default frame count per attempt is 3 (configurable via `--screenshots N` on `e2e-process-project.js`).
 
-**View error context** with the Read tool using `errorContextPath` paths if the screenshot and trace timeline are insufficient for diagnosis.
+**View the error-context page snapshot** with the Read tool using `errorContextPath` paths. For any locator-not-found, "not visible", element-count, or text/attribute failure, Read it FIRST (not as a last resort): it captures the failure-state accessibility tree -- the only evidence that distinguishes a stale test selector from a real product regression, since a screenshot cannot. See the [analysis rubric](rubric.md).
 
 ---
 
 ## Path B: posit-dev/positron-builds (S3 HTML Reports)
 
-Use the failed e2e jobs already identified in Step 1a. For each failed e2e job:
+### Process the HTML report (single script call)
 
-### B1: Extract Failure Details from Job Logs
+The `e2e-process-s3.js` script handles everything in one call: fetches the report's `index.html`, decodes the embedded base64 `report.zip`, walks failures + per-file detail JSONs, downloads trace and error-context attachments from S3, parses traces, and extracts trailing screencast frames.
 
-The job logs contain full Playwright test output including error messages, stack traces, and attachment paths:
-
-```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -A 20 -E "^\s+\d+\) \[" | head -100
-```
-
-This gives the full test failure output including:
-- Test name and tags
-- Error messages and stack traces
-- Attachment paths (trace, logs, screenshots)
-
-### B2: Get Report URL from Job Logs
-
-The job log contains the S3 report URL:
+For **each** failed e2e job from Step 1, resolve the job's `REPORT_DIR` from its logs (the workflow logs both an unresolved template line containing literal `${IDENTIFIER}` / `${OS_SUFFIX}` and the expanded value -- ignore the template), then run:
 
 ```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'REPORT_DIR=playwright-report-[^ ]+' | head -1
+node "$SKILL_DIR/scripts/e2e-process-s3.js" \
+  --report-url https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/ \
+  --output-dir /tmp/e2e-analysis-<JOB_LABEL> \
+  --cleanup
 ```
 
-The base URL pattern is: `https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/`
+For interactive / ad-hoc use, you can call the script directly with any CloudFront-hosted Playwright HTML report URL -- no run ID required.
 
-### B3: Download Screenshots from S3
+Output JSON is identical to Path A's `e2e-process-project.js` (see the field list above), so the same screenshot-reading and analysis flow applies. The `blob` field is the report directory name (last path segment of the S3 URL) rather than a zip filename, since Path B has no blob zips.
 
-The HTML report's `data/` directory contains PNGs (on-test-end screenshots) and ZIPs (traces, logs). Find PNG filenames from the upload log:
-
-```bash
-gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'data/[a-f0-9]+\.png' | sort -u
-```
-
-Download and view each PNG with the Read tool:
-```bash
-curl -s -o /tmp/pw-screenshot-N.png "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.png"
-```
-
-There are typically only 5-15 PNGs per job (one per failed/flaky test attempt). Download all and view them.
-
-### B4: Download Traces from S3
-
-Find trace zips by checking sizes of data/ zips (traces are typically >1MB while logs are <500KB):
-
-```bash
-# Get all data zip hashes from upload log
-ZIPS=$(gh api repos/posit-dev/positron-builds/actions/jobs/<JOB_ID>/logs 2>&1 | grep -oE 'data/[a-f0-9]+\.zip' | sort -u)
-
-# Check sizes to find traces (>1MB)
-for hash in $(echo "$ZIPS" | sed 's|data/||' | head -30); do
-  size=$(curl -sI "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/${hash}" | grep -i content-length | awk '{print $2}' | tr -d '\r')
-  [ "$size" -gt 1000000 ] 2>/dev/null && echo "$size $hash"
-done | sort -rn
-```
-
-Download and verify trace zips:
-```bash
-curl -s -o /tmp/pw-trace.zip "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.zip"
-unzip -l /tmp/pw-trace.zip | head -5  # Should show trace.trace + resources/*.jpeg
-```
-
-Then extract and parse the trace using the same script as Path A:
-```bash
-mkdir -p /tmp/trace-contents && unzip -o /tmp/pw-trace.zip trace.trace -d /tmp/trace-contents
-node "$SKILL_DIR/scripts/e2e-parse-trace.js" /tmp/trace-contents/trace.trace
-```
-
-Extract the last screenshot from the trace zip using the sha1 from the script output:
-```bash
-unzip -o /tmp/pw-trace.zip "resources/<LAST_SCREENSHOT>.jpeg" -d /tmp/trace-contents
-```
-
-### B5: Download Logs from S3
-
-Logs zips are typically 300-500KB and contain `e2e-test-runner.log`, `main.log`, `window1/` directory, etc:
-
-```bash
-curl -s -o /tmp/pw-logs.zip "https://d38p2avprg8il3.cloudfront.net/<REPORT_DIR>/data/<HASH>.zip"
-unzip -l /tmp/pw-logs.zip | head -5  # Should show e2e-test-runner.log, main.log, etc.
-```
+**IMPORTANT: View screenshots** the same way as Path A -- Read all `screenshotPaths` arrays in a single message with multiple parallel Read tool calls. Read the `errorContextPath` page snapshot FIRST for any locator-not-found / not-visible / attribute / text failure (it is the primary evidence for stale-selector vs product-regression -- see the [analysis rubric](rubric.md)), not just when screenshots and traces fall short.
 
 ---
 
@@ -253,34 +193,9 @@ Include a **History** line in each failure's analysis, e.g.:
 
 ## Step 7: Analyze and Present Results
 
-Using all the data gathered (failures, trace actions, screenshots, logs), analyze the failures. For each failure (or group of related failures), determine:
+For each failure (or group of related failures), apply the shared **[analysis rubric](rubric.md)** to determine its root-cause category, a 1-2 sentence evidence-based explanation, and a suggested action. `rubric.md` is the single source of truth for the root-cause categories, the evidence-reading order (screenshots, trace timeline, test source, and the error-context page snapshot -- read FIRST for any locator/visibility/attribute/text failure), the locator-drift-vs-product-regression decision, historical-data interpretation, and head-commit correlation. The **same file is injected verbatim into the analyzer Action's system prompt**, so local skill runs and the Action reason identically -- edit the rubric there, not here.
 
-1. **Root cause category** - one of: flaky test, infrastructure issue, product regression, test environment issue, timeout, test logic bug
-2. **Brief explanation** - 1-2 sentences on what likely went wrong, referencing specific evidence from traces/screenshots/logs
-3. **Suggested action** - what a developer should do next
-
-When analyzing, consider:
-- Multiple tests failing in the same file/suite likely share a root cause
-- `timedOut` status often indicates flakiness or infrastructure slowness
-- Errors mentioning "locator" or "expect" timeouts are usually test/product issues
-- Errors during app startup (e.g., waiting for workbench) are usually infrastructure
-- Check if the failing test has `:soft-fail` tag (known flaky)
-- The screenshot at failure is often the most revealing piece of evidence
-
-### Check the triggering commit
-
-For tests that **failed all retries** (not just flaky), inspect the head commit using the `commit` field from Step 1's `e2e-gather-run-info.js` output (already includes message, author, and changed files).
-
-Compare the changed files against:
-- **The failing test file itself** and its page objects/helpers -- changes here could introduce a test logic bug
-- **Product source code exercised by the test** -- changes to the feature under test could be a real product regression that the test correctly caught
-- **Shared infrastructure** (startup, layout, rendering) -- changes here could alter timing or behavior enough to surface a latent flaky test
-
-If the commit touched relevant files, read the diff and assess causality. A commit that modifies notebook cell rendering is a plausible cause for a notebook cell-count assertion failure, even if the test has flaked before. Conversely, a commit that only changes R interpreter code is unlikely to cause a Python plot test failure.
-
-Include a **Commit** line in the detailed analysis when the commit is relevant, e.g.:
-- "Commit: modified `notebookCellList.ts` (notebook cell rendering) -- **plausible cause**"
-- "Commit: no files related to this test's feature area -- unlikely cause"
+Include a **Commit** line in the detailed analysis when the head commit is relevant (per the rubric), e.g. "Commit: modified `notebookCellList.ts` (notebook cell rendering) -- **plausible cause**" or "Commit: no files related to this test's feature area -- unlikely cause".
 
 ### Additional repo context
 
@@ -314,13 +229,8 @@ Offer to:
 
 ## Cleanup
 
-**Path A**: If you used `--cleanup` with `e2e-process-project.js`, the download/merge artifacts are already removed. Only the `--output-dir` remains (screenshots and error-context). Remove it with exact paths (no globs):
+**Path A and Path B**: If you used `--cleanup` with `e2e-process-project.js` / `e2e-process-s3.js`, the intermediate download/unzip dirs are already removed. Only the `--output-dir` remains (screenshots and error-context). Remove it with exact paths (no globs):
 
 ```bash
-rm -rf /tmp/e2e-analysis-<PROJECT>
-```
-
-**Path B**: Remove artifacts with exact paths:
-```bash
-rm -rf /tmp/pw-screenshots /tmp/pw-traces /tmp/pw-logs
+rm -rf /tmp/e2e-analysis-<PROJECT_OR_JOB_LABEL>
 ```

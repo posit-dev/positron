@@ -4,6 +4,7 @@
 		"target": "ES2020",
 		"moduleResolution": "nodenext",
 		"outDir": "out",
+		"rootDir": "src",
 		"lib": [
 			"ES2020",
 			"DOM"
@@ -16,6 +17,10 @@
 		"esModuleInterop": true,
 		"typeRoots": [
 			"./node_modules/@types"
+		],
+		"types": [
+			"node",
+			"mocha"
 		],
 		"paths": {
 			"*": ["./node_modules/*"]

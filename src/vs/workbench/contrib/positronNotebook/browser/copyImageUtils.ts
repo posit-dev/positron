@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
+import { localize } from '../../../../nls.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 /**
  * Shape of the arg passed to `positronNotebook.cell.copyOutputImage` to target
@@ -15,6 +19,23 @@ export interface CopyImageMenuArg {
 
 export function isCopyImageMenuArg(arg: unknown): arg is CopyImageMenuArg {
 	return typeof arg === 'object' && arg !== null && typeof (arg as CopyImageMenuArg).imageDataUrl === 'string';
+}
+
+/**
+ * Copy an image data URL to the clipboard, logging and notifying the user on failure.
+ */
+export async function copyImageToClipboard(
+	dataUrl: string,
+	clipboardService: IClipboardService,
+	logService: ILogService,
+	notificationService: INotificationService,
+): Promise<void> {
+	try {
+		await clipboardService.writeImage(toBase64DataUrl(dataUrl));
+	} catch (err) {
+		logService.error('Failed to copy image to clipboard:', err);
+		notificationService.error(localize('copyImageFailed', "Failed to copy image to clipboard"));
+	}
 }
 
 /**

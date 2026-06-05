@@ -11,8 +11,11 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { ITimerService } from '../../../services/timer/browser/timerService.js';
+import { IStartupMetrics, ITimerService } from '../../../services/timer/browser/timerService.js';
 import { IDisposable, dispose } from '../../../../base/common/lifecycle.js';
+import { raceTimeout } from '../../../../base/common/async.js';
+import { IExtensionService, IResponsiveStateChangeEvent } from '../../../services/extensions/common/extensions.js';
+import { ExtensionHostKind } from '../../../services/extensions/common/extensionHostKind.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { writeTransientState } from '../../codeEditor/browser/toggleWordWrap.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -26,11 +29,25 @@ import { getWorkbenchContribution } from '../../../common/contributions.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import {
+	IRuntimeDiscoveryCache,
+	RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING
+} from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { IAdminPolicyService } from '../../../../platform/policy/common/adminPolicyService.js';
 import * as perf from '../../../../base/common/performance.js';
+
+/**
+ * Setting that controls how long the Runtime Startup Diagnostics report waits
+ * for a response from the extension host before giving up and rendering the
+ * rest of the report without that data. Configurable for slower systems.
+ */
+export const EXTENSION_HOST_TIMEOUT_CONFIG_KEY = 'startupDiagnostics.timeout';
+
+/** Default value (ms) for {@link EXTENSION_HOST_TIMEOUT_CONFIG_KEY}. */
+export const EXTENSION_HOST_TIMEOUT_DEFAULT_MS = 10000;
 
 export class PositronStartupDiagnosticsContrib implements IDisposable {
 
@@ -42,19 +59,22 @@ export class PositronStartupDiagnosticsContrib implements IDisposable {
 
 	private readonly _inputUri = URI.from({ scheme: 'positron-startup-diagnostics', path: 'Runtime Startup Diagnostics' });
 	private readonly _registration: IDisposable;
+	private readonly _provider: PositronStartupDiagnosticsContentProvider;
 
 	constructor(
 		@IInstantiationService private readonly _instaService: IInstantiationService,
 		@ITextModelService textModelResolverService: ITextModelService
 	) {
+		this._provider = _instaService.createInstance(PositronStartupDiagnosticsContentProvider);
 		this._registration = textModelResolverService.registerTextModelContentProvider(
 			'positron-startup-diagnostics',
-			_instaService.createInstance(PositronStartupDiagnosticsContentProvider)
+			this._provider
 		);
 	}
 
 	dispose(): void {
 		this._registration.dispose();
+		this._provider.dispose();
 	}
 
 	getInputUri(): URI {
@@ -102,10 +122,16 @@ export class PositronStartupDiagnosticsInput extends TextResourceEditorInput {
 	}
 }
 
-class PositronStartupDiagnosticsContentProvider implements ITextModelContentProvider {
+class PositronStartupDiagnosticsContentProvider implements ITextModelContentProvider, IDisposable {
 
 	private _model: ITextModel | undefined;
 	private _modelDisposables: IDisposable[] = [];
+	private _disposables: IDisposable[] = [];
+
+	// Latest known responsive state per extension host kind, populated by
+	// onDidChangeResponsiveChange. A host that has never reported a transition
+	// is omitted from the map (and we surface that as "no transitions reported").
+	private readonly _hostResponsiveState = new Map<ExtensionHostKind, boolean>();
 
 	constructor(
 		@IModelService private readonly _modelService: IModelService,
@@ -120,7 +146,19 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		@IOutputService private readonly _outputService: IOutputService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-	) { }
+		@IRuntimeDiscoveryCache private readonly _discoveryCache: IRuntimeDiscoveryCache,
+		@IExtensionService private readonly _extensionService: IExtensionService,
+	) {
+		this._disposables.push(this._extensionService.onDidChangeResponsiveChange(
+			(e: IResponsiveStateChangeEvent) => {
+				this._hostResponsiveState.set(e.extensionHostKind, e.isResponsive);
+			}));
+	}
+
+	dispose(): void {
+		dispose(this._disposables);
+		dispose(this._modelDisposables);
+	}
 
 	provideTextContent(resource: URI): Promise<ITextModel> {
 		if (!this._model || this._model.isDisposed()) {
@@ -134,13 +172,20 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 
 			writeTransientState(this._model, { wordWrapOverride: 'off' }, this._editorService);
 		}
-		this._updateModel();
+		this._updateModel().catch(() => {
+			// _updateModel is best-effort; failures leave the model showing the
+			// initial placeholder rather than blocking the editor from opening.
+		});
 		return Promise.resolve(this._model);
 	}
 
-	private _updateModel(): void {
+	private async _updateModel(): Promise<void> {
 		Promise.all([
-			this._timerService.whenReady(),
+			// Wait for the timer service barrier so _addSystemInfo can read
+			// startupMetrics, but cap the wait. The diagnostics report's job is to
+			// surface state even when startup is wedged (which is exactly when the
+			// barrier may not open), so we render best-effort if the wait expires.
+			raceTimeout(this._timerService.whenReady(), 5000)
 		]).then(async () => {
 			if (this._model && !this._model.isDisposed()) {
 				const md = new MarkdownBuilder();
@@ -168,18 +213,64 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 				md.blank();
 				this._addDiscoveredRuntimes(md);
 				md.blank();
+				this._addDiscoveryCache(md);
+				md.blank();
+				this._addExtensionHostStatus(md);
+				md.blank();
 				await this._addOutputChannels(md);
-
-				this._model.setValue(md.value);
 			}
 		});
+
+		if (!this._model || this._model.isDisposed()) {
+			return;
+		}
+
+		const md = new MarkdownBuilder();
+		md.heading(1, 'Positron Runtime Startup Diagnostics');
+		md.blank();
+		this._addSystemInfo(md);
+		md.blank();
+		this._addAffiliatedRuntimes(md);
+		md.blank();
+		this._addActiveRuntimes(md);
+		md.blank();
+		this._addTimeToFirstRuntime(md);
+		md.blank();
+		this._addStartupPhaseTiming(md);
+		md.blank();
+		this._addRawPerfMarks(md);
+		md.blank();
+		this._addPerSessionTiming(md);
+		md.blank();
+		this._addInterpreterSettings(md);
+		md.blank();
+		this._addAdminEnforcedSettings(md);
+		md.blank();
+		await this._addSessionLaunchInfo(md);
+		md.blank();
+		this._addDiscoveredRuntimes(md);
+		md.blank();
+		this._addExtensionHostStatus(md);
+		md.blank();
+		await this._addOutputChannels(md);
+
+		this._model.setValue(md.value);
 	}
 
 	private _addSystemInfo(md: MarkdownBuilder): void {
-		const metrics = this._timerService.startupMetrics;
 		md.heading(2, 'System Information');
 		md.li(`${this._productService.nameShort}: ${this._productService.positronVersion} build ${this._productService.positronBuildNumber} (Code OSS ${this._productService.version})`);
 		md.li(`Commit: ${this._productService.commit || 'unknown'}`);
+
+		// startupMetrics throws if accessed before the timer service barrier opens.
+		// Tolerate that: emit a note and continue so the rest of the report renders.
+		let metrics: IStartupMetrics | undefined;
+		try {
+			metrics = this._timerService.startupMetrics;
+		} catch {
+			md.li('Startup metrics: not yet available (timer service not ready)');
+			return;
+		}
 		md.li(`OS: ${metrics.platform}(${metrics.release})`);
 		if (metrics.cpus) {
 			md.li(`CPUs: ${metrics.cpus.model}(${metrics.cpus.count} x ${metrics.cpus.speed})`);
@@ -188,6 +279,42 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			md.li(`Memory(System): ${(metrics.totalmem / (ByteSize.GB)).toFixed(2)} GB (${(metrics.freemem / (ByteSize.GB)).toFixed(2)}GB free)`);
 		}
 		md.li(`Initial Startup: ${metrics.initialStartup}`);
+	}
+
+	private _addExtensionHostStatus(md: MarkdownBuilder): void {
+		md.heading(2, 'Extension Host Status');
+
+		// Registered extension count. Synchronous local data; if the extension
+		// host never finished registering (e.g. it's hung), this will be empty
+		// and is itself a useful diagnostic signal.
+		const registered = this._extensionService.extensions;
+		md.li(`Registered extensions: ${registered.length}`);
+
+		// Determine which extension host kinds are actually in use by looking
+		// at where each registered extension is running. Hosts default to
+		// "Responsive": onDidChangeResponsiveChange only fires on transitions,
+		// so the absence of an event means the host has stayed responsive
+		// since startup.
+		const status = this._extensionService.getExtensionsStatus();
+		const kindsInUse = new Set<ExtensionHostKind>();
+		for (const id of Object.keys(status)) {
+			const loc = status[id].runningLocation;
+			if (loc) {
+				kindsInUse.add(loc.kind);
+			}
+		}
+
+		md.blank();
+		if (kindsInUse.size === 0) {
+			md.li('No extension hosts running');
+		} else {
+			const stateRows: Array<Array<string>> = [];
+			for (const kind of kindsInUse) {
+				const isResponsive = this._hostResponsiveState.get(kind) ?? true;
+				stateRows.push([extensionHostKindLabel(kind), isResponsive ? 'Responsive' : 'Unresponsive']);
+			}
+			md.table(['Extension Host', 'State'], stateRows);
+		}
 	}
 
 	private _addInterpreterSettings(md: MarkdownBuilder): void {
@@ -328,16 +455,39 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 			return;
 		}
 
-		for (const session of sessions) {
+		// Kick off all getLaunchInfo() calls in parallel against a single shared
+		// timeout window. Awaiting them sequentially would multiply the wait by
+		// the number of active sessions when the extension host is unresponsive.
+		const timeoutMs = this._configurationService.getValue<number>(EXTENSION_HOST_TIMEOUT_CONFIG_KEY);
+		const results = await Promise.all(sessions.map(async session => {
 			if (!session.getLaunchInfo) {
-				continue;
+				return undefined;
 			}
 
-			let launchInfo: ILanguageRuntimeLaunchInfo | undefined;
+			let timedOut: boolean = false;
 			try {
-				launchInfo = await session.getLaunchInfo();
+				const launchInfo = await raceTimeout(
+					Promise.resolve(session.getLaunchInfo()),
+					timeoutMs,
+					() => { timedOut = true; }
+				);
+				return { session, launchInfo, timedOut };
 			} catch {
 				// Session may not support launch info; skip it.
+				return undefined;
+			}
+		}));
+
+		for (const result of results) {
+			if (!result) {
+				continue;
+			}
+			const { session, launchInfo, timedOut } = result;
+
+			if (timedOut) {
+				md.heading(3, session.runtimeMetadata.runtimeName);
+				md.li(`(Could not retrieve launch info: extension host did not respond within ${timeoutMs / 1000}s)`);
+				md.blank();
 				continue;
 			}
 
@@ -488,6 +638,103 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.table(['Name', 'Language', 'Version', 'Source', 'Has Session', 'Session ID(s)'], table);
 	}
 
+	private _addDiscoveryCache(md: MarkdownBuilder): void {
+		md.heading(2, 'Discovery Cache');
+
+		const enabled = this._configurationService.getValue<boolean>(RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING);
+
+		if (enabled === false) {
+			md.blank();
+			md.li('_Discovery cache disabled by setting -- no entries are read or written this session._');
+			return;
+		}
+
+		const counters = this._discoveryCache.sessionCounters;
+		md.blank();
+		md.heading(3, 'This-session counters');
+		md.li(`Foreground cache-hit registrations: ${counters.foregroundHits}`);
+		md.li(`Background revalidations attempted / succeeded / failed: ${counters.revalidationsAttempted} / ${counters.revalidationsSucceeded} / ${counters.revalidationsFailed}`);
+		md.li(`Evictions this session: ${counters.evictions}`);
+		md.li(`Full-discovery passes this session: ${counters.fullDiscoveryRuns.length}`);
+		md.li(`Full-discovery passes triggered by root changes: ${counters.rootsChangedFullDiscoveries}`);
+		if (counters.fullDiscoveryRuns.length > 0) {
+			const reasonTable: Array<Array<string>> = counters.fullDiscoveryRuns.map(r => [
+				r.extensionId, r.languageId, r.reason, new Date(r.at).toISOString(),
+			]);
+			md.table(['Extension', 'Language', 'Reason', 'At'], reasonTable);
+		}
+
+		const buckets = this._discoveryCache.getAllBuckets();
+		md.blank();
+		md.heading(3, 'Per-bucket state');
+		if (buckets.length === 0) {
+			md.li('No cached entries.');
+			return;
+		}
+
+		const fmtAge = (ts: number): string => {
+			if (!ts) { return '-'; }
+			const ageMs = Date.now() - ts;
+			if (ageMs < 0) { return '-'; }
+			const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+			const hours = Math.floor((ageMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+			if (days > 0) { return `${days}d ${hours}h ago`; }
+			if (hours > 0) { return `${hours}h ago`; }
+			const minutes = Math.floor(ageMs / (60 * 1000));
+			return `${minutes}m ago`;
+		};
+
+		const rows: Array<Array<string>> = [];
+		for (const bucket of buckets) {
+			let oldestFirstSeen = 0;
+			let newestValidated = 0;
+			for (const entry of bucket.entries) {
+				if (oldestFirstSeen === 0 || entry.firstSeen < oldestFirstSeen) {
+					oldestFirstSeen = entry.firstSeen;
+				}
+				if (entry.lastValidated > newestValidated) {
+					newestValidated = entry.lastValidated;
+				}
+			}
+			rows.push([
+				bucket.extensionId,
+				bucket.languageId,
+				String(bucket.entries.length),
+				fmtAge(oldestFirstSeen),
+				fmtAge(newestValidated),
+				fmtAge(bucket.lastFullDiscovery),
+			]);
+		}
+		md.table(
+			['Extension', 'Language', 'Entries', 'Oldest firstSeen', 'Newest lastValidated', 'lastFullDiscovery'],
+			rows);
+
+		// Per-bucket root-signature breakdown. Renders the persisted snapshot
+		// of "the directories this manager scans for interpreters" so support
+		// can see whether a warm-start root-change check would have fired.
+		md.blank();
+		md.heading(3, 'Discovery Root Signatures');
+		const bucketsWithSignatures = buckets.filter(b => b.discoveryRootSignature);
+		if (bucketsWithSignatures.length === 0) {
+			md.li('No persisted root signatures. Either the cache predates the v2 schema, or no manager implements `getDiscoveryRootSignature`.');
+		} else {
+			for (const bucket of bucketsWithSignatures) {
+				const sig = bucket.discoveryRootSignature!;
+				md.blank();
+				md.heading(4, `${bucket.extensionId} / ${bucket.languageId}`);
+				md.li(`Roots: ${sig.entries.length}${sig.opaque ? ' (with opaque blob)' : ''}`);
+				if (sig.entries.length > 0) {
+					const sigRows: Array<Array<string>> = sig.entries.map(e => [
+						e.path,
+						e.exists ? 'yes' : 'no',
+						e.exists ? new Date(e.mtimeMs).toISOString() : '-',
+					]);
+					md.table(['Path', 'Exists', 'mtime'], sigRows);
+				}
+			}
+		}
+	}
+
 	private _addDiscoveredRuntimes(md: MarkdownBuilder): void {
 		md.heading(2, 'Discovered Runtimes');
 
@@ -601,6 +848,14 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		// timer service snapshot, which is captured early during startup and
 		// misses marks recorded after that point.
 		return perf.getMarks().filter(m => m.name.startsWith('code/positron/'));
+	}
+}
+
+function extensionHostKindLabel(kind: ExtensionHostKind): string {
+	switch (kind) {
+		case ExtensionHostKind.LocalProcess: return 'Local Process';
+		case ExtensionHostKind.LocalWebWorker: return 'Local Web Worker';
+		case ExtensionHostKind.Remote: return 'Remote';
 	}
 }
 

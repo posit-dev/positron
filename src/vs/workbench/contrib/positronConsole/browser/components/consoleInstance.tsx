@@ -39,6 +39,13 @@ interface ConsoleInstanceProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
+// Snapshot of the scroll container's size at a point in time. Used to detect phantom
+// scroll events from layout changes (see scrollHandler).
+interface ObservedSize {
+	readonly scrollHeight: number;
+	readonly clientHeight: number;
+}
+
 /**
  * ConsoleInstance component.
  * @param props A ConsoleInstanceProps that contains the component properties.
@@ -52,6 +59,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Reference hooks.
 	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
 	const consoleInstanceContainerRef = useRef<HTMLDivElement>(undefined!);
+
+	// Tracks scroll / client height as observed by the most recent real scroll event. Used in
+	// scrollHandler to detect phantom scroll events from layout changes (where the user did not
+	// scroll, but the container resized between the scroll write and the scroll event firing).
+	const lastObservedSizeRef = useRef<ObservedSize | null>(null);
 
 	// State hooks.
 	const [fontInfo, setFontInfo] = useState(FontConfigurationManager.getFontInfo(services.configurationService, 'console'));
@@ -90,6 +102,38 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	useEffect(() => {
 		props.positronConsoleInstance.layoutFindWidget(props.width);
 	}, [props.positronConsoleInstance, props.width]);
+
+	// Anchor to bottom on shrink. The browser auto-clamps scrollTop on grow but not on shrink, so
+	// we need to set it ourselves. ResizeObserver fires between layout and paint, keeping the
+	// correction in the same frame as the size change — a useLayoutEffect would run a frame later
+	// because it waits for VS Code's onSizeChanged → React state → re-render. See consoleCore.css
+	// for the overall layout scheme.
+	useEffect(() => {
+		// Get the console instance element. If it doesn't exist, do nothing.
+		const consoleInstanceElement = consoleInstanceRef.current;
+		if (!consoleInstanceElement) {
+			return;
+		}
+
+		// Get the window element for the console instance element and create a ResizeObserver for
+		// it that will scroll to the bottom if the view is not scroll locked.
+		const window = DOM.getWindow(consoleInstanceElement);
+		const resizeObserver = new window.ResizeObserver(() => {
+			if (!props.positronConsoleInstance.scrollLocked) {
+				setIgnoreNextScrollEvent(true);
+				consoleInstanceElement.scrollTo(
+					consoleInstanceElement.scrollLeft,
+					consoleInstanceElement.scrollHeight
+				);
+			}
+		});
+
+		// Observe the console instance element for size changes.
+		resizeObserver.observe(consoleInstanceElement);
+
+		// Disconnect the observer on cleanup.
+		return () => resizeObserver.disconnect();
+	}, [props.positronConsoleInstance, setIgnoreNextScrollEvent]);
 
 	// Determines whether the console is scrollable.
 	const scrollable = () => consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
@@ -284,12 +328,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 		}));
 
-		disposableStore.add(props.reactComponentContainer.onSizeChanged(_ => {
-			if (!props.positronConsoleInstance.scrollLocked) {
-				scrollToBottom();
-			}
-		}));
-
 		// Add the onDidSelectPlot event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
 			// Ensure that the Plots pane is visible in the main window.
@@ -324,6 +362,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the onDidRequestRevealExecution event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidRequestRevealExecution((executionId) => {
 			// Find the element with the matching data-execution-id attribute.
+			// eslint-disable-next-line no-restricted-syntax
 			const element = consoleInstanceRef.current.querySelector(
 				`[data-execution-id="${executionId}"]`
 			);
@@ -332,6 +371,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 
 			// Find the activity-input element within this activity.
+			// eslint-disable-next-line no-restricted-syntax
 			const activityInput = element.querySelector('.activity-input');
 			if (!activityInput) {
 				return;
@@ -355,10 +395,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
+		// Set ignoreNextScrollEvent so the scroll event from our scrollTo write is not interpreted
+		// as the user scrolling away from the bottom — the scroll handler runs later and may see a
+		// different clientHeight than we used, producing a non-zero scrollPosition that would
+		// incorrectly flip scrollLocked = true.
 		if (!props.positronConsoleInstance.scrollLocked) {
+			setIgnoreNextScrollEvent(true);
 			scrollVertically(consoleInstanceRef.current.scrollHeight);
 		}
-	}, [marker, props.positronConsoleInstance.scrollLocked]);
+	}, [marker, props.positronConsoleInstance.scrollLocked, setIgnoreNextScrollEvent]);
 
 	/**
 	 * onClick event handler.
@@ -565,15 +610,45 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
-		// If we are ignoring the next scroll event
+		// Get the console instance element. If it doesn't exist, do nothing.
+		const consoleInstanceElement = consoleInstanceRef.current;
+		if (!consoleInstanceElement) {
+			return;
+		}
+
+		// Get the current size of the console instance element.
+		const currentSize: ObservedSize = {
+			scrollHeight: consoleInstanceElement.scrollHeight,
+			clientHeight: consoleInstanceElement.clientHeight,
+		};
+
+		// Skip if this scroll event was triggered by our own scrollTo (e.g. from the
+		// ResizeObserver or scrollToBottom). Otherwise the lock-update logic below would
+		// interpret it as the user scrolling away from the bottom and incorrectly set
+		// scrollLocked = true.
 		if (ignoreNextScrollEventRef.current) {
 			setIgnoreNextScrollEvent(false);
+			lastObservedSizeRef.current = currentSize;
 		} else {
+			// Phantom scroll events from cascading layout changes: a ResizeObserver-driven
+			// scrollTo runs once, but its scroll event fires later — by then the container may
+			// have shrunk further, leaving scrollTop short of the new max. If the size changed
+			// since the last real scroll, treat this as a phantom and skip the scroll lock update.
+			const sizeChanged = lastObservedSizeRef.current !== null &&
+				(
+					currentSize.scrollHeight !== lastObservedSizeRef.current.scrollHeight ||
+					currentSize.clientHeight !== lastObservedSizeRef.current.clientHeight
+				);
+			lastObservedSizeRef.current = currentSize;
+			if (sizeChanged) {
+				return;
+			}
+
 			// Calculate the scroll position.
 			const scrollPosition = Math.abs(
-				consoleInstanceRef.current.scrollHeight -
-				consoleInstanceRef.current.clientHeight -
-				consoleInstanceRef.current.scrollTop
+				consoleInstanceElement.scrollHeight -
+				consoleInstanceElement.clientHeight -
+				consoleInstanceElement.scrollTop
 			);
 
 			// Update scroll lock state
@@ -581,7 +656,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 			// This used to be saved in an event handler when visibility changed
 			// to `false` but the `scrollTop` already became 0 at that point.
-			props.positronConsoleInstance.lastScrollTop = consoleInstanceRef.current.scrollTop;
+			props.positronConsoleInstance.lastScrollTop = consoleInstanceElement.scrollTop;
 		}
 	};
 
@@ -630,7 +705,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			role='tabpanel'
 			style={{
 				width: adjustedWidth,
-				height: props.height,
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}

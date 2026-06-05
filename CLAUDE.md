@@ -4,7 +4,7 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 
 ## Build System
 
-**NEVER run direct TypeScript compilation** (`npx tsc`, `tsc --noEmit`, etc.). This project is too large and it will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:
+**NEVER run direct TypeScript compilation on the main project** (`npx tsc`, `tsc --noEmit`, etc. against `src/tsconfig.json`). This project is too large and it will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:
 
 1. Check daemon status first: `npm run build-ps`
 2. Start missing daemons in the background if needed: `npm run build-start`
@@ -16,6 +16,8 @@ Positron is a next-generation data science IDE built on VS Code with first-class
 Edge cases:
 
 - Restart build daemons to fix missing package errors after `npm install`: `npm run build-stop && npm run build-start && npm run build-check`
+
+**Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
 ## Upstream Compatibility
 
@@ -100,6 +102,7 @@ Positron has three test categories:
 - To auto-fix formatting issues in TypeScript/JavaScript files:
   - Formatting: `node scripts/format.mts <file> [file2] ...`
   - ESLint: `npx eslint --fix <file> [file2] ...`
+- When registering user-facing configuration, follow the **[guidance on settings](.claude/rules/configuration.md)**. Setting keys, titles, and display names omit redundant terms ("Positron", "Setting", etc.); `localize()` IDs keep the `positron.` prefix.
 
 ## General
 

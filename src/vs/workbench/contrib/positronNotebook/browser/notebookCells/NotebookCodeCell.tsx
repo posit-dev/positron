@@ -7,16 +7,15 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs, ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { isParsedTextOutput } from '../getOutputContents.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { getPlainTextOutputContent, isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
@@ -29,17 +28,19 @@ import { getActiveWindow, isHTMLElement } from '../../../../../base/browser/dom.
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
+import { LatexOutput } from './LatexOutput.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS } from '../ContextKeysManager.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { HorizontalSplitter, HorizontalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
+import { serializeJsonOutput } from '../copyJsonUtils.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
@@ -57,15 +58,17 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const perCellScrolling = useObservedValue(cell.outputScrolling);
-	const contextKeyService = useCellScopedContextKeyService();
-	const outputOverflowsKey = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputImageTargeted = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
+	const contextKeys = cell.contextKeys;
+	const { selectionStateMachine } = useNotebookInstance();
+	const handleOutputFocus = useCallback(() => {
+		contextKeys?.outputFocused.set(true);
+		selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+	}, [contextKeys, selectionStateMachine, cell]);
+	const handleOutputBlur = useCallback((e: React.FocusEvent) => {
+		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+			contextKeys?.outputFocused.set(false);
+		}
+	}, [contextKeys]);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -107,15 +110,6 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 		}
 	}, []);
 
-	// Update the output overflow context key.
-	React.useEffect(() => {
-		if (!outputOverflowsKey) { return; }
-		const hasOverflowingOutput = outputs.some(o =>
-			isParsedTextOutput(o.parsed) && o.parsed.content.trimEnd().split('\n').length > layout.outputLineLimit
-		);
-		outputOverflowsKey.set(hasOverflowingOutput);
-	}, [outputs, layout.outputLineLimit, outputOverflowsKey]);
-
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellOutputActionContext,
@@ -152,10 +146,24 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			: undefined;
 		const imageDataUrl = src?.startsWith('data:') ? src : undefined;
 
-		// Set context key so the "Copy Image" menu item shows only when an image is targeted
-		outputImageTargeted?.set(!!imageDataUrl);
+		const targetElement = isHTMLElement(event.target) ? event.target : undefined;
+		const jsonOutputElement = targetElement?.closest<HTMLElement>('[data-positron-json-output-id]');
+		const jsonOutputId = jsonOutputElement?.dataset.positronJsonOutputId;
+		const jsonOutput = jsonOutputId
+			? outputs.find(o => o.outputId === jsonOutputId && o.parsed.type === 'json')
+			: undefined;
+		const jsonText = jsonOutput?.parsed.type === 'json'
+			? serializeJsonOutput(jsonOutput.parsed.data)
+			: undefined;
 
-		const onHide = () => outputImageTargeted?.set(false);
+		// Set context keys so targeted copy menu items show only for the right output type.
+		contextKeys?.outputImageTargeted.set(!!imageDataUrl);
+		contextKeys?.outputJsonTargeted.set(!!jsonText);
+
+		const onHide = () => {
+			contextKeys?.outputImageTargeted.set(false);
+			contextKeys?.outputJsonTargeted.set(false);
+		};
 
 		// Delay to next tick so the browser selection is up to date
 		// (right-click may highlight a word after the contextmenu event fires)
@@ -170,7 +178,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 
 				return [
 					{
-						id: 'positron.notebook.copyOutputText',
+						id: 'positronNotebook.copyOutputText',
 						label: copyOutputTextLabel,
 						tooltip: '',
 						class: undefined,
@@ -181,11 +189,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 								getActiveWindow().document.execCommand('copy');
 							} else {
 								// Fall back to copying all text output from the cell
-								const textContent = outputs
-									.filter(o => isParsedTextOutput(o.parsed))
-									.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
-									.join('\n');
-								services.clipboardService.writeText(textContent);
+								services.clipboardService.writeText(getPlainTextOutputContent(outputs));
 							}
 						}
 					},
@@ -193,8 +197,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				];
 			};
 
-			const menuActionOptions = imageDataUrl
-				? { arg: { imageDataUrl }, shouldForwardArgs: true }
+			let menuArg: { imageDataUrl: string } | { jsonText: string } | undefined;
+			if (imageDataUrl) {
+				menuArg = { imageDataUrl };
+			} else if (jsonText) {
+				menuArg = { jsonText };
+			}
+			const menuActionOptions = menuArg
+				? { arg: menuArg, shouldForwardArgs: true }
 				: undefined;
 
 			showContextMenu({ x, y }, getClipboardActions, onHide, menuActionOptions);
@@ -213,7 +223,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 				aria-label={localize('positron.notebook.cellOutput', 'Cell output')}
 				className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs'
 				data-testid='cell-output'
+				role='region'
+				tabIndex={0}
+				onBlur={handleOutputBlur}
 				onContextMenu={handleContextMenu}
+				onFocus={handleOutputFocus}
 			>
 				<div ref={outputsInnerRef} className={positronClassNames(
 					'positron-notebook-code-cell-outputs-inner',
@@ -312,9 +326,9 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	}
 
 	switch (parsed.type) {
-		case 'interupt':
+		case 'interrupt':
 			return <div className='notebook-error'>
-				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
+				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
 			return <img alt='output image' src={parsed.dataUrl} />;
@@ -322,6 +336,10 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
+		case 'latex':
+			return <LatexOutput content={parsed.content} />;
+		case 'json':
+			return <JsonOutput data={parsed.data} outputId={output.outputId} />;
 		case 'dataExplorer':
 			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
@@ -348,4 +366,3 @@ const CollapsedOutputLabel = ({ onExpand }: { onExpand: () => void }) => {
 		{outputCollapsedLabel}
 	</Button>;
 };
-

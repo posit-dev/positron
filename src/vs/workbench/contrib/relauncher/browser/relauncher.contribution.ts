@@ -33,7 +33,7 @@ interface IConfiguration extends IWindowsConfiguration {
 	window: IWindowSettings;
 	workbench?: { enableExperiments?: boolean };
 	telemetry?: { feedback?: { enabled?: boolean } };
-	chat?: { extensionUnification?: { enabled?: boolean } };
+	chat?: { extensionUnification?: { enabled?: boolean }; agentHost?: { enabled?: boolean } };
 	_extensionsGallery?: { enablePPE?: boolean };
 	accessibility?: { verbosity?: { debug?: boolean } };
 }
@@ -59,7 +59,8 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		// --- End Positron ---
 		'accessibility.verbosity.debug',
 		'telemetry.feedback.enabled',
-		'chat.extensionUnification.enabled'
+		'chat.extensionUnification.enabled',
+		'chat.agentHost.enabled'
 	];
 
 	private readonly titleBarStyle = new ChangeObserver<TitlebarStyle>('string');
@@ -77,6 +78,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 	private readonly accessibilityVerbosityDebug = new ChangeObserver('boolean');
 	private readonly telemetryFeedbackEnabled = new ChangeObserver('boolean');
 	private readonly extensionUnificationEnabled = new ChangeObserver('boolean');
+	private readonly agentHostEnabled = new ChangeObserver('boolean');
 
 	// --- Start Positron ---
 	private readonly autoUpdate = new ChangeObserver('boolean');
@@ -182,6 +184,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		// Extension Unification (only when turning on)
 		processChanged(this.extensionUnificationEnabled.handleChange(config.chat?.extensionUnification?.enabled) && config.chat?.extensionUnification?.enabled === true);
 
+		// Agent Host
+		processChanged(this.agentHostEnabled.handleChange(config.chat?.agentHost?.enabled));
+
 		if (askToRelaunch && changed && this.hostService.hasFocus) {
 			this.doConfirm(
 				isNative ?
@@ -245,13 +250,17 @@ export class WorkspaceChangeExtHostRelauncher extends Disposable implements IWor
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IExtensionService extensionService: IExtensionService,
 		@IHostService hostService: IHostService,
-		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService
+		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 	) {
 		super();
 
 		this.extensionHostRestarter = this._register(new RunOnceScheduler(async () => {
 			if (!!environmentService.extensionTestsLocationURI) {
 				return; // no restart when in tests: see https://github.com/microsoft/vscode/issues/66936
+			}
+
+			if (environmentService.isSessionsWindow) {
+				return; // no restart for sessions window
 			}
 
 			if (environmentService.remoteAuthority) {

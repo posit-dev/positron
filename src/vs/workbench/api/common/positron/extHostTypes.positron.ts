@@ -469,5 +469,47 @@ export class StatementRangeSyntaxError extends Error {
 	}
 }
 
+export enum DataConnectionParameterType {
+	Boolean = 'boolean',
+	File = 'file',
+	Number = 'number',
+	Option = 'option',
+	Password = 'password',
+	String = 'string',
+}
+
+export enum DataConnectionNodeKind {
+	Database = 'database',
+	Schema = 'schema',
+	Table = 'table',
+	View = 'view',
+	Field = 'field',
+	GroupSchemas = 'group-schemas',
+	GroupTables = 'group-tables',
+	GroupViews = 'group-views',
+	GroupColumns = 'group-columns',
+	GroupIndexes = 'group-indexes',
+	GroupTriggers = 'group-triggers',
+	Trigger = 'trigger',
+	Index = 'index',
+}
+
+/**
+ * The reason the Positron window is shutting down. Mirrors the workbench's
+ * internal `ShutdownReason` enum so extensions can distinguish a quit from a
+ * window reload.
+ */
+export enum ShutdownReason {
+	/** The window was closed (e.g. last window of the application). */
+	Close = 1,
+	/** The application is quitting. */
+	Quit = 2,
+	/** The window is reloading. */
+	Reload = 3,
+	/** The window is loading a different workspace. */
+	Load = 4,
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
+export type { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
+export { PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

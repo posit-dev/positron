@@ -231,7 +231,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Derive the auth status from the selected provider or progress state */
 	const getAuthStatus = () => {
-		if (selectedProvider.signedIn) {
+		if (isSignedIn()) {
 			return AuthStatus.SIGNED_IN;
 		}
 		if (showProgress) {

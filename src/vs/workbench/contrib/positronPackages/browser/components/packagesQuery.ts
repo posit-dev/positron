@@ -12,11 +12,12 @@ export enum PackagesSortOrder {
 }
 
 /**
- * PackagesFilter enum.
+ * PackagesFilter enum. Each value is an independent category filter that can
+ * be active simultaneously; the active set is intersected when applied.
  */
 export enum PackagesFilter {
-	All = 'all',
 	Outdated = 'outdated',
+	Attached = 'attached',
 }
 
 // Token value <-> PackagesSortOrder mapping used to (de)serialize the
@@ -32,15 +33,15 @@ const SORT_ORDER_TO_TOKEN: Record<PackagesSortOrder, string> = {
 	[PackagesSortOrder.NameDesc]: 'name-desc',
 };
 
-// Token value <-> PackagesFilter mapping for the `@filter:<value>` token.
-// `all` is the implicit default and is never serialized into the input.
+// Bare-token grammar for category filters: `@outdated`, `@attached`.
 const FILTER_TOKEN_TO_FILTER: Record<string, PackagesFilter> = {
 	'outdated': PackagesFilter.Outdated,
+	'attached': PackagesFilter.Attached,
 };
 
 const FILTER_TO_TOKEN: Record<PackagesFilter, string> = {
-	[PackagesFilter.All]: 'all',
 	[PackagesFilter.Outdated]: 'outdated',
+	[PackagesFilter.Attached]: 'attached',
 };
 
 /** Matches `@key` or `@key:value` tokens in the filter input. */
@@ -54,8 +55,8 @@ export interface ParsedQuery {
 	readonly text: string;
 	/** Active sort order. */
 	readonly sort: PackagesSortOrder;
-	/** Active category filter. */
-	readonly filter: PackagesFilter;
+	/** Active category filters, in the order they appear in the input. */
+	readonly filters: readonly PackagesFilter[];
 }
 
 /**
@@ -66,7 +67,7 @@ export interface ParsedQuery {
  */
 export const parseQuery = (query: string): ParsedQuery => {
 	let sort: PackagesSortOrder = PackagesSortOrder.NameAsc;
-	let filter: PackagesFilter = PackagesFilter.All;
+	const filters: PackagesFilter[] = [];
 
 	const text = query.replace(TOKEN_REGEX, (_match, key: string, value: string | undefined) => {
 		const lowerKey = key.toLowerCase();
@@ -75,21 +76,22 @@ export const parseQuery = (query: string): ParsedQuery => {
 			if (order !== undefined) {
 				sort = order;
 			}
-		} else if (lowerKey === 'filter' && value !== undefined) {
-			const parsed = FILTER_TOKEN_TO_FILTER[value.toLowerCase()];
-			if (parsed !== undefined) {
-				filter = parsed;
+		} else if (value === undefined) {
+			const filter = FILTER_TOKEN_TO_FILTER[lowerKey];
+			if (filter !== undefined && !filters.includes(filter)) {
+				filters.push(filter);
 			}
 		}
 		return '';
 	}).replace(/\s+/g, ' ').trim();
 
-	return { text, sort, filter };
+	return { text, sort, filters };
 };
 
 /**
  * Returns a new filter input string with any existing `@sort:` token replaced
- * by the token for the given sort order, preserving surrounding free-text.
+ * by the token for the given sort order, preserving surrounding free-text and
+ * any other tokens.
  */
 export const applySortToQuery = (query: string, sort: PackagesSortOrder): string => {
 	const stripped = query.replace(/@sort:[\w-]+/gi, '').replace(/\s+/g, ' ').trim();
@@ -98,16 +100,61 @@ export const applySortToQuery = (query: string, sort: PackagesSortOrder): string
 };
 
 /**
- * Returns a new filter input string with any existing `@filter:` token
- * replaced by the token for the given category filter, preserving surrounding
- * free-text. The default `All` filter is never serialized -- applying it
- * simply strips any existing `@filter:` token.
+ * Extracts the active category filters from `query` (in input order, deduped)
+ * and returns the residual query with all filter tokens removed. Also strips
+ * the legacy `@filter:<value>` syntax so it doesn't linger in the input after
+ * a menu interaction.
  */
-export const applyFilterToQuery = (query: string, filter: PackagesFilter): string => {
-	const stripped = query.replace(/@filter:[\w-]+/gi, '').replace(/\s+/g, ' ').trim();
-	if (filter === PackagesFilter.All) {
-		return stripped;
+const extractFilters = (query: string): { filters: PackagesFilter[]; residual: string } => {
+	const filters: PackagesFilter[] = [];
+	const residual = query
+		.replace(/@(\w+)\b(?!:)/gi, (match, name: string) => {
+			const filter = FILTER_TOKEN_TO_FILTER[name.toLowerCase()];
+			if (filter === undefined) {
+				return match;
+			}
+			if (!filters.includes(filter)) {
+				filters.push(filter);
+			}
+			return '';
+		})
+		.replace(/@filter:[\w-]+/gi, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return { filters, residual };
+};
+
+/** Prepends the given filter tokens (in order) to `residual` free-text/sort. */
+const rebuildWithFilters = (residual: string, filters: readonly PackagesFilter[]): string => {
+	const tokens = filters.map(f => `@${FILTER_TO_TOKEN[f]}`).join(' ');
+	if (!tokens) {
+		return residual;
 	}
-	const token = `@filter:${FILTER_TO_TOKEN[filter]}`;
-	return stripped ? `${token} ${stripped}` : token;
+	return residual ? `${tokens} ${residual}` : tokens;
+};
+
+/**
+ * Returns a new filter input string with `filter` added to the active set
+ * (no-op if already active). New filters are appended to preserve click order.
+ */
+export const addFilterToQuery = (query: string, filter: PackagesFilter): string => {
+	const { filters, residual } = extractFilters(query);
+	const next = filters.includes(filter) ? filters : [...filters, filter];
+	return rebuildWithFilters(residual, next);
+};
+
+/**
+ * Returns a new filter input string with `filter` removed from the active set
+ * (no-op if not active). Order of remaining filters is preserved.
+ */
+export const removeFilterFromQuery = (query: string, filter: PackagesFilter): string => {
+	const { filters, residual } = extractFilters(query);
+	const next = filters.filter(f => f !== filter);
+	return rebuildWithFilters(residual, next);
+};
+
+/** Returns a new filter input string with all category filter tokens removed. */
+export const clearFiltersFromQuery = (query: string): string => {
+	const { residual } = extractFilters(query);
+	return residual;
 };

@@ -16,7 +16,7 @@ import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendly
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
-import { isDirectory, isFile } from './path-utils.js';
+import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
@@ -54,6 +54,164 @@ export enum RRuntimeSource {
 	conda = 'Conda',
 	pixi = 'Pixi',
 	module = 'Module',
+}
+
+/**
+ * Hard-coded server-installation root directories that the R discoverer
+ * (see `discoverServerBinaries`) walks on POSIX. Listed here so the warm-start
+ * root-signature snapshot covers the same surface the discoverer does.
+ *
+ * Conda/Pixi/Module roots are intentionally excluded: those discovery paths
+ * use subprocess calls or per-project state that can't be fingerprinted with
+ * a cheap directory stat. They fall back to the periodic-refresh trigger.
+ */
+const R_SERVER_ROOTS_POSIX: readonly string[] = [
+	'/usr/lib/R',
+	'/usr/lib64/R',
+	'/usr/local/lib/R',
+	'/usr/local/lib64/R',
+	'/opt/local/lib/R',
+	'/opt/local/lib64/R',
+	'/opt/local/R',
+];
+
+/**
+ * Hard-coded ad-hoc R binary paths that `getBinaries()` walks regardless of
+ * platform. Mirrors the list passed to `discoverAdHocBinaries` in
+ * `getBinaries()`. Listed here so the warm-start root-signature snapshot
+ * covers them too.
+ */
+const R_AD_HOC_BINARIES: readonly string[] = [
+	'/usr/bin/R',
+	'/usr/local/bin/R',
+	'/opt/local/bin/R',
+	'/opt/homebrew/bin/R',
+];
+
+/**
+ * One root that contributes to the R discovery-root signature. The path is
+ * resolved (symlinks followed) before being reported; `mtimeMs` is 0 when
+ * `exists` is false.
+ */
+interface RRootEntry {
+	path: string;
+	exists: boolean;
+	mtimeMs: number;
+}
+
+/**
+ * Snapshot the directories and files this extension scans for R installations.
+ * Cheap (one stat per root); used by Positron's discovery cache to decide
+ * whether a warm start needs a full discovery pass to pick up newly-installed
+ * R binaries.
+ *
+ * Sources covered:
+ *   - System headquarters (`rHeadquarters()`).
+ *   - User-specified `positron.r.customRootFolders`.
+ *   - User-specified `positron.r.customBinaries`.
+ *   - User-specified `positron.r.interpreters.override`.
+ *   - Hard-coded server-installation roots (POSIX only).
+ *   - Hard-coded ad-hoc binary paths.
+ *   - Discovery-gating settings (`positron.r.interpreters.exclude` /
+ *     `.default` / `.condaDiscovery` / `.pixiDiscovery` / `.pathDiscoveryMode`)
+ *     folded into the opaque digest so a settings change flips the signature
+ *     and re-runs discovery.
+ *
+ * Sources intentionally excluded (fall back to the periodic-refresh trigger):
+ *   - Conda environments (require `conda env list`).
+ *   - Pixi environments (per-project store).
+ *   - Module-managed binaries (depend on env-modules state at session start).
+ *   - Windows registry (not statable; an `opaque` digest could be added later).
+ */
+export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRootSignature> {
+	// Compose the full ordered list of root paths. Order is part of the
+	// signature, so we keep it stable across runs to avoid spurious deltas.
+	const candidates: string[] = [];
+	const addAll = (paths: readonly string[]) => {
+		for (const p of paths) {
+			if (p) {
+				candidates.push(p);
+			}
+		}
+	};
+	addAll(rHeadquarters());
+	addAll(userRHeadquarters());
+	addAll(userRBinaries());
+	addAll(getInterpreterOverridePaths());
+	if (process.platform !== 'win32') {
+		addAll(R_SERVER_ROOTS_POSIX);
+	}
+	addAll(R_AD_HOC_BINARIES);
+
+	// Dedupe by resolved path -- two different settings may both point at the
+	// same on-disk location (e.g. /opt/local/bin and a symlink to it). We keep
+	// the first occurrence's input path as the entry path, so the signature
+	// remains stable regardless of which alias the user wrote first.
+	const seen = new Set<string>();
+	const entries: RRootEntry[] = [];
+	for (const candidate of candidates) {
+		let resolved = candidate;
+		let exists = false;
+		let mtimeMs = 0;
+		try {
+			const st = fs.statSync(candidate);
+			// Follow symlinks before recording the resolved path so that
+			// distinct settings pointing at the same physical directory
+			// collapse to one entry.
+			try {
+				resolved = fs.realpathSync(candidate);
+			} catch {
+				resolved = candidate;
+			}
+			exists = true;
+			mtimeMs = st.mtimeMs;
+		} catch {
+			// ENOENT (or any other stat failure): treat as non-existent. The
+			// path still contributes to the signature -- if it later starts
+			// existing, that flips `exists` to true and triggers discovery.
+			resolved = candidate;
+		}
+		if (seen.has(resolved)) {
+			continue;
+		}
+		seen.add(resolved);
+		entries.push({ path: resolved, exists, mtimeMs });
+	}
+
+	return { entries, opaque: getRFilterSettingsDigest() };
+}
+
+/**
+ * Digest of every R setting that gates discovery but doesn't move an on-disk
+ * root. Folded into the signature's opaque blob so a settings change flips
+ * the signature even though no scan-root mtime moved.
+ *
+ * Settings covered:
+ *   - `interpreters.exclude`: post-discovery filter; without this an
+ *     excluded R would outlive the setting via the cache.
+ *   - `interpreters.default`: stamped onto cached metadata as `default: true`
+ *     by `RInstallation`; flipping the default would otherwise leave the
+ *     wrong installation flagged as default until the periodic refresh.
+ *   - `interpreters.condaDiscovery` / `.pixiDiscovery`: per-provider toggles;
+ *     enabling either should produce a discovery run that picks up envs
+ *     these providers find (their results are non-cacheable, so the only
+ *     way they appear in the registered set is a fresh discovery pass).
+ *   - `interpreters.pathDiscoveryMode`: `'on'`/`'off'`/`'auto'` toggle for
+ *     PATH-based current-binary lookup; affects which binary discovery
+ *     marks as "current".
+ *
+ * `interpreters.override` contributes as path entries above, not here.
+ */
+function getRFilterSettingsDigest(): string {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const payload = {
+		exclude: config.get<string[]>('interpreters.exclude') ?? [],
+		default: config.get<string>('interpreters.default') ?? '',
+		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
+		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
+		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',
+	};
+	return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
 /**
@@ -258,6 +416,76 @@ function deduplicateRBinaries(binaries: RBinary[]) {
 	return Array.from(binariesMap.values());
 }
 
+/**
+ * Reasons that mean the R binary's behavior depends on per-workspace state we
+ * can't fingerprint from disk: Pixi envs are project-local, and Module-managed
+ * binaries depend on environment-modules state loaded at session start.
+ */
+const NON_CACHEABLE_REASONS: ReadonlySet<ReasonDiscovered> = new Set([
+	ReasonDiscovered.PIXI,
+	ReasonDiscovered.MODULE,
+]);
+
+/**
+ * Reasons that identify a binary as a real, system-scoped R installation that
+ * is safe to persist across sessions in the discovery cache.
+ */
+const SYSTEM_REASONS: ReadonlySet<ReasonDiscovered> = new Set([
+	ReasonDiscovered.HQ,
+	ReasonDiscovered.CONDA,
+	ReasonDiscovered.PATH,
+	ReasonDiscovered.RVERSIONS,
+	ReasonDiscovered.registry,
+	ReasonDiscovered.userSetting,
+	ReasonDiscovered.server,
+]);
+
+/**
+ * Decide whether this R installation should be eligible for Positron's cross-window
+ * discovery cache. Cacheable runtimes are persisted across windows and short-circuit
+ * full discovery on warm starts; project-bound, dynamic, or proxy runtimes must be
+ * rediscovered every open and so are excluded.
+ */
+function isRRuntimeCacheable(rInst: RInstallation): boolean {
+	// Need a real on-disk binary to fingerprint.
+	if (!rInst.binpath) {
+		return false;
+	}
+
+	const reasons = rInst.reasonDiscovered;
+	if (!reasons || reasons.length === 0) {
+		return false;
+	}
+
+	// Pixi/Module reasons disqualify regardless of any other reason on the
+	// merged binary record.
+	for (const r of reasons) {
+		if (NON_CACHEABLE_REASONS.has(r)) {
+			return false;
+		}
+	}
+
+	// At least one reason must be a recognized system-scoped source. adHoc and
+	// affiliated alone aren't enough -- they're rediscovery markers.
+	if (!reasons.some((r) => SYSTEM_REASONS.has(r))) {
+		return false;
+	}
+
+	// Anything inside a workspace folder is project-scoped (e.g. an R install
+	// dropped under the project tree), regardless of how it was discovered.
+	// `isParentPath` / `arePathsSame` normalize case so this works on Windows
+	// where the user may have typed a drive letter in either case.
+	const folders = vscode.workspace.workspaceFolders ?? [];
+	for (const folder of folders) {
+		const folderPath = folder.uri.fsPath;
+		if (folderPath && (arePathsSame(rInst.binpath, folderPath) || isParentPath(rInst.binpath, folderPath))) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 export async function makeMetadata(
 	rInst: RInstallation,
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
@@ -358,6 +586,8 @@ export async function makeMetadata(
 	// Subscribe to UI notifications of interest
 	const uiSubscriptions = [positron.UiRuntimeNotifications.DidChangePlotsRenderSettings];
 
+	const cacheable = isRRuntimeCacheable(rInst);
+
 	const metadata: positron.LanguageRuntimeMetadata = {
 		runtimeId,
 		runtimeName,
@@ -375,7 +605,8 @@ export async function makeMetadata(
 		sessionLocation,
 		startupBehavior,
 		uiSubscriptions,
-		extraRuntimeData
+		extraRuntimeData,
+		cacheable,
 	};
 
 	return metadata;
@@ -398,6 +629,14 @@ export async function currentRBinary(): Promise<RBinary | undefined> {
 	}
 }
 
+function isPathDiscoveryEnabled(): boolean {
+	const mode = vscode.workspace.getConfiguration('positron.r')
+		.get<'auto' | 'on' | 'off'>('interpreters.pathDiscoveryMode', 'auto');
+	if (mode === 'on') { return true; }
+	if (mode === 'off') { return false; }
+	return os.platform() !== 'win32';
+}
+
 /**
  * Get the current R binary(ies) for various definitions of "current".
  * The first item of the returned list will eventually be marked as The Current R Binary.
@@ -414,9 +653,13 @@ async function currentRBinaryCandidates(): Promise<RBinary[]> {
 		}
 	}
 
-	candidate = await currentRBinaryFromPATH();
-	if (candidate) {
-		candidates.push(candidate);
+	if (isPathDiscoveryEnabled()) {
+		candidate = await currentRBinaryFromPATH();
+		if (candidate) {
+			candidates.push(candidate);
+		}
+	} else {
+		LOGGER.info('Skipping PATH-based R discovery (change this behavior with positron.r.interpreters.pathDiscoveryMode).');
 	}
 
 	if (os.platform() !== 'win32') {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -63,7 +63,7 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		// Look for the specific quick input list items that appear during the publisher wizard
 		let publishWizardPresent = false;
 		try {
-			await page.locator('.quick-input-list').getByText('source', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
+			await page.locator('.quick-input-message').getByText('title', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
 			publishWizardPresent = true;
 		} catch {
 			publishWizardPresent = false;
@@ -71,12 +71,6 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		if (publishWizardPresent) {
 			// First run: need to complete setup wizard
-			await test.step('Publish with source code', async () => {
-				await app.workbench.quickInput.waitForQuickInputOpened();
-				await app.workbench.quickInput.type('source');
-				await page.keyboard.press('Enter');
-			});
-
 			await test.step('Enter title for application through quick-input', async () => {
 				await app.workbench.quickInput.waitForQuickInputOpened();
 				await app.workbench.quickInput.type('quarto-r-example');
@@ -116,15 +110,15 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		await test.step('Deploy, await completion and get appGuid', async () => {
 			await deployButton.click({ timeout: 5000 });
 
-			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 400000 });
+			await expect(app.code.driver.currentPage.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 400000 });
 
 			await hotKeys.closeSecondarySidebar();
 
 			await hotKeys.restoreBottomPanel();
 
-			await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
+			await app.code.driver.currentPage.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
 
-			const deployedLocator = app.code.driver.page.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
+			const deployedLocator = app.code.driver.currentPage.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
 
 			const deploymentText = await deployedLocator.textContent();
 
@@ -145,17 +139,17 @@ test.describe('Publisher - Quarto R', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		});
 
 		await test.step('Ensure connect user can access content', async () => {
-			await app.code.driver.page.goto('http://localhost:3939');
+			await app.code.driver.currentPage.goto('http://localhost:3939');
 
-			await app.code.driver.page.locator('[data-automation="signin"]').click();
+			await app.code.driver.currentPage.locator('[data-automation="signin"]').click();
 
-			await app.code.driver.page.fill('input[name="username"]', 'user1');
-			await app.code.driver.page.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
-			await app.code.driver.page.locator('[data-automation="login-panel-submit"]').click();
+			await app.code.driver.currentPage.fill('input[name="username"]', 'user1');
+			await app.code.driver.currentPage.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
-			await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
+			await app.code.driver.currentPage.locator('[data-automation="content-table__row__display-name"]').first().click();
 
-			const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
+			const headerLocator = app.code.driver.currentPage.frameLocator('#contentIFrame').locator('h1');
 			await expect(headerLocator).toHaveText('Diamond sizes', { timeout: 20000 });
 		});
 

@@ -29,7 +29,9 @@ jobs:
       debian_web_tag_found: ${{ steps.pr-tags.outputs.debian_web_tag_found }}
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
       workbench_tag_found: ${{ steps.pr-tags.outputs.workbench_tag_found }}
+      workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
+      remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
 
     steps:
       - uses: actions/checkout@v6
@@ -63,7 +65,7 @@ jobs:
     with:
       save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "windows"
+      display_name: "electron-win"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
@@ -208,7 +210,7 @@ jobs:
 
   build-workbench:
     needs: pr-tags
-    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' }}
+    if: ${{ needs.pr-tags.outputs.workbench_tag_found == 'true' || needs.pr-tags.outputs.workbench_stable_tag_found == 'true' }}
     name: build
     uses: ./.github/workflows/build-workbench-linux.yml
     secrets: inherit
@@ -224,6 +226,20 @@ jobs:
       install_license: false
       upload_logs: false
       allow_soft_fail: false
+    secrets: inherit
+
+  e2e-workbench-stable:
+    needs: [pr-tags, build-workbench]
+    if: ${{ needs.pr-tags.outputs.workbench_stable_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-workbench-ubuntu.yml
+    with:
+      grep: "@:workbench"
+      display_name: "workbench-stable"
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+      install_mode: "ci-stable"
     secrets: inherit
 
   build-jupyter:
@@ -246,12 +262,31 @@ jobs:
       allow_soft_fail: false
     secrets: inherit
 
+  build-remote-ssh:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.remote_ssh_tag_found == 'true' }}
+    name: build
+    uses: ./.github/workflows/build-remote-ssh-linux.yml
+    secrets: inherit
+
+  e2e-remote-ssh:
+    needs: [pr-tags, build-remote-ssh]
+    if: ${{ needs.pr-tags.outputs.remote_ssh_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-remote-ssh-ubuntu.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "remote-ssh"
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
   unit-tests:
     name: test
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
-      save_cache: true  # Only this job saves cache to avoid race conditions
+      save_cache: false  # PRs restore from main only; test-merge.yml saves
 
   ext-host-tests:
     name: test

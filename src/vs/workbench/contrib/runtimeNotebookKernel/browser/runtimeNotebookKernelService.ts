@@ -30,6 +30,11 @@ import { isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSessi
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
+import { GroupIdentifier, GroupModelChangeKind } from '../../../common/editor.js';
 
 /**
  * The service responsible for managing {@link RuntimeNotebookKernel}s.
@@ -44,6 +49,16 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	/** Map of pending kernel selections (notebook URI -> kernel ID) to start kernels that are not yet registered. */
 	private readonly _pendingKernelSelections = new ResourceMap<string>();
 
+	/**
+	 * Map of Positron notebook URIs whose selected kernel hasn't been started yet,
+	 * because the editor has not become active+pinned. Stored kernel is started
+	 * when the editor satisfies the gate.
+	 */
+	private readonly _pendingPositronAutoStarts = new ResourceMap<RuntimeNotebookKernel>();
+
+	/** Per-group EDITOR_PIN listener disposables, keyed by group ID. */
+	private readonly _groupListeners = new Map<GroupIdentifier, DisposableStore>();
+
 	/** An event that fires when code is executed in any notebook */
 	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._didExecuteCodeEmitter.event;
@@ -57,6 +72,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 	) {
 		super();
 
@@ -78,9 +95,15 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 						`[RuntimeNotebookKernelService] Processing deferred kernel selection for ${kernelId}`
 					);
 					this._pendingKernelSelections.delete(notebookUri);
-					if (!this._runtimeSessionService.implicitStartupSuppressed) {
-						await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+					if (this._runtimeSessionService.implicitStartupSuppressed) {
+						continue;
 					}
+					if (this._isPositronNotebookEditorInput(notebookUri) &&
+						!this._isActiveAndPinnedPositronNotebookEditor(notebookUri)) {
+						this._pendingPositronAutoStarts.set(notebookUri, kernel);
+						continue;
+					}
+					await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
 				}
 			}
 		}));
@@ -115,6 +138,9 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			if (isRuntimeKernelId(e.oldKernel)) {
 				// Clear any pending selection for this notebook
 				this._pendingKernelSelections.delete(e.notebook);
+				// Drop any deferred auto-start so a stale kernel doesn't start
+				// later when the editor becomes active+pinned.
+				this._pendingPositronAutoStarts.delete(e.notebook);
 
 				// Shut down the session if it was running
 				const oldKernel = this._kernels.get(e.oldKernel);
@@ -137,9 +163,20 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				if (newKernel) {
 					// Kernel is registered, start the session
 					this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
-					if (!this._runtimeSessionService.implicitStartupSuppressed) {
-						await newKernel.ensureSessionStarted(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
+					if (this._runtimeSessionService.implicitStartupSuppressed) {
+						return;
 					}
+					// For Positron notebook editors, defer the session start
+					// until the editor is the active+pinned editor in some
+					// group. This prevents kernels from spinning up for
+					// preview tabs (single-click in Explorer) and for restored
+					// background tabs the user never focuses.
+					if (this._isPositronNotebookEditorInput(e.notebook) &&
+						!this._isActiveAndPinnedPositronNotebookEditor(e.notebook)) {
+						this._pendingPositronAutoStarts.set(e.notebook, newKernel);
+						return;
+					}
+					await newKernel.ensureSessionStarted(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
 				} else {
 					// Our kernel but not registered yet - defer processing until runtime registers
 					this._logService.info(
@@ -160,21 +197,41 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			this.attachNotebook(notebook);
 		}
 
-		// Ensure that a session is started when a Positron notebook editor is added
+		// When a Positron notebook editor instance is added, attempt to start
+		// its session immediately if its editor is already active+pinned
+		// (e.g. user double-clicked from Explorer). Otherwise the session
+		// start is deferred and triggered by the active-editor / pin
+		// listeners below.
 		this._register(this._positronNotebookService.onDidAddNotebookInstance(async instance => {
 			await this.attachNotebookInstance(instance);
 		}));
 
-		// Ensure that a session is started for all existing Positron notebook editors
-		for (const instance of this._positronNotebookService.listInstances()) {
-			this.attachNotebookInstance(instance)
-				.catch(err => this._logService.error(`Error attaching notebook instance: ${err}`));
+		// Note: we intentionally do NOT iterate listInstances() at startup.
+		// The active-editor listener below handles the case where instances
+		// already exist when this service is constructed.
+
+		// Listen for editor activation and preview-to-pinned transitions to
+		// start any deferred Positron notebook session.
+		this._register(this._editorService.onDidActiveEditorChange(() => {
+			this._maybeStartPendingForActiveEditor();
+		}));
+		this._register(this._editorGroupsService.onDidAddGroup(group => this._registerGroupListener(group)));
+		this._register(this._editorGroupsService.onDidRemoveGroup(group => {
+			this._groupListeners.get(group.id)?.dispose();
+			this._groupListeners.delete(group.id);
+		}));
+		for (const group of this._editorGroupsService.groups) {
+			this._registerGroupListener(group);
 		}
+		// Cover the case where a Positron notebook editor was already active
+		// when this service was constructed.
+		this._maybeStartPendingForActiveEditor();
 
 		// When a notebook is closed, cleanup pending selections and shutdown the session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
 			// Clean up any pending kernel selection
 			this._pendingKernelSelections.delete(notebook.uri);
+			this._pendingPositronAutoStarts.delete(notebook.uri);
 
 			await this._runtimeSessionService.shutdownNotebookSession(
 				notebook.uri,
@@ -335,35 +392,16 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 * Try to determine the preferred kernel for a notebook.
 	 */
 	private getPreferredKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
-		// Get the notebook's language.
 		const languageId = getNotebookLanguage(notebook);
 		if (!languageId) {
 			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
 			return;
 		}
-
-		// Get the preferred runtime for the notebook's language.
-		let runtime: ILanguageRuntimeMetadata | undefined;
-		try {
-			runtime = this._runtimeStartupService.getPreferredRuntime(languageId);
-			this._logService.debug(`No preferred runtime for language ${languageId}`);
-		} catch (err) {
-			// It may error if there are no registered runtimes for the language, so log and return.
-			this._logService.debug(`Failed to get preferred runtime for language ${languageId}. Reason: ${err.toString()}`);
-			return;
+		const kernel = this.kernelForLanguage(languageId);
+		if (!kernel) {
+			this._logService.warn(`No kernel for preferred runtime for language ${languageId} for notebook ${notebook.uri}`);
 		}
-
-		// Get the preferred runtime's matching kernel.
-		if (runtime) {
-			const kernel = this._kernelsByRuntimeId.get(runtime.runtimeId);
-			if (kernel) {
-				return kernel;
-			} else {
-				this._logService.warn(`No kernel for preferred runtime ${runtime.runtimeId} for notebook ${notebook.uri}`);
-			}
-		}
-
-		return;
+		return kernel;
 	}
 
 	/**
@@ -422,12 +460,138 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	private async attachNotebookInstance(instance: IPositronNotebookInstance): Promise<void> {
+		// PositronNotebookEditorInput constructs the instance synchronously and
+		// fires onDidAddNotebookInstance before setInput resolves the notebook
+		// text model. Wait until the model is attached to the instance before
+		// applying the foreground-session fallback.
+		const notebook = await this.awaitInstanceModel(instance);
+
+		// If no kernel was resolved when the notebook was added (for example, an empty
+		// .ipynb with no language metadata and no cells), fall back to the foreground
+		// session's language. Doing this after the instance is constructed ensures
+		// the instance's onWillStartSession subscription is in place before the
+		// session start events fire.
+		if (notebook && !this.getSelectedKernel(notebook)) {
+			const fallback = this.kernelForLanguage(
+				this._runtimeSessionService.foregroundSession?.runtimeMetadata.languageId,
+			);
+			if (fallback) {
+				this._notebookKernelService.selectKernelForNotebook(fallback, notebook);
+			}
+		}
+
 		// Get the selected kernel
 		const kernel = instance.kernel.get();
 
-		if (kernel && !this._runtimeSessionService.implicitStartupSuppressed) {
-			// Ensure a session is started for the kernel
-			await kernel.ensureSessionStarted(instance.uri, `Positron notebook editor opened`);
+		if (!kernel || this._runtimeSessionService.implicitStartupSuppressed) {
+			return;
+		}
+
+		// Defer the session start until the editor is active+pinned. This is
+		// the gate that prevents kernels from being created for preview tabs
+		// and for backgrounded restored tabs the user never focuses.
+		if (!this._isActiveAndPinnedPositronNotebookEditor(instance.uri)) {
+			this._pendingPositronAutoStarts.set(instance.uri, kernel);
+			return;
+		}
+
+		this._pendingPositronAutoStarts.delete(instance.uri);
+		await kernel.ensureSessionStarted(instance.uri, `Positron notebook editor opened`);
+	}
+
+	private _registerGroupListener(group: IEditorGroup): void {
+		if (this._groupListeners.has(group.id)) {
+			return;
+		}
+		const disposables = new DisposableStore();
+		this._groupListeners.set(group.id, disposables);
+		disposables.add(group.onDidModelChange(e => {
+			if (e.kind === GroupModelChangeKind.EDITOR_PIN && e.editor) {
+				this._maybeStartPendingForEditor(e.editor);
+			}
+		}));
+		disposables.add(group.onWillDispose(() => {
+			disposables.dispose();
+			this._groupListeners.delete(group.id);
+		}));
+	}
+
+	private _maybeStartPendingForActiveEditor(): void {
+		const activeEditor = this._editorService.activeEditor;
+		if (!activeEditor) {
+			return;
+		}
+		this._maybeStartPendingForEditor(activeEditor);
+	}
+
+	private _maybeStartPendingForEditor(editor: EditorInput): void {
+		if (editor.typeId !== POSITRON_NOTEBOOK_EDITOR_INPUT_ID || !editor.resource) {
+			return;
+		}
+		const uri = editor.resource;
+		const pending = this._pendingPositronAutoStarts.get(uri);
+		if (!pending) {
+			return;
+		}
+		if (!this._isActiveAndPinnedPositronNotebookEditor(uri)) {
+			return;
+		}
+		this._pendingPositronAutoStarts.delete(uri);
+		pending.ensureSessionStarted(uri, `Positron notebook editor became active and pinned`)
+			.catch(err => this._logService.error(`Error starting deferred notebook session: ${err}`));
+	}
+
+	private _isPositronNotebookEditorInput(uri: URI): boolean {
+		const editors = this._editorService.findEditors(uri);
+		return editors.some(({ editor }) => editor.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID);
+	}
+
+	private _isActiveAndPinnedPositronNotebookEditor(uri: URI): boolean {
+		for (const group of this._editorGroupsService.groups) {
+			const activeEditor = group.activeEditor;
+			if (activeEditor &&
+				activeEditor.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID &&
+				activeEditor.resource &&
+				isEqual(activeEditor.resource, uri) &&
+				group.isPinned(activeEditor)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private awaitInstanceModel(instance: IPositronNotebookInstance): Promise<NotebookTextModel | undefined> {
+		if (instance.textModel) {
+			return Promise.resolve(instance.textModel);
+		}
+
+		return new Promise<NotebookTextModel | undefined>(resolve => {
+			const disposables = this._register(new DisposableStore());
+			disposables.add(instance.onDidChangeModel(() => {
+				if (instance.textModel) {
+					resolve(instance.textModel);
+					disposables.dispose();
+				}
+			}));
+			disposables.add(this._positronNotebookService.onDidRemoveNotebookInstance(removed => {
+				if (removed === instance) {
+					resolve(undefined);
+					disposables.dispose();
+				}
+			}));
+		});
+	}
+
+	private kernelForLanguage(languageId: string | undefined): RuntimeNotebookKernel | undefined {
+		if (!languageId) {
+			return undefined;
+		}
+		try {
+			const runtime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			return runtime ? this._kernelsByRuntimeId.get(runtime.runtimeId) : undefined;
+		} catch (err) {
+			this._logService.debug(`No preferred runtime for language ${languageId}: ${err.toString()}`);
+			return undefined;
 		}
 	}
 
@@ -435,6 +599,14 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 * Needed for service branding in dependency injector.
 	 */
 	declare readonly _serviceBrand: undefined;
+
+	override dispose(): void {
+		for (const disposables of this._groupListeners.values()) {
+			disposables.dispose();
+		}
+		this._groupListeners.clear();
+		super.dispose();
+	}
 
 	/**
 	 * Placeholder that gets called to "initialize" the service.

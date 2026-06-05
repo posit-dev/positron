@@ -5,8 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { applyConfigAction, deleteConfiguration, deleteConfigurationByProvider, expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
-import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
+import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, logStoredModels, expandConfigToSource, syncSessionToGlobalState } from './config';
+import { validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
@@ -16,6 +16,8 @@ import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
 import { generateGhostCellSuggestion, type GhostCellSuggestionResult } from './ghostCellSuggestions.js';
+import { generateVisualizationSuggestion, type VisualizationSuggestion } from './visualizationSuggestions.js';
+import { isCancellationTokenLike } from './asyncUtils.js';
 import { initializeTokenTracking } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
@@ -40,15 +42,7 @@ let assistantEnabled = false;
 function registerConfigureProvidersCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
-			await showConfigurationDialog(context, providerId);
-		}),
-		vscode.commands.registerCommand('positron-assistant.applyConfigAction', async (
-			config: positron.ai.LanguageModelConfig,
-			action: string,
-			sources: positron.ai.LanguageModelSource[],
-			accountId?: string,
-		) => {
-			await applyConfigAction(context, sources, config, action, accountId);
+			await vscode.commands.executeCommand('authentication.configureProviders', { preselectedProviderId: providerId });
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
@@ -145,6 +139,48 @@ function registerGenerateGhostCellSuggestionCommand(
 	);
 }
 
+function registerSuggestVisualizationCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.suggestVisualization',
+			async (
+				notebookUri: string,
+				executedCellIndex: number,
+				dfName: string,
+				columns: { name: string; type: string }[],
+				token?: vscode.CancellationToken,
+			): Promise<VisualizationSuggestion | null> => {
+				// Guard the token: cross-boundary command marshalling is not
+				// guaranteed to preserve method members on CancellationToken,
+				// and external callers may pass anything. Fall back to a
+				// fresh CTS when the token is missing or malformed -- the
+				// caller loses the ability to cancel us, but we don't crash.
+				let tokenSource: vscode.CancellationTokenSource | undefined;
+				const cancellationToken = isCancellationTokenLike(token)
+					? token
+					: (tokenSource = new vscode.CancellationTokenSource()).token;
+				try {
+					return await generateVisualizationSuggestion(
+						notebookUri,
+						executedCellIndex,
+						dfName,
+						columns ?? [],
+						participantService,
+						log,
+						cancellationToken,
+					);
+				} finally {
+					tokenSource?.dispose();
+				}
+			},
+		),
+	);
+}
+
 function registerExportChatCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
@@ -234,16 +270,13 @@ async function toggleInlineCompletions() {
  * Must be called during extension activation before registering models.
  */
 async function initializeProviderConfiguration(context: vscode.ExtensionContext): Promise<void> {
-	// 1. Register supported providers
-	registerSupportedProviders();
-
-	// 2. Perform settings migrations (provider enablement, model preferences, custom models)
+	// 1. Perform settings migrations (provider enablement, model preferences, custom models)
 	await performSettingsMigrations();
 
-	// 3. Apply PWB-specific provider defaults
+	// 2. Apply PWB-specific provider defaults
 	await applyPwbProviderDefaults(context);
 
-	// 4. Validate that at least one provider is enabled
+	// 3. Validate that at least one provider is enabled
 	await validateProvidersEnabled();
 }
 
@@ -372,15 +405,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 			const unique = [...new Set(pendingSessionEvents)];
 			for (const providerId of unique) {
 				try {
-					const hasStoredConfig =
-						await reconcileAuthProviderModels(context, providerId);
-					if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
-						await registerModelsForProvider(
-							context, providerId,
-							SESSION_PROVIDERS.has(providerId)
-								? providerId : undefined
-						);
-					}
+					await syncSessionToGlobalState(context, providerId);
+					await reconcileAuthProviderModels(context, providerId);
+					await registerModelsForProvider(context, providerId, providerId);
 				} catch (e) {
 					log.warn(`[Auth Startup] Deferred session registration failed for ${providerId}: ${e instanceof Error ? e.message : String(e)}`);
 				}
@@ -415,13 +442,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		}
 
 		try {
-			const hasStoredConfig = await reconcileAuthProviderModels(context, providerId);
-			if (hasStoredConfig || SESSION_PROVIDERS.has(providerId)) {
-				await registerModelsForProvider(
-					context, providerId,
-					SESSION_PROVIDERS.has(providerId) ? providerId : undefined
-				);
-			}
+			await syncSessionToGlobalState(context, providerId);
+			await reconcileAuthProviderModels(context, providerId);
+			await registerModelsForProvider(context, providerId, providerId);
 		} catch (error) {
 			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
 		}
@@ -436,6 +459,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerGenerateGhostCellSuggestionCommand(context, participantService, log);
+	registerSuggestVisualizationCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);

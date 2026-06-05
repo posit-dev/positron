@@ -1,0 +1,82 @@
+{
+	"name": "next-edit-suggestions",
+	"displayName": "Next Edit Suggestions",
+	"description": "Inline next edit suggestions powered by Posit AI",
+	"publisher": "positron",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished",
+		"onAuthenticationRequest:posit-ai",
+		"onCommand:authentication.configureProviders"
+	],
+	"main": "./out/extension.js",
+	"enabledApiProposals": [
+		"inlineCompletionsAdditions"
+	],
+	"extensionDependencies": [
+		"positron.authentication"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "next-edit-suggestions.learnMore",
+				"title": "%command.learnMore.title%"
+			},
+			{
+				"command": "next-edit-suggestions.restartLsp",
+				"title": "%command.restartLsp.title%"
+			}
+		],
+		"configuration": {
+			"title": "%configuration.title%",
+			"properties": {
+				"nextEditSuggestions.enable": {
+					"type": "object",
+					"default": {
+						"*": true,
+						"plaintext": false,
+						"markdown": false,
+						"scminput": false
+					},
+					"description": "%configuration.enable.description%",
+					"tags": [
+						"preview"
+					]
+				},
+				"nextEditSuggestions.selectedCompletionModel": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.selectedCompletionModel.description%",
+					"tags": [
+						"preview"
+					]
+				}
+			}
+		}
+	},
+	"scripts": {
+		"compile": "gulp compile-extension:next-edit-suggestions",
+		"pretest": "npm run compile",
+		"watch": "gulp watch-extension:next-edit-suggestions"
+	},
+	"dependencies": {
+		"minimatch": "^3.1.5",
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/mocha": "^9.1.0",
+		"@types/node": "^20.19.24",
+		"@types/sinon": "^17.0.3",
+		"@types/vscode": "^1.108.0",
+		"mocha": "^9.2.1",
+		"sinon": "^17.0.1"
+	}
+}

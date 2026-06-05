@@ -147,13 +147,15 @@ For each approved item:
 
 2. **Run the test:** `npx vitest run <path-to-test-file>`. Iterate on missing stubs per the "start low, let errors guide you up" pattern in the rules file's Builder section.
 
-3. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
+3. **Type-check the file:** `npm run test:positron:check-ts 2>&1 | grep '<test-file-name>.vitest.ts'`. This surfaces strict TypeScript errors (overload compatibility, missing properties on stubs, etc.) that `npx vitest run` does NOT catch — the output matches what the VS Code Problems pane shows. The file must be clean before considering it done.
 
-4. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
+4. **Check coverage** for React component tests: `npx vitest run --coverage --coverage.include='**/sourceFile.tsx' <path-to-test-file>`
 
-5. Move to the next file. Do NOT ask the dev after each file.
+5. **For React tests**, run `npx eslint <file>` before considering it done -- `eslint-plugin-testing-library` enforces most of the RTL conventions.
 
-6. After all tests pass, run the full Vitest suite: `npm run test:positron`
+6. Move to the next file. Do NOT ask the dev after each file.
+
+7. After all tests pass, run the full Vitest suite: `npm run test:positron`
 
 ### Builder enforcement
 
@@ -190,6 +192,7 @@ Present the dev with a summary:
 
 ## Hard rules
 
+- **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal.
 - **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.

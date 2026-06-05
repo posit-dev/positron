@@ -1,0 +1,103 @@
+name: "E2E: Build Positron (macOS)"
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      arch:
+        required: false
+        description: "Architecture to build (arm64 or x64)."
+        default: arm64
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: build-macos-${{ inputs.arch }}
+    timeout-minutes: 60
+    runs-on: ${{ inputs.arch == 'arm64' && 'macos-latest-xlarge' || 'macos-latest-large' }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      LANG: "en_US.UTF-8"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: git checkout ${{ inputs.commit }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install E2E test dependencies
+        run: |
+          npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
+      - name: Install node dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          npm_config_arch: ${{ inputs.arch }}
+        run: |
+          npm ci --fetch-timeout 120000
+
+      - name: Compile Positron and Download Electron
+        env:
+          npm_config_arch: ${{ inputs.arch }}
+        run: |
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Download built-in extensions (prelaunch)
+        run: |
+          npm run prelaunch
+
+      - name: Clone QA example content
+        run: |
+          echo "Cloning QA example content (always fresh)..."
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache
+          COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
+          echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
+          echo "Cloned QA content at commit: $COMMIT_SHA"
+
+      - name: Create Build Artifact
+        run: |
+          # Ensure QA example content is bundled
+          mkdir -p test/e2e
+          if [ -d "/tmp/qa-example-content-cache" ]; then
+            echo "Copying cached QA content to workspace"
+            cp -R /tmp/qa-example-content-cache test/e2e/qa-example-content-cache || true
+          else
+            echo "Warning: QA content cache not found at /tmp/qa-example-content-cache"
+          fi
+
+          # Create a tarball of the positron workspace
+          mkdir -p /tmp/artifacts
+          cd ..
+
+          echo "Creating build artifact (excluding .git)"
+          tar \
+            --exclude='positron/.git' \
+            --exclude='positron/.npm-cache' \
+            --exclude='positron/.pip-cache' \
+            -czf /tmp/artifacts/positron-build.tar.gz positron
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: "positron-build-macos-${{ inputs.arch }}"
+          path: /tmp/artifacts
+          retention-days: 1
+          compression-level: 0

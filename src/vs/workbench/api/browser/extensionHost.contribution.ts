@@ -69,6 +69,7 @@ import './mainThreadDownloadService.js';
 import './mainThreadUrls.js';
 import './mainThreadUriOpeners.js';
 import './mainThreadWindow.js';
+import './mainThreadPower.js';
 import './mainThreadWebviewManager.js';
 import './mainThreadWorkspace.js';
 import './mainThreadComments.js';
@@ -92,10 +93,14 @@ import './mainThreadAiEmbeddingVector.js';
 import './mainThreadAiSettingsSearch.js';
 import './mainThreadMcp.js';
 import './mainThreadChatContext.js';
+import './mainThreadChatDebug.js';
 import './mainThreadChatStatus.js';
 import './mainThreadChatOutputRenderer.js';
 import './mainThreadChatSessions.js';
 import './mainThreadDataChannels.js';
+import './mainThreadMeteredConnection.js';
+import './mainThreadGitExtensionService.js';
+import './mainThreadBrowsers.js';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime.js';
@@ -104,11 +109,14 @@ import './positron/mainThreadModalDialogs.js';
 import './positron/mainThreadConsoleService.js';
 import './positron/mainThreadContextKeyService.js';
 import './positron/mainThreadConnections.js';
+import './positron/mainThreadDataConnections.js';
 import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
 import './positron/mainThreadPlotsService.js';
 import './positron/mainThreadNotebookFeatures.js';
 import './positron/mainThreadPositronEphemeralStorage.js';
+import './positron/mainThreadLifecycle.js';
+import './positron/mainThreadFileTransfer.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

@@ -36,10 +36,14 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Checkout specific commit
         if: ${{ inputs.commit != '' }}
-        run: git checkout ${{ inputs.commit }}
+        run: |
+          git checkout ${{ inputs.commit }}
+          git submodule update --init --recursive
 
       - uses: actions/setup-node@v6
         with:
@@ -102,13 +106,6 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
-      - name: Set permissions on SUID sandbox helper
-        run: |
-          ELECTRON_ROOT=.build/electron
-          sudo chown root $ELECTRON_ROOT/chrome-sandbox
-          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
-          stat $ELECTRON_ROOT/chrome-sandbox
-
       - name: Configure xvfb Service
         run: |
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
@@ -120,6 +117,15 @@ jobs:
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch
         run: npm run prelaunch
+
+      # Must run AFTER Prelaunch since preLaunch.ts runs `npm run electron`
+      # which can re-extract the Electron binary and reset permissions
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Install Positron License
         uses: ./.github/actions/install-license

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,7 +30,7 @@ test.describe('Large R Notebook', {
 		// scroll through the notebook and count unique plot outputs
 		await layouts.enterLayout('notebook');
 		await runCommand('notebook.focusTop');
-		await app.code.driver.page.locator('span').filter({ hasText: 'library(dplyr)' }).locator('span').first().click();
+		await app.code.driver.currentPage.locator('span').filter({ hasText: 'library(dplyr)' }).locator('span').first().click();
 
 		const allFigures: any[] = [];
 		const uniqueLocators = new Set<string>();
@@ -39,7 +39,7 @@ test.describe('Large R Notebook', {
 
 			for (let j = 0; j < 100; j++) {
 				// second param to mouse.wheel is not processed correctly so loop is needed
-				await app.code.driver.page.mouse.wheel(0, 1);
+				await app.code.driver.currentPage.mouse.wheel(0, 1);
 			}
 
 			const figureLocator = app.workbench.notebooks.frameLocator.locator('.output_container');

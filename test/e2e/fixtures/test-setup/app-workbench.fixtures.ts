@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,21 +19,42 @@ export { RunResult };
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment();
+	const { options, managedCredentials } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials);
 
 	const app = createApp({ ...options, workspacePath });
 
 	const start = async () => {
 		await app.connectToExternalServer();
 
-		// Workbench: Login to Posit Workbench
-		await app.positWorkbench.auth.signIn();
+		// Workbench: Login to Posit Workbench. The Azure shard signs in via OIDC against the
+		// rstudio-ide-test service account in Azure AD; everything else uses local user1 creds.
+		if (managedCredentials === 'azure') {
+			await app.positWorkbench.auth.signInWithAzure();
+		} else {
+			await app.positWorkbench.auth.signIn();
+		}
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-		await app.positWorkbench.dashboard.openSession('qa-example-content');
+
+		// Get the browser context for OAuth flows
+		const context = app.code.driver.currentPage.context();
+		await app.positWorkbench.dashboard.openSession('qa-example-content', context, managedCredentials);
 
 		// Wait for Positron to be ready
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
+
+		// For the Azure shard, the dashboard's createNewProject skipped the Open Folder step
+		// because the JIT user (rstudio-ide-test) doesn't have qa-example-content in their home
+		// dir at launch time. Now that PAM has created /home/rstudio-ide-test (triggered by the
+		// session launch), copy the workspace in and open it the same way the other shards do.
+		if (managedCredentials === 'azure') {
+			await runDockerCommand(
+				`docker exec test bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
+				'Copy qa-example-content into rstudio-ide-test home (Azure JIT user)'
+			);
+			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
+		}
+
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 
@@ -56,9 +77,16 @@ export async function WorkbenchApp(
 }
 
 /**
- * Setup the complete Workbench environment: Docker container, configuration, and permissions
+ * Setup the complete Workbench environment: Docker container, configuration, and permissions.
+ *
+ * `managedCredentials` indicates which credential (if any) was provisioned in the container by
+ * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
+ * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<{ workspacePath: string; userDataDir: string }> {
+	if (managedCredentials) {
+		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
+	}
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'

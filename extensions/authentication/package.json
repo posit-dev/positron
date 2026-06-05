@@ -18,13 +18,18 @@
 		"onAuthenticationRequest:openai-api",
 		"onAuthenticationRequest:openai-compatible",
 		"onAuthenticationRequest:google",
+		"onAuthenticationRequest:google-cloud",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
 	"main": "./out/extension.js",
 	"dependencies": {
 		"@aws-sdk/credential-providers": "^3.734.0",
-		"@aws-sdk/types": "^3.734.0"
+		"@aws-sdk/types": "^3.734.0",
+		"google-auth-library": "^9.15.1"
+	},
+	"devDependencies": {
+		"@types/node": "22.x"
 	},
 	"contributes": {
 		"authentication": [
@@ -59,6 +64,17 @@
 			{
 				"id": "google",
 				"label": "Gemini Code Assist"
+			},
+			{
+				"id": "google-cloud",
+				"label": "Google Vertex AI"
+			}
+		],
+		"commands": [
+			{
+				"command": "authentication.configureProviders",
+				"title": "%commands.configureProviders.title%",
+				"category": "%commands.category%"
 			}
 		],
 		"configuration": {
@@ -101,30 +117,177 @@
 					},
 					"additionalProperties": false
 				},
+				"authentication.snowflake.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.snowflake.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.anthropic.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.anthropic.baseUrl.description%"
 				},
+				"authentication.anthropic.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.anthropic.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.foundry.baseUrl.description%"
+					"description": "%configuration.foundry.baseUrl.description%",
+					"tags": [
+						"preview"
+					]
+				},
+				"authentication.foundry.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.foundry.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
 				},
 				"authentication.openai-api.baseUrl": {
 					"type": "string",
 					"default": "",
 					"description": "%configuration.openai-api.baseUrl.description%"
 				},
+				"authentication.openai-api.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-api.customHeaders.description%",
+					"tags": [
+						"preview"
+					]
+				},
 				"authentication.google.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.google.baseUrl.description%"
+					"description": "%configuration.google.baseUrl.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
+				},
+				"authentication.google.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.google.customHeaders.description%",
+					"tags": [
+						"experimental",
+						"advanced"
+					]
+				},
+				"authentication.googleVertex.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.googleVertex.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.googleVertex.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.googleVertex.credentials.description%",
+					"properties": {
+						"GOOGLE_VERTEX_PROJECT": {
+							"type": "string",
+							"default": null
+						},
+						"GOOGLE_VERTEX_LOCATION": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false,
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.googleVertex.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.googleVertex.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
 				},
 				"authentication.openai-compatible.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.openai-compatible.baseUrl.description%"
+					"description": "%configuration.openai-compatible.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.openai-compatible.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.openai-compatible.customHeaders.description%"
+				},
+				"authentication.deepseek-api.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.deepseek-api.baseUrl.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.deepseek-api.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.deepseek-api.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"assistant.provider.googleVertex.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"assistant.provider.deepseek.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
+					"tags": [
+						"experimental"
+					]
 				}
 			}
 		}

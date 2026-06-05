@@ -27,8 +27,12 @@ const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 // Welcome/landing page elements
 const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
 
-// Chat input area
-const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see commands"]';
+// Chat input area.
+// Posit Assistant migrated the chat input from a <textarea> to a TipTap/ProseMirror
+// rich-text editor: a contenteditable <div class="tiptap-input-editor">. The
+// placeholder is no longer a `placeholder` attribute -- it renders as a separate
+// aria-hidden overlay -- so target the editor element by its class instead.
+const CHAT_INPUT = '.tiptap-input-editor';
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
 
@@ -51,11 +55,19 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_TITLE = 'h4.font-semibold';
+const TOOL_CONFIRM_CARD = '.bg-warning';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
 const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
+
+// Tool result accordion (rendered in the transcript after a tool runs)
+const TOOL_RESULT_ACCORDION_ITEM = '[data-slot="accordion-item"]';
+
+/** Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the UI. */
+function mcpToolId(server: string, tool: string): string {
+	return `mcp__${server}__${tool}`;
+}
 
 /**
  * Page object for the Posit Assistant extension.
@@ -71,7 +83,7 @@ export class PositAssistant {
 	 * All UI elements live inside this nested iframe.
 	 */
 	get frame(): FrameLocator {
-		return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	}
 
 	/**
@@ -79,11 +91,21 @@ export class PositAssistant {
 	 * Clicks the activity bar icon if it is not already selected.
 	 */
 	async open(): Promise<void> {
-		const button = this.code.driver.page.locator(ACTIVITY_BAR_BUTTON);
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		const isSelected = await button.locator('..').getAttribute('aria-selected');
 		if (isSelected !== 'true') {
 			await button.click();
 		}
+		await this.expectViewOpen();
+	}
+
+	/**
+	 * Assert the Posit Assistant view is the active view in the sidebar by checking
+	 * that its activity bar button is selected. This avoids waiting on the webview
+	 * to load, so it is a reliable signal that the view container itself is open.
+	 */
+	async expectViewOpen(): Promise<void> {
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
 	}
 
@@ -164,7 +186,11 @@ export class PositAssistant {
 	async enterMessage(message: string): Promise<void> {
 		const chatInput = this.frame.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.fill(message);
+		// The input is a TipTap/ProseMirror contenteditable, not a plain textarea.
+		// Click to focus then type so ProseMirror processes the input through its
+		// normal keystroke handling; `fill()` is unreliable on rich-text editors.
+		await chatInput.click();
+		await chatInput.pressSequentially(message);
 	}
 
 	/**
@@ -402,7 +428,35 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator(TOOL_CONFIRM_TITLE)).toBeVisible();
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD).getByRole('heading', { level: 4 })).toBeVisible();
+	}
+
+	/** Verifies the tool confirmation dialog identifies a specific MCP server + tool. */
+	async expectMcpToolConfirmVisible(server: string, tool: string): Promise<void> {
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD)).toContainText(mcpToolId(server, tool));
+	}
+
+	/** Locator for the MCP tool-result accordion, rendered after the tool executes. */
+	mcpToolResult(server: string, tool: string) {
+		return this.frame.locator(
+			`${TOOL_RESULT_ACCORDION_ITEM}:has(:scope :text("${mcpToolId(server, tool)}"))`,
+		);
+	}
+
+	/** Verifies the MCP tool-result accordion is in the transcript. */
+	async expectMcpToolResultVisible(server: string, tool: string): Promise<void> {
+		await expect(this.mcpToolResult(server, tool)).toBeVisible();
+	}
+
+	/**
+	 * Asserts a literal text string is anywhere in the chat frame DOM.
+	 *
+	 * Uses `toBeAttached()` not `toBeVisible()`: tool-result accordion panels
+	 * use overflow-hidden + animated height that can read as visually hidden
+	 * even when fully expanded.
+	 */
+	async expectChatContainsText(text: string): Promise<void> {
+		await expect(this.frame.getByText(text, { exact: false }).first()).toBeAttached();
 	}
 
 	/**
@@ -484,8 +538,8 @@ export class PositAssistant {
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
 		//    workbench to come back up.
-		await this.code.driver.page.waitForTimeout(3000);
-		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await this.code.driver.currentPage.waitForTimeout(3000);
+		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 	}
 
 }

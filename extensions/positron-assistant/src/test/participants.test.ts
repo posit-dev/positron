@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,6 +66,8 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	warning(message: string | vscode.MarkdownString): void {
 	}
+	info(message: string | vscode.MarkdownString): void {
+	}
 	reference(value: unknown, iconPath?: unknown): void {
 	}
 	reference2(value: vscode.Uri | vscode.Location | string | { variableName: string; value?: vscode.Uri | vscode.Location }, iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }, options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } }): void {
@@ -97,6 +99,10 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	beginToolInvocation(_toolCallId: string, _toolName: string, _streamData?: vscode.ChatToolInvocationStreamData & { subagentInvocationId?: string }): void {
 	}
 	updateToolInvocation(_toolCallId: string, _streamData: vscode.ChatToolInvocationStreamData): void {
+	}
+	hookProgress(_hookType: vscode.ChatHookType, _stopReason?: string, _systemMessage?: string): void {
+	}
+	usage(_usage: vscode.ChatResultUsage): void {
 	}
 }
 
@@ -142,7 +148,7 @@ suite('PositronAssistantParticipant', () => {
 	test('should include positron session context', async () => {
 		// Setup test inputs.
 		const request = makeChatRequest({ model, references: [] });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 		const positronVersion = `${positron.version}-${positron.buildNumber}`;
 		const positronChatContext: positron.ai.ChatContext = {
@@ -192,7 +198,7 @@ Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
 			modelDescription: 'Test file description',
 		}];
 		const request = makeChatRequest({ model, references });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
@@ -224,7 +230,7 @@ ${document.getText()}
 			modelDescription: 'Test folder description',
 		}];
 		const request = makeChatRequest({ model, references });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
@@ -258,7 +264,7 @@ subfolder/
 			modelDescription: 'Test file description',
 		}];
 		const request = makeChatRequest({ model, references });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
@@ -296,7 +302,7 @@ ${document.getText()}
 		};
 		const references: vscode.ChatPromptReference[] = [reference];
 		const request = makeChatRequest({ model, references });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
@@ -328,7 +334,7 @@ ${attachmentsText}
 		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
 		const editorData = new vscode.ChatRequestEditorData(editor, document, selection, wholeRange);
 		const request = makeChatRequest({ model, references: [], location2: editorData });
-		const context: vscode.ChatContext = { history: [] };
+		const context: vscode.ChatContext = { history: [], yieldRequested: false };
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
@@ -375,6 +381,7 @@ function makeChatRequest(
 		location2: options.location2,
 		enableCommandDetection: false,
 		isParticipantDetected: false,
+		hasHooksEnabled: false,
 	};
 }
 
@@ -563,7 +570,10 @@ suite('Tool Invocation Path Resolution', () => {
 		const response = new TestChatResponseStream();
 		const token = new vscode.CancellationTokenSource().token;
 
-		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+		await chatParticipant.requestHandler(request, {
+			history: [],
+			yieldRequested: false
+		}, response, token);
 
 		// Verify invokeTool was called with resolved path
 		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');
@@ -607,7 +617,10 @@ suite('Tool Invocation Path Resolution', () => {
 		const response = new TestChatResponseStream();
 		const token = new vscode.CancellationTokenSource().token;
 
-		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+		await chatParticipant.requestHandler(request, {
+			history: [],
+			yieldRequested: false
+		}, response, token);
 
 		// Verify invokeTool was called with unchanged absolute path
 		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');
@@ -649,7 +662,10 @@ suite('Tool Invocation Path Resolution', () => {
 		const response = new TestChatResponseStream();
 		const token = new vscode.CancellationTokenSource().token;
 
-		await chatParticipant.requestHandler(request, { history: [] }, response, token);
+		await chatParticipant.requestHandler(request, {
+			history: [],
+			yieldRequested: false
+		}, response, token);
 
 		// Verify invokeTool was called with unchanged input
 		assert.ok(invokeToolStub.calledOnce, 'invokeTool should be called once');

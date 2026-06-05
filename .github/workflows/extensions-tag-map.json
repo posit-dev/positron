@@ -1,0 +1,16 @@
+{
+  "charliermarsh.ruff":                         { "tags": ["@:pyrefly"] },
+  "GitHub.vscode-pull-request-github":          { "tags": [] },
+  "meta.pyrefly":                               { "tags": ["@:pyrefly"] },
+  "ms-python.debugpy":                          { "tags": ["@:debug"] },
+  "ms-toolsai.jupyter":                         { "tags": ["@:positron-notebooks"] },
+  "ms-toolsai.jupyter-keymap":                  { "tags": ["@:positron-notebooks"] },
+  "ms-toolsai.jupyter-renderers":               { "tags": ["@:positron-notebooks"] },
+  "ms-toolsai.vscode-jupyter-cell-tags":        { "tags": ["@:positron-notebooks"] },
+  "ms-toolsai.vscode-jupyter-slideshow":        { "tags": ["@:positron-notebooks"] },
+  "posit.air-vscode":                           { "tags": ["@:ark"] },
+  "posit.assistant":                            { "tags": ["@:assistant", "@:posit-assistant"] },
+  "posit.publisher":                            { "tags": ["@:workbench"] },
+  "posit.shiny":                                { "tags": ["@:apps"] },
+  "quarto.quarto":                              { "tags": ["@:quarto"] }
+}

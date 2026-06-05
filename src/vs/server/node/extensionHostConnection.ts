@@ -94,6 +94,7 @@ class ConnectionData {
 			skipWebSocketFrames = false;
 			permessageDeflate = this.socket.permessageDeflate;
 			inflateBytes = this.socket.recordedInflateBytes;
+			this.socket.setRecordInflateBytes(false);
 		}
 
 		return {
@@ -108,7 +109,7 @@ class ConnectionData {
 
 export class ExtensionHostConnection extends Disposable {
 
-	private _onClose = new Emitter<void>();
+	private _onClose = this._register(new Emitter<void>());
 	readonly onClose: Event<void> = this._onClose.event;
 
 	private readonly _canSendSocket: boolean;
@@ -116,6 +117,9 @@ export class ExtensionHostConnection extends Disposable {
 	private _remoteAddress: string;
 	private _extensionHostProcess: cp.ChildProcess | null;
 	private _connectionData: ConnectionData | null;
+	// --- Start PWB: Track whether extension host has sent VSCODE_EXTHOST_IPC_READY ---
+	private _extHostIsReady: boolean;
+	// --- End PWB ---
 
 	constructor(
 		private readonly _reconnectionToken: string,
@@ -137,6 +141,12 @@ export class ExtensionHostConnection extends Disposable {
 		this._remoteAddress = remoteAddress;
 		this._extensionHostProcess = null;
 		this._connectionData = new ConnectionData(socket, initialDataChunk);
+		if (!this._canSendSocket && socket instanceof WebSocketNodeSocket) {
+			socket.setRecordInflateBytes(false);
+		}
+		// --- Start PWB: Track whether extension host has sent VSCODE_EXTHOST_IPC_READY ---
+		this._extHostIsReady = false;
+		// --- End PWB ---
 
 		this._log(`New connection established.`);
 	}
@@ -241,6 +251,9 @@ export class ExtensionHostConnection extends Disposable {
 	public acceptReconnection(remoteAddress: string, _socket: NodeSocket | WebSocketNodeSocket, initialDataChunk: VSBuffer): void {
 		this._remoteAddress = remoteAddress;
 		this._log(`The client has reconnected.`);
+		if (!this._canSendSocket && _socket instanceof WebSocketNodeSocket) {
+			_socket.setRecordInflateBytes(false);
+		}
 		const connectionData = new ConnectionData(_socket, initialDataChunk);
 
 		if (!this._extensionHostProcess) {
@@ -249,13 +262,22 @@ export class ExtensionHostConnection extends Disposable {
 			return;
 		}
 
+		// --- Start PWB: Buffer socket until extension host is ready to avoid silent drop ---
+		if (!this._extHostIsReady) {
+			// Process started but hasn't signalled ready yet; the ready handler
+			// in start() will pick up _connectionData and send it.
+			this._connectionData = connectionData;
+			return;
+		}
+		// --- End PWB ---
+
 		this._sendSocketToExtensionHost(this._extensionHostProcess, connectionData);
 	}
 
 	// --- Start PWB ---
 	// Need to make this async to flush the socket before closing
 	private async _cleanResources(): Promise<void> {
-	// --- End PWB ---
+		// --- End PWB ---
 
 		if (this._disposed) {
 			// already called
@@ -358,12 +380,18 @@ export class ExtensionHostConnection extends Disposable {
 			if (extHostNamedPipeServer) {
 				extHostNamedPipeServer.on('connection', (socket) => {
 					extHostNamedPipeServer.close();
+					// --- Start PWB: Mark host ready when pipe connection is established ---
+					this._extHostIsReady = true;
+					// --- End PWB ---
 					this._pipeSockets(socket, this._connectionData!);
 				});
 			} else {
 				const messageListener = (msg: IExtHostReadyMessage) => {
 					if (msg.type === 'VSCODE_EXTHOST_IPC_READY') {
 						this._extensionHostProcess!.removeListener('message', messageListener);
+						// --- Start PWB: Mark host ready before sending buffered socket ---
+						this._extHostIsReady = true;
+						// --- End PWB ---
 						this._sendSocketToExtensionHost(this._extensionHostProcess!, this._connectionData!);
 						this._connectionData = null;
 					}

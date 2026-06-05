@@ -13,7 +13,6 @@ import rename from 'gulp-rename';
 import path from 'path';
 import unzip from 'gulp-unzip';
 import gunzip from 'gulp-gunzip';
-import untar from 'gulp-untar';
 
 /**
  * Get the base URL for the quarto download
@@ -55,7 +54,7 @@ function getQuartoMacOS(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar());
+		.pipe(util.untar());
 }
 
 /**
@@ -76,7 +75,7 @@ function getQuartoLinux(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar())
+		.pipe(util.untar())
 		// Remove the leading directory from the path
 		.pipe(rename((path: any) => {
 			if (path.dirname.startsWith(`quarto-${version}`)) {
@@ -93,7 +92,7 @@ function getQuartoLinux(version: string): Stream {
  */
 export function getQuartoStream(): Stream {
 	// quarto version
-	const version = '1.9.37';
+	const version = '1.9.38';
 
 	fancyLog(`Synchronizing quarto ${version}...`);
 
@@ -141,7 +140,7 @@ export function getQuartoBinaries(): Stream {
 			}
 		}))
 
-		// On macOS, filter out the opposite-arch tools directory. 
+		// On macOS, filter out the opposite-arch tools directory.
 		.pipe(es.mapSync((f: any) => {
 			if (process.platform !== 'darwin') {
 				return f;

@@ -199,6 +199,8 @@ export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMes
  * runtime execution.
  */
 export interface ILanguageRuntimeMessageResult extends ILanguageRuntimeMessageOutput {
+	/** The execution count. */
+	readonly execution_count: number;
 }
 
 /**
@@ -777,15 +779,31 @@ export enum RuntimeStartupPhase {
 	Starting = 'starting',
 
 	/**
-	 * Phase 6: Positron is discovering all the runtimes on the machine. This
-	 * can take a while, but does precede startup for workspaces that have no
-	 * affiliated runtimes (so we don't know what to start yet).
+	 * Phase 6: Positron is loading system-scoped runtimes from the cross-window
+	 * discovery cache. Each cached entry is fingerprint-checked (`stat` and
+	 * compare) and registered if it passes. Skipped entirely when the cache is
+	 * disabled or empty for every (extension, language) bucket. Entries whose
+	 * fingerprint changed are queued for background revalidation rather than
+	 * blocking startup. This phase is a strict subset of `Discovering`: it
+	 * never invokes a manager's full enumeration (filesystem walks, registry
+	 * scans, etc.).
+	 */
+	LoadingCache = 'loadingCache',
+
+	/**
+	 * Phase 7: Positron is running a full discovery pass against each language
+	 * runtime manager. Only entered when a manager actually needs to enumerate
+	 * (cold start, periodic refresh, user-triggered rediscovery, or cache
+	 * disabled). On warm starts where the cache satisfies every bucket, this
+	 * phase is skipped.
 	 */
 	Discovering = 'discovering',
 
 	/**
-	 * Phase 7: Startup is complete. In this phase, we start any runtimes
-	 * recommended by extensions if nothing was started in previous phases.
+	 * Phase 8: Startup is complete. User-visible startup work is done and
+	 * auto-start has been decided. Background discovery (e.g. revalidation of
+	 * cache entries whose fingerprint changed) may still be running. See
+	 * IRuntimeStartupService for the background-in-progress signal.
 	 */
 	Complete = 'complete',
 }
@@ -805,6 +823,67 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	/** The error stack trace */
 	traceback: Array<string>;
 }
+/**
+ * One root that a runtime manager scans for interpreters. The `path` is
+ * resolved (symlinks followed) before being reported; `mtimeMs` is 0 when
+ * `exists` is false. Direct equality of this struct determines whether a
+ * change has occurred since the last full discovery.
+ */
+export interface IRuntimeRootEntry {
+	/** Resolved absolute path of the directory or file. */
+	readonly path: string;
+	/** Whether the path resolved to anything stat-able. */
+	readonly exists: boolean;
+	/** mtime in ms since epoch; 0 if `exists` is false. */
+	readonly mtimeMs: number;
+}
+
+/**
+ * Fingerprint of every root directory a runtime manager watches for
+ * interpreters. Cheap to compute (one stat per root) and cheap to compare;
+ * persisted with the cache bucket so warm starts can detect "a new
+ * interpreter showed up somewhere we scan" without running a full discovery.
+ */
+export interface IRuntimeRootSignature {
+	/** Roots in stable insertion order. Order is part of the signature. */
+	readonly entries: readonly IRuntimeRootEntry[];
+	/**
+	 * Optional opaque blob folded into equality. Lets a manager mix in
+	 * non-stat-able state (env-modules version, conda config hash) without
+	 * teaching the cache layer about it.
+	 */
+	readonly opaque?: string;
+}
+
+/**
+ * Element-by-element comparison of two root signatures. `undefined` on either
+ * side counts as a mismatch (no signal to compare against).
+ */
+export function signaturesEqual(
+	a: IRuntimeRootSignature | undefined,
+	b: IRuntimeRootSignature | undefined,
+): boolean {
+	if (!a || !b) {
+		return false;
+	}
+	if (a.opaque !== b.opaque) {
+		return false;
+	}
+	if (a.entries.length !== b.entries.length) {
+		return false;
+	}
+	for (let i = 0; i < a.entries.length; i++) {
+		const ae = a.entries[i];
+		const be = b.entries[i];
+		if (ae.path !== be.path
+			|| ae.exists !== be.exists
+			|| ae.mtimeMs !== be.mtimeMs) {
+			return false;
+		}
+	}
+	return true;
+}
+
 /**
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
@@ -864,6 +943,30 @@ export interface ILanguageRuntimeMetadata {
 	 * notifications to the backend via the UI client.
 	 */
 	readonly uiSubscriptions?: UiRuntimeNotifications[];
+
+	/**
+	 * Whether this runtime is eligible to be stored in the cross-window discovery
+	 * cache. Extensions opt in per-runtime; defaults to `false` when omitted, so a
+	 * runtime is only cached when its extension explicitly asserts it is system-
+	 * scoped, has a real on-disk binary at `runtimePath`, and is not project-bound
+	 * (e.g. a venv, renv library, or pyenv/asdf shim).
+	 */
+	readonly cacheable?: boolean;
+}
+
+/**
+ * One language-runtime contribution as seen from inside an extension host:
+ * the (extension, language) pair that registered a `LanguageRuntimeManager`
+ * via `positron.runtime.registerLanguageRuntimeManager`, plus the per-manager
+ * `alwaysRediscover` opt-out flag the extension declared.
+ *
+ * A single extension host typically hosts several of these (e.g. positron-r
+ * and positron-zed both run in the node ext host, each registers one).
+ */
+export interface IHostedLanguageContribution {
+	readonly extensionId: string;
+	readonly languageId: string;
+	readonly alwaysRediscover: boolean;
 }
 
 /**
@@ -878,10 +981,26 @@ export interface IRuntimeManager {
 	/**
 	 * Discovers all available runtimes on the machine.
 	 *
-	 * @param disabledLanguageIds Languages for which discovery should be
-	 * skipped.
+	 * @param disabledLanguageIds Languages the user has disabled; the
+	 * extension host filters its discoverers by this set in addition to
+	 * `skipLanguageIds`.
+	 * @param skipLanguageIds Languages whose discovery the cache layer has
+	 * decided to skip on this pass (typically because they're fully served
+	 * from cache and not flagged `alwaysRediscover`). Treated identically to
+	 * `disabledLanguageIds` at runtime; the split exists so the user-disabled
+	 * set isn't conflated with cache-driven decisions.
 	 */
-	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
+	discoverAllRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void>;
+
+	/**
+	 * Mark the manager's discovery-complete flag without running a real
+	 * enumeration. Used by the warm-start fast path: the discovery cache
+	 * already satisfied every bucket, so no manager needs to enumerate, but
+	 * the ext host still needs to know that initial discovery is over so
+	 * runtime managers registered later (via `registerLanguageRuntimeManager`)
+	 * self-trigger their own discovery.
+	 */
+	markDiscoveryComplete(): void;
 
 	/**
 	 * Recommend runtimes for this specific workspace.
@@ -891,6 +1010,50 @@ export interface IRuntimeManager {
 	 * @returns A list of recommended runtimes, asynchronously.
 	 */
 	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+
+	/**
+	 * Whether this manager is responsible for the given runtime. Used by the
+	 * discovery-cache layer to attribute cached entries to the right manager
+	 * before invoking `validateMetadata` on it.
+	 */
+	managesRuntime(metadata: ILanguageRuntimeMetadata): Promise<boolean>;
+
+	/**
+	 * Snapshot the directories the manager registered by `extensionId` scans
+	 * for interpreters of `languageId`. Called on every warm start to detect
+	 * newly-installed interpreters before deciding whether to skip full
+	 * discovery.
+	 *
+	 * Disambiguates by `extensionId` because multiple extensions can register
+	 * a runtime manager for the same `languageId` (e.g. `ms-python.python`
+	 * and `positron.positron-reticulate` both register for `python`), and
+	 * only one of them owns the discovery signature for any given
+	 * (extensionId, languageId) bucket.
+	 *
+	 * Returns `undefined` when no manager matches (extensionId, languageId)
+	 * or when the matched manager does not implement the signature API; the
+	 * cache layer treats that as "fall back to the periodic-refresh trigger"
+	 * and never spuriously triggers via this path.
+	 */
+	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
+
+	/**
+	 * Return one entry per `LanguageRuntimeManager` registered in this
+	 * extension host, with the `alwaysRediscover` flag the manager declared.
+	 * The discovery-cache layer uses this to make per-`(extensionId,
+	 * languageId)` decisions about whether each contribution needs a full
+	 * pass on the current open, then drives `discoverAllRuntimes` with a
+	 * per-language skip set.
+	 */
+	getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
+
+	/**
+	 * Re-validate runtime metadata against the live extension. Throws if the
+	 * runtime is no longer valid (binary moved, version changed in a way the
+	 * extension can't reconcile, etc.). Returns possibly-updated metadata
+	 * (e.g. with a fresh `runtimeId` if the path was relocated).
+	 */
+	validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 }
 
 export interface ILangaugeRuntimeDynState {

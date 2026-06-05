@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ export class Layouts {
 	/**
 	 * Locator for the entire IDE. This is the "body" of the root page.
 	 */
-	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
+	get fullApp(): Locator { return this.code.driver.currentPage.locator(FULL_APP); }
 
 	/**
 	 * Button in upper right of IDE for customizing layout.
@@ -49,7 +49,7 @@ export class Layouts {
 	/**
 	 * Locator for the panel part of the IDE.
 	 */
-	get panel(): Locator { return this.code.driver.page.locator(PANEL); }
+	get panel(): Locator { return this.code.driver.currentPage.locator(PANEL); }
 
 	/**
 	 * Locator for the tabs in the panel used to navigate to different views.
@@ -71,7 +71,7 @@ export class Layouts {
 	/**
 	 * Locator for the auxiliary bar part of the IDE.
 	 */
-	get auxBar(): Locator { return this.code.driver.page.locator(AUX_BAR); }
+	get auxBar(): Locator { return this.code.driver.currentPage.locator(AUX_BAR); }
 
 	/**
 	 * Locator for the tabs in the auxiliary bar used to navigate to different views.
@@ -81,7 +81,7 @@ export class Layouts {
 	/**
 	 * Locator for the sidebar part of the IDE.
 	 */
-	get sidebar(): Locator { return this.code.driver.page.locator(SIDEBAR); }
+	get sidebar(): Locator { return this.code.driver.currentPage.locator(SIDEBAR); }
 
 	constructor(private code: Code, private workbench: Workbench) { }
 
@@ -93,11 +93,43 @@ export class Layouts {
 	 * @param layout Known layout to enter.
 	 */
 	async enterLayout(layout: keyof typeof positronLayoutPresets): Promise<void> {
-		const titlebarDragRegion = this.code.driver.page.locator('.titlebar-drag-region');
+		const titlebarDragRegion = this.code.driver.currentPage.locator('.titlebar-drag-region');
 		if (await titlebarDragRegion.isVisible()) {
 			await titlebarDragRegion.click();
 		}
 		await this.workbench.quickaccess.runCommand(positronLayoutPresets[layout], { keepOpen: true });
+	}
+
+	/**
+	 * Resize the secondary sidebar (auxiliary bar / variables-side) by
+	 * dragging its left edge. Negative x widens the bar, positive x narrows.
+	 */
+	async resizeAuxiliaryBar(delta: { x: number }): Promise<void> {
+		const auxBar = this.code.driver.currentPage.locator('.part.auxiliarybar');
+		const box = await auxBar.boundingBox();
+		if (!box) {
+			throw new Error('auxiliarybar not found or not visible');
+		}
+		await this.code.driver.clickAndDrag({
+			from: { x: box.x, y: box.y + box.height / 2 },
+			delta: { x: delta.x },
+		});
+	}
+
+	/**
+	 * Resize the bottom panel (console / terminal / output area) by dragging
+	 * its top edge. Negative y makes the panel taller, positive y shorter.
+	 */
+	async resizePanel(delta: { y: number }): Promise<void> {
+		const panel = this.code.driver.currentPage.locator('.part.panel');
+		const box = await panel.boundingBox();
+		if (!box) {
+			throw new Error('panel not found or not visible');
+		}
+		await this.code.driver.clickAndDrag({
+			from: { x: box.x + box.width / 2, y: box.y },
+			delta: { y: delta.y },
+		});
 	}
 
 	/**
@@ -124,6 +156,18 @@ export class Layouts {
 	async boundingBoxProperty(locator: Locator, property: 'x' | 'y' | 'width' | 'height') {
 		const boundingBox = await this.boundingBox(locator);
 		return boundingBox[property];
+	}
+
+	/**
+	 * Assert which view container is currently active (showing) in the sidebar by
+	 * its title. The sidebar can be visible while showing the wrong view, so this
+	 * checks the actual active composite rather than mere visibility.
+	 * @param title The expected title text of the active sidebar view (e.g. 'Chat').
+	 */
+	async expectActiveSidebarView(title: string): Promise<void> {
+		await test.step(`Expect active sidebar view to be "${title}"`, async () => {
+			await expect(this.sidebar.locator('.composite.title h2')).toHaveText(title);
+		});
 	}
 
 	/**

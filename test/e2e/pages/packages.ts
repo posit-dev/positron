@@ -3,9 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { ContextMenu } from './dialog-contextMenu';
+import { Help } from './help';
 import { QuickInput } from './quickInput';
 import { Toasts } from './dialog-toasts';
 
@@ -16,16 +17,31 @@ export class Packages {
 
 	packagesButton: Locator;
 	packagesContainer: Locator;
+	refreshPackagesButton: Locator;
 	packagesViewMoreActionsButton: Locator;
-	private get page(): Page { return this.code.driver.page; }
+	filterButton: Locator;
+	filterOptionsMenu: Locator;
+	filterOptionsSubmenu: Locator;
 
-	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts) {
-		this.packagesButton = code.driver.page.locator('a.action-label.codicon-package');
-		this.packagesContainer = code.driver.page.locator('.positron-packages-list');
+	constructor(private code: Code, private contextMenu: ContextMenu, private quickInput: QuickInput, private toasts: Toasts, private help: Help) {
+		this.packagesButton = this.code.driver.currentPage.locator('a.action-label.codicon-package');
+		this.packagesContainer = this.code.driver.currentPage.locator('.positron-packages-list');
+
+		this.refreshPackagesButton = this.code.driver.currentPage
+			.getByRole('toolbar', { name: 'Packages actions' })
+			.getByLabel('Refresh Packages');
 		// More Actions button (overflow menu) in the packages view title bar
-		this.packagesViewMoreActionsButton = code.driver.page
+		this.packagesViewMoreActionsButton = code.driver.currentPage
 			.getByRole('toolbar', { name: 'Packages actions' })
 			.getByRole('button', { name: 'Views and More Actions...' });
+		// Filter funnel that opens the Filter/Sort options menu.
+		this.filterButton = this.packagesContainer.locator('.filter-button');
+		// Custom context menu popups appear in DOM order. The first is the top-level
+		// Filter/Sort menu; a hovered submenu trigger spawns a second popup.
+		const popupItems = this.code.driver.currentPage
+			.locator('.positron-modal-popup-container .custom-context-menu-items');
+		this.filterOptionsMenu = popupItems.first();
+		this.filterOptionsSubmenu = popupItems.nth(1);
 	}
 
 	/**
@@ -35,6 +51,10 @@ export class Packages {
 	async verifyPackagesList(): Promise<void> {
 		// Ensure packages pane is open
 		await this.clickPackagesButton();
+
+		// Clear any leftover filter from a prior test so the full list renders.
+		// React filter state can persist across tests in the same file (shared app).
+		await this.clearFilter();
 
 		// Verify the packages list is displayed
 		await expect(this.packagesContainer).toBeVisible();
@@ -47,14 +67,15 @@ export class Packages {
 	}
 
 	/**
-	 * Clicks the packages button to open the packages view
-	 * If the packages pane is already visible, this is a no-op
+	 * Opens the packages pane if not already open and waits for the
+	 * container to be visible.
 	 */
 	async clickPackagesButton(): Promise<void> {
 		const isVisible = await this.packagesContainer.isVisible();
 		if (!isVisible) {
 			await this.packagesButton.click();
 		}
+		await expect(this.packagesContainer).toBeVisible();
 	}
 
 	/**
@@ -68,61 +89,116 @@ export class Packages {
 	}
 
 	/**
-	 * Gets all packages by scrolling through the list with mouse wheel
-	 * @returns An array of all package names
+	 * Types into the packages pane filter input to narrow the visible list.
+	 * @param text The filter text to apply (pass '' to clear).
 	 */
-	async getAllPackages(): Promise<string[]> {
-		// Ensure packages pane is open
+	async searchPackages(text: string): Promise<void> {
 		await this.clickPackagesButton();
+		await this.packagesContainer.getByPlaceholder('Filter packages').fill(text);
+	}
 
-		// Wait for the packages container to be visible
+	/**
+	 * Clears the packages pane filter input. No-op if the pane isn't open.
+	 */
+	async clearFilter(): Promise<void> {
+		if (await this.packagesContainer.isVisible()) {
+			await this.packagesContainer.getByPlaceholder('Filter packages').fill('');
+		}
+	}
+
+	/**
+	 * Asserts the packages list has rendered at least one item. Use after
+	 * starting a session to wait for the package provider's first snapshot.
+	 */
+	async expectPackagesListPopulated(): Promise<void> {
+		await expect(
+			this.packagesContainer.locator('.packages-list-item-name').first(),
+		).toBeVisible();
+	}
+
+	/**
+	 * Asserts that a package row is present in the currently filtered list.
+	 * Retries past the post-install refresh delay (the install toast clears
+	 * before the package provider re-emits its snapshot — R installs via pak
+	 * can take ~30s on Windows CI before the package appears).
+	 * @param name The exact package name to look for.
+	 * @param timeout Max time to wait for the row to appear.
+	 */
+	async expectPackageInList(name: string, timeout = 60_000): Promise<void> {
+		await this.clickPackagesButton();
+		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: name });
+		await expect(row.first()).toBeVisible({ timeout });
+	}
+
+	/**
+	 * Click the filter funnel to open the Filter/Sort options menu.
+	 * Asserts the top-level menu is visible.
+	 */
+	async openFilterOptionsMenu(): Promise<void> {
+		await this.clickPackagesButton();
+		await this.filterButton.click();
+		await expect(this.filterOptionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Hover the named submenu trigger (Filter or Sort) in the open filter options
+	 * menu to reveal its nested submenu. Asserts the submenu is visible.
+	 */
+	async expandFilterOptionsSubmenu(name: 'Filter' | 'Sort'): Promise<void> {
+		const trigger = this.filterOptionsMenu.locator('.custom-context-menu-item', {
+			has: this.code.driver.currentPage.locator('.title', { hasText: name }),
+		});
+		await expect(trigger).toBeVisible();
+		await trigger.hover();
+		await expect(this.filterOptionsSubmenu).toBeVisible();
+	}
+
+	/**
+	 * Hover an item in the currently-open filter options submenu so it shows
+	 * the highlighted state. Used for screenshots that need to capture a
+	 * specific item in the highlighted state.
+	 */
+	async hoverFilterOptionsSubmenuItem(label: string): Promise<void> {
+		const item = this.filterOptionsSubmenu.locator('.custom-context-menu-item', {
+			has: this.code.driver.currentPage.locator('.title', { hasText: label }),
+		});
+		await expect(item).toBeVisible();
+		await item.hover();
+	}
+
+	/**
+	 * Waits for the Help pane to render content for a package, retrying past the
+	 * help-frame load delay.
+	 * @param expectedText Substring that must appear in the help frame body
+	 * @param helpFrameIndex Index of the help webview to check (0 for the first opened, etc.)
+	 */
+	async expectHelpPaneToContainText(expectedText: string, helpFrameIndex: number): Promise<void> {
+		await expect(async () => {
+			const helpFrame = await this.help.getHelpFrame(helpFrameIndex);
+			await expect(helpFrame.locator('body')).toContainText(expectedText);
+		}).toPass();
+	}
+
+	/**
+	 * Clicks the help button on a package row to open its help topic in the Help pane.
+	 * The packages list is virtualized -- scrolls the list down until the row for
+	 * the requested package is rendered, then clicks its help button.
+	 * @param packageName The name of the package whose help button should be clicked
+	 */
+	async clickHelpButton(packageName: string): Promise<void> {
+		await this.clickPackagesButton();
 		await expect(this.packagesContainer).toBeVisible();
 
-		const packageItems = this.packagesContainer.locator('.packages-list-item-name');
-		await expect(packageItems.first()).toBeVisible();
+		await this.searchPackages(packageName);
+		const helpButton = this.packagesContainer.getByRole('button', { name: `Show help for ${packageName}`, exact: true });
 
-		const seen = new Set<string>();
-		const allPackages: string[] = [];
+		await helpButton.click();
+		await this.clearFilter();
+	}
 
-		// Scroll through the list to load all packages (handles virtualized lists)
-		let stable = false;
-		let scrollAttempts = 0;
-		const maxScrollAttempts = 100; // prevent infinite loops
-
-		while (!stable && scrollAttempts < maxScrollAttempts) {
-			const itemCount = await packageItems.count();
-
-			let newItemsFound = false;
-			for (let i = 0; i < itemCount; i++) {
-				const packageName = await packageItems.nth(i).textContent();
-
-				if (packageName) {
-					const name = packageName.trim();
-					if (!seen.has(name)) {
-						seen.add(name);
-						allPackages.push(name);
-						newItemsFound = true;
-					}
-				}
-			}
-
-			if (newItemsFound) {
-				// Scroll using mouse wheel to load more items
-				const box = await this.packagesContainer.boundingBox();
-				if (box) {
-					// Move mouse to center of packages container
-					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-					// Scroll down with mouse wheel (positive deltaY scrolls down)
-					await this.page.mouse.wheel(0, 500);
-					await this.page.waitForTimeout(100); // allow more items to render
-				}
-				scrollAttempts++;
-			} else {
-				stable = true; // no new items found after scrolling
-			}
-		}
-
-		return allPackages;
+	async clickRefreshPackagesButton(): Promise<void> {
+		await this.clickPackagesButton();
+		await this.refreshPackagesButton.click();
 	}
 
 	/**

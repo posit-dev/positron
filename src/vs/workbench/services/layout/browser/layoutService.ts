@@ -33,6 +33,7 @@ export const enum Parts {
 	SIDEBAR_PART = 'workbench.parts.sidebar',
 	PANEL_PART = 'workbench.parts.panel',
 	AUXILIARYBAR_PART = 'workbench.parts.auxiliarybar',
+	CHATBAR_PART = 'workbench.parts.chatbar',
 	EDITOR_PART = 'workbench.parts.editor',
 	STATUSBAR_PART = 'workbench.parts.statusbar'
 }
@@ -46,14 +47,24 @@ export const enum ZenModeSettings {
 	FULLSCREEN = 'zenMode.fullScreen',
 	RESTORE = 'zenMode.restore',
 	SILENT_NOTIFICATIONS = 'zenMode.silentNotifications',
+	// --- Start Positron ---
+	HIDE_TOP_ACTION_BAR = 'zenMode.hideTopActionBar',
+	// --- End Positron ---
 }
 
 export const enum LayoutSettings {
 	ACTIVITY_BAR_LOCATION = 'workbench.activityBar.location',
+	ACTIVITY_BAR_AUTO_HIDE = 'workbench.activityBar.autoHide',
+	ACTIVITY_BAR_COMPACT = 'workbench.activityBar.compact',
 	EDITOR_TABS_MODE = 'workbench.editor.showTabs',
-	EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
+	// --- Start Positron ---
+	// Positron owns workbench.editor.editorActionsLocation via the Editor Action Toolbar,
+	// so the upstream enum entry is removed.
+	// EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
+	// --- End Positron ---
 	COMMAND_CENTER = 'window.commandCenter',
 	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
+	SHADOWS = 'workbench.shadows',
 	// --- Start Positron ---
 	TOP_ACTION_BAR_VISIBLE = 'workbench.topActionBar.visible'
 	// --- End Positron ---

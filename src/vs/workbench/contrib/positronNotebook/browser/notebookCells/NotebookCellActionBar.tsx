@@ -17,7 +17,7 @@ import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { useMenu } from '../useMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useCellScopedContextKeyService } from './CellProvider.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';

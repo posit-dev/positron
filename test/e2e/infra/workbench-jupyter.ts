@@ -42,7 +42,7 @@ export class PositJupyter extends Workbench {
 		if (!this.jupyterLabUrl) {
 			throw new Error('JupyterLab URL not set');
 		}
-		await this.code.driver.page.goto(this.jupyterLabUrl);
-		await this.code.driver.page.waitForLoadState('networkidle');
+		await this.code.driver.currentPage.goto(this.jupyterLabUrl);
+		await this.code.driver.currentPage.waitForLoadState('networkidle');
 	}
 }

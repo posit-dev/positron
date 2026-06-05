@@ -6,13 +6,18 @@
 /// <reference types="vitest/globals" />
 
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { CellContextKeys } from '../../common/cellContextKeys.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
 import {
 	AddSelectionDownAction,
 	AddSelectionUpAction,
+	MoveCellDownAction,
+	MoveCellUpAction,
 	POSITRON_NOTEBOOK_COMMAND_MODE,
 	ReduceSelectionToActiveCellAction,
 	SelectDownAction,
@@ -60,6 +65,16 @@ describe('Notebook selection keybinding actions', () => {
 		}
 	}
 	class TestableAddSelectionUpAction extends AddSelectionUpAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableMoveCellUpAction extends MoveCellUpAction {
+		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+			return this.runNotebookAction(notebook, accessor);
+		}
+	}
+	class TestableMoveCellDownAction extends MoveCellDownAction {
 		public testRun(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 			return this.runNotebookAction(notebook, accessor);
 		}
@@ -193,6 +208,57 @@ describe('Notebook selection keybinding actions', () => {
 			expect(state.type).toBe(SelectionState.MultiSelection);
 			expect(getSelectedCells(state)).toEqual([cells[1], cells[2]]);
 			expect(getActiveCell(state)).toBe(cells[1]);
+		});
+	});
+
+	describe('MoveCellUpAction (Alt+ArrowUp)', () => {
+		it('declares Alt+ArrowUp keybinding and cell action bar menu entry gated on canMoveUp', () => {
+			const action = new MoveCellUpAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.moveUp');
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
+			// Menu entry: cell action bar submenu, gated on canMoveUp so the
+			// item disappears at the first cell where the move would no-op.
+			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
+			expect(menu?.id).toBe(MenuId.PositronNotebookCellActionBarSubmenu);
+			expect(menu?.when).toBe(CellContextKeys.canMoveUp);
+		});
+
+		it('moves the selected cell up by one and selection follows', () => {
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[2], CellSelectionType.Normal);
+
+			new TestableMoveCellUpAction().testRun(notebook, unusedAccessor);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['A', 'C', 'B']);
+			// Selection follows: same cell ref, now at index 1
+			const state = notebook.selectionStateMachine.state.get();
+			expect(getActiveCell(state)).toBe(cells[2]);
+		});
+	});
+
+	describe('MoveCellDownAction (Alt+ArrowDown)', () => {
+		it('declares Alt+ArrowDown keybinding and cell action bar menu entry gated on canMoveDown', () => {
+			const action = new MoveCellDownAction();
+			expect(action.desc.id).toBe('positronNotebook.cell.moveDown');
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
+			const menu = Array.isArray(action.desc.menu) ? action.desc.menu[0] : action.desc.menu;
+			expect(menu?.id).toBe(MenuId.PositronNotebookCellActionBarSubmenu);
+			expect(menu?.when).toBe(CellContextKeys.canMoveDown);
+		});
+
+		it('moves the selected cell down by one and selection follows', () => {
+			const notebook = createLabelledTestNotebook(3, ctx);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+
+			new TestableMoveCellDownAction().testRun(notebook, unusedAccessor);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual(['B', 'A', 'C']);
+			const state = notebook.selectionStateMachine.state.get();
+			expect(getActiveCell(state)).toBe(cells[0]);
 		});
 	});
 });

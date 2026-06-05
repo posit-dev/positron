@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -29,7 +29,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
+test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings }) => {
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
@@ -50,7 +50,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Defer Import', () => {
-		test('Verify import prompt behavior on "Later"', async ({ app, hotKeys }) => {
+		test('Verify import prompt behavior on "Later"', { tag: [tags.WIN] }, async ({ app, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// select "Later" and verify that the prompt is no longer visible
@@ -63,12 +63,12 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await toasts.expectImportSettingsToastToBeVisible();
 		});
 
-		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, hotKeys, page }) => {
+		test('Verify import prompt behavior on "Don\'t Show Again"', { tag: [tags.WIN] }, async ({ sessions, app, hotKeys, page }) => {
 			const { toasts } = app.workbench;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
 			await toasts.expectImportSettingsToastToBeVisible();
-			await toasts.clickButton("Don't Show Again");
+			await toasts.clickButton("Don't Show Again", { notificationFilter: /Import your settings from Visual Studio Code/ });
 			await toasts.expectImportSettingsToastToBeVisible(false);
 
 			// verify that prompt is not shown again
@@ -119,7 +119,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await settings.clear();
 		});
 
-		test('Verify import import occurs and is clean without a diff', async ({ app, page, hotKeys }) => {
+		test('Verify import import occurs and is clean without a diff', { tag: [tags.WIN] }, async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
 
 			// import settings
@@ -142,7 +142,7 @@ async function scrollEditorUntilVisible(
 	target: Locator,
 	maxSteps = 25,
 ): Promise<void> {
-	const editor = app.code.driver.page.locator(
+	const editor = app.code.driver.currentPage.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
 
@@ -154,19 +154,19 @@ async function scrollEditorUntilVisible(
 		if (await target.isVisible()) { return; }
 
 		// Scroll down a bit
-		await app.code.driver.page.mouse.wheel(0, 300);
+		await app.code.driver.currentPage.mouse.wheel(0, 300);
 		// Give Monaco a moment to render new lines
-		await app.code.driver.page.waitForTimeout(50);
+		await app.code.driver.currentPage.waitForTimeout(50);
 	}
 
 	throw new Error('Target text not visible after scrolling');
 }
 
 export async function expectDiffToBeVisible(app: Application, visible = true) {
-	const editor = app.code.driver.page.locator(
+	const editor = app.code.driver.currentPage.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
-	const settingsTab = app.code.driver.page.getByRole('tab', { name: 'settings.json' });
+	const settingsTab = app.code.driver.currentPage.getByRole('tab', { name: 'settings.json' });
 
 	const existingStart = editor.getByText('<<<<<<< Existing', { exact: true }).first();
 	const incomingEnd = editor.getByText('>>>>>>> Incoming', { exact: true }).first();

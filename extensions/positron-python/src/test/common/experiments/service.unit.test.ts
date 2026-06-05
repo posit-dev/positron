@@ -9,7 +9,7 @@ import * as sinon from 'sinon';
 import { anything, instance, mock, when } from 'ts-mockito';
 import { Disposable } from 'vscode-jsonrpc';
 // sinon can not create a stub if we just point to the exported module
-import * as tasClient from 'vscode-tas-client/vscode-tas-client/VSCodeTasClient';
+import * as tasClient from 'vscode-tas-client/out/vscode-tas-client/VSCodeTasClient';
 import * as expService from 'vscode-tas-client';
 import { TargetPopulation } from 'vscode-tas-client';
 import { ApplicationEnvironment } from '../../../client/common/application/applicationEnvironment';
@@ -181,9 +181,9 @@ suite('Experimentation service', () => {
                 });
 
             getTreatmentVariable = sinon.stub().returns(true);
-            sinon.stub(tasClient, 'getExperimentationService').returns(({
+            sinon.stub(tasClient, 'getExperimentationService').returns({
                 getTreatmentVariable,
-            } as unknown) as expService.IExperimentationService);
+            } as unknown as expService.IExperimentationService);
 
             configureApplicationEnvironment('stable', extensionVersion);
         });
@@ -219,9 +219,9 @@ suite('Experimentation service', () => {
 
             // Control group returns false.
             getTreatmentVariable = sinon.stub().returns(false);
-            sinon.stub(tasClient, 'getExperimentationService').returns(({
+            sinon.stub(tasClient, 'getExperimentationService').returns({
                 getTreatmentVariable,
-            } as unknown) as expService.IExperimentationService);
+            } as unknown as expService.IExperimentationService);
 
             configureApplicationEnvironment('stable', extensionVersion);
 
@@ -365,9 +365,9 @@ suite('Experimentation service', () => {
 
         setup(() => {
             getTreatmentVariableStub = sinon.stub().returns(Promise.resolve('value'));
-            sinon.stub(tasClient, 'getExperimentationService').returns(({
+            sinon.stub(tasClient, 'getExperimentationService').returns({
                 getTreatmentVariable: getTreatmentVariableStub,
-            } as unknown) as expService.IExperimentationService);
+            } as unknown as expService.IExperimentationService);
 
             configureApplicationEnvironment('stable', extensionVersion);
         });

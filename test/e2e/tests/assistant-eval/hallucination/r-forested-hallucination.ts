@@ -13,7 +13,7 @@ import { EvalTestCase, RunResult } from '../types';
  * data from the forested package without first exploring it.
  */
 const prompt = 'Load the forested package and make some plots of the forested data';
-const mode = 'Ask';
+const mode = 'Agent';
 
 export const rForestedHallucination: EvalTestCase = {
 	id: 'r-forested-hallucination',
@@ -27,6 +27,11 @@ export const rForestedHallucination: EvalTestCase = {
 
 		// Start R session
 		const [rSession] = await sessions.start(['r']);
+
+		// Pre-install forested so the eval focuses on hallucination behavior,
+		// not package setup. The package isn't in any shared fixture because
+		// only this test needs it.
+		await console.executeCode('R', 'if (!requireNamespace("forested", quietly = TRUE)) install.packages("forested", repos = "https://packagemanager.posit.co/cran/latest")');
 
 		// Ask the question
 		await assistant.clickNewChatButton();

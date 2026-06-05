@@ -188,7 +188,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IPathService private readonly _pathService: IPathService,
+		@IPathService private readonly _pathService: IPathService
 	) {
 
 		super();
@@ -1633,6 +1633,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 							this._logService.info(
 								`Replacing runtime ${formatLanguageRuntimeMetadata(metadata)} => `
 								+ `${formatLanguageRuntimeMetadata(validated)}`);
+						}
+
+						// If the runtime we were asked for was system-scoped (cacheable),
+						// the substitution is most likely cache drift -- the on-disk binary
+						// changed since the cache was populated.
+						if (metadata.cacheable === true) {
+							this._logService.info(
+								`Cache drift: ${metadata.runtimeName} at ${metadata.runtimePath} ` +
+								`is no longer available; starting ${validated.runtimeName} instead.`);
 						}
 					}
 				}

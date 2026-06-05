@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,18 +30,20 @@ export class Variables {
 	memoryMeter: Locator;
 	memoryDropdown: Locator;
 	memorySizeLabel: Locator;
+	lowMemoryWarning: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys) {
-		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
-		this.memoryMeter = this.code.driver.page.locator('.memory-usage-meter');
-		this.memoryDropdown = this.code.driver.page.locator('.memory-usage-dropdown');
-		this.memorySizeLabel = this.code.driver.page.locator('.memory-size-label');
+		this.variablesPane = this.code.driver.currentPage.locator('[id="workbench.panel.positronSession"]');
+		this.memoryMeter = this.code.driver.currentPage.locator('.memory-usage-meter');
+		this.memoryDropdown = this.code.driver.currentPage.locator('.memory-usage-dropdown');
+		this.memorySizeLabel = this.code.driver.currentPage.locator('.memory-size-label');
+		this.lowMemoryWarning = this.code.driver.currentPage.locator('.memory-usage-meter .memory-low-warning');
 	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
-		await expect(this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
-		const variableItems = await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).all();
+		await expect(this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
+		const variableItems = await this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).all();
 		for (const item of variableItems) {
 			const nameElement = item.locator(`.${VARIABLE_NAMES}`).first();
 			const detailsElement = item.locator(`.${VARIABLE_DETAILS}`).first();
@@ -64,12 +66,12 @@ export class Variables {
 	}
 
 	async focusVariablesView() {
-		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
-		await this.code.driver.page.keyboard.press('V');
+		await this.code.driver.currentPage.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+		await this.code.driver.currentPage.keyboard.press('V');
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-		const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
+		const desiredRow = this.code.driver.currentPage.locator(VARIABLES_NAME_COLUMN).getByText(variableName, { exact: true });
 		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
@@ -77,20 +79,29 @@ export class Variables {
 	async doubleClickVariableRow(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
 			await this.hotKeys.showSecondarySidebar();
-			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).getByText(variableName, { exact: true });
+			const desiredRow = this.code.driver.currentPage.locator(VARIABLES_NAME_COLUMN).getByText(variableName, { exact: true });
 			await desiredRow.dblclick();
 		});
 	}
 
 	async hasProgressBar(): Promise<boolean> {
-		const progressBar = this.code.driver.page.locator('.variables-core .monaco-progress-container');
+		const progressBar = this.code.driver.currentPage.locator('.variables-core .monaco-progress-container');
 		return await progressBar.isVisible();
+	}
+
+	/**
+	 * Scroll the variables list by wheel. Positive y scrolls down, negative scrolls up.
+	 */
+	async scroll(delta: { y: number }): Promise<void> {
+		const list = this.code.driver.currentPage.locator('.variables-instance').first();
+		await list.hover();
+		await this.code.driver.currentPage.mouse.wheel(0, delta.y);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
-			const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value`, { hasText: variableName });
+			const variable = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .name-value`).getByText(variableName, { exact: true });
 
 			const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
 			const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
@@ -128,11 +139,11 @@ export class Variables {
 	 */
 	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
 		await this.expandVariable(parentVariable);
-		const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value:text-is("${parentVariable}")`);
+		const variable = this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} .name-value:text-is("${parentVariable}")`);
 
 		// get the children of the parent variable, which are indented
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator(VARIABLE_ITEMS)
-			.filter({ has: this.code.driver.page.locator(VARIABLE_INDENTED) }).all();
+			.filter({ has: this.code.driver.currentPage.locator(VARIABLE_INDENTED) }).all();
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
@@ -153,20 +164,20 @@ export class Variables {
 	}
 
 	async setFilterText(filterText: string) {
-		await this.code.driver.page.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
+		await this.code.driver.currentPage.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
 
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
-		await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
+		await this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ has: this.code.driver.currentPage.getByText(rowName, { exact: true }) }).locator(DATABASE_ICON).click();
 	}
 
 	async clickSessionLink() {
-		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
+		await this.code.driver.currentPage.getByLabel('Active View Switcher').getByText('Session').click();
 	}
 
 	async clickDeleteAllVariables() {
-		await this.code.driver.page.getByLabel('Delete all objects').click();
+		await this.code.driver.currentPage.getByLabel('Delete all objects').click();
 	}
 
 	/**
@@ -178,10 +189,10 @@ export class Variables {
 	async expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
-			const variableRow = this.code.driver.page
+			const variableRow = this.code.driver.currentPage
 				.locator('.variables-instance[style*="z-index: 1"]')
 				.locator('.variable-item')
-				.filter({ has: this.code.driver.page.locator('.name-column').getByText(variableName, { exact: true }) });
+				.filter({ has: this.code.driver.currentPage.locator('.name-column').getByText(variableName, { exact: true }) });
 
 			await expect(variableRow).toBeVisible({ timeout });
 			await expect(variableRow.locator('.details-column .value')).toHaveText(value, { timeout: 3000 });
@@ -191,9 +202,9 @@ export class Variables {
 	async expectVariableToNotExist(variableName: string) {
 		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
 			await this.focusVariablesView();
-			const row = this.code.driver.page
+			const row = this.code.driver.currentPage
 				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
-				.filter({ hasText: variableName });
+				.filter({ has: this.code.driver.currentPage.getByText(variableName, { exact: true }) });
 
 			await expect(row).toHaveCount(0);
 		});
@@ -207,6 +218,23 @@ export class Variables {
 		await this.focusVariablesView();
 		await expect(this.memoryMeter).toBeVisible({ timeout: 30000 });
 		await expect(this.memorySizeLabel).not.toHaveText('Mem', { timeout: 30000 });
+	}
+
+	/**
+	 * Verify the low-memory warning icon is (or is not) shown in the memory meter.
+	 * When expected to be visible, also checks the accessible "Low memory" label.
+	 * @param visible whether the warning icon is expected to be visible
+	 */
+	async expectLowMemoryWarning(visible: boolean) {
+		await test.step(`Verify low memory warning icon ${visible ? 'is' : 'is not'} visible`, async () => {
+			await this.focusVariablesView();
+			if (visible) {
+				await expect(this.lowMemoryWarning).toBeVisible({ timeout: 30000 });
+				await expect(this.lowMemoryWarning).toHaveAttribute('aria-label', /Low memory/);
+			} else {
+				await expect(this.lowMemoryWarning).not.toBeVisible({ timeout: 30000 });
+			}
+		});
 	}
 
 	/**
@@ -224,7 +252,7 @@ export class Variables {
 	 * Close the memory usage dropdown by pressing Escape.
 	 */
 	async closeMemoryDropdown() {
-		await this.code.driver.page.keyboard.press('Escape');
+		await this.code.driver.currentPage.keyboard.press('Escape');
 		await expect(this.memoryDropdown).not.toBeVisible();
 	}
 

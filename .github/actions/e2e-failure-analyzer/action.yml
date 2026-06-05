@@ -1,0 +1,312 @@
+name: "E2E Failure Analyzer"
+description: "Run the e2e-failure-analyzer skill against a finished GH Actions run via the Claude Agent SDK."
+inputs:
+  run-url:
+    description: "Full GitHub Actions run URL to analyze (e.g. https://github.com/posit-dev/positron/actions/runs/123)"
+    required: true
+  anthropic-api-key:
+    description: "Anthropic API key (resolved from 1Password by the caller)"
+    required: true
+  e2e-insights-api-key:
+    description: "e2e-test-insights API key (optional)"
+    required: false
+    default: ""
+  model:
+    description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
+    required: false
+    default: "opus"
+  max-turns:
+    description: "Maximum agent turns (cost guard)"
+    required: false
+    default: "40"
+  data-source:
+    description: "blob (sharded artifacts + merge-reports) or s3 (HTML report). Default: blob."
+    required: false
+    default: "blob"
+  repo-root:
+    description: "Path to the repo workspace whose test/e2e/ source and .claude/skills/ helpers the analyzer should read. Defaults to $GITHUB_WORKSPACE. positron-builds passes $GITHUB_WORKSPACE/positron because both the test source and helper scripts live in the submodule."
+    required: false
+    default: ""
+  webhook-secret:
+    description: "e2e-test-insights webhook secret (X-Webhook-Secret). When set together with e2e-insights-api-key, the analyzer appends a link to its report into the analyzed run's Slack thread. Leave empty to skip the Slack post."
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: "20"
+
+    - name: Install action dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Install Claude Code CLI
+      # Workaround for an Agent SDK bug that resolves the musl-variant binary
+      # before the glibc one on Linux runners (claude-agent-sdk-typescript#296).
+      # Installing @anthropic-ai/claude-code globally and pointing the SDK at
+      # it via pathToClaudeCodeExecutable bypasses the buggy resolver.
+      shell: bash
+      run: |
+        npm install -g @anthropic-ai/claude-code
+        echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+        claude --version
+
+    - name: Prepare working directory
+      id: prep
+      shell: bash
+      run: |
+        WORK_DIR="${RUNNER_TEMP}/e2e-analyze"
+        rm -rf "$WORK_DIR"
+        mkdir -p "$WORK_DIR"
+        echo "work_dir=$WORK_DIR" >> "$GITHUB_OUTPUT"
+
+    - name: Gather run info
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-gather-run-info.js" \
+          "${{ inputs.run-url }}" > "${{ steps.prep.outputs.work_dir }}/run-info.json"
+        echo "::group::run-info.json"
+        cat "${{ steps.prep.outputs.work_dir }}/run-info.json"
+        echo "::endgroup::"
+
+    - name: Process each project (blob path)
+      if: ${{ inputs.data-source == 'blob' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      working-directory: ${{ github.action_path }}
+      run: |
+        WORK_DIR="${{ steps.prep.outputs.work_dir }}"
+        RUN_INFO="$WORK_DIR/run-info.json"
+        REPO=$(jq -r '.repo' "$RUN_INFO")
+        RUN_ID=$(jq -r '.runId' "$RUN_INFO")
+        PROJECTS=$(jq -r '.projects // [] | .[]' "$RUN_INFO")
+
+        if [ -z "$PROJECTS" ]; then
+          echo "No e2e projects found (no blob report artifacts on this run)."
+          exit 0
+        fi
+
+        for PROJECT in $PROJECTS; do
+          OUT="$WORK_DIR/$PROJECT"
+          mkdir -p "$OUT"
+          echo "::group::Process project $PROJECT"
+          # cwd = action dir so npx finds @playwright/test from action's node_modules
+          node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-project.js" \
+            --download \
+            --run-id "$RUN_ID" \
+            --repo "$REPO" \
+            --project "$PROJECT" \
+            --output-dir "$OUT" \
+            --cleanup \
+            > "$OUT/result.json" || {
+              echo "Failed to process project $PROJECT (exit $?). Continuing."
+            }
+          echo "::endgroup::"
+        done
+
+    - name: Process each failed e2e job (s3 path)
+      if: ${{ inputs.data-source == 's3' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      working-directory: ${{ github.action_path }}
+      run: |
+        WORK_DIR="${{ steps.prep.outputs.work_dir }}"
+        RUN_INFO="$WORK_DIR/run-info.json"
+        REPO=$(jq -r '.repo' "$RUN_INFO")
+        CDN_BASE="https://d38p2avprg8il3.cloudfront.net"
+
+        # Stream {id, name} pairs as tab-separated records so job names with
+        # spaces or slashes don't break the loop.
+        E2E_JOBS=$(jq -r '.failedJobs[] | select(.isE2e == true) | "\(.id)\t\(.name)"' "$RUN_INFO")
+
+        if [ -z "$E2E_JOBS" ]; then
+          echo "No failed e2e jobs found in run-info.json."
+          exit 0
+        fi
+
+        # Sanitize a job name into a safe directory name. analyze.mjs's
+        # discoverProjectDirs filters to e2e-* subdirs, so prepend "e2e-" if
+        # the sanitized form doesn't already start with it.
+        sanitize() {
+          local s
+          s=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+          case "$s" in
+            e2e-*) printf '%s' "$s" ;;
+            *)     printf 'e2e-%s' "$s" ;;
+          esac
+        }
+
+        while IFS=$'\t' read -r JOB_ID JOB_NAME; do
+          [ -z "$JOB_ID" ] && continue
+          DIR_NAME=$(sanitize "$JOB_NAME")
+          # If two jobs sanitize to the same directory name (e.g., names that
+          # differ only in stripped punctuation), append the job ID so neither
+          # silently overwrites the other.
+          if [ -d "$WORK_DIR/$DIR_NAME" ]; then
+            DIR_NAME="${DIR_NAME}-${JOB_ID}"
+          fi
+          OUT="$WORK_DIR/$DIR_NAME"
+          mkdir -p "$OUT"
+          echo "::group::Process e2e job $JOB_ID ($JOB_NAME) -> $DIR_NAME"
+
+          # Resolve REPORT_DIR from the job's logs. The workflow logs both an
+          # unresolved template line (REPORT_DIR="...-${IDENTIFIER}-${OS_SUFFIX}")
+          # and the expanded value. Skip the template, capture the first concrete
+          # match, emit it at END. Avoiding `exit` here is deliberate -- it would
+          # close awk's stdin mid-pipeline, SIGPIPE upstream printf, and under
+          # `set -e -o pipefail` kill the step (manifests as "printf: write error:
+          # Broken pipe" on large log payloads).
+          LOGS=$(gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null || true)
+          REPORT_DIR=$(printf '%s' "$LOGS" | awk '
+            !/\${/ && !found && match($0, /playwright-report-[A-Za-z0-9_-]+/) {
+              found = substr($0, RSTART, RLENGTH)
+            }
+            END { if (found) print found }
+          ')
+
+          if [ -z "$REPORT_DIR" ]; then
+            echo "Could not resolve REPORT_DIR from logs of job $JOB_ID. Skipping."
+            echo "::endgroup::"
+            continue
+          fi
+
+          REPORT_URL="$CDN_BASE/$REPORT_DIR/"
+          echo "Report URL: $REPORT_URL"
+
+          node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-process-s3.js" \
+            --report-url "$REPORT_URL" \
+            --output-dir "$OUT" \
+            --cleanup \
+            > "$OUT/result.json" || {
+              echo "Failed to process e2e job $JOB_ID (exit $?). Continuing."
+            }
+          echo "::endgroup::"
+        done <<< "$E2E_JOBS"
+
+    - name: Query historical test health
+      if: ${{ inputs.e2e-insights-api-key != '' }}
+      shell: bash
+      env:
+        E2E_INSIGHTS_API_KEY: ${{ inputs.e2e-insights-api-key }}
+      run: |
+        WORK_DIR="${{ steps.prep.outputs.work_dir }}"
+        RUN_INFO="$WORK_DIR/run-info.json"
+        RUN_ID=$(jq -r '.runId' "$RUN_INFO")
+        BRANCH=$(jq -r '.run.branch // .run.head_branch // "main"' "$RUN_INFO")
+        # The e2e-test-insights API uses a single "positron" repo ID for both
+        # posit-dev/positron and posit-dev/positron-builds (same tests, same
+        # storage) -- do not parameterize this on the source GH repo.
+        node "${{ inputs.repo-root || github.workspace }}/.claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js" \
+          --repo positron \
+          --run-id "$RUN_ID" \
+          --lookback-days 14 \
+          --branch "$BRANCH" \
+          > "$WORK_DIR/history.json" || {
+            echo "History query failed (exit $?). Continuing without history."
+            echo '{"error":"query failed"}' > "$WORK_DIR/history.json"
+          }
+
+    - name: Analyze with Claude Agent SDK
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        # Repo workspace -- the agent reads test source from $REPO_ROOT/test/e2e
+        # to understand each failing test's intent (assertions, page-object usage).
+        REPO_ROOT: ${{ inputs.repo-root || github.workspace }}
+        MODEL: ${{ inputs.model }}
+        MAX_TURNS: ${{ inputs.max-turns }}
+      run: node analyze.mjs
+
+    - name: Post analysis link to Slack thread
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        # Same Connect API key used for the history query -- it authenticates
+        # against the same connect.posit.it/e2e-test-insights-api host.
+        CONNECT_API_KEY: ${{ inputs.e2e-insights-api-key }}
+        WEBHOOK_SECRET: ${{ inputs.webhook-secret }}
+        API_URL: "https://connect.posit.it/e2e-test-insights-api"
+      run: |
+        # Append the analysis report link to the failing run's Slack thread.
+        # The dashboard opens a thread for any run with failures/flakes, and the
+        # analyzer only runs on such runs, so a thread should already exist.
+        # Posting is best-effort: a webhook failure must never fail this job.
+        if [ -z "$WEBHOOK_SECRET" ] || [ -z "$CONNECT_API_KEY" ]; then
+          echo "Webhook secret or Connect API key not provided; skipping Slack thread append."
+          exit 0
+        fi
+        if [ ! -f "$WORK_DIR/analysis-report.md" ]; then
+          echo "No analysis-report.md produced; skipping Slack thread append."
+          exit 0
+        fi
+
+        # The e2e-test-insights API uses a single "positron" repo ID for both
+        # posit-dev/positron and posit-dev/positron-builds (same as the history
+        # query step) -- do not parameterize this on the source GH repo.
+        REPO_ID="positron"
+
+        # workflow_run_id must identify the run that registered the Slack thread:
+        # the run being analyzed (run-info.json), which is NOT necessarily the run
+        # the analyzer executes in (they coincide for posit-dev/positron).
+        WORKFLOW_RUN_ID=$(jq -r '.runId // empty' "$WORK_DIR/run-info.json")
+        if [ -z "$WORKFLOW_RUN_ID" ]; then
+          echo "::warning::Could not read runId from run-info.json; skipping Slack thread append."
+          exit 0
+        fi
+
+        # Link to this analyzer job's step summary (where the report is rendered).
+        # Resolve the numeric job ID for the #summary-<id> anchor by matching the
+        # in-progress job on this runner; fall back to the run page if unresolved.
+        RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+        JOB_ID=$(gh api \
+          "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs" \
+          --paginate \
+          --jq ".jobs[] | select(.runner_name == \"${RUNNER_NAME}\" and .status == \"in_progress\") | .id" \
+          2>/dev/null | head -1 || true)
+        if [ -n "$JOB_ID" ]; then
+          LINK="${RUN_URL}#summary-${JOB_ID}"
+        else
+          echo "Could not resolve analyzer job ID; linking to the run page."
+          LINK="$RUN_URL"
+        fi
+
+        payload=$(jq -n \
+          --arg repo_id "$REPO_ID" \
+          --arg run_id "$WORKFLOW_RUN_ID" \
+          --arg text "E2E failure analysis complete: <${LINK}|View report>" \
+          '{repo_id: $repo_id, workflow_run_id: $run_id, text: $text}')
+
+        response=$(curl -s -w "\n%{http_code}" -X POST \
+          "${API_URL}/webhooks/thread-append" \
+          -H "Authorization: Key ${CONNECT_API_KEY}" \
+          -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+          -H "Content-Type: application/json" \
+          -d "$payload")
+
+        http_code=$(echo "$response" | tail -1)
+        body=$(echo "$response" | sed '$d')
+        if [ "$http_code" = "200" ] || [ "$http_code" = "202" ]; then
+          echo "Slack thread append queued (HTTP $http_code): $body"
+        else
+          echo "::warning::Slack thread append failed (HTTP $http_code): $body"
+        fi
+
+    - name: Upload analyzer artifacts
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: e2e-failure-analysis
+        path: ${{ steps.prep.outputs.work_dir }}
+        retention-days: 14

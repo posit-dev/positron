@@ -110,7 +110,7 @@ runs:
     - name: Save npm core dependencies cache
       if: ${{ inputs.cache-npm-core-hit == 'false' }}
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v7-node${{ inputs.node-version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
@@ -118,7 +118,7 @@ runs:
     - name: Save npm volatile extensions cache
       if: ${{ inputs.cache-npm-extensions-volatile-hit == 'false' }}
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
         key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-volatile-hash }}
@@ -126,15 +126,15 @@ runs:
     - name: Save npm stable extensions cache
       if: ${{ inputs.cache-npm-extensions-stable-hit == 'false' }}
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
-        key: npm-extensions-stable-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-stable-hash }}
+        key: npm-extensions-stable-v7-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-stable-hash }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-v2-${{ runner.os }}-${{ hashFiles('product.json', 'build/lib/builtInExtensions.ts') }}
@@ -142,7 +142,7 @@ runs:
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}
       continue-on-error: true
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.cache-paths.outputs.playwright-paths }}
         key: playwright-v2-${{ runner.os }}-${{ inputs.playwright-version }}

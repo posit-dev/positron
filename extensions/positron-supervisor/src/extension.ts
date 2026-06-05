@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,14 @@ import { KallichoreInstances } from './KallichoreInstances';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
+
+/**
+ * The reason the Positron window is shutting down, captured from
+ * `positron.window.onWillShutdown` so it can be consulted from `deactivate()`.
+ * Stays `undefined` if the event never fires (e.g. an unexpected ext host
+ * crash) or if the RPC race causes us to miss it.
+ */
+let lastShutdownReason: positron.ShutdownReason | undefined;
 
 export function activate(context: vscode.ExtensionContext): PositronSupervisorApi {
 	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
@@ -54,13 +62,40 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 		log.show();
 	}));
 
+	context.subscriptions.push(positron.window.onWillShutdown(reason => {
+		lastShutdownReason = reason;
+	}));
+
 	return API_INSTANCE;
 }
 
-export function deactivate() {
-	// Dispose of the Kallichore API wrapper if it exists; this closes any open
-	// connections
-	if (API_INSTANCE) {
+/**
+ * Decides whether `deactivate()` should dispose the supervisor's local
+ * connections. Exported so the decision logic can be exercised in tests
+ * without driving the full extension lifecycle.
+ *
+ * Only desktop Quit disposes:
+ * - Reload/Load: leave sessions in place so they reconnect when the window
+ *   comes back up.
+ * - Web (any reason): the supervisor server is hosted out-of-process and may
+ *   be shared with other clients; let it keep running and rely on its idle
+ *   timeout for cleanup.
+ * - Unknown reason (e.g. RPC race during teardown): also leave it alone --
+ *   we'd rather a stale server than tear down a live one we shouldn't.
+ */
+export function shouldDisposeOnDeactivate(
+	reason: positron.ShutdownReason | undefined,
+	uiKind: vscode.UIKind,
+): boolean {
+	return reason === positron.ShutdownReason.Quit && uiKind === vscode.UIKind.Desktop;
+}
+
+export async function deactivate(): Promise<void> {
+	if (!API_INSTANCE) {
+		return;
+	}
+
+	if (shouldDisposeOnDeactivate(lastShutdownReason, vscode.env.uiKind)) {
 		API_INSTANCE.dispose();
 	}
 }

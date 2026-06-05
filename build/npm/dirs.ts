@@ -15,24 +15,28 @@ export let dirs = [
 	// --- End Positron ---
 	'',
 	'build',
+	'build/rspack',
 	'build/vite',
 	'extensions',
 	// --- Start Positron ---
 	'extensions/authentication',
+	'extensions/next-edit-suggestions',
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
 	'extensions/positron-catalog-explorer',
 	'extensions/positron-code-cells',
-	'extensions/positron-copilot-chat',
 	'extensions/positron-connections',
 	'extensions/positron-dev-containers',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
+	'extensions/positron-data-driver-sqlite',
 	'extensions/positron-environment-modules',
+	'extensions/positron-file-transfer',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebooks',
 	'extensions/positron-pdf-server',
+	'extensions/positron-data-driver-postgresql',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
 	'extensions/positron-run-app',
@@ -44,6 +48,7 @@ export let dirs = [
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',
+	'extensions/copilot',
 	'extensions/css-language-features',
 	'extensions/css-language-features/server',
 	'extensions/debug-auto-launch',
@@ -98,14 +103,8 @@ export let dirs = [
 	// --- End Positron ---
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
+	'.vscode/extensions/vscode-extras',
 ];
-
-// --- Start Positron ---
-// Add the open-remote-wsl extension on Windows
-if (process.platform === 'win32') {
-	dirs.push('extensions/open-remote-wsl');
-}
-// --- End Positron ---
 
 // --- Start Positron ---
 // Add the open-remote-wsl extension on Windows

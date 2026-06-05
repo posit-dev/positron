@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, IRuntimeRootSignature, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -270,6 +270,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// A list of active sessions owned by this extension host
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
 
+	// Per-session disposable stores, parallel to `_runtimeSessions`. Holds the
+	// event subscriptions created by `attachToSession` (and other per-session
+	// subscriptions like the one in `handleCommOpen`) so they can be released
+	// when `$disposeLanguageRuntime` is called.
+	private readonly _sessionDisposables = new Array<DisposableStore>();
+
 	// A list of runtime proxies to sessions owned by other extension hosts; map of
 	// session ID to proxy
 	private readonly _runtimeProxies = new Map<string, ExtHostRuntimeSessionProxy>();
@@ -449,6 +455,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Forwarded from the main thread whenever a runtime is registered with
+	 * `ILanguageRuntimeService`. This is the single source of truth for
+	 * `positron.runtime.onDidRegisterRuntime`: registrations from this ext
+	 * host's own extensions, from other ext hosts, and from main-thread-only
+	 * paths (e.g. the discovery cache loader) all flow through here.
+	 */
+	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
+		this._onDidRegisterRuntimeEmitter.fire(metadata);
+	}
+
+	/**
 	 * Restores a language runtime session.
 	 *
 	 * @param runtimeMetadata The metadata for the language runtime.
@@ -575,9 +592,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	private attachToSession(session: positron.LanguageRuntimeSession): number {
 		const sessionId = session.metadata.sessionId;
+		const disposables = new DisposableStore();
 
 		// Wire event handlers for state changes and messages
-		session.onDidChangeRuntimeState(state => {
+		disposables.add(session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			this._proxy.$emitLanguageRuntimeState(sessionId, tick, state);
 
@@ -601,9 +619,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					}
 				});
 			}
-		});
+		}));
 
-		session.onDidReceiveRuntimeMessage(message => {
+		disposables.add(session.onDidReceiveRuntimeMessage(message => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			// Amend the message with the event clock for ordering
 			const runtimeMessage: ILanguageRuntimeMessage = {
@@ -644,10 +662,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					this._proxy.$emitLanguageRuntimeMessage(sessionId, false, new SerializableObjectWithBuffers(runtimeMessage));
 					break;
 			}
-		});
+		}));
 
 		// Hook up the session end (exit) handler
-		session.onDidEndSession(exit => {
+		disposables.add(session.onDidEndSession(exit => {
 			// Notify the main thread that the session has ended
 			this._proxy.$emitLanguageRuntimeExit(session.metadata.sessionId, exit);
 
@@ -658,16 +676,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// that would invalidate the handles of all subsequent sessions
 			// since we store them in an array. The session remains in an inert
 			// state.
-		});
+		}));
 
 		// Hook up the resource usage update handler
-		session.onDidUpdateResourceUsage(usage => {
+		disposables.add(session.onDidUpdateResourceUsage(usage => {
 			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
-		});
+		}));
 
 		// Register the runtime
 		const handle = this._runtimeSessions.length;
 		this._runtimeSessions.push(session);
+		this._sessionDisposables.push(disposables);
 
 		this._eventClocks.push(0);
 
@@ -813,6 +832,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot cleanup runtime: session handle '${handle}' not found or no longer valid.`);
 		}
+		// Release the event subscriptions wired in `attachToSession`. The
+		// array slot is kept so subsequent session handles remain valid.
+		this._sessionDisposables[handle].dispose();
 		// Dispose session to cleanup kernel, LSP, etc.
 		await this._runtimeSessions[handle].dispose();
 	}
@@ -949,6 +971,42 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	/**
+	 * Compute the root signature for the manager registered against the
+	 * given language ID. Returns `undefined` when no manager is registered
+	 * for the language or when the registered manager does not implement
+	 * `getDiscoveryRootSignature`. Errors thrown by the manager propagate to
+	 * the caller, which in turn drops back to the periodic-refresh trigger.
+	 */
+	/**
+	 * Per-contribution view of the runtime managers registered in this
+	 * extension host. The main-thread cache layer uses this to make
+	 * per-`(extensionId, languageId)` decisions about which contributions
+	 * need a full discovery pass, instead of forcing the whole ext host
+	 * just because one of its managers opted into `alwaysRediscover`.
+	 */
+	public async $getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]> {
+		return this._runtimeManagers.map(m => ({
+			extensionId: m.extension.identifier.value,
+			languageId: m.languageId,
+			alwaysRediscover: m.manager.alwaysRediscover === true,
+		}));
+	}
+
+	public async $getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined> {
+		// Multiple extensions can register a runtime manager for the same
+		// languageId (e.g. `ms-python.python` and `positron.positron-reticulate`
+		// both register for `python`). Disambiguate by extensionId so a sibling
+		// manager that doesn't implement `getDiscoveryRootSignature` doesn't
+		// shadow the real owner.
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.extension.identifier.value === extensionId);
+		if (!m || !m.manager.getDiscoveryRootSignature) {
+			return undefined;
+		}
+		return m.manager.getDiscoveryRootSignature();
+	}
+
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
@@ -976,9 +1034,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Discovers language runtimes and registers them with the main thread.
 	 *
-	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
+	 * @param disabledLanguageIds The set of language IDs the user has disabled.
+	 * @param skipLanguageIds Additional language IDs the cache layer has
+	 * decided don't need a discovery pass on this open (typically because
+	 * they're fully served from cache and aren't `alwaysRediscover`).
 	 */
-	public async $discoverLanguageRuntimes(disabledLanguageIds: string[]): Promise<void> {
+	public async $discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void> {
+		// Merge the two skip sources into one. `disabledLanguageIds` is the
+		// user's explicit "don't run this language" setting; `skipLanguageIds`
+		// is the cache layer's per-language opt-out for this pass. The ext
+		// host doesn't care which is which -- it just needs the union.
+		const skipSet = new Set<string>([...disabledLanguageIds, ...(skipLanguageIds ?? [])]);
+
 		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
 		let end = this._runtimeManagers.length;
@@ -989,7 +1056,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// runtimes from it
 			const managers = this._runtimeManagers.slice(start, end);
 			try {
-				await this.discoverLanguageRuntimes(managers, disabledLanguageIds);
+				await this.discoverLanguageRuntimes(managers, skipSet);
 			} catch (err) {
 				// Log and continue if errors occur during registration; this is
 				// a safeguard to ensure we always signal the main thread when
@@ -1008,6 +1075,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Notify the main thread that discovery is complete
 		this._runtimeDiscoveryComplete = true;
 		this._proxy.$completeLanguageRuntimeDiscovery();
+	}
+
+	/**
+	 * Set the discovery-complete flag without running an enumeration. Called
+	 * by the main thread on the warm-start fast path, where the discovery
+	 * cache has satisfied every manager and no real enumeration is needed.
+	 * Without this, late-registered runtime managers (those registered via
+	 * `registerLanguageRuntimeManager` after initial discovery) would never
+	 * see the flag flip and so would never self-discover.
+	 */
+	public $markRuntimeDiscoveryComplete(): void {
+		this._runtimeDiscoveryComplete = true;
 	}
 
 	/**
@@ -1056,10 +1135,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	/**
 	 * Discovers language runtimes in parallel and registers each one with the main thread.
 	 *
-	 * @param discoverers The set of discoverers to discover runtimes from
-	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
+	 * @param managers The set of managers to discover runtimes from
+	 * @param skipLanguageIds Language IDs to exclude from discovery (union of
+	 * the user's disabled set and the cache layer's per-pass skip set).
 	 */
-	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, disabledLanguageIds: string[]): Promise<void> {
+	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, skipLanguageIds: Set<string>): Promise<void> {
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
@@ -1072,15 +1152,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Invoke all the discovery functions to return an async generator for each
-		const discoverers: Array<Discoverer> = managers.map(manager => ({
-			extension: manager.extension,
-			manager: manager.manager,
-			languageId: manager.languageId,
-			discoverer: manager.manager.discoverAllRuntimes()
-		})).filter(discoverer =>
-			// Do not discover runtimes for disabled languages
-			!disabledLanguageIds.includes(discoverer.languageId)
-		);
+		const discoverers: Array<Discoverer> = managers
+			.filter(manager => !skipLanguageIds.has(manager.languageId))
+			.map(manager => ({
+				extension: manager.extension,
+				manager: manager.manager,
+				languageId: manager.languageId,
+				discoverer: manager.manager.discoverAllRuntimes()
+			}));
 
 		// The number of discoverers we're waiting on (initially all
 		// discoverers)
@@ -1336,12 +1415,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		manager: positron.LanguageRuntimeManager,
 		runtime: positron.LanguageRuntimeMetadata): IDisposable {
 
-		// Register the runtime with the main thread
+		// Register the runtime with the main thread. The main thread will
+		// broadcast back via `$onDidRegisterLanguageRuntime`, which is what
+		// fires `onDidRegisterRuntime` for listeners. We deliberately don't
+		// fire the local emitter here -- the round-trip is the single source
+		// of truth so cache-loaded runtimes (registered main-thread-only) and
+		// extension-driven runtimes both flow through the same path.
 		this._proxy.$registerLanguageRuntime({
 			extensionId: extension.identifier,
 			...runtime
 		});
-		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		// Save the manager associated with this runtime, too; we'll need to use
 		// it to create a runtime session later
@@ -1588,14 +1671,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			});
 
 		// Dispose the client instance when the runtime exits
-		this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
+		this._sessionDisposables[handle].add(this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
 				// Mark the client instance as already closed so disposal
 				// doesn't try to close it
 				clientInstance.setClientState(RuntimeClientState.Closed);
 				clientInstance.dispose();
 			}
-		});
+		}));
 
 		// See if one of the registered client handlers wants to handle this
 		let handled = false;

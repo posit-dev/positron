@@ -69,6 +69,10 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IWorkbenchThemeService } from '../../../services/themes/common/workbenchThemeService.js';
 import { GettingStartedIndexList } from './gettingStartedList.js';
+// --- Start Positron ---
+// Upstream import for the agents app promotion banner; not used in Positron.
+// import { canShowAgentsBanner, createAgentsBanner } from '../../chat/browser/agentSessions/agentSessionsBanner.js';
+// --- End Positron ---
 import { AccessibilityVerbositySettingId } from '../../accessibility/browser/accessibilityConfiguration.js';
 import { AccessibleViewAction } from '../../accessibility/browser/accessibleViewActions.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
@@ -168,7 +172,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private detailsScrollbar: DomScrollableElement | undefined;
 
-	private buildSlideThrottle: Throttler = new Throttler();
+	private buildSlideThrottle = this._register(new Throttler());
 
 	private container: HTMLElement;
 
@@ -256,7 +260,6 @@ export class GettingStartedPage extends EditorPane {
 		this.gettingStartedCategories = this.gettingStartedService.getWalkthroughs();
 
 		this._register(this.dispatchListeners);
-		this.buildSlideThrottle = new Throttler();
 
 		const rerender = () => {
 			this.gettingStartedCategories = this.gettingStartedService.getWalkthroughs();
@@ -325,14 +328,14 @@ export class GettingStartedPage extends EditorPane {
 						badgeelement.parentElement?.setAttribute('aria-checked', 'true');
 						badgeelement.classList.remove(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
 						badgeelement.classList.add('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
-						badgeelement.setAttribute('aria-label', localize('stepDone', "Checkbox for Step {0}: Completed", step.title));
+						badgeelement.setAttribute('aria-label', localize('stepDone', "{0}: Completed", step.title));
 					}
 					else {
 						badgeelement.setAttribute('aria-checked', 'false');
 						badgeelement.parentElement?.setAttribute('aria-checked', 'false');
 						badgeelement.classList.remove('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
 						badgeelement.classList.add(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
-						badgeelement.setAttribute('aria-label', localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title));
+						badgeelement.setAttribute('aria-label', localize('stepNotDone', "{0}: Not completed", step.title));
 					}
 				});
 				if (step.done) {
@@ -374,8 +377,6 @@ export class GettingStartedPage extends EditorPane {
 			this.layout(new Dimension(this.layoutService.mainContainerDimension.width, this.layoutService.mainContainerDimension.height));
 		});
 	}
-
-	//--- End Positron ---
 
 	// remove when 'workbench.welcomePage.preferReducedMotion' deprecated
 	private shouldAnimate() {
@@ -995,6 +996,7 @@ export class GettingStartedPage extends EditorPane {
 		const recentList = this.buildRecentlyOpenedList();
 		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
+		// --- Start Positron ---
 		// The "Connect to..." button is normally a part of the start list
 		// which is not used in Positron. We show the action underneath the
 		// recent list instead.
@@ -1010,12 +1012,39 @@ export class GettingStartedPage extends EditorPane {
 				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
 			)
 		);
+		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Upstream adds an "Agents app" promotion banner here in non-stable
+		// builds. This banner promotes a VS Code-specific desktop window and is
+		// not part of the Positron product, so omit it from the Positron
+		// welcome page footer.
+		//
+		// const footerChildren: HTMLElement[] = [];
+		// if (canShowAgentsBanner(this.productService)) {
+		// 	const agentsBanner = createAgentsBanner(
+		// 		{
+		// 			cssClass: 'getting-started-category.agents-banner',
+		// 			source: 'welcomePage',
+		// 		},
+		// 		this.commandService,
+		// 		this.telemetryService,
+		// 	);
+		// 	this.categoriesSlideDisposables.add(agentsBanner.disposables);
+		// 	footerChildren.push(agentsBanner.element);
+		// }
+		// footerChildren.push($('p.showOnStartup', {},
+		// 	showOnStartupCheckbox.domNode,
+		// 	showOnStartupLabel,
+		// ));
+		//
+		// const footer = $('.footer', {}, ...footerChildren);
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
 				showOnStartupCheckbox.domNode,
 				showOnStartupLabel,
 			));
+		// --- End Positron ---
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
@@ -1064,12 +1093,9 @@ export class GettingStartedPage extends EditorPane {
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
 			// --- Start Positron ---
-			// Always show index page instead of automatically opening the first walkthrough category
-			//
-			// This if statement has been amended to included !logoElement to
-			// ensure that we don't run this code in Positron (the logoElement
-			// is always present at this point).
-		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement) {
+			// Always show index page instead of automatically opening the first walkthrough category.
+			// Adds `!logoElement` to skip this branch in Positron (logoElement is always present here).
+		} else if (!this.productService.openToWelcomeMainPage && this.showFeaturedWalkthrough && this.storageService.isNew(StorageScope.APPLICATION) && !logoElement && !this.configurationService.getValue<boolean>('workbench.welcomePage.experimentalOnboarding')) {
 			// --- End Positron ---
 			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
@@ -1734,8 +1760,8 @@ export class GettingStartedPage extends EditorPane {
 							'role': 'checkbox',
 							'aria-checked': step.done ? 'true' : 'false',
 							'aria-label': step.done
-								? localize('stepDone', "Checkbox for Step {0}: Completed", step.title)
-								: localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title),
+								? localize('stepDone', "{0}: Completed", step.title)
+								: localize('stepNotDone', "{0}: Not completed", step.title),
 						});
 
 					const container = $('.step-description-container', { 'x-step-description-for': step.id });

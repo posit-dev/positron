@@ -40,11 +40,12 @@ function createMockLanguageRuntimeService(initialPhase: RuntimeStartupPhase = Ru
 	};
 }
 
-function createMockRuntimeStartupService() {
+function createMockRuntimeStartupService(lastDiscoveryRuntimeCount = 0) {
 	const onWillAutoStartRuntime = new Emitter<IRuntimeAutoStartEvent>();
 	return {
 		service: {
 			onWillAutoStartRuntime: onWillAutoStartRuntime.event,
+			lastDiscoveryRuntimeCount,
 		},
 		onWillAutoStartRuntime,
 	};
@@ -148,9 +149,9 @@ describe('StartupStatus', () => {
 		});
 	});
 
-	describe('runtime discovery counter', () => {
+	describe('runtime discovery progress', () => {
 		const langMock = createMockLanguageRuntimeService(RuntimeStartupPhase.Discovering);
-		const startupMock = createMockRuntimeStartupService();
+		const startupMock = createMockRuntimeStartupService(/* lastDiscoveryRuntimeCount */ 4);
 		const ctx = createTestContainer()
 			.withReactServices()
 			.stub(ILanguageRuntimeService, langMock.service)
@@ -158,25 +159,61 @@ describe('StartupStatus', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('shows the count of discovered interpreters', () => {
+		it('does not render an interpreter count', () => {
 			rtl.render(<StartupStatus />);
 
-			// Simulate discovering 2 runtimes
-			const runtime1 = stubInterface<ILanguageRuntimeMetadata>();
-			const runtime2 = stubInterface<ILanguageRuntimeMetadata>();
 			act(() => {
-				langMock.registeredRuntimes.push(runtime1);
-				langMock.onDidRegisterRuntime.fire(runtime1);
-			});
-			act(() => {
-				langMock.registeredRuntimes.push(runtime2);
-				langMock.onDidRegisterRuntime.fire(runtime2);
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python' });
+				langMock.registeredRuntimes.push(runtime);
+				langMock.onDidRegisterRuntime.fire(runtime);
 			});
 
-			// The count is rendered in a sibling <span> of the "Discovering interpreters"
-			// text; toHaveTextContent matches against the full normalized textContent
-			// of the element, which includes nested span text.
-			expect(screen.getByText(/Discovering interpreters/)).toHaveTextContent('(2)');
+			expect(screen.getByText(/Discovering interpreters/)).not.toHaveTextContent(/\(\d+\)/);
+		});
+
+		it('shows the path of the most recently discovered interpreter', () => {
+			rtl.render(<StartupStatus />);
+
+			act(() => {
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/opt/local/python' });
+				langMock.registeredRuntimes.push(runtime);
+				langMock.onDidRegisterRuntime.fire(runtime);
+			});
+
+			expect(screen.getByText('/opt/local/python')).toBeInTheDocument();
+		});
+
+		it('drives a determinate progress bar from the prior discovery count', () => {
+			rtl.render(<StartupStatus />);
+
+			act(() => {
+				const runtime = stubInterface<ILanguageRuntimeMetadata>({ runtimePath: '/usr/bin/python' });
+				langMock.registeredRuntimes.push(runtime);
+				langMock.onDidRegisterRuntime.fire(runtime);
+			});
+
+			// ProgressBar is annotated by role; .discrete is set when total/worked
+			// are wired up.
+			const progressBar = screen.getByRole('progressbar');
+			expect(progressBar).toHaveClass('discrete');
+		});
+	});
+
+	describe('runtime discovery progress without prior data', () => {
+		const langMock = createMockLanguageRuntimeService(RuntimeStartupPhase.Discovering);
+		const startupMock = createMockRuntimeStartupService(/* lastDiscoveryRuntimeCount */ 0);
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(ILanguageRuntimeService, langMock.service)
+			.stub(IRuntimeStartupService, startupMock.service)
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+		it('falls back to an infinite progress bar', () => {
+			rtl.render(<StartupStatus />);
+
+			const progressBar = screen.getByRole('progressbar');
+			expect(progressBar).toHaveClass('infinite');
 		});
 	});
 

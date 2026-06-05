@@ -385,6 +385,8 @@ declare module 'positron' {
 	 * runtime execution.
 	 */
 	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
+		/** The execution count. */
+		execution_count: number;
 	}
 
 	/**
@@ -674,6 +676,15 @@ declare module 'positron' {
 		 * notifications to the backend via the UI client.
 		 */
 		uiSubscriptions?: UiRuntimeNotifications[];
+
+		/**
+		 * Whether this runtime is eligible to be stored in Positron's cross-window
+		 * discovery cache. Defaults to `false` when omitted. Set to `true` only for
+		 * system-scoped runtimes whose `runtimePath` resolves to a real on-disk
+		 * executable and whose behavior is not bound to a specific workspace
+		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
+		 */
+		cacheable?: boolean;
 	}
 
 	/**
@@ -682,6 +693,34 @@ declare module 'positron' {
 	export enum UiRuntimeNotifications {
 		/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
 		DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+	}
+
+	/**
+	 * One root that a `LanguageRuntimeManager` scans for interpreters. The
+	 * `path` should be resolved (symlinks followed) before being reported;
+	 * `mtimeMs` is 0 when the path does not exist.
+	 */
+	export interface RuntimeRootEntry {
+		readonly path: string;
+		readonly exists: boolean;
+		readonly mtimeMs: number;
+	}
+
+	/**
+	 * Fingerprint of every directory a `LanguageRuntimeManager` scans for
+	 * interpreters. Returned by `getDiscoveryRootSignature` to let Positron
+	 * detect newly-installed interpreters between startups without rerunning
+	 * full discovery.
+	 */
+	export interface RuntimeRootSignature {
+		/** Roots in stable insertion order. Order is part of the signature. */
+		readonly entries: readonly RuntimeRootEntry[];
+		/**
+		 * Optional opaque blob folded into equality. Lets a manager mix in
+		 * non-stat-able state (env-modules version, conda config hash) without
+		 * exposing the details to Positron.
+		 */
+		readonly opaque?: string;
 	}
 
 	export interface RuntimeSessionMetadata {
@@ -1029,6 +1068,37 @@ declare module 'positron' {
 		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
+		 * An optional snapshot of the directories this manager scans for
+		 * interpreters. Called on every warm start to detect newly-installed
+		 * interpreters before deciding whether to skip full discovery.
+		 *
+		 * The snapshot must be cheap to compute -- on the order of one stat
+		 * per scan root. Implementations whose discovery sources cannot be
+		 * fingerprinted that cheaply (e.g. those that need to invoke a
+		 * subprocess like `conda env list`) should not implement this method;
+		 * the periodic-refresh cap will catch their changes within ~24h.
+		 *
+		 * Returning `{ entries: [] }` is a valid stable signature and means
+		 * "I have no stat-able roots." Throwing or rejecting causes the
+		 * manager to fall back to the periodic-refresh trigger.
+		 */
+		getDiscoveryRootSignature?(): Thenable<RuntimeRootSignature>;
+
+		/**
+		 * Opt out of the discovery cache's warm-start fast path. When `true`,
+		 * `discoverAllRuntimes()` is invoked on every Positron window open --
+		 * even when the cache would otherwise have considered the manager
+		 * satisfied.
+		 *
+		 * Set this when your runtimes are dynamic, ephemeral, or not backed by
+		 * a stat-able binary (so they can never be cached): the cache has no
+		 * record of them, but skipping discovery would leave them unregistered
+		 * on warm starts. Managers whose runtimes set `cacheable: true` should
+		 * leave this unset.
+		 */
+		alwaysRediscover?: boolean;
+
+		/**
 		 * An optional event that fires when a new runtime is discovered.
 		 *
 		 * Not fired during `discoverRuntimes()`; used to notify Positron of a
@@ -1156,6 +1226,26 @@ declare module 'positron' {
 
 		/** Publication/release date */
 		publishedDate?: string;
+
+		/**
+		 * Whether the package is currently attached to the runtime's search
+		 * path (e.g. R's `search()`, Python's bound names in the user
+		 * namespace). Distinct from "loaded" in R parlance, where a package
+		 * can be loaded as a transitive dependency without being attached.
+		 */
+		attached?: boolean;
+
+		/**
+		 * Whether the installed version is strictly older than the latest
+		 * available version. Computed by the language runtime using its own
+		 * native version semantics (`numeric_version` for R, PEP 440 for
+		 * Python) and surfaced as a precomputed boolean so the frontend
+		 * never re-implements version comparison.
+		 */
+		outdated?: boolean;
+
+		/** Optional short description or summary shown in the Packages pane card view. */
+		description?: string;
 	}
 
 	/**
@@ -1717,6 +1807,229 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Start Data Connections
+	 */
+
+	/**
+	 * DataConnectionParameterType enumeration.
+	 */
+	export enum DataConnectionParameterType {
+		Boolean = 'boolean',
+		File = 'file',
+		Number = 'number',
+		Option = 'option',
+		Password = 'password',
+		String = 'string',
+	}
+
+	/**
+	 * DataConnectionParameterBase interface defines common fields shared by all data connection parameter types.
+	 */
+	export interface DataConnectionParameterBase {
+		/**
+		 * The unique identifier for the parameter.
+		 */
+		id: string;
+
+		/**
+		 * A human-readable label for the parameter.
+		 */
+		label: string;
+
+		/**
+		 * Whether this parameter is required.
+		 */
+		required?: boolean;
+	}
+
+	/**
+	 * A data connection parameter. The `type` discriminant determines which additional fields are
+	 * available.
+	 */
+	export type DataConnectionParameter = DataConnectionParameterBase & (
+		| {
+			type: DataConnectionParameterType.Boolean;
+			defaultValue?: boolean;
+		}
+		| {
+			type: DataConnectionParameterType.File;
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Number;
+			defaultValue?: number;
+			placeholder?: string;
+		}
+		| {
+			type: DataConnectionParameterType.Option;
+			options: string[];
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			// Password fields are always secret and cannot have a default value.
+			type: DataConnectionParameterType.Password;
+			secret: true;
+			placeholder?: string;
+		}
+		| {
+			// Non-secret strings can have a default value.
+			type: DataConnectionParameterType.String;
+			secret?: false;
+			defaultValue?: string;
+			placeholder?: string;
+		}
+		| {
+			// Secret strings cannot have a default value.
+			type: DataConnectionParameterType.String;
+			secret: true;
+			placeholder?: string;
+		}
+	);
+
+	/**
+	 * DataConnectionParameterValues is a key-value map of parameter id to parameter value.
+	 */
+	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
+
+	/**
+	 * A driver that provides data connections through the 'New Data Connection' dialog.
+	 */
+	export interface DataConnectionDriver {
+		/**
+		 * The driver identifier.
+		 */
+		id: string;
+
+		/**
+		 * The driver name.
+		 */
+		name: string;
+
+		/**
+		 * The driver description.
+		 */
+		description: string;
+
+		/**
+		 * The icon SVG.
+		 */
+		iconSvg: string;
+
+		/**
+		 * The driver parameters.
+		 */
+		parameters: DataConnectionParameter[];
+
+		/**
+		 * The language identifiers this driver supports.
+		 */
+		supportedLanguageIds: string[];
+
+		/**
+		 * Connects using the provided parameter values.
+		 */
+		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+	}
+
+	/**
+	 * DataConnectionNodeKind enumeration.
+	 */
+	export enum DataConnectionNodeKind {
+		Database = 'database',
+		Schema = 'schema',
+		Table = 'table',
+		View = 'view',
+		Field = 'field',
+		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupSchemas = 'group-schemas',
+		GroupTables = 'group-tables',
+		GroupViews = 'group-views',
+		GroupColumns = 'group-columns',
+		GroupIndexes = 'group-indexes',
+		GroupTriggers = 'group-triggers',
+		Trigger = 'trigger',
+		Index = 'index',
+	}
+
+	export interface DataConnectionNode {
+		/**
+		 * Display name.
+		 */
+		name: string;
+
+		/**
+		 * Node type: database, schema, table, view, field, etc.
+		 */
+		kind: DataConnectionNodeKind;
+
+		/**
+		 * Data type information, for field nodes.
+		 */
+		dataType?: string;
+
+		/**
+		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
+		 */
+		getChildren?(): Thenable<DataConnectionNode[]>;
+
+		/**
+		 * Preview the data in this node (e.g., SELECT * FROM table LIMIT 100).
+		 */
+		preview?(): Thenable<void>;
+	}
+
+	/**
+	 * DataConnection interface.
+	 */
+	export interface DataConnection {
+		/**
+		 * Whether this connection was opened in read-only mode.
+		 */
+		isReadOnly(): Thenable<boolean>;
+
+		/**
+		 * Browse the top-level schema objects (databases, schemas, catalogs).
+		 */
+		getChildren(): Thenable<DataConnectionNode[]>;
+
+		/**
+		 * Disconnect a data connection.
+		 */
+		disconnect(): Thenable<void>;
+
+		/**
+		 * Test whether the connection is still connected.
+		 */
+		isConnected(): Thenable<boolean>;
+	}
+
+	/**
+	 * A summary of a registered data connection driver, returned by getDrivers().
+	 */
+	export interface DataConnectionDriverSummary {
+		// The driver identifier.
+		id: string;
+
+		// The driver name.
+		name: string;
+
+		// The driver description.
+		description: string;
+
+		// The driver parameters.
+		parameters: DataConnectionParameter[];
+
+		// The language identifiers this driver supports.
+		supportedLanguageIds: string[];
+	}
+
+	/**
+	 * End Data Connections
+	 */
+
+	/**
 	 * ConnectionsInput interface defines the structure for connection inputs.
 	 */
 	export interface ConnectionsInput {
@@ -1724,7 +2037,7 @@ declare module 'positron' {
 		 * The unique identifier for the input.
 		 */
 		id: string;
-		/**
+		/**`
 		 * A human-readable label for the input.
 		 */
 		label: string;
@@ -1891,6 +2204,25 @@ declare module 'positron' {
 			provider: HelpTopicProvider): vscode.Disposable;
 	}
 
+	/**
+	 * The reason the Positron window is shutting down. Surfaced via
+	 * `positron.window.onWillShutdown` so extensions can distinguish a quit
+	 * from a window reload.
+	 */
+	export enum ShutdownReason {
+		/** The window was closed (e.g. last window of the application). */
+		Close = 1,
+
+		/** The application is quitting. */
+		Quit = 2,
+
+		/** The window is reloading. */
+		Reload = 3,
+
+		/** The window is loading a different workspace. */
+		Load = 4,
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
@@ -1938,7 +2270,7 @@ declare module 'positron' {
 		 *
 		 * @return New log output channel.
 		 */
-		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+		export function createRawLogOutputChannel(name: string): vscode.LogOutputChannel;
 
 		/**
 		 * Create and show a simple modal dialog prompt.
@@ -2015,6 +2347,40 @@ declare module 'positron' {
 		 * plot widget.
 		 */
 		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
+
+		/**
+		 * Fires when the Positron window is about to shut down. The reason
+		 * indicates how the shutdown was triggered (quit, reload, close, or
+		 * load of a different workspace) so extensions can decide whether
+		 * resources should be torn down or preserved for reconnection.
+		 *
+		 * Listeners must complete synchronously: there is no opportunity to
+		 * defer the shutdown. Stash the reason and consult it from
+		 * `deactivate()` if cleanup needs to happen there.
+		 */
+		export const onWillShutdown: vscode.Event<ShutdownReason>;
+
+		/**
+		 * Fires when a file is uploaded into the workspace through the
+		 * Positron file explorer (drag-and-drop or "Upload..."). The event
+		 * value is the URI of the uploaded file in its new location in the
+		 * workspace. Folder uploads fire one event per file written.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been written.
+		 */
+		export const onDidUploadFile: vscode.Event<vscode.Uri>;
+
+		/**
+		 * Fires when a file is downloaded from the workspace through the
+		 * Positron file explorer ("Download..."). The event value is the URI
+		 * of the source file in the workspace. Folder downloads fire one
+		 * event per file read.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been read.
+		 */
+		export const onDidDownloadFile: vscode.Event<vscode.Uri>;
 
 	}
 
@@ -2499,6 +2865,36 @@ declare module 'positron' {
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
 		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+	}
+
+	/**
+	 * Methods for managing data connections.
+	 */
+	namespace dataConnections {
+		/**
+		 * Registers a data connection driver, allowing extensions to contribute
+		 * to the 'New Data Connection' dialog.
+		 *
+		 * @param driver The driver to register.
+		 * @returns A disposable that unregisters the driver when disposed.
+		 */
+		export function registerDriver(driver: DataConnectionDriver): vscode.Disposable;
+
+		/**
+		 * Returns the registered data connection drivers.
+		 */
+		export function getDrivers(): Thenable<DataConnectionDriverSummary[]>;
+
+		/**
+		 * Connects to a data connection driver with the given parameters.
+		 * The connection goes through the main thread service and exercises
+		 * the full RPC pipeline.
+		 *
+		 * @param driverId The driver identifier.
+		 * @param parameters The connection parameters.
+		 * @returns A data connection.
+		 */
+		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 	}
 
 	/**

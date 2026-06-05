@@ -1,11 +1,14 @@
 name: "Test: Unit"
 
 # Cache Save Strategy:
-# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
-# try to save the same cache key simultaneously. Only ONE job per calling workflow should
-# set save_cache: true. Examples:
-# - test-pull-request.yml: unit-tests saves, ext-host-tests and e2e do not
-# - test-merge.yml: unit-tests saves, setup/ext-host/e2e do not
+# Only main (test-merge.yml) saves caches; PRs restore from main only. This
+# avoids the 10 GB GitHub Actions cache ceiling getting thrashed by many
+# concurrent PRs each writing duplicate copies of identical content, which
+# previously caused mid-day evictions and effectively broke caching on main.
+# The save_cache parameter lets us scope the save step to the merge workflow.
+# Examples:
+# - test-pull-request.yml: save_cache=false (restore only)
+# - test-merge.yml: unit-tests sets save_cache=true (one saver per workflow run)
 # - test-full-suite.yml: only restores
 
 on:
@@ -30,7 +33,7 @@ permissions:
 jobs:
   unit-tests:
     name: unit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +43,14 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Checkout specific commit
         if: ${{ inputs.commit != '' }}
-        run: git checkout ${{ inputs.commit }}
+        run: |
+          git checkout ${{ inputs.commit }}
+          git submodule update --init --recursive
 
       - uses: actions/setup-node@v6
         with:
@@ -53,6 +60,8 @@ jobs:
       - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
+        with:
+          emit-summary: 'true'
 
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps

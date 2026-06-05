@@ -538,7 +538,7 @@ suite('Native Python API', () => {
                 // which is exactly what we're regression-testing.
                 .returns(() => {
                     resolveCount += 1;
-                    return Promise.resolve(resolveCount === 1 ? ((undefined as unknown) as NativeEnvInfo) : basicEnv);
+                    return Promise.resolve(resolveCount === 1 ? (undefined as unknown as NativeEnvInfo) : basicEnv);
                 });
 
             const first = await api.resolveEnv(pythonPath);
@@ -633,6 +633,24 @@ suite('Native Python API', () => {
             // With the cache cleared, the next resolveEnv must call finder.resolve again.
             await api.resolveEnv(pythonPath);
             assert.equal(resolveCount, 2, 'cache should be cleared by removeEnv');
+        });
+
+        test('concurrent resolveEnv calls share a single PET round-trip', async () => {
+            let resolveCount = 0;
+            mockFinder
+                .setup((f) => f.resolve(pythonPath))
+                .returns(() => {
+                    resolveCount += 1;
+                    return Promise.resolve(basicEnv);
+                });
+
+            // Fire two concurrent calls for the same path.
+            const [first, second] = await Promise.all([api.resolveEnv(pythonPath), api.resolveEnv(pythonPath)]);
+            assert.isDefined(first);
+            assert.isDefined(second);
+            assert.equal(first?.executable.filename, pythonPath);
+            assert.equal(second?.executable.filename, pythonPath);
+            assert.equal(resolveCount, 1, 'concurrent calls should share a single finder.resolve');
         });
     });
     // --- End Positron ---

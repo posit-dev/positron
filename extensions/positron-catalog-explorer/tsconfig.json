@@ -8,7 +8,8 @@
 		"noFallthroughCasesInSwitch": true,
 		"skipLibCheck": true,
 		"resolveJsonModule": true,
-		"esModuleInterop": true
+		"esModuleInterop": true,
+		"types": ["node", "mocha"]
 	},
 	"include": [
 		"src/**/*",

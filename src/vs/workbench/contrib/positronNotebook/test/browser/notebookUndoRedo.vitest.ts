@@ -11,7 +11,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IEditorPane } from '../../../../common/editor.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 import { handleNotebookRedo, handleNotebookUndo } from '../../browser/contrib/undoRedo/positronNotebookUndoRedo.js';
 import { NotebookOperationType } from '../../browser/IPositronNotebookInstance.js';
@@ -178,6 +178,84 @@ describe('PositronNotebookInstance undo/redo', () => {
 		});
 	});
 
+	describe('moveCells undo/redo', () => {
+		it('undo after moveCells restores cells to their original positions', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			], ctx);
+			const cells = notebook.cells.get();
+			notebook.moveCells([cells[0]], 2);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 1',
+				'# Cell 0',
+				'# Cell 2',
+			]);
+
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 0',
+				'# Cell 1',
+				'# Cell 2',
+			]);
+		});
+
+		it('redo after undo re-applies the move', async () => {
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+				['# Cell 1', 'python', CellKind.Code],
+				['# Cell 2', 'python', CellKind.Code],
+			], ctx);
+			const cells = notebook.cells.get();
+			notebook.moveCells([cells[0]], 2);
+			const undoRedo = ctx.get(IUndoRedoService);
+			await undoRedo.undo(notebook.uri);
+
+			await undoRedo.redo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 1',
+				'# Cell 0',
+				'# Cell 2',
+			]);
+		});
+
+		it('multi-cell moveCells undo restores all moved cells in one step', async () => {
+			// One moveCells() call must produce one undo stack entry, regardless
+			// of how many cells moved -- otherwise multi-cell moves would need
+			// repeated undos to fully reverse.
+			const notebook = createTestPositronNotebookInstance(
+				Array.from({ length: 5 }, (_, i): [string, string, CellKind] => [
+					`# Cell ${i}`,
+					'python',
+					CellKind.Code,
+				]),
+				ctx,
+			);
+			const cells = notebook.cells.get();
+			notebook.moveCells([cells[0], cells[1]], 5);
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 2',
+				'# Cell 3',
+				'# Cell 4',
+				'# Cell 0',
+				'# Cell 1',
+			]);
+
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+
+			expect(notebook.cells.get().map(c => c.getContent())).toEqual([
+				'# Cell 0',
+				'# Cell 1',
+				'# Cell 2',
+				'# Cell 3',
+				'# Cell 4',
+			]);
+		});
+	});
+
 	describe('mixed add + delete history', () => {
 		it('add then delete then undo then redo round-trips the notebook', async () => {
 			const notebook = createTestPositronNotebookInstance([
@@ -234,7 +312,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
 
 			const result = handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
 
@@ -254,7 +332,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
 
 			const result = handleNotebookRedo(editorService, ctx.get(IUndoRedoService));
 
@@ -272,7 +350,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(true);
 
 			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
 
@@ -301,7 +379,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			const editorService = stubInterface<IEditorService>({
 				activeEditorPane: makeNotebookEditorPane(notebook),
 			});
-			POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(notebook.scopedContextKeyService).set(true);
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(true);
 
 			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
 

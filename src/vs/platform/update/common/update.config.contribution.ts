@@ -105,8 +105,8 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
-			title: localize('enableWindowsBackgroundUpdatesTitle', "Enable Background Updates on Windows"),
-			description: localize('enableWindowsBackgroundUpdates', "Enable to download and install new VS Code versions in the background on Windows."),
+			title: localize('enableWindowsBackgroundUpdatesTitle', "Enable Background Updates"),
+			description: localize('enableWindowsBackgroundUpdates', "Enable to download and install new VS Code versions in the background."),
 			included: isWindows && !isWeb
 		},
 		'update.showReleaseNotes': {
@@ -115,6 +115,25 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
+		},
+		'update.showPostInstallInfo': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('showPostInstallInfo', "Show a post-install update tooltip in the title bar instead of opening the release notes editor."),
+			tags: ['usesOnlineServices']
+		},
+		'update.statusBar': {
+			type: 'string',
+			enum: ['hidden', 'actionable', 'detailed'],
+			default: 'detailed',
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('statusBar', "Controls the visibility of the update status bar entry."),
+			enumDescriptions: [
+				localize('hidden', "The status bar entry is never shown."),
+				localize('actionable', "The status bar entry is shown when an action is required (e.g., download, install, or restart)."),
+				localize('detailed', "The status bar entry is shown for all update states including progress.")
+			]
 		},
 	}
 	// --- End Positron ---

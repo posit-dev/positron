@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -53,7 +53,7 @@ export const testDataExplorer = async (
 	 * @param rowIndex The row index of the row under test.
 	 */
 	const testRow = async (rowIndex: number) => {
-		const keyboard = app.code.driver.page.keyboard
+		const keyboard = app.code.driver.currentPage.keyboard
 		// Scroll to home and put the cursor there.
 		await app.workbench.dataExplorer.grid.jumpToStart();
 
@@ -66,7 +66,7 @@ export const testDataExplorer = async (
 		const row = tsvValues[rowIndex];
 		for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
 			// Get the cell.
-			const cellLocator = app.code.driver.page.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
+			const cellLocator = app.code.driver.currentPage.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 			await expect(cellLocator).toBeVisible();
 
 			// Get the cell value and test value.
@@ -99,7 +99,7 @@ export const testDataExplorer = async (
 	await app.workbench.layouts.enterLayout('stacked');
 
 	// Check that "open as plaintext" button is not available
-	await expect(app.code.driver.page.getByLabel('Open as Plain Text File')).not.toBeVisible();
+	await expect(app.code.driver.currentPage.getByLabel('Open as Plain Text File')).not.toBeVisible();
 };
 
 export const parquetFilePath = (app: Application) => {

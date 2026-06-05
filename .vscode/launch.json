@@ -21,7 +21,7 @@
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js",
 				"${workspaceFolder}/extensions/*/out/**/*.js",
-				"${workspaceFolder}/extensions/*/dist/**/*.js"
+				"${workspaceFolder}/extensions/copilot/dist/**/*.js"
 			]
 		},
 		{
@@ -49,6 +49,17 @@
 			"request": "attach",
 			"name": "Attach to Pty Host Process",
 			"port": 5877,
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			]
+		},
+		{
+			"type": "node",
+			"request": "attach",
+			"name": "Attach to Agent Host Process",
+			"port": 5878,
+			"restart": true,
+			"timeout": 0,
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			]
@@ -319,10 +330,59 @@
 			},
 		},
 		{
+			"type": "chrome",
+			"request": "launch",
+			"name": "Launch VS Code Agents Internal",
+			"windows": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
+			},
+			"osx": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh"
+			},
+			"linux": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh"
+			},
+			"port": 9222,
+			"timeout": 0,
+			"env": {
+				"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
+				"VSCODE_SKIP_PRELAUNCH": "1",
+				"VSCODE_DEV_DEBUG_OBSERVABLES": "1",
+			},
+			"cleanUp": "wholeBrowser",
+			"killBehavior": "polite",
+			"runtimeArgs": [
+				"--inspect-brk=5875",
+				"--no-cached-data",
+				"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
+				// for general runtime freezes: https://github.com/microsoft/vscode/issues/127861#issuecomment-904144910
+				"--disable-features=CalculateNativeWinOcclusion",
+				"--disable-extension=vscode.vscode-api-tests",
+				"--agents"
+			],
+			"userDataDir": "${userHome}/.vscode-oss-agents-dev",
+			"webRoot": "${workspaceFolder}",
+			"cascadeTerminateToConfigurations": [
+				"Attach to Extension Host"
+			],
+			"pauseForSourceMap": false,
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"browserLaunchLocation": "workspace",
+			"presentation": {
+				"hidden": true,
+			},
+		},
+		{
 			// To debug observables you also need the extension "ms-vscode.debug-value-editor"
 			"type": "chrome",
 			"request": "launch",
-			"name": "Launch VS Code Internal (Hot Reload)",
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "Launch VS Code Internal (Hot Reload)",
+			"name": "Launch Positron Internal (Hot Reload)",
+			// --- End Positron ---
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
@@ -380,6 +440,24 @@
 				"order": 2
 			}
 		},
+		// --- Start Positron ---
+		// Skip the Agent Host launch target for Positron.
+		// {
+		// 	"type": "node",
+		// 	"request": "launch",
+		// 	"name": "VS Code Agent Host",
+		// 	"outputCapture": "std",
+		// 	"program": "./scripts/code-agent-host.js",
+		// 	"args": ["--port", "7777", "--without-connection-token"],
+		// 	"outFiles": [
+		// 		"${workspaceFolder}/out/**/*.js"
+		// 	],
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 2
+		// 	}
+		// },
+		// --- End Positron ---
 		{
 			"type": "node",
 			"request": "launch",
@@ -545,7 +623,7 @@
 			"request": "launch",
 			"name": "Run Unit Tests",
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
-			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Electron",
+			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.exe"
 			},
@@ -575,7 +653,7 @@
 			"request": "launch",
 			"name": "Run Unit Tests For Current File",
 			"program": "${workspaceFolder}/test/unit/electron/index.js",
-			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Electron",
+			"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.app/Contents/MacOS/Code - OSS",
 			"windows": {
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/Code - OSS.exe"
 			},
@@ -622,6 +700,28 @@
 			"preLaunchTask": "Launch Monaco Editor Vite",
 			"presentation": {
 				"group": "monaco",
+				"order": 4
+			}
+		},
+		{
+			"name": "Component Explorer (Edge)",
+			"type": "msedge",
+			"request": "launch",
+			"url": "http://localhost:5337/___explorer",
+			"preLaunchTask": "Component Explorer Server",
+			"presentation": {
+				"group": "1_component_explorer",
+				"order": 4
+			}
+		},
+		{
+			"name": "Component Explorer (Chrome)",
+			"type": "chrome",
+			"request": "launch",
+			"url": "http://localhost:5337/___explorer",
+			"preLaunchTask": "Component Explorer Server",
+			"presentation": {
+				"group": "1_component_explorer",
 				"order": 4
 			}
 		},
@@ -675,14 +775,18 @@
 	],
 	"compounds": [
 		{
+			// --- Start Positron ---
+			// Rename this to "Positron".
+			// "name": "VS Code",
 			"name": "Positron",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
 				"Launch Positron Internal",
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
-				"Attach to Pty Host Process"
+				"Attach to Agent Host Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies",
 			"presentation": {
@@ -690,11 +794,38 @@
 				"order": 1
 			}
 		},
+		// --- Start Positron ---
+		// Remove the VS Code Agents launch target, since this doesn't exist in
+		// Positron.
+		// {
+		// 	"name": "VS Code Agents",
+		// 	"stopAll": true,
+		// 	"configurations": [
+		// 		"Launch VS Code Agents Internal",
+		// 		"Attach to Main Process",
+		// 		"Attach to Extension Host",
+		// 		"Attach to Shared Process",
+		// 	],
+		// 	"preLaunchTask": "Ensure Prelaunch Dependencies",
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 1
+		// 	}
+		// },
+		// --- End Positron ---
 		{
-			"name": "VS Code (Hot Reload)",
+			// --- Start Positron ---
+			// Rename this to "Positron"
+			// "name": "VS Code (Hot Reload)",
+			"name": "Positron (Hot Reload)",
+			// --- End Positron ---
 			"stopAll": true,
 			"configurations": [
-				"Launch VS Code Internal (Hot Reload)",
+				// --- Start Positron ---
+				// Rename this to "Positron"
+				// "Launch VS Code Internal (Hot Reload)",
+				"Launch Positron Internal (Hot Reload)",
+				// --- End Positron ---
 				"Attach to Main Process",
 				"Attach to Extension Host",
 				"Attach to Shared Process",
@@ -757,6 +888,16 @@
 			"configurations": [
 				"Launch Positron Internal",
 				"Attach to Main Process"
+			],
+			"preLaunchTask": "Ensure Prelaunch Dependencies"
+		},
+		{
+			"name": "Renderer and Agent Host processes",
+			"stopAll": true,
+			"configurations": [
+				"Launch VS Code Internal",
+				"Attach to Main Process",
+				"Attach to Agent Host Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies"
 		},

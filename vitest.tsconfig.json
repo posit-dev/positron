@@ -21,6 +21,15 @@
 	"include": [
 		"src/vs/**/*.vitest.ts",
 		"src/vs/**/*.vitest.tsx",
-		"src/vs/test/vitest/**"
-	]
+		"src/vs/test/vitest/**/*",
+		// Add files from the base tsconfig that we need for Vitest tests
+		"src/typings",
+		"src/positron-dts/positron.d.ts",
+		"src/positron-dts/ui-comm.d.ts",
+		"src/vscode-dts/vscode.proposed.*.d.ts",
+		"src/vscode-dts/vscode.d.ts"
+	],
+	// Reset the exclude list so we aren't inheriting it from base tsconfig
+	// which excludes vitest files that we DO want to include here.
+	"exclude": []
 }

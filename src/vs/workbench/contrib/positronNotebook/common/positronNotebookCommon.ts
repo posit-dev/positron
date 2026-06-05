@@ -12,6 +12,8 @@ export const POSITRON_NOTEBOOK_EDITOR_INPUT_ID = 'workbench.input.positronNotebo
 
 export const POSITRON_EXECUTE_CELL_COMMAND_ID = 'positronNotebook.cell.execute';
 
+export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
+
 /**
  * Returns whether Positron Notebooks should be used.
  * @param configurationService Configuration service
@@ -39,7 +41,9 @@ export enum PositronNotebookCellOutputActionGroup {
  * Not exhaustive; add here when Action IDs are referenced in more than one place.
  */
 export enum PositronNotebookActionId {
+	CopyOutput = 'positronNotebook.cell.copyOutput',
 	CopyOutputImage = 'positronNotebook.cell.copyOutputImage',
+	CopyOutputJson = 'positronNotebook.cell.copyOutputJson',
 }
 
 /**

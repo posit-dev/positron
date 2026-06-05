@@ -7,7 +7,7 @@
 import './NotebookMarkdownCell.css';
 
 // React.
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 // Other dependencies.
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
@@ -22,6 +22,7 @@ import { getActiveWindow } from '../../../../../base/browser/dom.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 // Localized strings.
 const copyLabel = localize('positron.notebook.copy', "Copy");
@@ -36,6 +37,8 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
 	const markdownContentRef = useRef<HTMLElement>(null);
+	const toggleEditor = useCallback(() => cell.toggleEditor(), [cell]);
+	const selectCell = useCallback(() => cell.select(CellSelectionType.Normal), [cell]);
 
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -69,7 +72,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 			const getClipboardActions = (): IAction[] => {
 				const actions: IAction[] = [];
 				actions.push({
-					id: 'positron.notebook.copy',
+					id: 'positronNotebook.copy',
 					label: copyLabel,
 					tooltip: '',
 					class: undefined,
@@ -81,7 +84,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 					}
 				});
 				actions.push({
-					id: 'positron.notebook.selectAll',
+					id: 'positronNotebook.selectAll',
 					label: selectAllLabel,
 					tooltip: '',
 					class: undefined,
@@ -110,7 +113,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 						aria-label={renderedMarkdownContent}
 						className='cell-contents positron-notebook-cell-outputs'
 						onContextMenu={handleContextMenu}
-						onDoubleClick={() => cell.toggleEditor()}
+						onDoubleClick={toggleEditor}
 					>
 						<NotebookErrorBoundary
 							componentName='MarkdownOutput'
@@ -119,7 +122,11 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 						>
 							{
 								markdownString.length > 0
-									? <Markdown content={markdownString} />
+									? <Markdown
+										content={markdownString}
+										onEmbeddedContentDoubleClick={toggleEditor}
+										onEmbeddedContentFocus={selectCell}
+									/>
 									: <div className='empty-output-msg'>
 										{emptyMarkdownCell}
 										{doubleClickToEdit}
@@ -133,6 +140,3 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 		</NotebookCellWrapper>
 	);
 }
-
-
-

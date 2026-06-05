@@ -18,7 +18,7 @@ import { EvalTestCase, RunResult } from '../types';
  * MUST call editNotebook to modify the cell, NOT editFile.
  */
 const prompt = 'Fix the error in cell 2 of my notebook.';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const rNotebookEditCells: EvalTestCase = {
 	id: 'r-notebook-edit-cells',

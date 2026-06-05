@@ -1,14 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ElectronApplication, Page } from 'playwright';
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { createWorkbenchFromPage } from '../../infra/workbench';
+import { createWorkbenchFromPage, waitForAnyNewWindow } from '../../infra/workbench';
 import { pythonDynamicPlot } from '../shared/plots.constants.js';
 const settingsPath = require('node:path').resolve(__dirname, '../../fixtures/settingsDocker.json');
 
@@ -25,50 +24,6 @@ function sshKeyscan(host: string, port: number, knownHostsPath: string) {
 	fs.mkdirSync(require('node:path').dirname(knownHostsPath), { recursive: true });
 	fs.appendFileSync(knownHostsPath, out);
 }
-
-async function waitForAnyNewWindow(
-	app: ElectronApplication,
-	trigger?: () => Promise<void> | void,
-	opts: { timeout?: number; loadState?: 'load' | 'domcontentloaded' | 'networkidle' } = {}
-): Promise<Page> {
-	const { timeout = 30_000, loadState = 'domcontentloaded' } = opts;
-
-	// Snapshot existing windows so we can detect a new one even if the event is missed.
-	const before = new Set(app.windows());
-
-	// Start waiting for a new 'window' event *before* we trigger anything.
-	const eventWait = app.waitForEvent('window', { timeout }).catch(() => null);
-
-	// Optionally run whatever opens the window (recommended).
-	if (trigger) { await trigger(); }
-
-	// If we caught the event, great.
-	let win = await eventWait;
-
-	// Fallback: CI flake where window opened before listener—scan for any new page.
-	if (!win) {
-		const start = Date.now();
-		while (Date.now() - start < timeout) {
-			const current = app.windows();
-			for (const p of current) {
-				if (!before.has(p)) {
-					win = p;
-					break;
-				}
-			}
-			if (win) { break; }
-			await new Promise(r => setTimeout(r, 100));
-		}
-	}
-
-	if (!win) { throw new Error('No new window appeared within timeout'); }
-
-	// Ensure it’s at least minimally ready and on top
-	await win.waitForLoadState(loadState).catch(() => { });
-	await win.bringToFront().catch(() => { });
-	return win;
-}
-
 
 test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
@@ -97,7 +52,7 @@ test.describe('Remote SSH', {
 			}, { timeout: 60_000 });
 
 			// Kick off the action that reveals the quick input (if needed)
-			await app.code.driver.page.locator('.codicon-remote').click();
+			await app.code.driver.currentPage.locator('.codicon-remote').click();
 
 			// Grab the new window (no URL/title/selector filtering)
 			const sshWin = await sshWinPromise;
@@ -107,7 +62,7 @@ test.describe('Remote SSH', {
 			await sshWin.keyboard.type('root');
 			await sshWin.keyboard.press('Enter');
 
-			const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
+			const alertLocator = sshWin.locator('.statusbar-item-label', { hasText: 'Opening Remote' });
 			await expect(alertLocator).toBeVisible({ timeout: 10_000 });
 			await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 
@@ -155,7 +110,8 @@ test.describe('Remote SSH', {
 			await sshWorkbench.editor.selectTabAndType(fileName, flaskAppCode);
 			await sshWin.keyboard.press('Enter');
 
-			await sshWorkbench.topActionBar.saveButton.click();
+			// Trigger Save (an untitled file, so this opens the Save As dialog).
+			await sshWin.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
 			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
@@ -185,14 +141,21 @@ test.describe('Remote SSH', {
 	});
 });
 
-const flaskAppCode = `from flask import Flask
-
-app = Flask(__name__)
-
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-
-if __name__ == '__main__':
-    app.run(debug=True)
-`;
+// Built as an array of lines so the embedded Python keeps its 4-space indentation
+// (it is typed into Monaco, which auto-indents new lines with spaces; a literal tab
+// here would mix tabs and spaces and raise a Python TabError). Authoring the spaces
+// as string content -- rather than source-line indentation -- also satisfies the
+// tabs-only hygiene check.
+const flaskAppCode = [
+	'from flask import Flask',
+	'',
+	'app = Flask(__name__)',
+	'',
+	'@app.route(\'/\')',
+	'def hello():',
+	'    return \'Hello, World!\'',
+	'',
+	'if __name__ == \'__main__\':',
+	'    app.run(debug=True)',
+	'',
+].join('\n');

@@ -1,26 +1,29 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { ContextMenu } from './dialog-contextMenu.js';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REFRESH_BUTTON = '.codicon-positron-refresh';
 const VIEWER_PANEL = '[id="workbench.panel.positronPreview"]';
 const ACTION_BAR = '.positron-action-bar';
+const OPEN_IN_DROPDOWN_BUTTON = '.preview-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open"]';
+const OPEN_IN_PRIMARY_BUTTON = '.preview-action-bar .action-bar-button-action-button[aria-label="Select where to open"]';
 
 const FULL_APP = 'body';
 
 export class Viewer {
 
-	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
-	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
-	get interruptButton(): Locator { return this.code.driver.page.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
+	get fullApp(): Locator { return this.code.driver.currentPage.locator(FULL_APP); }
+	get viewerFrame(): FrameLocator { return this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
+	get interruptButton(): Locator { return this.code.driver.currentPage.locator(ACTION_BAR).getByRole('button', { name: 'Interrupt execution' }); }
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private contextMenu: ContextMenu) { }
 
 	getViewerLocator(locator: string): Locator {
 		return this.viewerFrame.locator(locator);
@@ -31,11 +34,15 @@ export class Viewer {
 	}
 
 	async refreshViewer() {
-		await this.code.driver.page.locator(REFRESH_BUTTON).click({ timeout: 15000 });
+		await this.code.driver.currentPage.locator(REFRESH_BUTTON).click({ timeout: 15000 });
 	}
 
 	async clearViewer() {
-		await this.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
+		const viewerTab = this.code.driver.currentPage.getByRole('tab', { name: 'Viewer' });
+		if (!await viewerTab.isVisible()) {
+			return; // Viewer was never opened, nothing to clear.
+		}
+		await viewerTab.locator('a').click();
 
 		const clearRegex = /Clear the/;
 
@@ -46,18 +53,31 @@ export class Viewer {
 	}
 
 	async openViewerToEditor() {
-		await this.code.driver.page.locator('.codicon-go-to-file').click();
+		await test.step('Open Viewer content in editor tab via "Open in..." dropdown', async () => {
+			const dropdownButton = this.code.driver.currentPage.locator(OPEN_IN_DROPDOWN_BUTTON);
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: dropdownButton,
+				menuItemLabel: /Open in Editor Tab$/,
+				menuItemType: 'menuitemcheckbox'
+			});
+		});
+	}
+
+	async clickOpenInPrimaryButton() {
+		await test.step('Click primary half of "Open in..." split button', async () => {
+			await this.code.driver.currentPage.locator(OPEN_IN_PRIMARY_BUTTON).click();
+		});
 	}
 
 	async expectViewerPanelVisible(timeout = 10000): Promise<void> {
 		await test.step('Expect viewer panel visible', async () => {
-			await expect(this.code.driver.page.locator(VIEWER_PANEL)).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator(VIEWER_PANEL)).toBeVisible({ timeout });
 		});
 	}
 
 	async expectUrlToHaveValue(expectedUrl: string, timeout = 10000): Promise<void> {
 		await test.step(`Expect viewer URL to have value: ${expectedUrl}`, async () => {
-			await expect(this.code.driver.page.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
+			await expect(this.code.driver.currentPage.getByRole('textbox', { name: 'The current URL' })).toHaveValue(expectedUrl, { timeout });
 		});
 	}
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,17 +22,17 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// create new notebook
 		await notebooksPositron.newNotebook();
 
-		// ensure when no kernel is selected, restart/shutdown are disabled
+		// ensure when no kernel is selected, restart toolbar button and shutdown menu item are disabled
+		await expect(notebooksPositron.kernel.restartButton).toBeDisabled();
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Change Kernel...', enabled: true },
-			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
-		// select kernel and ensure while starting, restart is enabled & shutdown is disabled
+		// select kernel and ensure while starting, restart toolbar button is enabled & shutdown menu item is disabled
 		await notebooksPositron.kernel.select('Python', { waitForReady: false });
+		await expect(notebooksPositron.kernel.restartButton).toBeEnabled();
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
@@ -56,14 +56,14 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			status: 'idle'
 		});
 
-		// shut down kernel and ensure menu options
+		// shut down kernel and ensure restart toolbar button stays enabled, shutdown menu item is disabled
 		await notebooksPositron.kernel.shutdown();
 		await notebooksPositron.kernel.expectKernelToBe({
 			kernelGroup: 'Python',
 			status: 'disconnected'
 		});
+		await expect(notebooksPositron.kernel.restartButton).toBeEnabled();
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 			{ label: 'Change Kernel...', enabled: true },
 		]);
@@ -146,10 +146,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test.skip('ensure existing notebooks use their correct interpreter kernel',
-		{
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }] // <--- test is failing on chromium only
-		},
+	test('ensure existing notebooks use their correct interpreter kernel',
 		async function ({ app, sessions }) {
 			const { notebooksPositron } = app.workbench;
 			const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
@@ -174,11 +171,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			});
 		});
 
-	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions, settings }) {
+	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
-
-		// Enable the notebook console actions setting for this test
-		await settings.set({ 'console.showNotebookConsoleActions': true }, { reload: true, waitMs: 1000 });
 
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
@@ -206,20 +200,14 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'R',
 			status: 'disconnected'
 		});
-
-		// Disable the notebook console actions setting after this test
-		await settings.remove(['console.showNotebookConsoleActions']);
 	});
 
-	test('Python - console accepts input after notebook cell execution', {
-		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
-	}, async function ({ app, sessions }) {
+	test('Python - console accepts input after notebook cell execution', {tag: [tags.CONSOLE]}, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
 		await notebooksPositron.kernel.select('Python');
-		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(6); print("done")', { run: false });
+		await notebooksPositron.addCodeToCell(0, 'import time; time.sleep(10); print("done")', { run: false });
 		await notebooksPositron.runCellButtonAtIndex(0).click();
 
 		// verify the console accepts typed input
@@ -233,6 +221,18 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
+	});
+
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile }) {
+		const { notebooksPositron } = app.workbench;
+		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+
+		const kernelButtons = app.code.driver.currentPage
+			.locator('.editor-group-container.active')
+			.getByRole('button', { name: 'Kernel Actions' });
+		await expect(kernelButtons).toHaveCount(1);
 	});
 
 });

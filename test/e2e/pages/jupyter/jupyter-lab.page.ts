@@ -17,7 +17,7 @@ export class JupyterLabPage {
 	 * Open Positron from JupyterLab
 	 */
 	async openPositron(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 		const context = page.context();
 
 		// Wait for JupyterLab to be ready by checking for the Positron launcher
@@ -67,7 +67,7 @@ export class JupyterLabPage {
 	 * Navigate to JupyterHub control panel
 	 */
 	async goToControlPanel(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Navigate directly to the hub control panel
 		await page.goto('http://localhost:8888/hub/home');
@@ -78,7 +78,7 @@ export class JupyterLabPage {
 	 * Stop the Jupyter server from the control panel
 	 */
 	async stopServer(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Wait for and click Stop My Server button
 		const stopButton = page.locator('a:text("Stop My Server")');
@@ -93,7 +93,7 @@ export class JupyterLabPage {
 	 * Start the Jupyter server from the control panel
 	 */
 	async startServer(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Wait for and click Start My Server button
 		const startButton = page.locator('a:text("Start My Server")');
@@ -108,7 +108,7 @@ export class JupyterLabPage {
 	 * Log out from JupyterHub
 	 */
 	async logout(): Promise<void> {
-		const page = this.code.driver.page;
+		const page = this.code.driver.currentPage;
 
 		// Click File menu
 		await page.locator('div:text("File")').first().click();

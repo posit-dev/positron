@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -82,7 +82,7 @@ type ColumnPinningOptions = | {
 } | {
 	readonly columnPinning: true;
 	readonly maximumPinnedColumns: number;
-}
+};
 
 /**
  * RowPinningOptions type.
@@ -93,7 +93,7 @@ type RowPinningOptions = | {
 } | {
 	readonly rowPinning: true;
 	readonly maximumPinnedRows: number;
-}
+};
 
 /**
  * ScrollbarOptions type.
@@ -150,11 +150,106 @@ type DefaultCursorOptions = | {
 };
 
 /**
- * SelectionOptions type.
+ * SelectionMode type. Controls how the grid couples cursor movement, keyboard, and mouse input to
+ * the selection:
+ *   - 'spreadsheet' (default): cursor and selection are independent. Plain navigation clears the
+ *     selection; Shift+navigation extends it; Ctrl/Cmd+click and Shift+click build multi/range
+ *     row selections.
+ *   - 'list-multiple-selection': the cursor row is always selected (re-selected after every
+ *     move), and Shift+navigation, Shift+click, Ctrl/Cmd+click, and selectAll build multi-row
+ *     selections.
+ *   - 'list-single-selection': the selection tracks the cursor row as a single-row selection.
+ *     Shift+navigation, Shift+click, and Ctrl/Cmd+click do not create multi-row selections.
  */
-type SelectionOptions = | {
-	selection?: boolean;
-};
+export type SelectionMode = 'spreadsheet' | 'list-multiple-selection' | 'list-single-selection';
+
+/**
+ * ListSelectionMode type. The subset of SelectionMode in which a single cursor row drives the
+ * selection. The list-only selection options (selectionFollowsCursor, enterSelects, spaceSelects)
+ * apply only in these modes.
+ */
+type ListSelectionMode = Exclude<SelectionMode, 'spreadsheet'>;
+
+/**
+ * SelectionCursorOptions type. The cursor/commit options for the list selection modes,
+ * discriminated on `selectionFollowsCursor`: `enterSelects` and `spaceSelects` may be specified
+ * only when the selection does NOT follow the cursor. When it does, every navigation already
+ * selects the cursor row, so committing with Enter/Space would be redundant. Exported and reused
+ * by the PositronList and PositronTree option types so they expose and enforce the same shape.
+ */
+export type SelectionCursorOptions =
+	| {
+		// The selection follows the cursor: every navigation re-selects the cursor row. Because
+		// the cursor row is always selected, Enter/Space-to-select would be redundant and is
+		// therefore disallowed.
+		readonly selectionFollowsCursor?: true;
+		readonly enterSelects?: never;
+		readonly spaceSelects?: never;
+	}
+	| {
+		// The cursor (focus) moves independently of the selection. The selection changes only on
+		// explicit action, so Enter and Space can be opted in to commit the selection to the
+		// cursor row.
+		readonly selectionFollowsCursor: false;
+
+		// Whether pressing Enter selects the cursor row.
+		readonly enterSelects?: boolean;
+
+		// Whether pressing Space selects the cursor row.
+		readonly spaceSelects?: boolean;
+	};
+
+/**
+ * Forwards a SelectionCursorOptions value into a DataGridInstance subclass's super() call. The
+ * three fields cannot be passed individually because reading each off the options widens it to
+ * `boolean | undefined`, which loses the correlation the discriminated union relies on (that
+ * enterSelects/spaceSelects exist only when selectionFollowsCursor is false). Returning the slice
+ * as one discriminated value preserves it, so callers can spread `...selectionCursorOptions(opts)`
+ * into the base options. The base class applies the defaults.
+ */
+export function selectionCursorOptions(options: SelectionCursorOptions): SelectionCursorOptions {
+	return options.selectionFollowsCursor
+		? { selectionFollowsCursor: true }
+		: { selectionFollowsCursor: false, enterSelects: options.enterSelects, spaceSelects: options.spaceSelects };
+}
+
+/**
+ * SelectionOptions type. Discriminated on `selection`, `selectionMode`, and (within the list
+ * modes) `selectionFollowsCursor`. The list-only options are meaningful only when a single cursor
+ * row drives the selection, so the type system permits them only in a list mode; within a list
+ * mode the cursor/commit options follow SelectionCursorOptions.
+ */
+type SelectionOptions =
+	| {
+		// Selection disabled: mouse clicks and keyboard navigation move the cursor but never
+		// populate the cell/column/row selection buckets. Subclasses that only need a cursor
+		// (no highlighted selection) set this to false.
+		selection: false;
+
+		// Disallowed when selection is off, since there is no selection to govern.
+		selectionMode?: never;
+		selectionFollowsCursor?: never;
+		enterSelects?: never;
+		spaceSelects?: never;
+	}
+	| {
+		// Selection enabled in spreadsheet mode (the default): mouse clicks and keyboard
+		// navigation populate the cell/column/row selection buckets, but the cursor and
+		// selection are independent, so the list-only options below do not apply.
+		selection?: true;
+		selectionMode?: 'spreadsheet';
+
+		// Disallowed in 'spreadsheet' mode, where the cursor and selection are always independent.
+		selectionFollowsCursor?: never;
+		enterSelects?: never;
+		spaceSelects?: never;
+	}
+	| ({
+		// Selection enabled in a list mode: a single cursor row drives the selection, so the
+		// cursor/commit options apply. See SelectionMode for how each list mode behaves.
+		selection?: true;
+		selectionMode: ListSelectionMode;
+	} & SelectionCursorOptions);
 
 /**
  * DataGridOptions type.
@@ -673,6 +768,29 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private readonly _selection: boolean;
 
+	/**
+	 * Gets the selection mode.
+	 */
+	private readonly _selectionMode: SelectionMode;
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, the selection tracks
+	 * the cursor as it moves.
+	 */
+	private readonly _selectionFollowsCursor: boolean;
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Enter selects
+	 * the cursor row.
+	 */
+	private readonly _enterSelects: boolean;
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Space selects
+	 * the cursor row.
+	 */
+	private readonly _spaceSelects: boolean;
+
 	//#endregion Private Properties - Settings
 
 	//#region Private Properties
@@ -735,6 +853,16 @@ export abstract class DataGridInstance extends Disposable {
 	 * The onDidChangeColumnSorting event emitter.
 	 */
 	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
+
+	/**
+	 * The onEnter event emitter.
+	 */
+	private readonly _onEnterEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onSpace event emitter.
+	 */
+	private readonly _onSpaceEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Events
 
@@ -834,6 +962,14 @@ export abstract class DataGridInstance extends Disposable {
 
 		// SelectionOptions.
 		this._selection = options.selection ?? true;
+		this._selectionMode = options.selectionMode ?? 'spreadsheet';
+		// In the list modes, the selection does not follow the cursor by default; the cursor
+		// (focus) moves independently and Enter/Space commit the selection to the cursor row.
+		// When the selection does follow the cursor, every navigation already selects it, so
+		// Enter/Space-to-select default off (and are disallowed by the options type anyway).
+		this._selectionFollowsCursor = options.selectionFollowsCursor ?? false;
+		this._enterSelects = options.enterSelects ?? !this._selectionFollowsCursor;
+		this._spaceSelects = options.spaceSelects ?? !this._selectionFollowsCursor;
 
 		// Allocate and initialize the layout managers.
 		this._columnLayoutManager = new LayoutManager(this._defaultColumnWidth);
@@ -1045,6 +1181,38 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get selection() {
 		return this._selection;
+	}
+
+	/**
+	 * Gets the selection mode.
+	 */
+	get selectionMode() {
+		return this._selectionMode;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, keyboard navigation
+	 * makes the selection track the cursor row. When false, the cursor (focus) moves
+	 * independently of the selection. Has no effect in 'spreadsheet' mode.
+	 */
+	get selectionFollowsCursor() {
+		return this._selectionFollowsCursor;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Enter selects
+	 * the cursor row. Has no effect in 'spreadsheet' mode.
+	 */
+	get enterSelects() {
+		return this._enterSelects;
+	}
+
+	/**
+	 * Gets a value which indicates whether, in the list selection modes, pressing Space selects
+	 * the cursor row. Has no effect in 'spreadsheet' mode.
+	 */
+	get spaceSelects() {
+		return this._spaceSelects;
 	}
 
 	/**
@@ -1287,6 +1455,20 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
 
+	/**
+	 * onEnter event. Fires when the user presses Enter on the cursor row, regardless of whether
+	 * Enter also commits the selection (enterSelects). Lets consumers act on the cursor row
+	 * independently of selection (e.g. expand/collapse in a tree).
+	 */
+	readonly onEnter = this._onEnterEmitter.event;
+
+	/**
+	 * onSpace event. Fires when the user presses Space on the cursor row, regardless of whether
+	 * Space also commits the selection (spaceSelects). Lets consumers act on the cursor row
+	 * independently of selection (e.g. expand/collapse in a tree).
+	 */
+	readonly onSpace = this._onSpaceEmitter.event;
+
 	//#endregion Public Events
 
 	//#region Public Methods
@@ -1376,7 +1558,7 @@ export abstract class DataGridInstance extends Disposable {
 			rowIndex: pinnedLayoutEntry.index,
 			top: pinnedLayoutEntry.start,
 			height: pinnedLayoutEntry.size,
-		}))
+		}));
 
 		// Calculate the total height of the pinned row descriptors.
 		const pinnedRowDescriptorsHeight = (() => {
@@ -1858,6 +2040,36 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the first row index that is selectable per isRowSelectable, walking forward from the
+	 * first row. Falls back to firstRowIndex if no selectable row exists.
+	 */
+	get firstSelectableRowIndex() {
+		let index: number | undefined = this._rowLayoutManager.firstIndex;
+		while (index !== undefined) {
+			if (this.isRowSelectable(index)) {
+				return index;
+			}
+			index = this._rowLayoutManager.nextIndex(index);
+		}
+		return this._rowLayoutManager.firstIndex;
+	}
+
+	/**
+	 * Gets the last row index that is selectable per isRowSelectable, walking backward from the
+	 * last row. Falls back to lastRowIndex if no selectable row exists.
+	 */
+	get lastSelectableRowIndex() {
+		let index: number | undefined = this._rowLayoutManager.lastIndex;
+		while (index !== undefined) {
+			if (this.isRowSelectable(index)) {
+				return index;
+			}
+			index = this._rowLayoutManager.previousIndex(index);
+		}
+		return this._rowLayoutManager.lastIndex;
+	}
+
+	/**
 	 * Gets the last row index.
 	 */
 	get lastRowIndex() {
@@ -1943,44 +2155,56 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Moves the cursor up.
+	 * Moves the cursor up, skipping any rows the subclass marks as not selectable.
 	 */
 	moveCursorUp() {
-		// Get the previous row index using the row layout manager.
-		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex)
-
-		// If the previous row index is undefined, this means that the cursor is already at the top row.
-		if (previousRowIndex === undefined) {
-			return;
+		// Walk backwards until we find a selectable row, or run out of rows.
+		let previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex);
+		while (previousRowIndex !== undefined && !this.isRowSelectable(previousRowIndex)) {
+			previousRowIndex = this._rowLayoutManager.previousIndex(previousRowIndex);
 		}
 
-		// Set the cursor row index to the previous row index and fire the onDidUpdate event.
-		this._cursorRowIndex = previousRowIndex;
+		// If we found a selectable row, move the cursor.
+		if (previousRowIndex !== undefined) {
+			this._cursorRowIndex = previousRowIndex!;
+		}
 
-		this.scrollToCursor()
+		// Determine the scroll to row index. This is the cursor row index, unless the row
+		// immediately above the cursor is unselectable, in which case it is that row.
+		let scrollToRowIndex = this._cursorRowIndex;
+		const probeRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex);
+		if (probeRowIndex !== undefined && !this.isRowSelectable(probeRowIndex)) {
+			scrollToRowIndex = probeRowIndex;
+		}
 
-		this.fireOnDidUpdateEvent();
+		// Scroll to the scroll to row index.
+		this.scrollToRow(scrollToRowIndex);
+
+		// Only fire an update event if the cursor moved; scrollToRow fires its own update when the
+		// scroll offset changes.
+		if (previousRowIndex !== undefined) {
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	/**
-	 * Moves the cursor down.
+	 * Moves the cursor down, skipping any rows the subclass marks as not selectable.
 	 */
 	moveCursorDown() {
-		// Get the next row index using the row layout manager.
-		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex)
+		// Walk forwards until we find a selectable row, or run out of rows.
+		let nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex);
+		while (nextRowIndex !== undefined && !this.isRowSelectable(nextRowIndex)) {
+			nextRowIndex = this._rowLayoutManager.nextIndex(nextRowIndex);
+		}
 
-		// If the next row index is undefined, this means that the cursor is already at the bottom row.
+		// If we didn't find a selectable row below the cursor, leave the cursor where it is.
 		if (nextRowIndex === undefined) {
 			return;
 		}
 
-		// Set the cursor row index to the next row index and fire the onDidUpdate event.
+		// Move the cursor and scroll to it.
 		this._cursorRowIndex = nextRowIndex;
-
-		// Scroll to the cursor.
-		this.scrollToCursor()
-
-		// Fire the onDidUpdate event.
+		this.scrollToCursor();
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -1989,7 +2213,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorLeft() {
 		// Get the previous column index using the column layout manager.
-		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex)
+		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex);
 
 		// If the previous column index is undefined, this means that the cursor is already at the first column.
 		if (previousColumnIndex === undefined) {
@@ -2011,7 +2235,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	moveCursorRight() {
 		// Get the next column index using the column layout manager.
-		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex)
+		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex);
 
 		// If the next column index is undefined, this means that the cursor is already at the last column.
 		if (nextColumnIndex === undefined) {
@@ -2173,15 +2397,21 @@ export abstract class DataGridInstance extends Disposable {
 	 * Mouse selects a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @param selectionType The mouse selection type.
+	 * @param mouseSelectionType The mouse selection type.
 	 * @returns A Promise<boolean> that resolves when the operation is complete.
 	 */
 	async mouseSelectCell(
 		columnIndex: number,
 		rowIndex: number,
 		pinned: boolean,
-		selectionType: MouseSelectionType
+		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
+		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
+		// the cursor stays put and the current selection is preserved.
+		if (!this.isRowSelectable(rowIndex)) {
+			return;
+		}
+
 		// Clear column selection.
 		this._columnSelectionIndexes = undefined;
 
@@ -2189,7 +2419,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes = undefined;
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Clear cell selection.
@@ -2294,10 +2524,10 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Mouse selects a column.
 	 * @param columnIndex The column index.
-	 * @param selectionType The selection type.
+	 * @param mouseSelectionType The selection type.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType): Promise<void> {
+	async mouseSelectColumn(columnIndex: number, mouseSelectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
@@ -2315,7 +2545,7 @@ export abstract class DataGridInstance extends Disposable {
 		};
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the column.
@@ -2429,10 +2659,22 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Mouse selects a row.
 	 * @param rowIndex The row index.
-	 * @param selectionType The selection type.
+	 * @param mouseSelectionType The selection type.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType): Promise<void> {
+	async mouseSelectRow(rowIndex: number, mouseSelectionType: MouseSelectionType): Promise<void> {
+		// Subclass-marked non-selectable rows (e.g. section headers) absorb the click silently;
+		// the cursor stays put and the current selection is preserved.
+		if (!this.isRowSelectable(rowIndex)) {
+			return;
+		}
+
+		// In 'list-single-selection' mode the selection is always exactly the cursor row, so
+		// Shift+click (Range) and Ctrl/Cmd+click (Multi) collapse to a plain single-row click.
+		if (this._selectionMode === 'list-single-selection') {
+			mouseSelectionType = MouseSelectionType.Single;
+		}
+
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
@@ -2450,7 +2692,7 @@ export abstract class DataGridInstance extends Disposable {
 		};
 
 		// Process the selection based on selection type.
-		switch (selectionType) {
+		switch (mouseSelectionType) {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the row.
@@ -2587,7 +2829,7 @@ export abstract class DataGridInstance extends Disposable {
 			if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
 				// Get the first column position.
 				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
-				if (!firstColumnPosition) {
+				if (firstColumnPosition === undefined) {
 					return;
 				}
 
@@ -2663,13 +2905,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -2730,7 +2972,7 @@ export abstract class DataGridInstance extends Disposable {
 			if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
 				// Get the last column position.
 				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
-				if (!lastColumnPosition) {
+				if (lastColumnPosition === undefined) {
 					return;
 				}
 
@@ -2806,13 +3048,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -2872,7 +3114,7 @@ export abstract class DataGridInstance extends Disposable {
 			if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
 				// Get the first row position.
 				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
-				if (!firstRowPosition) {
+				if (firstRowPosition === undefined) {
 					return;
 				}
 
@@ -2932,7 +3174,7 @@ export abstract class DataGridInstance extends Disposable {
 		} else {
 			// Get the cursor row position.
 			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
-			if (!cursorRowPosition) {
+			if (cursorRowPosition === undefined) {
 				return;
 			}
 
@@ -2948,13 +3190,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -3015,7 +3257,7 @@ export abstract class DataGridInstance extends Disposable {
 			if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
 				// Get the last row position.
 				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
-				if (!lastRowPosition) {
+				if (lastRowPosition === undefined) {
 					return;
 				}
 
@@ -3091,13 +3333,13 @@ export abstract class DataGridInstance extends Disposable {
 			}
 
 			// Build the column indexes.
-			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition);
 			if (columnIndexes === undefined) {
 				return;
 			}
 
 			// Build the row indexes.
-			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1)
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1);
 			if (rowIndexes === undefined) {
 				return;
 			}
@@ -3335,9 +3577,12 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Fetches data.
+	 * Fetches data. Subclasses that hold their data in memory don't need to override; subclasses
+	 * that lazily fetch from a backend (data explorer comms, DuckDB, etc.) override to populate
+	 * the cache for the currently visible window.
 	 */
-	abstract fetchData(): Promise<void>;
+	async fetchData(): Promise<void> {
+	}
 
 	/**
 	 * Gets a column.
@@ -3364,6 +3609,42 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns The data cell, or, undefined.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
+
+	/**
+	 * Determines whether a row can hold the cursor / be the target of a click. Subclasses that
+	 * render non-interactive rows (e.g. section headers in PositronList) override this to return
+	 * false for those rows; keyboard navigation skips them and mouse clicks on them are ignored.
+	 * @param rowIndex The row index.
+	 */
+	isRowSelectable(rowIndex: number): boolean {
+		return true;
+	}
+
+	/**
+	 * Called when the user presses Enter while the data grid has focus and the cursor is showing.
+	 * Called regardless of whether Enter also commits the selection (enterSelects), so a tree can
+	 * expand/collapse the cursor row even while Enter selects it. The base implementation raises
+	 * the onEnter event; subclasses can override to implement a custom action instead.
+	 *
+	 * The host (DataGridWaffle) handles consuming the keyboard event and the showCursor()
+	 * gating before this is called, so overrides only need to implement the action itself.
+	 */
+	async onEnterKey(): Promise<void> {
+		this._onEnterEmitter.fire();
+	}
+
+	/**
+	 * Called when the user presses Space while the data grid has focus and the cursor is showing.
+	 * Called regardless of whether Space also commits the selection (spaceSelects), so a tree can
+	 * expand/collapse the cursor row even while Space selects it. The base implementation raises
+	 * the onSpace event; subclasses can override to implement a custom action instead.
+	 *
+	 * The host (DataGridWaffle) handles consuming the keyboard event and the showCursor()
+	 * gating before this is called, so overrides only need to implement the action itself.
+	 */
+	async onSpaceKey(): Promise<void> {
+		this._onSpaceEmitter.fire();
+	}
 
 	/**
 	 * Shows the column context menu.

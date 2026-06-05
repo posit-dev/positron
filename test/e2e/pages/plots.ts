@@ -11,16 +11,16 @@ import { ContextMenu } from './dialog-contextMenu.js';
 
 const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
-const CLEAR_PLOTS = '.positron-plots-container .positron-dynamic-action-bar .codicon-clear-all';
-const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show next plot"]';
-const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show previous plot"]';
-const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Clear all plots"]';
+const CLEAR_PLOTS = '.positron-plots-container .positron-dynamic-action-bar .codicon-trash';
+const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show Next Plot"]';
+const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Show Previous Plot"]';
+const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Clear All Plots"]';
 const PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button';
-const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save plot"]';
-const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
+const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Save Plot"]';
+const COPY_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Copy Plot to Clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Fit"]';
-const OPEN_IN_EDITOR_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Open in editor tab"]';
-const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="Select where to open plot"]';
+const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
+const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
@@ -48,20 +48,20 @@ export class Plots {
 	overwriteModal: Locator;
 
 	constructor(private code: Code, private contextMenu: ContextMenu) {
-		this.plotButton = this.code.driver.page.locator(PLOT_BUTTON);
-		this.nextPlotButton = this.code.driver.page.locator(NEXT_PLOT_BUTTON);
-		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
-		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
+		this.plotButton = this.code.driver.currentPage.locator(PLOT_BUTTON);
+		this.nextPlotButton = this.code.driver.currentPage.locator(NEXT_PLOT_BUTTON);
+		this.previousPlotButton = this.code.driver.currentPage.locator(PREVIOUS_PLOT_BUTTON);
+		this.clearPlotsButton = this.code.driver.currentPage.locator(CLEAR_PLOTS_BUTTON);
 		this.plotSizeButton = this.plotButton.filter({ hasText: /Auto|Square|Portrait|Landscape|Fill|matplotlib|Auto|Intrinsic/ });
-		this.savePlotFromPlotsPaneButton = this.code.driver.page.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
-		this.savePlotFromEditorButton = this.code.driver.page.getByRole('button', { name: 'Save Plot From Active Editor' });
-		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
-		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
-		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
-		this.sessionNameButton = this.code.driver.page.locator(SESSION_NAME_BUTTON);
-		this.originFileButton = this.code.driver.page.locator(ORIGIN_FILE_BUTTON);
-		this.savePlotModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
-		this.overwriteModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
+		this.savePlotFromPlotsPaneButton = this.code.driver.currentPage.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
+		this.savePlotFromEditorButton = this.code.driver.currentPage.getByRole('button', { name: 'Save Plot From Active Editor' });
+		this.copyPlotButton = this.code.driver.currentPage.locator(COPY_PLOT_BUTTON);
+		this.zoomPlotButton = this.code.driver.currentPage.locator(ZOOM_PLOT_BUTTON);
+		this.currentPlot = this.code.driver.currentPage.locator(CURRENT_PLOT);
+		this.sessionNameButton = this.code.driver.currentPage.locator(SESSION_NAME_BUTTON);
+		this.originFileButton = this.code.driver.currentPage.locator(ORIGIN_FILE_BUTTON);
+		this.savePlotModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
+		this.overwriteModal = this.code.driver.currentPage.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
 	}
 
 	async clickSessionNameButton() {
@@ -76,15 +76,15 @@ export class Plots {
 		});
 	}
 
-	async waitForCurrentPlot() {
+	async waitForCurrentPlot({ timeout = 30000 }: { timeout?: number } = {}) {
 		await test.step('Wait for current plot to be visible', async () => {
-			await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).toBeVisible({ timeout });
 		});
 	}
 
 	async waitForCurrentStaticPlot() {
 		await test.step('Wait for current static plot to be visible', async () => {
-			await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
@@ -101,14 +101,14 @@ export class Plots {
 	}
 
 	getWebviewPlotLocator(selector: string): Locator {
-		return this.code.driver.page
+		return this.code.driver.currentPage
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
 			.locator(INNER_WEBVIEW_FRAME).last().contentFrame()
 			.locator(selector);
 	}
 
 	getDeepWebWebviewPlotLocator(selector: string): Locator {
-		return this.code.driver.page
+		return this.code.driver.currentPage
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
 			.locator(INNER_WEBVIEW_FRAME).last().contentFrame()
 			.locator('//iframe').last().contentFrame()
@@ -126,7 +126,7 @@ export class Plots {
 	}
 
 	async clearPlots() {
-		const clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS);
+		const clearPlotsButton = this.code.driver.currentPage.locator(CLEAR_PLOTS);
 
 		if (await clearPlotsButton.isVisible() && await clearPlotsButton.isEnabled()) {
 			await clearPlotsButton.click();
@@ -134,7 +134,7 @@ export class Plots {
 	}
 
 	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
-		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
+		await expect(this.code.driver.currentPage.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
 	}
 
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {
@@ -142,11 +142,11 @@ export class Plots {
 	}
 
 	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
-		return this.code.driver.page.locator(CURRENT_STATIC_PLOT).screenshot();
+		return this.code.driver.currentPage.locator(CURRENT_STATIC_PLOT).screenshot();
 	}
 
 	async copyCurrentPlotToClipboard() {
-		await this.code.driver.page.locator('.codicon-copy').click();
+		await this.code.driver.currentPage.locator('.codicon-copy').click();
 
 		// wait for clipboard to be populated
 		await this.code.wait(500);
@@ -170,12 +170,12 @@ export class Plots {
 		// enter new name and select format
 		await this.savePlotModal.getByLabel('Name', { exact: true }).fill(name);
 		await this.savePlotModal.getByLabel('Format').click();
-		await this.code.driver.page.getByRole('button', { name: format }).click();
+		await this.code.driver.currentPage.getByRole('button', { name: format }).click();
 
 		// ensure dropdown value has updated
 		await expect(this.savePlotModal.getByLabel(`Format${format}`)).toBeVisible();
 		// bug workaround related to RPC timeout
-		await this.code.driver.page.waitForTimeout(1000);
+		await this.code.driver.currentPage.waitForTimeout(1000);
 
 		// save plot
 		await this.savePlotModal.getByRole('button', { name: 'Save' }).click();
@@ -193,14 +193,10 @@ export class Plots {
 		}
 	}
 
-	async clickGoToFileButton() {
-		await this.code.driver.page.locator('.codicon-go-to-file').click();
-	}
-
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.code.driver.page.getByRole('button', { name: /Fit|%/ }),
+				menuTrigger: this.code.driver.currentPage.getByRole('button', { name: /Fit|%/ }),
 				menuItemLabel: zoomLevel
 			});
 		});
@@ -208,16 +204,16 @@ export class Plots {
 
 	async openPlotIn(plotLocation: PlotLocations) {
 		const menuItemRegex = {
-			'editor': /Open in editor tab$/,
-			'new window': /Open in new window$/,
-			'editor tab to the side': /Open in editor tab to the Side$/
+			'editor': /Open in Editor Tab$/,
+			'new window': /Open in New Window$/,
+			'editor tab to the side': /Open in Editor Tab to the Side$/
 		};
 		await test.step(`Open plot in: ${plotLocation}`, async () => {
 			// The "Open in Editor" button may be visible in the action bar or overflowed into the overflow menu.
 			// First check if the dropdown button is visible, otherwise use the overflow menu.
 
-			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
-			const overflowButton = this.code.driver.page.locator(OVERFLOW_MENU_BUTTON);
+			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
+			const overflowButton = this.code.driver.currentPage.locator(OVERFLOW_MENU_BUTTON);
 
 			if (await openInEditorButton.isVisible()) {
 				// Button is visible in action bar - use the dropdown
@@ -229,7 +225,7 @@ export class Plots {
 			} else if (await overflowButton.isVisible()) {
 				// Button overflowed - use the overflow menu and its submenu
 				await overflowButton.click();
-				const overflowMenu = this.code.driver.page.locator('.custom-context-menu-items');
+				const overflowMenu = this.code.driver.currentPage.locator('.custom-context-menu-items');
 				await expect(overflowMenu).toBeVisible();
 
 				// Click on the "Open in Editor" menu option to see submenu entries
@@ -237,7 +233,7 @@ export class Plots {
 				await openInEditorSubmenu.click();
 
 				// Wait for submenu to appear and click the appropriate item
-				const submenuItem = this.code.driver.page.locator('.custom-context-menu-items').last().getByText(menuItemRegex[plotLocation]);
+				const submenuItem = this.code.driver.currentPage.locator('.custom-context-menu-items').last().getByText(menuItemRegex[plotLocation]);
 				await expect(submenuItem).toBeVisible();
 				await submenuItem.click();
 			} else {
@@ -247,20 +243,20 @@ export class Plots {
 	}
 
 	async clickOpenInEditorButton() {
-		await test.step('Click the main Open in Editor button', async () => {
-			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_BUTTON);
-			await openInEditorButton.click();
+		await test.step('Click the primary half of the Open-in split button', async () => {
+			const primaryButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_PRIMARY_BUTTON);
+			await primaryButton.click();
 		});
 	}
 
 	async verifyOpenPlotDropdownCheckedOption(expectedOption: PlotLocations) {
 		const menuItemLabels: Record<PlotLocations, string> = {
-			'editor': 'Open in editor tab',
-			'new window': 'Open in new window',
-			'editor tab to the side': 'Open in editor tab to the Side'
+			'editor': 'Open in Editor Tab',
+			'new window': 'Open in New Window',
+			'editor tab to the side': 'Open in Editor Tab to the Side'
 		};
 		await test.step(`Verify dropdown checked option is: ${expectedOption}`, async () => {
-			const openInEditorButton = this.code.driver.page.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
+			const openInEditorButton = this.code.driver.currentPage.locator(OPEN_IN_EDITOR_DROPDOWN_BUTTON);
 			await this.contextMenu.triggerAndVerifyMenuItems({
 				menuTrigger: openInEditorButton,
 				menuItemStates: Object.entries(menuItemLabels).map(([key, label]) => ({
@@ -272,11 +268,11 @@ export class Plots {
 	}
 
 	async waitForPlotInEditor() {
-		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.currentPage.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
 	}
 
 	async expectPlotThumbnailsCountToBe(count: number) {
-		await expect(this.code.driver.page.locator('.plot-thumbnail')).toHaveCount(count);
+		await expect(this.code.driver.currentPage.locator('.plot-thumbnail')).toHaveCount(count);
 	}
 
 	async enlargePlotArea() {
@@ -289,7 +285,7 @@ export class Plots {
 
 	async alterPlotArea(xDelta: number, yDelta: number) {
 
-		const vericalSashLocator = this.code.driver.page.locator('.monaco-sash.vertical').nth(2);
+		const vericalSashLocator = this.code.driver.currentPage.locator('.monaco-sash.vertical').nth(2);
 		const verticalSashBoundingBox = await vericalSashLocator.boundingBox();
 
 		if (verticalSashBoundingBox) {
@@ -308,7 +304,7 @@ export class Plots {
 			fail('Vertical sash bounding box not found');
 		}
 
-		const horizontalSashLocator = this.code.driver.page.locator('.auxiliarybar .monaco-sash.horizontal').nth(0);
+		const horizontalSashLocator = this.code.driver.currentPage.locator('.auxiliarybar .monaco-sash.horizontal').nth(0);
 		const horizontalSashBoundingBox = await horizontalSashLocator.boundingBox();
 
 		if (horizontalSashBoundingBox) {

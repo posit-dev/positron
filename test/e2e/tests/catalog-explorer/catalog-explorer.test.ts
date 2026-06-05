@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -27,27 +27,27 @@ test.describe('Catalog Explorer', {
 
 	test('Verify Basic Databricks Catalog Explorer functionality', async function ({ app, python }) {
 
-		await app.code.driver.page.getByRole('button', { name: 'Catalog Explorer Section' }).click();
+		await app.code.driver.currentPage.getByRole('button', { name: 'Catalog Explorer Section' }).click();
 
-		await app.code.driver.page.getByText('Configure a Catalog Provider').click();
+		await app.code.driver.currentPage.getByText('Configure a Catalog Provider').click();
 
 		await app.workbench.quickInput.waitForQuickInputOpened();
 		await app.workbench.quickInput.type('Databricks');
 		await app.workbench.quickInput.selectQuickInputElement(0, true);
 
 		await app.workbench.quickInput.type(workspace);
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 		await app.workbench.quickInput.type(pat);
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 
-		await expect(app.code.driver.page.locator('.label-name').filter({ hasText: 'main' })).toBeVisible();
-		await expect(app.code.driver.page.locator('.label-name').filter({ hasText: 'samples' })).toBeVisible();
-		await expect(app.code.driver.page.locator('.label-name').filter({ hasText: 'system' })).toBeVisible();
-		await expect(app.code.driver.page.locator('.label-name').filter({ hasText: 'workshops' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator('.label-name').filter({ hasText: 'main' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator('.label-name').filter({ hasText: 'samples' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator('.label-name').filter({ hasText: 'system' })).toBeVisible();
+		await expect(app.code.driver.currentPage.locator('.label-name').filter({ hasText: 'workshops' })).toBeVisible();
 
 		// cannot see dialog that doubles checks if removal is wanted in e2e tests
-		// await app.code.driver.page.getByText(workspace.replace('https://','')).hover();
-		// await app.code.driver.page.locator('.action-label[aria-label*="Remove Catalog Provider"]').click();
+		// await app.code.driver.currentPage.getByText(workspace.replace('https://','')).hover();
+		// await app.code.driver.currentPage.locator('.action-label[aria-label*="Remove Catalog Provider"]').click();
 
 	});
 });

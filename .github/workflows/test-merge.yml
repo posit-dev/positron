@@ -39,7 +39,7 @@ jobs:
       save_cache: true
       grep: ""
       project: "e2e-windows"
-      display_name: "windows"
+      display_name: "electron-win"
       allow_soft_fail: true
       upload_logs: false
       shards: 3
@@ -91,16 +91,6 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
-          filter_jobs: "(e2e / ([^0-9]*)|unit|ext-host)$"
-          include_job_durations: false
-          notify_on: "failure"
-
       - name: Checkout
         if: always()
         uses: actions/checkout@v6
@@ -130,3 +120,11 @@ jobs:
           slack_channel: "#positron-rstats-test-results"
           filter_jobs: "windows"
           notify_on: "always"
+
+  analyze-e2e-failures:
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    needs: [e2e-electron, e2e-windows, e2e-ubuntu-chromium]
+    uses: ./.github/workflows/analyze-e2e-failures.yml
+    with:
+      run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    secrets: inherit

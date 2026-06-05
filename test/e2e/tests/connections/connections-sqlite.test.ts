@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,14 +30,14 @@ test.describe('SQLite DB Connection', {
 				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 				// there is a flake of the db connection not displaying in the connections pane after
 				// clicking the db icon. To work around, both a wait and a retry are added.
-				await app.code.driver.page.waitForTimeout(2000);
+				await app.code.driver.currentPage.waitForTimeout(2000);
 				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 				await app.workbench.connections.connectIcon.click();
 			} catch (error) {
 				// For some reasonm, on the retry, the pane opens directly to this connection
 				// and the connectIcon.click() is not needed.
 				await app.workbench.sideBar.openSession();
-				await app.code.driver.page.waitForTimeout(2000);
+				await app.code.driver.currentPage.waitForTimeout(2000);
 				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 			}
 		});
@@ -71,7 +71,7 @@ test.describe('SQLite DB Connection', {
 		});
 
 		await test.step('Verify connection nodes', async () => {
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 			await app.workbench.connections.openConnectionsNodes(tables);
 		});
 
@@ -80,7 +80,7 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.connections.connectIcon.click();
 			await app.workbench.connections.resumeConnectionButton.click();
 
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 			await app.workbench.connections.openConnectionsNodes(tables);
 		});
 
@@ -99,7 +99,7 @@ test.describe('SQLite DB Connection', {
 		await test.step('Open connections pane', async () => {
 			await app.workbench.connections.openConnectionPane();
 			await app.workbench.connections.viewConnection('SQLiteConnection');
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/]);
 
 			// mtcars node should not exist
 			await expect(

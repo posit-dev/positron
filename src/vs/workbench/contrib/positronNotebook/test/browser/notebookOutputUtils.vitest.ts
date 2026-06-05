@@ -59,6 +59,29 @@ describe('Notebook Output Utils', () => {
 			const result = parseOutputData(makeOutputItem('application/vnd.code.notebook.stdout', 'hello'));
 			expect(result.type).toBe('stdout');
 		});
+
+		it('parses notebook error MIME as error output', () => {
+			const result = parseOutputData(makeOutputItem(
+				'application/vnd.code.notebook.error',
+				JSON.stringify({ name: 'Error', message: 'failed', stack: 'stack trace' })
+			));
+
+			expect(result.type).toBe('error');
+			if (result.type === 'error') {
+				expect(result.content).toBe('stack trace');
+			}
+		});
+
+		it('parses text/latex as latex output', () => {
+			const latex = '\\int_{-\\infty}^{\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}';
+			const result = parseOutputData(makeOutputItem('text/latex', latex));
+			expect(result).toEqual({ type: 'latex', content: latex });
+		});
+
+		it('parses text/markdown as markdown output', () => {
+			const result = parseOutputData(makeOutputItem('text/markdown', '# Hello'));
+			expect(result).toEqual({ type: 'markdown', content: '# Hello' });
+		});
 	});
 
 	it('pickPreferredOutputItem: prefers image/svg+xml over text/plain', () => {
@@ -69,6 +92,26 @@ describe('Notebook Output Utils', () => {
 
 		const preferred = pickPreferredOutputItem(items);
 		expect(preferred?.mime).toBe('image/svg+xml');
+	});
+
+	it('pickPreferredOutputItem: prefers text/latex over text/plain', () => {
+		const items = [
+			makeOutputItem('text/plain', 'E = mc^2'),
+			makeOutputItem('text/latex', '$E = mc^2$'),
+		];
+
+		const preferred = pickPreferredOutputItem(items);
+		expect(preferred?.mime).toBe('text/latex');
+	});
+
+	it('pickPreferredOutputItem: prefers text/latex over text/markdown', () => {
+		const items = [
+			makeOutputItem('text/markdown', '# Math'),
+			makeOutputItem('text/latex', '$E = mc^2$'),
+		];
+
+		const preferred = pickPreferredOutputItem(items);
+		expect(preferred?.mime).toBe('text/latex');
 	});
 
 	describe('parseOutputData: data explorer MIME type', () => {

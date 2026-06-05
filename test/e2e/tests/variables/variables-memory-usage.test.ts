@@ -56,7 +56,31 @@ test.describe('Variables: Memory Usage', {
 		});
 	});
 
-	test('Reconnected session reappears in memory usage meter after extension host restart', async function ({ app, sessions, settings }) {
+	test('Low memory warning icon appears when memory is low', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+		const { variables } = app.workbench;
+
+		// Set a fast polling interval and a 90% threshold. With the threshold
+		// this high the system is effectively always "low" on memory (any
+		// machine using more than 10% of its memory qualifies), which lets us
+		// deterministically exercise the low-memory warning.
+		await settings.set({
+			'memoryUsage.pollingIntervalMs': 1000,
+			'memoryUsage.lowMemoryThresholdPercent': 90,
+		});
+
+		// Start a Python session so the variables pane shows a memory meter.
+		await sessions.start(['python']);
+
+		// Wait for the memory meter to report a real measurement.
+		await variables.expectMemoryMeterReady();
+
+		// The low-memory warning icon should be shown.
+		await variables.expectLowMemoryWarning(true);
+	});
+
+	test.skip('Reconnected session reappears in memory usage meter after extension host restart', {
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
+	}, async function ({ app, sessions, settings }) {
 		const { console: consolePage, quickaccess, variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly
@@ -83,7 +107,10 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectSessionsInMemoryDropdown({ [rSession.name]: true });
 	});
 
-	test('Restarted session reappears in memory usage meter', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+	test.skip('Restarted session reappears in memory usage meter', {
+		tag: [tags.WEB],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
+	}, async function ({ app, sessions, settings }) {
 		const { variables } = app.workbench;
 
 		// Set a fast polling interval so the memory meter updates quickly

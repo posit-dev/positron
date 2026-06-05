@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
- .cell-action-button.action-button {
+.cell-action-button.action-button {
 	aspect-ratio: 1;
 	display: grid;
 	place-content: center;
@@ -34,10 +34,11 @@
 	&.separator-after::after {
 		content: '';
 		position: absolute;
-		right: calc((var(--_positron-notebook-cell-action-bar-button-gap) * -1) / 2); /* Separator should be centered in between the gap */
+		right: calc((var(--_positron-notebook-cell-action-bar-button-gap) * -1) / 2);
+		/* Separator should be centered in between the gap */
 		top: 4px;
 		bottom: 4px;
 		width: 1px;
-		background-color: var(--vscode-positronNotebook-action-bar-border-color);
+		background-color: var(--vscode-positronNotebook-actionBarBorder);
 	}
 }

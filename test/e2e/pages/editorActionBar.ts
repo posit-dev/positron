@@ -17,7 +17,8 @@ type EditorActionBarButton =
 	| 'Open as Plain Text File'
 	| 'Deploy with Posit Publisher'
 	| 'Convert to Code'
-	| 'Clear Column Sorting';
+	| 'Clear Column Sorting'
+	| 'Save';
 
 
 export class EditorActionBar {
@@ -206,6 +207,36 @@ export class EditorActionBar {
 			isVisible
 				? await expect(this.actionBar).toBeVisible()
 				: await expect(this.actionBar).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: a specific button on the editor action bar is visible (or not).
+	 *
+	 * @param button the button to verify
+	 * @param isVisible whether the button is expected to be visible
+	 */
+	async verifyButtonVisible(button: EditorActionBarButton, isVisible: boolean) {
+		await test.step(`Verify "${button}" button is ${isVisible ? 'visible' : 'not visible'}`, async () => {
+			const buttonLocator = this.actionBar.getByLabel(button, { exact: true });
+			isVisible
+				? await expect(buttonLocator).toBeVisible()
+				: await expect(buttonLocator).not.toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: a specific button on the editor action bar is enabled (or disabled).
+	 *
+	 * @param button the button to verify
+	 * @param isEnabled whether the button is expected to be enabled
+	 */
+	async verifyButtonEnabled(button: EditorActionBarButton, isEnabled: boolean) {
+		await test.step(`Verify "${button}" button is ${isEnabled ? 'enabled' : 'disabled'}`, async () => {
+			const buttonLocator = this.actionBar.getByLabel(button, { exact: true });
+			isEnabled
+				? await expect(buttonLocator).toBeEnabled()
+				: await expect(buttonLocator).toBeDisabled();
 		});
 	}
 }

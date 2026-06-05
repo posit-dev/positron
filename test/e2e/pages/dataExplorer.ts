@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,8 +39,8 @@ export class DataExplorer {
 		this._dataGrid = new DataGrid(this.code, this);
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
 		this._summaryPanel = new SummaryPanel(this.code, this.workbench);
-		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
-		this.idleStatus = this.code.driver.page.locator('.status-bar-indicator .icon.idle');
+		this.statusBar = this.code.driver.currentPage.locator(STATUS_BAR);
+		this.idleStatus = this.code.driver.currentPage.locator('.status-bar-indicator .icon.idle');
 	}
 
 	// --- Actions ---
@@ -66,7 +66,7 @@ export class DataExplorer {
 
 	async expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void> {
 		await test.step(`Expect status bar text: ${expectedText}`, async () => {
-			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
+			await expect(this.code.driver.currentPage.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
 		});
 	}
 
@@ -107,7 +107,7 @@ export class EditorActionBar {
 	// --- Verifications ---
 	async expectToHaveButton(buttonName: string, isVisible: boolean = true) {
 		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
-			const button = this.code.driver.page.getByRole('button', { name: buttonName });
+			const button = this.code.driver.currentPage.getByRole('button', { name: buttonName });
 			if (isVisible) {
 				await expect(button).toBeVisible();
 			} else {
@@ -121,13 +121,13 @@ export class EditorActionBar {
 
 		// Check if the 'Open Anyway' button is visible. This is needed on web only as it warns
 		// that the file is large and may take a while to open. This is due to a vs code behavior and file size limit.
-		const openAnyway = this.code.driver.page.getByText('Open Anyway');
+		const openAnyway = this.code.driver.currentPage.getByText('Open Anyway');
 
 		if (await openAnyway.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
 			await openAnyway.click();
 		}
 
-		await expect(this.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
+		await expect(this.code.driver.currentPage.getByText(searchString, { exact: true })).toBeVisible();
 	}
 
 }
@@ -147,15 +147,26 @@ export class Filters {
 	// private menuItemClearFilters: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
-		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
-		this.clearFilterButton = this.code.driver.page.locator(CLEAR_FILTER_BUTTON);
-		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
-		this.selectColumnButton = this.code.driver.page.getByRole('button', { name: 'Select Column' });
-		this.selectConditionButton = this.code.driver.page.getByRole('button', { name: 'Select Condition' });
-		this.selectFilterModalValue = (value: string) => this.code.driver.page.locator('.positron-modal-popup').getByRole('button', { name: value });
-		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
-		// this.filteringMenu = this.code.driver.page.getByRole('button', { name: 'Filtering' });
-		// this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
+		this.clearSortingButton = this.code.driver.currentPage.locator(CLEAR_SORTING_BUTTON);
+		this.clearFilterButton = this.code.driver.currentPage.locator(CLEAR_FILTER_BUTTON);
+		this.addFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Add Filter' });
+		this.selectColumnButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Column' });
+		this.selectConditionButton = this.code.driver.currentPage.getByRole('button', { name: 'Select Condition' });
+		this.selectFilterModalValue = (value: string) => {
+			// Column buttons render with a leading type-icon character (so the
+			// accessible name is "<icon> dep_time"), while condition buttons
+			// are plain text ("is not missing"). The regex anchors the value
+			// at the end of the name and requires either string-start or
+			// whitespace before it - so 'dep_time' matches "<icon> dep_time"
+			// without also matching "<icon> sched_dep_time".
+			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			return this.code.driver.currentPage
+				.locator('.positron-modal-popup')
+				.getByRole('button', { name: new RegExp(`(?:^|\\s)${escaped}$`) });
+		};
+		this.applyFilterButton = this.code.driver.currentPage.getByRole('button', { name: 'Apply Filter' });
+		// this.filteringMenu = this.code.driver.currentPage.getByRole('button', { name: 'Filtering' });
+		// this.menuItemClearFilters = this.code.driver.currentPage.getByRole('button', { name: 'Clear Filters' });
 	}
 
 	// --- Actions ---
@@ -179,7 +190,7 @@ export class Filters {
 
 			// enter value
 			if (value) {
-				await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(value);
+				await this.code.driver.currentPage.getByRole('textbox', { name: 'value' }).fill(value);
 			}
 
 			// record metric only for loading after apply
@@ -198,8 +209,8 @@ export class Filters {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
 		}
-		if (await this.clearFilterButton.isVisible()) {
-			await this.clearFilterButton.click();
+		while (await this.clearFilterButton.first().isVisible()) {
+			await this.clearFilterButton.first().click();
 		}
 	}
 }
@@ -210,35 +221,40 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private get rowHeader(): Locator { return this.code.driver.page.locator('.data-grid-row-header'); }
-	private get columnHeaders(): Locator { return this.code.driver.page.locator(HEADER_TITLES); }
-	private get rows(): Locator { return this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`); }
-	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
+	private get rowHeader(): Locator { return this.code.driver.currentPage.locator('.data-grid-row-header'); }
+	private get columnHeaders(): Locator { return this.code.driver.currentPage.locator(HEADER_TITLES); }
+	private get rows(): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`); }
+	get columnHeadersContainer(): Locator { return this.code.driver.currentPage.locator('.data-grid-column-headers'); }
+	get rowHeadersContainer(): Locator { return this.code.driver.currentPage.locator('.data-grid-row-headers'); }
+	get splitter(): Locator { return this.code.driver.currentPage.locator('.data-explorer-panel .splitter'); }
+	dataRow(nth: number): Locator { return this.code.driver.currentPage.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`).nth(nth); }
+	cellTextValue(columnIndex: number, rowIndex: number): Locator { return this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-value`); }
+	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.currentPage.locator(
 		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
 	);
 	private cellByIndex = (rowIndex: number, columnIndex: number) => this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
 
 	constructor(private code: Code, private dataExplorer: DataExplorer) {
-		this.grid = this.code.driver.page.locator('.data-explorer .right-column');
-		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
+		this.grid = this.code.driver.currentPage.locator('.data-explorer .right-column');
+		this.statusBar = this.code.driver.currentPage.locator(STATUS_BAR);
 	}
 
 	// --- Actions ---
 
 	async jumpToStart(): Promise<void> {
 		if (process.platform === 'darwin') {
-			await this.code.driver.page.keyboard.press('Meta+Home');
+			await this.code.driver.currentPage.keyboard.press('Meta+Home');
 		} else {
-			await this.code.driver.page.keyboard.press('Control+Home');
+			await this.code.driver.currentPage.keyboard.press('Control+Home');
 		}
 	}
 
 	async clickLowerRightCorner() {
-		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
+		await this.code.driver.currentPage.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
 	}
 
 	async clickUpperLeftCorner() {
-		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
+		await this.code.driver.currentPage.locator(DATA_GRID_TOP_LEFT).click();
 	}
 
 	/**
@@ -293,8 +309,8 @@ export class DataGrid {
 	 */
 	async selectColumnAction(colIndex: number, action: ColumnRightMenuOption) {
 		await test.step(`Select column action: ${action}`, async () => {
-			await this.code.driver.page.locator(`div:nth-child(${colIndex}) > .content > .positron-button`).click();
-			await this.code.driver.page.getByRole('button', { name: action }).click();
+			await this.code.driver.currentPage.locator(`div:nth-child(${colIndex}) > .content > .positron-button`).click();
+			await this.code.driver.currentPage.getByRole('button', { name: action }).click();
 		});
 	}
 
@@ -338,7 +354,7 @@ export class DataGrid {
 	async pinRow(rowPosition: number) {
 		await test.step(`Pin row at 0-based position: ${rowPosition}`, async () => {
 			await this.rowHeader.nth(rowPosition).click({ button: 'right' });
-			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
+			await this.code.driver.currentPage.getByRole('button', { name: 'Pin Row' }).click();
 		});
 	}
 
@@ -348,10 +364,10 @@ export class DataGrid {
 	 */
 	async unpinRow(rowPosition = 0) {
 		await test.step(`Unpin row at 0-based position: ${rowPosition}`, async () => {
-			await this.code.driver.page
+			await this.code.driver.currentPage
 				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
 				.click({ button: 'right' });
-			await this.code.driver.page.getByRole('button', { name: 'Unpin Row' }).click();
+			await this.code.driver.currentPage.getByRole('button', { name: 'Unpin Row' }).click();
 		});
 	}
 
@@ -365,6 +381,79 @@ export class DataGrid {
 			await this.jumpToStart();
 			await this.clickCell(start.row, start.col);
 			await this.shiftClickCell(end.row, end.col);
+		});
+	}
+
+	columnHeaderByIndex(columnIndex: number): Locator {
+		return this.code.driver.currentPage.locator(`.data-grid-column-header[data-column-index="${columnIndex}"]`);
+	}
+
+	/**
+	 * Wait for the column header at the given 0-based data-column-index to be visible.
+	 * Useful after navigating to a far-right column via keyboard.
+	 */
+	async waitForColumnHeader(columnIndex: number, timeout = 10000): Promise<void> {
+		await test.step(`Wait for column header at index ${columnIndex}`, async () => {
+			await expect(this.columnHeaderByIndex(columnIndex)).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Drag the right-edge sash of a column header left by `px` pixels, truncating cell values
+	 * so hover tooltips fire. The column must already be visible in the viewport.
+	 */
+	async narrowColumnBySash(columnIndex: number, px: number): Promise<void> {
+		await test.step(`Narrow column ${columnIndex} by ${px}px`, async () => {
+			const headerBox = await this.columnHeaderByIndex(columnIndex).boundingBox();
+			if (!headerBox) {
+				throw new Error(`Column header ${columnIndex} not found`);
+			}
+			const sashX = headerBox.x + headerBox.width - 2;
+			const sashY = headerBox.y + headerBox.height / 2;
+			const page = this.code.driver.currentPage;
+			await page.mouse.move(sashX, sashY);
+			await page.mouse.down();
+			await page.mouse.move(sashX - px, sashY, { steps: 10 });
+			await page.mouse.up();
+		});
+	}
+
+	/**
+	 * Click the ⋮ button on the column header at the given 0-based data-column-index
+	 * and wait for the popup menu to appear. Returns the popup locator.
+	 */
+	async openColumnContextMenu(columnIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for column ${columnIndex}`, async () => {
+			await this.columnHeaderByIndex(columnIndex).locator('.sort-button').click();
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the row header at the given 0-based index and wait for the popup
+	 * menu to appear. Returns the popup locator.
+	 */
+	async openRowContextMenu(rowIndex: number): Promise<Locator> {
+		return test.step(`Open context menu for row header ${rowIndex}`, async () => {
+			await this.rowHeader.nth(rowIndex).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
+		});
+	}
+
+	/**
+	 * Right-click the cell at the given 0-based visual position and wait for the
+	 * popup menu to appear. Returns the popup locator.
+	 */
+	async openCellContextMenu(rowPosition: number, columnPosition: number): Promise<Locator> {
+		return test.step(`Open context menu for cell at row ${rowPosition}, col ${columnPosition}`, async () => {
+			await this.cellByPosition(rowPosition, columnPosition).click({ button: 'right' });
+			const popup = this.code.driver.currentPage.locator('.positron-modal-popup');
+			await expect(popup).toBeVisible({ timeout: 5000 });
+			return popup;
 		});
 	}
 
@@ -441,7 +530,7 @@ export class DataGrid {
 	}
 
 	async getColumnHeaders(): Promise<string[]> {
-		const headersLocator = this.code.driver.page.locator('div.column-name');
+		const headersLocator = this.code.driver.currentPage.locator('div.column-name');
 		return await headersLocator.allInnerTexts();
 	}
 
@@ -468,7 +557,7 @@ export class DataGrid {
 			// Scroll right until we've collected all headers
 			while (scrollAttempts < maxScrollAttempts) {
 				// Press right arrow key to scroll horizontally
-				await this.code.driver.page.keyboard.press('ArrowRight');
+				await this.code.driver.currentPage.keyboard.press('ArrowRight');
 				scrollAttempts++;
 
 				// Get current visible headers after scrolling
@@ -523,7 +612,7 @@ export class DataGrid {
 	 */
 	async expectCellContentAtIndexToBe(expectedContent: string, cellIndex?: number): Promise<void> {
 		await test.step(`Verify cell content at index ${cellIndex ?? 'last'}: ${expectedContent}`, async () => {
-			const cells = this.code.driver.page.locator('.data-grid-row-cell');
+			const cells = this.code.driver.currentPage.locator('.data-grid-row-cell');
 			const cell = cellIndex !== undefined ? cells.nth(cellIndex) : cells.last();
 			await expect(cell).toHaveText(expectedContent);
 		});
@@ -576,7 +665,7 @@ export class DataGrid {
 	 */
 	async expectColumnsToBePinned(expectedTitles: string[]) {
 		await test.step(`Verify pinned columns: ${expectedTitles}`, async () => {
-			const pinnedColumns = this.code.driver.page.locator('.data-grid-column-header.pinned');
+			const pinnedColumns = this.code.driver.currentPage.locator('.data-grid-column-header.pinned');
 
 			if (expectedTitles.length === 0) {
 				await expect(pinnedColumns).toHaveCount(0);
@@ -594,7 +683,7 @@ export class DataGrid {
 
 	async expectRowsToBePinned(expectedRows: number[], indexOffset = 0) {
 		await test.step(`Verify pinned rows: ${expectedRows}`, async () => {
-			const pinnedRows = this.code.driver.page.locator('.data-grid-row-header.pinned');
+			const pinnedRows = this.code.driver.currentPage.locator('.data-grid-row-header.pinned');
 
 			if (expectedRows.length === 0) {
 				// If we expect no pinned rows, verify count is 0
@@ -618,7 +707,7 @@ export class DataGrid {
 
 	async expectRowOrderToBe(expectedOrder: number[], indexOffset = 0) {
 		await test.step(`Verify row order: ${expectedOrder}`, async () => {
-			const rowHeaders = this.code.driver.page.locator('.data-grid-row-headers > .data-grid-row-header .content');
+			const rowHeaders = this.code.driver.currentPage.locator('.data-grid-row-headers > .data-grid-row-header .content');
 			const actualOrder = await rowHeaders.allInnerTexts();
 			const actualOrderNumbers = actualOrder.map(text => parseInt(text, 10));
 			expect(actualOrderNumbers).toEqual(expectedOrder.map(num => num + indexOffset));
@@ -665,7 +754,7 @@ export class SummaryPanel {
 	vectorHistogram: Locator;
 
 	constructor(private code: Code, private workbench: Workbench,) {
-		this.summaryFilterBar = this.code.driver.page.locator('.summary-row-filter-bar');
+		this.summaryFilterBar = this.code.driver.currentPage.locator('.summary-row-filter-bar');
 		this.summaryPanel = this.summaryFilterBar.locator('..');
 		this.searchFilter = this.summaryFilterBar.getByRole('textbox', { name: 'filter' });
 		this.sortFilter = this.summaryFilterBar.getByRole('button', { name: 'Sort summary row data' });
@@ -718,7 +807,7 @@ export class SummaryPanel {
 	}
 
 	async expandColumnProfile(rowNumber = 0): Promise<void> {
-		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
+		await this.code.driver.currentPage.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
 	async waitForVectorHistogramVisible(timeout = 10000): Promise<void> {
@@ -733,7 +822,7 @@ export class SummaryPanel {
 		}
 		for (let i = 0; i < count; i++) {
 			await bins.nth(i).hover();
-			const tooltip = this.code.driver.page.locator('.hover-contents');
+			const tooltip = this.code.driver.currentPage.locator('.hover-contents');
 			await tooltip.waitFor({ state: 'visible', timeout: 5000 });
 			const text = await tooltip.innerText();
 			if (text.includes(`Range: ${expectedMin} to ${expectedMax}`)) {
@@ -746,24 +835,24 @@ export class SummaryPanel {
 	// --- Getters ---
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
-		const row = this.code.driver.page.locator(MISSING_PERCENT(rowNumber));
+		const row = this.code.driver.currentPage.locator(MISSING_PERCENT(rowNumber));
 		return await row.innerText();
 	}
 
 	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
-		const expandCollapseLocator = this.code.driver.page.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
+		const expandCollapseLocator = this.code.driver.currentPage.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-down/);
 
 		const profileData: { [key: string]: string } = {};
 
-		const labelsLocator = this.code.driver.page.locator(PROFILE_LABELS(rowNumber));
+		const labelsLocator = this.code.driver.currentPage.locator(PROFILE_LABELS(rowNumber));
 		await expect.poll(async () => (await labelsLocator.all()).length).toBeGreaterThan(2);
 		const labels = await labelsLocator.all();
 
-		const valuesLocator = this.code.driver.page.locator(PROFILE_VALUES(rowNumber));
+		const valuesLocator = this.code.driver.currentPage.locator(PROFILE_VALUES(rowNumber));
 		await expect.poll(async () => (await valuesLocator.all()).length).toBeGreaterThan(2);
 		const values = await valuesLocator.all();
 
@@ -778,7 +867,7 @@ export class SummaryPanel {
 		// Extract heights from tooltip containers which now have data-height attributes
 		// Find sparkline containers within the expanded profile area for this specific row
 		const profileAreaSelector = `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-sparkline`;
-		const containers = await this.code.driver.page.locator(`${profileAreaSelector} foreignObject.tooltip-container`).all();
+		const containers = await this.code.driver.currentPage.locator(`${profileAreaSelector} foreignObject.tooltip-container`).all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < containers.length; i++) {
 			const height = await containers[i].getAttribute('data-height');
@@ -904,9 +993,9 @@ export class SummaryPanel {
 			// Try the proper selector first, then fallback to direct vector components
 			// This handles both expanded profiles (with .column-profile-sparkline wrapper)
 			// and collapsed headers (direct vector components)
-			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline foreignObject.tooltip-container, .vector-histogram foreignObject.tooltip-container, .vector-frequency-table foreignObject.tooltip-container').nth(0);
+			const firstSparkline = this.code.driver.currentPage.locator('.column-profile-sparkline foreignObject.tooltip-container, .vector-histogram foreignObject.tooltip-container, .vector-frequency-table foreignObject.tooltip-container').nth(0);
 			await firstSparkline.hover();
-			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
+			const hoverTooltip = this.code.driver.currentPage.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
 
 			for (const text of verificationText) {
@@ -926,9 +1015,9 @@ export class SummaryPanel {
 
 	async verifyNullPercentHoverDialog(): Promise<void> {
 		await test.step('Verify null percent hover dialog', async () => {
-			const firstNullPercent = this.code.driver.page.locator('.column-null-percent').nth(0);
+			const firstNullPercent = this.code.driver.currentPage.locator('.column-null-percent').nth(0);
 			await firstNullPercent.hover();
-			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
+			const hoverTooltip = this.code.driver.currentPage.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
 			// After streamlining, tooltip shows either "No missing values" or "X% of values are missing"
 			await expect(hoverTooltip).toContainText(/No missing values|of values are missing/);
@@ -944,7 +1033,7 @@ export class ConvertToCodeModal {
 	codeBox: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
-		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
+		this.codeBox = this.code.driver.currentPage.locator('.positron-modal-dialog-box .convert-to-code-editor');
 	}
 
 	// --- Actions ---
@@ -970,7 +1059,7 @@ export class ConvertToCodeModal {
 	async expectSyntaxHighlighting() {
 		await test.step('Verify syntax highlighting', async () => {
 			// Verify code highlighting - more than one style means highlighting is active
-			const mtkLocator = this.code.driver.page.locator('[class*="mtk"]');
+			const mtkLocator = this.code.driver.currentPage.locator('[class*="mtk"]');
 			const tokenClasses = await mtkLocator.evaluateAll(spans =>
 				Array.from(new Set(
 					spans.flatMap(span => Array.from(span.classList))
@@ -980,7 +1069,7 @@ export class ConvertToCodeModal {
 			expect(tokenClasses.length).toBeGreaterThan(1);
 
 			// Verify bracket highlighting
-			const bracketHighlightingCount = await this.code.driver.page.locator('[class*="bracket-highlighting-"]').count();
+			const bracketHighlightingCount = await this.code.driver.currentPage.locator('[class*="bracket-highlighting-"]').count();
 			expect(bracketHighlightingCount).toBeGreaterThan(0);
 		});
 	}

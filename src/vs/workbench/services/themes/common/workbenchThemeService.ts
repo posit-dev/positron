@@ -38,19 +38,38 @@ export enum ThemeSettings {
 	SYSTEM_COLOR_THEME = 'window.systemColorTheme'
 }
 
-export enum ThemeSettingDefaults {
+export namespace ThemeSettingDefaults {
 	// --- Start Positron ---
-	COLOR_THEME_DARK = 'Default Positron Dark',
-	COLOR_THEME_LIGHT = 'Default Positron Light',
+	// Override upstream's 'Dark 2026' / 'Light 2026' defaults with the Positron-branded themes.
+	export const COLOR_THEME_DARK = 'Default Positron Dark';
+	export const COLOR_THEME_LIGHT = 'Default Positron Light';
 	// --- End Positron ---
-	COLOR_THEME_HC_DARK = 'Default High Contrast',
-	COLOR_THEME_HC_LIGHT = 'Default High Contrast Light',
+	export const COLOR_THEME_HC_DARK = 'Default High Contrast';
+	export const COLOR_THEME_HC_LIGHT = 'Default High Contrast Light';
 
-	COLOR_THEME_DARK_OLD = 'Default Dark+',
-	COLOR_THEME_LIGHT_OLD = 'Default Light+',
+	export const FILE_ICON_THEME = 'vs-seti';
+	export const PRODUCT_ICON_THEME = 'Default';
+}
 
-	FILE_ICON_THEME = 'vs-seti',
-	PRODUCT_ICON_THEME = 'Default',
+/**
+ * Migrates legacy theme settings IDs to their current equivalents.
+ * Theme IDs were simplified: "Default" prefix was removed from built-in themes,
+ * and "Experimental" prefix was replaced when VS Code themes became GA.
+ */
+export function migrateThemeSettingsId(settingsId: string): string {
+	switch (settingsId) {
+		case 'Default Dark Modern': return 'Dark Modern';
+		case 'Default Light Modern': return 'Light Modern';
+		case 'Default Dark+': return 'Dark+';
+		case 'Default Light+': return 'Light+';
+		case 'Experimental Dark':
+		case 'VS Code Dark':
+			return ThemeSettingDefaults.COLOR_THEME_DARK;
+		case 'Experimental Light':
+		case 'VS Code Light':
+			return ThemeSettingDefaults.COLOR_THEME_LIGHT;
+	}
+	return settingsId;
 }
 
 export const COLOR_THEME_DARK_INITIAL_COLORS = {

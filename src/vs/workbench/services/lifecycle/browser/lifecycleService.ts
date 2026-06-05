@@ -137,7 +137,13 @@ export class BrowserLifecycleService extends AbstractLifecycleService {
 
 		// Before Shutdown
 		this._onBeforeShutdown.fire({
-			reason: ShutdownReason.QUIT,
+			// --- Start Positron ---
+			// Prefer the explicit reason recorded by `withExpectedShutdown`
+			// (e.g. RELOAD from host.reload()) so subscribers can distinguish
+			// reload from quit. Upstream hardcodes QUIT here, which breaks
+			// extensions that branch on the shutdown reason during reload.
+			reason: this.shutdownReason ?? ShutdownReason.QUIT,
+			// --- End Positron ---
 			veto(value, id) {
 				handleVeto(value, id);
 			},
@@ -169,7 +175,11 @@ export class BrowserLifecycleService extends AbstractLifecycleService {
 		// First indicate will-shutdown
 		const logService = this.logService;
 		this._onWillShutdown.fire({
-			reason: ShutdownReason.QUIT,
+			// --- Start Positron ---
+			// See the matching comment in `doShutdown`: forward the recorded
+			// reason instead of always reporting QUIT.
+			reason: this.shutdownReason ?? ShutdownReason.QUIT,
+			// --- End Positron ---
 			joiners: () => [], 				// Unsupported in web
 			token: CancellationToken.None, 	// Unsupported in web
 			join(promise, joiner) {

@@ -41,6 +41,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 
 /**
@@ -94,6 +95,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	protected override _input: PositronNotebookEditorInput | undefined;
 
 	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
+
+	/**
+	 * Expose the notebook's scoped context to the editor pane so that `when`
+	 * clauses for menus and `precondition` clauses for actions on the editor
+	 * action bar can resolve notebook scoped context keys (e.g. NOTEBOOK_KERNEL).
+	 */
+	override get scopedContextKeyService(): IContextKeyService | undefined {
+		return this._containerScopedContextKeyService;
+	}
 
 	/**
 	 * The editor control, used by other features to access the code editor widget of the selected cell.
@@ -211,10 +221,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	 */
 	private readonly _isVisible = observableValue<boolean>('isVisible', false);
 
+	private _notebookInstance: PositronNotebookInstance | undefined;
 
-	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
-		return this._input?.notebookInstance;
+		return this._notebookInstance;
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -264,8 +274,25 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	): Promise<void> {
 		this._logService.debug(this._identifier, 'setInput');
 
+		this._instanceDisposableStore.clear();
 
 		this._input = input;
+		const notebookInstance = PositronNotebookInstance.getOrCreate(
+			input.uniqueId,
+			input.resource,
+			input.viewType,
+			undefined,
+			this.instantiationService
+		);
+		this._notebookInstance = notebookInstance;
+
+		// Dispose the instance when the input is disposed.
+		// NOTE: This may not be the right thing to do, but we're keeping it around
+		//  for now to match behavior from when input.dispose disposed the notebook instance.
+		this._instanceDisposableStore.add(this._input.onWillDispose(() => {
+			notebookInstance.dispose();
+		}));
+
 		if (this._editorContainer === undefined) {
 			throw new Error(
 				'Editor container is undefined. This should have been created in createEditor.'
@@ -281,13 +308,12 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		// - loadEditorViewState: loaded from persisted storage (e.g. after reload)
 		const viewState = options?.viewState
 			?? this.loadEditorViewState(input, context);
-		const { notebookInstance } = input;
 
 		// Update the editor control given the notebook instance.
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		this._control.value = new PositronNotebookEditorControl(notebookInstance);
+		this._control.value = new PositronNotebookEditorControl(this._notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
@@ -304,7 +330,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 
 		// Set the notebook instance model
-		notebookInstance.setModel(model.notebook);
+		this._notebookInstance.setModel(model.notebook);
 
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(
@@ -323,19 +349,19 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		const cachedRender = this._renderCache.get(input.resource);
 		if (cachedRender) {
 			this._notebookShell!.appendChild(cachedRender.container);
-			notebookInstance.attachView(
+			this._notebookInstance.attachView(
 				cachedRender.container,
 				this._containerScopedContextKeyService!,
 				this._overlayContainer!,
 				this._editorContainer,
 			);
-			notebookInstance.restoreEditorViewState(viewState);
-			notebookInstance.snapToRestoredScrollPosition();
+			this._notebookInstance.restoreEditorViewState(viewState);
+			this._notebookInstance.snapToRestoredScrollPosition();
 			return;
 		}
 
-		this._renderFreshForInput(input);
-		notebookInstance.restoreEditorViewState(viewState);
+		this._renderFreshForInput(input, this._notebookInstance);
+		this._notebookInstance.restoreEditorViewState(viewState);
 	}
 
 	/**
@@ -353,11 +379,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	override clearInput(): void {
 		this._logService.debug(this._identifier, 'clearInput');
 
-		const notebookInstance = this._input?.notebookInstance;
-
 		// Call super first so that AbstractEditorWithViewState can save the
-		// editor view state (e.g. scroll position) while the input and the
-		// DOM are still alive. The base class reads view state via
+		// editor view state (e.g. scroll position) while the intance is still
+		// attached and the DOM is still alive. The base class reads view state via
 		// computeEditorViewState() which needs the notebook instance and
 		// its cells container to still be accessible.
 		super.clearInput();
@@ -369,7 +393,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 
 		// Contributions (e.g. find controller) rely on observing detach.
-		notebookInstance?.detachView();
+		this._notebookInstance?.detachView();
+		this._notebookInstance = undefined;
 
 		this._control.clear();
 	}
@@ -399,7 +424,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private _renderNotebookInto(renderer: PositronReactRenderer): void {
 		this._logService.debug(this._identifier, 'renderNotebook');
 
-		if (!this.notebookInstance) {
+		if (!this._notebookInstance) {
 			throw new Error('Notebook instance is not set.');
 		}
 
@@ -413,7 +438,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		}
 
 		// Set the editor container for focus tracking.
-		this.notebookInstance.setEditorContainer(this._editorContainer);
+		this._notebookInstance.setEditorContainer(this._editorContainer);
 
 		renderer.render(
 			<NotebookErrorBoundary
@@ -422,13 +447,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 				logService={this._logService}
 				onReload={() => {
 					this._renderCache.clear();
-					if (this._input) {
-						this._renderFreshForInput(this._input);
+					if (this._input && this._notebookInstance) {
+						this._renderFreshForInput(this._input, this._notebookInstance);
 					}
 				}}
 			>
 				<NotebookVisibilityProvider isVisible={this._isVisible}>
-					<NotebookInstanceProvider instance={this.notebookInstance}>
+					<NotebookInstanceProvider instance={this._notebookInstance}>
 						<EnvironentProvider environmentBundle={{
 							size: this._size,
 							scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
@@ -442,7 +467,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	}
 
 	/** Create a fresh cache entry, attach the shared notebook instance, and render. */
-	private _renderFreshForInput(input: PositronNotebookEditorInput): void {
+	private _renderFreshForInput(
+		input: PositronNotebookEditorInput,
+		notebookInstance: PositronNotebookInstance
+	): void {
 		if (!this._notebookShell) {
 			throw new Error('Notebook shell is not set.');
 		}
@@ -460,7 +488,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		container.tabIndex = -1;
 		this._notebookShell.appendChild(container);
 
-		input.notebookInstance.attachView(
+		notebookInstance.attachView(
 			container,
 			this._containerScopedContextKeyService,
 			this._overlayContainer,

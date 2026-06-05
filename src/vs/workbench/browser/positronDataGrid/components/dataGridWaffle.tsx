@@ -7,7 +7,7 @@
 import './dataGridWaffle.css';
 
 // React.
-import { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';
@@ -27,6 +27,15 @@ import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { TableSummaryDataGridInstance } from '../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
+
+/**
+ * Inline-style shape for the data grid waffle root. Extends CSSProperties with the two custom
+ * properties this component sets so TypeScript accepts the literal without per-key casts.
+ */
+interface DataGridWaffleCSSProperties extends CSSProperties {
+	'--data-grid-clip-right': string;
+	'--data-grid-clip-bottom': string;
+}
 
 /**
  * DataGridWaffle component.
@@ -164,6 +173,33 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			e.stopPropagation();
 		};
 
+		// Applies the per-key selection policy around cursor navigation. In spreadsheet mode
+		// (the default), selection is cleared before the cursor moves so cursor and selection
+		// are independent. In either list mode, selection collapses onto the new cursor row
+		// after the move so the selection tracks the cursor -- unless selectionFollowsCursor is
+		// false, in which case the cursor (focus) moves independently and the selection is left
+		// untouched. The `selection` guards keep these no-ops when selection is disabled on the
+		// grid.
+		const selectionMode = context.instance.selectionMode;
+		const isListMode = selectionMode === 'list-multiple-selection' || selectionMode === 'list-single-selection';
+		const navigationSelection = {
+			beforeMoveCursor: () => {
+				if (context.instance.selection && selectionMode === 'spreadsheet') {
+					context.instance.clearSelection();
+				}
+			},
+			afterMoveCursor: () => {
+				if (context.instance.selection && isListMode && context.instance.selectionFollowsCursor) {
+					context.instance.selectRow(context.instance.cursorRowIndex);
+				}
+			}
+		};
+
+		// In 'list-single-selection' mode the selection is always exactly the cursor row, so
+		// Shift extension keys fall through to plain navigation (which collapses onto the cursor
+		// via afterMoveCursor). Ctrl+Shift+Space (select all) is likewise gated off below.
+		const allowExtend = selectionMode !== 'list-single-selection';
+
 		// Process the code.
 		switch (e.code) {
 			// Tab key - for summary panel navigation
@@ -199,16 +235,23 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// If selection is enabled, process the key.
-				if (context.instance.selection) {
-					// Consume the event only if there's an action supported for it
+				// Plain Space: in the list modes, when spaceSelects is set, commit the selection to
+				// the cursor row. Then always raise onSpace so consumers can act on the cursor row
+				// independently of selection (e.g. expand/collapse in a tree).
+				if (!e.ctrlKey && !e.shiftKey) {
 					consumeEvent();
-
+					if (context.instance.selection && isListMode && context.instance.spaceSelects) {
+						context.instance.selectRow(context.instance.cursorRowIndex);
+					}
+					await context.instance.onSpaceKey();
+				} else if (context.instance.selection) {
+					// Modifier combinations build selections (spreadsheet / multi-select list).
+					consumeEvent();
 					if (e.ctrlKey && !e.shiftKey) {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {
 						context.instance.selectRow(context.instance.cursorRowIndex);
-					} else if (e.ctrlKey && e.shiftKey) {
+					} else if (e.ctrlKey && e.shiftKey && allowExtend) {
 						context.instance.selectAll();
 					}
 				}
@@ -217,26 +260,22 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			// Enter key.
 			case 'Enter': {
-				// Check if this is a summary panel instance
-				const isSummaryPanel = context.instance instanceof TableSummaryDataGridInstance;
+				// Consume the event.
+				consumeEvent();
 
-				if (isSummaryPanel) {
-					// Consume the event.
-					consumeEvent();
-
-					// Make sure the cursor is showing.
-					if (context.instance.showCursor()) {
-						return;
-					}
-
-					// Expand or collapse the row in the summary panel.
-					const summaryInstance = context.instance as TableSummaryDataGridInstance;
-
-					// Only allow toggle if summary stats are supported for this column
-					if (summaryInstance.canToggleColumnExpansion(summaryInstance.cursorRowIndex)) {
-						await summaryInstance.toggleExpandColumn(summaryInstance.cursorRowIndex);
-					}
+				// Make sure the cursor is showing. If showCursor returned true, the cursor
+				// was previously hidden and is now visible; treat that as the activation.
+				if (context.instance.showCursor()) {
+					return;
 				}
+
+				// In the list modes, when enterSelects is set, Enter commits the selection to the
+				// cursor row. Then always raise onEnter so consumers can act on the cursor row
+				// independently of selection (e.g. expand/collapse in a tree).
+				if (context.instance.selection && isListMode && context.instance.enterSelects) {
+					context.instance.selectRow(context.instance.cursorRowIndex);
+				}
+				await context.instance.onEnterKey();
 				break;
 			}
 
@@ -250,8 +289,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Shift + Home does nothing.
-				if (e.shiftKey) {
+				// Shift + Home extends the row selection up by one screen.
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Screen);
 					return;
 				}
@@ -261,22 +300,27 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Cmd / Ctrl + Home clears the selection and positions the screen and cursor to the
-				// top left.
+				// Cmd / Ctrl + Home positions the screen and cursor to the top left. The cursor
+				// lands on the first selectable row so unselectable rows (e.g. section headers)
+				// are skipped. In spreadsheet mode the selection is cleared; in list mode it
+				// collapses onto the new cursor row.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
-					context.instance.clearSelection();
+					navigationSelection.beforeMoveCursor();
 					await context.instance.setScrollOffsets(0, 0);
 					context.instance.setCursorPosition(
 						context.instance.firstColumnIndex,
-						context.instance.firstRowIndex
+						context.instance.firstSelectableRowIndex
 					);
+					navigationSelection.afterMoveCursor();
 					return;
 				}
 
-				// Home clears the selection and positions the screen and cursor to the left.
-				context.instance.clearSelection();
+				// Home positions the screen and cursor to the left. In spreadsheet mode the
+				// selection is cleared; in list mode it collapses onto the cursor row.
+				navigationSelection.beforeMoveCursor();
 				await context.instance.setHorizontalScrollOffset(0);
 				context.instance.setCursorColumn(context.instance.firstColumnIndex);
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -290,8 +334,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Shift + End does nothing.
-				if (e.shiftKey) {
+				// Shift + End extends the row selection down by one screen.
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Screen);
 					return;
 				}
@@ -301,25 +345,30 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					return;
 				}
 
-				// Cmd / Ctrl + End clears the selection and positions the screen and cursor to the
-				// bottom right.
+				// Cmd / Ctrl + End positions the screen and cursor to the bottom right. The
+				// cursor lands on the last selectable row so unselectable rows (e.g. section
+				// headers) are skipped. In spreadsheet mode the selection is cleared; in list
+				// mode it collapses onto the new cursor row.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
-					context.instance.clearSelection();
+					navigationSelection.beforeMoveCursor();
 					await context.instance.setScrollOffsets(
 						context.instance.maximumHorizontalScrollOffset,
 						context.instance.maximumVerticalScrollOffset
 					);
 					context.instance.setCursorPosition(
 						context.instance.lastColummIndex,
-						context.instance.lastRowIndex
+						context.instance.lastSelectableRowIndex
 					);
+					navigationSelection.afterMoveCursor();
 					return;
 				}
 
-				// End clears the selection and positions the screen and cursor to the left.
-				context.instance.clearSelection();
+				// End positions the screen and cursor to the right. In spreadsheet mode the
+				// selection is cleared; in list mode it collapses onto the cursor row.
+				navigationSelection.beforeMoveCursor();
 				await context.instance.setHorizontalScrollOffset(context.instance.maximumHorizontalScrollOffset);
 				context.instance.setCursorColumn(context.instance.lastColummIndex);
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -339,17 +388,19 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Range selection.
-				if (e.shiftKey) {
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Page);
 					return;
 				}
 
-				// PageUp clears the selection and moves up by one page, positioning the cursor at
-				// the top of the page.
-				context.instance.clearSelection();
+				// PageUp moves up by one page, positioning the cursor at the top of the page. In
+				// spreadsheet mode the selection is cleared; in list mode it collapses onto the
+				// new cursor row.
+				navigationSelection.beforeMoveCursor();
 
 				// Scroll page up.
 				context.instance.scrollPageUp();
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -369,17 +420,19 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Range selection.
-				if (e.shiftKey) {
+				if (e.shiftKey && allowExtend) {
 					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Page);
 					return;
 				}
 
-				// PageDown clears the selection and moves down by one page, positioning the cursor
-				// at the top of the page
-				context.instance.clearSelection();
+				// PageDown moves down by one page, positioning the cursor at the top of the page.
+				// In spreadsheet mode the selection is cleared; in list mode it collapses onto
+				// the new cursor row.
+				navigationSelection.beforeMoveCursor();
 
 				// Scroll page down.
 				context.instance.scrollPageDown();
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -401,17 +454,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection up.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Row);
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Move the cursor up.
 				context.instance.moveCursorUp();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -433,17 +490,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection down.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Row);
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Move the cursor down.
 				context.instance.moveCursorDown();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -465,17 +526,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection left.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendColumnSelectionLeft(ExtendColumnSelectionBy.Column);
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Moves the cursor left.
 				context.instance.moveCursorLeft();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -497,17 +562,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// When selection is enabled, perform selection processing.
 				if (context.instance.selection) {
 					// Extend selection right.
-					if (e.shiftKey) {
+					if (e.shiftKey && allowExtend) {
 						context.instance.extendColumnSelectionRight(ExtendColumnSelectionBy.Column);
 						return;
 					}
 
-					// Clear selection.
-					context.instance.clearSelection();
+					// Clear selection (spreadsheet mode) or leave it for the post-move selectRow
+					// (list mode).
+					navigationSelection.beforeMoveCursor();
 				}
 
 				// Moves the cursor right.
 				context.instance.moveCursorRight();
+
+				// Collapse selection onto the new cursor row in list mode.
+				navigationSelection.afterMoveCursor();
 				break;
 			}
 
@@ -642,11 +711,23 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	}
 
+	// Scrollbars are absolutely-positioned siblings overlapping the column headers, row headers,
+	// and rows. These custom properties carry the scrollbar thickness when each scrollbar
+	// enabled (otherwise zero), and descendants use them in clip-path so nothing paints underneath
+	// the scrollbar gutters. This avoids the "what color should the scrollbar background be",
+	// allowing the scrollbars (and the scrollbar corner) to simply show the ambient background.
+	const waffleStyle: DataGridWaffleCSSProperties = {
+		'--data-grid-clip-right': `${context.instance.verticalScrollbar ? context.instance.scrollbarThickness : 0}px`,
+		'--data-grid-clip-bottom': `${context.instance.horizontalScrollbar ? context.instance.scrollbarThickness : 0}px`,
+	};
+
 	// Render.
 	return (
 		<div
 			ref={dataGridWaffleRef}
 			className='data-grid-waffle'
+			role='grid'
+			style={waffleStyle}
 			tabIndex={0}
 			onBlur={() => context.instance.setFocused(false)}
 			onFocus={() => context.instance.setFocused(true)}
@@ -726,6 +807,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				style={{
 					width: width - context.instance.rowHeadersWidth,
 					height: height - context.instance.columnHeadersHeight,
+					// See the --data-grid-clip-* custom properties on .data-grid-waffle.
+					clipPath: 'inset(0 var(--data-grid-clip-right) var(--data-grid-clip-bottom) 0)',
 				}}
 			>
 				<div

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -33,7 +33,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentPlot();
 
 			try {
-				await waitForNoChangesAtLocator(app.code.driver.page, '.plot-instance img', 10000);
+				await waitForNoChangesAtLocator(app.code.driver.currentPage, '.plot-instance img', 10000);
 				console.log('No changes detected for 10 seconds');
 			} catch (error) {
 				fail('Changes detected within the specified duration');
@@ -52,7 +52,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}).toPass({ timeout: 15000 });
 		});
 
-		test('Python - plot should not be updated after initial appearance', { tag: [tags.WEB] }, async function ({ app, python }) {
+		test.skip('Python - plot should not be updated after initial appearance', {
+			annotation: {
+				type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13066'
+			},
+			tag: [tags.WEB]
+		}, async function ({ app, python }) {
 
 			const code = `
 import matplotlib.pyplot as plt
@@ -66,7 +71,7 @@ plt.show()
 			await app.workbench.plots.waitForCurrentPlot();
 
 			try {
-				await waitForNoChangesAtLocator(app.code.driver.page, '.plot-instance img', 10000);
+				await waitForNoChangesAtLocator(app.code.driver.currentPage, '.plot-instance img', 10000);
 				console.log('No changes detected for 10 seconds');
 			} catch (error) {
 				fail('Changes detected within the specified duration');

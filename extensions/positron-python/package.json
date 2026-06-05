@@ -1631,6 +1631,12 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.installPackages",
+                    "title": "Install Python Packages",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
                     "command": "python.reportIssue",
                     "title": "%python.command.python.reportIssue.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"

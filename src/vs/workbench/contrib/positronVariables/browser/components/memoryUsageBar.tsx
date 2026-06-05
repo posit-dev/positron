@@ -15,6 +15,7 @@ import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsag
 interface MemoryUsageBarProps {
 	snapshot: IMemoryUsageSnapshot;
 	className?: string;
+	style?: React.CSSProperties;
 	highlightedIds?: ReadonlySet<string> | null;
 	onSegmentHover?: (id: string | null) => void;
 }
@@ -29,7 +30,7 @@ interface MemoryUsageBarProps {
  * table row highlights exactly one sub-segment in this bar, and vice versa.
  */
 export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
-	const { snapshot, className, highlightedIds, onSegmentHover } = props;
+	const { snapshot, className, style, highlightedIds, onSegmentHover } = props;
 	const total = snapshot.totalSystemMemory || 1; // avoid division by zero
 
 	// Build sub-segments: one per session, one per overhead item, one for other.
@@ -86,12 +87,19 @@ export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
 		);
 	}
 
-	const containerClass = className
-		? `memory-bar-container ${className}`
-		: 'memory-bar-container';
+	// In a low-memory state the bar is drawn with an error-colored border and
+	// non-kernel memory is recolored (handled in CSS via the `low-memory` class).
+	const classes = ['memory-bar-container'];
+	if (className) {
+		classes.push(className);
+	}
+	if (snapshot.lowMemory) {
+		classes.push('low-memory');
+	}
+	const containerClass = classes.join(' ');
 
 	return (
-		<div className={containerClass}>
+		<div className={containerClass} style={style}>
 			{elements}
 		</div>
 	);

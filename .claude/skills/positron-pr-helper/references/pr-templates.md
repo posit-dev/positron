@@ -8,8 +8,10 @@ This document contains templates and examples for different types of PRs in the 
 
 **With Issue:**
 ```
-Addresses #[issue_number].
+Fixes #[issue_number]
 ```
+
+Use a GitHub closing keyword (`Fixes`, `Closes`, `Resolves`) so the issue auto-closes when the PR is merged.
 
 **Without Issue:**
 ```
@@ -18,8 +20,10 @@ Addresses #[issue_number].
 
 **Multiple Issues:**
 ```
-Addresses #[issue1], #[issue2], and #[issue3].
+Fixes #[issue1], fixes #[issue2], and fixes #[issue3]
 ```
+
+Each issue needs its own closing keyword for GitHub to link and close all of them.
 
 ### Description Patterns
 
@@ -46,7 +50,7 @@ Related PRs:
 ### 1. Bug Fix
 
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 This PR fixes [the problem]. The issue was caused by [root cause]. [Implementation approach if non-obvious].
 
@@ -58,7 +62,7 @@ This PR fixes [the problem]. The issue was caused by [root cause]. [Implementati
 #### Bug Fixes
 - [User-facing description of fix] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -68,7 +72,7 @@ This PR fixes [the problem]. The issue was caused by [root cause]. [Implementati
 ### 2. New Feature
 
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 ### Summary
 
@@ -86,7 +90,7 @@ This PR adds [feature description]. Users can now [what they can do].
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -103,7 +107,7 @@ This PR adds [feature description]. Users can now [what they can do].
 ### 3. UI/UX Change
 
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 This PR [describes the UI change]. The change improves [what it improves].
 
@@ -117,7 +121,7 @@ This PR [describes the UI change]. The change improves [what it improves].
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags including UI-specific ones]
 
@@ -129,7 +133,7 @@ This PR [describes the UI change]. The change improves [what it improves].
 ### 4. Performance Improvement
 
 ```markdown
-Addresses #[issue].
+Fixes #[issue]
 
 ### Summary
 
@@ -149,7 +153,7 @@ This PR optimizes [what was optimized]. Performance improves by [metrics/percent
 #### Performance
 - [User-facing performance improvement] (#[issue])
 
-### QA Notes
+### Validation Steps
 
 @:performance [other relevant tags]
 
@@ -175,7 +179,7 @@ This PR [refactoring description]. No user-facing changes.
 #### Bug Fixes
 - N/A
 
-### QA Notes
+### Validation Steps
 
 [relevant tags]
 
@@ -191,7 +195,7 @@ Adds e2e tests for [feature/area].
 
 This PR adds comprehensive test coverage for [what's being tested]. The tests verify [key behaviors].
 
-### QA Notes
+### Validation Steps
 
 [tags for the areas being tested]
 
@@ -226,7 +230,7 @@ npx playwright test [test-file-name] --project e2e-electron
 - ❌ "Fixed various bugs"
 - ❌ "Updated UI"
 
-## QA Notes Best Practices
+## Validation Steps Best Practices
 
 ### Tag Selection
 

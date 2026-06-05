@@ -42,6 +42,9 @@
 		// --- End PWB ---
 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
 	</script>
+	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
+	{{PWB_WORKBENCH_MARKER}}
+	<!-- End PWB -->
 
 	<!--- Start Positron --->
 	<script>
@@ -63,7 +66,6 @@
 		addModule("@dnd-kit/sortable");
 		addModule("@dnd-kit/utilities");
 
-		// --- End Positron ---
 		const importMapElement = document.createElement("script");
 		importMapElement.type = "importmap";
 		importMapElement.setAttribute("nonce", "1nline-m4p");
@@ -71,6 +73,10 @@
 		document.head.appendChild(importMapElement);
 	</script>
 	<!--- End Positron --->
+
+	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
+	{{PWB_WORKBENCH_MARKER}}
+	<!-- End PWB -->
 
 	<script>
 		performance.mark('code/willLoadWorkbenchMain');

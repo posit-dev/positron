@@ -1,9 +1,6 @@
 {
     "compilerOptions": {
-        "baseUrl": ".",
-        "paths": {
-            "*": ["types/*"]
-        },
+        "skipLibCheck": true,
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "target": "es2018",
@@ -28,7 +25,8 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
-        "removeComments": true
+        "removeComments": true,
+        "skipLibCheck": true
     },
     "exclude": [
         "node_modules",

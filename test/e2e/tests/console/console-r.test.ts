@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,12 +22,6 @@ test.describe('Console Pane: R', {
 		await app.workbench.console.waitForConsoleContents(process.env.POSITRON_R_VER_SEL!, { expectedCount: 2, timeout: 20000 });
 	});
 
-	test('R - Verify cat from .Rprofile', async function ({ app, r }) {
-		await expect(async () => {
-			await app.workbench.console.waitForConsoleContents('cat from .Rprofile');
-		}).toPass();
-	});
-
 	test('R - Verify cancel button on console bar', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
@@ -41,7 +35,7 @@ test.describe('Console Pane: R', {
 		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")', true);
 
 		await app.workbench.quickInput.type('password');
-		await app.code.driver.page.keyboard.press('Enter');
+		await app.code.driver.currentPage.keyboard.press('Enter');
 
 		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');

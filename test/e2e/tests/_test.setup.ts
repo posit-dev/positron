@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,6 +31,8 @@ let renamedLogsPath = 'not-set';
 // Test fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
+
+	managedCredentials: [undefined, { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
@@ -104,8 +106,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
+	app: [async ({ options, logsPath, logger, managedCredentials, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials });
 
 		try {
 			await start();
@@ -116,7 +118,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			const screenshotPath = join(logsPath, 'app-start-failure.png');
 			try {
-				const page = app.code?.driver?.page;
+				const page = app.code?.driver?.currentPage;
 				if (page) {
 					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
 				}
@@ -274,7 +276,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {
-		await use(app.code.driver.page);
+		await use(app.code.driver.currentPage);
 	},
 
 	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {
@@ -349,6 +351,22 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		logger.log('');
 	} catch (error) {
 		// ignore
+	}
+
+	// Clean up Docker container logs at worker teardown (once per test file)
+	const isWorkbenchProject = testInfo.project.name === 'e2e-workbench';
+	if (isWorkbenchProject) {
+		try {
+			const { exec } = require('child_process');
+			const { promisify } = require('util');
+			const execP = promisify(exec);
+			await execP('docker exec test sh -c "rm -rf /home/user1/.local/state/positron/logs/*"', {
+				maxBuffer: 1024 * 1024 * 10,
+			});
+			console.log('Cleaned up logs in Docker container');
+		} catch (err: any) {
+			console.warn(`Failed to clean up logs in Docker container: ${err.message}`);
+		}
 	}
 
 	if (appFixtureFailed) {
@@ -500,6 +518,7 @@ export interface TestFixtures {
 
 export interface WorkerFixtures {
 	suiteId: string;
+	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

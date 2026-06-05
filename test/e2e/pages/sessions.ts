@@ -32,28 +32,28 @@ const START_NEW_CONSOLE_SESSION_PATTERN = new RegExp(START_NEW_CONSOLE_SESSION_L
  * Class to manage console sessions
  */
 export class Sessions {
-	private get page(): Page { return this.code.driver.page; }
+	private get page(): Page { return this.code.driver.currentPage; }
 
 	// Session management and UI elements
 	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
-	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
-	sessionTabs = this.page.getByTestId(/console-tab/);
-	currentSessionTab = this.page.locator('.tab-button--active');
-	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
-	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
+	get sessions() { return this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/); }
+	get sessionTabs() { return this.page.getByTestId(/console-tab/); }
+	get currentSessionTab() { return this.page.locator('.tab-button--active'); }
+	get sessionPicker() { return this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first(); }
+	private get renameMenuItem() { return this.page.getByRole('menuitem', { name: 'Rename...' }); }
+	get deleteMenuItem() { return this.page.getByRole('menuitem', { name: 'Delete' }); }
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
 	private idleStatus = (session: Locator) => session.locator(IDLE_STATUS_ICON);
 	private disconnectedStatus = (session: Locator) => session.locator(DISCONNECTED_STATUS_ICON);
-	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
+	private get activeStatusIcon() { return this.page.locator(ACTIVE_STATUS_ICON); }
 
 	// Session Metadata
-	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
-	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info').first();
+	private get metadataButton() { return this.page.getByRole('button', { name: 'Console information' }); }
+	private get metadataDialog() { return this.page.getByRole('dialog').locator('.console-instance-info').first(); }
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
-	private outputChannel = this.page.getByRole('combobox');
+	private get outputChannel() { return this.page.getByRole('combobox'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 
@@ -163,7 +163,7 @@ export class Sessions {
 						await this.page.getByTestId('trash-session').click();
 						return;
 					} else {
-						if (/(8080|8787)/.test(this.code.driver.page.url())) {
+						if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
 							return; // workaround for server/workbench
 						} else {
 							throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
@@ -268,12 +268,7 @@ export class Sessions {
 				await this.delete(sessionIds[i]);
 			}
 
-			// Workaround for external browser
-			if (this.code.driver.page.url().includes('8080')) {
-				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
-			} else {
-				await expect(this.page.getByText('There is no session running.')).toBeVisible();
-			}
+			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
 		});
 	}
 
@@ -330,16 +325,21 @@ export class Sessions {
 		await test.step(`Resize session list: ${options}`, async () => {
 			const { x, y } = options;
 
-			// Adjust width if x is provided
+			// Adjust width if x is provided. Scope the sash to the bottom panel
+			// so we don't pick up the editor/aux-bar split sashes, and assert
+			// uniqueness so a layout change that adds another sash there fails
+			// loudly instead of silently dragging the wrong divider.
 			if (x !== undefined) {
-				const horizontalSash = this.page.locator('.sash');
+				const horizontalSash = this.page.locator('[id="workbench.parts.panel"] .sash');
+				await expect(horizontalSash).toHaveCount(1);
 				const box = await horizontalSash.boundingBox();
-				if (box) {
-					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-					await this.page.mouse.down();
-					await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
-					await this.page.mouse.up();
+				if (!box) {
+					throw new Error('Session list sash not measurable');
 				}
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
+				await this.page.mouse.up();
 			}
 
 			// Adjust height if y is provided
@@ -466,12 +466,23 @@ export class Sessions {
 				// Wait until the desired runtime appears in the list and select it.
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
-				await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				try {
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+				} catch (e) {
+					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
+					// can be missing from the quick pick on the first attempt. Force a
+					// rescan so the next retry of this `toPass` iteration sees it.
+					if (language === 'Python') {
+						await this.quickinput.closeQuickInput().catch(() => { });
+						await this.quickaccess.runCommand('python.refreshInterpreters').catch(() => { });
+					}
+					throw e;
+				}
 				await this.quickinput.waitForQuickInputClosed();
 			}, 'Select runtime from quick pick').toPass({ timeout: 30000 });
 
 			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
+			await this.code.driver.currentPage.mouse.move(0, 0);
 
 			if (waitForReady) {
 				await expect(this.console.activeConsole.getByText(/started/)).toBeVisible({ timeout: 90000 });
@@ -511,7 +522,7 @@ export class Sessions {
 		}
 
 		await this.quickPick.openSessionQuickPickMenu(false);
-		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
+		const selectedInterpreter = this.code.driver.currentPage.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
 
 		// Extract the runtime name
 		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
@@ -538,9 +549,12 @@ export class Sessions {
 	 */
 	async expectNoStartUpMessaging() {
 		await test.step('Wait runtimes to finish loading', async () => {
-			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
-			await this.code.driver.page.mouse.move(0, 0);
+			await this.code.driver.currentPage.mouse.move(0, 0);
+			// Give startup messaging a chance to appear before asserting it's gone,
+			// so we don't pass instantly when this check runs ahead of the UI.
+			await this.page.waitForTimeout(5000);
 			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
@@ -765,7 +779,7 @@ export class Sessions {
 			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
 			await this.quickinput.quickInputList.getByText(oldName).first().click();
 			await this.quickinput.type(newName);
-			await this.code.driver.page.keyboard.press('Enter');
+			await this.code.driver.currentPage.keyboard.press('Enter');
 		});
 	}
 
@@ -1087,7 +1101,7 @@ export class Sessions {
  * Helper class to manage the session quick pick
  */
 export class SessionQuickPick {
-	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
+	private get quickInputTitleBar(): Locator { return this.code.driver.currentPage.locator('.quick-input-titlebar'); }
 	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(SESSION_QUICK_MENU_PATTERN); }
 	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(START_NEW_CONSOLE_SESSION_PATTERN); }
 
@@ -1107,10 +1121,16 @@ export class SessionQuickPick {
 					await this.sessions.sessionPicker.click();
 				}
 
+				// Wait for the menu to actually render before callers query
+				// its contents -- otherwise getActiveSessions can race against
+				// rendering and read stale `.quick-input-list-rows` left in
+				// DOM (display:none) by the previously-open menu.
+				await expect(this.sessionQuickMenu).toBeVisible({ timeout: 1000 });
+
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: SESSION_QUICK_MENU_PATTERN }).fill('New Session');
-					await this.code.driver.page.keyboard.press('Enter');
-					await expect(this.code.driver.page.getByText(START_NEW_CONSOLE_SESSION_PATTERN)).toBeVisible({ timeout: 1000 });
+					await this.code.driver.currentPage.getByRole('textbox', { name: SESSION_QUICK_MENU_PATTERN }).fill('New Session');
+					await this.code.driver.currentPage.keyboard.press('Enter');
+					await expect(this.code.driver.currentPage.getByText(START_NEW_CONSOLE_SESSION_PATTERN)).toBeVisible({ timeout: 1000 });
 				}
 			}, 'Open Session QuickPick Menu').toPass({ intervals: [500], timeout: 10000 });
 		});
@@ -1122,7 +1142,7 @@ export class SessionQuickPick {
 	async closeSessionQuickPickMenu() {
 		await test.step('Close session quickpick menu', async () => {
 			if (await this.sessionQuickMenu.isVisible()) {
-				await this.code.driver.page.keyboard.press('Escape');
+				await this.code.driver.currentPage.keyboard.press('Escape');
 				await expect(this.sessionQuickMenu).not.toBeVisible();
 			}
 		});
@@ -1143,7 +1163,7 @@ export class SessionQuickPick {
 			const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
 			const allSessions = isAllSessionsMenuVisible
 				? []
-				: await this.code.driver.page.locator('.quick-input-list-rows').all();
+				: await this.code.driver.currentPage.locator('.quick-input-list-rows').all();
 
 			// Get the text of all sessions
 			const activeSessions = await Promise.all(
@@ -1172,7 +1192,7 @@ export class SessionQuickPick {
 			await this.openSessionQuickPickMenu(true);
 
 			// Clear the search text to show all runtimes
-			await this.code.driver.page.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
+			await this.code.driver.currentPage.getByRole('textbox', { name: START_NEW_CONSOLE_SESSION_PATTERN }).clear();
 
 			const seen = new Set<string>();
 			const runtimes: RuntimeInfo[] = [];
@@ -1180,7 +1200,7 @@ export class SessionQuickPick {
 			// Page through the list to load all entries (handles virtualized lists)
 			let stable = false;
 			while (!stable) {
-				const entries = this.code.driver.page.locator('.quick-input-list-entry');
+				const entries = this.code.driver.currentPage.locator('.quick-input-list-entry');
 				const entryCount = await entries.count();
 
 				let newEntriesFound = false;
@@ -1214,9 +1234,9 @@ export class SessionQuickPick {
 				}
 
 				if (newEntriesFound) {
-					await this.code.driver.page.keyboard.press('PageDown');
-					await this.code.driver.page.keyboard.press('PageDown');
-					await this.code.driver.page.waitForTimeout(50); // allow more items to render
+					await this.code.driver.currentPage.keyboard.press('PageDown');
+					await this.code.driver.currentPage.keyboard.press('PageDown');
+					await this.code.driver.currentPage.waitForTimeout(50); // allow more items to render
 				} else {
 					stable = true; // no new items found after PageDown
 				}

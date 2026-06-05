@@ -23,6 +23,11 @@ import { IUserDataProfilesService } from '../../../../platform/userDataProfile/c
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { positronExtensionCompatibility, positronExtensionCompatibilityError } from '../../../../platform/extensionManagement/common/abstractExtensionManagementService.js';
+// --- End Positron ---
+
 export class WebExtensionManagementService extends AbstractExtensionManagementService implements IProfileAwareExtensionManagementService {
 
 	declare readonly _serviceBrand: undefined;
@@ -78,6 +83,17 @@ export class WebExtensionManagementService extends AbstractExtensionManagementSe
 	async getTargetPlatform(): Promise<TargetPlatform> {
 		return TargetPlatform.WEB;
 	}
+
+	// --- Start Positron ---
+	// Check compatibility using the manifest (which includes engines.positron if specified)
+	override async installFromGallery(extension: IGalleryExtension, options: InstallOptions = {}): Promise<ILocalExtension> {
+		const compat = positronExtensionCompatibility(extension, this.productService);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		return super.installFromGallery(extension, options);
+	}
+	// --- End Positron ---
 
 	protected override async isExtensionPlatformCompatible(extension: IGalleryExtension): Promise<boolean> {
 		if (this.isConfiguredToExecuteOnWeb(extension)) {
@@ -261,6 +277,7 @@ function toLocalExtension(extension: IExtension): ILocalExtension {
 		targetPlatform: TargetPlatform.WEB,
 		updated: !!metadata.updated,
 		pinned: !!metadata?.pinned,
+		forceAutoUpdate: false,
 		private: !!metadata.private,
 		isWorkspaceScoped: false,
 		source: metadata?.source ?? (extension.identifier.uuid ? 'gallery' : 'resource'),

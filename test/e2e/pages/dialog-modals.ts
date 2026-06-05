@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,9 +9,9 @@ import { Console } from '../infra';
 import { Toasts } from './dialog-toasts.js';
 
 export class Modals {
-	public get modalBox(): Locator { return this.code.driver.page.locator('.positron-modal-dialog-box'); }
+	public get modalBox(): Locator { return this.code.driver.currentPage.locator('.positron-modal-dialog-box'); }
 	public get modalTitle(): Locator { return this.modalBox.locator('.simple-title-bar-title'); }
-	public get modalMessage(): Locator { return this.code.driver.page.locator('.dialog-box .message'); }
+	public get modalMessage(): Locator { return this.code.driver.currentPage.locator('.dialog-box .message'); }
 	public get okButton(): Locator { return this.modalBox.getByRole('button', { name: 'OK' }); }
 	public get cancelButton(): Locator { return this.modalBox.getByRole('button', { name: 'Cancel' }); }
 	public getButton(label: string | RegExp): Locator { return this.modalBox.getByRole('button', { name: label }); }
@@ -64,7 +64,7 @@ export class Modals {
 	 */
 	async installRenvModal(action: 'install' | 'cancel') {
 		try {
-			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 40000 });
+			await expect(this.code.driver.currentPage.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 40000 });
 
 			if (action === 'install') {
 				this.code.logger.log('Install Renv modal detected: clicking `Install now`');

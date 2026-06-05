@@ -23,6 +23,7 @@ import { addArg, parseCLIProcessArgv } from '../../platform/environment/node/arg
 import { getStdinFilePath, hasStdinWithoutTty, readFromStdin, stdinDataListener } from '../../platform/environment/node/stdin.js';
 import { createWaitMarkerFileSync } from '../../platform/environment/node/wait.js';
 import product from '../../platform/product/common/product.js';
+import { resolveSiblingWindowsExePath } from '../../platform/native/node/siblingApp.js';
 import { CancellationTokenSource } from '../../base/common/cancellation.js';
 import { isUNC, randomPath } from '../../base/common/extpath.js';
 import { Utils } from '../../platform/profiling/common/profiling.js';
@@ -81,7 +82,7 @@ export async function main(argv: string[]): Promise<void> {
 					tunnelProcess = spawn('cargo', ['run', '--', subcommand, ...tunnelArgs], { cwd: join(getAppRoot(), 'cli'), stdio, env });
 				} else {
 					const appPath = process.platform === 'darwin'
-						// ./Contents/MacOS/Electron => ./Contents/Resources/app/bin/code-tunnel-insiders
+						// ./Contents/MacOS/Code => ./Contents/Resources/app/bin/code-tunnel-insiders
 						? join(dirname(dirname(process.execPath)), 'Resources', 'app')
 						: dirname(process.execPath);
 					const tunnelCommand = join(appPath, 'bin', `${product.tunnelApplicationName}${isWindows ? '.exe' : ''}`);
@@ -259,11 +260,19 @@ export async function main(argv: string[]): Promise<void> {
 			const tempParentDir = randomPath(tmpdir(), 'vscode');
 			const tempUserDataDir = join(tempParentDir, 'data');
 			const tempExtensionsDir = join(tempParentDir, 'extensions');
+			const tempSharedDataDir = join(tempParentDir, 'shared');
+			const tempAgentPluginsDir = join(tempParentDir, 'agent-plugins');
+			const tempAgentsUserDataDir = join(tempParentDir, 'agents-data');
+			const tempAgentsExtensionsDir = join(tempParentDir, 'agents-extensions');
 
 			addArg(argv, '--user-data-dir', tempUserDataDir);
 			addArg(argv, '--extensions-dir', tempExtensionsDir);
+			addArg(argv, '--shared-data-dir', tempSharedDataDir);
+			addArg(argv, '--agent-plugins-dir', tempAgentPluginsDir);
+			addArg(argv, '--agents-user-data-dir', tempAgentsUserDataDir);
+			addArg(argv, '--agents-extensions-dir', tempAgentsExtensionsDir);
 
-			console.log(`State is temporarily stored. Relaunch this state with: ${product.applicationName} --user-data-dir "${tempUserDataDir}" --extensions-dir "${tempExtensionsDir}"`);
+			console.log(`State is temporarily stored. Relaunch this state with: ${product.applicationName} --user-data-dir "${tempUserDataDir}" --extensions-dir "${tempExtensionsDir}" --shared-data-dir "${tempSharedDataDir}" --agent-plugins-dir "${tempAgentPluginsDir}" --agents-user-data-dir "${tempAgentsUserDataDir}" --agents-extensions-dir "${tempAgentsExtensionsDir}"`);
 		}
 
 		const hasReadStdinArg = args._.some(arg => arg === '-') || args.chat?._.some(arg => arg === '-');
@@ -397,9 +406,9 @@ export async function main(argv: string[]): Promise<void> {
 
 			const filenamePrefix = randomPath(homedir(), 'prof');
 
-			addArg(argv, `--inspect-brk=${profileHost}:${portMain}`);
-			addArg(argv, `--remote-debugging-port=${profileHost}:${portRenderer}`);
-			addArg(argv, `--inspect-brk-extensions=${profileHost}:${portExthost}`);
+			addArg(argv, `--inspect-brk=${portMain}`);
+			addArg(argv, `--remote-debugging-port=${portRenderer}`);
+			addArg(argv, `--inspect-brk-extensions=${portExthost}`);
 			addArg(argv, `--prof-startup-prefix`, filenamePrefix);
 			addArg(argv, `--no-cached-data`);
 
@@ -496,8 +505,19 @@ export async function main(argv: string[]): Promise<void> {
 			if (!args.verbose && args.status) {
 				options['stdio'] = ['ignore', 'pipe', 'ignore']; // restore ability to see output when --status is used
 			}
-			// We spawn process.execPath directly
-			child = spawn(process.execPath, argv.slice(2), options);
+
+			// Figure out the app to launch: with --agents we try to launch the embedded app on Windows
+			let execToLaunch = process.execPath;
+			if (isWindows && args.agents) {
+				const siblingExe = resolveSiblingWindowsExePath(product);
+				if (siblingExe) {
+					execToLaunch = siblingExe;
+					argv = argv.filter(arg => arg !== '--agents');
+				}
+			}
+
+			// We spawn the resolved executable directly
+			child = spawn(execToLaunch, argv.slice(2), options);
 		} else {
 			// On macOS, we spawn using the open command to obtain behavior
 			// similar to if the app was launched from the dock
@@ -511,8 +531,14 @@ export async function main(argv: string[]): Promise<void> {
 			//    This way, Mac does not automatically try to foreground the new instance, which causes
 			//    focusing issues when the new instance only sends data to a previous instance and then closes.
 			const spawnArgs = ['-n', '-g'];
-			// -a opens the given application.
-			spawnArgs.push('-a', process.execPath); // -a: opens a specific application
+
+			// Figure out the app to launch: with --agents we try to launch the embedded app
+			if (args.agents && product.darwinSiblingBundleIdentifier) {
+				spawnArgs.push('-b', product.darwinSiblingBundleIdentifier);
+				argv = argv.filter(arg => arg !== '--agents');
+			} else {
+				spawnArgs.push('-a', process.execPath); // -a opens the given application.
+			}
 
 			if (args.verbose || args.status) {
 				spawnArgs.push('--wait-apps'); // `open --wait-apps`: blocks until the launched app is closed (even if they were already running)

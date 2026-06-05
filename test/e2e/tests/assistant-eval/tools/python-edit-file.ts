@@ -11,10 +11,10 @@ import { EvalTestCase, RunResult } from '../types';
  * Test: positron_editFile_internal tool usage
  *
  * Verifies that the positron_editFile_internal tool is called when
- * editing a file in Edit mode.
+ * editing a file in Agent mode.
  */
 const prompt = 'Add a method to return today\'s date.';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const pythonEditFile: EvalTestCase = {
 	id: 'python-edit-file',

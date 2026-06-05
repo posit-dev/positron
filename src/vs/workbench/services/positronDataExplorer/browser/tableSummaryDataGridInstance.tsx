@@ -27,7 +27,7 @@ import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrd
  */
 const SUMMARY_HEIGHT = 34;
 const PROFILE_LINE_HEIGHT = 20;
-const OVERSCAN_FACTOR = 3
+const OVERSCAN_FACTOR = 3;
 
 /**
  * TableSummaryDataGridInstance class.
@@ -436,6 +436,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._rowLayoutManager.setSizeOverride(columnIndex, this.expandedRowHeight(columnIndex));
 		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
+	}
+
+	/**
+	 * Activates the row at the cursor by toggling its expansion. Called by DataGridWaffle
+	 * when the user presses Enter while a row is focused.
+	 */
+	override async onEnterKey(): Promise<void> {
+		// Only allow toggle if summary stats are supported for this column.
+		if (this.canToggleColumnExpansion(this.cursorRowIndex)) {
+			await this.toggleExpandColumn(this.cursorRowIndex);
+		}
 	}
 
 	/**

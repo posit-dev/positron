@@ -181,14 +181,14 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	retrigger?: boolean;
 }) {
 	const { sessions, hotKeys } = app.workbench;
-	const keyboard = app.code.driver.page.keyboard;
+	const keyboard = app.code.driver.currentPage.keyboard;
 
 	await sessions.select(session.id);
 
 	// Wait for the editor to actually have focus before typing
 	await expect(async () => {
 		await hotKeys.firstTab();
-		const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+		const editorInput = app.code.driver.currentPage.locator('.editor-instance .monaco-editor .native-edit-context');
 		await expect(editorInput).toBeFocused({ timeout: 2000 });
 	}).toPass({ timeout: 10000 });
 
@@ -217,13 +217,13 @@ async function triggerFirstAutocompleteInEditor({ app, session, expectedCount }:
 	expectedCount: number;
 }) {
 	const { sessions, hotKeys, editors } = app.workbench;
-	const keyboard = app.code.driver.page.keyboard;
+	const keyboard = app.code.driver.currentPage.keyboard;
 	const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';
 
 	// Select session and wait for editor focus once, before the retry loop
 	await sessions.select(session.id);
 	await hotKeys.firstTab();
-	const editorInput = app.code.driver.page.locator('.editor-instance .monaco-editor .native-edit-context');
+	const editorInput = app.code.driver.currentPage.locator('.editor-instance .monaco-editor .native-edit-context');
 	await expect(editorInput).toBeFocused();
 
 	await expect(async () => {

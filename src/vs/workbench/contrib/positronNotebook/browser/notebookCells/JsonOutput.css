@@ -1,0 +1,145 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.json-output {
+	--_json-indent: 16px;
+	--_json-row-height: 18px;
+
+	font-family: var(--vscode-positronNotebook-text-output-font-family, var(--monaco-monospace-font));
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+
+/* Tree layout: initial padding provides gutter space for root-level chevrons */
+.json-tree {
+	padding: 1px 0;
+	padding-left: var(--_json-indent);
+}
+
+.json-leaf {
+	min-height: var(--_json-row-height);
+}
+
+.json-collapsible-header {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	padding: 0;
+	margin: 0;
+	min-height: var(--_json-row-height);
+	cursor: pointer;
+	user-select: none;
+	border: none;
+	background: none;
+	font: inherit;
+	color: inherit;
+	width: 100%;
+	text-align: left;
+}
+
+.json-collapsible-header span {
+	cursor: pointer;
+}
+
+.json-collapsible-content {
+	padding: 2px 4px;
+	margin: -2px 0;
+	border-radius: 3px;
+}
+
+.json-collapsible-header:hover .json-collapsible-content {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.json-collapsible-header:focus-visible .json-collapsible-content {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Chevron sits in the gutter via negative margin */
+.json-chevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: var(--_json-indent);
+	height: var(--_json-indent);
+	margin-left: calc(-1 * var(--_json-indent));
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	opacity: 0.7;
+}
+
+.json-children {
+	border-left: 1px solid var(--vscode-editorIndentGuide-background);
+	padding-left: calc(var(--_json-indent) - 1px);
+}
+
+.json-bracket-close {
+	min-height: var(--_json-row-height);
+}
+
+/* Inline expand/collapse for long strings */
+.json-expand-value {
+	border: none;
+	background: none;
+	font: inherit;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	padding: 0 2px;
+	margin-left: 4px;
+	border-radius: 3px;
+	white-space: nowrap;
+	opacity: 0.7;
+}
+
+.json-expand-value:hover {
+	opacity: 1;
+	color: var(--vscode-textLink-foreground);
+}
+
+.json-expand-value:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Secondary annotation text (item counts) */
+.json-secondary {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+	margin-left: 6px;
+	font-size: 11px;
+}
+
+/* Token colors */
+.json-key {
+	color: var(--vscode-debugTokenExpression-name);
+	margin-right: 4px;
+}
+
+.json-string {
+	color: var(--vscode-debugTokenExpression-string);
+	overflow-wrap: anywhere;
+}
+
+.json-number {
+	color: var(--vscode-debugTokenExpression-number);
+}
+
+.json-boolean {
+	color: var(--vscode-debugTokenExpression-boolean);
+}
+
+.json-null {
+	color: var(--vscode-debugTokenExpression-value);
+	font-style: italic;
+}
+
+.json-punct {
+	color: var(--vscode-foreground);
+	opacity: 0.6;
+}

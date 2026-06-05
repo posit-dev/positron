@@ -14,7 +14,7 @@ import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEv
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
@@ -60,6 +60,10 @@ class TestWorkspaceContextService implements IWorkspaceContextService {
 	}
 
 	isCurrentWorkspace(): boolean {
+		return false;
+	}
+
+	hasWorkspaceData(): boolean {
 		return false;
 	}
 }
@@ -300,6 +304,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 	readonly onWillStartSessionStartup = this._onWillStartSessionStartup.event;
 
 	private readonly _storedSessions: SerializedSessionMetadata[] = [];
+
+	startupPhase: RuntimeStartupPhase = RuntimeStartupPhase.Complete;
+	backgroundDiscoveryInProgress: boolean = false;
+	lastDiscoveryRuntimeCount: number = 0;
 
 	setRestoredSessions(sessions: SerializedSessionMetadata[]): void {
 		this._storedSessions.length = 0;

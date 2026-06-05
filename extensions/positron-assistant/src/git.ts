@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import * as fs from 'fs';
 import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
-import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
+import type { API as GitAPI, GitExtension, Repository, Change } from './typings/git.d.ts';
+import { Status } from './typings/git.constants.js';
 import { MARKDOWN_DIR } from './constants';
 import { PROVIDER_METADATA } from './providerMetadata.js';
+import { getCandidateModels as getOrderedCandidateModels } from './modelSelection.js';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
@@ -206,41 +207,10 @@ export async function generateCommitMessage(
 }
 
 export async function getCandidateModels(participantService: ParticipantService): Promise<vscode.LanguageModelChat[]> {
-	const candidates: vscode.LanguageModelChat[] = [];
-	const seen = new Set<string>();
-	const addCandidate = (model: vscode.LanguageModelChat) => {
-		if (!seen.has(model.id)) {
-			seen.add(model.id);
-			candidates.push(model);
-		}
-	};
-
-	// First priority: the latest chat session model.
-	const sessionModelId = participantService.getCurrentSessionModel();
-	if (sessionModelId) {
-		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
-		if (models && models.length > 0) {
-			addCandidate(models[0]);
-		}
-	}
-
-	// Second priority: models for the currently selected provider.
-	const currentProvider = await positron.ai.getCurrentProvider();
-	if (currentProvider) {
-		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		for (const model of models) {
-			addCandidate(model);
-		}
-	}
-
-	// Third priority: all available models from any provider.
-	const models = await vscode.lm.selectChatModels();
-	for (const model of models) {
-		if (model.family !== PROVIDER_METADATA.echo.id && model.family !== PROVIDER_METADATA.error.id) {
-			addCandidate(model);
-		}
-	}
-
+	const candidates = await getOrderedCandidateModels({
+		participantService,
+		fallbackModelFilter: model => model.family !== PROVIDER_METADATA.echo.id && model.family !== PROVIDER_METADATA.error.id,
+	}) ?? [];
 	if (candidates.length === 0) {
 		throw new Error('No language models available for git commit message generation');
 	}

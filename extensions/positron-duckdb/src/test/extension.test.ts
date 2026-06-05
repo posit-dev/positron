@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import * as vscode from 'vscode';
 import {
 	BackendState,
@@ -46,6 +47,9 @@ import {
 	ColumnSummaryStats
 } from '../interfaces';
 import { randomBytes, randomUUID } from 'crypto';
+import * as os from 'os';
+import * as fs from 'fs';
+import { DuckDBInstance } from '../extension';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -56,6 +60,11 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 
 // Global callback registry for column profile events
 const columnProfileCallbacks = new Map<string, (value: any) => void>();
+
+// Global listeners for schema_update UI events, invoked with the dataset uri.
+// The file-watcher tests use these to observe reloads triggered by on-disk
+// file changes (see waitForSchemaUpdate).
+const schemaUpdateListeners = new Set<(uri: string) => void>();
 let globalCommandRegistered = false;
 
 // Not sure why it is not possible to use Mocha's 'before' for this
@@ -73,6 +82,10 @@ async function activateExtension() {
 					if (callback) {
 						callback(event.params);
 						columnProfileCallbacks.delete(event.params.callback_id);
+					}
+				} else if (event.method === 'schema_update') {
+					for (const listener of schemaUpdateListeners) {
+						listener(event.uri);
 					}
 				}
 			}
@@ -163,6 +176,54 @@ async function getState(uri: vscode.Uri): Promise<BackendState> {
 		uri: uri.toString(),
 		params: {}
 	});
+}
+
+/**
+ * Resolves when a schema_update UI event is emitted for the given uri, which
+ * the extension does after re-importing a watched file that changed on disk.
+ * Rejects on timeout so a watcher that never fires surfaces as a clear failure
+ * rather than hanging the suite.
+ */
+function waitForSchemaUpdate(uri: vscode.Uri, timeoutMs = 15000): Promise<void> {
+	const target = uri.toString();
+	return new Promise<void>((resolve, reject) => {
+		const listener = (eventUri: string) => {
+			if (eventUri === target) {
+				clearTimeout(timer);
+				schemaUpdateListeners.delete(listener);
+				resolve();
+			}
+		};
+		const timer = setTimeout(() => {
+			schemaUpdateListeners.delete(listener);
+			reject(new Error(`Timed out waiting for schema_update event for ${target}`));
+		}, timeoutMs);
+		schemaUpdateListeners.add(listener);
+	});
+}
+
+/**
+ * Repeatedly writes `content` to `uri` on a short interval until the returned
+ * disposable is disposed. A freshly created file-system watcher is not armed the
+ * instant `createFileSystemWatcher` returns; on a loaded CI machine a single write
+ * can land before the watcher starts listening and the change is missed entirely.
+ * Re-issuing the write guarantees at least one change event is observed once the
+ * watcher is ready, without depending on a fixed setup delay.
+ */
+function rewriteUntilStopped(uri: vscode.Uri, content: Buffer): vscode.Disposable {
+	let active = true;
+	const pump = async () => {
+		while (active) {
+			try {
+				await vscode.workspace.fs.writeFile(uri, content);
+			} catch {
+				// The file may have been deleted during teardown; stop quietly.
+			}
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+	};
+	void pump();
+	return { dispose: () => { active = false; } };
 }
 
 async function getSchema(tableName: string) {
@@ -400,6 +461,57 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		} finally {
 			// Clean up the temporary file
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('gzipped parquet (.parquet.gz)', async () => {
+		// DuckDB's parquet reader can't unwrap an outer gzip container, so this
+		// exercises the JS decompress + temp-file path in createTableFromUri.
+		const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+		const tempPath = path.join(__dirname, 'temp_flights.parquet.gz');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zlib.gzipSync(parquetBytes));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 100, num_columns: 19 });
+		} finally {
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('zstd-compressed CSV (.csv.zst)', async function () {
+		// zstdCompressSync (added to zlib after the pinned @types/node) is only
+		// needed to build the fixture; skip if the test runtime predates it.
+		// Reading is done natively by DuckDB.
+		const zstdCompressSync = (zlib as typeof zlib & {
+			zstdCompressSync?: (buf: Uint8Array) => Buffer;
+		}).zstdCompressSync;
+		if (typeof zstdCompressSync !== 'function') {
+			this.skip();
+		}
+		const csvContent = 'a,b\n1,x\n2,y\n3,z\n';
+		const tempPath = path.join(__dirname, 'temp_zstd_test.csv.zst');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zstdCompressSync(Buffer.from(csvContent, 'utf8')));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 3, num_columns: 2 });
+		} finally {
 			try {
 				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
 			} catch {
@@ -3103,5 +3215,109 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// This should work now that the table view has been restored
 		await profileRpcCall(); // Should not throw an error
+	});
+
+	suite('File watcher', () => {
+		test('reloads the dataset when the watched file changes on disk', async function () {
+			this.timeout(20000);
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.csv`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, Buffer.from('a,b\n1,x\n2,y\n', 'utf8'));
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 2, num_columns: 2 });
+
+				// Overwrite with a new shape (extra row and column). The watcher
+				// should re-import the file and emit a schema_update event.
+				const updated = waitForSchemaUpdate(uri);
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('a,b,c\n1,x,p\n2,y,q\n3,z,r\n', 'utf8'));
+				try {
+					await updated;
+				} finally {
+					rewriting.dispose();
+				}
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 3, num_columns: 3 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
+
+		test('leaves the existing table in place when a changed file becomes unreadable', async function () {
+			this.timeout(20000);
+			const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.parquet`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, parquetBytes);
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+
+				// Corrupt the file. The re-import fails; the watcher's handler must
+				// swallow the error (no unhandled rejection, no schema_update) and
+				// leave the previously loaded table queryable. Re-issue the corrupt
+				// write until the watcher fires so the negative assertion proves the
+				// reload was actually attempted and swallowed, not merely missed.
+				const updated = waitForSchemaUpdate(uri, 4000);
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('not a parquet file', 'utf8'));
+				try {
+					await assert.rejects(updated, /Timed out/, 'A failed re-import must not emit schema_update');
+				} finally {
+					rewriting.dispose();
+				}
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
+	});
+});
+
+suite('DuckDB worker isolation', () => {
+	// A stub worker that speaks the IPC protocol, so we can exercise crash
+	// recovery without depending on the native binding or a real out-of-memory
+	// condition. It crashes hard on a sentinel query and otherwise returns a
+	// trivial one-row result.
+	const STUB_WORKER = `
+		process.on('message', (req) => {
+			if (req.sql === 'CRASH') { process.exit(1); return; }
+			process.send({ kind: 'result', id: req.id, columnNames: ['x'], columns: [[1n]] });
+		});
+	`;
+
+	test('survives a worker crash, rejects the in-flight query, and respawns', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		const db = await DuckDBInstance.create(stubPath);
+		let crashCount = 0;
+		const crashListener = db.onDidCrash(() => { crashCount++; });
+		try {
+			// Normal query round-trips through the worker.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+
+			// A crashing query rejects (rather than hanging) and fires onDidCrash.
+			await assert.rejects(db.runQuery('CRASH'), /terminated unexpectedly/);
+			assert.strictEqual(crashCount, 1, 'onDidCrash should fire exactly once');
+
+			// The next query transparently respawns the worker and succeeds.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+		} finally {
+			crashListener.dispose();
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
 	});
 });

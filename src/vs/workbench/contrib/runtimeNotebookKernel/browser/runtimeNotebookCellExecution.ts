@@ -81,7 +81,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageResult(message => {
-			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
+			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult, message.execution_count);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageStream(message => {
@@ -189,6 +189,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	private handleRuntimeMessageOutput(
 		message: ILanguageRuntimeMessageOutput,
 		outputType: JupyterNotebookCellOutputType,
+		executionCount?: number,
 	): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
@@ -211,7 +212,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
-				metadata: { outputType, [outputIdKey]: message.output_id },
+				metadata: { outputType, [outputIdKey]: message.output_id, executionCount },
 			}]
 		}]);
 	}
@@ -365,6 +366,7 @@ function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[
 				outputItems.push({ data: decodeBase64(String(value)), mime });
 				break;
 			// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+			case 'application/json':
 			case 'application/geo+json':
 			case 'application/vdom.v1+json':
 			case 'application/vnd.dataresource+json':

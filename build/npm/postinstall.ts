@@ -9,12 +9,9 @@ import * as os from 'os';
 import * as child_process from 'child_process';
 import { createRequire } from 'module';
 import { dirs } from './dirs.ts';
-// --- Start Positron ---
-import { buildESMPackageDependencies } from './build-esm-package-dependencies.ts';
-// --- End Positron ---
+import { root, stateFile, stateContentsFile, computeState, computeContents, isUpToDate } from './installStateHash.ts';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const root = path.dirname(path.dirname(import.meta.dirname));
 const rootNpmrcConfigKeys = getNpmrcConfigKeys(path.join(root, '.npmrc'));
 
 function log(dir: string, message: string) {
@@ -39,24 +36,45 @@ function run(command: string, args: string[], opts: child_process.SpawnSyncOptio
 	}
 }
 
-function npmInstall(dir: string, opts?: child_process.SpawnSyncOptions) {
-	opts = {
+function spawnAsync(command: string, args: string[], opts: child_process.SpawnOptions): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const child = child_process.spawn(command, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+		let output = '';
+		child.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
+		child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
+		child.on('error', reject);
+		child.on('close', (code) => {
+			if (code !== 0) {
+				reject(new Error(`Process exited with code: ${code}\n${output}`));
+			} else {
+				resolve(output);
+			}
+		});
+	});
+}
+
+async function npmInstallAsync(dir: string, opts?: child_process.SpawnOptions): Promise<void> {
+	const finalOpts: child_process.SpawnOptions = {
 		env: { ...process.env },
 		...(opts ?? {}),
-		cwd: dir,
-		stdio: 'inherit',
-		shell: true
+		cwd: path.join(root, dir),
+		shell: true,
 	};
 
 	const command = process.env['npm_command'] || 'install';
 
 	if (process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'] && /^(.build\/distro\/npm\/)?remote$/.test(dir)) {
+		const syncOpts: child_process.SpawnSyncOptions = {
+			env: finalOpts.env,
+			cwd: root,
+			stdio: 'inherit',
+			shell: true,
+		};
 		const userinfo = os.userInfo();
 		log(dir, `Installing dependencies inside container ${process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME']}...`);
 
-		opts.cwd = root;
 		if (process.env['npm_config_arch'] === 'arm64') {
-			run('sudo', ['docker', 'run', '--rm', '--privileged', 'multiarch/qemu-user-static', '--reset', '-p', 'yes'], opts);
+			run('sudo', ['docker', 'run', '--rm', '--privileged', 'vscodehub.azurecr.io/multiarch/qemu-user-static@sha256:fe60359c92e86a43cc87b3d906006245f77bfc0565676b80004cc666e4feb9f0', '--reset', '-p', 'yes'], syncOpts);
 		}
 		run('sudo', [
 			'docker', 'run',
@@ -67,12 +85,18 @@ function npmInstall(dir: string, opts?: child_process.SpawnSyncOptions) {
 			'-w', path.resolve('/root/vscode', dir),
 			process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'],
 			'sh', '-c', `\"chown -R root:root ${path.resolve('/root/vscode', dir)} && export PATH="/root/vscode/.build/nodejs-musl/usr/local/bin:$PATH" && npm i -g node-gyp-build && npm ci\"`
-		], opts);
-		run('sudo', ['chown', '-R', `${userinfo.uid}:${userinfo.gid}`, `${path.resolve(root, dir)}`], opts);
+		], syncOpts);
+		run('sudo', ['chown', '-R', `${userinfo.uid}:${userinfo.gid}`, `${path.resolve(root, dir)}`], syncOpts);
 	} else {
 		log(dir, 'Installing dependencies...');
-		run(npm, command.split(' '), opts);
+		const output = await spawnAsync(npm, command.split(' '), finalOpts);
+		if (output.trim()) {
+			for (const line of output.trim().split('\n')) {
+				log(dir, line);
+			}
+		}
 	}
+	removeParcelWatcherPrebuild(dir);
 }
 
 function setNpmrcConfig(dir: string, env: NodeJS.ProcessEnv) {
@@ -159,80 +183,7 @@ function clearInheritedNpmrcConfig(dir: string, env: NodeJS.ProcessEnv): void {
 	}
 }
 
-// Remove @parcel/watcher prebuilt modules from root (new upstream feature)
-removeParcelWatcherPrebuild('');
-
 // --- Start Positron ---
-/**
- * Async version of npmInstall for parallel execution
- * @param dir
- * @param [opts]
- */
-function npmInstallAsync(dir: string, opts?: any) {
-	return new Promise<void>((resolve, reject) => {
-		opts = {
-			env: { ...process.env },
-			...(opts ?? {}),
-			cwd: dir,
-			stdio: 'inherit',
-			shell: true
-		};
-
-		const command = process.env['npm_command'] || 'install';
-
-		// Use synchronous version for Docker-based installs
-		if (process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'] && /^(.build\/distro\/npm\/)?remote$/.test(dir)) {
-			try {
-				npmInstall(dir, opts);
-				resolve();
-			} catch (err) {
-				reject(err);
-			}
-			return;
-		}
-
-		log(dir, 'Installing dependencies...');
-		const child = child_process.spawn(npm, command.split(' '), opts);
-
-		child.on('error', (error: any) => {
-			reject(new Error(`Failed to spawn npm in ${dir}: ${error}`));
-		});
-
-		child.on('exit', (code: number) => {
-			if (code !== 0) {
-				reject(new Error(`npm install failed in ${dir} with exit code ${code}`));
-			} else {
-				resolve();
-			}
-		});
-	});
-}
-
-/**
- * Run npm installs in parallel with concurrency limit
- * @param tasks
- * @param concurrency
- */
-async function runBatch(tasks: Array<{ dir: string; opts: any }>, concurrency: number) {
-	const results: Promise<string>[] = [];
-	const executing: Promise<void>[] = [];
-
-	for (const task of tasks) {
-		const promise = npmInstallAsync(task.dir, task.opts).then(() => task.dir);
-		results.push(promise);
-
-		if (concurrency <= tasks.length) {
-			const e: Promise<void> = promise.then(() => { executing.splice(executing.indexOf(e), 1); });
-			executing.push(e);
-			if (executing.length >= concurrency) {
-				await Promise.race(executing);
-			}
-		}
-	}
-
-	return Promise.all(results);
-}
-
 /**
  * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
  * NOTE: Must be run AFTER `npm install` has been run in the `build` directory and BEFORE `npm install`
@@ -260,9 +211,11 @@ function generateRehWebPackageJson() {
 		.pipe(
 			mergeJson({
 				fileName: 'package.json',
-				// Rename the "name" field to positron-reh-web
+				// Rename "name" to positron-reh-web and add "product-label" used by
+				// Workbench's nginx static URL routing.
 				endObj: {
 					name: 'positron-reh-web',
+					'product-label': 'positron',
 				},
 				transform: (mergedJson: { dependencies?: { [x: string]: any } }) => {
 					// Sort the dependencies alphabetically
@@ -289,254 +242,319 @@ function generateRehWebPackageJson() {
 		});
 }
 
-// Parallel Installation Support
-// =============================
-// This section enables faster builds by installing npm dependencies in parallel
-// instead of sequentially. It respects all the same configuration options as the
-// sequential version (build flags, remote configs, etc.) and is opt-in via env var.
-//
-// How it works:
-// - Collects all 60+ directories that need npm install
-// - Runs them in parallel with a configurable concurrency limit (default: 10)
-// - Uses async spawn instead of blocking spawnSync for parallelism
-//
-// Safety:
-// - Only enabled when POSITRON_PARALLEL_INSTALL=1 (CI only)
-// - Falls back to original sequential behavior when not set
-// - Respects all existing configuration (compiler flags, Docker, special handling)
-// - Fails fast if any installation fails
-//
-// Configuration:
-// - POSITRON_PARALLEL_INSTALL=1 : Enable parallel mode
-// - POSITRON_NPM_CONCURRENCY=N  : Max concurrent installs (default: 10)
-
-// Using this if condition to clearly separate Positron changes
-if (true) {
-	if (process.env['POSITRON_PARALLEL_INSTALL'] === '1') {
-		const concurrency = parseInt(process.env['POSITRON_NPM_CONCURRENCY'] || '10', 10);
-		console.log(`Using parallel installation (concurrency: ${concurrency})`);
-
-		// Separate parent directories from nested ones to avoid race conditions
-		// Parent dirs (build, extensions, remote) must install first to compile native modules
-		const parentTasks = [];
-		const nestedTasks = [];
-
-		for (const dir of dirs) {
-			if (dir === '') { continue; }
-
-			let opts;
-			if (dir === 'build') {
-				opts = { env: { ...process.env } };
-				if (process.env!['CC']) { opts.env!['CC'] = 'gcc'; }
-				if (process.env!['CXX']) { opts.env!['CXX'] = 'g++'; }
-				if (process.env!['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
-				if (process.env!['LDFLAGS']) { opts.env!['LDFLAGS'] = ''; }
-				setNpmrcConfig('build', opts.env!);
-			} else {
-				const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
-				if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
-					opts = { env: { ...process.env } };
-					if (process.env!['VSCODE_REMOTE_CC']) { opts.env!['CC'] = process.env!['VSCODE_REMOTE_CC']; } else { delete opts.env!['CC']; }
-					if (process.env!['VSCODE_REMOTE_CXX']) { opts.env!['CXX'] = process.env!['VSCODE_REMOTE_CXX']; } else { delete opts.env!['CXX']; }
-					if (process.env!['CXXFLAGS']) { delete opts.env!['CXXFLAGS']; }
-					if (process.env!['CFLAGS']) { delete opts.env!['CFLAGS']; }
-					if (process.env!['LDFLAGS']) { delete opts.env!['LDFLAGS']; }
-					if (process.env!['VSCODE_REMOTE_CXXFLAGS']) { opts.env!['CXXFLAGS'] = process.env!['VSCODE_REMOTE_CXXFLAGS']; }
-					if (process.env!['VSCODE_REMOTE_LDFLAGS']) { opts.env!['LDFLAGS'] = process.env!['VSCODE_REMOTE_LDFLAGS']; }
-					if (process.env!['VSCODE_REMOTE_NODE_GYP']) { opts.env!['npm_config_node_gyp'] = process.env!['VSCODE_REMOTE_NODE_GYP']; }
-					if (isRehWebDir) { generateRehWebPackageJson(); }
-					const globalGypPath = path.join(os.homedir(), '.gyp');
-					const globalInclude = path.join(globalGypPath, 'include.gypi');
-					const tempGlobalInclude = path.join(globalGypPath, 'include.gypi.bak');
-					if (process.platform === 'linux' && (process.env!['CI'] || process.env!['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
-						if (fs.existsSync(globalInclude)) { fs.renameSync(globalInclude, tempGlobalInclude); }
-					}
-					setNpmrcConfig('remote', opts.env!);
-				}
-			}
-
-			// Separate parent directories from nested subdirectories
-			// Parents (extensions, remote, etc.) contain shared node_modules with native addons
-			// that must be compiled before their children can use them
-			const isParent = dir === 'build' || dir === 'extensions' || dir === 'remote' ||
-				dir === 'remote/web' || dir === 'remote/reh-web';
-			if (isParent) {
-				parentTasks.push({ dir, opts });
-			} else {
-				nestedTasks.push({ dir, opts });
-			}
-		}
-
-		// Install parents first, then nested directories in parallel
-		(async () => {
-			// Install parent directories sequentially to avoid native module race conditions
-			// These directories contain complex native addons (node-gyp builds) that can fail
-			// if dependencies aren't fully resolved before compilation starts
-			console.log(`Installing ${parentTasks.length} parent directories sequentially...`);
-			await runBatch(parentTasks, 1); // concurrency=1 for parents
-
-			// Nested directories (extensions) are simpler and can safely run in parallel
-			console.log(`Installing ${nestedTasks.length} nested directories in parallel...`);
-			await runBatch(nestedTasks, concurrency);
-
-			child_process.execSync('git config pull.rebase merges');
-			child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
-
-			// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
-			console.log('Building ESM package dependencies...');
-			buildESMPackageDependencies('.build/esm-package-dependencies');
-			console.log('ESM package dependencies built successfully.');
-		})().catch((err) => {
-			console.error('Parallel installation failed:', err);
-			process.exit(1);
-		});
-	} else {
-		for (const dir of dirs) {
-
-			if (dir === '') {
-				// already executed in root
-				continue;
-			}
-
-			let opts;
-
-			if (dir === 'build') {
-				opts = {
-					env: {
-						...process.env
-					},
-				};
-				if (process.env!['CC']) { opts.env!['CC'] = 'gcc'; }
-				if (process.env!['CXX']) { opts.env!['CXX'] = 'g++'; }
-				if (process.env!['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
-				if (process.env!['LDFLAGS']) { opts.env!['LDFLAGS'] = ''; }
-
-				setNpmrcConfig('build', opts.env!);
-				npmInstall('build', opts);
-				continue;
-			}
-
-			const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
-
-			if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
-				// node modules used by vscode server
-				opts = {
-					env: {
-						...process.env
-					},
-				};
-				if (process.env!['VSCODE_REMOTE_CC']) {
-					opts.env!['CC'] = process.env!['VSCODE_REMOTE_CC'];
-				} else {
-					delete opts.env!['CC'];
-				}
-				if (process.env!['VSCODE_REMOTE_CXX']) {
-					opts.env!['CXX'] = process.env!['VSCODE_REMOTE_CXX'];
-				} else {
-					delete opts.env!['CXX'];
-				}
-				if (process.env!['CXXFLAGS']) { delete opts.env!['CXXFLAGS']; }
-				if (process.env!['CFLAGS']) { delete opts.env!['CFLAGS']; }
-				if (process.env!['LDFLAGS']) { delete opts.env!['LDFLAGS']; }
-				if (process.env!['VSCODE_REMOTE_CXXFLAGS']) { opts.env!['CXXFLAGS'] = process.env!['VSCODE_REMOTE_CXXFLAGS']; }
-				if (process.env!['VSCODE_REMOTE_LDFLAGS']) { opts.env!['LDFLAGS'] = process.env!['VSCODE_REMOTE_LDFLAGS']; }
-				if (process.env!['VSCODE_REMOTE_NODE_GYP']) { opts.env!['npm_config_node_gyp'] = process.env!['VSCODE_REMOTE_NODE_GYP']; }
-				if (isRehWebDir) {
-					// This ensures that the `remote/reh-web` package.json file is created/updated before
-					// `npm install` is run, so the package-lock.json and node_modules are created/updated
-					// with the appropriate dependencies. This will create a side effect of needing to
-					// commit the changes to the `remote/reh-web` package.json and package-lock.json files if
-					// they are updated.
-					generateRehWebPackageJson();
-				}
-
-				const globalGypPath = path.join(os.homedir(), '.gyp');
-				const globalInclude = path.join(globalGypPath, 'include.gypi');
-				const tempGlobalInclude = path.join(globalGypPath, 'include.gypi.bak');
-				if (process.platform === 'linux' &&
-					(process.env!['CI'] || process.env!['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
-					// Following include file rename should be removed
-					// when `Override gnu target for arm64 and arm` step
-					// is removed from the product build pipeline.
-					if (fs.existsSync(globalInclude)) {
-						fs.renameSync(globalInclude, tempGlobalInclude);
-					}
-				}
-
-				setNpmrcConfig('remote', opts.env!);
-				npmInstall(dir, opts);
-				continue;
-			}
-
-			npmInstall(dir, opts);
-		}
-
-		// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
-		console.log('Building ESM package dependencies...');
-		buildESMPackageDependencies('.build/esm-package-dependencies');
-		console.log('ESM package dependencies built successfully.');
+/**
+ * If the ark submodule pointer recorded in this commit differs from what's
+ * currently checked out in `extensions/positron-r/ark`, sync it — but only
+ * when it's safe to do so. "Safe" means: the current submodule HEAD is
+ * detached and is an ancestor of ark's `origin/main` (i.e., no in-progress
+ * dev work would be lost). Anything else (named branch, unmerged commits,
+ * offline, CI) is left alone.
+ *
+ * Runs before the dirs loop so the subsequent extensions install (which
+ * triggers install-kernel) sees the synced submodule contents.
+ */
+async function syncArkSubmoduleIfSafe(): Promise<void> {
+	// Skip in CI — checkouts there already pin the submodule via `submodules: true`.
+	if (process.env['CI']) {
+		log('.', 'Skipping ark submodule sync in CI environment');
+		return;
 	}
+
+	const submodulePath = 'extensions/positron-r/ark';
+	const submoduleAbs = path.join(root, submodulePath);
+
+	// Not initialized yet — install-kernel's ensureSubmoduleReady handles that path.
+	if (!fs.existsSync(path.join(submoduleAbs, '.git'))) {
+		return;
+	}
+
+	const exec = (cmd: string, cwd: string) =>
+		child_process.execSync(cmd, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+	// Compare recorded pointer vs. checked-out HEAD.
+	let recordedSha: string;
+	let currentSha: string;
+	try {
+		const lsTree = exec(`git ls-tree HEAD ${submodulePath}`, root);
+		recordedSha = lsTree.split(/\s+/)[2];
+		currentSha = exec('git rev-parse HEAD', submoduleAbs);
+	} catch {
+		return;
+	}
+	if (!recordedSha || recordedSha === currentSha) {
+		return;
+	}
+
+	// Don't detach from a named branch — even if reachable from main, the dev is
+	// likely actively using it.
+	try {
+		const branch = exec('git symbolic-ref --quiet --short HEAD', submoduleAbs);
+		if (branch) {
+			log(submodulePath,
+				`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+				`but ark is on branch '${branch}'. Skipping auto-sync.`);
+			return;
+		}
+	} catch {
+		// Detached HEAD — symbolic-ref exits non-zero, which is what we want.
+	}
+
+	// Refresh origin/main inside the submodule so the ancestor check is meaningful.
+	// Offline → skip silently; the dev can sync manually when they're back online.
+	try {
+		exec('git fetch --quiet origin main', submoduleAbs);
+	} catch {
+		return;
+	}
+
+	// Safety gate: only sync if current HEAD has no commits beyond ark's origin/main.
+	try {
+		exec('git merge-base --is-ancestor HEAD origin/main', submoduleAbs);
+	} catch {
+		log(submodulePath,
+			`Pointer differs (${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}), ` +
+			`but HEAD is not reachable from ark's origin/main — looks like in-progress ` +
+			`work. Skipping. Run \`git submodule update -- ${submodulePath}\` to sync manually.`);
+		return;
+	}
+
+	log(submodulePath, `Syncing ark submodule ${currentSha.slice(0, 7)} → ${recordedSha.slice(0, 7)}...`);
+	run('git', ['submodule', 'update', '--', submodulePath], { cwd: root, stdio: 'inherit' });
 }
-
-/*--- Original Code OSS version below ---
-for (const dir of dirs) {
-
-	if (dir === '') {
-		removeParcelWatcherPrebuild(dir);
-		continue; // already executed in root
-	}
-
-	let opts: child_process.SpawnSyncOptions | undefined;
-
-	if (dir === 'build') {
-		opts = {
-			env: {
-				...process.env
-			},
-		};
-		if (process.env['CC']) { opts.env!['CC'] = 'gcc'; }
-		if (process.env['CXX']) { opts.env!['CXX'] = 'g++'; }
-		if (process.env['CXXFLAGS']) { opts.env!['CXXFLAGS'] = ''; }
-		if (process.env['LDFLAGS']) { opts.env!['LDFLAGS'] = ''; }
-
-		setNpmrcConfig('build', opts.env!);
-		npmInstall('build', opts);
-		continue;
-	}
-
-	if (/^(.build\/distro\/npm\/)?remote$/.test(dir)) {
-		// node modules used by vscode server
-		opts = {
-			env: {
-				...process.env
-			},
-		};
-		if (process.env['VSCODE_REMOTE_CC']) {
-			opts.env!['CC'] = process.env['VSCODE_REMOTE_CC'];
-		} else {
-			delete opts.env!['CC'];
-		}
-		if (process.env['VSCODE_REMOTE_CXX']) {
-			opts.env!['CXX'] = process.env['VSCODE_REMOTE_CXX'];
-		} else {
-			delete opts.env!['CXX'];
-		}
-		if (process.env['CXXFLAGS']) { delete opts.env!['CXXFLAGS']; }
-		if (process.env['CFLAGS']) { delete opts.env!['CFLAGS']; }
-		if (process.env['LDFLAGS']) { delete opts.env!['LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_CXXFLAGS']) { opts.env!['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
-		if (process.env['VSCODE_REMOTE_LDFLAGS']) { opts.env!['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env!['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
-
-		setNpmrcConfig('remote', opts.env!);
-		npmInstall(dir, opts);
-		continue;
-	}
-
-	npmInstall(dir, opts);
-}
-*/
 // --- End Positron ---
 
-child_process.execSync('git config pull.rebase merges');
-child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+function ensureAgentHarnessLink(sourceRelativePath: string, linkPath: string): 'existing' | 'junction' | 'symlink' | 'hard link' {
+	if (fs.existsSync(linkPath)) {
+		return 'existing';
+	}
+
+	const sourcePath = path.resolve(path.dirname(linkPath), sourceRelativePath);
+	const isDirectory = fs.statSync(sourcePath).isDirectory();
+
+	try {
+		if (process.platform === 'win32' && isDirectory) {
+			fs.symlinkSync(sourcePath, linkPath, 'junction');
+			return 'junction';
+		}
+
+		fs.symlinkSync(sourceRelativePath, linkPath, isDirectory ? 'dir' : 'file');
+		return 'symlink';
+	} catch (error) {
+		if (process.platform === 'win32' && !isDirectory && (error as NodeJS.ErrnoException).code === 'EPERM') {
+			fs.linkSync(sourcePath, linkPath);
+			return 'hard link';
+		}
+
+		throw error;
+	}
+}
+
+async function runWithConcurrency(tasks: (() => Promise<void>)[], concurrency: number): Promise<void> {
+	const errors: Error[] = [];
+	let index = 0;
+
+	async function worker() {
+		while (index < tasks.length) {
+			const i = index++;
+			try {
+				await tasks[i]();
+			} catch (err) {
+				errors.push(err as Error);
+			}
+		}
+	}
+
+	await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()));
+
+	if (errors.length > 0) {
+		for (const err of errors) {
+			console.error(err.message);
+		}
+		process.exit(1);
+	}
+}
+
+async function main() {
+	// --- Start Positron ---
+	// Sync the ark submodule before anything else — extensions install runs
+	// install-kernel, which reads the submodule's working tree.
+	try {
+		await syncArkSubmoduleIfSafe();
+	} catch (err) {
+		console.error('Error in syncArkSubmoduleIfSafe:', err);
+		throw err;
+	}
+	// --- End Positron ---
+
+	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
+		log('.', 'All dependencies up to date, skipping postinstall.');
+		child_process.execSync('git config pull.rebase merges');
+		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+		return;
+	}
+
+	const _state = computeState();
+
+	const nativeTasks: (() => Promise<void>)[] = [];
+	const parallelTasks: (() => Promise<void>)[] = [];
+
+	for (const dir of dirs) {
+		if (dir === '') {
+			removeParcelWatcherPrebuild(dir);
+			continue; // already executed in root
+		}
+
+		if (dir === 'build') {
+			nativeTasks.push(() => {
+				const env: NodeJS.ProcessEnv = { ...process.env };
+				if (process.env['CC']) { env['CC'] = 'gcc'; }
+				if (process.env['CXX']) { env['CXX'] = 'g++'; }
+				if (process.env['CXXFLAGS']) { env['CXXFLAGS'] = ''; }
+				if (process.env['LDFLAGS']) { env['LDFLAGS'] = ''; }
+				setNpmrcConfig('build', env);
+				return npmInstallAsync('build', { env });
+			});
+			continue;
+		}
+
+		if (/^(.build\/distro\/npm\/)?remote$/.test(dir)) {
+			const remoteDir = dir;
+			nativeTasks.push(() => {
+				const env: NodeJS.ProcessEnv = { ...process.env };
+				if (process.env['VSCODE_REMOTE_CC']) {
+					env['CC'] = process.env['VSCODE_REMOTE_CC'];
+				} else {
+					delete env['CC'];
+				}
+				if (process.env['VSCODE_REMOTE_CXX']) {
+					env['CXX'] = process.env['VSCODE_REMOTE_CXX'];
+				} else {
+					delete env['CXX'];
+				}
+				if (process.env['CXXFLAGS']) { delete env['CXXFLAGS']; }
+				if (process.env['CFLAGS']) { delete env['CFLAGS']; }
+				if (process.env['LDFLAGS']) { delete env['LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_CXXFLAGS']) { env['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
+				if (process.env['VSCODE_REMOTE_LDFLAGS']) { env['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_NODE_GYP']) { env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
+				setNpmrcConfig('remote', env);
+				return npmInstallAsync(remoteDir, { env });
+			});
+			continue;
+		}
+
+		// --- Start Positron ---
+		const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
+		if (isRehWebDir) {
+			const rehWebDir = dir;
+			nativeTasks.push(() => {
+				const env: NodeJS.ProcessEnv = { ...process.env };
+				if (process.env['VSCODE_REMOTE_CC']) {
+					env['CC'] = process.env['VSCODE_REMOTE_CC'];
+				} else {
+					delete env['CC'];
+				}
+				if (process.env['VSCODE_REMOTE_CXX']) {
+					env['CXX'] = process.env['VSCODE_REMOTE_CXX'];
+				} else {
+					delete env['CXX'];
+				}
+				if (process.env['CXXFLAGS']) { delete env['CXXFLAGS']; }
+				if (process.env['CFLAGS']) { delete env['CFLAGS']; }
+				if (process.env['LDFLAGS']) { delete env['LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_CXXFLAGS']) { env['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
+				if (process.env['VSCODE_REMOTE_LDFLAGS']) { env['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_NODE_GYP']) { env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
+				generateRehWebPackageJson();
+				setNpmrcConfig('remote', env);
+				return npmInstallAsync(rehWebDir, { env });
+			});
+			continue;
+		}
+
+		// extensions contains native modules (@parcel/watcher) that need sequential installation
+		// to avoid node-gyp race conditions during parallel builds
+		if (dir === 'extensions') {
+			nativeTasks.push(() => {
+				const env = { ...process.env };
+				clearInheritedNpmrcConfig(dir, env);
+				return npmInstallAsync(dir, { env });
+			});
+			continue;
+		}
+		// --- End Positron ---
+
+		const taskDir = dir;
+		parallelTasks.push(() => {
+			const env = { ...process.env };
+			clearInheritedNpmrcConfig(taskDir, env);
+			return npmInstallAsync(taskDir, { env });
+		});
+	}
+
+	// Native dirs (build, remote) run sequentially to avoid node-gyp conflicts
+	for (const task of nativeTasks) {
+		await task();
+	}
+
+	// JS-only dirs run in parallel
+	const concurrency = Math.min(os.cpus().length, 8);
+	log('.', `Running ${parallelTasks.length} npm installs with concurrency ${concurrency}...`);
+	await runWithConcurrency(parallelTasks, concurrency);
+
+	child_process.execSync('git config pull.rebase merges');
+	child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+
+	// --- Start Positron ---
+	// Build ESM package dependencies once during postinstall for reuse across all build pipelines.
+	// Dynamic import to avoid loading esbuild before the build directory's npm install completes.
+	try {
+		console.log('Building ESM package dependencies...');
+		const { buildESMPackageDependencies } = await import('./build-esm-package-dependencies.ts');
+		buildESMPackageDependencies('.build/esm-package-dependencies');
+		console.log('ESM package dependencies built successfully.');
+	} catch (err) {
+		console.error('Error building ESM package dependencies:', err);
+		throw err;
+	}
+	// --- End Positron ---
+
+	fs.writeFileSync(stateFile, JSON.stringify(_state));
+	fs.writeFileSync(stateContentsFile, JSON.stringify(computeContents()));
+
+	// Symlink .claude/ files to their canonical locations to test Claude agent harness
+	const claudeDir = path.join(root, '.claude');
+	fs.mkdirSync(claudeDir, { recursive: true });
+
+	const claudeMdLink = path.join(claudeDir, 'CLAUDE.md');
+	const claudeMdLinkType = ensureAgentHarnessLink(path.join('..', '.github', 'copilot-instructions.md'), claudeMdLink);
+	if (claudeMdLinkType !== 'existing') {
+		log('.', `Created ${claudeMdLinkType} .claude/CLAUDE.md -> .github/copilot-instructions.md`);
+	}
+
+	const claudeSkillsLink = path.join(claudeDir, 'skills');
+	const claudeSkillsLinkType = ensureAgentHarnessLink(path.join('..', '.agents', 'skills'), claudeSkillsLink);
+	if (claudeSkillsLinkType !== 'existing') {
+		log('.', `Created ${claudeSkillsLinkType} .claude/skills -> .agents/skills`);
+	}
+
+	// Temporary: patch @github/copilot-sdk session.js to fix ESM import
+	// (missing .js extension on vscode-jsonrpc/node). Fixed upstream in v0.1.32.
+	// TODO: Remove once @github/copilot-sdk is updated to >=0.1.32
+	for (const dir of ['', 'remote']) {
+		const sessionFile = path.join(root, dir, 'node_modules', '@github', 'copilot-sdk', 'dist', 'session.js');
+		if (fs.existsSync(sessionFile)) {
+			const content = fs.readFileSync(sessionFile, 'utf8');
+			const patched = content.replace(/from "vscode-jsonrpc\/node"/g, 'from "vscode-jsonrpc/node.js"');
+			if (content !== patched) {
+				fs.writeFileSync(sessionFile, patched);
+				log(dir || '.', 'Patched @github/copilot-sdk session.js (vscode-jsonrpc ESM import fix)');
+			}
+		}
+	}
+}
+
+main().catch(err => {
+	console.error(err);
+	process.exit(1);
+});

@@ -33,6 +33,9 @@ import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import * as DOM from '../../../../../base/browser/dom.js';
+import { IQuartoDocumentModelService } from '../../../positronQuarto/browser/quartoDocumentModelService.js';
+import { isQuartoDocument } from '../../../positronQuarto/common/positronQuartoConfig.js';
+import { buildQuartoCellInsertion } from '../quartoInsertion.js';
 import './positronHistoryPanel.css';
 
 // Localized strings
@@ -41,7 +44,7 @@ const positronHistoryToConsoleTooltip = localize('positronHistoryToConsoleToolti
 const positronHistoryToSource = localize('positronHistoryToSource', "To Source");
 const positronHistoryToSourceTooltip = localize('positronHistoryToSourceTooltip', "Insert the selected code at the cursor position in the source editor");
 const positronHistoryCopyTooltip = localize('positronHistoryCopyTooltip', "Copy the selected code to the clipboard");
-const positronHistoryDeleteTooltip = localize('positronHistoryDeleteTooltip', "Delete the selected history entry");
+const positronHistoryDeleteTooltip = localize('positronHistoryDeleteTooltip', "Remove the selected history entry");
 const positronHistorySearch = localize('positronHistorySearch', "Search");
 const positronHistoryClearSearch = localize('positronHistoryClearSearch', "Clear Search");
 const positronHistoryNoMatches = (searchText: string) => localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", searchText);
@@ -1004,6 +1007,42 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			return;
 		}
 
+		// In a Quarto document, if the cursor is in prose (outside any code
+		// cell), wrap the inserted code in a new cell whose language matches
+		// the history language. Inside a cell, fall through to a plain insert.
+		const model = editor.getModel();
+		if (model && currentLanguage &&
+			isQuartoDocument(model.uri.path, model.getLanguageId())) {
+			const quartoModelService = instantiationService.invokeFunction(accessor =>
+				accessor.get(IQuartoDocumentModelService)
+			);
+			const quartoModel = quartoModelService.getModel(model);
+			if (!quartoModel.getCellAtLine(position.lineNumber)) {
+				const lineNumber = position.lineNumber;
+				const currentLineEmpty = model.getLineContent(lineNumber).trim() === '';
+				const nextLineNumber = lineNumber + 1;
+				const nextLineEmpty = nextLineNumber > model.getLineCount() ||
+					model.getLineContent(nextLineNumber).trim() === '';
+				const cellText = buildQuartoCellInsertion(
+					combinedText,
+					currentLanguage,
+					currentLineEmpty,
+					nextLineEmpty,
+				);
+				const endColumn = model.getLineMaxColumn(lineNumber);
+				editor.executeEdits('positron-history', [{
+					range: {
+						startLineNumber: lineNumber,
+						startColumn: endColumn,
+						endLineNumber: lineNumber,
+						endColumn: endColumn
+					},
+					text: cellText
+				}]);
+				return;
+			}
+		}
+
 		// Insert the code at the cursor position with a trailing newline
 		editor.executeEdits('positron-history', [{
 			range: {
@@ -1419,7 +1458,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<ActionBarButton
 							ariaLabel={positronHistoryDeleteTooltip}
 							disabled={selectedIndices.size === 0}
-							icon={Codicon.trash}
+							icon={Codicon.close}
 							tooltip={positronHistoryDeleteTooltip}
 							onPressed={handleDelete}
 						/>
@@ -1441,7 +1480,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							<ActionBarSeparator />
 							<ActionBarButton
 								ariaLabel={positronHistoryClearAllTooltip}
-								icon={Codicon.clearAll}
+								icon={Codicon.trash}
 								tooltip={positronHistoryClearAllTooltip}
 								onPressed={handleClearAll}
 							/>

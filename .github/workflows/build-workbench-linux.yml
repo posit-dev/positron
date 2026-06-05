@@ -36,6 +36,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Configure Git safe directory
         run: |
           git config --global --add safe.directory '*'

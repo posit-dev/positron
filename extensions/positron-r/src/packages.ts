@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
+import { LOGGER } from './extension';
 import { RSession } from './session';
 
 /**
@@ -39,6 +40,60 @@ export class RPackageManager {
 	}
 
 	/**
+	 * Ask R which packages are outdated and return `latestVersion` for each.
+	 * Ark's `pkg_outdated` (backed by `utils::old.packages()`) queries the
+	 * user's configured repositories, so its `ReposVer` reflects what an
+	 * upgrade would actually fetch. Version comparison happens in R using
+	 * `numeric_version` semantics, since R package versions don't play
+	 * nicely with semver -- see ark PR #625.
+	 * @param packageNames Names of installed R packages to look up
+	 * @param token Optional cancellation token
+	 */
+	async getPackageMetadata(
+		packageNames: string[],
+		token?: vscode.CancellationToken,
+	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
+		const outdated = await this._getOutdatedVersions(token);
+
+		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
+		for (const name of packageNames) {
+			const key = name.toLowerCase();
+			const latestFromArk = outdated.get(name);
+			metadata.set(key, {
+				outdated: outdated.has(name),
+				...(latestFromArk ? { latestVersion: latestFromArk } : {}),
+			});
+		}
+
+		return metadata;
+	}
+
+	/**
+	 * Call `pkg_outdated` and return a map of package name to latest version
+	 * from the user's configured R repositories. Swallows errors -- the call
+	 * hits the network and can fail transiently; outdated state will
+	 * repopulate on the next refresh, and the package list stays usable.
+	 */
+	private async _getOutdatedVersions(token?: vscode.CancellationToken): Promise<Map<string, string>> {
+		try {
+			const outdated = await this._getOutdatedPackages(token);
+			return new Map(outdated.map(p => [p.name, p.latestVersion]));
+		} catch (err) {
+			LOGGER.warn(`Failed to fetch outdated R package list: ${err}`);
+			return new Map();
+		}
+	}
+
+	private async _getOutdatedPackages(
+		token?: vscode.CancellationToken,
+	): Promise<Array<{ name: string; latestVersion: string }>> {
+		const result = await this._callMethod<Array<{ name: string; latestVersion: string }> | null>(
+			'pkg_outdated', token
+		);
+		return result ?? [];
+	}
+
+	/**
 	 * Install one or more packages.
 	 * @param packages Array of package install requests with name and optional version
 	 * @param token Optional cancellation token
@@ -62,13 +117,9 @@ export class RPackageManager {
 			const pkgVector = this._formatRVector(pkgSpecs);
 			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			// If we're installing pak, don't prompt to install pak
-			let method: string;
-			if (packages.some((pkg) => pkg.name === 'pak')) {
-				method = await this._getPakMethod();
-			} else {
-				method = await this._ensurePak();
-			}
+			// If we're installing pak itself, don't try to install pak as a side effect.
+			const installingPak = packages.some((pkg) => pkg.name === 'pak');
+			const method = await this._resolveMethod(!installingPak);
 
 			if (method === 'pak') {
 				// pak supports "pkg@version" syntax directly
@@ -111,7 +162,7 @@ export class RPackageManager {
 			const pkgVector = this._formatRVector(pkgSpecs);
 			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
 		} else {
-			const method = await this._ensurePak();
+			const method = await this._resolveMethod(true);
 
 			if (method === 'pak') {
 				// pak supports "pkg@version" syntax directly
@@ -145,15 +196,13 @@ export class RPackageManager {
 		if (isRenv) {
 			await this._execute(`renv::update(lock = TRUE, prompt = FALSE)`, token);
 		} else {
-			const method = await this._ensurePak();
+			const method = await this._resolveMethod(true);
 
 			if (method === 'pak') {
 				// Get outdated packages via RPC, then update with pak
-				const outdated = await this._callMethod<string[] | null>(
-					'pkg_outdated', token
-				) ?? [];
+				const outdated = await this._getOutdatedPackages(token);
 				if (outdated.length > 0) {
-					const pkgVector = this._formatRVector(outdated);
+					const pkgVector = this._formatRVector(outdated.map(p => p.name));
 					await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
 				} else {
 					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
@@ -189,7 +238,7 @@ export class RPackageManager {
 		if (isRenv) {
 			code = `renv::remove(${pkgVector})`;
 		} else {
-			const method = await this._getPakMethod();
+			const method = await this._resolveMethod(false);
 
 			if (method === 'pak') {
 				code = `pak::pkg_remove(${pkgVector})`;
@@ -228,7 +277,7 @@ export class RPackageManager {
 			throw new vscode.CancellationError();
 		}
 
-		const method = await this._getPakMethod();
+		const method = await this._resolveMethod(false);
 		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
 			'pkg_search', token, query, method
 		);
@@ -280,21 +329,24 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Get the method string based on pak availability (without prompting).
+	 * Read the configured R packages installer preference.
+	 * 'auto' means: prefer pak, prompt to install it when missing, fall back to base on decline.
+	 * 'pak' means: prefer pak, install it without prompting when missing.
+	 * 'base' means: never use or install pak.
 	 */
-	private async _getPakMethod(): Promise<string> {
-		const hasPak = await this._detectPak();
-		return hasPak ? 'pak' : 'base';
+	private _getConfiguredInstaller(): 'auto' | 'pak' | 'base' {
+		const value = vscode.workspace.getConfiguration('packages.r').get<string>('installer');
+		return value === 'pak' || value === 'base' ? value : 'auto';
 	}
 
 	/**
-	 * Get the method string for package listing (renv > pak > base).
+	 * Get the method string for package listing (renv > resolved method).
 	 */
 	private async _getPackageMethod(): Promise<string> {
 		if (await this._detectRenv()) {
 			return 'renv';
 		}
-		return this._getPakMethod();
+		return this._resolveMethod(false);
 	}
 
 	/**
@@ -311,29 +363,42 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Ensure pak is available, prompting to install if needed.
-	 * Returns 'pak' or 'base' depending on availability.
+	 * Resolve which installer to use, honoring the `packages.r.installer` setting.
+	 *
+	 * @param allowInstallPak When true (install/update operations), may install pak, either
+	 *                       by prompting the user (setting: 'auto') or silently (setting: 'pak').
+	 *                       When false (list/search/uninstall), only detects what is available.
 	 */
-	private async _ensurePak(): Promise<string> {
-		const hasPak = await this._detectPak();
-		if (hasPak) {
+	private async _resolveMethod(allowInstallPak: boolean): Promise<string> {
+		const setting = this._getConfiguredInstaller();
+		if (setting === 'base') {
+			return 'base';
+		}
+
+		if (await this._detectPak()) {
 			return 'pak';
 		}
 
-		if (this._pakDeclined) {
+		if (!allowInstallPak) {
 			return 'base';
 		}
 
-		const install = await this._promptInstallPak();
-		if (install) {
-			// Use base R to install pak
+		if (setting === 'pak') {
+			// User opted in to pak; install without prompting.
 			await this._execute('install.packages("pak")');
-			const nowHasPak = await this._detectPak();
-			return nowHasPak ? 'pak' : 'base';
-		} else {
-			this._pakDeclined = true;
+			return (await this._detectPak()) ? 'pak' : 'base';
+		}
+
+		// setting === 'auto': prompt once per session, remember declines.
+		if (this._pakDeclined) {
 			return 'base';
 		}
+		if (await this._promptInstallPak()) {
+			await this._execute('install.packages("pak")');
+			return (await this._detectPak()) ? 'pak' : 'base';
+		}
+		this._pakDeclined = true;
+		return 'base';
 	}
 
 	/**

@@ -468,6 +468,8 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 	// --- Start PWB ---
 	adminPoliciesData?: string; // JSON string of enforced settings from POSITRON_ENFORCED_SETTINGS
 	// --- End PWB ---
+
+	isSessionsWindow?: boolean;
 }
 
 /**

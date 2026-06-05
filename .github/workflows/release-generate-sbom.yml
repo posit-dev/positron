@@ -1,0 +1,382 @@
+name: Release - Generate SBOM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Product Version (e.g., 2025.09.2)"
+        required: true
+        type: string
+      sha:
+        description: "Git SHA to checkout (defaults to workflow ref)"
+        required: false
+        type: string
+      dry-run:
+        description: "Generate SBOM without creating a PR"
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      version:
+        description: "Product Version (e.g., 2025.09.2)"
+        required: true
+        type: string
+      sha:
+        description: "Git SHA to checkout (defaults to workflow ref)"
+        required: false
+        type: string
+      dry-run:
+        description: "Generate SBOM without creating a PR"
+        required: false
+        type: boolean
+        default: true
+      reviewers:
+        description: "Comma-separated list of GitHub usernames to request review from"
+        required: false
+        type: string
+    outputs:
+      pr-url:
+        description: "URL of the created pull request"
+        value: ${{ jobs.generate-sbom.outputs.pr-url }}
+      pr-number:
+        description: "Number of the created pull request"
+        value: ${{ jobs.generate-sbom.outputs.pr-number }}
+      result-url:
+        description: "URL of the created PR or the repository pulls page in dry-run mode"
+        value: ${{ jobs.generate-sbom.outputs.result-url }}
+    secrets:
+      POSITRON_PROJECTS_CLIENT_ID:
+        required: true
+      POSITRON_PROJECTS_PEM:
+        required: true
+      SNYK_TOKEN:
+        required: true
+
+env:
+  PRODUCT_VERSION: ${{ inputs.version || 'dev' }}
+  NODE_VERSION: "22.x"
+
+jobs:
+  authorize:
+    name: Check Authorization
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if actor has write access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking if ${{ github.actor }} has write access to ${{ github.repository }}..."
+
+          # Get user's permission level for this repository
+          permission=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission \
+            --jq '.permission')
+
+          echo "Permission level: $permission"
+
+          # Allow write, maintain, or admin
+          if [[ "$permission" == "write" ]] || [[ "$permission" == "maintain" ]] || [[ "$permission" == "admin" ]]; then
+            echo "✓ ${{ github.actor }} has sufficient permissions"
+          else
+            echo "✗ ${{ github.actor }} does not have write access"
+            echo "This workflow requires write access to the repository."
+            exit 1
+          fi
+
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-22.04
+    needs: authorize
+    outputs:
+      pr-url: ${{ steps.set-pr-url.outputs.url }}
+      pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+      result-url: ${{ steps.set-pr-url.outputs.url }}
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}/positron
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          path: ${{ github.workspace }}/positron
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Rust and cargo tools
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install cargo-cyclonedx --force --locked
+
+      - name: Set Rust PATH
+        run: |
+          echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Install Snyk CLI
+        run: |
+          npm install -g snyk@1.1301.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            git \
+            wget \
+            ca-certificates \
+            jq \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            zlib1g-dev
+
+      - name: Clone Kallichore source for scanning
+        run: |
+          # Read Kallichore version from package.json
+          KALLICHORE_VERSION=$(jq -r '.positron.binaryDependencies.kallichore' \
+            extensions/positron-supervisor/package.json)
+
+          echo "Cloning Kallichore ${KALLICHORE_VERSION}..."
+
+          # Clone the specific version (Kallichore uses tags without 'v' prefix)
+          git clone --depth 1 --branch "${KALLICHORE_VERSION}" \
+            https://github.com/posit-dev/kallichore.git \
+            .sbom-tmp/kallichore
+
+          echo "[OK] Cloned Kallichore source"
+
+      - name: Clone bootstrap extensions for scanning
+        run: |
+          echo "Cloning bootstrap extensions from product.json..."
+          mkdir -p .sbom-tmp/bootstrap-extensions
+
+          # Extract name and repo for each extension that has a repo
+          jq -r '.bootstrapExtensions[] | select(.repo) | "\(.name)|\(.repo)"' product.json | \
+          while IFS='|' read -r name repo; do
+            echo "  Cloning ${name}..."
+
+            # Handle repos that point to subdirectories (e.g., /tree/main/path)
+            if [[ "$repo" == *"/tree/"* ]]; then
+              # Extract base repo URL and subdirectory
+              base_repo=$(echo "$repo" | sed 's|/tree/[^/]*/.*||')
+              subdir=$(echo "$repo" | sed 's|.*/tree/[^/]*/||')
+
+              echo "    Detected subdirectory: ${subdir}"
+              # Clone full repo and keep it (needed for workspace dependencies)
+              if git clone --depth 1 "$base_repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                if [ -d ".sbom-tmp/bootstrap-extensions/${name}/${subdir}" ]; then
+                  # Create a marker file so we know this is a subdirectory repo
+                  echo "${subdir}" > ".sbom-tmp/bootstrap-extensions/${name}/.sbom-subdir"
+                  echo "    [OK] Cloned ${name} (full repo with subdirectory ${subdir})"
+                else
+                  echo "    [WARN] Subdirectory ${subdir} not found in ${name}, skipping"
+                  rm -rf ".sbom-tmp/bootstrap-extensions/${name}"
+                fi
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            else
+              # Regular clone
+              if git clone --depth 1 "$repo" ".sbom-tmp/bootstrap-extensions/${name}" 2>/dev/null; then
+                echo "    [OK] Cloned ${name}"
+              else
+                echo "    [WARN] Failed to clone ${name}, skipping"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished cloning bootstrap extensions"
+
+      - name: Install npm dependencies for bootstrap extensions
+        run: |
+          echo "Installing npm dependencies for bootstrap extensions that need them..."
+
+          for ext_dir in .sbom-tmp/bootstrap-extensions/*/; do
+            ext_name=$(basename "$ext_dir")
+
+            # Check if this is a subdirectory repo (has .sbom-subdir marker)
+            if [ -f "${ext_dir}.sbom-subdir" ]; then
+              # For subdirectory repos, install at root (with legacy peer deps for monorepo conflicts)
+              echo "  Installing dependencies for ${ext_name} (workspace root)..."
+              if [ -f "${ext_dir}package.json" ]; then
+                if (cd "$ext_dir" && npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund 2>&1 | head -30); then
+                  echo "    [OK] Installed dependencies at root for ${ext_name}"
+                else
+                  echo "    [WARN] npm install failed at root for ${ext_name}"
+                fi
+              fi
+              continue
+            fi
+
+            # Regular extension handling
+            if [ -f "${ext_dir}package.json" ]; then
+              # Skip Rust projects (they have Cargo.toml and package.json is just metadata)
+              if [ -f "${ext_dir}Cargo.toml" ]; then
+                echo "  Skipping ${ext_name} (Rust project)"
+                continue
+              fi
+
+              echo "  Installing dependencies for ${ext_name}..."
+              if (cd "$ext_dir" && npm install --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | head -20); then
+                echo "    [OK] Installed dependencies for ${ext_name}"
+              else
+                echo "    [WARN] npm install failed for ${ext_name}, will attempt SBOM generation anyway"
+              fi
+            fi
+          done
+
+          echo "[OK] Finished installing dependencies"
+
+      - name: Generate SBOM
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          PRODUCT_VERSION: ${{ env.PRODUCT_VERSION }}
+        run: |
+          cd scripts/sbom
+
+          # Verify tools are installed
+          echo "=== Verifying tools ==="
+          node --version
+          npm --version
+          cargo --version
+          rustc --version
+          snyk --version
+
+          # Authenticate with Snyk if token provided
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "=== Authenticating with Snyk ==="
+            snyk auth $SNYK_TOKEN
+          fi
+
+          # Install sbom generator npm dependencies
+          npm ci
+
+          # Generate the SBOM
+          npm run generate
+
+      - name: Verify SBOM was generated
+        run: |
+          if [ ! -f scripts/sbom/SBOM.json ]; then
+            echo "ERROR: SBOM.json was not generated!"
+            exit 1
+          fi
+          echo "[OK] SBOM.json generated successfully"
+          ls -lh scripts/sbom/SBOM.json
+          echo "Components: $(jq '.components | length' scripts/sbom/SBOM.json)"
+          echo "Dependencies: $(jq '.dependencies | length' scripts/sbom/SBOM.json)"
+
+      - name: Extract short version for filename
+        id: version
+        run: |
+          # Extract just the version number (e.g., "2025.09.2" from "2025.09.2+123")
+          SHORT_VERSION=$(echo "${{ env.PRODUCT_VERSION }}" | sed 's/+.*//')
+          echo "short_version=${SHORT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Full version: ${{ env.PRODUCT_VERSION }}"
+          echo "Short version for filename: ${SHORT_VERSION}"
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Positron__v${{ steps.version.outputs.short_version }}.sbom
+          path: ${{ github.workspace }}/positron/scripts/sbom/SBOM.json
+          retention-days: 10
+
+      - name: Dry-run complete - SBOM generated but PR skipped
+        if: ${{ inputs.dry-run }}
+        run: |
+          echo "[DRY-RUN] Workflow completed successfully"
+          echo "Version: ${{ env.PRODUCT_VERSION }}"
+          echo "Short version: ${{ steps.version.outputs.short_version }}"
+          echo ""
+          echo "SBOM was generated and uploaded as artifact."
+          echo "PR creation was skipped (dry-run mode)."
+
+      - name: Generate GitHub App token
+        if: ${{ !inputs.dry-run }}
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: rstudio
+          repositories: posit-sboms
+
+      - name: Checkout posit-sboms repository
+        if: ${{ !inputs.dry-run }}
+        uses: actions/checkout@v6
+        with:
+          repository: rstudio/posit-sboms
+          path: ${{ github.workspace }}/posit-sboms
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Copy SBOM to posit-sboms repository
+        if: ${{ !inputs.dry-run }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/posit-sboms/Positron"
+          cp "${GITHUB_WORKSPACE}/positron/scripts/sbom/SBOM.json" \
+             "${GITHUB_WORKSPACE}/posit-sboms/Positron/Positron__v${{ steps.version.outputs.short_version }}.sbom"
+
+      - name: Sanitize version for branch name
+        if: ${{ !inputs.dry-run }}
+        id: sanitize
+        run: |
+          # Replace special characters with hyphens for branch name
+          SANITIZED=$(echo "${{ env.PRODUCT_VERSION }}" | tr '+' '-' | tr '.' '-')
+          echo "branch_suffix=$SANITIZED" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        id: create-pr
+        if: ${{ !inputs.dry-run }}
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          path: ${{ github.workspace }}/posit-sboms
+          commit-message: |
+            Add Positron v${{ env.PRODUCT_VERSION }} SBOM
+
+            - Generated SBOM using CycloneDX format
+            - Includes Rust and Node.js dependencies
+          branch: add-positron-sbom-${{ steps.sanitize.outputs.branch_suffix }}
+          delete-branch: true
+          title: "Add Positron ${{ env.PRODUCT_VERSION }} SBOM"
+          body: |
+            ## SBOM Update
+
+            This PR adds the Software Bill of Materials (SBOM) for Positron:
+
+            - **Product Version**: ${{ env.PRODUCT_VERSION }}
+            - **Format**: CycloneDX JSON
+
+            ### Files Updated
+
+            - `Positron/Positron__v${{ steps.version.outputs.short_version }}.sbom` - Complete SBOM file
+
+            ### Testing
+
+            Please verify:
+            - SBOM file is valid CycloneDX format
+            - Version number matches the release version
+            - Component counts are reasonable
+
+            Generated by GitHub Actions
+          labels: |
+            automated
+          reviewers: ${{ inputs.reviewers }}
+
+      - name: Set PR URL
+        id: set-pr-url
+        run: |
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "url=https://github.com/posit-dev/positron/pull/1" >> $GITHUB_OUTPUT
+          else
+            echo "url=${{ steps.create-pr.outputs.pull-request-url }}" >> $GITHUB_OUTPUT
+          fi

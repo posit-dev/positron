@@ -11,13 +11,14 @@ import { SerializedError, transformErrorForSerialization, transformErrorFromSeri
 import { Emitter, Event } from '../../../base/common/event.js';
 import { Iterable } from '../../../base/common/iterator.js';
 import { IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+import { IJSONSchema } from '../../../base/common/jsonSchema.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
 import { localize } from '../../../nls.js';
 import { ExtensionIdentifier, ExtensionIdentifierMap, ExtensionIdentifierSet, IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { Progress } from '../../../platform/progress/common/progress.js';
-import { IChatMessage, IChatResponsePart, ILanguageModelChatInfoOptions, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier } from '../../contrib/chat/common/languageModels.js';
+import { IChatMessage, IChatResponsePart, ILanguageModelChatInfoOptions, ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatRequestOptions } from '../../contrib/chat/common/languageModels.js';
 import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../contrib/chat/common/widget/input/modelPickerWidget.js';
 import { INTERNAL_AUTH_PROVIDER_PREFIX } from '../../services/authentication/common/authentication.js';
 import { checkProposedApiEnabled, isProposedApiEnabled } from '../../services/extensions/common/extensions.js';
@@ -128,6 +129,12 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 	private readonly _pendingRequest = new Map<number, { languageModelId: string; res: LanguageModelResponse }>();
 	private readonly _ignoredFileProviders = new Map<number, vscode.LanguageModelIgnoredFileProvider>();
 	private _languageModelProxyProvider: vscode.LanguageModelProxyProvider | undefined;
+	// --- Start Positron ---
+	// Tracks model identifiers currently being re-resolved by
+	// getLanguageModelByIdentifier. Used to break recursion when
+	// selectLanguageModels keeps returning a model id we still can't find.
+	private readonly _modelLookupInFlight = new Set<string>();
+	// --- End Positron ---
 
 	constructor(
 		@IExtHostRpcService extHostRpc: IExtHostRpcService,
@@ -233,12 +240,15 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					tooltip: m.tooltip,
 					version: m.version,
 					multiplier: m.multiplier,
+					multiplierNumeric: m.multiplierNumeric,
 					maxInputTokens: m.maxInputTokens,
 					maxOutputTokens: m.maxOutputTokens,
 					auth,
 					isDefaultForLocation,
 					isUserSelectable: m.isUserSelectable,
 					statusIcon: m.statusIcon,
+					targetChatSessionType: m.targetChatSessionType,
+					configurationSchema: m.configurationSchema as IJSONSchema | undefined,
 					modelPickerCategory: m.category ?? DEFAULT_MODEL_PICKER_CATEGORY,
 					// --- Start Positron ---
 					// providerName was removed upstream; model picker now uses metadata.auth?.providerLabel ?? vendor
@@ -271,7 +281,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		return modelMetadataAndIdentifier;
 	}
 
-	async $startChatRequest(modelId: string, requestId: number, from: ExtensionIdentifier, messages: SerializableObjectWithBuffers<IChatMessage[]>, options: vscode.LanguageModelChatRequestOptions, token: CancellationToken): Promise<void> {
+	async $startChatRequest(modelId: string, requestId: number, from: ExtensionIdentifier | undefined, messages: SerializableObjectWithBuffers<IChatMessage[]>, options: ILanguageModelChatRequestOptions, token: CancellationToken): Promise<void> {
 		const knownModel = this._localModels.get(modelId);
 		if (!knownModel) {
 			throw new Error('Model not found');
@@ -332,7 +342,8 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			value = data.provider.provideLanguageModelChatResponse(
 				knownModel.info,
 				messages.value.map(typeConvert.LanguageModelChatMessage2.to),
-				{ ...options, modelOptions: options.modelOptions ?? {}, requestInitiator: ExtensionIdentifier.toKey(from), toolMode: options.toolMode ?? extHostTypes.LanguageModelChatToolMode.Auto },
+				// todo@connor4312: move `core` -> `undefined` after 1.111 Insiders is out
+				{ ...options, modelOptions: options.modelOptions ?? {}, modelConfiguration: options.configuration, requestInitiator: from ? ExtensionIdentifier.toKey(from) : 'core', toolMode: options.toolMode ?? extHostTypes.LanguageModelChatToolMode.Auto },
 				progress,
 				token
 			);
@@ -376,7 +387,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		}
 
 		for (const [modelIdentifier, modelData] of this._localModels) {
-			if (modelData.metadata.isDefaultForLocation[ChatAgentLocation.Chat]) {
+			if (modelData.metadata.isDefaultForLocation[ChatAgentLocation.Chat] && modelData.metadata.vendor === 'copilot') {
 				defaultModelId = modelIdentifier;
 				break;
 			}
@@ -395,6 +406,16 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 
 		let model = this._localModels.get(modelId);
 		if (!model) {
+			// --- Start Positron ---
+			// Break recursion: if a re-resolve is already in flight for this
+			// modelId, don't kick off another one. Without this guard, a stale
+			// id returned by selectLanguageModels (e.g. an orphaned entry in
+			// main thread's _modelCache for a vendor with no provider) drives
+			// an unbounded loop through selectLanguageModels → here → back.
+			if (this._modelLookupInFlight.has(modelId)) {
+				return undefined;
+			}
+			// --- End Positron ---
 			// model gone? is this an error on us? Try to resolve model again
 			this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache. Trying to resolve model again.`);
 			const vendor = this.getVendorFromModelIdentifier(modelId);
@@ -402,7 +423,14 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not extract vendor from model identifier '${modelId}'.`);
 				return undefined;
 			}
-			await this.selectLanguageModels(extension, { vendor });
+			// --- Start Positron ---
+			this._modelLookupInFlight.add(modelId);
+			try {
+				await this.selectLanguageModels(extension, { vendor });
+			} finally {
+				this._modelLookupInFlight.delete(modelId);
+			}
+			// --- End Positron ---
 			model = this._localModels.get(modelId);
 			if (!model) {
 				this._logService.warn(`[LanguageModelProxy](${extension.identifier.value}) Could not find model '${modelId}' in local cache after re-resolving models.`);

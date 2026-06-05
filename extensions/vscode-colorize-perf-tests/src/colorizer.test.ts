@@ -130,11 +130,11 @@ suite('Tokenization Performance', () => {
 	let originalSettingValue: any;
 
 	suiteSetup(async function () {
-		originalSettingValue = workspace.getConfiguration('editor').get('experimental.preferTreeSitter');
-		await workspace.getConfiguration('editor').update('experimental.preferTreeSitter', ['typescript'], ConfigurationTarget.Global);
+		originalSettingValue = workspace.getConfiguration('editor').get('experimental.preferTreeSitter.typescript');
+		await workspace.getConfiguration('editor').update('experimental.preferTreeSitter.typescript', true, ConfigurationTarget.Global);
 	});
 	suiteTeardown(async function () {
-		await workspace.getConfiguration('editor').update('experimental.preferTreeSitter', originalSettingValue, ConfigurationTarget.Global);
+		await workspace.getConfiguration('editor').update('experimental.preferTreeSitter.typescript', originalSettingValue, ConfigurationTarget.Global);
 	});
 
 	for (const fixture of fs.readdirSync(fixturesPath)) {

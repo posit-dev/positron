@@ -32,7 +32,9 @@ const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
 	'**/remote-ssh/**',
+	'**/remote-wsl/**',
 	'**/assistant-eval/**',
+	'**/release-screenshots/**',
 ];
 
 let reporter: ReporterDescription[];
@@ -89,12 +91,14 @@ export default defineConfig<CustomTestOptions>({
 					'example.test.ts',
 					'**/workbench/**',
 					'**/remote-ssh/**',
+					'**/remote-wsl/**',
 					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				]
 				: [
 					'example.test.ts',
 					'**/workbench/**',
 					'**/remote-ssh/**',
+					'**/remote-wsl/**',
 					'**/lsp/**',
 					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				],
@@ -198,6 +202,20 @@ export default defineConfig<CustomTestOptions>({
 			grep: /@:remote-ssh/
 		},
 		{
+			name: 'e2e-remote-wsl',
+			testIgnore: [
+				'example.test.ts',
+				'**/assistant-eval/**',
+				'**/workbench/**',
+			],
+			use: {
+				artifactDir: 'e2e-remote-wsl',
+				headless: false,
+				useExternalServer: false,
+			},
+			grep: /@:remote-wsl/
+		},
+		{
 			name: 'e2e-jupyter',
 			testIgnore: [
 				'example.test.ts',
@@ -212,6 +230,15 @@ export default defineConfig<CustomTestOptions>({
 				browserName: 'chromium',
 			},
 			grep: /@:jupyter/
+		},
+		{
+			name: 'release-screenshots',
+			testDir: './test/e2e/release-screenshots',
+			testMatch: '*.screenshot.ts',
+			testIgnore: [],
+			use: {
+				artifactDir: 'release-screenshots',
+			},
 		},
 	],
 });

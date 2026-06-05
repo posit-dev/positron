@@ -83,7 +83,7 @@ export default tseslint.config(
 			'no-var': 'warn',
 			'semi': 'warn',
 			'local/code-translation-remind': 'warn',
-			'local/code-no-native-private': 'warn',
+			'local/code-no-declare-const-enum': 'warn',
 			'local/code-parameter-properties-must-have-explicit-accessibility': 'warn',
 			'local/code-no-nls-in-standalone-editor': 'warn',
 			'local/code-no-potentially-unsafe-disposables': 'warn',
@@ -94,10 +94,13 @@ export default tseslint.config(
 			'local/code-must-use-super-dispose': 'warn',
 			'local/code-declare-service-brand': 'warn',
 			'local/code-no-reader-after-await': 'warn',
+			'local/code-no-accessor-after-await': 'warn',
 			'local/code-no-observable-get-in-reactive-context': 'warn',
 			'local/code-no-localized-model-description': 'warn',
 			'local/code-policy-localization-key-match': 'warn',
 			'local/code-no-localization-template-literals': 'error',
+			'local/code-no-icons-in-localized-strings': 'warn',
+			'local/code-no-http-import': ['warn', { target: 'src/vs/**' }],
 			'local/code-no-deep-import-of-internal': ['error', { '.*Internal': true, 'searchExtTypesInternal': false }],
 			'local/code-layering': [
 				'warn',
@@ -275,21 +278,7 @@ export default tseslint.config(
 				}
 			],
 			'jsdoc/no-types': 'warn',
-			'local/code-no-static-self-ref': 'warn'
-		}
-	},
-	// vscode TS
-	{
-		files: [
-			'src/**/*.ts',
-		],
-		languageOptions: {
-			parser: tseslint.parser,
-		},
-		plugins: {
-			'@typescript-eslint': tseslint.plugin,
-		},
-		rules: {
+			'local/code-no-static-self-ref': 'warn',
 			'@typescript-eslint/naming-convention': [
 				'warn',
 				{
@@ -299,6 +288,18 @@ export default tseslint.config(
 					]
 				}
 			]
+		}
+	},
+	// Disallow common telemetry properties in event data
+	{
+		files: [
+			'src/**/*.ts',
+		],
+		plugins: {
+			'local': pluginLocal,
+		},
+		rules: {
+			'local/code-no-telemetry-common-property': 'warn',
 		}
 	},
 	// Disallow 'in' operator except in type predicates
@@ -315,11 +316,6 @@ export default tseslint.config(
 			'extensions/emmet/src/updateImageSize.ts',
 			'extensions/emmet/src/util.ts',
 			'extensions/github-authentication/src/node/fetch.ts',
-			'extensions/terminal-suggest/src/fig/figInterface.ts',
-			'extensions/terminal-suggest/src/fig/fig-autocomplete-shared/mixins.ts',
-			'extensions/terminal-suggest/src/fig/fig-autocomplete-shared/specMetadata.ts',
-			'extensions/terminal-suggest/src/terminalSuggestMain.ts',
-			'extensions/terminal-suggest/src/test/env/pathExecutableCache.test.ts',
 			'extensions/tunnel-forwarding/src/extension.ts',
 			'extensions/typescript-language-features/src/utils/platform.ts',
 			'extensions/typescript-language-features/web/src/webServer.ts',
@@ -426,11 +422,6 @@ export default tseslint.config(
 			'src/vs/workbench/contrib/output/browser/outputView.ts',
 			'src/vs/workbench/contrib/preferences/browser/settingsTree.ts',
 			'src/vs/workbench/contrib/remoteTunnel/electron-browser/remoteTunnel.contribution.ts',
-			'src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts',
-			'src/vs/workbench/contrib/tasks/browser/taskTerminalStatus.ts',
-			'src/vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts',
-			'src/vs/workbench/contrib/terminalContrib/chatAgentTools/browser/taskHelpers.ts',
-			'src/vs/workbench/contrib/terminalContrib/chatAgentTools/browser/tools/monitoring/outputMonitor.ts',
 			'src/vs/workbench/contrib/testing/browser/explorerProjections/listProjection.ts',
 			'src/vs/workbench/contrib/testing/browser/explorerProjections/treeProjection.ts',
 			'src/vs/workbench/contrib/testing/browser/testCoverageBars.ts',
@@ -450,6 +441,7 @@ export default tseslint.config(
 			'src/vs/workbench/services/remote/common/tunnelModel.ts',
 			'src/vs/workbench/services/search/common/textSearchManager.ts',
 			'src/vs/workbench/test/browser/workbenchTestServices.ts',
+			'src/vs/platform/agentHost/common/state/protocol/reducers.ts',
 			'test/automation/src/playwrightDriver.ts',
 			'.eslint-plugin-local/**/*',
 		],
@@ -576,6 +568,7 @@ export default tseslint.config(
 			'src/vs/platform/log/common/log.ts',
 			'src/vs/platform/log/common/logIpc.ts',
 			'src/vs/platform/log/electron-main/logIpc.ts',
+			'src/vs/platform/meteredConnection/electron-main/meteredConnectionChannel.ts',
 			'src/vs/platform/observable/common/wrapInHotClass.ts',
 			'src/vs/platform/observable/common/wrapInReloadableClass.ts',
 			'src/vs/platform/policy/common/policyIpc.ts',
@@ -696,7 +689,6 @@ export default tseslint.config(
 			'src/vs/workbench/api/common/extHostWebviewView.ts',
 			'src/vs/workbench/api/common/extHostWorkspace.ts',
 			'src/vs/workbench/api/common/extensionHostMain.ts',
-			'src/vs/workbench/api/common/shared/tasks.ts',
 			'src/vs/workbench/api/node/extHostAuthentication.ts',
 			'src/vs/workbench/api/node/extHostCLIServer.ts',
 			'src/vs/workbench/api/node/extHostConsoleForwarder.ts',
@@ -811,6 +803,7 @@ export default tseslint.config(
 			'src/vs/workbench/contrib/search/browser/replace.ts',
 			'src/vs/workbench/contrib/search/browser/replaceService.ts',
 			'src/vs/workbench/contrib/search/browser/searchActionsCopy.ts',
+			'src/vs/workbench/contrib/search/browser/searchActionsBase.ts',
 			'src/vs/workbench/contrib/search/browser/searchActionsFind.ts',
 			'src/vs/workbench/contrib/search/browser/searchActionsNav.ts',
 			'src/vs/workbench/contrib/search/browser/searchActionsRemoveReplace.ts',
@@ -832,16 +825,6 @@ export default tseslint.config(
 			'src/vs/workbench/contrib/snippets/browser/commands/configureSnippets.ts',
 			'src/vs/workbench/contrib/snippets/browser/commands/insertSnippet.ts',
 			'src/vs/workbench/contrib/snippets/browser/snippetsService.ts',
-			'src/vs/workbench/contrib/tasks/browser/abstractTaskService.ts',
-			'src/vs/workbench/contrib/tasks/browser/runAutomaticTasks.ts',
-			'src/vs/workbench/contrib/tasks/browser/task.contribution.ts',
-			'src/vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts',
-			'src/vs/workbench/contrib/tasks/common/jsonSchema_v1.ts',
-			'src/vs/workbench/contrib/tasks/common/jsonSchema_v2.ts',
-			'src/vs/workbench/contrib/tasks/common/problemMatcher.ts',
-			'src/vs/workbench/contrib/tasks/common/taskConfiguration.ts',
-			'src/vs/workbench/contrib/tasks/common/taskSystem.ts',
-			'src/vs/workbench/contrib/tasks/common/tasks.ts',
 			'src/vs/workbench/contrib/testing/common/storedValue.ts',
 			'src/vs/workbench/contrib/testing/test/browser/testObjectTree.ts',
 			'src/vs/workbench/contrib/typeHierarchy/browser/typeHierarchy.contribution.ts',
@@ -969,6 +952,36 @@ export default tseslint.config(
 			]
 		}
 	},
+	// git extension - ban non-type imports from git.d.ts (use git.constants for runtime values)
+	{
+		files: [
+			'extensions/git/src/**/*.ts',
+		],
+		ignores: [
+			'extensions/git/src/api/git.constants.ts',
+		],
+		languageOptions: {
+			parser: tseslint.parser,
+		},
+		plugins: {
+			'@typescript-eslint': tseslint.plugin,
+		},
+		rules: {
+			'no-restricted-imports': 'off',
+			'@typescript-eslint/no-restricted-imports': [
+				'warn',
+				{
+					'patterns': [
+						{
+							'group': ['*/api/git'],
+							'allowTypeImports': true,
+							'message': 'Use \'import type\' for types from git.d.ts and import runtime const enum values from git.constants instead'
+						},
+					]
+				}
+			]
+		}
+	},
 	// vscode API
 	{
 		files: [
@@ -1030,8 +1043,16 @@ export default tseslint.config(
 						'collapse',
 						'create',
 						'delete',
+						'lock',
+						'resume',
+						'shutdown',
+						'suspend',
+						'unlock',
 						'discover',
 						'dispose',
+						// --- Start Positron ---
+						'download',
+						// --- End Positron ---
 						'drop',
 						'edit',
 						'end',
@@ -1053,6 +1074,9 @@ export default tseslint.config(
 						'terminate',
 						'trigger',
 						'unregister',
+						// --- Start Positron ---
+						'upload',
+						// --- End Positron ---
 						'write',
 						'commit'
 					]
@@ -1148,6 +1172,33 @@ export default tseslint.config(
 				'__dirname',
 				'__filename',
 				'require'
+			]
+		}
+	},
+	// electron-main layer: prevent static imports of heavy node_modules
+	// that would be synchronously loaded on startup
+	{
+		files: [
+			'src/vs/code/electron-main/**/*.ts',
+			'src/vs/code/node/**/*.ts',
+			'src/vs/platform/*/electron-main/**/*.ts',
+			'src/vs/platform/*/node/**/*.ts',
+		],
+		languageOptions: {
+			parser: tseslint.parser,
+		},
+		plugins: {
+			'local': pluginLocal,
+		},
+		rules: {
+			'local/code-no-static-node-module-import': [
+				'error',
+				// Files that run in separate processes, not on the electron-main startup path
+				'src/vs/platform/agentHost/node/copilot/**/*.ts',
+				'src/vs/platform/files/node/watcher/**/*.ts',
+				'src/vs/platform/terminal/node/**/*.ts',
+				// Files that use small, safe modules
+				'src/vs/platform/environment/node/argv.ts',
 			]
 		}
 	},
@@ -1578,6 +1629,9 @@ export default tseslint.config(
 					// - electron-main
 					'when': 'hasNode',
 					'allow': [
+						'@github/copilot-sdk',
+						'@microsoft/dev-tunnels-contracts',
+						'@microsoft/dev-tunnels-management',
 						'@parcel/watcher',
 						'@vscode/sqlite3',
 						'@vscode/vscode-languagedetection',
@@ -1599,6 +1653,7 @@ export default tseslint.config(
 						'fs/promises',
 						'http',
 						'https',
+						'inspector',
 						'minimist',
 						'node:module',
 						'native-keymap',
@@ -1608,6 +1663,7 @@ export default tseslint.config(
 						// 'path', NOT allowed: use src/vs/base/common/path.ts instead
 						'perf_hooks',
 						'readline',
+						'ssh2',
 						'stream',
 						'string_decoder',
 						'tas-client',
@@ -1620,6 +1676,7 @@ export default tseslint.config(
 						'vscode-regexpp',
 						'vscode-textmate',
 						'worker_threads',
+						'ws',
 						'@xterm/addon-clipboard',
 						'@xterm/addon-image',
 						'@xterm/addon-ligatures',
@@ -1697,6 +1754,16 @@ export default tseslint.config(
 					]
 				},
 				{
+					'target': 'src/vs/platform/agentHost/node/diffWorkerMain.ts',
+					'layer': 'node',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/common/diff/**', // diffing logic used by the agent host
+					]
+				},
+				{
 					'target': 'src/vs/platform/*/~',
 					'restrictions': [
 						'vs/base/~',
@@ -1705,7 +1772,8 @@ export default tseslint.config(
 						'tas-client', // node module allowed even in /common/
 						'@microsoft/1ds-core-js', // node module allowed even in /common/
 						'@microsoft/1ds-post-js', // node module allowed even in /common/
-						'@xterm/headless' // node module allowed even in /common/
+						'@xterm/headless', // node module allowed even in /common/
+						'@vscode/tree-sitter-wasm' // used by agentHost for command auto-approval
 					]
 				},
 				{
@@ -1844,6 +1912,7 @@ export default tseslint.config(
 						'vs/workbench/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
+						'vs/sessions/~',
 						'vs/workbench/contrib/terminal/terminalContribChatExports*',
 						'vs/workbench/contrib/terminal/terminalContribExports*',
 						'vscode-notebook-renderer', // Type only import
@@ -1921,6 +1990,17 @@ export default tseslint.config(
 					]
 				},
 				{
+					'target': 'src/vs/sessions/electron-browser/sessions.ts',
+					'layer': 'electron-browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/sessions/~',
+						'vs/sessions/sessions.desktop.main.js'
+					]
+				},
+				{
 					'target': 'src/vs/server/~',
 					'restrictions': [
 						'vs/base/~',
@@ -1969,7 +2049,8 @@ export default tseslint.config(
 						'vs/workbench/api/~',
 						'vs/workbench/services/*/~',
 						'vs/workbench/contrib/*/~',
-						'vs/workbench/contrib/terminal/terminal.all.js'
+						'vs/workbench/contrib/terminal/terminal.all.js',
+						'vs/sessions/common/theme.js' // side-effect import for color registry
 					]
 				},
 				{
@@ -2075,7 +2156,175 @@ export default tseslint.config(
 						'src/*.js',
 						'*' // node.js
 					]
-				}
+				},
+				{
+					'target': 'src/vs/sessions/sessions.common.main.ts',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/editor/editor.all.js',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/workbench/contrib/terminal/terminal.all.js',
+					]
+				},
+				{
+					'target': 'src/vs/sessions/sessions.desktop.main.ts',
+					'layer': 'electron-browser',
+					'restrictions': [
+						'vs/base/*/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/editor/editor.all.js',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/sessions.common.main.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/sessions.web.main.ts',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/editor/editor.all.js',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/api/~',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/sessions.common.main.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/sessions.web.main.internal.ts',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/sessions/~',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/sessions.web.main.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/test/sessions.web.test.internal.ts',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/sessions/~',
+						'vs/sessions/test/**',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/sessions.web.main.js'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/test/{web.test.ts,web.test.factory.ts}',
+					'layer': 'browser',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/sessions/~',
+						'vs/sessions/test/**',
+						'vs/sessions/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~'
+					]
+				},
+				{
+					'target': 'src/vs/sessions/contrib/*/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/browser/**',
+						'vs/workbench/services/*/~',
+						'vs/workbench/contrib/*/~',
+						'vs/sessions/~',
+						'vs/sessions/contrib/*/~',
+						'vs/sessions/services/*/~',
+					]
+				},
+				{
+					'target': 'src/vs/sessions/services/*/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/services/*/~',
+						'vs/sessions/~',
+						'vs/sessions/services/*/~',
+						'vs/workbench/contrib/*/~',
+						{
+							'when': 'test',
+							'pattern': 'vs/workbench/contrib/*/~'
+						}, // TODO@layers
+						'tas-client', // node module allowed even in /common/
+						'vscode-textmate', // node module allowed even in /common/
+						'@vscode/vscode-languagedetection', // node module allowed even in /common/
+						'@vscode/tree-sitter-wasm', // type import
+						{
+							'when': 'hasBrowser',
+							'pattern': '@xterm/xterm'
+						} // node module allowed even in /browser/
+					]
+				},
 			]
 		}
 	},
@@ -2153,6 +2402,14 @@ export default tseslint.config(
 						'@modelcontextprotocol/sdk/**/*',
 						'*' // node modules
 					]
+				},
+				{
+					'target': 'test/componentFixtures/playwright/**',
+					'restrictions': [
+						'test/componentFixtures/playwright/**',
+						'@playwright/*',
+						'*' // node modules
+					]
 				}
 			]
 		}
@@ -2215,6 +2472,29 @@ export default tseslint.config(
 			'comma-dangle': ['warn', 'only-multiline']
 		}
 	},
+	// Extension main sources (excluding tests)
+	{
+		files: [
+			'extensions/**/*.ts',
+		],
+		ignores: [
+			'extensions/**/*.test.ts',
+		],
+		rules: {
+			// Ban dynamic require() and import() calls in extensions to ensure tree-shaking works
+			'no-restricted-syntax': [
+				'warn',
+				{
+					'selector': `CallExpression[callee.name='require'][arguments.0.type!='Literal']`,
+					'message': 'Use static imports instead of dynamic require() calls to enable tree-shaking.'
+				},
+				{
+					'selector': `ImportExpression[source.type!='Literal']`,
+					'message': 'Use static imports instead of dynamic import() calls to enable tree-shaking.'
+				},
+			],
+		}
+	},
 	// markdown-language-features
 	{
 		files: [
@@ -2227,29 +2507,24 @@ export default tseslint.config(
 			'@typescript-eslint': tseslint.plugin,
 		},
 		rules: {
-			'@typescript-eslint/naming-convention': [
+			'no-restricted-syntax': [
 				'warn',
 				{
-					'selector': 'default',
-					'modifiers': ['private'],
-					'format': null,
-					'leadingUnderscore': 'require'
+					selector: ':matches(PropertyDefinition, TSParameterProperty, MethodDefinition[key.name!="constructor"])[accessibility="private"]',
+					message: 'Use #private instead',
 				},
-				{
-					'selector': 'default',
-					'modifiers': ['public'],
-					'format': null,
-					'leadingUnderscore': 'forbid'
-				}
-			]
+			],
 		}
 	},
 	// Additional extension strictness rules
 	{
 		files: [
-			'extensions/markdown-language-features/**/*.ts',
-			'extensions/mermaid-chat-features/**/*.ts',
-			'extensions/media-preview/**/*.ts',
+			'extensions/markdown-language-features/src/**/*.ts',
+			'extensions/markdown-language-features/notebook/**/*.ts',
+			'extensions/markdown-language-features/preview-src/**/*.ts',
+			'extensions/mermaid-chat-features/chat-webview-src/**/*.ts',
+			'extensions/mermaid-chat-features/src/**/*.ts',
+			'extensions/media-preview/src/**/*.ts',
 			'extensions/simple-browser/**/*.ts',
 			'extensions/typescript-language-features/**/*.ts',
 		],
@@ -2301,6 +2576,10 @@ export default tseslint.config(
 				{
 					'selector': `NewExpression[callee.object.name='Intl']`,
 					'message': 'Use safeIntl helper instead for safe and lazy use of potentially expensive Intl methods.'
+				},
+				{
+					'selector': 'TSAsExpression[typeAnnotation.type="TSTypeReference"][typeAnnotation.typeName.type="TSQualifiedName"][typeAnnotation.typeName.left.type="Identifier"][typeAnnotation.typeName.left.name="sinon"][typeAnnotation.typeName.right.name="SinonStub"]',
+					'message': `Avoid casting with 'as sinon.SinonStub'. Prefer typed stubs from 'sinon.stub(...)' or capture the stub in a typed variable.`
 				},
 			],
 		}

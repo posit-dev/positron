@@ -18,7 +18,7 @@ import { EvalTestCase, RunResult } from '../types';
  * When asked about cell 21 (index 20), the assistant MUST call getNotebookInfo to fetch it.
  */
 const prompt = 'What is the value calculated in cell 21 (index 20) of my notebook?';
-const mode = 'Edit';
+const mode = 'Agent';
 
 export const pyNotebookGetCells: EvalTestCase = {
 	id: 'py-notebook-get-cells',
@@ -41,7 +41,7 @@ export const pyNotebookGetCells: EvalTestCase = {
 		// Create 21 cells (indices 0-20) so it's a "large" notebook
 		for (let i = 0; i < 21; i++) {
 			const code = `x = ${i}; result_${i} = x * 10; result_${i}`;
-			await notebooksPositron.addCodeToCell(i, code);
+			await notebooksPositron.addCodeToCell(i, code, { fast: true });
 		}
 
 		// Select cell 0 so the sliding window is at the beginning

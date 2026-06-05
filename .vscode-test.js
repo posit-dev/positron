@@ -74,6 +74,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'next-edit-suggestions',
+		workspaceFolder: path.join(os.tmpdir(), `next-edit-suggestions-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-code-cells',
 		workspaceFolder: path.join(os.tmpdir(), `positron-code-cells-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
@@ -96,6 +101,16 @@ const extensions = [
 	{
 		label: 'positron-duckdb',
 		workspaceFolder: path.join(os.tmpdir(), `positron-duckdb-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-sqlite',
+		workspaceFolder: path.join(os.tmpdir(), `positron-sqlite-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'positron-postgresql',
+		workspaceFolder: path.join(os.tmpdir(), `positron-postgresql-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	{
@@ -135,6 +150,11 @@ const extensions = [
 	{
 		label: 'git-base',
 		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'copilot',
+		files: 'extensions/copilot/dist/test-extension.js',
+		mocha: { ui: 'tdd', timeout: 60_000 }
 	}
 ];
 

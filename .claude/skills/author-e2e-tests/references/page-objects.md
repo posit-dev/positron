@@ -398,8 +398,8 @@ export class MyPageObject {
 
 	constructor(private code: Code, ...) {
 		// Initialize locators in constructor
-		this.someButton = this.code.driver.page.getByTestId('some-button');
-		this.someList = this.code.driver.page.locator('.some-list');
+		this.someButton = this.code.driver.currentPage.getByTestId('some-button');
+		this.someList = this.code.driver.currentPage.locator('.some-list');
 	}
 
 	// Actions wrapped in test.step

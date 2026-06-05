@@ -62,7 +62,7 @@ export async function JupyterApp(
 					break;
 				} catch (error) {
 					// Press PageDown if not found
-					await app.code.driver.page.keyboard.press('PageDown');
+					await app.code.driver.currentPage.keyboard.press('PageDown');
 
 					// If last attempt, rethrow
 					if (i === maxRetries - 1) {
@@ -80,8 +80,9 @@ export async function JupyterApp(
 		await app.workbench.quickInput.clickOkButton();
 
 		// Wait for the folder to open and Positron to be ready
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
+		await app.workbench.console.consoleTab.click();
 		await app.workbench.sessions.deleteAll();
 
 		await app.workbench.hotKeys.closeAllEditors();
