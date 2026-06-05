@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
+import { SessionRuntimes } from '../../pages/sessions.js';
 
 test.use({
 	suiteId: __filename
@@ -22,21 +23,37 @@ test.describe('Packages Pane', {
 	test.afterEach(async function ({ app }) {
 		await app.workbench.packages.clearFilter();
 		await app.workbench.packages.closePackagesPane();
+		// The Python package manager runs in the terminal, leaving it focused.
+		// Click the console label to take focus off the terminal so the next
+		// iteration's console.focus() (Cmd+K F) chord resolves instead of leaking
+		// 'F' into the terminal and corrupting the next install.
+		await app.workbench.console.clickConsoleLabel();
 	});
 
-	test('Python - Install and search package', { tag: [tags.WIN] },
-		async function ({ app, python: _python }) {
-			const { packages } = app.workbench;
+	// python is uv; pythonAlt is pyenv
+	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
-			await packages.verifyPackagesList();
+	pythonRuntimes.forEach((runtime) => {
+		test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
+			async function ({ app, sessions }) {
+				const { packages } = app.workbench;
 
-			// install package and verify it shows up in the list
-			await packages.installPackage('cowsay');
-			await packages.searchPackages('cowsay');
-			await packages.expectPackageInList('cowsay');
-		});
+				await sessions.start(runtime);
 
-	test('R - Install and search package', { tag: [tags.WIN] },
+				await packages.verifyPackagesList();
+
+				// install package and verify it shows up in the list
+				await packages.installPackage('cowsay');
+				await packages.searchPackages('cowsay');
+				await packages.expectPackageInList('cowsay');
+
+				// uninstall package and verify it is removed from the list
+				await packages.uninstallPackage('cowsay');
+				await packages.expectPackageNotInList('cowsay');
+			});
+	});
+
+	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -46,6 +63,10 @@ test.describe('Packages Pane', {
 			await packages.installPackage('cowsay');
 			await packages.searchPackages('cowsay');
 			await packages.expectPackageInList('cowsay');
+
+			// uninstall package and verify it is removed from the list
+			await packages.uninstallPackage('cowsay');
+			await packages.expectPackageNotInList('cowsay');
 		});
 
 	test.describe('Help button', { tag: [tags.HELP] }, () => {

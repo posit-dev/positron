@@ -142,7 +142,10 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 		});
 	});
 
-	test.describe('Assistant Layout', { tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT] }, () => {
+	test.describe.skip('Assistant Layout', {
+		tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14037' }]
+	}, () => {
 		test.afterEach('Reset Layout', async function ({ app }) {
 			await app.workbench.layouts.enterLayout('stacked');
 		});

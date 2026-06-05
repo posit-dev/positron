@@ -255,7 +255,7 @@ export class HotKeys {
 	}
 
 	public async reloadWindow(waitForReady = false) {
-		await this.pressHotKeys('Cmd+R R', 'Reload window');
+		await this.pressHotKeys('Cmd+B R', 'Reload window');
 
 		// wait for workbench to disappear, reappear and be ready
 		await this.code.driver.currentPage.waitForTimeout(3000);

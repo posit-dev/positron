@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
@@ -17,10 +16,8 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { InlineDataExplorerHeader } from '../../../browser/notebookCells/InlineDataExplorer.js';
 import type { IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
-import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 
 /** Minimal MenuItemAction stub for rendering and click dispatch. */
 function mockAction(id: string, label: string, iconId: string, run: (...args: unknown[]) => Promise<unknown> = () => Promise.resolve()): MenuItemAction {
@@ -66,12 +63,12 @@ describe('InlineDataExplorerHeader', () => {
 		getActions,
 	};
 
-	const contextKeyService = new MockContextKeyService();
+	const mockContextKeyService = new MockContextKeyService();
 
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IMenuService, { createMenu: () => menu })
-		.stub(IContextKeyService, contextKeyService)
+		.stub(IContextKeyService, mockContextKeyService)
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -79,54 +76,41 @@ describe('InlineDataExplorerHeader', () => {
 		menuActions = [];
 	});
 
-	function renderHeader(actionContext: IInlineDataExplorerActionContext | undefined, options?: {
-		contextKeyService?: IContextKeyService;
-		withCellProvider?: boolean;
-	}) {
-		const header = (
+	function renderHeader(
+		actionContext?: IInlineDataExplorerActionContext,
+		contextKeyService?: IContextKeyService,
+	) {
+		return rtl.render(
 			<InlineDataExplorerHeader
 				actionContext={actionContext}
-				contextKeyService={options?.contextKeyService}
+				contextKeyService={contextKeyService}
 				shape={{ rows: 1234, columns: 5 }}
 				title='df'
 			/>
 		);
-
-		if (options?.withCellProvider === false) {
-			return rtl.render(header);
-		}
-
-		const cell = stubInterface<IPositronNotebookCell>({
-			scopedContextKeyService: contextKeyService,
-		});
-		return rtl.render(
-			<CellProvider cell={cell}>
-				{header}
-			</CellProvider>
-		);
 	}
 
 	it('renders title and shape', () => {
-		renderHeader(undefined);
+		renderHeader();
 		expect(screen.getByText('df')).toBeInTheDocument();
 		expect(screen.getByText(/1,234 rows x 5 columns/)).toBeInTheDocument();
 	});
 
-	it('renders registered menu actions when actionContext is provided', () => {
+	it('renders registered menu actions when actionContext and contextKeyService are provided', () => {
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
-		renderHeader(buildActionContext());
-		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
-	});
-
-	it('renders registered menu actions with an explicit context service outside a cell provider', () => {
-		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
-		renderHeader(buildActionContext(), { contextKeyService, withCellProvider: false });
+		renderHeader(buildActionContext(), mockContextKeyService);
 		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
 	});
 
 	it('does not render action buttons when actionContext is undefined', () => {
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
-		renderHeader(undefined);
+		renderHeader(undefined, mockContextKeyService);
+		expect(screen.queryByRole('button', { name: /Open in Data Explorer/ })).not.toBeInTheDocument();
+	});
+
+	it('does not render action buttons when contextKeyService is undefined', () => {
+		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file')]]];
+		renderHeader(buildActionContext(), undefined);
 		expect(screen.queryByRole('button', { name: /Open in Data Explorer/ })).not.toBeInTheDocument();
 	});
 
@@ -143,7 +127,7 @@ describe('InlineDataExplorerHeader', () => {
 			mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file'),
 			submenuAction,
 		]]];
-		renderHeader(buildActionContext());
+		renderHeader(buildActionContext(), mockContextKeyService);
 		expect(screen.getByRole('button', { name: /Open in Data Explorer/ })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /Sub Menu/ })).not.toBeInTheDocument();
 	});
@@ -152,19 +136,19 @@ describe('InlineDataExplorerHeader', () => {
 		const user = userEvent.setup();
 		const run = vi.fn().mockResolvedValue(undefined);
 		menuActions = [['navigation', [mockAction('test.openExplorer', 'Open in Data Explorer', 'go-to-file', run)]]];
-		const actionCtx = buildActionContext();
-		renderHeader(actionCtx);
+		const actionContext = buildActionContext();
+		renderHeader(actionContext, mockContextKeyService);
 
 		await user.click(screen.getByRole('button', { name: /Open in Data Explorer/ }));
 
-		expect(run).toHaveBeenCalledWith(actionCtx);
+		expect(run).toHaveBeenCalledWith(actionContext);
 	});
 
 	// Regression: MenuItemAction.run drops caller-supplied args unless
 	// shouldForwardArgs is set on the menu options. Without this, ctx never
 	// reaches the registered Action2 and run() throws on `ctx.commId`.
 	it('requests menu actions with shouldForwardArgs so ctx flows through', () => {
-		renderHeader(undefined);
+		renderHeader(undefined, mockContextKeyService);
 		expect(getActions).toHaveBeenCalledWith(expect.objectContaining({ shouldForwardArgs: true }));
 	});
 });
