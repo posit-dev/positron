@@ -285,7 +285,7 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 	// and turns the markdown links into anchors.
 	const text = `${getProviderTermsOfServiceText(props.provider)}\n\n${getProviderUsageDisclaimerText(props.provider)}`;
 
-	return <div className='language-model-dialog-tos' id='model-tos'>
+	return <div className='language-model-dialog-tos' data-testid='provider-notice' id='model-tos'>
 		<EmbeddedLink>{text}</EmbeddedLink>
 	</div>;
 }
