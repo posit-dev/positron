@@ -155,7 +155,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await positAssistant.startNewConversation();
 		await positAssistant.sendMessage('Tell me about this notebook', false);
 		await positAssistant.allowToolForSessionIfVisible();
-		await positAssistant.waitForResponseComplete(120_000);
+		await positAssistant.waitForResponseComplete(90_000);
 		await layouts.resizeSidebar({ x: 50 });
 
 		// Run the notebook cell to populate variables and generate the chart output
