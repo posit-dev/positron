@@ -3,6 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+Summary:
+- Verifies the Python venv auto-creation notification flow.
+- Requires a global Python interpreter (non-venv, non-conda) for the trigger to fire.
+- Tests run in sequence; each openFolder changes the workspace, so paths are
+	relative to where the picker starts after the previous test.
+
+|Test              |Workspace                     |Expected behavior                  |
+|------------------|------------------------------|-----------------------------------|
+|Clicking Yes      |temp dir with requirements.txt|Notification appears, .venv created|
+|Notification shows|fixture with requirements.txt |Toast mentions requirements.txt + uv|
+|No notification   |fixture with existing .venv   |No toast appears                   |
+*/
+
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import * as path from 'path';
