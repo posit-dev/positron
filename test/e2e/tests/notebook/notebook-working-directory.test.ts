@@ -6,7 +6,8 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 import { Notebooks } from '../../pages/notebooks.js';
 
 test.use({
