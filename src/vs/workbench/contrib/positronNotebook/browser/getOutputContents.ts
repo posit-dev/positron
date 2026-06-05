@@ -189,7 +189,9 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 	}
 
 	if (mime === 'image/png') {
-		const imgMeta = metadata?.[mime] ?? metadata;
+		const nested = metadata?.['metadata'];
+		const nestedObj = typeof nested === 'object' && nested !== null ? nested as Record<string, unknown> : undefined;
+		const imgMeta = nestedObj?.[mime] ?? metadata?.[mime] ?? metadata;
 		const imgObj = typeof imgMeta === 'object' && imgMeta !== null ? imgMeta as Record<string, unknown> : undefined;
 		const width = typeof imgObj?.['width'] === 'number' ? imgObj['width'] : undefined;
 		const height = typeof imgObj?.['height'] === 'number' ? imgObj['height'] : undefined;

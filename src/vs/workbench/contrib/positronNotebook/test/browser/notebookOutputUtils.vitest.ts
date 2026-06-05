@@ -61,6 +61,17 @@ describe('Notebook Output Utils', () => {
 			expect(img.height).toBe(240);
 		});
 
+		it('parses image/png with nested metadata (loaded from ipynb) into an image with width and height', () => {
+			const pngData = 'iVBORw0KGgo=';
+			const metadata = { metadata: { 'image/png': { width: 320, height: 240 } } };
+			const result = parseOutputData(makeOutputItem('image/png', pngData), metadata);
+
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBe(320);
+			expect(img.height).toBe(240);
+		});
+
 		it('parses image/png without metadata into an image with no dimensions', () => {
 			const pngData = 'iVBORw0KGgo=';
 			const result = parseOutputData(makeOutputItem('image/png', pngData));
