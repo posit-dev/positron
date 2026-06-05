@@ -55,10 +55,6 @@ test.use({
 	suiteId: __filename,
 });
 
-test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
-});
-
 test.afterEach(async ({ page, hotKeys }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -121,7 +117,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanel({ y: -150 });
+		await layouts.resizePanel({ y: -100 });
 		await sessions.resizeSessionList({ x: -80 });
 
 		// capture screenshot

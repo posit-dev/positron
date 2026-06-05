@@ -134,7 +134,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 			'daily_energy["Month"] = daily_energy["Day"].dt.to_period("M")',
 			'monthly_kwh = daily_energy.groupby("Month")["Daily Total"].sum()',
 			'',
-			'monthly_kwh.plot(kind="bar", figsize=(10, 4), title="Monthly Electricity Usage (kWh)")',
+			'monthly_kwh.plot(kind="bar", figsize=(10, 3.5), title="Monthly Electricity Usage (kWh)")',
 			'plt.ylabel("kWh")',
 			'plt.xticks(rotation=45)',
 			'plt.tight_layout()',
