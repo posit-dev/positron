@@ -82,6 +82,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { WorkerQueryRequest, WorkerQueryResponse } from './duckdbWorkerProtocol';
+import { createWorkerEnv } from './workerEnv.js';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
@@ -184,19 +185,12 @@ export class DuckDBInstance {
 	}
 
 	private spawnWorker(): void {
-		// The extension host runs as an Electron process. Forking inherits the
-		// host's `process.execArgv` (and runs the Electron binary), which carries
-		// Chromium-only flags such as `--crash-reporter-directory` that Node
-		// rejects on startup (exit code 9). Force a plain Node child by clearing
-		// `execArgv` and setting `ELECTRON_RUN_AS_NODE`, the same pattern VS Code
-		// uses to fork the TypeScript server (see serverProcess.electron.ts).
-		//
 		// "advanced" serialization uses the V8 structured-clone algorithm, which
 		// preserves bigint and Date values returned by DuckDB.
 		const worker = fork(this.workerPath, [], {
 			serialization: 'advanced',
 			execArgv: [],
-			env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+			env: createWorkerEnv(),
 		});
 		worker.on('message', (message: unknown) => {
 			const response = message as WorkerQueryResponse;
