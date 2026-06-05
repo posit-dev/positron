@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: Use to audit test coverage for a Positron change - review whether existing tests are in the right bucket, whether new coverage is needed, and produce an explicit verdict per item. Triggers include "audit coverage for <feature>", "is my test placement right", "quality-check before merge", "are these e2e tests carrying their weight", "what coverage does this PR need", or as part of pre-PR review. Produces a cross-bucket test coverage audit (Core Mocha / Vitest / Extension host / E2E) with explicit verdicts (Keep / Move down / Move up / Split / Add / Delete / Skip) and confidence per item. Optionally orchestrates handoff to author-vitest-tests and author-e2e-tests.
+description: Use when auditing whether Positron tests are in the right bucket, whether new coverage is needed for a change, or whether existing e2e tests should move down to Vitest. Triggers include "audit coverage for <feature>", "is my test placement right", "are these e2e tests carrying their weight", "what coverage does this PR need", or as part of a pre-PR quality check.
 ---
 
 # Audit Test Coverage (Positron)
@@ -228,122 +228,13 @@ After the dev's response at step 5, ask:
 
 ## Output format
 
-The report is ordered bottom-up through the test pyramid (Core Mocha -> Vitest -> Extension host -> E2E) in both sections. This mirrors how the dev should think about coverage: "what do we already have at the cheapest level?" before "what do we need higher up?"
+See [`output-format.md`](output-format.md) for the full report template, per-item layout shapes, trace compression rules, and `expand <N>` handling. Read it before rendering the report.
 
-```
-# Test coverage audit - <scope summary>
-
-Gathered: <PR/branch/files summary, one line>
-Analyzed: <N source files>, <M existing test files>
-
-## TL;DR
-
-<1-3 sentence narrative recommendation. State the bottom line: how many items, what verdict pattern dominates, and what they all share.>
-
-Example: *3 items audited. Recommendation: move down 2 to Vitest (medium confidence), keep 1. All move-down candidates trace to NotebookInstance model state; would extend `notebookCells.vitest.ts`.*
-
-## At a glance
-
-| ID  | Test :: scenario          | Verdict             | Conf.  | Why                                            |
-|-----|---------------------------|---------------------|--------|------------------------------------------------|
-| [1] | <basename> :: <scenario>  | Move down -> Vitest | high   | already covered in `notebookDelete.vitest.ts`  |
-| [2] | <basename> :: <scenario>  | Keep                | high   | webview-rendered (markdown-language-features)  |
-
-(Row label: test-file basename + describe/it scenario. Full paths only in per-item detail.)
-
-**HARD RULE:** After the table, ONLY action items (`Move down` / `Move up` / `Split` / `Add`) appear in per-item form. **`Keep`, `Skip`, and `Delete` verdicts NEVER get a per-item block.** They live in the at-a-glance table — the `Why` column is their entire treatment. Do not render them again below. The dev can reply `details N` if they want to challenge one specifically.
-
-(Display mode is governed by Step 5: always step through action items one at a time.)
-
-## Existing coverage
-
-### Core Mocha (upstream, awareness only) - N items
-
-- `someUpstreamThing.test.ts` - references `<changed-file>`; asserts `<summary>`. **Overlaps** with proposed Vitest item #4.
-
-### Action items (per-item blocks below)
-
-Per-item layout: bold `**[N]**` + path on line 1, `**Verdict:**`, then ONE of `**Why:**` / `**Trace:**` / `**Moves to Vitest:** + **Stays in e2e:**`, then `**What changes:**`. Items separated by `---`. IDs cover ALL table rows; blocks below skip Keep/Skip/Delete IDs.
-
-One example per verdict (showing the four shapes):
-
-**[N]** `<path>` -- **Move down -> Vitest** (high)
-**Trace** (2 of 6 shown; reply `expand N` for full):
-- L23 expect(parser.detect(...)) -> `clearHandler.detect()` (Vitest plain)
-- L41 expect(consoleState).toBe('cleared') -> `consoleReducer` (Vitest builder)
-- ...4 more, all hitting the parser + reducer layer.
-**What changes:** add Vitest test for `src/vs/.../clearHandler.ts`; delete original e2e after replacement verified.
-
-**[N]** `<path>` -- **Split** (medium)
-**Moves to Vitest:** L15 expect(formatter.format(...)) -> `formatter.format()` (Vitest plain)
-**Stays in e2e:** L32 cross-pane check (console -> variables)
-**What changes:** add Vitest test for the formatter; trim e2e to the cross-pane assertion.
-
-**[N]** `<path>` -- **Move up -> Ext host** (medium) [rare]
-**Why:** stubs 5+ fundamental services; assertions are about cross-service dispatch.
-**Alternative:** rewrite this Vitest with less mocking if orchestrator-in-isolation is what's worth testing.
-
-**[N]** `src/vs/.../<file>.ts` :: <behavior> -- **Add** (high) - <pattern: plain / builder / RTL>
-**Why:** <one-line reason>
-
-## Skip
-**[N]** `<file>` - Skip (high). Docs-only / type-only / reverted / upstream / action-only.
-
-## Summary
-- Add: <V vitest, E ext-host-flag, e2e>
-- Move down: <H high, M medium>
-- Move up: <N> (rare)
-- Split: <N>
-- Keep: <N> (X verified via hypothesis-verification trace)
-- Delete / Skip: <N>
-- Low-confidence (hidden): <N> — reply `show low-confidence` to reveal
-- Upstream awareness: <U items, X overlaps>
-- Total dev decisions at the gate: <N>
-```
-
-**Formatting rules:**
-
-**Top-level structure:**
-- Always lead with `## TL;DR` (1-3 sentence narrative recommendation) and `## At a glance`. The dev should be able to make 80% of their decisions from these two sections without scrolling further.
-- **`## At a glance` MUST be a real GFM markdown table** with `|` separators and a `|---|---|...|` separator row. Render it EXACTLY ONCE. Never substitute or precede it with a bulleted list, definition list, labeled `ID: ... / Test: ... / Verdict: ...` blocks, or any other format. Do NOT render two versions (table + labeled blocks) - the table is the only allowed rendering. If the Why column gets long, that's fine; markdown tables wrap. The literal shape required:
-
-  ```
-  | ID  | Test :: scenario | Verdict | Conf. | Why |
-  |-----|------------------|---------|-------|-----|
-  | [1] | ...              | ...     | ...   | ... |
-  ```
-
-- Columns are exactly: `ID` / `Test :: scenario` / `Verdict` / `Conf.` / `Why`. No extra columns, no fewer.
-- **Use basenames everywhere visible**: at-a-glance table row labels, per-item block headers, Existing-coverage bullets, and inline references in `Why` / `Trace` / `What changes`. The basename alone (e.g., `notebookDelete.vitest.ts`) is far more readable than the full `src/vs/workbench/contrib/positronNotebook/test/browser/notebookDelete.vitest.ts`. If two paths share a basename within the same audit, disambiguate with one parent directory (`positronNotebook/notebookDelete.vitest.ts` vs `positronCopyPaste/notebookDelete.vitest.ts`). Full paths appear ONLY when the dev replies `expand <N>` or `details <N>` for the trace detail.
-- The `Why` column is one short phrase per row (e.g., *"already covered in notebookDelete.vitest.ts"*, *"webview-rendered"*, *"cross-pane workflow"*). Keep it scannable.
-- Detailed sections follow in pyramid order (Core Mocha -> Vitest -> Ext host -> E2E), Existing coverage before New coverage needed.
-
-**Display mode + per-item layout:** governed by Step 5 (display mode, step-through, trace-hidden template) and the Output format template above (per-item layout shape). Do not duplicate those rules here.
-
-Reminders worth repeating:
-- Per-item header line uses the **basename** (not the full path) as the visible label. NEVER put paths in H3 headers. Keep H3s at section level (Vitest / Extension host / E2E).
-- Line-number references (`L23`) only when the test file has actually been read. When full paths do appear (in `expand` / `details` outputs), they are project-relative, no leading `./`.
-- Every row in the at-a-glance table carries an explicit verdict and confidence band.
-
-**`details N` on a Keep verdict:** re-render that item with the full hypothesis-verification trace (the per-helper ownership trace from 4B-verify). This is the ONLY case where a Keep gets a per-item block.
-
-**Trace compression (load-bearing readability rule for action items):**
-- **`Move down` / `Move up` / `Add` (with traces):** show at most **2 representative assertions** under `**Trace:**`, then a tail line: *"... and N more, all hitting <shared-layer-description>"*. Always end the trace block with `(2 of M shown; reply `expand <N>` for full)` if M > 2.
-- **`Split`:** keep the bifurcated `**Moves to Vitest:**` / `**Stays in e2e:**` structure, but apply the same 2-assertion compression to each side.
-- **`Add`** items with no existing trace: just show `**Why:**` (one line). No trace block.
-
-**What changes line (one of these per Move/Split/Add):**
-- For `Move down`: *"add Vitest test for `<path>`; delete original after replacement verified"*.
-- For `Move up`: *"rewrite at higher bucket OR rewrite current Vitest with less mocking"* + a one-line characterization.
-- For `Split`: *"add Vitest for <subset>; trim original e2e to <remaining-cross-system-subset>"*.
-- For `Add`: *"add <pattern> Vitest at `<path>` covering <one-line behavior>"*.
-
-**Other rules:**
-- Low-confidence flags are **suppressed by default**. They appear in the Summary count only. The dev can reply `show low-confidence` to reveal them; when revealed, use compact one-line form (path + verdict + reason; no `Why` / `Trace` block).
-- Items are numbered across the whole report (`[1]`...`[N]`) so the dev can reply `approve all except 3,7,12` or `expand 6`.
-
-**Handling `expand <N>` requests:**
-If the dev replies `expand <N>` (or `expand 6, 8`), reissue just those items with the full per-assertion trace shown under `**Trace:**` (no compression). Don't reprint the rest of the report.
+**Critical constraints (must hold without reading the reference):**
+- Lead with `## TL;DR` and `## At a glance`. The table is the only allowed form for At a glance — never a list or labeled blocks. Columns: `ID` / `Test :: scenario` / `Verdict` / `Conf.` / `Why`.
+- Keep/Skip/Delete never get per-item blocks. Table `Why` column is their entire treatment.
+- Low-confidence items are suppressed by default; summary count only. Dev replies `show low-confidence` to reveal.
+- Step through action items one at a time (Step 5 governs display mode).
 
 ## Guardrails
 
