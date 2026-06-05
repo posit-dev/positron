@@ -189,12 +189,15 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 	}
 
 	if (mime === 'image/png') {
-		const imgMeta = (metadata?.[mime] ?? metadata) as { width?: number; height?: number } | undefined;
+		const imgMeta = metadata?.[mime] ?? metadata;
+		const imgObj = typeof imgMeta === 'object' && imgMeta !== null ? imgMeta as Record<string, unknown> : undefined;
+		const width = typeof imgObj?.['width'] === 'number' ? imgObj['width'] : undefined;
+		const height = typeof imgObj?.['height'] === 'number' ? imgObj['height'] : undefined;
 		return {
 			type: 'image',
 			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`,
-			width: imgMeta?.width,
-			height: imgMeta?.height,
+			width,
+			height,
 		};
 	}
 
