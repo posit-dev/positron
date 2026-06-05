@@ -17,7 +17,7 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { CellScopedContextKeyServiceProvider } from '../../../browser/notebookCells/CellContextKeyServiceProvider.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { InlineDataExplorerHeader } from '../../../browser/notebookCells/InlineDataExplorer.js';
 import type { IInlineDataExplorerActionContext } from '../../../browser/notebookCells/InlineDataExplorerActions.js';
 import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -100,9 +100,9 @@ describe('InlineDataExplorerHeader', () => {
 			scopedContextKeyService: contextKeyService,
 		});
 		return rtl.render(
-			<CellScopedContextKeyServiceProvider cell={cell}>
+			<CellProvider cell={cell}>
 				{header}
-			</CellScopedContextKeyServiceProvider>
+			</CellProvider>
 		);
 	}
 

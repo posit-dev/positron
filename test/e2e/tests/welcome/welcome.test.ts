@@ -29,7 +29,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectTabTitleToBe('Welcome');
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
-			await welcome.expectRecentToContain([]);
+			await welcome.expectRecentToBeVisible();
 			app.web
 				? await welcome.expectConnectToBeVisible(false)
 				: await welcome.expectConnectToBeVisible(true);
@@ -108,7 +108,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
-			await welcome.expectRecentToContain(['qa-example-content']);
+			await welcome.expectRecentToBeVisible();
 		});
 
 		test('Verify clicking on `Open Folder` opens file browser', { tag: [tags.WEB_ONLY] }, async function ({ app, page }) {

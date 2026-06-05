@@ -32,9 +32,10 @@ export class DashboardPage {
 	 * Ensures a project exists, creating it if necessary
 	 * @param folderToOpen The folder name to create/check for
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
+	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<boolean> {
 		const existingProject = this.project(folderToOpen);
 
 		try {
@@ -42,7 +43,7 @@ export class DashboardPage {
 			return false; // Project already exists
 		} catch {
 			// Project doesn't exist, create it
-			await this.createNewProject(folderToOpen, context);
+			await this.createNewProject(folderToOpen, context, managedCredentials);
 			return true; // New project was created
 		}
 	}
@@ -51,14 +52,15 @@ export class DashboardPage {
 	 * Creates a new project/session with the specified folder
 	 * @param folderToOpen The folder name for the new project
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
+	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	private async createNewProject(folderToOpen: string, context?: BrowserContext): Promise<void> {
+	private async createNewProject(folderToOpen: string, context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
 		await this.newSessionButton.click();
 		await this.positronProButton.click();
 
 		// Setup managed credentials if context is provided and credentials section is visible
 		if (context) {
-			await this.setupManagedCredentialsIfNeeded(context);
+			await this.setupManagedCredentialsIfNeeded(context, managedCredentials);
 		}
 
 		await this.sessionNameInput.fill(folderToOpen);
@@ -73,11 +75,12 @@ export class DashboardPage {
 	 * Opens a session for the specified project, creating it if necessary
 	 * @param projectName The project name to open
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
+	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	async openSession(projectName = 'qa-example-content', context?: BrowserContext): Promise<void> {
+	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
-		const newProjectCreated = await this.ensureProjectExists(projectName, context);
+		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
 
 		if (!newProjectCreated) {
 			// Project already existed, so we need to launch it
@@ -100,8 +103,14 @@ export class DashboardPage {
 	 * Sets up managed credentials if credentials aren't already configured
 	 * Note: Called from createNewProject when the New Session dialog is already open
 	 * @param context BrowserContext for handling OAuth flows in new tabs
+	 * @param managedCredentials Credential to set up: 'snowflake' sets up only Snowflake, 'databricks'
+	 *                           sets up only Databricks. If undefined, no credentials are configured.
 	 */
-	private async setupManagedCredentialsIfNeeded(context: BrowserContext): Promise<void> {
+	private async setupManagedCredentialsIfNeeded(context: BrowserContext, managedCredentials?: 'snowflake' | 'databricks'): Promise<void> {
+		if (managedCredentials === undefined) {
+			return;
+		}
+
 		const page = this.code.driver.currentPage;
 
 		// Wait for Session Credentials section to appear
@@ -114,11 +123,11 @@ export class DashboardPage {
 			return;
 		}
 
-		// Setup Snowflake (will skip if already enabled)
-		await this.setupSnowflakeOAuth(context);
-
-		// Setup Databricks (will skip if already enabled)
-		await this.setupDatabricksOAuth(context);
+		if (managedCredentials === 'snowflake') {
+			await this.setupSnowflakeOAuth(context);
+		} else if (managedCredentials === 'databricks') {
+			await this.setupDatabricksOAuth(context);
+		}
 	}
 
 	/**

@@ -34,7 +34,7 @@ import { EditorContextKeys } from '../../../../../editor/common/editorContextKey
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useCellScopedContextKeyService } from './CellProvider.js';
 
 /**
  *

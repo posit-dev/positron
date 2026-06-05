@@ -77,10 +77,22 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	removeProfile(id: string): void;
 
 	/**
-	 * Adds or updates a data connection instance.
-	 * @param instance The data connection instance to add or update.
+	 * Opens a connection for the given profile. Looks up the driver, resolves the profile's
+	 * secret parameter values, calls driver.connect(), and registers the resulting instance.
+	 * If a live instance for this profile already exists, returns it without re-connecting.
+	 * @param profileId The data connection profile id to connect.
+	 * @returns The live data connection instance.
+	 * @throws If the profile is not found, the driver is not registered, or driver.connect() fails.
 	 */
-	addUpdateInstance(instance: IDataConnectionInstance): void;
+	connect(profileId: string): Promise<IDataConnectionInstance>;
+
+	/**
+	 * Closes the live connection for the given profile (if one exists). Calls disconnect() on
+	 * the underlying handle, releases ext host resources, and removes the instance from the
+	 * service. No-op if no instance exists for the profile.
+	 * @param profileId The data connection profile id to disconnect.
+	 */
+	disconnect(profileId: string): Promise<void>;
 
 	/**
 	 * Gets all data connection instances.
@@ -96,8 +108,8 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	getInstance(id: string): IDataConnectionInstance | undefined;
 
 	/**
-	 * Removes a data connection instance.
-	 * @param id The data connection instance id to remove.
+	 * Gets the live data connection instance for the given profile, or undefined if none exists.
+	 * @param profileId The data connection profile id.
 	 */
-	removeInstance(id: string): void;
+	getInstanceForProfile(profileId: string): IDataConnectionInstance | undefined;
 }

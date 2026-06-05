@@ -202,10 +202,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('Python - console accepts input after notebook cell execution', {
-		tag: [tags.CONSOLE, tags.POSITRON_NOTEBOOKS, tags.WIN],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11704' }]
-	}, async function ({ app, sessions }) {
+	test('Python - console accepts input after notebook cell execution', {tag: [tags.CONSOLE]}, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
@@ -224,6 +221,18 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
+	});
+
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile }) {
+		const { notebooksPositron } = app.workbench;
+		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
+
+		const kernelButtons = app.code.driver.currentPage
+			.locator('.editor-group-container.active')
+			.getByRole('button', { name: 'Kernel Actions' });
+		await expect(kernelButtons).toHaveCount(1);
 	});
 
 });

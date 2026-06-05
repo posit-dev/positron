@@ -260,6 +260,7 @@ jobs:
 
       - name: Restore Python packages cache
         id: cache-python
+        continue-on-error: true
         uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}\uv-cache
@@ -319,6 +320,7 @@ jobs:
 
       - name: Restore R packages cache
         id: cache-r
+        continue-on-error: true
         uses: actions/cache/restore@v5
         with:
           path: |
