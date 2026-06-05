@@ -174,7 +174,7 @@ Output the report using the Output format template below. **Always step through 
 Step-through behavior:
 - After the at-a-glance table, render ONE action item per turn in **trace-hidden form**: EXACTLY 4 content lines — basename + scenario, `Verdict:`, `What changes:`, prompt. **DO NOT include a `Trace:` block, `Why:` block, or any per-assertion enumeration in the default step-through render.** The example layouts shown in the Output format template below depict the EXPANDED form (rendered on `expand <N>` or `dump all` only), not the default step-through.
 - Ask `[a] approve  [c] change  [s] skip  [e] expand`. Accept single-letter shortcuts: `a` = approve, `c` = change, `s` = skip, `e` = expand. If the dev replies `e` or `expand <N>`, re-render that item with the full Trace / Why / Moves-to-Vitest / Stays-in-e2e block (whichever applies for the verdict), then re-ask. Otherwise advance to the next item.
-- After the last action item, summarize decisions ("N/N processed: X approved, Y changed, Z skipped"), then ask any global gate questions.
+- After the last action item, render the `## Action Items` section (approved items as one-line bullets, or "None" if everything was skipped/kept), then ask any global gate questions.
 
 Reference template for default step-through render (4 lines + prompt, NO trace):
 ```
@@ -237,7 +237,7 @@ See [`output-format.md`](output-format.md) for the full report template, per-ite
 **Critical constraints (must hold without reading the reference):**
 - Lead with `## TL;DR` and `## At a glance`. The table is the only allowed form for At a glance — never a list or labeled blocks. Columns: `ID` / `Test :: scenario` / `Verdict` / `Conf.` / `Why`.
 - Keep/Skip/Delete never get per-item blocks. Table `Why` column is their entire treatment.
-- Low-confidence items are suppressed by default; summary count only. Dev replies `show low-confidence` to reveal.
+- Low-confidence items are suppressed by default; Action Items count only. Dev replies `show low-confidence` to reveal.
 - Step through action items one at a time (Step 5 governs display mode).
 
 ## Guardrails

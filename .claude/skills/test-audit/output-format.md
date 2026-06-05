@@ -69,16 +69,12 @@ One example per verdict (showing the four shapes):
 ## Skip
 **[N]** `<file>` - Skip (high). Docs-only / type-only / reverted / upstream / action-only.
 
-## Summary
-- Add: <V vitest, E ext-host-flag, e2e>
-- Move down: <H high, M medium>
-- Move up: <N> (rare)
-- Split: <N>
-- Keep: <N> (X verified via hypothesis-verification trace)
-- Delete / Skip: <N>
+## Action Items
+
+- <one-line action per approved item: manual check, Vitest to write, e2e to delete, etc.>
 - Low-confidence (hidden): <N> — reply `show low-confidence` to reveal
-- Upstream awareness: <U items, X overlaps>
-- Total dev decisions at the gate: <N>
+
+Omit bullets that don't apply. If nothing remains, write "None."
 ```
 
 ## Formatting rules
