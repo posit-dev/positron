@@ -21,75 +21,65 @@ function getThemeValue(): number {
 }
 
 /**
- * Public API surface for other extensions or the notebook output system.
- */
-export interface PdfServerApi {
-	registerPdf(pdfUri: vscode.Uri): string;
-	unregisterPdf(pdfId: string): void;
-	getExternalUrl(): Promise<string>;
-}
-
-/**
  * Activate the extension.
  */
-export function activate(context: vscode.ExtensionContext): PdfServerApi {
-	// Initialize the PDF HTTP server singleton with the extension path.
-	const httpServer = PdfHttpServer.getInstance();
-	httpServer.initialize(context.extensionPath);
+export function activate(context: vscode.ExtensionContext): void {
+	try {
+		// Initialize the PDF HTTP server singleton with the extension path.
+		const httpServer = PdfHttpServer.getInstance();
+		httpServer.initialize(context.extensionPath);
 
-	// Create the PDF server provider for the custom editor.
-	const pdfServerProvider = new PdfServerProvider(context, httpServer);
+		// Create the PDF server provider for the custom editor.
+		const pdfServerProvider = new PdfServerProvider(context, httpServer);
 
-	// Register the provider with Positron.
-	context.subscriptions.push(
-		vscode.window.registerCustomEditorProvider(
-			PdfServerProvider.viewType,
-			pdfServerProvider,
-			{
-				supportsMultipleEditorsPerDocument: true,
-				webviewOptions: {
-					retainContextWhenHidden: true
+		// Register the provider with Positron.
+		context.subscriptions.push(
+			vscode.window.registerCustomEditorProvider(
+				PdfServerProvider.viewType,
+				pdfServerProvider,
+				{
+					supportsMultipleEditorsPerDocument: true,
+					webviewOptions: {
+						retainContextWhenHidden: true
+					}
 				}
-			}
-		)
-	);
+			)
+		);
 
-	// Register a command to open a PDF in the viewer.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.pdfServer.openInViewer', (uriOrPath: vscode.Uri | string) => {
-			const uri = typeof uriOrPath === 'string'
-				? vscode.Uri.file(uriOrPath)
-				: uriOrPath;
-			vscode.commands.executeCommand('vscode.openWith', uri, PdfServerProvider.viewType);
-		})
-	);
+		// Register a command to open a PDF in the viewer.
+		context.subscriptions.push(
+			vscode.commands.registerCommand('positron.pdfServer.openInViewer', (uriOrPath: vscode.Uri | string) => {
+				const uri = typeof uriOrPath === 'string'
+					? vscode.Uri.file(uriOrPath)
+					: uriOrPath;
+				vscode.commands.executeCommand('vscode.openWith', uri, PdfServerProvider.viewType);
+			})
+		);
 
-	// Used by the notebook output system to render PDFs inline.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.pdfServer.getViewerUrl', async (fsPath: string): Promise<{ viewerUrl: string; pdfId: string }> => {
-			const pdfUri = vscode.Uri.file(fsPath);
-			const pdfId = httpServer.registerPdf(pdfUri);
-			const serverUrl = (await httpServer.getExternalUrl()).replace(/\/$/, '');
-			const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
-			const theme = getThemeValue();
-			const viewerUrl = `${serverUrl}/pdfjs-notebook/web/viewer.html?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
-			return { viewerUrl, pdfId };
-		})
-	);
+		// Used by the notebook output system to render PDFs inline.
+		context.subscriptions.push(
+			vscode.commands.registerCommand('positron.pdfServer.getViewerUrl', async (fsPath: string): Promise<{ viewerUrl: string; pdfId: string }> => {
+				const pdfUri = vscode.Uri.file(fsPath);
+				const pdfId = httpServer.registerPdf(pdfUri);
+				const serverUrl = (await httpServer.getExternalUrl()).replace(/\/$/, '');
+				const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
+				const theme = getThemeValue();
+				const viewerUrl = `${serverUrl}/pdfjs-notebook/web/viewer.html?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
+				return { viewerUrl, pdfId };
+			})
+		);
 
-	// Used by the notebook output system to clean up PDF registrations on disposal.
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.pdfServer.unregisterPdf', (pdfId: string) => {
-			httpServer.unregisterPdf(pdfId);
-		})
-	);
-
-	// Return the public API.
-	return {
-		registerPdf: (pdfUri: vscode.Uri) => httpServer.registerPdf(pdfUri),
-		unregisterPdf: (pdfId: string) => httpServer.unregisterPdf(pdfId),
-		getExternalUrl: () => httpServer.getExternalUrl(),
-	};
+		// Used by the notebook output system to clean up PDF registrations on disposal.
+		context.subscriptions.push(
+			vscode.commands.registerCommand('positron.pdfServer.unregisterPdf', (pdfId: string) => {
+				httpServer.unregisterPdf(pdfId);
+			})
+		);
+	} catch (error) {
+		console.error('Failed to activate positron-pdf-server extension:', error);
+		vscode.window.showErrorMessage(`PDF Server extension failed to activate: ${error}`);
+		throw error;
+	}
 }
 
 /**
