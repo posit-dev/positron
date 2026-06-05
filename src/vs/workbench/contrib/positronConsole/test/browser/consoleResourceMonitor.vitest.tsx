@@ -17,62 +17,28 @@ import { ConsoleResourceMonitor, computeResourceMonitorLayout, RESOURCE_MONITOR_
 
 describe('computeResourceMonitorLayout', () => {
 	it('shows nothing when there is no room', () => {
-		expect(computeResourceMonitorLayout(0)).toEqual({
-			showCpu: false,
-			showMemory: false,
-			showLabels: false,
-			graphWidth: 0,
-		});
-		expect(computeResourceMonitorLayout(20)).toEqual({
-			showCpu: false,
-			showMemory: false,
-			showLabels: false,
-			graphWidth: 0,
-		});
+		expect(computeResourceMonitorLayout(0)).toEqual({ showMemory: false, graphWidth: 0 });
+		expect(computeResourceMonitorLayout(40)).toEqual({ showMemory: false, graphWidth: 0 });
 	});
 
-	it('shows the CPU value only when narrow', () => {
-		const layout = computeResourceMonitorLayout(40);
-		expect(layout.showCpu).toBe(true);
-		expect(layout.showMemory).toBe(false);
-		expect(layout.showLabels).toBe(false);
+	it('shows the memory value only when narrow', () => {
+		const layout = computeResourceMonitorLayout(100);
+		expect(layout.showMemory).toBe(true);
 		expect(layout.graphWidth).toBe(0);
 	});
 
-	it('shows both values without a graph when slightly wider', () => {
-		const layout = computeResourceMonitorLayout(110);
-		expect(layout.showCpu).toBe(true);
+	it('adds a graph that grows with available width', () => {
+		const layout = computeResourceMonitorLayout(180);
 		expect(layout.showMemory).toBe(true);
-		expect(layout.showLabels).toBe(false);
-		expect(layout.graphWidth).toBe(0);
-	});
-
-	it('adds a graph that grows with available width but stays below the labels threshold', () => {
-		const layout = computeResourceMonitorLayout(220);
-		expect(layout.showCpu).toBe(true);
-		expect(layout.showMemory).toBe(true);
-		expect(layout.showLabels).toBe(false);
 		expect(layout.graphWidth).toBeGreaterThanOrEqual(50);
 		expect(layout.graphWidth).toBeLessThanOrEqual(150);
 	});
 
-	it('shows labels and a full-width graph at the maximum width', () => {
-		const layout = computeResourceMonitorLayout(RESOURCE_MONITOR_MAX_WIDTH);
-		expect(layout).toEqual({
-			showCpu: true,
+	it('shows a full-width graph at the maximum width', () => {
+		expect(computeResourceMonitorLayout(RESOURCE_MONITOR_MAX_WIDTH)).toEqual({
 			showMemory: true,
-			showLabels: true,
 			graphWidth: 150,
 		});
-	});
-
-	it('drops labels before shrinking the graph as width decreases', () => {
-		// Just below the max width, labels are dropped but the graph stays wide.
-		const layout = computeResourceMonitorLayout(RESOURCE_MONITOR_MAX_WIDTH - 1);
-		expect(layout.showLabels).toBe(false);
-		expect(layout.showCpu).toBe(true);
-		expect(layout.showMemory).toBe(true);
-		expect(layout.graphWidth).toBe(150);
 	});
 
 	it('degrades monotonically as width shrinks', () => {
@@ -81,11 +47,7 @@ describe('computeResourceMonitorLayout', () => {
 		let prevScore = Number.MAX_SAFE_INTEGER;
 		for (let w = RESOURCE_MONITOR_MAX_WIDTH + 20; w >= 0; w--) {
 			const l = computeResourceMonitorLayout(w);
-			const score =
-				(l.showLabels ? 1000 : 0) +
-				l.graphWidth +
-				(l.showMemory ? 100 : 0) +
-				(l.showCpu ? 10 : 0);
+			const score = (l.showMemory ? 1000 : 0) + l.graphWidth;
 			expect(score).toBeLessThanOrEqual(prevScore);
 			prevScore = score;
 		}

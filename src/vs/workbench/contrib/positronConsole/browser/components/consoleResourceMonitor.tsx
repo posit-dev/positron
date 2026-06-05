@@ -7,7 +7,7 @@
 import './consoleResourceMonitor.css';
 
 // React.
-import { MouseEvent, useLayoutEffect, useRef, useState } from 'react';
+import { MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -18,6 +18,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
@@ -25,19 +26,15 @@ import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRunt
  * the value boxes in consoleResourceMonitor.css; keep them in sync so the
  * layout computation matches what is actually rendered.
  */
-const CPU_VALUE_WIDTH = 30;		// Reserves room for "100%".
 const MEM_VALUE_WIDTH = 56;		// Reserves room for e.g. "888.88GB".
-const CPU_LABEL_WIDTH = 28;		// Reserves room for the "CPU" label.
-const MEM_LABEL_WIDTH = 28;		// Reserves room for the "MEM" label.
-const LABEL_VALUE_GAP = 4;		// Gap between a label and its value.
 const GRAPH_MIN_WIDTH = 50;
 const GRAPH_MAX_WIDTH = 150;
-const GAP = 6;					// Gap between adjacent elements (stat groups, graph).
+const GAP = 6;					// Gap between adjacent elements (graph, memory value).
 
 /**
- * Extra slack added to the labels threshold so the labels never get clipped by
+ * Extra slack added to the maximum width so the content is never clipped by
  * sub-pixel/font-metric variance (the content is right-aligned with overflow
- * hidden, so any underestimate would clip the leftmost label).
+ * hidden, so any underestimate would clip the leftmost element).
  */
 const SAFETY_PADDING = 8;
 
@@ -46,20 +43,14 @@ const SAFETY_PADDING = 8;
  */
 const GRAPH_HEIGHT = 16;
 
-/** The width of a CPU/MEM stat group including its label. */
-const CPU_STAT_WIDTH = CPU_LABEL_WIDTH + LABEL_VALUE_GAP + CPU_VALUE_WIDTH;
-const MEM_STAT_WIDTH = MEM_LABEL_WIDTH + LABEL_VALUE_GAP + MEM_VALUE_WIDTH;
-
 /**
  * The preferred (maximum) width of the resource monitor, used by the action
  * bar to decide how much horizontal space to grant the monitor. At this width
- * the monitor shows labels, a full-width graph, and both values.
+ * the monitor shows a full-width graph and the memory value.
  */
 export const RESOURCE_MONITOR_MAX_WIDTH =
-	CPU_STAT_WIDTH + GAP + GRAPH_MAX_WIDTH + GAP + MEM_STAT_WIDTH + SAFETY_PADDING;
+	GRAPH_MAX_WIDTH + GAP + MEM_VALUE_WIDTH + SAFETY_PADDING;
 
-const cpuLabel = localize('positronConsole.resourceMonitor.cpuLabel', 'CPU');
-const memoryLabel = localize('positronConsole.resourceMonitor.memoryLabel', 'MEM');
 const showResourceMonitorLabel = localize('positron.console.showResourceMonitor', "Show Resource Monitor");
 
 /**
@@ -67,55 +58,66 @@ const showResourceMonitorLabel = localize('positron.console.showResourceMonitor'
  * monitor should render at a given width.
  */
 export interface ResourceMonitorLayout {
-	/** Whether to show the CPU percentage value. */
-	readonly showCpu: boolean;
 	/** Whether to show the memory value. */
 	readonly showMemory: boolean;
-	/** Whether to show the "CPU"/"MEM" text labels. */
-	readonly showLabels: boolean;
 	/** The width of the usage graph in pixels; 0 means no graph. */
 	readonly graphWidth: number;
 }
 
 /**
  * Computes which resource monitor elements fit within the available width, and
- * how wide the graph should be. As the width decreases, elements are dropped in
- * this order: labels, then the graph (which first shrinks from
- * {@link GRAPH_MAX_WIDTH} to {@link GRAPH_MIN_WIDTH}), then the memory value,
- * then the CPU value.
+ * how wide the graph should be. As the width decreases, the graph first shrinks
+ * from {@link GRAPH_MAX_WIDTH} to {@link GRAPH_MIN_WIDTH}, then is dropped, and
+ * finally the memory value is dropped.
  *
  * @param width The available width in pixels.
  * @returns The resource monitor layout.
  */
 export function computeResourceMonitorLayout(width: number): ResourceMonitorLayout {
 	// Too narrow to show anything.
-	if (width < CPU_VALUE_WIDTH) {
-		return { showCpu: false, showMemory: false, showLabels: false, graphWidth: 0 };
+	if (width < MEM_VALUE_WIDTH) {
+		return { showMemory: false, graphWidth: 0 };
 	}
 
-	// Enough room for the CPU value only.
-	const statsWidth = CPU_VALUE_WIDTH + GAP + MEM_VALUE_WIDTH;
-	if (width < statsWidth) {
-		return { showCpu: true, showMemory: false, showLabels: false, graphWidth: 0 };
-	}
-
-	// Enough room for both values. Determine whether a graph also fits.
-	const graphAvailable = width - statsWidth - GAP;
+	// There is room for the memory value. Determine whether a graph also fits.
+	const graphAvailable = width - MEM_VALUE_WIDTH - GAP;
 	if (graphAvailable < GRAPH_MIN_WIDTH) {
-		return { showCpu: true, showMemory: true, showLabels: false, graphWidth: 0 };
+		return { showMemory: true, graphWidth: 0 };
 	}
 
-	// A graph fits; only show the labels once there is room for the labels plus
-	// a full-width graph (labels are the first thing dropped as width shrinks).
-	if (width >= RESOURCE_MONITOR_MAX_WIDTH) {
-		return { showCpu: true, showMemory: true, showLabels: true, graphWidth: GRAPH_MAX_WIDTH };
-	}
+	// A graph fits; grow it up to its maximum width.
+	return { showMemory: true, graphWidth: Math.min(graphAvailable, GRAPH_MAX_WIDTH) };
+}
+
+/**
+ * Wires up an action bar hover (tooltip) for a single element. Returns a ref to
+ * attach to the target element along with the mouse handlers that show and hide
+ * the hover. The hover refreshes live while the pointer stays inside, so it
+ * always reflects the latest resource usage.
+ *
+ * @param content The tooltip text to display.
+ * @returns The ref and mouse handlers to spread onto the target element.
+ */
+function useResourceHover(content: string) {
+	const positronActionBarContext = usePositronActionBarContext();
+	const hoverManager = positronActionBarContext?.hoverManager;
+	const ref = useRef<HTMLDivElement>(null);
+	const [mouseInside, setMouseInside] = useState(false);
+
+	// Show (or refresh) the hover while the pointer is inside.
+	useEffect(() => {
+		if (mouseInside && ref.current) {
+			hoverManager?.showHover(ref.current, content);
+		}
+	}, [mouseInside, hoverManager, content]);
 
 	return {
-		showCpu: true,
-		showMemory: true,
-		showLabels: false,
-		graphWidth: Math.min(graphAvailable, GRAPH_MAX_WIDTH),
+		ref,
+		onMouseEnter: () => setMouseInside(true),
+		onMouseLeave: () => {
+			setMouseInside(false);
+			hoverManager?.hideHover();
+		},
 	};
 }
 
@@ -207,10 +209,18 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 	const cpuValue = latest ? `${Math.round(Math.max(0, Math.min(100, latest.cpu_percent)))}%` : '';
 	const memoryValue = latest ? ByteSize.formatSize(latest.memory_bytes) : '';
 
+	// Tooltips for the graph (which plots CPU usage over time) and the memory value.
+	const graphHover = useResourceHover(
+		localize('positron.console.resourceMonitor.cpuTooltip', "CPU usage: {0}", cpuValue)
+	);
+	const memoryHover = useResourceHover(
+		localize('positron.console.resourceMonitor.memoryTooltip', "Memory usage: {0}", memoryValue)
+	);
+
 	// Determine whether there is any content to show. We always render the
 	// measuring container (width 0) so the ResizeObserver can report a width;
 	// the content is conditional on the computed layout and available data.
-	const hasContent = latest !== undefined && (layout.showCpu || layout.showMemory || layout.graphWidth > 0);
+	const hasContent = latest !== undefined && (layout.showMemory || layout.graphWidth > 0);
 
 	// Describe the current usage for assistive technologies.
 	const resourceMonitorAriaLabel = latest
@@ -230,16 +240,14 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 		>
 			{hasContent &&
 				<>
-					{layout.showCpu &&
-						<div className='resource-usage-cpu'>
-							{layout.showLabels &&
-								<span className='resource-usage-label'>{cpuLabel}</span>
-							}
-							<span className='resource-usage-value resource-usage-cpu-value'>{cpuValue}</span>
-						</div>
-					}
 					{layout.graphWidth > 0 &&
-						<div className='resource-usage-graph-chip'>
+						// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- hover-only tooltip target; the accessible description is on the parent role='img'.
+						<div
+							ref={graphHover.ref}
+							className='resource-usage-graph-chip'
+							onMouseEnter={graphHover.onMouseEnter}
+							onMouseLeave={graphHover.onMouseLeave}
+						>
 							<ResourceUsageGraph
 								data={data}
 								height={GRAPH_HEIGHT}
@@ -248,10 +256,13 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 						</div>
 					}
 					{layout.showMemory &&
-						<div className='resource-usage-memory'>
-							{layout.showLabels &&
-								<span className='resource-usage-label'>{memoryLabel}</span>
-							}
+						// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- hover-only tooltip target; the accessible description is on the parent role='img'.
+						<div
+							ref={memoryHover.ref}
+							className='resource-usage-memory'
+							onMouseEnter={memoryHover.onMouseEnter}
+							onMouseLeave={memoryHover.onMouseLeave}
+						>
 							<span className='resource-usage-value resource-usage-memory-value'>{memoryValue}</span>
 						</div>
 					}

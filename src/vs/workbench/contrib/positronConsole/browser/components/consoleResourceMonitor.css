@@ -26,21 +26,19 @@
 }
 
 /*
- * Wrap the graph in a subtle background chip. The background is neutral and
- * distinct from the graph's fill color (which is derived from the chart line
- * color). No horizontal padding is used so the chip width matches the graph
- * width exactly, keeping the layout math accurate.
+ * Frame the graph with a subtle 1px border on all sides. No horizontal padding
+ * is used so the chip width matches the graph width (plus the 1px side borders)
+ * closely, keeping the layout math accurate.
  */
 .console-resource-monitor .resource-usage-graph-chip {
 	display: flex;
 	align-items: center;
 
+	border: 1px solid var(--vscode-panel-border);
 	border-radius: 3px;
 	overflow: hidden;
-	background-color: var(--vscode-keybindingLabel-background);
 }
 
-.console-resource-monitor .resource-usage-cpu,
 .console-resource-monitor .resource-usage-memory {
 	display: flex;
 	flex-direction: row;
@@ -56,10 +54,6 @@
 	margin: 0;
 	text-align: right;
 	font-variant-numeric: tabular-nums;
-}
-
-.console-resource-monitor .resource-usage-cpu-value {
-	width: 30px;
 }
 
 .console-resource-monitor .resource-usage-memory-value {
