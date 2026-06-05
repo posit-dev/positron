@@ -171,8 +171,14 @@ test.describe('Language Model Access Gating', { tag: [tags.POSIT_ASSISTANT, tags
 
 		await app.workbench.hotKeys.openCommandPalette();
 		await app.workbench.quickInput.type(`>${COMMAND_TITLE}`);
-		const firstResult = await app.workbench.quickInput.waitForQuickInputElementText();
-		expect(firstResult).toBe('No matching commands');
+		// With the command gated out, the picker falls back to fuzzy "similar
+		// commands" (e.g. "Configure Language Model Providers"), so we can't rely
+		// on a "No matching commands" message. Wait for the list to render, then
+		// assert the gated command itself is absent from the results.
+		await app.workbench.quickInput.waitForQuickInputElementText();
+		await expect(
+			app.workbench.quickInput.quickInputResult.filter({ hasText: COMMAND_TITLE })
+		).toHaveCount(0);
 		await app.workbench.quickInput.closeQuickInput();
 	});
 
