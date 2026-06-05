@@ -29,6 +29,8 @@ Flag any test where the answer is "I'm not sure" or where the test only verifies
 
 Concrete check: mentally delete or mutate the production code path the test exercises. Would a user or the system notice the breakage? If not, the test is verifying structure, not behavior — flag it with a suggested behavioral rewrite or recommend dropping it.
 
+**Trivial-function check:** read the source function body. If it is ≤ ~5 lines with ≤ 1 branch — pure delegation (`this.container.get() === container`), simple getter, or pass-through — flag the entire test file as a potential delete candidate. State the function size explicitly: "The function under test is N lines, M branches. Is this test suite carrying its maintenance weight?" The canonical anti-patterns: a 4-test, 95-line suite for a 5-line function with 1 if-statement (`notebookRenderCacheDispose.vitest.ts`); a 4-test, 80-line suite for a one-liner getter (`positronNotebookInstanceIsAttachedTo.vitest.ts`). These are low-confidence findings — the dev decides — but they must be surfaced, not silently passed.
+
 ### 1. Unused declarations and import bloat
 
 Any variables, emitters, or imports declared but never referenced in a test? Suite-level `let` variables that only exist for setup wiring should be inlined into the stub objects instead. Also flag excessive imports: if 5+ service identifiers are imported only for `.stub()` calls, suggest extracting the stubs into a helper function to reduce the import block.

@@ -137,7 +137,14 @@ Why: source-pattern matching produces false positives - `MenuId.X` mentions in a
 - **Move up** - *rare.* The current bucket can't faithfully exercise what the test asserts; the test belongs higher. Always paired with an alternative line in the report. See "Signals an assertion may belong UP a bucket" below for detection criteria + confidence rules.
 - **Split** - some assertions are genuinely cross-system, others are unit-level value checks. Propose moving the unit-level subset down; keep the cross-system subset.
 - **Keep** - assertions genuinely depend on full-app integration, OS-level input, multi-pane state, or real runtime output not reproducible under unit conditions.
-- **Delete** - test asserts upstream Monaco/VS Code behavior, or duplicates coverage that already exists at the right level.
+- **Delete** - test asserts upstream Monaco/VS Code behavior; duplicates coverage that already exists at the right level; or (for Vitest tests) the function under test is so simple that the test's maintenance cost exceeds its regression-detection value — see "Trivial-function Delete" below.
+
+**Trivial-function Delete (Vitest only).** After the bucket-placement check, read the source function body for every Vitest test in scope. If all three hold:
+1. Function body is ≤ ~5 lines
+2. ≤ 1 branch (no real logic, no error handling, no data transformation)
+3. Shape is pure delegation (`this.x.get() === y`), simple getter (`return this._x`), or pass-through (`return fn(a, b)`)
+
+→ surface as `Delete (low)` with reason "maintenance cost may exceed regression-detection value for a trivially simple function." These are judgment calls for the dev, not mechanical deletes — always low confidence. The canonical examples: a 4-test, 95-line suite for a 5-line function with 1 if-statement; a 4-test, 80-line suite for `this.container.get() === container`.
 
 **Before issuing Keep for an e2e test: scenario-match check.** Verify that the test's setup exercises the *specific code path changed by the PR*, not just the same general feature area. The trap: a test named "side-by-side" that sets up two *different* files does NOT cover the scenario of splitting *one* file — the changed code path (same URI → two instances) is never exercised. Ask: "Does this test's setup invoke the changed code path?" If no, the test is `Keep` for its own behaviors but a coverage gap exists — surface an `Add` item for the missing scenario. Do not count a nearby test as coverage for an untested scenario.
 
@@ -159,7 +166,7 @@ When any of these hit, surface the candidate with verdict `Move up -> <bucket>` 
 - `Move up -> <bucket>` - coverage belongs higher (rare). Always paired with an alternative.
 - `Split` - some assertions move, some stay.
 - `Add` - new coverage needed at this level.
-- `Delete` - duplicate or upstream-owned; no replacement needed.
+- `Delete` - duplicate, upstream-owned, or maintenance cost exceeds regression-detection value for a trivially simple function; no replacement needed.
 - `Skip` - not worth testing (docs, glue, reverted, type-only).
 
 **Confidence per verdict** (applies to every verdict, not just moves):

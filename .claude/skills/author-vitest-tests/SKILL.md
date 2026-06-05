@@ -103,6 +103,8 @@ Gather the context you need before drafting the plan:
 
 ### Draft the test plan and confirm with the dev (MANDATORY)
 
+**Check source complexity before listing test cases.** Read the function or class you are about to test. If the body is ≤ ~5 lines with ≤ 1 branch (pure getter, delegation, or pass-through), you must name in the plan what specific regression each proposed test guards that no existing test would catch. If you cannot name one per test, propose skipping it and say why — don't add boilerplate coverage for trivially simple code. The dev can override, but the default is: trivial functions don't need their own test suite.
+
 **Before writing any test code, present a plan and wait for explicit confirmation.** This lets the dev steer scope before effort is sunk -- drop cases they don't care about, add cases you missed, reshape groupings to match how the feature is actually used.
 
 Format the plan like this:
@@ -192,7 +194,7 @@ Present the dev with a summary:
 
 ## Hard rules
 
-- **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal.
+- **Test for regressions, not coverage.** Before writing any test, state what user-visible or system-observable regression it guards against. If you can't answer, skip the test. A test that verifies an internal counter, array index, or call count — where the real invariant is a downstream side-effect — is testing structure, not behavior. Coverage is a side-effect of good tests, not a goal. Concretely: a 4-test, 80-line suite for `this.container.get() === container` is the failure mode — the function is so trivial that any regression would be caught immediately by any caller.
 - **Don't over-test.** Test public behavior, not implementation details.
 - **Don't export internals for testing.** Test behavior through rendered output or public API.
 - **Don't write E2E tests.** Flag for E2E if needed, but don't write them.
