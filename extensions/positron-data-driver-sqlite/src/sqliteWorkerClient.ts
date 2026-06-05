@@ -12,6 +12,7 @@ import {
 	WorkerQueryRequest,
 	WorkerQueryResponse
 } from './sqliteWorkerProtocol.js';
+import { createWorkerEnv } from './workerEnv.js';
 
 /** A materialized result row, keyed by column name. */
 export type SqliteRow = Record<string, unknown>;
@@ -73,7 +74,7 @@ export class SqliteWorkerClient implements ISqliteQueryClient {
 		const worker = fork(
 			this._workerPath,
 			[JSON.stringify(this._config)],
-			{ serialization: 'advanced', execArgv: [], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }
+			{ serialization: 'advanced', execArgv: [], env: createWorkerEnv() }
 		);
 		worker.on('message', (message: unknown) => {
 			const response = message as WorkerQueryResponse;

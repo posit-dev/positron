@@ -11,6 +11,7 @@ import {
 	WorkerQueryRequest,
 	WorkerQueryResponse
 } from './duckdbWorkerProtocol.js';
+import { createWorkerEnv } from './workerEnv.js';
 
 /** A materialized result row, keyed by column name. */
 export type DuckDBRow = Record<string, unknown>;
@@ -69,7 +70,7 @@ export class DuckDBWorkerClient implements IDuckDBQueryClient {
 		const worker = fork(
 			this._workerPath,
 			[JSON.stringify(this._config)],
-			{ serialization: 'advanced', execArgv: [], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }
+			{ serialization: 'advanced', execArgv: [], env: createWorkerEnv() }
 		);
 		worker.on('message', (message: unknown) => {
 			const response = message as WorkerQueryResponse;
