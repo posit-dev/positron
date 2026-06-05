@@ -209,12 +209,12 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 			// Check if this HTML contains an iframe pointing to a PDF file.
 			// If so, route through the PDF server for proper rendering.
-			const pdfIframeInfo = this._extractPdfIframeInfo(rawHtml);
+			const pdfIframeInfo = extractPdfIframeInfo(rawHtml);
 			if (pdfIframeInfo) {
 				const notebookDir = rawHtmlBaseUri?.fsPath ?? '';
 				return {
 					preloadMessageType: 'display',
-					webview: this._createPdfNotebookWebview(outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri),
+					webview: this._createPdfNotebookWebview(instance, outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri),
 				};
 			}
 
@@ -289,15 +289,12 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
 	}
-	private _extractPdfIframeInfo(html: string) {
-		return extractPdfIframeInfo(html);
-	}
-
 	/**
 	 * Create a webview that renders a PDF inline in a notebook cell using the
 	 * positron-pdf-server extension's full viewer with "Open With..." support.
 	 */
 	private async _createPdfNotebookWebview(
+		instance: IPositronNotebookInstance,
 		outputId: string,
 		pdfInfo: { src: string; width?: string; height?: string },
 		notebookDir: string,
@@ -361,17 +358,24 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		const webview = await this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html, baseUri);
 
-		// Listen for the "Open With..." message from the webview.
-		const messageListener = webview.webview.onMessage((event) => {
-			const msg = event.message;
-			if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
-				this._editorService.openEditor({
-					resource: URI.file(msg.path),
-					options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
-				});
-			}
-		});
-		this._register(messageListener);
+		// Tie disposables to the notebook's lifecycle, not the service singleton.
+		const disposables = this._notebookToDisposablesMap.get(instance.getId());
+		if (disposables) {
+			disposables.add(webview.webview.onMessage((event) => {
+				const msg = event.message;
+				if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
+					this._editorService.openEditor({
+						resource: URI.file(msg.path),
+						options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
+					});
+				}
+			}));
+
+			// Unregister the PDF from the HTTP server when the notebook is disposed.
+			disposables.add(toDisposable(() => {
+				this._commandService.executeCommand('positron.pdfServer.unregisterPdf', result.pdfId);
+			}));
+		}
 
 		return webview;
 	}

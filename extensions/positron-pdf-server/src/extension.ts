@@ -77,6 +77,13 @@ export function activate(context: vscode.ExtensionContext): PdfServerApi {
 		})
 	);
 
+	// Used by the notebook output system to clean up PDF registrations on disposal.
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.pdfServer.unregisterPdf', (pdfId: string) => {
+			httpServer.unregisterPdf(pdfId);
+		})
+	);
+
 	// Return the public API.
 	return {
 		registerPdf: (pdfUri: vscode.Uri) => httpServer.registerPdf(pdfUri),
