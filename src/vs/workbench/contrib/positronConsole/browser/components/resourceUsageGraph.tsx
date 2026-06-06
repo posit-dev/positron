@@ -91,6 +91,12 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 		<svg
 			className="resource-usage-graph"
 			height={height}
+			// Fill the rendered box on both axes rather than scaling uniformly.
+			// When flex shrinks the chip, the rendered width can fall below the
+			// declared width; the default "xMidYMid meet" would then scale the
+			// whole graph down and center it vertically, lifting the idle (0%)
+			// line off the bottom border. "none" keeps the baseline flush.
+			preserveAspectRatio="none"
 			viewBox={`0 0 ${width} ${height}`}
 			width={width}
 		>
