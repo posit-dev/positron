@@ -8,7 +8,8 @@ import { tags, test } from '../_test.setup';
 import { expect } from '@playwright/test';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	useLegacyNotebookEditor: true
 });
 
 test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () => {

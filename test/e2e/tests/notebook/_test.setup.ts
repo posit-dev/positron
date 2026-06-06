@@ -5,28 +5,9 @@
 
 import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';
 
-interface NotebookTestFixtures extends TestFixtures {
-}
-
-interface NotebookWorkerFixtures extends WorkerFixtures {
-	useLegacyNotebookEditor: boolean;
-}
-
-export const test = base.extend<NotebookTestFixtures, NotebookWorkerFixtures>({
-	useLegacyNotebookEditor: [true, { scope: 'worker', option: true }],
-
-	beforeApp: [
-		async ({ useLegacyNotebookEditor, settingsFile }, use) => {
-			if (useLegacyNotebookEditor) {
-				// These tests exercise the legacy (VS Code) notebook editor. The
-				// Positron notebook editor is now the default, so disable it before
-				// the app starts to avoid waiting for a window reload.
-				settingsFile.append({ 'positron.notebook.enabled': false });
-			}
-
-			await use();
-		},
-
-		{ scope: 'worker' }
-	],
+// This suite exercises the legacy (VS Code) notebook editor, which is no longer
+// the default. The `useLegacyNotebookEditor` option (defined in the base setup)
+// disables the Positron notebook editor before the app starts.
+export const test = base.extend<TestFixtures, WorkerFixtures>({
+	useLegacyNotebookEditor: [true, { scope: 'worker' }],
 });
