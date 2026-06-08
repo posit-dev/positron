@@ -353,7 +353,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         );
                         if (venvResult.venvPython) {
                             resolvedPath = venvResult.venvPython;
-                            venvWasCreated = true;
+                            venvWasCreated = venvResult.attempted;
                         } else if (venvResult.attempted) {
                             progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
                         }
@@ -372,7 +372,7 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                     );
                     if (venvResult.venvPython) {
                         resolvedPath = venvResult.venvPython;
-                        venvWasCreated = true;
+                        venvWasCreated = venvResult.attempted;
                     } else if (venvResult.attempted) {
                         progress.report({ message: InterpreterQuickPickList.UvInstall.venvCreationFailed });
                     }
