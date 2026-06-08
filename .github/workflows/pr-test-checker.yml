@@ -55,13 +55,17 @@ jobs:
   gate:
     name: Check positron-dev membership
     # Cheap event-shape pre-filter so we don't spin up a runner (or hit the API)
-    # for every PR comment -- only PR events and `/recheck-tests` comments on PRs
-    # reach the membership check below.
+    # for every PR comment -- only PR events and recheck-command comments on PRs
+    # reach the membership check below. Recognized recheck commands: /recheck-tests,
+    # /rePETE, /re-pete (contains() is case-insensitive, so casing doesn't matter).
+    # NOTE: keep this command list in sync with the on-recheck job's `if` below.
     if: |
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != null &&
-        contains(github.event.comment.body, '/recheck-tests'))
+        (contains(github.event.comment.body, '/recheck-tests') ||
+          contains(github.event.comment.body, '/repete') ||
+          contains(github.event.comment.body, '/re-pete')))
     runs-on: ubuntu-latest
     # No GITHUB_TOKEN scopes needed: the check uses the App token in GH_TOKEN.
     permissions: {}
@@ -172,21 +176,24 @@ jobs:
           repo-root: ${{ github.workspace }}/pr-head
 
   on-recheck:
-    name: Re-grade on /recheck-tests
+    name: Re-grade on recheck command
     needs: gate
-    # Fires when a positron-dev member comments `/recheck-tests` on a PR.
-    # The issue_comment event runs in base-repo context with full secrets
-    # even when the PR is from a fork, so two layers of defense:
+    # Fires when a positron-dev member comments a recheck command (/recheck-tests,
+    # /rePETE, /re-pete) on a PR. The issue_comment event runs in base-repo context
+    # with full secrets even when the PR is from a fork, so two layers of defense:
     #   1. The `gate` job requires BOTH the commenter AND the PR author to be
     #      positron-dev members (the PR-author check blocks comments on fork
-    #      PRs by non-members -- attackers can't bait /recheck-tests on a PR
+    #      PRs by non-members -- attackers can't bait a recheck on a PR
     #      whose author is outside the team).
     #   2. The job checks out the base branch to RUN the action and the
     #      PR head only as READ-ONLY DATA -- PR-head code never executes.
+    # NOTE: keep the recheck-command list in sync with the gate job's `if` above.
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '/recheck-tests') &&
+      (contains(github.event.comment.body, '/recheck-tests') ||
+        contains(github.event.comment.body, '/repete') ||
+        contains(github.event.comment.body, '/re-pete')) &&
       needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
