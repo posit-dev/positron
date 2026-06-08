@@ -266,7 +266,7 @@ def test_locatable_key_falls_back_to_top_level_package() -> None:
 
     op.__module__ = "positron_fake_pkg.internal.ops"
     op.__name__ = "op"
-    package.op = op
+    setattr(package, "op", op)  # noqa: B010
     sys.modules["positron_fake_pkg"] = package
     try:
         # The internal module path can't be imported, but the top-level package re-exports `op`.
@@ -296,6 +296,7 @@ def test_show_help_renders_torch_function(running_help_service: HelpService) -> 
     torch.abs carries an internal __qualname__ (torch._VariableFunctionsClass.abs) that
     pydoc.locate() can't resolve; the resolver should rewrite it to the public torch.abs.
     """
+    assert torch is not None  # narrow the optional import for the type checker
     help_service = running_help_service
     help_comm = DummyComm(TARGET_NAME)
     help_service.on_comm_open(help_comm, {})
