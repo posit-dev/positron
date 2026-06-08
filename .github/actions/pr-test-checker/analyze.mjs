@@ -206,6 +206,41 @@ function wrapWithMarker(body) {
 	return `${COMMENT_MARKER}\n${body}`;
 }
 
+// --- Secret redaction (defense in depth) -------------------------------------
+
+// The agent runs over untrusted PR content with bypassPermissions, and its
+// report is posted verbatim as a public PR comment. Its tools (Read/Glob/Grep)
+// can't run commands and this step's env carries no GitHub token -- but Read
+// can open absolute paths (e.g. /proc/self/environ), so a prompt-injection in
+// PR content could in theory coax the model into echoing a secret from the
+// environment into its report. As a last line of defense, scrub known secret
+// shapes -- and the live ANTHROPIC_API_KEY value -- out of the report before it
+// is ever written to comment.md. Any hit fails the step so nothing is posted.
+const SECRET_PATTERNS = [
+	/sk-ant-[A-Za-z0-9_-]{20,}/g,         // Anthropic API keys
+	/gh[psour]_[A-Za-z0-9]{20,}/g,        // GitHub tokens (ghp_/gho_/ghs_/ghu_/ghr_)
+	/github_pat_[A-Za-z0-9_]{20,}/g,      // GitHub fine-grained PATs
+	/-----BEGIN[A-Z ]+PRIVATE KEY-----/g, // PEM private-key headers (App keys)
+];
+
+/**
+ * Replace any occurrence of the live Anthropic key or a known secret shape with
+ * `[REDACTED]`. Returns the scrubbed text and the number of redactions made.
+ */
+function redactSecrets(text) {
+	let redactions = 0;
+	let out = text;
+	const liveKey = process.env.ANTHROPIC_API_KEY;
+	if (liveKey && out.includes(liveKey)) {
+		out = out.split(liveKey).join('[REDACTED]');
+		redactions++;
+	}
+	for (const re of SECRET_PATTERNS) {
+		out = out.replace(re, () => { redactions++; return '[REDACTED]'; });
+	}
+	return { text: out, redactions };
+}
+
 // --- Main --------------------------------------------------------------------
 
 async function main() {
@@ -250,8 +285,17 @@ async function main() {
 		process.exit(1);
 	}
 
-	writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(report));
-	console.log(`[analyzer] wrote ${report.length} chars to comment.md (turns=${turnCount}, input_tokens=${usage?.input_tokens}, output_tokens=${usage?.output_tokens})`);
+	const { text: safeReport, redactions } = redactSecrets(report);
+	// Always write the scrubbed text (it is what the artifact preserves). If
+	// anything was redacted, treat it as a possible prompt-injection exfil
+	// attempt: fail the step so the upsert step is skipped and nothing posts,
+	// and surface it for a human to inspect the uploaded artifact.
+	writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(safeReport));
+	if (redactions > 0) {
+		console.error(`::error::[analyzer] redacted ${redactions} secret-shaped string(s) from the report; refusing to post. Possible prompt-injection in PR content -- inspect the uploaded artifact.`);
+		process.exit(1);
+	}
+	console.log(`[analyzer] wrote ${safeReport.length} chars to comment.md (turns=${turnCount}, input_tokens=${usage?.input_tokens}, output_tokens=${usage?.output_tokens})`);
 }
 
 main().catch(err => {
