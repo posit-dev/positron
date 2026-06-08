@@ -1,0 +1,6 @@
+{
+	"displayName": "File Transfer",
+	"description": "Notifications for file uploads and downloads",
+	"fileTransfer.configuration.title": "File Transfer",
+	"fileTransfer.configuration.showNotifications.description": "Show a notification toast when a file is uploaded to or downloaded from the workspace through the file explorer."
+}

@@ -83,12 +83,14 @@ export class ShowReleaseNotesAction extends Action2 {
 		if (isWeb) {
 			const openerService = accessor.get(IOpenerService);
 			const docsService = accessor.get(IPositronDocsService);
-			await openerService.open(URI.parse(docsService.getUrl('release-notes')));
+			await openerService.open(URI.parse(docsService.getUrl('release-notes.html')));
 			return;
 		}
 
+		const targetVersion = version ?? productService.positronVersion;
+
 		try {
-			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
+			await showReleaseNotesInEditor(instantiationService, targetVersion, false);
 		} catch (err) {
 			throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes available", productService.nameLong));
 		}

@@ -111,6 +111,11 @@ IGNORE_PATTERNS+=(
 	".cpython-"
 	# Git internal objects created by git operations during CI (not source files)
 	".git/"
+	# Agent-harness symlinks recreated by build/npm/postinstall.ts on every
+	# install (.claude/CLAUDE.md -> .github/copilot-instructions.md,
+	# .claude/skills -> .agents/skills). Gitignored dev tooling, not needed by
+	# tests/build, and regenerated idempotently, so nothing to cache.
+	".claude/"
 )
 
 # ============================================================================

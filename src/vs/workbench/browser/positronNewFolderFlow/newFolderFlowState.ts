@@ -148,9 +148,13 @@ export class NewFolderFlowStateManager
 
 		if (this._services.languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 			// If the runtime startup is already complete, initialize the flow state and update
-			// the interpreter-related state.
+			// the interpreter-related state. Always flip the flag even if init throws, so the
+			// picker doesn't get stuck on "Discovering...".
 			this._initDefaultsFromExtensions()
-				.then(() => {
+				.catch((err) => this._services.logService.error(
+					`[New Folder Flow] _initDefaultsFromExtensions failed: ${err}`
+				))
+				.finally(() => {
 					this._runtimeStartupComplete = true;
 					this._updateInterpreterRelatedState();
 				});
@@ -159,12 +163,20 @@ export class NewFolderFlowStateManager
 			this._register(
 				this._services.languageRuntimeService.onDidChangeRuntimeStartupPhase(
 					async (phase) => {
-						if (phase === RuntimeStartupPhase.Discovering) {
-							// At this phase, the extensions that provide language runtimes will
-							// have been activated.
-							await this._initDefaultsFromExtensions();
-						} else if (phase === RuntimeStartupPhase.Complete) {
-							await this._initDefaultsFromExtensions();
+						try {
+							if (phase === RuntimeStartupPhase.Discovering) {
+								// At this phase, the extensions that provide language runtimes will
+								// have been activated.
+								await this._initDefaultsFromExtensions();
+							} else if (phase === RuntimeStartupPhase.Complete) {
+								await this._initDefaultsFromExtensions();
+							}
+						} catch (err) {
+							this._services.logService.error(
+								`[New Folder Flow] _initDefaultsFromExtensions failed: ${err}`
+							);
+						}
+						if (phase === RuntimeStartupPhase.Complete) {
 							this._runtimeStartupComplete = true;
 							// Once the runtime startup is complete, we can update the
 							// interpreter-related state.
@@ -174,6 +186,23 @@ export class NewFolderFlowStateManager
 				)
 			);
 		}
+
+		// Subscribe to runtime registrations so that runtimes registered after the modal opens
+		// (e.g. R or Python discovered after the user opens New Folder from Template) are
+		// reflected in the interpreter dropdown.
+		this._register(
+			this._services.languageRuntimeService.onDidRegisterRuntime((runtime) => {
+				if (!this._runtimeStartupComplete) {
+					// The Complete phase handler will refresh the interpreter list itself once
+					// startup finishes, so there is nothing to do yet.
+					return;
+				}
+				if (runtime.languageId !== this._getLangId()) {
+					return;
+				}
+				this._updateInterpreterRelatedState();
+			})
+		);
 	}
 
 	//#region Getters & Setters
@@ -636,6 +665,22 @@ export class NewFolderFlowStateManager
 	//#region Private Methods
 
 	/**
+	 * Executes a command, swallowing rejections so that one extension command failing does not
+	 * abort the rest of the flow's initialization (which would leave the picker stuck on
+	 * "Discovering..." because `_runtimeStartupComplete` never flips to true).
+	 */
+	private async _executeCommandSafe<T>(commandId: string, ...args: unknown[]): Promise<T | undefined> {
+		try {
+			return await this._services.commandService.executeCommand<T>(commandId, ...args);
+		} catch (err) {
+			this._services.logService.error(
+				`[New Folder Flow] Command '${commandId}' failed: ${err instanceof Error ? err.message : String(err)}`
+			);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Initializes some defaults provided by the extensions.
 	 */
 	private async _initDefaultsFromExtensions() {
@@ -823,7 +868,7 @@ export class NewFolderFlowStateManager
 	private async _setPythonEnvProviders() {
 		if (!this._pythonEnvProviders?.length) {
 			this._pythonEnvProviders =
-				(await this._services.commandService.executeCommand(
+				(await this._executeCommandSafe<PythonEnvironmentProviderInfo[]>(
 					'python.getCreateEnvironmentProviders'
 				)) ?? [];
 		}
@@ -858,7 +903,7 @@ export class NewFolderFlowStateManager
 		}
 
 		// Check if Conda is installed.
-		this._isCondaInstalled = await this._services.commandService.executeCommand(
+		this._isCondaInstalled = await this._executeCommandSafe<boolean>(
 			'python.isCondaInstalled'
 		);
 		if (!this._isCondaInstalled) {
@@ -869,8 +914,9 @@ export class NewFolderFlowStateManager
 		}
 
 		// Get the Conda Python versions.
-		const pythonVersionInfo: CondaPythonVersionInfo | undefined =
-			await this._services.commandService.executeCommand('python.getCondaPythonVersions');
+		const pythonVersionInfo = await this._executeCommandSafe<CondaPythonVersionInfo>(
+			'python.getCondaPythonVersions'
+		);
 		if (!pythonVersionInfo) {
 			this._services.logService.warn('[New Folder Flow] No Conda Python versions found.');
 			return;
@@ -901,7 +947,7 @@ export class NewFolderFlowStateManager
 		}
 
 		// Check if uv is installed.
-		this._isUvInstalled = await this._services.commandService.executeCommand(
+		this._isUvInstalled = await this._executeCommandSafe<boolean>(
 			'python.isUvInstalled'
 		);
 		if (!this._isUvInstalled) {
@@ -912,8 +958,9 @@ export class NewFolderFlowStateManager
 		}
 
 		// Get the uv Python versions.
-		const pythonVersionInfo: UvPythonVersionInfo | undefined =
-			await this._services.commandService.executeCommand('python.getUvPythonVersions');
+		const pythonVersionInfo = await this._executeCommandSafe<UvPythonVersionInfo>(
+			'python.getUvPythonVersions'
+		);
 		if (!pythonVersionInfo) {
 			this._services.logService.warn('[New Folder Flow] No uv Python versions found.');
 			return;
@@ -955,12 +1002,12 @@ export class NewFolderFlowStateManager
 	private async _setMinimumInterpreterVersions(langIds?: LanguageIds[]): Promise<void> {
 		const langsForMinimumVersions = langIds ?? [LanguageIds.Python, LanguageIds.R];
 		if (langsForMinimumVersions.includes(LanguageIds.Python)) {
-			this._minimumPythonVersion = await this._services.commandService.executeCommand(
+			this._minimumPythonVersion = await this._executeCommandSafe<string>(
 				'python.getMinimumPythonVersion'
 			);
 		}
 		if (langsForMinimumVersions.includes(LanguageIds.R)) {
-			this._minimumRVersion = await this._services.commandService.executeCommand(
+			this._minimumRVersion = await this._executeCommandSafe<string>(
 				'r.getMinimumRVersion'
 			);
 		}

@@ -341,6 +341,7 @@ import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
 import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
 import './contrib/positronTelemetry/browser/positronTelemetry.contribution.js';
 import './contrib/positronEditorActions/browser/positronEditorActions.contribution.js';
+import './contrib/positronControlGallery/browser/positronControlGalleryEditor.contribution.js';
 // --- End Positron ---
 
 // Terminal
@@ -530,4 +531,5 @@ import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService
 import './contrib/positronAssistant/browser/positronAssistantService.js';
 import './services/positronMemoryUsage/browser/positronMemoryUsageService.js';
 import './services/positronMemoryUsage/common/positronMemoryUsage.contribution.js';
+import './services/positronFileTransfer/browser/positronFileTransferService.js';
 // --- End Positron ---

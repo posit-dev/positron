@@ -362,6 +362,15 @@ declare module 'positron' {
 		data: Record<string, unknown>;
 
 		/**
+		 * Optional metadata about the output itself, keyed by MIME type. This is
+		 * distinct from {@link LanguageRuntimeMessage.metadata}, which describes
+		 * the message more generally. It corresponds to the `metadata` field of a
+		 * Jupyter `display_data`/`execute_result` message, e.g.
+		 * `{ 'image/png': { width: 640, height: 480 } }`.
+		 */
+		outputMetadata?: Record<string, unknown>;
+
+		/**
 		 * The optional identifier of the output. If specified, this output can be referenced
 		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 		 */
@@ -1942,6 +1951,15 @@ declare module 'positron' {
 		Table = 'table',
 		View = 'view',
 		Field = 'field',
+		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupSchemas = 'group-schemas',
+		GroupTables = 'group-tables',
+		GroupViews = 'group-views',
+		GroupColumns = 'group-columns',
+		GroupIndexes = 'group-indexes',
+		GroupTriggers = 'group-triggers',
+		Trigger = 'trigger',
+		Index = 'index',
 	}
 
 	export interface DataConnectionNode {
@@ -2350,6 +2368,28 @@ declare module 'positron' {
 		 * `deactivate()` if cleanup needs to happen there.
 		 */
 		export const onWillShutdown: vscode.Event<ShutdownReason>;
+
+		/**
+		 * Fires when a file is uploaded into the workspace through the
+		 * Positron file explorer (drag-and-drop or "Upload..."). The event
+		 * value is the URI of the uploaded file in its new location in the
+		 * workspace. Folder uploads fire one event per file written.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been written.
+		 */
+		export const onDidUploadFile: vscode.Event<vscode.Uri>;
+
+		/**
+		 * Fires when a file is downloaded from the workspace through the
+		 * Positron file explorer ("Download..."). The event value is the URI
+		 * of the source file in the workspace. Folder downloads fire one
+		 * event per file read.
+		 *
+		 * Intended for auditing and observability. The event fires after the
+		 * file has been read.
+		 */
+		export const onDidDownloadFile: vscode.Event<vscode.Uri>;
 
 	}
 

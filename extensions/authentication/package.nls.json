@@ -16,7 +16,10 @@
 	"configuration.googleVertex.customHeaders.description": "Extra HTTP headers attached to every Google Vertex AI request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
 	"configuration.openai-compatible.baseUrl.description": "Base URL for the custom OpenAI-compatible provider endpoint.",
 	"configuration.openai-compatible.customHeaders.description": "Extra HTTP headers attached to every OpenAI-compatible request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
+	"configuration.deepseek-api.baseUrl.description": "Custom DeepSeek API base URL. Overrides the default https://api.deepseek.com endpoint. Also set automatically from the DEEPSEEK_BASE_URL environment variable.",
+	"configuration.deepseek-api.customHeaders.description": "Extra HTTP headers attached to every DeepSeek request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
 	"configuration.provider.googleVertex.enabled.description": "Enable Google Vertex AI as a language model provider for Positron Assistant.\n\nRestart Positron for the changes to take effect. Then, authenticate to the provider in the [language model provider dialog](command:authentication.configureProviders?%5B%7B%22preselectedProviderId%22%3A%22google-cloud%22%7D%5D).",
+	"configuration.provider.deepseek.enabled.description": "Enable DeepSeek as a language model provider for Positron Assistant.\n\nAuthenticate to the provider in the [language model provider dialog](command:authentication.configureProviders?%5B%7B%22preselectedProviderId%22%3A%22deepseek-api%22%7D%5D).",
 	"commands.configureProviders.title": "Configure Language Model Providers",
 	"commands.category": "Authentication"
 }

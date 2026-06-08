@@ -46,9 +46,9 @@ on:
         description: "URL of the created PR or the repository pulls page in dry-run mode"
         value: ${{ jobs.generate-sbom.outputs.result-url }}
     secrets:
-      RELEASE_APP_ID:
+      POSITRON_PROJECTS_CLIENT_ID:
         required: true
-      RELEASE_APP_PRIVATE_KEY:
+      POSITRON_PROJECTS_PEM:
         required: true
       SNYK_TOKEN:
         required: true
@@ -305,8 +305,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
           owner: rstudio
           repositories: posit-sboms
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,8 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleInputCursorBoundary } from '../../../common/contextkeys.js';
+import { Context as SuggestContext } from '../../../../editor/contrib/suggest/browser/suggest.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -60,6 +61,7 @@ const enum PositronConsoleCommandId {
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	EngageHistoryInfixSearch = 'workbench.action.positronConsole.engageHistoryInfixSearch',
 	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
@@ -739,7 +741,7 @@ export function registerPositronConsoleActions() {
 									logService.warn(
 										nextStatementRange.line ?
 											`Can't compute advancement due to a syntax error on line ${nextStatementRange.line + 1}.` :
-											"Can't compute advancement due to a syntax error."
+											`Can't compute advancement due to a syntax error.`
 									);
 									break;
 								}
@@ -1259,6 +1261,21 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.DownArrow,
+					// Ctrl+N ("Next") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+N opens a new window. The
+					// mac override repeats the DownArrow primary so the arrow key
+					// stays bound on macOS.
+					mac: { primary: KeyCode.DownArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyN] },
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('top'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1297,6 +1314,21 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyCode.UpArrow,
+					// Ctrl+P ("Previous") is a GNU readline keybinding bound only on
+					// macOS. On Windows/Linux raw Ctrl+P opens the Command Palette. The
+					// mac override repeats the UpArrow primary so the arrow key stays
+					// bound on macOS.
+					mac: { primary: KeyCode.UpArrow, secondary: [KeyMod.WinCtrl | KeyCode.KeyP] },
+					when: ContextKeyExpr.and(
+						PositronConsoleFocused,
+						SuggestContext.Visible.toNegated(),
+						PositronConsoleInputCursorBoundary.notEqualsTo('bottom'),
+						PositronConsoleInputCursorBoundary.notEqualsTo('none'),
+					),
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1335,6 +1367,11 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				keybinding: {
+					primary: KeyMod.CtrlCmd | KeyCode.UpArrow,
+					when: PositronConsoleFocused,
+					weight: KeybindingWeight.WorkbenchContrib,
+				},
 			});
 		}
 
@@ -1350,6 +1387,54 @@ export function registerPositronConsoleActions() {
 				accessor.get(INotificationService).notify({
 					severity: Severity.Info,
 					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
+			}
+		}
+	});
+
+	/**
+	 * Register the action to engage a reverse history search using infix matching.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.EngageHistoryInfixSearch,
+				title: {
+					value: localize('workbench.action.positronConsole.engageHistoryInfixSearch', "Reverse History Search"),
+					original: 'Reverse History Search'
+				},
+				f1: true,
+				category,
+				keybinding: {
+					// Ctrl+R on all platforms (like GNU readline's reverse-i-search).
+					// CtrlCmd is Ctrl on Windows/Linux; the mac override uses WinCtrl
+					// (raw Ctrl) so macOS gets Ctrl+R rather than Cmd+R.
+					primary: KeyMod.CtrlCmd | KeyCode.KeyR,
+					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyR },
+					when: PositronConsoleFocused,
+					// Ensure reverse history search wins over "Open Recent..."
+					// while the console is focused.
+					weight: KeybindingWeight.WorkbenchContrib + 1,
+				},
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.engageHistoryInfixSearch();
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.engageHistoryInfixSearch.noActiveConsole', "Cannot search input history. A console is not active."),
 					sticky: false
 				});
 			}

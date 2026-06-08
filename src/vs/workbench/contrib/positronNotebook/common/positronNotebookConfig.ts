@@ -47,12 +47,12 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
-				'Use Positron Notebook as the default editor for `.ipynb` files.'
+				'Use the Positron Notebook Editor for `.ipynb` files. When disabled, Positron uses the legacy notebook editor.'
 			),
-			tags: ['preview'],
+			tags: ['positronNotebook'],
 			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY]: {
@@ -63,6 +63,7 @@ configurationRegistry.registerConfiguration({
 				'Automatically scroll to cells modified by the AI assistant. When enabled, cells modified outside the viewport will be automatically scrolled into view and highlighted.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY]: {
 			type: 'number',
@@ -74,6 +75,7 @@ configurationRegistry.registerConfiguration({
 				'Time in milliseconds before deletion sentinels auto-dismiss (0 to disable auto-dismiss).'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY]: {
 			type: 'boolean',
@@ -83,6 +85,7 @@ configurationRegistry.registerConfiguration({
 				'Show deletion sentinels when cells are deleted. When disabled, cells are deleted immediately without undo placeholders.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY]: {
 			type: 'boolean',
@@ -92,6 +95,7 @@ configurationRegistry.registerConfiguration({
 				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY]: {
 			type: 'boolean',
@@ -101,6 +105,7 @@ configurationRegistry.registerConfiguration({
 				'Display data frames inline as interactive data grids instead of static HTML tables.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY]: {
 			type: 'number',
@@ -112,15 +117,16 @@ configurationRegistry.registerConfiguration({
 				'Maximum height in pixels for inline data explorers in notebook and Quarto outputs.'
 			),
 			scope: ConfigurationScope.WINDOW,
+			tags: ['positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_EXPERIMENTAL_KEY]: {
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
 				'positron.notebook.experimental',
-				'Enable experimental Positron Notebook features. These features are under active development and may change without notice.'
+				'Enable experimental features in the Positron notebook editor, such as the Visualize action for data frames. These features are under active development and may change or be removed without notice.'
 			),
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 			scope: ConfigurationScope.WINDOW,
 		},
 	},

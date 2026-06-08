@@ -219,6 +219,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronPackages",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronConnections",
 			"project": "vscode-workbench"
 		},
@@ -548,6 +552,10 @@
 		},
 		{
 			"name": "vs/workbench/services/positronDataExplorer",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/positronMemoryUsage",
 			"project": "vscode-workbench"
 		},
 		{

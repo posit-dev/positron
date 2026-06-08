@@ -1,0 +1,35 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-connection-node-row {
+	height: 100%;
+	width: 100%;
+	min-width: 0;
+	display: flex;
+	padding-right: 2px;
+	align-items: center;
+}
+
+.data-connection-node-icon {
+	font-size: 14px;
+	margin-right: 2px;
+	color: var(--vscode-icon-foreground);
+}
+
+.data-connection-node-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	/* Optical nudge: glyph mass sits below the line-box center, so flex centering reads as too low. */
+	transform: translateY(-0.5px);
+}
+
+.data-connection-node-type {
+	flex: 0 0 auto;
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+}

@@ -32,9 +32,10 @@ import { PositronNotebookCodeCell } from '../../browser/PositronNotebookCells/Po
 vi.mock('../../browser/notebookCells/NotebookCellActionBar.js', () => ({
 	NotebookCellActionBar: () => null,
 }));
-vi.mock('../../browser/notebookCells/CellContextKeyServiceProvider.js', () => ({
-	CellScopedContextKeyServiceProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-	useCellScopedContextKeyService: () => undefined,
+vi.mock('../../browser/notebookCells/CellProvider.js', () => ({
+	CellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+	useCell: () => ({ scopedContextKeyService: undefined }),
+	useCodeCell: () => { throw new Error('not a code cell'); },
 }));
 vi.mock('../../browser/notebookCells/CellEditorMonacoWidget.js', () => ({
 	CellEditorMonacoWidget: () => <div data-testid='mock-editor' />,

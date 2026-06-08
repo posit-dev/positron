@@ -32,6 +32,7 @@ const baseIgnore = [
 	'example.test.ts',
 	'**/workbench/**',
 	'**/remote-ssh/**',
+	'**/remote-wsl/**',
 	'**/assistant-eval/**',
 	'**/release-screenshots/**',
 ];
@@ -90,12 +91,14 @@ export default defineConfig<CustomTestOptions>({
 					'example.test.ts',
 					'**/workbench/**',
 					'**/remote-ssh/**',
+					'**/remote-wsl/**',
 					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				]
 				: [
 					'example.test.ts',
 					'**/workbench/**',
 					'**/remote-ssh/**',
+					'**/remote-wsl/**',
 					'**/lsp/**',
 					// Note: assistant-eval NOT ignored here - runs on e2e-electron only
 				],
@@ -197,6 +200,20 @@ export default defineConfig<CustomTestOptions>({
 				useExternalServer: false,
 			},
 			grep: /@:remote-ssh/
+		},
+		{
+			name: 'e2e-remote-wsl',
+			testIgnore: [
+				'example.test.ts',
+				'**/assistant-eval/**',
+				'**/workbench/**',
+			],
+			use: {
+				artifactDir: 'e2e-remote-wsl',
+				headless: false,
+				useExternalServer: false,
+			},
+			grep: /@:remote-wsl/
 		},
 		{
 			name: 'e2e-jupyter',

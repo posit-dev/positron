@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { isValidSnowflakeAccount } from '../snowflakeCredentials';
 
 class SnowflakeValidationError extends Error {
 	constructor(message: string) {
@@ -16,25 +17,26 @@ class SnowflakeValidationError extends Error {
 /**
  * Validate Snowflake Cortex credentials.
  *
- * Snowflake's Cortex REST API does not expose a documented lightweight
- * endpoint suitable for credential validation. Credential errors are
+ * config.baseUrl holds the bare account, not a URL, so validate it as an
+ * account -- don't accept a user-supplied base URL (#13750). Snowflake's Cortex
+ * REST API has no lightweight validation endpoint, so credential errors are
  * surfaced at request time instead.
  */
 export async function validateSnowflakeApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
-	const baseUrl = config.baseUrl?.trim();
-	if (!baseUrl) {
+	const account = config.baseUrl?.trim();
+	if (!account) {
 		throw new SnowflakeValidationError(
-			vscode.l10n.t('Snowflake base URL is required')
+			vscode.l10n.t('Snowflake account identifier is required')
 		);
 	}
 
-	if (baseUrl.includes('<account_identifier>')) {
+	if (!isValidSnowflakeAccount(account)) {
 		throw new SnowflakeValidationError(
 			vscode.l10n.t(
-				'Please set your Snowflake account identifier in the base URL'
+				'Please set a valid Snowflake account identifier'
 			)
 		);
 	}

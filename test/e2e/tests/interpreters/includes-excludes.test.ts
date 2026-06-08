@@ -63,28 +63,3 @@ test.describe('Interpreter: Excludes', {
 		await expectSessionStartToFail(sessions, 'pythonAlt', excludedPythonPath);
 	});
 });
-
-test.describe('Interpreter: Override', {
-	tag: [tags.INTERPRETER, tags.WEB]
-}, () => {
-	let overrideRPath: string;
-	let overridePythonPath: string;
-
-	test.beforeAll(async function ({ settings }) {
-		overridePythonPath = buildPythonPath('override');
-		overrideRPath = buildRPath('override');
-
-		await settings.set({
-			'python.interpreters.override': [overridePythonPath],
-			'positron.r.interpreters.override': [overrideRPath]
-		}, { reload: true, waitForReady: true });
-	});
-
-	test.skip('R - Can Override Interpreter Discovery', { tag: [tags.ARK], annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }] }, async function ({ sessions }) {
-		await expectSessionStartToFail(sessions, 'r', overrideRPath);
-	});
-
-	test('Python - Can Override Interpreter Discovery', async function ({ sessions }) {
-		await expectSessionStartToFail(sessions, 'python', overridePythonPath);
-	});
-});

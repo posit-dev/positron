@@ -61,6 +61,8 @@ product.json.backup
 *.lic
 .superset/
 test/e2e/release-screenshots/output/
+# Log file written to cwd by the snowflake-sdk dependency (positron-catalog-explorer)
+snowflake.log
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*

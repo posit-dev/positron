@@ -159,6 +159,18 @@ export class Layouts {
 	}
 
 	/**
+	 * Assert which view container is currently active (showing) in the sidebar by
+	 * its title. The sidebar can be visible while showing the wrong view, so this
+	 * checks the actual active composite rather than mere visibility.
+	 * @param title The expected title text of the active sidebar view (e.g. 'Chat').
+	 */
+	async expectActiveSidebarView(title: string): Promise<void> {
+		await test.step(`Expect active sidebar view to be "${title}"`, async () => {
+			await expect(this.sidebar.locator('.composite.title h2')).toHaveText(title);
+		});
+	}
+
+	/**
 	 * Assert that the bottom panel is visible or not visible.
 	 * @param visible Whether the panel should be visible.
 	 */
