@@ -7,7 +7,7 @@
 import './actionBar.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import { MouseEvent, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -17,7 +17,7 @@ import { useResourceUsageHistory } from './useResourceUsageHistory.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
-import { ConsoleResourceMonitor, RESOURCE_MONITOR_MAX_WIDTH } from './consoleResourceMonitor.js';
+import { ConsoleResourceMonitor, RESOURCE_MONITOR_MAX_WIDTH, showResourceMonitorContextMenu } from './consoleResourceMonitor.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
@@ -439,16 +439,18 @@ export const ActionBar = (props: ActionBarProps) => {
 		});
 	}
 
-	// Resource monitor. Only shown when there is a single console (when the
-	// session list, which has its own monitor, is hidden), the setting is
-	// enabled, we have resource data, and the session has not exited. The
-	// monitor grows into the available space and shrinks its content as the
-	// action bar narrows.
-	const showResourceMonitorAction =
+	// Resource monitor. Only relevant when there is a single console (when the
+	// session list, which has its own monitor, is hidden), we have resource
+	// data, and the session has not exited. When the setting is enabled the
+	// monitor is shown; it grows into the available space and shrinks its
+	// content as the action bar narrows. When the setting is disabled the
+	// monitor is omitted, but the empty space it would occupy still offers a
+	// right-click menu to bring it back (see onEmptySpaceContextMenu below).
+	const resourceMonitorRelevant =
 		positronConsoleContext.consoleSessionListCollapsed &&
-		showResourceMonitor &&
 		resourceUsageHistory.length > 0 &&
 		consoleState !== PositronConsoleState.Exited;
+	const showResourceMonitorAction = resourceMonitorRelevant && showResourceMonitor;
 	if (showResourceMonitorAction) {
 		rightActions.push({
 			fixedWidth: 0,
@@ -600,6 +602,17 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 	});
 
+	// When the monitor is relevant but hidden by the setting, let the user
+	// right-click the empty space where it would appear to bring it back. This
+	// mirrors the right-click-to-hide affordance on the monitor itself.
+	const emptySpaceContextMenuHandler = resourceMonitorRelevant && !showResourceMonitor
+		? (e: MouseEvent<HTMLDivElement>) => {
+			e.preventDefault();
+			e.stopPropagation();
+			showResourceMonitorContextMenu(services, e.clientX, e.clientY, false);
+		}
+		: undefined;
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
@@ -610,6 +623,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				paddingLeft={kPaddingLeft}
 				paddingRight={kPaddingRight}
 				rightActions={rightActions}
+				onEmptySpaceContextMenu={emptySpaceContextMenuHandler}
 			/>
 		</PositronActionBarContextProvider>
 	);

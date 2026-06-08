@@ -13,7 +13,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { ConsoleResourceMonitor, computeResourceMonitorLayout, formatCompactMemory, RESOURCE_MONITOR_MAX_WIDTH } from '../../browser/components/consoleResourceMonitor.js';
+import { ConsoleResourceMonitor, computeResourceMonitorLayout, formatCompactMemory, RESOURCE_MONITOR_MAX_WIDTH, showResourceMonitorContextMenu } from '../../browser/components/consoleResourceMonitor.js';
 
 const KB = 1024;
 const MB = KB * 1024;
@@ -106,5 +106,29 @@ describe('ConsoleResourceMonitor', () => {
 		// Running it disables the setting.
 		actions[0].run();
 		expect(updateValue).toHaveBeenCalledWith('console.showResourceMonitor', false);
+	});
+});
+
+describe('showResourceMonitorContextMenu', () => {
+	const showContextMenu = vi.fn<(delegate: IContextMenuDelegate) => void>();
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IContextMenuService, { showContextMenu })
+		.build();
+
+	it('offers an unchecked toggle that re-shows the monitor when hidden', () => {
+		const updateValue = vi.spyOn(ctx.get(IConfigurationService), 'updateValue');
+
+		// currentlyVisible=false: the toggle is unchecked and enables the setting.
+		showResourceMonitorContextMenu(ctx.reactServices, 10, 20, false);
+
+		expect(showContextMenu).toHaveBeenCalledTimes(1);
+		const delegate = showContextMenu.mock.calls[0][0];
+		const actions = delegate.getActions() as IAction[];
+		expect(actions).toHaveLength(1);
+		expect(actions[0].checked).toBe(false);
+
+		actions[0].run();
+		expect(updateValue).toHaveBeenCalledWith('console.showResourceMonitor', true);
 	});
 });

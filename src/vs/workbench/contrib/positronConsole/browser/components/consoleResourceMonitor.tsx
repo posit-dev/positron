@@ -17,6 +17,7 @@ import { DisposableStore, toDisposable } from '../../../../../base/common/lifecy
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -52,6 +53,39 @@ export const RESOURCE_MONITOR_MAX_WIDTH =
 	GRAPH_MAX_WIDTH + GAP + MEM_VALUE_WIDTH + SAFETY_PADDING;
 
 const showResourceMonitorLabel = localize('positron.console.showResourceMonitor', "Show Resource Monitor");
+
+/**
+ * Shows the context menu offering the "Show Resource Monitor" toggle. This is
+ * shared between the monitor itself (right-click to hide) and the empty space in
+ * the console action bar (right-click to bring it back), so the affordance is
+ * symmetric.
+ *
+ * @param services The Positron React services.
+ * @param x The x coordinate of the mouse event.
+ * @param y The y coordinate of the mouse event.
+ * @param currentlyVisible Whether the monitor is currently visible; determines
+ * the checkmark state and which value the toggle writes.
+ */
+export function showResourceMonitorContextMenu(services: PositronReactServices, x: number, y: number, currentlyVisible: boolean): void {
+	const actions: IAction[] = [{
+		id: 'workbench.action.positronConsole.toggleShowResourceMonitor',
+		label: showResourceMonitorLabel,
+		tooltip: '',
+		class: undefined,
+		enabled: true,
+		checked: currentlyVisible,
+		run: () => {
+			services.configurationService.updateValue('console.showResourceMonitor', !currentlyVisible);
+		}
+	}];
+
+	services.contextMenuService.showContextMenu({
+		getActions: () => actions,
+		getAnchor: () => ({ x, y }),
+		anchorAlignment: AnchorAlignment.LEFT,
+		anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+	});
+}
 
 /**
  * Formats a byte count for the compact resource monitor display. The numeric
@@ -203,32 +237,10 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Shows the context menu allowing the user to hide the resource monitor.
-	const showContextMenu = (x: number, y: number) => {
-		const actions: IAction[] = [{
-			id: 'workbench.action.positronConsole.toggleShowResourceMonitor',
-			label: showResourceMonitorLabel,
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			checked: true,
-			run: () => {
-				services.configurationService.updateValue('console.showResourceMonitor', false);
-			}
-		}];
-
-		services.contextMenuService.showContextMenu({
-			getActions: () => actions,
-			getAnchor: () => ({ x, y }),
-			anchorAlignment: AnchorAlignment.LEFT,
-			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
-		});
-	};
-
 	const handleContextMenu = (e: MouseEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
-		showContextMenu(e.clientX, e.clientY);
+		showResourceMonitorContextMenu(services, e.clientX, e.clientY, true);
 	};
 
 	// Compute the layout for the current width.
