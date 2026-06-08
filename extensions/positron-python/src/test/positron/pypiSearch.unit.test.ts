@@ -73,6 +73,37 @@ suite('searchPyPI', () => {
         expect(fetchStub.calledOnce).to.be.true;
     });
 
+    test('ranks prefix matches ahead of substring-only matches', async () => {
+        // Index order puts a substring-only match (django-requests) first.
+        fetchStub.resolves(makeIndexResponse(['django-requests', 'requests', 'requests-oauthlib']));
+
+        const result = await searchPyPI('requests');
+
+        expect(result.map((p) => p.name)).to.deep.equal(['requests', 'requests-oauthlib', 'django-requests']);
+    });
+
+    test('caps a broad query at 100 results', async () => {
+        // 150 names all containing "pkg".
+        const names = Array.from({ length: 150 }, (_, i) => `pkg${i}`);
+        fetchStub.resolves(makeIndexResponse(names));
+
+        const result = await searchPyPI('pkg');
+
+        expect(result).to.have.lengthOf(100);
+    });
+
+    test('keeps an exact match that sorts past the cap', async () => {
+        // 150 substring matches, with the exact match "pkg" last (well past the
+        // 100-result cap).
+        const names = [...Array.from({ length: 150 }, (_, i) => `pkg${i}`), 'pkg'];
+        fetchStub.resolves(makeIndexResponse(names));
+
+        const result = await searchPyPI('pkg');
+
+        expect(result).to.have.lengthOf(100);
+        expect(result.some((p) => p.name === 'pkg')).to.be.true;
+    });
+
     test('throws CancellationError when the token is cancelled before filtering', async () => {
         const cts = new vscode.CancellationTokenSource();
         fetchStub.callsFake(() => {

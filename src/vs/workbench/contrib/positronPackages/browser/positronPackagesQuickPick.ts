@@ -20,6 +20,15 @@ import * as semver from '../../../../base/common/semver/semver.js';
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
+ * Cap on the number of search results fed to the quick pick. A broad query
+ * (e.g. "a") can match thousands of packages from some backends; rendering them
+ * all is wasteful for results no one will scroll. Applied after the exact-match
+ * hoist so a precise match always survives the cap. Backends may cap further
+ * upstream (pak and PyPI both cap at 100); this is the uniform safety net.
+ */
+const MAX_SEARCH_RESULTS = 100;
+
+/**
  * Move an exact, case-insensitive name match to the front of the results,
  * leaving the backend's relative ordering of everything else untouched. We
  * defer to the backend's own ranking (pak/PPM, PyPI) and only guarantee that a
@@ -258,8 +267,12 @@ export const installPackage = async (
 				const results = await performSearch(query, token);
 				state.packages = results;
 				// Defer to the backend's ordering, but surface an exact name
-				// match first (see hoistExactMatch).
-				return hoistExactMatch(results, query).map((result) => ({ label: result.name }));
+				// match first (see hoistExactMatch), then cap so a broad query
+				// doesn't flood the quick pick. Hoist before the cap so the
+				// exact match always survives it.
+				return hoistExactMatch(results, query)
+					.slice(0, MAX_SEARCH_RESULTS)
+					.map((result) => ({ label: result.name }));
 			},
 			noResultsItem: (query: string) => ({
 				label: localize('positronPackages.noPackagesFound', "No packages found for '{0}'", query),
