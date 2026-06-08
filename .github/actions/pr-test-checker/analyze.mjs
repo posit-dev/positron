@@ -10,8 +10,8 @@
 // Writes the final markdown to comment.md for the upsert step to post.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync, writeFileSync, realpathSync } from 'node:fs';
+import { join, resolve as resolvePath, relative as relativePath, isAbsolute } from 'node:path';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -138,6 +138,74 @@ function buildUserPrompt(context) {
 	return sections.join('\n');
 }
 
+// --- Tool confinement (defense in depth) -------------------------------------
+
+// The agent reads untrusted PR content. Rather than trust it with
+// bypassPermissions (which lets Read open any absolute path, e.g.
+// /proc/self/environ), we run in the default permission mode and gate every
+// tool call through canUseTool: only the read-only tools are allowed, and only
+// when their target path stays inside the analysis root (REPO_ROOT, the
+// PR-head checkout). This blocks reads of the process environment, the home
+// directory, or anything outside the checkout at the source -- a secret can't
+// be reached in the first place. The secret-redaction pass below stays as a
+// second layer.
+const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep']);
+
+/**
+ * True if `candidate` (a path or glob, absolute or relative to `root`) resolves
+ * to a location inside `root`. Lexical check first; for paths that exist, a
+ * realpath check also rejects symlinks that escape the root.
+ */
+function isWithinRoot(root, candidate) {
+	const target = resolvePath(root, candidate);
+	const rel = relativePath(root, target);
+	const lexicalInside = rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+	if (!lexicalInside) {
+		return false;
+	}
+	try {
+		const realRel = relativePath(realpathSync(root), realpathSync(target));
+		return realRel === '' || (!realRel.startsWith('..') && !isAbsolute(realRel));
+	} catch {
+		// Target doesn't exist (e.g. a glob pattern with wildcards) -- the
+		// lexical check already confirmed it can't escape the root.
+		return true;
+	}
+}
+
+/**
+ * Build a canUseTool callback that allows only the read-only tools, and only
+ * when every path argument they carry stays inside `root`. Everything else is
+ * denied. Fully non-interactive: it always returns an allow/deny decision.
+ */
+function makeCanUseTool(root) {
+	return async (toolName, input) => {
+		if (!READ_ONLY_TOOLS.has(toolName)) {
+			return { behavior: 'deny', message: `Tool "${toolName}" is not permitted; PETE may only read the checkout via Read/Glob/Grep.` };
+		}
+		// Collect the location-bearing args for this tool. Grep's `pattern` is a
+		// regex and its `glob` is a filename filter, so neither is confined here.
+		const candidates = [];
+		if (toolName === 'Read') {
+			if (typeof input.file_path !== 'string') {
+				return { behavior: 'deny', message: 'Read requires a file_path.' };
+			}
+			candidates.push(input.file_path);
+		} else if (toolName === 'Glob') {
+			if (typeof input.pattern === 'string') { candidates.push(input.pattern); }
+			if (typeof input.path === 'string') { candidates.push(input.path); }
+		} else if (toolName === 'Grep') {
+			if (typeof input.path === 'string') { candidates.push(input.path); }
+		}
+		for (const candidate of candidates) {
+			if (!isWithinRoot(root, candidate)) {
+				return { behavior: 'deny', message: `Path "${candidate}" is outside the analysis root; PETE reads are confined to the PR checkout.` };
+			}
+		}
+		return { behavior: 'allow' };
+	};
+}
+
 // --- Agent loop --------------------------------------------------------------
 
 async function runAgent(systemPrompt, userPrompt) {
@@ -151,8 +219,14 @@ async function runAgent(systemPrompt, userPrompt) {
 			model: MODEL,
 			cwd: REPO_ROOT,
 			systemPrompt,
-			allowedTools: ['Read', 'Glob', 'Grep'],
-			permissionMode: 'bypassPermissions',
+			// Gate every tool call through canUseTool (see makeCanUseTool): only
+			// Read/Glob/Grep, and only inside REPO_ROOT. We deliberately do NOT
+			// pre-allow the read tools via `allowedTools` -- a bare allow rule
+			// auto-approves and skips the per-call path check. 'default' mode
+			// routes un-ruled tool calls to canUseTool, which always returns a
+			// decision, so the run stays non-interactive.
+			permissionMode: 'default',
+			canUseTool: makeCanUseTool(REPO_ROOT),
 			maxTurns: MAX_TURNS,
 			// Extended thinking is disabled. With thinking on (the adaptive
 			// default), cancelling a parallel tool-call batch corrupts the
