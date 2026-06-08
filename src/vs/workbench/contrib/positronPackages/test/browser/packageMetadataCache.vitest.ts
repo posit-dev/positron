@@ -25,7 +25,7 @@ describe('PackageMetadataCache', () => {
 
 	beforeEach(() => {
 		// Isolate tests that share the container's storage.
-		ctx.get(IStorageService).remove(PACKAGE_METADATA_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
+		ctx.get(IStorageService).remove(PACKAGE_METADATA_CACHE_STORAGE_KEY, StorageScope.WORKSPACE);
 	});
 
 	function makeCache(config: Record<string, unknown> = {}): PackageMetadataCache {
@@ -114,13 +114,13 @@ describe('PackageMetadataCache', () => {
 			schemaVersion: PACKAGE_METADATA_CACHE_SCHEMA_VERSION + 1,
 			environments: { 'py-abc': { lastFetched: 1_000, packages: { dplyr } } },
 		});
-		ctx.get(IStorageService).store(PACKAGE_METADATA_CACHE_STORAGE_KEY, stale, StorageScope.APPLICATION, StorageTarget.MACHINE);
+		ctx.get(IStorageService).store(PACKAGE_METADATA_CACHE_STORAGE_KEY, stale, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 		expect(makeCache().get('py-abc')).toBeUndefined();
 	});
 
 	it('discards an unparseable persisted blob without throwing', () => {
-		ctx.get(IStorageService).store(PACKAGE_METADATA_CACHE_STORAGE_KEY, 'not json', StorageScope.APPLICATION, StorageTarget.MACHINE);
+		ctx.get(IStorageService).store(PACKAGE_METADATA_CACHE_STORAGE_KEY, 'not json', StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 		expect(makeCache().get('py-abc')).toBeUndefined();
 	});

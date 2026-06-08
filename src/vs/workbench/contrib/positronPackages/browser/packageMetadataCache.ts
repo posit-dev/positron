@@ -77,12 +77,16 @@ interface IPersistedCache {
  * fetch (`pip/uv list --outdated`, R's `pkg_outdated`), which can take 10-30s+
  * on a cold start because it hits a network index for every installed package.
  *
- * Entries are keyed by `runtimeId` -- a stable hash of the interpreter path and
- * version -- so the same interpreter sees the same cache across windows and
- * reloads, while different interpreters stay isolated. The cache lives in
- * `APPLICATION`/`MACHINE`-scoped storage: outdated state is a fact about
- * packages installed on this machine, identical wherever the interpreter is
- * viewed, and never synced across machines.
+ * Within a workspace, entries are keyed by `runtimeId` -- a stable hash of the
+ * interpreter path and version -- so restarting an interpreter's session reuses
+ * its cache, while different interpreters stay isolated. The cache lives in
+ * `WORKSPACE`/`MACHINE`-scoped storage so each project keeps its own view:
+ * `runtimeId` encodes the interpreter binary but not the active library
+ * (`.libPaths()` / renv / venv) or the configured repositories, so two projects
+ * sharing one binary must not share outdated state (e.g. renv projects pinned to
+ * different CRAN snapshots, where the same installed version has a different
+ * "latest"). Workspace scope also keeps concurrent windows from clobbering a
+ * single shared blob. The cache is never synced across machines.
  *
  * This is a plain class rather than a registered service: the packages service
  * owns a single instance and threads it into each per-session packages
@@ -177,7 +181,7 @@ export class PackageMetadataCache {
 	}
 
 	private _read(): IPersistedCache {
-		const raw = this._storageService.get(PACKAGE_METADATA_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
+		const raw = this._storageService.get(PACKAGE_METADATA_CACHE_STORAGE_KEY, StorageScope.WORKSPACE);
 		if (!raw) {
 			return { schemaVersion: PACKAGE_METADATA_CACHE_SCHEMA_VERSION, environments: {} };
 		}
@@ -197,7 +201,7 @@ export class PackageMetadataCache {
 		this._storageService.store(
 			PACKAGE_METADATA_CACHE_STORAGE_KEY,
 			JSON.stringify(cache),
-			StorageScope.APPLICATION,
+			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE,
 		);
 	}
