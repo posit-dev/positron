@@ -212,6 +212,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
+				// Must be nested under `metadata` to be persisted to the .ipynb.
 				metadata: { outputType, [outputIdKey]: message.output_id, executionCount, metadata: message.outputMetadata },
 			}]
 		}]);
