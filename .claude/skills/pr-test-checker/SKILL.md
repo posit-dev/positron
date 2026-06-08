@@ -154,8 +154,7 @@ Output **exactly one final assistant message** containing the markdown report be
 **Verdict:** <status emoji from the Rubric table: 🟢 Adequate / Adequate via existing coverage, 🔴 Insufficient, 🟡 Not applicable> <Adequate | Adequate via existing coverage | Insufficient | Not applicable> -- <one-sentence justification>
 
 ### What changed
-- <file>:<line-range> -- <one-line description of the change>
-- ...
+<A SHORT summary -- 1-3 sentences, or at most ~4 bullets -- framed by behavior, not by file. Lead with the central change the verdict turns on. Collapse mass or mechanical edits (reverts, deletions, renames, harness churn) into a single line with a count, e.g. "plus ~50 files reverting the Positron chat customizations and their tests." Do NOT enumerate every changed file -- the diff is one click away. Name a specific file only when it is load-bearing for the verdict.>
 
 ### Tests in this PR
 <bulleted list of test files added/modified in the PR, with one-line description of what each covers. Or "None." if the PR didn't touch any test files.>
