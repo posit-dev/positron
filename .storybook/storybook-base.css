@@ -1,0 +1,98 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Base styles for Storybook that replicate the workbench environment.
+ * Provides font stack, body background, and CSS variables that are either:
+ * - Set dynamically at runtime by the workbench (fonts, layout vars)
+ * - Registered via registerColor() with defaults not in theme JSONs
+ *
+ * These supplement the generated theme-all.css (which comes from theme JSONs).
+ * Values sourced from registerColor() defaults in:
+ *   src/vs/platform/theme/common/colors/
+ *   src/vs/workbench/common/theme.ts
+ */
+
+:root {
+	/* === Monospace font (used by --monaco-monospace-font in the app) === */
+	--monaco-monospace-font: 'SF Mono', Monaco, Menlo, Consolas, 'Ubuntu Mono', 'Liberation Mono', 'DejaVu Sans Mono', 'Courier New', monospace;
+
+	/* === Standard VS Code colors missing from theme JSONs (registerColor defaults, dark) === */
+	--vscode-checkbox-foreground: var(--vscode-foreground);
+	--vscode-editorCursor-foreground: #AEAFAD;
+	--vscode-editorWidget-border: #454545;
+	--vscode-editorWidget-foreground: var(--vscode-foreground);
+	--vscode-editorHoverWidget-background: var(--vscode-editorWidget-background);
+	--vscode-editorHoverWidget-border: var(--vscode-editorWidget-border);
+	--vscode-editorWarning-foreground: #CCA700;
+	--vscode-editorCodeLens-foreground: #999999;
+	--vscode-editorIndentGuide-background: #404040;
+	--vscode-editor-findMatchHighlightBackground: #EA5C0055;
+	--vscode-notebook-cellEditorBackground: var(--vscode-editor-background);
+	--vscode-notebookStatusSuccessIcon-foreground: #89D185;
+	--vscode-notebookStatusRunningIcon-foreground: var(--vscode-foreground);
+	--vscode-notebookStatusErrorIcon-foreground: var(--vscode-errorForeground, #F85149);
+	--vscode-debugTokenExpression-name: #C586C0;
+	--vscode-debugTokenExpression-value: #CCCCCC99;
+	--vscode-debugTokenExpression-string: #CE9178;
+	--vscode-debugTokenExpression-boolean: #4E94CE;
+	--vscode-debugTokenExpression-number: #B5CEA8;
+	--vscode-diffEditor-insertedTextBackground: #9ccc2c33;
+	--vscode-diffEditor-removedTextBackground: #ff000033;
+	--vscode-editorOverviewRuler-addedForeground: #2EA04399;
+	--vscode-editorOverviewRuler-deletedForeground: #F8514999;
+	--vscode-scrollbar-shadow: #000000;
+	--vscode-scrollbar-background: transparent;
+	--vscode-scrollbarSlider-background: #79797966;
+	--vscode-scrollbarSlider-hoverBackground: #646464B3;
+	--vscode-scrollbarSlider-activeBackground: #BFBFBF66;
+	--vscode-toolbar-hoverBackground: #5a5d5e50;
+	--vscode-toolbar-hoverOutline: transparent;
+	--vscode-widget-shadow: #0000005C;
+
+	/* === Positron-registered colors (defaults from src/vs/workbench/common/theme.ts) === */
+	--vscode-positronActionBar-hoverBackground: #37373D;
+	--vscode-positronActionBar-disabledForeground: #6E7681;
+	--vscode-positronActionBar-selectBorder: #3C3C3C;
+	--vscode-positronNotebook-foreground: var(--vscode-editor-foreground);
+	--vscode-positronNotebook-errorForeground: var(--vscode-editorError-foreground, #F85149);
+	--vscode-positronNotebook-actionBarBackground: var(--vscode-editor-background);
+	--vscode-positronNotebook-actionBarBorder: var(--vscode-editorWidget-border);
+	--vscode-positronNotebook-cellBorder: #2B2B2B;
+	--vscode-positronNotebook-cellHoverBorder: var(--vscode-editorWidget-border);
+	--vscode-positronNotebook-cellFocusedBorder: var(--vscode-focusBorder);
+	--vscode-positronNotebook-cellInactiveFocusedBorder: var(--vscode-positronNotebook-cellBorder);
+	--vscode-positronNotebook-cellFooterForeground: #6E7681;
+	--vscode-positronNotebook-imgPlaceholderBackground: #37373D;
+
+	/* === CSS-only layout variables (set inline by PositronNotebookComponent at runtime) === */
+	--vscode-positronNotebook-cell-radius: 8px;
+	--vscode-positronNotebook-action-bar-h: 22px;
+	--vscode-positronNotebook-action-bar-inset: 11px;
+	--vscode-positronNotebook-text-output-font-family: var(--monaco-monospace-font);
+	--vscode-positronNotebook-text-output-font-size: 13px;
+	--vscode-positronNotebook-output-max-height: 500px;
+	--vscode-positronNotebook-markdown-font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+	--vscode-positronNotebook-markdown-font-size: 14px;
+	--vscode-positronNotebook-markdown-line-height: 1.6;
+	--vscode-repl-font-family: var(--monaco-monospace-font);
+}
+
+/* === Workbench base styles === */
+:root,
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	font-size: 13px;
+	line-height: 1.4;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editor-background);
+}
+
+/* In the real app, .monaco-workbench sets color and buttons inherit it.
+ * Storybook doesn't have that wrapper, so ensure form controls inherit. */
+button, input, select, textarea {
+	color: inherit;
+	font-family: inherit;
+}
