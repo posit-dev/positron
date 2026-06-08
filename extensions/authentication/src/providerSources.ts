@@ -16,7 +16,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getSnowflakeDefaultBaseUrl } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -151,7 +151,9 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',
-				baseUrl: getSnowflakeDefaultBaseUrl(),
+				// baseUrl holds the bare account, not a URL: the Cortex URL is
+				// derived from the account. Don't make it a saved setting (#13750).
+				baseUrl: getConfiguredSnowflakeAccount(),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -196,7 +198,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Gemini 2.5 Flash (Vertex)',
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('googleVertex'),
+				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
 				...(vertexFromEnv && {
 					autoconfigure: {

@@ -170,8 +170,29 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 }
 
 const DEPLOYMENT_URL_PATTERN = /\/openai\/deployments\//;
+const SNOWFLAKE_PROVIDER_ID = 'snowflake-cortex';
 
 const BaseUrl = (props: { baseUrl?: string; signedIn?: boolean; onChange: (newBaseUrl: string) => void; provider: IProvider }) => {
+	// For Snowflake, baseUrl holds the bare account, not a URL: relabel as
+	// "Account Identifier" and pass through. Don't make it a URL input (#13750).
+	if (props.provider.id === SNOWFLAKE_PROVIDER_ID) {
+		const accountLabel = localize('positron.languageModelConfig.snowflakeAccountInputLabel', 'Account Identifier');
+		return (
+			<div className='language-model-authentication-container' id='base-url-input'>
+				{
+					props.signedIn ?
+						<p>{localize('positron.languageModelConfig.snowflakeAccountSignedIn', "Account Identifier: {0}", props.baseUrl)}</p>
+						:
+						<LabeledTextInput
+							label={accountLabel}
+							type='text'
+							value={props.baseUrl ?? ''}
+							onChange={e => { props.onChange(e.currentTarget.value); }} />
+				}
+			</div>
+		);
+	}
+
 	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
 	const isDeploymentUrl = props.provider.id === 'ms-foundry' && props.baseUrl ? DEPLOYMENT_URL_PATTERN.test(props.baseUrl) : false;
 

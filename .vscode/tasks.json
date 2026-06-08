@@ -203,6 +203,18 @@
 		},
 		{
 			"type": "npm",
+			"script": "kill-watch-e2ed",
+			"label": "Kill E2E Tests - Build",
+			"group": "build",
+			"presentation": {
+				"reveal": "never",
+				"group": "buildKillers",
+				"close": true
+			},
+			"problemMatcher": "$tsc"
+		},
+		{
+			"type": "npm",
 			"script": "kill-watch-copilotd",
 			"label": "Kill Copilot - Build",
 			"group": "build",
@@ -478,7 +490,8 @@
 				"Kill Ext - Build",
 				"Kill Core - Transpile",
 				"Kill Core - Typecheck",
-				"Kill E2E Tests - Build"
+				"Kill E2E Tests - Build",
+				"Kill Copilot - Build"
 			],
 			"group": "build",
 			"problemMatcher": []
