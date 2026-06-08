@@ -230,7 +230,7 @@ export class ReleaseNotesManager extends Disposable {
 				} else {
 					// --- Start Positron ---
 					// Release notes need to be fetched from the main process to avoid CORS.
-					text = await this._updateService.getReleaseNotes();
+					text = await this._updateService.getReleaseNotes(version);
 					// --- End Positron ---
 				}
 			} catch {
