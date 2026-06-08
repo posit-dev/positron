@@ -53,9 +53,7 @@ test.describe('F1 Help', {
 
 	});
 
-	// Q: Is F1 help reliable inside a Positron notebook cell? It renders inconsistently and the
-	// help webview frame count varies run-to-run. Verify, then unskip.
-	test.skip('R - Verify basic F1 notebook help functionality', {
+	test('R - Verify basic F1 notebook help functionality', {
 		tag: tags.NOTEBOOKS
 	}, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
@@ -118,8 +116,7 @@ test.describe('F1 Help', {
 
 	});
 
-	// Q: Is F1 help reliable inside a Positron notebook cell? (See the R variant above.) Verify, then unskip.
-	test.skip('Python - Verify basic F1 notebook help functionality', {
+	test('Python - Verify basic F1 notebook help functionality', {
 		tag: tags.NOTEBOOKS
 	}, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
