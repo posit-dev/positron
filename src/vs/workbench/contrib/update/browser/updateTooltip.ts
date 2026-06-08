@@ -5,7 +5,6 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { localize } from '../../../../nls.js';
@@ -478,14 +477,7 @@ export class UpdateTooltip extends Disposable {
 	}
 
 	private runCommandAndClose(command: string, ...args: unknown[]) {
-		// --- Start Positron ---
-		// Surface action errors (e.g. missing release notes) instead of
-		// silently swallowing them as an unhandled rejection.
-		/*
 		this.commandService.executeCommand(command, ...args);
-		*/
-		this.commandService.executeCommand(command, ...args).catch(onUnexpectedError);
-		// --- End Positron ---
 		this.hoverService.hideHover(true);
 	}
 }

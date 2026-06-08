@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 /// <reference types="@testing-library/jest-dom/vitest" />
 
-import * as errorHandler from '../../../../../base/common/errors.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -146,27 +145,6 @@ describe('UpdateTooltip', () => {
 			getReleaseNotesButton(tooltip).click();
 
 			expect(executeCommand).toHaveBeenCalledWith(ShowCurrentReleaseNotesActionId, '2026.07.0');
-		});
-	});
-
-	describe('action button errors', () => {
-		it('routes command rejections to the unexpected-error handler', async () => {
-			executeCommand.mockRejectedValueOnce(new Error('boom'));
-			const captured: unknown[] = [];
-			const original = errorHandler.errorHandler.getUnexpectedErrorHandler();
-			errorHandler.setUnexpectedErrorHandler(e => captured.push(e));
-
-			try {
-				const tooltip = createTooltip();
-				tooltip.renderState(State.AvailableForDownload({ version: '2026.08.0', productVersion: '2026.08.0' }));
-
-				getActionButton(tooltip).click();
-				await vi.waitFor(() => expect(captured).toHaveLength(1));
-
-				expect((captured[0] as Error).message).toBe('boom');
-			} finally {
-				errorHandler.setUnexpectedErrorHandler(original);
-			}
 		});
 	});
 
