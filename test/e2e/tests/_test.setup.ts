@@ -140,7 +140,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 90000 }],
+		// Workbench projects sign in through Okta inside start(). That auth shares one TOTP
+		// account across parallel shards, so a rejected/locked-out code triggers a jittered
+		// backoff (see otpRetry.ts) of up to ~60s before re-submitting. 90s left no room for a
+		// backoff to complete alongside OAuth navigation, so allow headroom for one retry.
+	}, { scope: 'worker', auto: true, timeout: 180000 }],
 
 	assistant: [
 		async ({ app }, use) => {
