@@ -230,9 +230,16 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: true, isActive: true });
 	});
 
-	test('Multi-select + Shift+Enter runs all selected code cells', async function ({ app }) {
+	test('Multi-select + Shift+Enter runs all selected code cells', async function ({ app, sessions }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
+
+		// Clear any sessions leaked by earlier tests/specs sharing this worker.
+		// closeAllEditors() (folder afterEach) closes notebook tabs but does not
+		// shut down their kernels, so orphaned sessions accumulate and drop to a
+		// `disconnected` state on the web runtime. They starve the kernel we
+		// select below, which then never reaches `idle`. Start from a clean slate.
+		await sessions.deleteAll();
 
 		// Create notebook with 3 code cells containing executable Python
 		await notebooksPositron.newNotebook({ codeCells: 3 });
