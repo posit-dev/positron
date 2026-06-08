@@ -7,7 +7,8 @@ import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	useLegacyNotebookEditor: true
 });
 
 
