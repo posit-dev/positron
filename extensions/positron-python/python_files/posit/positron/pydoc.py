@@ -44,8 +44,6 @@ logger = logging.getLogger(__name__)
 
 BUILTIN_FUNCTIONS = ["input"]
 
-_object_cache: dict[str, Any] = {}
-
 
 def _compact_signature(obj: Any, name="", max_chars=45) -> str | None:
     """
@@ -618,17 +616,14 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_getobj(self, url):
         # --- Start Positron ---
-        obj = _object_cache.pop(url, None)
-        if obj is not None:
-            name = getattr(obj, "__name__", url)
-        else:
-            obj = locate(url, forceload=False)
-            name = url
+        # Skip forced reloads for all modules. It is unlikely to affect the UX provided that these
+        # modules don't change within the lifetime of the help service
+        obj = locate(url, forceload=False)
         # --- End Positron ---
         if obj is None and url != "None":
             raise ValueError("could not find object")
         title = describe(obj)
-        content = self.document(obj, name)
+        content = self.document(obj, url)
         return title, content
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes

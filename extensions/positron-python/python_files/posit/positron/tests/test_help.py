@@ -20,6 +20,17 @@ from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 TARGET_NAME = "target_name"
 
 
+def fake_internal_abs(x):
+    """Compute the absolute value."""
+
+
+# Mimic how libraries such as torch/tensorflow expose callables through a private defining
+# class (e.g. torch._VariableFunctionsClass.abs): the __qualname__ encodes an internal path
+# that pydoc.locate() can't resolve, even though the object is reachable at its public module
+# path. The help service should fall back to that public path.
+fake_internal_abs.__qualname__ = "_InternalFunctionsClass.fake_internal_abs"
+
+
 @pytest.fixture
 def help_service() -> HelpService:
     """A Positron help service."""
@@ -230,29 +241,28 @@ def test_show_help_resolves_distribution_name(
     assert help_comm.messages == [show_help_event(f"{mock_pydoc_thread.url}get?key=numpy")]
 
 
-def test_show_help_renders_objects_with_internal_module_paths(
+def test_show_help_resolves_internal_qualname_to_public_path(
     running_help_service: HelpService,
 ) -> None:
-    """Renders help for objects whose __module__ points to an internal path."""
-    from urllib.request import urlopen
+    """Resolve objects whose __qualname__ encodes an internal, unlocatable path.
 
-    def fake_abs(x):
-        """Compute the absolute value."""
-
-    fake_abs.__module__ = "tensorflow.python.ops.math_ops"
-    fake_abs.__qualname__ = "abs"
-
+    Libraries such as torch and tensorflow expose callables through a private defining class
+    (e.g. torch._VariableFunctionsClass.abs), so the qualname-based key can't be resolved by
+    pydoc.locate(). The help service should fall back to the object's public module path and
+    still render its documentation.
+    """
     help_service = running_help_service
     help_comm = DummyComm(TARGET_NAME)
     help_service.on_comm_open(help_comm, {})
     help_comm.messages.clear()
 
-    help_service.show_help(fake_abs)
+    help_service.show_help(fake_internal_abs)
 
     assert len(help_comm.messages) == 1
-    event = help_comm.messages[0]
-    url = event["data"]["params"]["content"]
-    assert "get?key=tensorflow.python.ops.math_ops.abs" in url
+    url = help_comm.messages[0]["data"]["params"]["content"]
+    # The unlocatable internal qualname is rewritten to the object's public module path.
+    public_key = f"{fake_internal_abs.__module__}.fake_internal_abs"
+    assert f"get?key={public_key}" in url
 
     with urlopen(url) as f:
         html = f.read().decode("utf-8")
