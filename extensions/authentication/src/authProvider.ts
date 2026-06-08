@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { AuthProviderLogger } from './authProviderLogger';
+import { EXPIRY_REFRESH_BUFFER_MS } from './constants';
 
 interface StoredAccount {
 	readonly id: string;
@@ -23,12 +24,18 @@ export interface WorkbenchCredentialConfig {
 	readonly isAvailable: () => boolean;
 }
 
+/** A credential resolved from a chain, with an optional expiration. */
+export interface ResolvedChainCredential {
+	readonly token: string;
+	readonly expiration?: Date;
+}
+
 /**
  * Credential chain config for providers that resolve credentials
  * from an external source (e.g. AWS SDK credential chain).
  */
 export interface CredentialChainConfig {
-	readonly resolve: () => Promise<string>;
+	readonly resolve: () => Promise<string | ResolvedChainCredential>;
 	readonly refreshIntervalMs?: number;
 	/** Optional check called in getSessions to decide whether to re-resolve. */
 	readonly shouldRefresh?: () => Promise<boolean>;
@@ -56,6 +63,7 @@ export class AuthProvider
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
 	private _chainSession: vscode.AuthenticationSession | undefined;
+	private _chainExpiration: Date | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 	private _disposed = false;
 	private readonly logger: AuthProviderLogger;
@@ -110,7 +118,9 @@ export class AuthProvider
 	): Promise<vscode.AuthenticationSession[]> {
 		// Credential chain (e.g. AWS, Snowflake)
 		if (this.credentialChain) {
-			if (this.credentialChain.shouldRefresh) {
+			if (this.shouldRefreshNow()) {
+				await this.resolveChainCredentials();
+			} else if (this.credentialChain.shouldRefresh) {
 				const needsRefresh = await this.credentialChain.shouldRefresh();
 				if (needsRefresh) {
 					await this.resolveChainCredentials();
@@ -227,7 +237,8 @@ export class AuthProvider
 			// session is gone but registered models still work.
 			if (this.credentialChain?.preventSignOut) {
 				try {
-					const token = await this.credentialChain.resolve();
+					const result = await this.credentialChain.resolve();
+					const token = typeof result === 'string' ? result : result.token;
 					if (token) {
 						this.logger.info(
 							'Chain session removal blocked -- ' +
@@ -251,6 +262,7 @@ export class AuthProvider
 			this.stopRefreshTimer();
 			const removed = this._chainSession;
 			this._chainSession = undefined;
+			this._chainExpiration = undefined;
 			this._onDidChangeSessions.fire({
 				added: [], removed: [removed], changed: [],
 			});
@@ -282,8 +294,9 @@ export class AuthProvider
 	}
 
 	/**
-	 * Resolve credentials from the chain, update cache, and
-	 * start the background refresh timer.
+	 * Resolve credentials from the chain, update cache, and start the
+	 * background refresh timer. Fires `added`, `changed`, or `removed`
+	 * depending on how the resolved token compares to the cached one.
 	 */
 	async resolveChainCredentials(
 	): Promise<vscode.AuthenticationSession | undefined> {
@@ -292,13 +305,16 @@ export class AuthProvider
 		}
 
 		try {
-			const accessToken = await this.credentialChain.resolve();
+			const result = await this.credentialChain.resolve();
 			if (this._disposed) {
 				return undefined;
 			}
+			const { token, expiration } = typeof result === 'string'
+				? { token: result, expiration: undefined }
+				: result;
 			const session: vscode.AuthenticationSession = {
 				id: this.providerId,
-				accessToken,
+				accessToken: token,
 				account: {
 					id: this.providerId,
 					label: this.displayName,
@@ -306,16 +322,21 @@ export class AuthProvider
 				scopes: [],
 			};
 
-			const hadSession = !!this._chainSession;
+			const previous = this._chainSession;
 			this._chainSession = session;
+			this._chainExpiration = expiration;
 			this.startRefreshTimer();
 
-			if (!hadSession) {
+			if (!previous) {
 				this._onDidChangeSessions.fire({
 					added: [session], removed: [], changed: [],
 				});
-				this.logger.logCredentialResolution('resolved');
+			} else if (previous.accessToken !== token) {
+				this._onDidChangeSessions.fire({
+					added: [], removed: [], changed: [session],
+				});
 			}
+			this.logger.logCredentialResolution('resolved');
 
 			return session;
 		} catch (err) {
@@ -324,6 +345,7 @@ export class AuthProvider
 			if (this._chainSession) {
 				const removed = this._chainSession;
 				this._chainSession = undefined;
+				this._chainExpiration = undefined;
 				this._onDidChangeSessions.fire({
 					added: [], removed: [removed], changed: [],
 				});
@@ -331,6 +353,18 @@ export class AuthProvider
 			}
 			return undefined;
 		}
+	}
+
+	/**
+	 * Whether the cached chain credential is within the expiry buffer and
+	 * should be re-resolved before being handed out. Chains without an
+	 * expiration return false and rely on the timer or `shouldRefresh` instead.
+	 */
+	private shouldRefreshNow(): boolean {
+		if (!this._chainExpiration) {
+			return false;
+		}
+		return this._chainExpiration.getTime() - Date.now() <= EXPIRY_REFRESH_BUFFER_MS;
 	}
 
 	private startRefreshTimer(): void {

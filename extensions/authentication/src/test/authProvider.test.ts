@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../authProvider';
 
@@ -285,5 +286,240 @@ suite('AuthProvider (credential chain)', () => {
 		assert.strictEqual(event.removed!.length, 1);
 		sessions = await chainProvider.getSessions();
 		assert.strictEqual(sessions.length, 0);
+	});
+});
+
+suite('AuthProvider - credential chain refresh', () => {
+	function createMockContext(): vscode.ExtensionContext {
+		const secrets = new Map<string, string>();
+		const globalState = new Map<string, unknown>();
+		return {
+			secrets: {
+				get: (key: string) => Promise.resolve(secrets.get(key)),
+				store: (key: string, value: string) => {
+					secrets.set(key, value);
+					return Promise.resolve();
+				},
+				delete: (key: string) => {
+					secrets.delete(key);
+					return Promise.resolve();
+				},
+			},
+			globalState: {
+				get: <T>(key: string) => globalState.get(key) as T | undefined,
+				update: (key: string, value: unknown) => {
+					globalState.set(key, value);
+					return Promise.resolve();
+				},
+			},
+		} as unknown as vscode.ExtensionContext;
+	}
+
+	const providers: AuthProvider[] = [];
+
+	function track(provider: AuthProvider): AuthProvider {
+		providers.push(provider);
+		return provider;
+	}
+
+	teardown(() => {
+		sinon.restore();
+		while (providers.length) {
+			providers.pop()!.dispose();
+		}
+	});
+
+	test('credentials with no expiry stay signed in without re-resolving (string form)', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { count++; return 'x'; } }
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.getSessions();
+		await provider.getSessions();
+		const sessions = await provider.getSessions();
+
+		assert.strictEqual(count, 1);
+		assert.strictEqual(sessions[0].accessToken, 'x');
+	});
+
+	test('credentials with no expiry stay signed in without re-resolving (object form)', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { count++; return { token: 'x' }; } }
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.getSessions();
+		await provider.getSessions();
+		await provider.getSessions();
+
+		assert.strictEqual(count, 1);
+	});
+
+	test('credentials still well before expiry are reused, not re-fetched', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					count++;
+					return { token: 'x', expiration: new Date(Date.now() + 2 * 60 * 1000) };
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.getSessions();
+		await provider.getSessions();
+
+		assert.strictEqual(count, 1);
+	});
+
+	test('credentials nearing expiry are refreshed before being handed out', async () => {
+		let count = 0;
+		const tokens = ['x', 'y'];
+		const expirations = [
+			new Date(Date.now() + 30 * 1000),
+			new Date(Date.now() + 60 * 60 * 1000),
+		];
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					const i = count++;
+					return { token: tokens[i], expiration: expirations[i] };
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		const sessions = await provider.getSessions();
+		const after = await provider.getSessions();
+
+		assert.strictEqual(count, 2);
+		assert.strictEqual(sessions[0].accessToken, 'y');
+		// The refreshed 1h expiration re-armed the buffer, so the next
+		// getSessions() does not resolve again.
+		assert.strictEqual(after[0].accessToken, 'y');
+	});
+
+	test('user is signed out when expiring credentials can no longer be refreshed', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					if (count++ === 0) {
+						return { token: 'x', expiration: new Date(Date.now() + 30 * 1000) };
+					}
+					throw new Error('chain failed');
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+
+		const removedEvents: vscode.AuthenticationSession[] = [];
+		const disposable = provider.onDidChangeSessions(e => {
+			removedEvents.push(...(e.removed ?? []));
+		});
+
+		const sessions = await provider.getSessions();
+		disposable.dispose();
+
+		assert.strictEqual(sessions.length, 0);
+		assert.strictEqual(removedEvents.length, 1);
+		// The invalidated session is the cached chain session, not some other.
+		assert.strictEqual(removedEvents[0].accessToken, 'x');
+	});
+
+	test('refreshed credentials notify consumers that the session changed', async () => {
+		let count = 0;
+		const tokens = ['x', 'y'];
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => tokens[count++] }
+		));
+
+		const events = { added: 0, removed: 0, changed: 0 };
+		const changedSessions: vscode.AuthenticationSession[] = [];
+		const disposable = provider.onDidChangeSessions(e => {
+			events.added += e.added?.length ?? 0;
+			events.removed += e.removed?.length ?? 0;
+			events.changed += e.changed?.length ?? 0;
+			changedSessions.push(...(e.changed ?? []));
+		});
+
+		await provider.resolveChainCredentials();
+		await provider.resolveChainCredentials();
+		disposable.dispose();
+
+		assert.deepStrictEqual(events, { added: 1, removed: 0, changed: 1 });
+		// The changed event carries the new token, not the stale one.
+		assert.strictEqual(changedSessions[0].accessToken, 'y');
+	});
+
+	test('signing in resolves credentials and makes the session available', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { count++; return 'x'; } }
+		));
+
+		const session = await provider.resolveChainCredentials();
+
+		assert.strictEqual(count, 1);
+		assert.ok(session);
+		assert.strictEqual(session.accessToken, 'x');
+	});
+
+	test('a provider that refreshes on demand still works (Snowflake-style)', async () => {
+		let count = 0;
+		let refreshOnNext = false;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => { count++; return 'x'; },
+				shouldRefresh: async () => {
+					const should = refreshOnNext;
+					refreshOnNext = false;
+					return should;
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.getSessions();
+		refreshOnNext = true;
+		await provider.getSessions();
+
+		assert.strictEqual(count, 2);
+	});
+
+	test('a provider that refreshes on a timer still works (Vertex-style)', async () => {
+		const clock = sinon.useFakeTimers();
+		let count = 0;
+		// Not tracked for teardown disposal: dispose() clears the interval and
+		// must run while the fake clock owns that timer, before clock.restore().
+		const provider = new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { count++; return 'x'; }, refreshIntervalMs: 1000 }
+		);
+
+		try {
+			await provider.resolveChainCredentials();
+			assert.strictEqual(count, 1);
+
+			await clock.tickAsync(1000);
+
+			assert.strictEqual(count, 2);
+		} finally {
+			provider.dispose();
+			clock.restore();
+		}
 	});
 });
