@@ -214,6 +214,58 @@ function extractFailures(path) {
 }
 
 // ---------------------------------------------------------------------------
+// 1b. Extract the final outcome of EVERY spec (passed and failed alike).
+//     Used to surface sibling tests in the same file: a sibling that PASSED
+//     while sharing the failing test's fixture/setup is strong evidence that
+//     setup succeeded and the fixture was provisioned -- so the failure is a
+//     mid-run lifecycle/race issue, not a "setup never ran" provisioning bug.
+// ---------------------------------------------------------------------------
+function extractSpecOutcomes(path) {
+	const report = JSON.parse(readFileSync(path, 'utf8'));
+	const FAIL = new Set(['failed', 'timedOut', 'interrupted']);
+	const out = [];
+
+	function walk(suite) {
+		for (const child of suite.suites || []) { walk(child); }
+		for (const spec of suite.specs || []) {
+			const statuses = (spec.tests || []).flatMap(t => (t.results || []).map(r => r?.status));
+			const ranStatuses = statuses.filter(s => s && s !== 'skipped');
+			let status;
+			if (ranStatuses.length === 0) {
+				// No non-skipped result -> the spec was skipped on this run. Tracked
+				// so siblings can exclude it (matching Path B's e2e-process-s3.js):
+				// a skipped sibling is NOT evidence shared setup/fixtures ran.
+				status = 'skipped';
+			} else {
+				let ok = spec.ok;
+				if (typeof ok !== 'boolean') {
+					ok = statuses.includes('passed') && !statuses.every(s => FAIL.has(s));
+				}
+				status = ok ? 'passed' : 'failed';
+			}
+			out.push({ file: spec.file || spec.location?.file, title: spec.title, status });
+		}
+	}
+
+	for (const s of report.suites || []) { walk(s); }
+	return out;
+}
+
+/**
+ * Normalize an e2e spec file path so sibling tests can be grouped by file
+ * regardless of absolute-vs-relative shape. Mirrors the normalizer in
+ * analyze.mjs; anchors on "/test/e2e/tests/" then falls back to common prefixes.
+ */
+function normalizeSpecPath(file) {
+	const fwd = String(file || '').replace(/\\/g, '/');
+	const idx = fwd.indexOf('/test/e2e/tests/');
+	if (idx >= 0) { return fwd.slice(idx + 1); }
+	if (fwd.startsWith('test/e2e/')) { return fwd; }
+	if (fwd.startsWith('tests/')) { return `test/e2e/${fwd}`; }
+	return fwd;
+}
+
+// ---------------------------------------------------------------------------
 // 2. Scan blob reports for failed tests and their attachments
 //    (logic from e2e-inspect-blobs.js, both modes combined in one pass)
 // ---------------------------------------------------------------------------
@@ -406,12 +458,98 @@ function unzipFile(zipPath, entryPath, destDir) {
 	}
 }
 
+// High-signal error markers used to mine the attached log bundle. Deliberately
+// narrow (not a generic "error" match) so kernel/runtime failures like
+// "IOError: Failed to open local file ... No such file or directory" surface
+// without drowning in benign trace noise. A screenshot or Playwright error
+// CANNOT tell "fixture never provisioned" from "fixture deleted mid-run"; the
+// kernel/runner log lines (e.g. the resolved getwd() path) often can.
+const LOG_ERROR_RE = /(no such file|file not found|cannot find|traceback|ioerror|[a-z]+error:|exception:|fatal|panic|unhandled|connection refused|permission denied|access denied|expired|failed to \w+)/i;
+
+// Benign lines that match LOG_ERROR_RE but carry no diagnostic value (e.g. the
+// file watcher logs an ENOENT for every optional config path it probes). Drop
+// them so real failures aren't crowded out of the bounded excerpt.
+const LOG_NOISE_RE = /(ignoring a path for watching|\.vscode[/\\](settings|mcp|tasks|launch)\.json|[/\\](policy|mcp)\.json)/i;
+
+/** Strip ANSI SGR escape sequences (ESC[..m) so log lines read cleanly in the prompt. */
+function stripAnsi(s) {
+	return s.replace(new RegExp("\u001b\[[0-9;]*m", "g"), "");
+}
+
+/**
+ * Extract the attached logs zip and return the lines matching LOG_ERROR_RE,
+ * each tagged with its source log filename. Bounded so a single test can't
+ * dominate the prompt. Returns null when nothing matches (the trace already
+ * carries the Playwright-level error in that case).
+ */
+function grepLogs(logsZipPath) {
+	const PER_FILE = 20;
+	const MAX_LINES = 60;
+	const MAX_CHARS = 5000;
+	const dir = join(tmpWorkDir, `logsx-${randomBytes(4).toString('hex')}`);
+	try {
+		mkdirSync(dir, { recursive: true });
+		execFileSync('unzip', ['-o', logsZipPath, '-d', dir], { stdio: ['pipe', 'pipe', 'pipe'] });
+	} catch {
+		return null;
+	}
+
+	// Recursively collect *.log files.
+	const logFiles = [];
+	const stack = [dir];
+	while (stack.length) {
+		const d = stack.pop();
+		let entries;
+		try { entries = readdirSync(d, { withFileTypes: true }); } catch { continue; }
+		for (const ent of entries) {
+			const p = join(d, ent.name);
+			if (ent.isDirectory()) { stack.push(p); }
+			else if (ent.name.endsWith('.log')) { logFiles.push(p); }
+		}
+	}
+
+	const collected = [];
+	const seen = new Set(); // dedupe identical message bodies (e.g. repeated git ENOENT warnings)
+	for (const f of logFiles) {
+		const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
+		let content;
+		try { content = readFileSync(f, 'utf8'); } catch { continue; }
+		let perFile = 0;
+		for (const raw of content.split('\n')) {
+			const line = stripAnsi(raw).trim();
+			if (!LOG_ERROR_RE.test(line) || LOG_NOISE_RE.test(line)) { continue; }
+			// Dedupe on the message minus any leading timestamp so retries/repeats collapse.
+			const dedupeKey = line.replace(/^[\d\-T:.Z\s]+/, '').slice(0, 200);
+			if (seen.has(dedupeKey)) { continue; }
+			seen.add(dedupeKey);
+			collected.push(`[${rel}] ${line.slice(0, 300)}`);
+			if (++perFile >= PER_FILE) { break; }
+			if (collected.length >= MAX_LINES) { break; }
+		}
+		if (collected.length >= MAX_LINES) { break; }
+	}
+
+	if (collected.length === 0) { return null; }
+	let joined = collected.join('\n');
+	if (joined.length > MAX_CHARS) { joined = joined.slice(0, MAX_CHARS) + '\n[... log excerpt truncated ...]'; }
+	return joined;
+}
+
 // ---------------------------------------------------------------------------
 // Main processing
 // ---------------------------------------------------------------------------
 
 process.stderr.write('Extracting failures from merged report...\n');
 const failures = extractFailures(resolvedReportPath);
+
+// Group every spec's final outcome by file so each failed test can report its
+// sibling tests (passed/failed) in the same file.
+const siblingsByFile = new Map(); // normalizedFile -> [{title, ok}]
+for (const s of extractSpecOutcomes(resolvedReportPath)) {
+	const key = normalizeSpecPath(s.file);
+	if (!siblingsByFile.has(key)) { siblingsByFile.set(key, []); }
+	siblingsByFile.get(key).push({ title: s.title, status: s.status });
+}
 
 process.stderr.write('Scanning blob reports for failed tests and attachments...\n');
 const { failedTests, failedTestIds, attachmentsByTestId } = scanBlobs(resolvedBlobDir);
@@ -431,6 +569,25 @@ for (const testId of failedTestIds) {
 
 	const shortId = testId.slice(0, 12);
 	const attempts = [];
+
+	// Mine the attached log bundle (kernel/runtime/runner logs) for error lines.
+	// One bundle per test is enough; the last attempt's logs are the most relevant.
+	let logExcerpt = null;
+	const logsAtt = logsAtts[logsAtts.length - 1];
+	if (logsAtt?.path) {
+		process.stderr.write(`  Mining logs for ${shortId}...\n`);
+		const logsZipPath = unzipFile(
+			join(resolvedBlobDir, logsAtt.blob),
+			logsAtt.path,
+			join(tmpWorkDir, `logs-${shortId}`)
+		);
+		if (logsZipPath) { logExcerpt = grepLogs(logsZipPath); }
+	}
+
+	// Sibling tests in the same file (passed siblings are the key signal).
+	const siblingTests = (siblingsByFile.get(normalizeSpecPath(testInfo?.file)) || [])
+		.filter(s => s.title !== testInfo?.title && s.status !== 'skipped')
+		.map(s => ({ title: s.title, status: s.status }));
 
 	for (let i = 0; i < traceAtts.length; i++) {
 		const traceAtt = traceAtts[i];
@@ -525,6 +682,8 @@ for (const testId of failedTestIds) {
 		blob: testInfo?.blob || null,
 		attemptCount: traceAtts.length,
 		attempts,
+		siblingTests,
+		logExcerpt,
 		logHashes: logsAtts.map(a => ({ resourceHash: a.resourceHash, blob: a.blob })),
 	});
 }

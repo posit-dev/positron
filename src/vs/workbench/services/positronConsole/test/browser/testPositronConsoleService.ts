@@ -304,6 +304,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidClearConsoleEmitter = new Emitter<void>();
 	private readonly _onDidNavigateInputHistoryDownEmitter = new Emitter<void>();
 	private readonly _onDidNavigateInputHistoryUpEmitter = new Emitter<DidNavigateInputHistoryUpEventArgs>();
+	private readonly _onDidEngageHistoryInfixSearchEmitter = new Emitter<void>();
 	private readonly _onDidClearInputHistoryEmitter = new Emitter<void>();
 	private readonly _onDidSetPendingCodeEmitter = new Emitter<string | undefined>();
 	private readonly _onDidExecuteCodeEmitter = new Emitter<ILanguageRuntimeCodeExecutedEvent>();
@@ -371,6 +372,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidNavigateInputHistoryUp(): Event<DidNavigateInputHistoryUpEventArgs> {
 		return this._onDidNavigateInputHistoryUpEmitter.event;
+	}
+
+	get onDidEngageHistoryInfixSearch(): Event<void> {
+		return this._onDidEngageHistoryInfixSearchEmitter.event;
 	}
 
 	get onDidClearInputHistory(): Event<void> {
@@ -523,6 +528,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		this._onDidNavigateInputHistoryUpEmitter.fire({
 			usingPrefixMatch,
 		});
+	}
+
+	engageHistoryInfixSearch(): void {
+		this._onDidEngageHistoryInfixSearchEmitter.fire();
 	}
 
 	clearInputHistory(): void {

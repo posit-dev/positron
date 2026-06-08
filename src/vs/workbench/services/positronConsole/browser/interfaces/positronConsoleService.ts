@@ -370,6 +370,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidNavigateInputHistoryUp: Event<DidNavigateInputHistoryUpEventArgs>;
 
 	/**
+	 * The onDidEngageHistoryInfixSearch event.
+	 */
+	readonly onDidEngageHistoryInfixSearch: Event<void>;
+
+	/**
 	 * The onDidClearInputHistory event.
 	 */
 	readonly onDidClearInputHistory: Event<void>;
@@ -504,6 +509,11 @@ export interface IPositronConsoleInstance {
 	 * @param usingPrefixMatch A value which indicates whether to use the prefix match strategy.
 	 */
 	navigateInputHistoryUp(usingPrefixMatch: boolean): void;
+
+	/**
+	 * Engages a reverse history search using infix matching.
+	 */
+	engageHistoryInfixSearch(): void;
 
 	/**
 	 * Clears the input history.

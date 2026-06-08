@@ -12,6 +12,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, existsSync, appendFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'opus';
@@ -133,6 +134,13 @@ function renderProjectFailures(projects, historyMap) {
 			out.push(`  File: ${t.file}`);
 			out.push(`  Severity: ${severity} (${severity === 'HARD' ? 'failed all retries' : 'passed on retry'})`);
 			out.push(`  Status: ${t.status} (${t.attemptCount} attempt${t.attemptCount === 1 ? '' : 's'})`);
+			if (Array.isArray(t.siblingTests) && t.siblingTests.length) {
+				// A PASSED sibling that shares this test's fixture/setup proves setup
+				// ran and the fixture was provisioned -- so a "not found" failure here
+				// is a mid-run lifecycle/race, not a provisioning bug. See rubric.
+				const sib = t.siblingTests.map(s => `${s.title} [${s.status}]`).join('; ');
+				out.push(`  Other tests in this file: ${sib}`);
+			}
 			const hist = findHistoryFor(historyMap, t.title, t.file);
 			if (hist) {
 				out.push(indent(renderHistoryForTest(hist), '  '));
@@ -162,6 +170,13 @@ function renderProjectFailures(projects, historyMap) {
 				if (Array.isArray(a.trace?.errors) && a.trace.errors.length) {
 					out.push(`    trace errors: ${a.trace.errors.slice(0, 3).map(e => String(e).split('\n')[0]).join(' | ')}`);
 				}
+			}
+			if (t.logExcerpt) {
+				// Error lines mined from the attached kernel/runtime/runner logs.
+				// Carries detail the trace lacks (e.g. a kernel's resolved file path),
+				// which distinguishes a missing fixture from one deleted mid-run.
+				out.push(`  Log excerpt (error lines from attached logs):`);
+				out.push(indent(capTimeline(String(t.logExcerpt)), '    '));
 			}
 		}
 	}
@@ -291,25 +306,16 @@ function renderHistorySummary(history, historyMap) {
 	return `Per-test history pre-rendered inline with each failure below. (${total} tests in history blob, lookback ${history.lookback_days || '?'} days, branch ${history.branch || '?'}.)`;
 }
 
-const SYSTEM_PROMPT = `You are an e2e test failure triage analyst for the Positron IDE project. You produce concise, evidence-based markdown reports for GitHub Actions step summaries.
+const SYSTEM_PROMPT_HEAD = `You are an e2e test failure triage analyst for the Positron IDE project. You produce concise, evidence-based markdown reports for GitHub Actions step summaries.
 
-For each failure or group of related failures, determine:
-1. Root cause category -- one of: flaky test | infrastructure issue | product regression | test environment issue | timeout | test logic bug
-2. Brief explanation (1-2 sentences) referencing specific evidence from screenshots, trace timelines, or logs
-3. Suggested action for a developer
+Apply the analysis rubric below to every failure. It is the shared source of truth for root-cause categories and the reasoning that distinguishes a stale test selector from a real product bug; the e2e-failure-analyzer skill uses the same rubric file, so local triage and this Action reason identically.`;
 
-Process:
-- READ EVERY SCREENSHOT IN PARALLEL with multiple Read tool calls in a single message. Each attempt may have several screenshots in chronological order; the last is the failure-state, the earlier ones show what the page looked like in the moments leading up to it. Comparing them is often what reveals the real root cause -- the failure message and the final frame can be misleading on their own.
-- READ THE FULL TRACE TIMELINE in the prompt. The action sequence (selector clicks, navigations, waits) often shows where a test actually went wrong even if the final error points elsewhere. Don't stop at the last action.
-- READ THE FAILING TEST'S SOURCE FILE before drawing conclusions. The test file path is provided in each failure entry. If REPO_ROOT is set in the input header, the absolute path is \`<REPO_ROOT>/test/e2e/<file>\`. Reading the source tells you what the test actually intends to verify, what page objects/helpers it depends on, and the setup steps -- often the difference between "the assertion is the bug" vs "setup failed before reaching the assertion." When the test imports from \`../../pages/\`, \`../../fixtures/\`, or \`../../infra/\`, Read those too if the failure involves their behavior. \`infra/\` is especially useful when the failure happens during workbench startup, session creation, or teardown -- look at \`workbench.ts\`, \`code.ts\`, or the playwright drivers there. Do this BEFORE writing the analysis, not after.
-- View error-context markdown files when screenshots, trace timelines, and source code are insufficient.
-- Multiple tests failing in the same file/suite usually share a root cause -- group them.
+// Runner-specific instructions appended after the shared rubric: pre-computed
+// severity (the Action computes it; the model must not second-guess it) and the
+// exact step-summary output contract.
+const SYSTEM_PROMPT_TAIL = `This run also provides pre-computed severity and requires a specific output format.
+
 - The Severity for each test is pre-computed and labeled in the input ("Severity: HARD" or "Severity: FLAKY"). Use that label VERBATIM in your output. Do NOT recompute severity from retry counts, root cause, or history -- the input label is authoritative. A test can have root cause "flaky test" and severity "HARD" simultaneously: that means the test failed all retries on this run AND its history shows it's prone to flaking.
-- Tests tagged \`:soft-fail\` are known flaky.
-- If historical data is provided, use it to distinguish regressions from known flakes:
-  - 0% pass rate on one platform but 100% on others = deterministic platform regression, NOT flaky
-  - Always read environment_breakdown, not just aggregate pass_rate
-- Consider the head commit's changed files: do they touch code exercised by the failing test? Mention this in the per-failure analysis when relevant.
 
 Output the FINAL REPORT as your last message. The report MUST be valid GitHub-flavored markdown starting with the heading \`## Summary\`. Do not include images, raw JSON, or commentary outside the report. Do not include any text before \`## Summary\` in the final message.
 
@@ -327,9 +333,9 @@ Order the rows: **all hard-severity failures first, then all flaky-severity fail
 
 For each distinct failure (or group), provide:
 - **<test name>** (<platform>) -- <root cause category>
-  - Evidence: <1-2 sentences citing what the screenshot/trace shows>
+  - Evidence: <1-2 sentences citing what the screenshot/trace/page snapshot shows>
   - Commit: <relevant changed files, or "no related changes">
-  - History: <history line per the SKILL.md format, or "no data available">
+  - History: <history line, or "no data available">
   - Action: <what the developer should do>
 
 Constraints:
@@ -337,6 +343,44 @@ Constraints:
 - Use Posit / Positron terminology (workbench, console, runtime, plot view, etc.).
 - Do not embed image markdown -- screenshots aren't rendered in step summaries.
 - Do not invent file paths, test names, or error messages -- only cite what's in the input.`;
+
+// Minimal degraded-mode rubric used only if rubric.md cannot be read. Keep it
+// short and obviously partial -- it is NOT a parallel source of truth.
+const RUBRIC_FALLBACK = `## Analysis rubric (fallback -- rubric.md could not be loaded)
+
+For each failure determine: (1) root cause -- one of flaky test | infrastructure issue | product regression | locator drift / stale selector | test environment issue | timeout | test logic bug; (2) a 1-2 sentence evidence-based explanation; (3) a suggested action. For any locator-not-found / not-visible / attribute / text failure, read the error-context page snapshot (errorContextPath) FIRST and decide locator drift (the target's stable text/label is present under different markup -- the test selector is stale) vs product regression (the target is genuinely absent). A bootstrapped extension floated to latest main (e.g. Posit Assistant) is a common drift source with no Positron-side change.`;
+
+/**
+ * Load the shared analysis rubric (.claude/skills/e2e-failure-analyzer/rubric.md).
+ * Resolves it the same way action.yml resolves the helper scripts -- under
+ * REPO_ROOT -- with a fallback relative to this file for ad-hoc runs, and a
+ * minimal inline fallback so a missing/moved file never silently drops the rubric.
+ */
+function loadRubric() {
+	const candidates = [
+		REPO_ROOT ? join(REPO_ROOT, '.claude/skills/e2e-failure-analyzer/rubric.md') : null,
+		fileURLToPath(new URL('../../../.claude/skills/e2e-failure-analyzer/rubric.md', import.meta.url)),
+	].filter(Boolean);
+	for (const p of candidates) {
+		try {
+			const text = readFileSync(p, 'utf8').trim();
+			if (text) {
+				console.log(`[analyzer] loaded analysis rubric from ${p}`);
+				return text;
+			}
+		} catch { /* try next candidate */ }
+	}
+	console.warn('[analyzer] WARN: could not load rubric.md from any known location; using minimal inline fallback');
+	return RUBRIC_FALLBACK;
+}
+
+const SYSTEM_PROMPT = `${SYSTEM_PROMPT_HEAD}
+
+--- BEGIN ANALYSIS RUBRIC (.claude/skills/e2e-failure-analyzer/rubric.md) ---
+${loadRubric()}
+--- END ANALYSIS RUBRIC ---
+
+${SYSTEM_PROMPT_TAIL}`;
 
 async function main() {
 	const runInfo = readJsonIfExists(join(WORK_DIR, 'run-info.json'));
