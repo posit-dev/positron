@@ -331,7 +331,7 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
-			return <img alt='output image' src={parsed.dataUrl} />;
+			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
 		case 'html':
 			return renderHtml(parsed.content);
 		case 'markdown':
