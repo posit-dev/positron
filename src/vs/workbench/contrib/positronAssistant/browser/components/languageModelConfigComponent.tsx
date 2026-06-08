@@ -70,6 +70,27 @@ function getProviderTermsOfServiceText(provider: IProvider) {
 	);
 }
 
+/**
+ * An optional getting-started note shown before the terms of service.
+ */
+function getProviderGettingStartedText(provider: IProvider): string | undefined {
+	switch (provider.id) {
+		case 'posit-ai': {
+			const positAiHomeLink = linkFragment(
+				localize('positron.languageModelConfig.positAiHome', 'Posit AI'),
+				'https://posit.ai/',
+			);
+			return localize(
+				'positron.languageModelConfig.positAI.gettingStartedNote',
+				'Get started with Posit Assistant instantly via a free trial of {0}, a managed service that provides access to frontier LLMs through a single account. Posit AI provides access to both Posit Assistant and Next Edit Suggestions.',
+				positAiHomeLink,
+			);
+		}
+		default:
+			return undefined;
+	}
+}
+
 function getProviderUsageDisclaimerText(provider: IProvider) {
 	if (provider.id === 'openai-compatible') {
 		return localize(
@@ -77,24 +98,11 @@ function getProviderUsageDisclaimerText(provider: IProvider) {
 			'Your use of the custom provider is optional and at your sole risk.',
 		);
 	}
-	const soleRisk = localize(
+	return localize(
 		'positron.languageModelConfig.tos2',
 		'Your use of {0} is optional and at your sole risk.',
 		provider.displayName,
 	);
-	if (provider.id === 'posit-ai') {
-		const positAiHomeLink = linkFragment(
-			localize('positron.languageModelConfig.positAiHome', 'Posit AI'),
-			'https://posit.ai/',
-		);
-		const gettingStartedNote = localize(
-			'positron.languageModelConfig.positAI.gettingStartedNote',
-			'Get started with Posit Assistant instantly via a free trial of {0}, a managed service that provides access to frontier LLMs through a single account. Posit AI provides access to both Posit Assistant and Next Edit Suggestions.',
-			positAiHomeLink,
-		);
-		return `${gettingStartedNote}\n\n${soleRisk}`;
-	}
-	return soleRisk;
 }
 
 function getProviderTermsOfServiceLink(providerId: string) {
@@ -279,9 +287,11 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	// Two paragraphs separated by a blank line; EmbeddedLink wraps each in a <p>
-	// and turns the markdown links into anchors.
-	const text = `${getProviderTermsOfServiceText(props.provider)}\n\n${getProviderUsageDisclaimerText(props.provider)}`;
+	const text = [
+		getProviderGettingStartedText(props.provider),
+		getProviderTermsOfServiceText(props.provider),
+		getProviderUsageDisclaimerText(props.provider),
+	].filter(Boolean).join('\n\n');
 
 	return <div className='language-model-dialog-tos' data-testid='provider-notice' id='model-tos'>
 		<EmbeddedLink>{text}</EmbeddedLink>
