@@ -423,7 +423,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		const releaseNotesResponse = await this.requestService.request({ url, callSite: 'update.getReleaseNotes' }, CancellationToken.None);
 
 		if (process.env.POSITRON_UPDATE_CHANNEL) {
-			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
+			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_UPDATE_CHANNEL);
 		}
 
 		if (releaseNotesResponse.res.statusCode !== 200) {
