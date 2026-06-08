@@ -28,7 +28,7 @@ const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
-const POSIT_EULA_URL = 'https://posit.co/about/eula/';
+const POSIT_EULA_URL = 'https://posit.co/about/posit-ai-agreement';
 
 /**
  * Builds a markdown link fragment `[label](href)` for `EmbeddedLink`, or plain
@@ -86,12 +86,12 @@ function getProviderUsageDisclaimerText(provider: IProvider) {
 	);
 	if (provider.id === 'posit-ai') {
 		const faq = linkFragment(
-			localize('positron.languageModelConfig.positAiFaq', 'Posit AI FAQ'),
-			'https://docs.posit.co/posit-ai/user/faq/#privacy-data-storage',
+			localize('positron.languageModelConfig.positAiHome', 'Posit AI'),
+			'https://posit.ai/',
 		);
 		const faqNote = localize(
 			'positron.languageModelConfig.positAI.faqNote',
-			'See the {0} for details on privacy and data storage.',
+			'Get started with Posit Assistant instantly via a free trial of {0} — a managed service that provides access to frontier LLMs through a single account. Posit AI includes both access to Chat and unlimited Next Edit Suggestions',
 			faq,
 		);
 		return `${faqNote}\n\n${soleRisk}`;
