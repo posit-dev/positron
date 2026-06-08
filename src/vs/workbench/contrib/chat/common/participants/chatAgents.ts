@@ -338,11 +338,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// `chat.disableAIFeatures` should hide the chat UI while keeping the chat
 		// extension's `vscode.lm` model provider available for other consumers.
 		// The chat UI is gated by the `chatIsEnabled` / `chatPanelParticipantRegistered`
-		// context keys, so recompute them when the setting changes.
+		// context keys, so recompute them when the setting changes. Fire
+		// `onDidChangeAgents` too so consumers that resolve agents lazily (e.g. the
+		// inline chat enabler, which reads `getDefaultAgent(EditorInline)`) recompute
+		// their enablement when the setting is toggled at runtime.
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(ChatConfiguration.AIDisabled)) {
 				this._updateHasDefaultAgent();
 				this._updateContextKeys();
+				this._onDidChangeAgents.fire(undefined);
 			}
 		}));
 		// --- End Positron ---
@@ -518,6 +522,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	getDefaultAgent(location: ChatAgentLocation, mode: ChatModeKind = ChatModeKind.Ask): IChatAgent | undefined {
 		// --- Start Positron ---
+		// When AI features are disabled, no default agent should resolve for any
+		// location. This gates chat surfaces that key off agent availability rather
+		// than the panel context keys -- notably inline chat, whose enablement
+		// (`inlineChatHasEditsAgent`) is driven by `getDefaultAgent(EditorInline)`.
+		// The chat extension's `vscode.lm` model provider stays registered because
+		// it is owned by the language models service, not this service.
+		if (this._isAIDisabled()) {
+			return undefined;
+		}
 		// Filter agents by mode and location first
 		const candidateAgents = this.getActivatedAgents().filter(a => {
 			if (mode && !a.modes.includes(mode)) {

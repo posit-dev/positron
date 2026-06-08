@@ -18,7 +18,7 @@ import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle
 import { TestPositronAssistantConfigurationService } from '../../../../../test/common/positronWorkbenchTestServices.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
-import { ChatConfiguration } from '../../../common/constants.js';
+import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../../common/constants.js';
 import { ConfigurationTarget } from '../../../../../../platform/configuration/common/configuration.js';
 // --- End Positron ---
 
@@ -178,11 +178,20 @@ suite('ChatAgents', function () {
 
 	// --- Start Positron ---
 	// `chat.disableAIFeatures` hides the chat UI by clearing the
-	// `chatIsEnabled` / `chatPanelParticipantRegistered` context keys, while
-	// leaving the chat extension's `vscode.lm` model provider registered.
+	// `chatIsEnabled` / `chatPanelParticipantRegistered` context keys and by
+	// refusing to resolve a default agent (which gates surfaces like inline chat),
+	// while leaving the chat extension's `vscode.lm` model provider registered.
 	suite('AI disabled gating', function () {
 		const defaultAgentId = 'defaultAgent';
 		const defaultAgentData: IChatAgentData = { ...testAgentData, id: defaultAgentId, isDefault: true };
+		const inlineAgentId = 'inlineAgent';
+		const inlineAgentData: IChatAgentData = {
+			...testAgentData,
+			id: inlineAgentId,
+			isDefault: true,
+			locations: [ChatAgentLocation.EditorInline],
+			modes: [ChatModeKind.Ask],
+		};
 		const agentImpl: IChatAgentImplementation = {
 			invoke: async () => { return {}; },
 			provideFollowups: async () => { return []; },
@@ -238,6 +247,32 @@ suite('ChatAgents', function () {
 			}));
 
 			assert.strictEqual(ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService), true);
+		});
+
+		test('getDefaultAgent resolves a default agent only while AI features are enabled', () => {
+			store.add(chatAgentService.registerAgent(inlineAgentId, inlineAgentData));
+			store.add(chatAgentService.registerAgentImplementation(inlineAgentId, agentImpl));
+
+			// With AI enabled the inline chat enabler can resolve its editor agent.
+			assert.strictEqual(chatAgentService.getDefaultAgent(ChatAgentLocation.EditorInline)?.id, inlineAgentId);
+
+			// Disabling AI features must withhold the agent so inline chat (and any
+			// other surface keyed off agent availability) is gated off.
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
+			assert.strictEqual(chatAgentService.getDefaultAgent(ChatAgentLocation.EditorInline), undefined);
+		});
+
+		test('flipping chat.disableAIFeatures fires onDidChangeAgents so lazy consumers re-evaluate', () => {
+			store.add(chatAgentService.registerAgent(inlineAgentId, inlineAgentData));
+			store.add(chatAgentService.registerAgentImplementation(inlineAgentId, agentImpl));
+
+			let agentsChangedCount = 0;
+			store.add(chatAgentService.onDidChangeAgents(() => agentsChangedCount++));
+
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
+			fireAIDisabledChange();
+
+			assert.strictEqual(agentsChangedCount, 1, 'onDidChangeAgents fires when the setting is toggled at runtime');
 		});
 	});
 	// --- End Positron ---
