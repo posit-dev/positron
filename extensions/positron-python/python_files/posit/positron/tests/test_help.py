@@ -4,6 +4,7 @@
 #
 
 import json
+import pydoc
 import sys
 import types
 from typing import Any
@@ -287,6 +288,20 @@ def test_locatable_key_rejects_a_name_that_resolves_to_a_different_object() -> N
     # `builtins.len` resolves, but to the builtin rather than our impostor, so the original
     # (unresolvable) key is kept instead of silently substituting an unrelated object.
     assert _locatable_key("nonexistent.module.len", impostor) == "nonexistent.module.len"
+
+
+def test_locatable_key_survives_locate_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `pydoc.locate` that raises during import degrades to the original key.
+
+    `pydoc.locate` re-raises errors hit while importing a module along the path, so resolving a
+    key must never let that propagate and crash the help request.
+    """
+
+    def boom(_path: str) -> Any:
+        raise pydoc.ErrorDuringImport("exploding module", sys.exc_info())
+
+    monkeypatch.setattr(pydoc, "locate", boom)
+    assert _locatable_key("anything.at.all", len) == "anything.at.all"
 
 
 @pytest.mark.skipif(torch is None, reason="torch not available")

@@ -64,6 +64,18 @@ def _distribution_to_modules(name: str) -> list[str]:
     return modules
 
 
+def _safe_locate(path: str) -> Any:
+    """Resolve `path` with `pydoc.locate`, returning None instead of raising.
+
+    `pydoc.locate` imports modules along the path and re-raises any error during import
+    (wrapped in `pydoc.ErrorDuringImport`). Resolving a help key must never crash the help
+    request, so we swallow any failure and treat it as "not resolvable".
+    """
+    with contextlib.suppress(Exception):
+        return pydoc.locate(path)
+    return None
+
+
 def _locatable_key(key: str, obj: Any) -> str:
     """Return a key that `pydoc.locate` can resolve back to `obj`.
 
@@ -77,7 +89,7 @@ def _locatable_key(key: str, obj: Any) -> str:
     Each candidate is only accepted if it resolves back to the same object, so an unrelated
     name can never be substituted. If nothing resolves, the original key is returned unchanged.
     """
-    if pydoc.locate(key) is obj:
+    if _safe_locate(key) is obj:
         return key
 
     name = getattr(obj, "__name__", None)
@@ -85,7 +97,7 @@ def _locatable_key(key: str, obj: Any) -> str:
     if name and module:
         candidates = (f"{module}.{name}", f"{module.split('.')[0]}.{name}")
         for candidate in candidates:
-            if candidate != key and pydoc.locate(candidate) is obj:
+            if candidate != key and _safe_locate(candidate) is obj:
                 return candidate
 
     return key
