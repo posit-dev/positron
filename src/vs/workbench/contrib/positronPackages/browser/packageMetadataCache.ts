@@ -9,17 +9,17 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 
 /**
  * Setting key: when `false`, all reads return empty and all writes no-op,
- * restoring the pre-cache behavior (indicators only appear once the live
- * outdated fetch completes). Bare key per Positron configuration conventions.
+ * restoring the pre-cache behavior (metadata only appears once the live fetch
+ * completes). Bare key per Positron configuration conventions.
  */
-export const PACKAGE_METADATA_CACHE_ENABLED_SETTING = 'packages.outdatedCache.enabled';
+export const PACKAGE_METADATA_CACHE_ENABLED_SETTING = 'packages.metadataCache.enabled';
 
 /**
  * Setting key: how long (in hours) a persisted entry is considered fresh. A
  * warm start renders from the cache immediately and only triggers a background
  * refresh once the entry is older than this.
  */
-export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING = 'packages.outdatedCache.maxAgeHours';
+export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING = 'packages.metadataCache.maxAgeHours';
 
 /** Default for {@link PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING}. */
 export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT = 24;
@@ -32,7 +32,7 @@ export const PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT = 24;
 export const PACKAGE_METADATA_CACHE_SCHEMA_VERSION = 1;
 
 /** Storage key for the persisted cache blob. */
-export const PACKAGE_METADATA_CACHE_STORAGE_KEY = 'positron.packages.outdatedCache';
+export const PACKAGE_METADATA_CACHE_STORAGE_KEY = 'positron.packages.metadataCache';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 

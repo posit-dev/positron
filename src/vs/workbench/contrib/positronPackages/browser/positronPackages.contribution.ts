@@ -110,7 +110,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
-			description: nls.localize('positron.packages.outdatedCache.enabled', "Remember which packages were outdated so update indicators appear immediately on a new session, while the latest status is fetched in the background."),
+			description: nls.localize('positron.packages.metadataCache.enabled', "Cache package metadata (such as update availability) on disk so it appears immediately on a new session, while the latest data is fetched in the background."),
 			tags: ['preview'],
 		},
 		[PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING]: {
@@ -118,7 +118,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			default: PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT,
 			minimum: 1,
 			scope: ConfigurationScope.APPLICATION,
-			markdownDescription: nls.localize('positron.packages.outdatedCache.maxAgeHours', "How long, in hours, a remembered outdated status is shown before it is refreshed in the background. Only applies when `#packages.outdatedCache.enabled#` is enabled."),
+			markdownDescription: nls.localize('positron.packages.metadataCache.maxAgeHours', "How long, in hours, cached package metadata is shown before it is refreshed in the background. Only applies when `#packages.metadataCache.enabled#` is enabled."),
 			tags: ['preview'],
 		}
 	}
