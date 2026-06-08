@@ -68,7 +68,7 @@ function renderSkipComment(context) {
 	return [
 		'## PETE\'s assessment 🧪',
 		'',
-		`**Verdict:** Not applicable -- ${reasonText}`,
+		`**Verdict:** 🟡 Not applicable -- ${reasonText}`,
 		'',
 		`### What changed`,
 		`${context.stats.fileCount} file(s), categorized as: ${formatCategoryCounts(context.stats.categoryCounts)}.`,
@@ -240,7 +240,7 @@ async function main() {
 		const fallback = [
 			'## PETE\'s assessment 🧪',
 			'',
-			'**Verdict:** _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
+			'**Verdict:** ⚪ _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
 			'',
 			'---',
 			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Run `/recheck-tests` to retry.</sub>',
