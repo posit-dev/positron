@@ -596,6 +596,12 @@ class MultiStepInput {
 					const delayer = disposables.add(new Delayer<void>(SEARCH_DEBOUNCE_MS));
 					disposables.add(
 						input.onDidChangeValue((text) => {
+							// Abandon any in-flight query immediately, not just when
+							// the next (debounced) search fires: otherwise a slow
+							// query from a previous keystroke can resolve mid-typing
+							// and paint stale results under the newer input. The new
+							// query is still debounced below.
+							cancelInFlight();
 							delayer.trigger(() => runSearch(text));
 						}),
 					);
