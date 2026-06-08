@@ -130,7 +130,12 @@ export class ReleaseNotesManager extends Disposable {
 				},
 				'releaseNotes',
 				title,
+				// --- Start Positron ---
+				/*
 				Codicon.vscode,
+				*/
+				Codicon.positronLogo,
+				// --- End Positron ---
 				{ group: ACTIVE_GROUP, preserveFocus: false });
 
 			const disposables = new DisposableStore();
