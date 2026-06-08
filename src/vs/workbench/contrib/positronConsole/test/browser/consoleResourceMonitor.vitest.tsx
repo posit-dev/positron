@@ -13,7 +13,23 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { ConsoleResourceMonitor, computeResourceMonitorLayout, RESOURCE_MONITOR_MAX_WIDTH } from '../../browser/components/consoleResourceMonitor.js';
+import { ConsoleResourceMonitor, computeResourceMonitorLayout, formatCompactMemory, RESOURCE_MONITOR_MAX_WIDTH } from '../../browser/components/consoleResourceMonitor.js';
+
+const KB = 1024;
+const MB = KB * 1024;
+const GB = MB * 1024;
+
+describe('formatCompactMemory', () => {
+	it('keeps the numeric part to at most 3 significant digits', () => {
+		expect([
+			formatCompactMemory(512),
+			formatCompactMemory(203 * MB),
+			formatCompactMemory(5.45 * GB),
+			formatCompactMemory(10.5 * GB),
+			formatCompactMemory(902.45 * MB),
+		]).toEqual(['512B', '203MB', '5.45GB', '10.5GB', '902MB']);
+	});
+});
 
 describe('computeResourceMonitorLayout', () => {
 	it('shows nothing when there is no room', () => {
@@ -22,7 +38,7 @@ describe('computeResourceMonitorLayout', () => {
 	});
 
 	it('shows the memory value only when narrow', () => {
-		const layout = computeResourceMonitorLayout(100);
+		const layout = computeResourceMonitorLayout(80);
 		expect(layout.showMemory).toBe(true);
 		expect(layout.graphWidth).toBe(0);
 	});

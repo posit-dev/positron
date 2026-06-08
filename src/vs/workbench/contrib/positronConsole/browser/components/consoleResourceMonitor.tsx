@@ -26,7 +26,7 @@ import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRunt
  * the value boxes in consoleResourceMonitor.css; keep them in sync so the
  * layout computation matches what is actually rendered.
  */
-const MEM_VALUE_WIDTH = 56;		// Reserves room for e.g. "888.88GB".
+const MEM_VALUE_WIDTH = 42;		// Reserves room for e.g. "1023MB" / "10.5GB".
 const GRAPH_MIN_WIDTH = 50;
 const GRAPH_MAX_WIDTH = 150;
 const GAP = 6;					// Gap between adjacent elements (graph, memory value).
@@ -52,6 +52,38 @@ export const RESOURCE_MONITOR_MAX_WIDTH =
 	GRAPH_MAX_WIDTH + GAP + MEM_VALUE_WIDTH + SAFETY_PADDING;
 
 const showResourceMonitorLabel = localize('positron.console.showResourceMonitor', "Show Resource Monitor");
+
+/**
+ * Formats a byte count for the compact resource monitor display. The numeric
+ * portion is held to at most 3 significant digits (4 characters including the
+ * decimal point), shedding precision as the magnitude grows so the value stays
+ * narrow and the layout doesn't shift as usage changes. Examples: "203MB",
+ * "5.45GB", "10.5GB".
+ *
+ * @param bytes The memory usage in bytes.
+ * @returns The abbreviated memory size.
+ */
+export function formatCompactMemory(bytes: number): string {
+	const units: readonly [number, string][] = [
+		[ByteSize.TB, 'TB'],
+		[ByteSize.GB, 'GB'],
+		[ByteSize.MB, 'MB'],
+		[ByteSize.KB, 'KB'],
+	];
+
+	for (const [unitSize, suffix] of units) {
+		if (bytes >= unitSize) {
+			const value = bytes / unitSize;
+			// Fewer decimals as the value grows, keeping the numeric part within
+			// 3 significant digits (at most 4 characters including the period).
+			const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+			return `${value.toFixed(decimals)}${suffix}`;
+		}
+	}
+
+	// Below 1KB the raw byte count is already at most 3 digits with no decimals.
+	return `${Math.round(bytes)}B`;
+}
 
 /**
  * ResourceMonitorLayout interface. Describes which elements the resource
@@ -207,7 +239,7 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 
 	// Format the values, reserving stable widths so they don't shift the layout.
 	const cpuValue = latest ? `${Math.round(Math.max(0, Math.min(100, latest.cpu_percent)))}%` : '';
-	const memoryValue = latest ? ByteSize.formatSize(latest.memory_bytes) : '';
+	const memoryValue = latest ? formatCompactMemory(latest.memory_bytes) : '';
 
 	// Tooltips for the graph (which plots CPU usage over time) and the memory value.
 	const graphHover = useResourceHover(

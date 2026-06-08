@@ -57,7 +57,7 @@
 }
 
 .console-resource-monitor .resource-usage-memory-value {
-	width: 56px;
+	width: 42px;
 }
 
 /* Resource usage graph - mirrors the styling used in the console tab list. */
