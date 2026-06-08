@@ -1,21 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { Notebooks } from '../../pages/notebooks.js';
+import { PositronNotebooks } from '../../pages/notebooksPositron.js';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Notebook Working Directory Configuration', {
-	tag: [tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 	// Web tag removed: path resolution is browser-agnostic; Electron provides full coverage
 }, () => {
 
@@ -24,7 +24,7 @@ test.describe('Notebook Working Directory Configuration', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.notebooks.closeNotebookWithoutSaving();
+		await app.workbench.notebooksPositron.closeNotebookWithoutSaving();
 	});
 
 	const testCases = [
@@ -58,17 +58,15 @@ test.describe('Notebook Working Directory Configuration', {
 	testCases.forEach(({ title, workingDirectory, expectedEnd }) => {
 		test(title, async function ({ app, settings }) {
 			if (workingDirectory === null) {
-				// Clear user settings to exercise the default working directory, but
-				// keep the legacy notebook editor enabled. This suite targets the
-				// legacy editor and `clear()` would otherwise drop the
-				// `useLegacyNotebookEditor` override, opening the Positron editor.
+				// Clear user settings to exercise the default working directory.
+				// The Positron notebook editor is the default, so no editor override
+				// needs to be re-applied after clearing.
 				await settings.clear();
-				await settings.set({ 'positron.notebook.enabled': false }, { reload: 'web', waitMs: 1000 });
 			} else {
 				await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web', waitMs: 1000 });
 			}
 
-			await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, expectedEnd);
+			await verifyWorkingDirectoryEndsWith(app.workbench.notebooksPositron, expectedEnd);
 		});
 	});
 
@@ -79,12 +77,16 @@ test.describe('Notebook Working Directory Configuration', {
 			'notebook.workingDirectory': tempDir
 		}, { reload: 'web' });
 
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(tempDir));
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooksPositron, path.basename(tempDir));
 	});
 });
 
-async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
-	await notebooks.openNotebook('working-directory.ipynb');
-	await notebooks.runAllCells({ timeout: 5000 });
-	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`), 0, { timeout: 30000 });
+async function verifyWorkingDirectoryEndsWith(notebooksPositron: PositronNotebooks, expectedEnd: string) {
+	await notebooksPositron.openNotebook('working-directory.ipynb');
+	await notebooksPositron.kernel.select('Python');
+	await notebooksPositron.runCodeAtIndex(0);
+	// The %pwd cell prints the working directory as a quoted repr (e.g. '/path/to/dir').
+	// Use an anchored regex against the full output so a parent path that merely
+	// contains `expectedEnd` as a substring does not produce a false positive.
+	await expect(notebooksPositron.cellOutput(0)).toContainText(new RegExp(`^'.*${expectedEnd}'$`), { timeout: 30000 });
 }
