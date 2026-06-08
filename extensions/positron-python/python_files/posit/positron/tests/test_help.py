@@ -3,6 +3,9 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import json
+import sys
+import types
 from typing import Any
 from unittest.mock import Mock
 from urllib.request import urlopen
@@ -11,24 +14,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron.help import HelpService, help  # noqa: A004
+from positron.help import HelpService, _locatable_key, help  # noqa: A004
 from positron.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 
+try:
+    import torch
+except ImportError:
+    torch = None
+
 TARGET_NAME = "target_name"
-
-
-def fake_internal_abs(x):
-    """Compute the absolute value."""
-
-
-# Mimic how libraries such as torch/tensorflow expose callables through a private defining
-# class (e.g. torch._VariableFunctionsClass.abs): the __qualname__ encodes an internal path
-# that pydoc.locate() can't resolve, even though the object is reachable at its public module
-# path. The help service should fall back to that public path.
-fake_internal_abs.__qualname__ = "_InternalFunctionsClass.fake_internal_abs"
 
 
 @pytest.fixture
@@ -241,33 +238,78 @@ def test_show_help_resolves_distribution_name(
     assert help_comm.messages == [show_help_event(f"{mock_pydoc_thread.url}get?key=numpy")]
 
 
-def test_show_help_resolves_internal_qualname_to_public_path(
-    running_help_service: HelpService,
-) -> None:
-    """Resolve objects whose __qualname__ encodes an internal, unlocatable path.
+def test_locatable_key_keeps_a_key_that_already_resolves() -> None:
+    """A key that already resolves to the object is returned unchanged."""
+    assert _locatable_key("builtins.len", len) == "builtins.len"
 
-    Libraries such as torch and tensorflow expose callables through a private defining class
-    (e.g. torch._VariableFunctionsClass.abs), so the qualname-based key can't be resolved by
-    pydoc.locate(). The help service should fall back to the object's public module path and
-    still render its documentation.
+
+def test_locatable_key_falls_back_to_module_path() -> None:
+    """An unresolvable key falls back to the object's public module path.
+
+    This mirrors torch, whose callables carry an internal __qualname__
+    (torch._VariableFunctionsClass.abs) but are reachable at torch.abs.
+    """
+    # json.dumps is reachable at json.dumps; the internal-looking key is not.
+    assert _locatable_key("json._InternalEncoder.dumps", json.dumps) == "json.dumps"
+
+
+def test_locatable_key_falls_back_to_top_level_package() -> None:
+    """When the full module path doesn't resolve, fall back to the top-level package.
+
+    This mirrors tensorflow, whose callables report an internal __module__
+    (tensorflow.python.ops.math_ops) but are reachable at tensorflow.abs.
+    """
+    package = types.ModuleType("positron_fake_pkg")
+
+    def op():
+        """A fake op exposed at the package top level."""
+
+    op.__module__ = "positron_fake_pkg.internal.ops"
+    op.__name__ = "op"
+    package.op = op
+    sys.modules["positron_fake_pkg"] = package
+    try:
+        # The internal module path can't be imported, but the top-level package re-exports `op`.
+        result = _locatable_key("positron_fake_pkg.internal.ops._Internal.op", op)
+        assert result == "positron_fake_pkg.op"
+    finally:
+        sys.modules.pop("positron_fake_pkg", None)
+
+
+def test_locatable_key_rejects_a_name_that_resolves_to_a_different_object() -> None:
+    """The fallback is only accepted when it resolves back to the same object."""
+
+    def impostor(x):
+        """Not the builtin len."""
+
+    impostor.__module__ = "builtins"
+    impostor.__name__ = "len"
+    # `builtins.len` resolves, but to the builtin rather than our impostor, so the original
+    # (unresolvable) key is kept instead of silently substituting an unrelated object.
+    assert _locatable_key("nonexistent.module.len", impostor) == "nonexistent.module.len"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not available")
+def test_show_help_renders_torch_function(running_help_service: HelpService) -> None:
+    """help(torch.abs) renders documentation rather than a "Not found" error (#7416).
+
+    torch.abs carries an internal __qualname__ (torch._VariableFunctionsClass.abs) that
+    pydoc.locate() can't resolve; the resolver should rewrite it to the public torch.abs.
     """
     help_service = running_help_service
     help_comm = DummyComm(TARGET_NAME)
     help_service.on_comm_open(help_comm, {})
     help_comm.messages.clear()
 
-    help_service.show_help(fake_internal_abs)
+    help_service.show_help(torch.abs)
 
     assert len(help_comm.messages) == 1
     url = help_comm.messages[0]["data"]["params"]["content"]
-    # The unlocatable internal qualname is rewritten to the object's public module path.
-    public_key = f"{fake_internal_abs.__module__}.fake_internal_abs"
-    assert f"get?key={public_key}" in url
+    assert "get?key=torch.abs" in url
 
     with urlopen(url) as f:
         html = f.read().decode("utf-8")
     assert "Not found" not in html
-    assert "Compute the absolute value" in html
 
 
 def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
