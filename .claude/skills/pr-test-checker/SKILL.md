@@ -157,7 +157,11 @@ Output **exactly one final assistant message** containing the markdown report be
 <A SHORT summary -- 1-3 sentences, or at most ~4 bullets -- framed by behavior, not by file. Lead with the central change the verdict turns on. Collapse mass or mechanical edits (reverts, deletions, renames, harness churn) into a single line with a count, e.g. "plus ~50 files reverting the Positron chat customizations and their tests." Do NOT enumerate every changed file -- the diff is one click away. Name a specific file only when it is load-bearing for the verdict.>
 
 ### Tests in this PR
-<bulleted list of test files added/modified in the PR, with one-line description of what each covers. Or "None." if the PR didn't touch any test files.>
+<A per-runner checklist so the reader sees at a glance which test types the PR touched. One line per runner, each with a status emoji and a short parenthetical of file basenames -- NOT descriptions (the verdict and Suggested additions carry the why). Use ✅ when there is no coverage concern for that runner (the PR adds/updates tests of that type, existing tests of that type already cover the change, or that type doesn't apply to this change) and ❌ when a test of that type is warranted by the change but missing. Always include these three rows in this order:
+- **Unit (Vitest/Mocha)** <✅|❌> (<basenames, e.g. "added chatAgents.test.ts, updated chatModelPicker.test.ts"; or "existing coverage"; or "not applicable">)
+- **Extension host** <✅|❌> (<...>)
+- **E2E (Playwright)** <✅|❌> (<...>)
+List basenames only, and group bulk test churn with a count (e.g. "+5 harness/stub updates") rather than naming each file.>
 
 ### Existing coverage
 <For "Adequate via existing coverage" or "Insufficient": list the existing tests you found that cover (or fail to cover) the changes. Cite file paths. For "Adequate": you can omit this section or write a single line confirming the new tests are the primary coverage.>
