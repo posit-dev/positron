@@ -8,6 +8,7 @@ import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { localize } from '../../../../nls.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -114,7 +115,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 				case RuntimeExitReason.StartupFailed:
 				case RuntimeExitReason.Unknown:
 					// Unexpected exit (e.g. a runtime crash): mark the cell as failed.
-					this.error(new Error('The session exited unexpectedly'));
+					this.error(new Error(localize('positron.notebookCell.sessionExitedUnexpectedly', "The session exited unexpectedly.")));
 					break;
 				default:
 					// Expected exit (user-initiated shutdown/restart/switch, or a
