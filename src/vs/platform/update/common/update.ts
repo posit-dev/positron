@@ -126,7 +126,7 @@ export interface IUpdateService {
 
 	// --- Start Positron ---
 	updateActiveLanguages(languages: string[]): void;
-	getReleaseNotes(): Promise<string>;
+	getReleaseNotes(version?: string): Promise<string>;
 	resetTelemetryId(): void;
 	// --- End Positron ---
 }
