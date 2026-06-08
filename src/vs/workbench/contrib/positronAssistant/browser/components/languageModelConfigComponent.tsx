@@ -28,8 +28,6 @@ const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
-const POSIT_EULA_URL = 'https://posit.co/about/posit-ai-agreement';
-
 /**
  * Builds a markdown link fragment `[label](href)` for `EmbeddedLink`, or plain
  * label text when there's no URL (so the label still renders, just not linked).
@@ -48,21 +46,21 @@ const copilotSignoutGuidanceLabel = localize(
 );
 
 function getProviderTermsOfServiceText(provider: IProvider) {
-	const eula = linkFragment(positEulaLabel, POSIT_EULA_URL);
 	const tos = linkFragment(providerTermsOfServiceLabel, getProviderTermsOfServiceLink(provider.id));
 	const privacy = linkFragment(providerPrivacyPolicyLabel, getProviderPrivacyPolicyLink(provider.id));
+	const eula = linkFragment(positEulaLabel, 'https://posit.co/about/eula/');
 	if (provider.id === 'openai-compatible') {
 		return localize(
 			'positron.languageModelConfig.openAiCompatible.tos',
-			'A custom provider is considered "Third Party Materials" as defined in the {0} and subject to the its {1} and {2}.',
+			'A custom provider is considered "Third Party Materials" as defined in the {0} and subject to its {1} and {2}.',
 			eula, tos, privacy,
 		);
 	}
 	if (provider.id === 'posit-ai') {
 		return localize(
 			'positron.languageModelConfig.positAI.tos',
-			'By using {0}, you agree to the {1} and {2}.',
-			provider.displayName, tos, privacy,
+			'By using {0}, you agree to the {1}, {0} {2}, and {3}.',
+			provider.displayName, eula, tos, privacy,
 		);
 	}
 	return localize(
@@ -85,16 +83,16 @@ function getProviderUsageDisclaimerText(provider: IProvider) {
 		provider.displayName,
 	);
 	if (provider.id === 'posit-ai') {
-		const faq = linkFragment(
+		const positAiHomeLink = linkFragment(
 			localize('positron.languageModelConfig.positAiHome', 'Posit AI'),
 			'https://posit.ai/',
 		);
-		const faqNote = localize(
-			'positron.languageModelConfig.positAI.faqNote',
-			'Get started with Posit Assistant instantly via a free trial of {0} — a managed service that provides access to frontier LLMs through a single account. Posit AI includes both access to Chat and unlimited Next Edit Suggestions',
-			faq,
+		const gettingStartedNote = localize(
+			'positron.languageModelConfig.positAI.gettingStartedNote',
+			'Get started with Posit Assistant instantly via a free trial of {0}, a managed service that provides access to frontier LLMs through a single account. Posit AI provides access to both Posit Assistant and Next Edit Suggestions.',
+			positAiHomeLink,
 		);
-		return `${faqNote}\n\n${soleRisk}`;
+		return `${gettingStartedNote}\n\n${soleRisk}`;
 	}
 	return soleRisk;
 }
@@ -114,7 +112,7 @@ function getProviderTermsOfServiceLink(providerId: string) {
 		case 'openai-api':
 			return 'https://openai.com/policies/row-terms-of-use/';
 		case 'posit-ai':
-			return 'https://posit.co/about/posit-service-terms-of-use';
+			return 'https://posit.co/about/posit-ai-agreement';
 		case 'snowflake-cortex':
 			return 'https://www.snowflake.com/en/legal/terms-of-service/';
 		default:

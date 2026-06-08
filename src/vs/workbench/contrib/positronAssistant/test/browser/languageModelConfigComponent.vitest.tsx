@@ -41,7 +41,7 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 
 	function linkHrefs(notice: HTMLElement): Record<string, string> {
 		const result: Record<string, string> = {};
-		for (const a of within(notice).getAllByRole('link')) {
+		for (const a of within(notice).queryAllByRole('link')) {
 			result[a.textContent ?? ''] = a.getAttribute('href') ?? '';
 		}
 		return result;
@@ -59,19 +59,22 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 		expect(notice).not.toHaveTextContent(/\{\d+\}/);
 	});
 
-	it('renders the Posit AI links for terms, privacy, and FAQ', () => {
+	it('renders the terms, privacy, and Posit AI home links for posit-ai', () => {
 		const notice = renderNotice({ id: 'posit-ai', displayName: 'Posit AI' });
 
+		// Posit AI's Terms of Service link points to the Posit AI Agreement.
 		expect(linkHrefs(notice)).toEqual({
-			'Terms of Service': 'https://posit.co/about/posit-service-terms-of-use',
+			'Posit EULA': 'https://posit.co/about/eula/',
+			'Terms of Service': 'https://posit.co/about/posit-ai-agreement',
 			'Privacy Policy': 'https://posit.co/about/privacy-policy/',
-			'Posit AI FAQ': 'https://docs.posit.co/posit-ai/user/faq/#privacy-data-storage',
+			'Posit AI': 'https://posit.ai/',
 		});
 	});
 
-	it('renders a known provider with the Posit EULA, ToS, and privacy links', () => {
+	it('renders a known third-party provider with the Posit EULA plus its ToS and privacy links', () => {
 		const notice = renderNotice({ id: 'anthropic-api', displayName: 'Anthropic' });
 
+		// Third-party providers are "Third Party Materials" under the Posit EULA.
 		expect(linkHrefs(notice)).toEqual({
 			'Posit EULA': 'https://posit.co/about/eula/',
 			'Terms of Service': 'https://www.anthropic.com/legal/consumer-terms',
@@ -79,10 +82,10 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 		});
 	});
 
-	it('renders unlinked labels for a provider with no ToS or privacy URLs', () => {
+	it('renders the Posit EULA link plus unlinked labels for a provider with no ToS or privacy URLs', () => {
 		const notice = renderNotice({ id: 'unknown-provider', displayName: 'Some Provider' });
 
-		// Only the Posit EULA is linked; the provider ToS/privacy fall back to plain text.
+		// The Posit EULA always links; the ToS/privacy fall back to plain text.
 		expect(notice).toHaveTextContent('Terms of Service');
 		expect(notice).toHaveTextContent('Privacy Policy');
 		expect(linkHrefs(notice)).toEqual({
