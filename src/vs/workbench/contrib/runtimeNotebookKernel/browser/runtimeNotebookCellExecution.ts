@@ -5,11 +5,12 @@
 
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
+import { CancellationError } from '../../../../base/common/errors.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeExitReason, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DATA_EXPLORER_MIME_TYPE } from '../../positronNotebook/browser/getOutputContents.js';
 import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -100,10 +101,27 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			this.handleRuntimeMessageUpdateOutput(message);
 		}));
 
-		// If the session exits unexpectedly (e.g. runtime crash), end the execution.
-		this._register(this._session.onDidEndSession(() => {
-			if (!this._deferred.isSettled) {
-				this.error(new Error('The session exited unexpectedly'));
+		// If the session ends while this cell is still executing, settle the
+		// execution so the run button resets. Branch on the exit reason so that
+		// expected, user-initiated exits (e.g. restarting the runtime mid-run)
+		// aren't reported as a cell failure.
+		this._register(this._session.onDidEndSession((exit) => {
+			if (this._deferred.isSettled) {
+				return;
+			}
+			switch (exit.reason) {
+				case RuntimeExitReason.Error:
+				case RuntimeExitReason.StartupFailed:
+				case RuntimeExitReason.Unknown:
+					// Unexpected exit (e.g. a runtime crash): mark the cell as failed.
+					this.error(new Error('The session exited unexpectedly'));
+					break;
+				default:
+					// Expected exit (user-initiated shutdown/restart/switch, or a
+					// session transfer/extension host reconnect): end the cell
+					// without surfacing a misleading error.
+					this.endInterrupted();
+					break;
 			}
 		}));
 
@@ -155,6 +173,28 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		// Reject the deferred promise.
 		this._deferred.error(err);
+
+		// Stop listening for replies.
+		this.dispose();
+	}
+
+	/**
+	 * End the execution because the session ended before it completed (e.g. the
+	 * user restarted the runtime mid-run). Resets the run button without marking
+	 * the cell as either succeeded or failed.
+	 */
+	private endInterrupted(): void {
+		// Complete the cell execution without a success/failure result, so the
+		// run button resets but neither an error output nor a success checkmark
+		// is shown.
+		this._cellExecution.complete({
+			runEndTime: Date.now(),
+		});
+
+		// Reject the deferred promise so the notebook execution queue stops
+		// running later cells against the session that just ended. Use a
+		// CancellationError to signal this is an interruption, not a failure.
+		this._deferred.error(new CancellationError());
 
 		// Stop listening for replies.
 		this.dispose();
