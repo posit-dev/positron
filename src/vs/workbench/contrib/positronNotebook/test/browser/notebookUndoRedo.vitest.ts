@@ -393,5 +393,37 @@ describe('PositronNotebookInstance undo/redo', () => {
 
 			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Redo);
 		});
+
+		it('handleNotebookUndo claims undo and restores the cell when the notebook is empty and no focus key is set (#10397)', async () => {
+			// Regression for #10397: after deleting the last cell the notebook is
+			// empty, so neither editorFocused nor cellEditorFocused can be set --
+			// yet Cmd+Z must still unwind the delete. shouldHandleUndoRedo's
+			// emptyNotebook branch is the only thing that lets the handler claim
+			// the command here; without it undo silently does nothing.
+			const notebook = createTestPositronNotebookInstance([
+				['# Cell 0', 'python', CellKind.Code],
+			], ctx);
+			notebook.deleteCells(notebook.cells.get());
+			expect(notebook.cells.get().length).toBe(0);
+
+			const editorService = stubInterface<IEditorService>({
+				activeEditorPane: makeNotebookEditorPane(notebook),
+			});
+			// Both focus keys explicitly false: an empty notebook holds no focus,
+			// so only the emptyNotebook branch can carry this.
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.cellEditorFocused.bindTo(notebook.scopedContextKeyService).set(false);
+
+			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
+
+			const result = await handleNotebookUndo(editorService, ctx.get(IUndoRedoService));
+
+			expect(result).toBeUndefined();
+
+			const restored = notebook.cells.get();
+			expect(restored.length).toBe(1);
+			expect(restored[0].getContent()).toBe('# Cell 0');
+			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Undo);
+		});
 	});
 });
