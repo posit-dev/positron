@@ -1,7 +1,7 @@
 @echo off
 
 REM ---------------------------------------------------------------------------------------------
-REM Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+REM Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
 REM ---------------------------------------------------------------------------------------------
 
 REM This script is used to run a program and capture its output to a file. It is
