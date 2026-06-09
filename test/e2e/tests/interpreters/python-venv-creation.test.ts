@@ -65,6 +65,8 @@ test.describe('Python Venv Auto-Creation', {
 	});
 
 	test('Notification appears for workspace with requirements.txt', async function ({ app, openFolder }) {
+		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
+
 		await openFolder('workspaces/python-venv-creation/with-requirements');
 		await app.workbench.sessions.expectNoStartUpMessaging();
 
@@ -75,6 +77,8 @@ test.describe('Python Venv Auto-Creation', {
 	});
 
 	test('No notification when .venv already exists', async function ({ app, openFolder }) {
+		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
+
 		await openFolder('with-existing-venv');
 
 		await app.workbench.toasts.expectToastWithTitleNotToAppear(/requirements\.txt/);
