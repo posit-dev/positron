@@ -140,7 +140,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			const parsedOutput: NotebookCellOutputs = {
 				outputId: output.outputId,
 				outputs: outputItems,
-				parsed: parseOutputData(preferredOutputItem),
+				parsed: parseOutputData(preferredOutputItem, output.metadata),
 			};
 
 			const preloadMessageType = getWebviewMessageType(outputItems);

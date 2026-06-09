@@ -101,7 +101,7 @@
 				"group": "buildWatchers",
 				"close": false
 			},
-			"problemMatcher": "$esbuild-watch"
+			"problemMatcher": []
 		},
 		{
 			"label": "Positron - Build",
@@ -223,7 +223,7 @@
 				"group": "buildKillers",
 				"close": true
 			},
-			"problemMatcher": "$esbuild"
+			"problemMatcher": []
 		},
 		{
 			"label": "Kill VS Code - Build",

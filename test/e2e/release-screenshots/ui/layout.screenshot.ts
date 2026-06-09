@@ -6,10 +6,10 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { annotate } from './helpers/annotate-utils';
+import { test } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+import { annotate } from '../_helpers/annotate-utils';
 
 test.use({
 	suiteId: __filename,

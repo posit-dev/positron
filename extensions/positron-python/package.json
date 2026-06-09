@@ -373,6 +373,11 @@
                 "title": "%python.command.python.createEnvironment.title%"
             },
             {
+                "category": "Python",
+                "command": "python.installPythonViaUv",
+                "title": "%python.command.python.installPythonViaUv.title%"
+            },
+            {
                 "command": "python.installPackages",
                 "title": "Install Python Packages",
                 "category": "Python"
@@ -1553,6 +1558,12 @@
                     "category": "Python",
                     "command": "python.createEnvironment",
                     "title": "%python.command.python.createEnvironment.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.installPythonViaUv",
+                    "title": "%python.command.python.installPythonViaUv.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
                 },
                 {
