@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { registerGettingStartedPositronNotebook } from './gettingStartedPositronNotebookContent.js';
+// --- End Positron ---
 import themePickerContent from './media/theme_picker.js';
 import themePickerSmallContent from './media/theme_picker_small.js';
 import notebookProfileContent from './media/notebookProfile.js';
@@ -704,3 +707,9 @@ export const walkthroughs: GettingStartedWalkthroughContent = [
 		}
 	}
 ];
+// --- Start Positron ---
+registerGettingStartedPositronNotebook(
+	gettingStartedContentRegistry,
+	(category) => walkthroughs.push(category),
+);
+// --- End Positron ---

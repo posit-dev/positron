@@ -1,3 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// Use the es6-string-html VS Code extension to syntax highlight the markdown content below.
+export default () => /* markdown */`
 Unlike general-purpose AI assistants, Posit Assistant is specifically designed for data science workflows. It understands your notebook's execution context, including which cells you've run, what variables exist in memory, your execution history, and any errors you've encountered.
 
 ## What Assistant can do
@@ -15,3 +22,4 @@ The AI assistant can see your notebook's code, outputs, and variable states, mak
 **Try it now:** [Open Posit Assistant](command:workbench.view.extension.posit-assistant) to configure your model provider and start an AI-assisted data science conversation.
 
 **Work without AI:** No AI service is connected automatically if you do not opt in to using the Assistant.
+`;

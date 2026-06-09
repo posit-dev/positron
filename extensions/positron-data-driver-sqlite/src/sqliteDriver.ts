@@ -54,18 +54,20 @@ export function createSQLiteDriver(
 				defaultValue: false,
 			},
 		],
-		connect(params: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			// Extract parameters.
 			const databasePath = params.databasePath;
 			const readOnly = params.readOnly as boolean ?? false;
 
 			// Validate parameters.
 			if (!isNonEmptyString(databasePath)) {
-				return Promise.reject(new Error(vscode.l10n.t('Database file path is required')));
+				throw new Error(vscode.l10n.t('Database file path is required'));
 			}
 
-			// Return a resolved promise with the new SQLite connection.
-			return Promise.resolve(new SQLiteConnection(databasePath, readOnly));
+			// Create the connection and open the database in the worker process.
+			const connection = new SQLiteConnection(databasePath, readOnly);
+			await connection.connect();
+			return connection;
 		},
 	};
 }
