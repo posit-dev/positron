@@ -23,7 +23,11 @@ import {
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { ModuleMetadata, moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import {
+    ModuleMetadata,
+    moduleMetadataMap,
+    whenModuleMetadataReady,
+} from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
 import { isParentPath } from '../pythonEnvironments/common/externalDependencies';
@@ -216,7 +220,12 @@ export async function createPythonRuntimeMetadata(
     const rawVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
     const pythonVersion = getShortVersionString(parseVersion(rawVersion));
 
-    // Check if this interpreter was discovered via environment modules.
+    // Check if this interpreter was discovered via environment modules. Module
+    // discovery runs asynchronously, so wait for it to settle before reading the
+    // path-keyed map: this function can run before discovery completes (e.g. via
+    // the eager onDidChangeInterpreters registration), and reading the map too
+    // early would mislabel a module-managed interpreter as a plain global.
+    await whenModuleMetadataReady();
     const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
     // Determine the display source (e.g. 'Venv', 'Module') and short name.

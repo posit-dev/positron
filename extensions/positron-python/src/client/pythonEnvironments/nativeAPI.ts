@@ -48,7 +48,11 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
 import { arePathsSame, isParentPath, resolveSymbolicLink } from './common/externalDependencies';
-import { ModuleEnvironmentLocator, moduleMetadataMap } from './base/locators/lowLevel/moduleEnvironmentLocator';
+import {
+    ModuleEnvironmentLocator,
+    moduleMetadataMap,
+    setModuleDiscoveryInFlight,
+} from './base/locators/lowLevel/moduleEnvironmentLocator';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -872,10 +876,16 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
         this._refreshPromise = createDeferred();
 
         try {
-            // Trigger both native and module discovery in parallel
+            // Trigger both native and module discovery in parallel. Publish the
+            // module discovery promise so that runtime creation (which reads the
+            // path-keyed module metadata map) can wait for it to finish; otherwise
+            // an interpreter that is also module-managed can be registered before
+            // its module metadata lands in the map and gets mislabeled.
+            const moduleDiscovery = this.discoverModuleEnvironments();
+            setModuleDiscoveryInFlight(moduleDiscovery);
             const [, moduleEnvs] = await Promise.all([
                 this.nativeApi.triggerRefresh(query, options),
-                this.discoverModuleEnvironments(),
+                moduleDiscovery,
             ]);
 
             // Update module environments and fire change events for new ones
