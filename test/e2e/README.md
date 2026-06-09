@@ -201,6 +201,7 @@ The `e2e-remote-wsl` project (tag `@:remote-wsl`, tests under `test/e2e/tests/re
 
 - Windows with WSL installed and at least one glibc-based distro registered (e.g. `Ubuntu`). The REH (remote extension host) is a glibc `linux-x64` binary, so musl distros (Alpine) won't work. Pick the distro with `POSITRON_WSL_DISTRO` (defaults to `Ubuntu`).
 - A Positron REH tarball reachable from inside the distro. A dev build's `product.json` has no `commit`/`version`, so the extension's default download URL (a CDN template with `${version}`/`${commit}`) can't be resolved. Provide a local tarball instead and point the extension at it with `POSITRON_WSL_SERVER_DOWNLOAD_URL`.
+- For the Python and R tests, the distro must have Python and R interpreters installed and discoverable by Positron. The session picker matches the version in `POSITRON_PY_VER_SEL` / `POSITRON_R_VER_SEL` (bare version strings, e.g. `3.12.11`, `4.4.3`); since the in-distro interpreters differ from the local Windows ones, override them with `POSITRON_PY_WSL_VER_SEL` / `POSITRON_R_WSL_VER_SEL`. When unset, the local selectors are used as-is.
 
 ### Build a local REH
 
@@ -219,10 +220,12 @@ tar czf positron-reh-linux-x64.tar.gz -C .. vscode-reh-linux-x64
 # Dev build (no BUILD). The file:// URL is read from inside the distro via /mnt/c.
 POSITRON_WSL_DISTRO=Ubuntu \
 POSITRON_WSL_SERVER_DOWNLOAD_URL=file:///mnt/c/path/to/positron-reh-linux-x64.tar.gz \
+POSITRON_PY_WSL_VER_SEL=3.12.11 \
+POSITRON_R_WSL_VER_SEL=4.4.3 \
 npx playwright test --project e2e-remote-wsl --workers=1
 ```
 
-The test connects to the distro, waits for the `WSL: <distro>` remote indicator, and runs `uname` in a terminal to confirm the workbench is executing inside Linux.
+The suite connects to the distro and waits for the `WSL: <distro>` remote indicator, then: runs `uname` in a terminal to confirm the workbench is executing inside Linux; starts a Python session and evaluates code, checking the result in the console and Variables pane; and does the same for R.
 
 > [!NOTE]
 > CI for this project (a Windows runner that provisions WSL + the REH) is not yet wired up; it is planned as a follow-up.
