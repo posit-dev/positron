@@ -99,7 +99,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-opensuse156-amd64:136
+        image: ghcr.io/posit-dev/positron-postgres-amd64:139
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
