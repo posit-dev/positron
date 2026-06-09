@@ -21,6 +21,8 @@ import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/
 import { ViewsProps } from '../positronPackages.js';
 import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { matchesSomeScheme, Schemas } from '../../../../../base/common/network.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -279,7 +281,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached, outdated, description } = pkg;
+			const { name, displayName, version, latestVersion, attached, outdated, description, url } = pkg;
+			// Validate the kernel-provided URL in core: only surface http(s) links
+			// so a malformed or non-web scheme (file:, javascript:, ...) coming from
+			// the runtime can never reach the opener.
+			const hasValidUrl = !!url && matchesSomeScheme(url, Schemas.http, Schemas.https);
 			// Display the update indicator only when the runtime has confirmed the
 			// package is outdated *and* we know which version to advertise. The
 			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
@@ -340,12 +346,30 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			const helpButton = (
 				<Button
 					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-					className='packages-list-item-help'
+					className='packages-list-item-action-button packages-list-item-help'
 					tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
 					onPressed={() => { void showHelpForPackage(name); }}
 				>
 					<span className='codicon codicon-book' />
 				</Button>
+			);
+
+			const urlButton = hasValidUrl ? (
+				<Button
+					ariaLabel={localize('positronPackages.openUrlAriaLabel', "Open website for {0}", name)}
+					className='packages-list-item-action-button packages-list-item-url'
+					tooltip={localize('positronPackages.openUrlTooltip', "Open website for {0}", name)}
+					onPressed={() => { void services.openerService.open(URI.parse(url!), { openExternal: true }); }}
+				>
+					<span className='codicon codicon-link-external' />
+				</Button>
+			) : null;
+
+			const rowActions = (
+				<>
+					{urlButton}
+					{helpButton}
+				</>
 			);
 
 			return (
@@ -384,7 +408,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									&#x2191;
 								</div>
 							)}
-							{itemSize === 'card' && helpButton}
+							{itemSize === 'card' && rowActions}
 						</div>
 						{itemSize === 'card' && (
 							<div className='packages-list-item-description-row'>
@@ -404,7 +428,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
-					{itemSize === 'row' && helpButton}
+					{itemSize === 'row' && rowActions}
 				</div>
 			);
 		};
