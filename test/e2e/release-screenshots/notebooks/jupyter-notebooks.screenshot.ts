@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
-import { annotate, clearAnnotations } from './helpers/annotate-utils';
+import { test } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
 
 const ANNOTATION_COLOR = '#dc2626';
 
@@ -40,9 +40,6 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		// toggleBottomPanel is a toggle, not an idempotent close — assert the
-		// post-condition so the test fails loudly if a prior step left the
-		// panel already closed and the toggle re-opened it.
 		await hotKeys.toggleBottomPanel();
 		await layouts.expectBottomPanelToBeVisible(false);
 

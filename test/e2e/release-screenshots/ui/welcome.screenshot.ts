@@ -5,9 +5,9 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { test } from '../tests/_test.setup';
-import { captureFullWindow } from './helpers/screenshot-utils';
-import { overrideWorkspaceName, prepareForScreenshot, reapplyCdpViewport, setScreenshotWindowSize } from './helpers/layout-utils';
+import { test } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { overrideWorkspaceName, prepareForScreenshot, reapplyCdpViewport, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,

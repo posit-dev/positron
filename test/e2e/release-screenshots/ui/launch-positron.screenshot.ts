@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test } from '../tests/_test.setup';
-import { capturePanel } from './helpers/screenshot-utils';
-import { prepareForScreenshot, setScreenshotWindowSize } from './helpers/layout-utils';
+import { test } from '../../tests/_test.setup';
+import { capturePanel } from '../_helpers/screenshot-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 test.use({
 	suiteId: __filename,
@@ -21,19 +21,20 @@ test.beforeEach(async ({ app }) => {
  */
 test.describe('Release Screenshots - Launch Positron', () => {
 	test('Release Screenshot - positron-path.png', async ({ app, page, hotKeys }) => {
+		const { quickInput } = app.workbench;
+
 		// open the command palette and search for the positron path command
 		await hotKeys.openCommandPalette();
 		await page.keyboard.type('positron command path');
 
 		// ensure the command is visible in the palette
-		const palette = page.locator('.quick-input-widget');
-		await expect(palette).toBeVisible();
+		await expect(quickInput.widget).toBeVisible();
 		await expect(
-			palette.getByText(`Shell Command: Install 'positron' command in PATH`),
+			quickInput.widget.getByText(`Shell Command: Install 'positron' command in PATH`),
 		).toBeVisible();
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await capturePanel(page, palette, 'positron-path.png');
+		await capturePanel(page, quickInput.widget, 'positron-path.png');
 	});
 });
