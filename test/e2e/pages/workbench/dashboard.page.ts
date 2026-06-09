@@ -85,7 +85,16 @@ export class DashboardPage {
 	async openWorkspaceFolder(folderToOpen: string): Promise<void> {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
-		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
+
+		// When the picker opens already pointed at the target folder, its path is prefilled
+		// in the input box and the list shows the folder's *contents* (no row matches the
+		// folder name), so selectQuickInputElementContaining would fail. In that case just
+		// confirm with OK; otherwise navigate to the folder first.
+		const input = this.code.driver.currentPage.locator('.quick-input-widget .quick-input-box input');
+		const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
+		if (!currentPath.endsWith(`/${folderToOpen}`)) {
+			await this.quickInput.selectQuickInputElementContaining(folderToOpen);
+		}
 		await this.quickInput.clickOkButton();
 	}
 
