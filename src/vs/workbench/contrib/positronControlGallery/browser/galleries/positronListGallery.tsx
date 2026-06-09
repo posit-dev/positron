@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance } from '../../../../browser/positronList/classes/positronListInstance.js';
+import { SelectionCursorOptions } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { controlGalleryRegistry } from '../controlGalleryRegistry.js';
 
 const DEFAULT_ITEM_HEIGHT = 24;
@@ -51,19 +52,37 @@ const buildEntries = (itemCount: number, sectionCount: number): ListEntry<string
 const PositronListHarness = () => {
 	const [itemCount, setItemCount] = useState(100);
 	const [sectionCount, setSectionCount] = useState(0);
+	const [selectionFollowsCursor, setSelectionFollowsCursor] = useState(false);
 
-	const [instance] = useState(() => new PositronListInstance<string, string>({
-		itemRenderer: item => <div className='positron-list-harness-item'>{item}</div>,
-		sectionRenderer: section => <div className='positron-list-harness-section'>{section}</div>,
-		defaultItemHeight: DEFAULT_ITEM_HEIGHT,
-		defaultSectionHeight: DEFAULT_SECTION_HEIGHT,
-	}));
-
-	useEffect(() => () => instance.dispose(), [instance]);
+	// selectionFollowsCursor is a construction-time option, so the instance is recreated when it
+	// toggles. When the selection follows the cursor, Enter/Space-to-select are redundant and
+	// disallowed; otherwise opt them in. Entries are (re)applied by the effect below, which runs
+	// whenever the instance changes.
+	const [instance, setInstance] = useState<PositronListInstance<string, string> | undefined>(undefined);
 
 	useEffect(() => {
-		instance.setEntries(buildEntries(itemCount, sectionCount));
+		const cursorOptions: SelectionCursorOptions = selectionFollowsCursor
+			? { selectionFollowsCursor: true }
+			: { selectionFollowsCursor: false, enterSelects: true, spaceSelects: true };
+
+		const list = new PositronListInstance<string, string>({
+			itemRenderer: item => <div className='positron-list-harness-item'>{item}</div>,
+			sectionRenderer: section => <div className='positron-list-harness-section'>{section}</div>,
+			itemHeight: DEFAULT_ITEM_HEIGHT,
+			sectionHeight: DEFAULT_SECTION_HEIGHT,
+			...cursorOptions,
+		});
+		setInstance(list);
+		return () => list.dispose();
+	}, [selectionFollowsCursor]);
+
+	useEffect(() => {
+		instance?.setEntries(buildEntries(itemCount, sectionCount));
 	}, [instance, itemCount, sectionCount]);
+
+	if (instance === undefined) {
+		return null;
+	}
 
 	return (
 		<div className='positron-list-harness'>
@@ -87,6 +106,14 @@ const PositronListHarness = () => {
 						value={sectionCount}
 						onChange={e => setSectionCount(Math.max(0, Number(e.target.value) || 0))}
 					/>
+				</label>
+				<label className='positron-list-harness-knob positron-list-harness-checkbox'>
+					<input
+						checked={selectionFollowsCursor}
+						type='checkbox'
+						onChange={e => setSelectionFollowsCursor(e.target.checked)}
+					/>
+					<span>Selection follows cursor</span>
 				</label>
 				<div className='positron-list-harness-stats'>
 					{itemCount} items{sectionCount > 0 ? ` across ${sectionCount} sections` : ''}
