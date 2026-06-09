@@ -217,7 +217,8 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 ## Integration Points
 
 ### VSCode Extension API
-- Command registration: `positron-duckdb.runQuery`, `positron-duckdb.dataExplorerRpc`
+- Command registration: `positron-duckdb.runQuery`
+- Data Explorer backend registration via `positron.dataExplorer.registerRpcHandler('positron-duckdb', ...)` (typed ext-host channel); async UI events are pushed back through the returned session's `sendUiEvent`
 - File system watching for data file changes
 - URI handling for different data sources
 

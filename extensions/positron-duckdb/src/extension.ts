@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import {
 	ArraySelection,
@@ -958,6 +959,7 @@ export class DuckDBTableView {
 		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
 	) {
@@ -983,17 +985,15 @@ export class DuckDBTableView {
 		await this._applyRowFilters();
 
 		// When the file changes, refuse to guess and send SchemaUpdate event
-		return vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.SchemaUpdate,
-				params: {}
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.SchemaUpdate,
+			params: {}
+		});
 	}
 
-	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance) {
-		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
+	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance, sendUiEvent: (event: DataExplorerUiEvent) => void) {
+		return new DuckDBTableView(uri, 'disconnected', [], db, sendUiEvent, false, errorMessage);
 	}
 
 	async getSchema(params: GetSchemaParams): RpcResponse<TableSchema> {
@@ -1644,13 +1644,11 @@ END`;
 			}
 		}
 
-		await vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
-				params: outParams
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.ReturnColumnProfiles,
+			params: outParams
+		});
 	}
 
 	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
@@ -1925,7 +1923,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	private _watchers: vscode.Disposable[] = [];
 	private readonly _crashListener: vscode.Disposable;
 
-	constructor(private readonly db: DuckDBInstance) {
+	constructor(
+		private readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
+	) {
 		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
 		// are gone with it. Drop the cached table views so the next request for a
 		// dataset re-imports it into the freshly respawned worker.
@@ -1952,7 +1953,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		let tableView: DuckDBTableView;
 		try {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db, this.sendUiEvent);
 
 			if (uri.scheme !== 'duckdb') {
 				// Watch this dataset's file for changes. Scope the pattern to the
@@ -1986,7 +1987,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
 				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db);
+			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db, this.sendUiEvent);
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
@@ -2210,14 +2211,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			})
 	);
 
-	const dataExplorerHandler = new DataExplorerRpcHandler(db);
-	context.subscriptions.push(
-		dataExplorerHandler,
-		vscode.commands.registerCommand('positron-duckdb.dataExplorerRpc',
-			async (rpc: DataExplorerRpc): Promise<DataExplorerResponse> => {
-				return dataExplorerHandler.handleRequest(rpc);
-			})
-	);
+	// Register as a Data Explorer backend provider over the typed channel. The session lets the
+	// handler push async frontend events (schema updates, column profiles) back to the UI.
+	let session: positron.DataExplorerRpcSession | undefined;
+	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event));
+	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
+		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc)
+	});
+	context.subscriptions.push(dataExplorerHandler, session);
 }
 
 export function deactivate() { }
