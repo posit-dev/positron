@@ -362,6 +362,15 @@ declare module 'positron' {
 		data: Record<string, unknown>;
 
 		/**
+		 * Optional metadata about the output itself, keyed by MIME type. This is
+		 * distinct from {@link LanguageRuntimeMessage.metadata}, which describes
+		 * the message more generally. It corresponds to the `metadata` field of a
+		 * Jupyter `display_data`/`execute_result` message, e.g.
+		 * `{ 'image/png': { width: 640, height: 480 } }`.
+		 */
+		outputMetadata?: Record<string, unknown>;
+
+		/**
 		 * The optional identifier of the output. If specified, this output can be referenced
 		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 		 */

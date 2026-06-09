@@ -130,7 +130,12 @@ export class ReleaseNotesManager extends Disposable {
 				},
 				'releaseNotes',
 				title,
+				// --- Start Positron ---
+				/*
 				Codicon.vscode,
+				*/
+				Codicon.positronLogo,
+				// --- End Positron ---
 				{ group: ACTIVE_GROUP, preserveFocus: false });
 
 			const disposables = new DisposableStore();
@@ -230,7 +235,7 @@ export class ReleaseNotesManager extends Disposable {
 				} else {
 					// --- Start Positron ---
 					// Release notes need to be fetched from the main process to avoid CORS.
-					text = await this._updateService.getReleaseNotes();
+					text = await this._updateService.getReleaseNotes(version);
 					// --- End Positron ---
 				}
 			} catch {
