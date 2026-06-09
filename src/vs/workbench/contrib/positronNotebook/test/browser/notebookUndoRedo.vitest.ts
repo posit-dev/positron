@@ -425,5 +425,33 @@ describe('PositronNotebookInstance undo/redo', () => {
 			expect(restored[0].getContent()).toBe('# Cell 0');
 			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Undo);
 		});
+
+		it('handleNotebookRedo claims redo and re-adds the cell when the notebook is empty and no focus key is set', async () => {
+			// Symmetric to the undo case: add a cell into an empty notebook, undo
+			// to return to empty (staging a redo entry), then redo while still
+			// empty and unfocused. Exercises the emptyNotebook branch for redo.
+			const notebook = createTestPositronNotebookInstance([], ctx);
+			notebook.addCell(CellKind.Code, 0, false, '# Cell 0');
+			expect(notebook.cells.get().length).toBe(1);
+			await ctx.get(IUndoRedoService).undo(notebook.uri);
+			expect(notebook.cells.get().length).toBe(0);
+
+			const editorService = stubInterface<IEditorService>({
+				activeEditorPane: makeNotebookEditorPane(notebook),
+			});
+			NotebookContextKeys.editorFocused.bindTo(notebook.scopedContextKeyService).set(false);
+			NotebookContextKeys.cellEditorFocused.bindTo(notebook.scopedContextKeyService).set(false);
+
+			const setOpSpy = vi.spyOn(notebook, 'setCurrentOperation');
+
+			const result = await handleNotebookRedo(editorService, ctx.get(IUndoRedoService));
+
+			expect(result).toBeUndefined();
+
+			const cells = notebook.cells.get();
+			expect(cells.length).toBe(1);
+			expect(cells[0].getContent()).toBe('# Cell 0');
+			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Redo);
+		});
 	});
 });
