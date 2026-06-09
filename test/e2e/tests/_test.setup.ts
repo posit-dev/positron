@@ -34,6 +34,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	managedCredentials: [undefined, { scope: 'worker', option: true }],
 
+	useLegacyNotebookEditor: [false, { scope: 'worker', option: true }],
+
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
@@ -99,15 +101,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
-	// see notebooks-positron/_test.setup.ts for example usage
 	beforeApp: [
-		async ({ }, use) => {
+		async ({ useLegacyNotebookEditor, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				// These tests exercise the legacy (VS Code) notebook editor. The
+				// Positron notebook editor is now the default, so disable it before
+				// the app starts to avoid waiting for a window reload. Suites opt in
+				// with `test.use({ useLegacyNotebookEditor: true })`.
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor });
 
 		try {
 			await start();
@@ -131,7 +140,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 90000 }],
+		// Workbench projects sign in through Okta inside start(). That auth shares one TOTP
+		// account across parallel shards, so a rejected/locked-out code triggers a jittered
+		// backoff (see otpRetry.ts) of up to ~60s before re-submitting. 90s left no room for a
+		// backoff to complete alongside OAuth navigation, so allow headroom for one retry.
+	}, { scope: 'worker', auto: true, timeout: 180000 }],
 
 	assistant: [
 		async ({ app }, use) => {
@@ -519,6 +532,7 @@ export interface TestFixtures {
 export interface WorkerFixtures {
 	suiteId: string;
 	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
+	useLegacyNotebookEditor: boolean;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

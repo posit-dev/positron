@@ -6,7 +6,8 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 import { Notebooks } from '../../pages/notebooks.js';
 
 test.use({
@@ -56,9 +57,16 @@ test.describe('Notebook Working Directory Configuration', {
 
 	testCases.forEach(({ title, workingDirectory, expectedEnd }) => {
 		test(title, async function ({ app, settings }) {
-			workingDirectory === null
-				? await settings.clear()
-				: await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web', waitMs: 1000 });
+			if (workingDirectory === null) {
+				// Clear user settings to exercise the default working directory, but
+				// keep the legacy notebook editor enabled. This suite targets the
+				// legacy editor and `clear()` would otherwise drop the
+				// `useLegacyNotebookEditor` override, opening the Positron editor.
+				await settings.clear();
+				await settings.set({ 'positron.notebook.enabled': false }, { reload: 'web', waitMs: 1000 });
+			} else {
+				await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web', waitMs: 1000 });
+			}
 
 			await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, expectedEnd);
 		});

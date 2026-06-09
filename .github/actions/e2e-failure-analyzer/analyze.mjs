@@ -134,6 +134,13 @@ function renderProjectFailures(projects, historyMap) {
 			out.push(`  File: ${t.file}`);
 			out.push(`  Severity: ${severity} (${severity === 'HARD' ? 'failed all retries' : 'passed on retry'})`);
 			out.push(`  Status: ${t.status} (${t.attemptCount} attempt${t.attemptCount === 1 ? '' : 's'})`);
+			if (Array.isArray(t.siblingTests) && t.siblingTests.length) {
+				// A PASSED sibling that shares this test's fixture/setup proves setup
+				// ran and the fixture was provisioned -- so a "not found" failure here
+				// is a mid-run lifecycle/race, not a provisioning bug. See rubric.
+				const sib = t.siblingTests.map(s => `${s.title} [${s.status}]`).join('; ');
+				out.push(`  Other tests in this file: ${sib}`);
+			}
 			const hist = findHistoryFor(historyMap, t.title, t.file);
 			if (hist) {
 				out.push(indent(renderHistoryForTest(hist), '  '));
@@ -163,6 +170,13 @@ function renderProjectFailures(projects, historyMap) {
 				if (Array.isArray(a.trace?.errors) && a.trace.errors.length) {
 					out.push(`    trace errors: ${a.trace.errors.slice(0, 3).map(e => String(e).split('\n')[0]).join(' | ')}`);
 				}
+			}
+			if (t.logExcerpt) {
+				// Error lines mined from the attached kernel/runtime/runner logs.
+				// Carries detail the trace lacks (e.g. a kernel's resolved file path),
+				// which distinguishes a missing fixture from one deleted mid-run.
+				out.push(`  Log excerpt (error lines from attached logs):`);
+				out.push(indent(capTimeline(String(t.logExcerpt)), '    '));
 			}
 		}
 	}

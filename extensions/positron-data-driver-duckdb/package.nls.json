@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron DuckDB Data Connection Driver",
+	"description": "Provides a native DuckDB data connection driver for the Data Connections panel."
+}

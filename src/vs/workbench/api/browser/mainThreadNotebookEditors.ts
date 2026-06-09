@@ -17,6 +17,7 @@ import { getNotebookEditorFromEditorPane, INotebookEditor, INotebookEditorOption
 import { INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
 import { getNotebookEditorFromEditorPane } from '../../contrib/positronNotebook/browser/NotebookEditorProxyService.js';
 import { IExtensionApiNotebookEditor as INotebookEditor } from '../../contrib/positronNotebook/browser/IPositronNotebookEditor.js';
+import { extname } from '../../../base/common/resources.js';
 // --- End Positron ---
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
 import { ICellRange } from '../../contrib/notebook/common/notebookRange.js';
@@ -120,7 +121,11 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		// --- Start Positron ---
 		// If Positron notebooks are enabled and set to default, use it.
 		// The editor resolver services uses the `override` to select the editor to open.
-		if (usingPositronNotebooks(this._configurationService)) {
+		// Only override for .ipynb resources: the Positron notebook editor only
+		// supports .ipynb (see canSupportResource in positronNotebook.contribution.ts),
+		// so forcing it for other notebook types (e.g. third-party custom notebooks)
+		// would fail to resolve an editor.
+		if (usingPositronNotebooks(this._configurationService) && extname(URI.revive(resource)) === '.ipynb') {
 			editorOptions.override = POSITRON_NOTEBOOK_EDITOR_ID;
 		}
 		// --- End Positron ---

@@ -88,31 +88,31 @@ type PositronListItemOptions<TItem> = {
 	// The item renderer.
 	readonly itemRenderer: PositronListItemRenderer<TItem>;
 
-	// The default item height.
-	readonly defaultItemHeight: number;
+	// The item row height.
+	readonly itemHeight: number;
 };
 
 /**
- * PositronListSectionOptions type. Couples the section options to TSection: when TSection is
- * never (the default), the section options must be absent; when TSection is anything else,
- * sectionRenderer and defaultSectionHeight are both required. The [TSection] extends [never]
- * idiom (with brackets) prevents TypeScript from distributing the conditional over union arms,
- * which is the standard way to test whether a type parameter is exactly never.
+ * PositronListSectionOptions type. Couples the section options to TSection: when TSection is never
+ * (the default), the section options must be absent; when TSection is anything else, sectionRenderer
+ * and sectionHeight are both required. The [TSection] extends [never] idiom (with brackets) prevents
+ * TypeScript from distributing the conditional over union arms, which is the standard way to test
+ * whether a type parameter is exactly never.
  */
 type PositronListSectionOptions<TSection> = [TSection] extends [never]
 	? {
 		// No section renderer.
 		readonly sectionRenderer?: undefined;
 
-		// No default section height, since section entries aren't allowed without a renderer.
-		readonly defaultSectionHeight?: undefined;
+		// No section height, since section entries aren't allowed without a renderer.
+		readonly sectionHeight?: undefined;
 	}
 	: {
 		// The section renderer.
 		readonly sectionRenderer: PositronListSectionRenderer<TSection>;
 
-		// The default section height.
-		readonly defaultSectionHeight: number;
+		// The section row height.
+		readonly sectionHeight: number;
 	};
 
 /**
@@ -134,13 +134,10 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	// are never focused/selected regardless of this flag.
 	private readonly _useDefaultStyling: boolean;
 
-	// The default item row height. Stored so setEntries can supply a size for each row.
-	private readonly _defaultItemHeight: number;
-
-	// The default section row height. Undefined when no sectionRenderer was supplied, in which
-	// case section entries can't exist (the discriminated-pair options type enforces this) and
-	// the field is never read.
-	private readonly _defaultSectionHeight: number | undefined;
+	// The section row height. Undefined when no sectionRenderer was supplied, in which case
+	// section entries can't exist (the discriminated-pair options type enforces this) and the
+	// field is never read.
+	private readonly _sectionHeight: number | undefined;
 
 	// The entries being rendered. Sections and items are interleaved; row index is the position
 	// in this array.
@@ -166,7 +163,7 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 			columnHeaders: false,
 			rowHeaders: false,
 			defaultColumnWidth: 0,
-			defaultRowHeight: options.defaultItemHeight,
+			defaultRowHeight: options.itemHeight,
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
@@ -187,9 +184,9 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 		// Default to applying the built-in focused/selected classes.
 		this._useDefaultStyling = options.useDefaultStyling ?? true;
 
-		// Store the default heights.
-		this._defaultItemHeight = options.defaultItemHeight;
-		this._defaultSectionHeight = options.defaultSectionHeight;
+		// Store the section height. The item height is passed to the base class as the default row
+		// height (above).
+		this._sectionHeight = options.sectionHeight;
 
 		// Store the item configuration. All lists have items.
 		this._itemRenderer = options.itemRenderer;
@@ -206,24 +203,35 @@ export class PositronListInstance<TItem, TSection = never> extends DataGridInsta
 	//#region Public Methods
 
 	/**
-	 * Replaces the entries rendered by the list. Per-entry height overrides are applied as the
-	 * entries are laid out, so callers control row heights through the entries array rather
-	 * than a separate API.
+	 * Replaces the entries rendered by the list. Item rows use the configured item height; section
+	 * rows use the configured section height, applied as sparse layout size overrides so the layout
+	 * stays fast even for very large lists.
 	 * @param entries The new entries.
 	 */
 	setEntries(entries: readonly ListEntry<TItem, TSection>[]): void {
-		// Build the parallel entry sizes array. Item rows take defaultItemHeight; section rows
-		// take defaultSectionHeight (guaranteed to be defined whenever a section entry exists,
-		// since the discriminated-pair options type pairs sectionRenderer with defaultSectionHeight).
-		const entrySizes = entries.map(entry =>
-			entry.kind === 'section' ? this._defaultSectionHeight! : this._defaultItemHeight
-		);
+		// Clear the size overrides registered for the previous entries' section rows.
+		this._rowLayoutManager.clearSizeOverrides();
 
 		// Set the entries.
 		this._entries = entries;
 
-		// Reset the row layout entries to match, supplying the per-row sizes in one call.
-		this._rowLayoutManager.setEntries(entries.length, entrySizes);
+		// Reset the row layout entries. Item rows all use itemHeight, which is the layout manager's
+		// default row height, so no per-row sizes are supplied -- the layout manager stays on its
+		// O(1) default-size fast path regardless of how many items there are. Only section rows
+		// differ, and they're registered as sparse size overrides below.
+		this._rowLayoutManager.setEntries(entries.length);
+
+		// Register a size override for each section row. Sections are sparse relative to items, so
+		// the override map stays small and the layout hot paths (which iterate it) stay fast.
+		// _sectionHeight is guaranteed defined whenever a section entry exists, since the
+		// discriminated-pair options type pairs sectionRenderer with sectionHeight.
+		if (this._sectionHeight !== undefined) {
+			for (let rowIndex = 0; rowIndex < entries.length; rowIndex++) {
+				if (entries[rowIndex].kind === 'section') {
+					this._rowLayoutManager.setSizeOverride(rowIndex, this._sectionHeight);
+				}
+			}
+		}
 
 		// If the cursor landed on a section (typical on first render when the first entry is a
 		// section header), advance it to the next selectable item row.

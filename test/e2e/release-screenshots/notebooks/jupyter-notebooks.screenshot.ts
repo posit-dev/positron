@@ -29,12 +29,12 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 	 * Img Path: https://positron.posit.co/images/jupyter-notebooks-kernel-selector.png
 	 */
 	test('Release Screenshot - jupyter-notebooks-kernel-selector.png', async ({ app, page, python }) => {
-		const { notebooksVscode, hotKeys, sessions, layouts } = app.workbench;
+		const { notebooksPositron, hotKeys, sessions, layouts } = app.workbench;
 
 		// Open a new notebook and select the Python interpreter
-		await notebooksVscode.createNewNotebook();
-		await notebooksVscode.expectToBeVisible();
-		await notebooksVscode.selectInterpreter('Python');
+		await notebooksPositron.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+		// await notebooksPositron.selectInterpreter('Python');
 		await sessions.expectSessionPickerToBe('Untitled-1.ipynb');
 
 		// customize the layout
@@ -47,8 +47,7 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
 		await annotate(page, [
-			// Wrap the whole kernel-action-view-item so the icon stays inside the box.
-			{ selector: '.kernel-action-view-item', label: '', color: ANNOTATION_COLOR, padding: 3 },
+			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
 		await captureFullWindow(page, 'jupyter-notebooks-kernel-selector.png');
 	});

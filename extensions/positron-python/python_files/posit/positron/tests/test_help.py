@@ -3,6 +3,10 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import json
+import pydoc
+import sys
+import types
 from typing import Any
 from unittest.mock import Mock
 from urllib.request import urlopen
@@ -11,11 +15,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron.help import HelpService, help  # noqa: A004
+from positron.help import HelpService, _locatable_key, help  # noqa: A004
 from positron.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 TARGET_NAME = "target_name"
 
@@ -228,6 +237,95 @@ def test_show_help_resolves_distribution_name(
     help_service.show_help("fake-dist")
 
     assert help_comm.messages == [show_help_event(f"{mock_pydoc_thread.url}get?key=numpy")]
+
+
+def test_locatable_key_keeps_a_key_that_already_resolves() -> None:
+    """A key that already resolves to the object is returned unchanged."""
+    assert _locatable_key("builtins.len", len) == "builtins.len"
+
+
+def test_locatable_key_falls_back_to_module_path() -> None:
+    """An unresolvable key falls back to the object's public module path.
+
+    This mirrors torch, whose callables carry an internal __qualname__
+    (torch._VariableFunctionsClass.abs) but are reachable at torch.abs.
+    """
+    # json.dumps is reachable at json.dumps; the internal-looking key is not.
+    assert _locatable_key("json._InternalEncoder.dumps", json.dumps) == "json.dumps"
+
+
+def test_locatable_key_falls_back_to_top_level_package() -> None:
+    """When the full module path doesn't resolve, fall back to the top-level package.
+
+    This mirrors tensorflow, whose callables report an internal __module__
+    (tensorflow.python.ops.math_ops) but are reachable at tensorflow.abs.
+    """
+    package = types.ModuleType("positron_fake_pkg")
+
+    def op():
+        """A fake op exposed at the package top level."""
+
+    op.__module__ = "positron_fake_pkg.internal.ops"
+    op.__name__ = "op"
+    setattr(package, "op", op)  # noqa: B010
+    sys.modules["positron_fake_pkg"] = package
+    try:
+        # The internal module path can't be imported, but the top-level package re-exports `op`.
+        result = _locatable_key("positron_fake_pkg.internal.ops._Internal.op", op)
+        assert result == "positron_fake_pkg.op"
+    finally:
+        sys.modules.pop("positron_fake_pkg", None)
+
+
+def test_locatable_key_rejects_a_name_that_resolves_to_a_different_object() -> None:
+    """The fallback is only accepted when it resolves back to the same object."""
+
+    def impostor(x):
+        """Not the builtin len."""
+
+    impostor.__module__ = "builtins"
+    impostor.__name__ = "len"
+    # `builtins.len` resolves, but to the builtin rather than our impostor, so the original
+    # (unresolvable) key is kept instead of silently substituting an unrelated object.
+    assert _locatable_key("nonexistent.module.len", impostor) == "nonexistent.module.len"
+
+
+def test_locatable_key_survives_locate_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `pydoc.locate` that raises during import degrades to the original key.
+
+    `pydoc.locate` re-raises errors hit while importing a module along the path, so resolving a
+    key must never let that propagate and crash the help request.
+    """
+
+    def boom(_path: str) -> Any:
+        raise pydoc.ErrorDuringImport("exploding module", sys.exc_info())
+
+    monkeypatch.setattr(pydoc, "locate", boom)
+    assert _locatable_key("anything.at.all", len) == "anything.at.all"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not available")
+def test_show_help_renders_torch_function(running_help_service: HelpService) -> None:
+    """help(torch.abs) renders documentation rather than a "Not found" error (#7416).
+
+    torch.abs carries an internal __qualname__ (torch._VariableFunctionsClass.abs) that
+    pydoc.locate() can't resolve; the resolver should rewrite it to the public torch.abs.
+    """
+    assert torch is not None  # narrow the optional import for the type checker
+    help_service = running_help_service
+    help_comm = DummyComm(TARGET_NAME)
+    help_service.on_comm_open(help_comm, {})
+    help_comm.messages.clear()
+
+    help_service.show_help(torch.abs)
+
+    assert len(help_comm.messages) == 1
+    url = help_comm.messages[0]["data"]["params"]["content"]
+    assert "get?key=torch.abs" in url
+
+    with urlopen(url) as f:
+        html = f.read().decode("utf-8")
+    assert "Not found" not in html
 
 
 def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:

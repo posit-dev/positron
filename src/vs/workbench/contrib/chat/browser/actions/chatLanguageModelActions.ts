@@ -19,6 +19,9 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ILanguageModelsProviderGroup } from '../../common/languageModelsConfiguration.js';
+// --- Start Positron ---
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 
 class ManageLanguageModelAuthenticationAction extends Action2 {
 	static readonly ID = 'workbench.action.chat.manageLanguageModelAuthentication';
@@ -28,10 +31,23 @@ class ManageLanguageModelAuthenticationAction extends Action2 {
 			id: ManageLanguageModelAuthenticationAction.ID,
 			title: localize2('manageLanguageModelAuthentication', 'Manage Language Model Access...'),
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Also hide when the user has disabled AI features, to avoid confusion
+			// with Positron's "Configure Language Model Providers" item. Gating via
+			// precondition also hides the action from the command palette (f1).
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.enabled,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.AccountsContext,
 				order: 100,
+				// --- Start Positron ---
+				// Hide (rather than disable) when AI features are off. The precondition
+				// above gates command palette visibility; this `when` gates the menu.
+				when: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 			}],
 			f1: true
 		});
