@@ -173,15 +173,21 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     homepage candidate. Returns None when the distribution advertises no URL.
     Core (the Packages pane) validates the scheme before opening it.
     """
+    # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the runtime
+    # object (email.message.Message) always has it -- mirror the cast used by
+    # _get_packages_installed so both accessors type-check across Python versions.
+    metadata: Any = dist.metadata
     best_url: Optional[str] = None
     best_priority = _URL_FALLBACK_PRIORITY + 1
-    for entry in dist.metadata.get_all("Project-URL") or []:
+    for entry in metadata.get_all("Project-URL") or []:
         label, _, url = entry.partition(",")
         url = url.strip()
         if not url:
             continue
         category = _URL_CATEGORY_BY_LABEL.get(_normalize_url_label(label))
-        priority = _URL_CATEGORY_PRIORITY.get(category, _URL_FALLBACK_PRIORITY)
+        # Every value in `_URL_CATEGORY_BY_LABEL` is a key in `_URL_CATEGORY_PRIORITY`,
+        # so a recognized category always resolves; anything else is the fallback.
+        priority = _URL_CATEGORY_PRIORITY[category] if category else _URL_FALLBACK_PRIORITY
         # Strict `<` keeps the first URL seen at a given priority (so the first
         # repository wins over a later one, etc.).
         if priority < best_priority:
@@ -189,7 +195,7 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     # Only let the legacy `Home-page` win if no homepage-priority URL was already
     # found in `Project-URL`; a homepage outranks a repository/other we may hold.
     if best_priority > _URL_CATEGORY_PRIORITY["homepage"]:
-        home_page = dist.metadata.get("Home-page")
+        home_page = metadata.get("Home-page")
         if home_page and home_page.strip():
             best_url = home_page.strip()
     return best_url
