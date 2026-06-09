@@ -88,6 +88,19 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	// Enrich initial state: credentials resolved during activation (env-var or
+	// chain credentials) fire their session-change event before the listener
+	// above is registered, so sweep current sessions once to reflect them.
+	for (const source of getProviderSources()) {
+		const provider = authProviders.get(source.provider.id);
+		if (provider) {
+			const sessions = await provider.getSessions();
+			enrichProviderFromSessions(source.provider.id, sessions);
+		}
+	}
+	const githubSession = await vscode.authentication.getSession('github', [], { silent: true });
+	enrichProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
+
 	// Remove auth sessions when a provider is disabled in settings.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (e) => {

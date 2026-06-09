@@ -11,6 +11,7 @@ import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { getProviderSources } from './providerSources';
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
@@ -98,7 +99,16 @@ export function enrichProviderFromSessions(
 				},
 			});
 		} else {
-			positron.ai.enrichProvider(providerId, { signedIn });
+			// Generic autoconfigure (e.g. env-var credentials): mark the
+			// provider's autoconfigure default as signed in so the dialog shows
+			// the "authenticated automatically" UI. Preserve the registered
+			// autoconfigure type/key, which enrichProvider replaces wholesale.
+			const autoconfigure = isAutoSession
+				? getProviderSources().find(s => s.provider.id === providerId)?.defaults.autoconfigure
+				: undefined;
+			positron.ai.enrichProvider(providerId, autoconfigure
+				? { signedIn, defaults: { autoconfigure: { ...autoconfigure, signedIn: true } } }
+				: { signedIn });
 		}
 	} catch (err) {
 		log.error(`Failed to check credential state for ${providerId}: ${err instanceof Error ? err.message : String(err)}`);
