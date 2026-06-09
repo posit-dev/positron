@@ -19,6 +19,7 @@
 		"onAuthenticationRequest:openai-compatible",
 		"onAuthenticationRequest:google",
 		"onAuthenticationRequest:google-cloud",
+		"onAuthenticationRequest:databricks",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
@@ -68,6 +69,10 @@
 			{
 				"id": "google-cloud",
 				"label": "Google Vertex AI"
+			},
+			{
+				"id": "databricks",
+				"label": "Databricks"
 			}
 		],
 		"commands": [
@@ -276,6 +281,32 @@
 						"experimental"
 					]
 				},
+				"authentication.databricks.credentials": {
+					"type": "object",
+					"default": {},
+					"markdownDescription": "%configuration.databricks.credentials.description%",
+					"properties": {
+						"DATABRICKS_HOST": {
+							"type": "string",
+							"default": null
+						}
+					},
+					"additionalProperties": false,
+					"tags": [
+						"experimental"
+					]
+				},
+				"authentication.databricks.customHeaders": {
+					"type": "object",
+					"default": {},
+					"additionalProperties": {
+						"type": "string"
+					},
+					"markdownDescription": "%configuration.databricks.customHeaders.description%",
+					"tags": [
+						"experimental"
+					]
+				},
 				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
 					"default": false,
@@ -288,6 +319,14 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
+					"tags": [
+						"experimental"
+					]
+				},
+				"assistant.provider.databricks.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%configuration.provider.databricks.enabled.description%",
 					"tags": [
 						"experimental"
 					]

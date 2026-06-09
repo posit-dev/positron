@@ -9,6 +9,7 @@ import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DATABRICKS_AUTH_PROVIDER_ID,
 	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
@@ -86,6 +87,11 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		displayName: 'DeepSeek',
 		settingName: 'deepseek',
 	},
+	databricks: {
+		id: DATABRICKS_AUTH_PROVIDER_ID,
+		displayName: 'Databricks',
+		settingName: 'databricks',
+	},
 };
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
@@ -94,6 +100,14 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 	// Bedrock (no label, Sign Out button visible).
 	const vertexFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
 		&& !!process.env.GOOGLE_VERTEX_LOCATION;
+
+	// Databricks OAuth needs a loopback server on the fixed port 8020,
+	// which only works on desktop. Remote/web sessions use a PAT instead.
+	const databricksOauthAvailable = vscode.env.remoteName === undefined
+		&& vscode.env.uiKind !== vscode.UIKind.Web;
+	const databricksHost = vscode.workspace
+		.getConfiguration('authentication.databricks')
+		.get<Record<string, string>>('credentials', {})?.DATABRICKS_HOST ?? '';
 
 	return [
 		{
@@ -248,6 +262,20 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 					key: 'DEEPSEEK_API_KEY',
 					signedIn: false,
 				},
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.databricks,
+			// baseUrl holds the Databricks workspace URL.
+			supportedOptions: databricksOauthAvailable
+				? ['oauth', 'apiKey', 'baseUrl']
+				: ['apiKey', 'baseUrl'],
+			defaults: {
+				name: 'Databricks',
+				model: 'databricks',
+				baseUrl: databricksHost,
+				toolCalls: true,
 			},
 		},
 	];

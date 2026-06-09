@@ -93,3 +93,78 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 		});
 	});
 });
+
+describe('LanguageModelConfigComponent BaseUrl', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function renderComponent(options: {
+		providerId: string;
+		authMethod: AuthMethod;
+		supportedOptions: IPositronLanguageModelSource['supportedOptions'];
+	}): void {
+		const source: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: {
+				id: options.providerId,
+				displayName: options.providerId,
+				settingName: options.providerId,
+			},
+			supportedOptions: options.supportedOptions,
+			defaults: { name: '', model: '' },
+		};
+		rtl.render(
+			<LanguageModelConfigComponent
+				authMethod={options.authMethod}
+				authStatus={AuthStatus.SIGNED_OUT}
+				closeDialog={() => { }}
+				config={{ type: PositronLanguageModelType.Chat, provider: options.providerId, name: '', model: '' }}
+				source={source}
+				onCancel={() => { }}
+				onChange={() => { }}
+				onSignIn={() => { }}
+			/>
+		);
+	}
+
+	it('shows the base URL input under OAuth when the provider supports baseUrl', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('hides the base URL input under OAuth when the provider does not support baseUrl', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth'],
+		});
+
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
+	it('still shows the base URL input under API key auth', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.API_KEY,
+			supportedOptions: ['apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('labels the Databricks base URL input as Workspace URL', () => {
+		renderComponent({
+			providerId: 'databricks',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+});

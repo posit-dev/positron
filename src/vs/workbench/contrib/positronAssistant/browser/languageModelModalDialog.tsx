@@ -114,6 +114,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [showProgress, setShowProgress] = useState(false);
 	const [progressValue, setProgressValue] = useState(0);
 	const [errorMessage, setErrorMessage] = useState<string>();
+	// The auth method the user explicitly selected via the radio group, if any.
+	// Only honored while it is valid for the selected provider.
+	const [selectedAuthMethod, setSelectedAuthMethod] = useState<AuthMethod>();
 
 	// Ref for preselected provider button to support scrolling into view
 	const preselectedButtonRef = useRef<HTMLDivElement>(null);
@@ -243,9 +246,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return AuthStatus.SIGNED_OUT;
 	};
 
-	/** Derive the auth method from the selected provider */
+	/** Derive the auth method from the user's selection or the selected provider */
 	const getAuthMethod = () => {
-		// We don't currently support more than one auth method per provider.
+		// Honor the user's explicit selection when the selected provider supports it.
+		if (selectedAuthMethod && selectedAuthMethod !== AuthMethod.NONE &&
+			selectedProvider.supportedOptions.includes(selectedAuthMethod)) {
+			return selectedAuthMethod;
+		}
 		if (selectedProvider.supportedOptions.includes(AuthMethod.OAUTH)) {
 			return AuthMethod.OAUTH;
 		} else if (selectedProvider.supportedOptions.includes(AuthMethod.API_KEY)) {
@@ -258,6 +265,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
 		setSelectedProvider(provider);
 		setProviderConfig(providerSourceToConfig(provider));
+		setSelectedAuthMethod(undefined);
 		setShowProgress(false);
 		setErrorMessage(undefined);
 	};
@@ -420,8 +428,8 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					initialSelectionId={authMethod}
 					name='authMethod'
 					onSelectionChanged={(authMethod) => {
-						// TODO: it's not currently possible to change the auth method, as each provider only
-						// supports one auth method at a time. This is a placeholder for future support.
+						setSelectedAuthMethod(authMethod as AuthMethod);
+						setErrorMessage(undefined);
 					}}
 				/>
 			</div>
