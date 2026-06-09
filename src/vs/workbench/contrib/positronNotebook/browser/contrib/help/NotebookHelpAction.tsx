@@ -15,7 +15,7 @@ import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookHelpPanel, resolveShortcutBindings } from './NotebookHelpPanel.js';
 
 const NOTEBOOK_HELP_ACTION_ID = 'positronNotebook.showKeyboardShortcuts';
@@ -32,7 +32,7 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 			keybinding: {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 			},
 			menu: {
 				id: MenuId.EditorActionsLeft,
