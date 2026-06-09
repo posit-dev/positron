@@ -17,19 +17,21 @@ test.describe('Autocomplete with Notebook Console', {
 	test.afterEach(async function ({ hotKeys, settings }) {
 		await settings.remove([
 			'console.showNotebookConsoles',
+			'console.showNotebookConsoleActions',
 			'positron.quarto.inlineOutput.enabled',
 			'workbench.editor.enablePreview',
 		]);
 		await hotKeys.closeAllEditors();
 	});
 
-	// Q: Does `showNotebookConsole` surface the notebook session as an `Untitled-1.ipynb`
-	// console tab in the Positron notebook editor? It does not appear, so
-	// `sessions.select('Untitled-1.ipynb')` cannot find it. Verify, then unskip.
-	test.skip('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys }) {
+	// The notebook console (showNotebookConsole) is gated behind the experimental
+	// `console.showNotebookConsoleActions` / `console.showNotebookConsoles` settings,
+	// so enable them before driving the command.
+	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
 		const { editors, console, notebooksPositron } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
+		await settings.set({ 'console.showNotebookConsoleActions': true, 'console.showNotebookConsoles': true }, { reload: true, waitMs: 1000 });
 
 		// Start a Python console session and import pandas
 		await sessions.start(['python']);
@@ -80,14 +82,15 @@ test.describe('Autocomplete with Notebook Console', {
 		});
 	});
 
-	// Q: Does `showNotebookConsole` surface the notebook session as an `Untitled-1.ipynb`
-	// console tab in the Positron notebook editor? (See the Python variant above.) Verify, then unskip.
-	test.skip('R - Autocomplete in script works after opening notebook console', {
+	// See the Python variant: enable the experimental notebook-console settings
+	// before driving showNotebookConsole.
+	test('R - Autocomplete in script works after opening notebook console', {
 		tag: [tags.ARK]
-	}, async function ({ app, runCommand, openFile, sessions, hotKeys }) {
+	}, async function ({ app, runCommand, openFile, sessions, hotKeys, settings }) {
 		const { editors, console, notebooksPositron } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const keyboard = page.keyboard;
+		await settings.set({ 'console.showNotebookConsoleActions': true, 'console.showNotebookConsoles': true }, { reload: true, waitMs: 1000 });
 
 		// Start an R console session and load arrow
 		await sessions.start(['r']);
