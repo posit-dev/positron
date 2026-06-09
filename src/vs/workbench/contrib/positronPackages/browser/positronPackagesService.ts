@@ -257,7 +257,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async updateAllPackages(token?: CancellationToken): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<string[]> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await instance.updateAllPackages(token);
