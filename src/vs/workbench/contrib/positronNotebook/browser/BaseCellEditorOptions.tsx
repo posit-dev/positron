@@ -33,8 +33,7 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		fixedOverflowWidgets: true,
 		minimap: { enabled: false },
 		renderValidationDecorations: 'on',
-		lineNumbersMinChars: 3,
-		defaultColorDecorators: 'always',
+		lineNumbersMinChars: 3
 	};
 
 	private readonly _localDisposableStore = this._register(new DisposableStore());
