@@ -216,9 +216,6 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.typeToConsole('x = 42', true);
 		await console.waitForReady('>>>');
 		await console.typeToConsole('print(f"value_is_{x}")', true);
-		// Assert on a sentinel that only appears in the output. Asserting on a bare
-		// "42" matches both the output and the "42" numeric-literal token span in the
-		// echoed "x = 42" input line, so the count flakes between 1 and 2.
 		await console.waitForConsoleContents('value_is_42');
 
 		// the notebook cell should still be running; if "done" appeared the test FAILS
