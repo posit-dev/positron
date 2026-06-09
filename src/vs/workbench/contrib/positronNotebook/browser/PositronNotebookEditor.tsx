@@ -70,7 +70,6 @@ class ManagedNotebookInstance extends Disposable {
 
 		this.instance = this._register(instantiationService.createInstance(
 			PositronNotebookInstance,
-			input.uniqueId,
 			input.resource,
 			input.viewType,
 			undefined,

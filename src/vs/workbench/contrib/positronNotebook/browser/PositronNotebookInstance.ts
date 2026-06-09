@@ -91,6 +91,12 @@ function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernel
  * - Manages the lifecycle of the notebook view
  */
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
+	/** Counter for generating globally unique instance IDs. */
+	static count = 0;
+
+	/** Globally unique ID for this instance. */
+	private readonly _id: string = `positron-notebook-${PositronNotebookInstance.count++}`;
+
 	// =============================================================================================
 	// #region Private Properties
 
@@ -386,7 +392,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.debug(this.id, 'Generating new notebook options');
+		this._logService.debug(this._id, 'Generating new notebook options');
 
 		this._notebookOptions = this._register(
 			this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
@@ -427,13 +433,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	/**
-	 * @param id Unique identifier for the notebook instance. Currently just the notebook URI as a string.
 	 * @param uri URI of the notebook resource.
 	 * @param viewType The view type of the notebook.
 	 * @param creationOptions Options for opening notebook.
 	 */
 	constructor(
-		public readonly id: string,
 		public readonly uri: URI,
 		public readonly viewType: string,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
@@ -501,7 +505,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					if (selected instanceof RuntimeNotebookKernel) {
 						return selected;
 					} else {
-						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
+						this._logService.warn(this._id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
 					}
 				}
 				return;
@@ -550,7 +554,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.debug(this.id, 'constructor');
+		this._logService.debug(this._id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -944,7 +948,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.debug(this.id, 'dispose');
+		this._logService.debug(this._id, 'dispose');
 
 		this.cells.get().forEach(cell => cell.dispose());
 
@@ -960,7 +964,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Methods
 
 	getId(): string {
-		return this.id;
+		return this._id;
 	}
 
 	/**
@@ -1890,7 +1894,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
-		this._logService.debug(this.id, 'attachView');
+		this._logService.debug(this._id, 'attachView');
 	}
 
 	/**
@@ -2034,7 +2038,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
-		this._logService.debug(this.id, 'detachView');
+		this._logService.debug(this._id, 'detachView');
 	}
 
 	/** Whether this instance's view is currently attached to `container`. */
@@ -2046,7 +2050,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.debug(this.id, 'Closing a notebook instance');
+		this._logService.debug(this._id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -2086,7 +2090,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const kernelRuntimeId = this.kernel.get()?.runtime.runtimeId;
 		const sessionRuntimeId = session.runtimeMetadata.runtimeId;
 		if (kernelRuntimeId !== session.runtimeMetadata.runtimeId) {
-			this._logService.warn(this.id,
+			this._logService.warn(this._id,
 				`Unexpected session started for notebook ${this.uri.fsPath}. ` +
 				`Expected runtime ${kernelRuntimeId}, found ${sessionRuntimeId}`);
 			return;
@@ -2239,13 +2243,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.debug(this.id, '_runCells');
+		this._logService.debug(this._id, '_runCells');
 
 		this._assertTextModel();
 
 		if (!this.kernel.get()) {
 			// Make sure we have a kernel to run the cells.
-			this._logService.debug(this.id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
