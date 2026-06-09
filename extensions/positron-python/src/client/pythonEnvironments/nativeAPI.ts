@@ -793,6 +793,30 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
 }
 
 /**
+ * Merge native and module environments into a single list, keyed by executable path.
+ *
+ * When the same interpreter path is found by both native discovery and a module
+ * environment, the module environment wins: it carries the `Module` kind and the
+ * `module load ...` startup metadata required to launch the interpreter correctly.
+ * A native (e.g. system/PATH) discovery of the same binary would otherwise shadow
+ * it and the runtime would register as a plain System interpreter, dropping the
+ * module association. This commonly happens when the user has `module load`ed the
+ * interpreter before launching Positron, so the same binary is also on `PATH`.
+ *
+ * @param nativeEnvs Environments discovered by the native finder.
+ * @param moduleEnvs Environments discovered from environment modules.
+ * @returns The combined list with module environments preferred on path collision.
+ */
+export function mergeNativeAndModuleEnvs(
+    nativeEnvs: PythonEnvInfo[],
+    moduleEnvs: PythonEnvInfo[],
+): PythonEnvInfo[] {
+    const moduleEnvPaths = new Set(moduleEnvs.map((e) => e.executable.filename));
+    const uniqueNativeEnvs = nativeEnvs.filter((e) => !moduleEnvPaths.has(e.executable.filename));
+    return [...uniqueNativeEnvs, ...moduleEnvs];
+}
+
+/**
  * Wrapper that combines the native Python environments API with module environments.
  * Module environments are discovered using the ModuleEnvironmentLocator and merged
  * with the environments from the native API.
@@ -883,10 +907,7 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
 
     getEnvs(query?: PythonLocatorQuery): PythonEnvInfo[] {
         const nativeEnvs = this.nativeApi.getEnvs(query);
-        // Combine native envs with module envs, avoiding duplicates by executable path
-        const nativeEnvPaths = new Set(nativeEnvs.map((e) => e.executable.filename));
-        const uniqueModuleEnvs = this._moduleEnvs.filter((e) => !nativeEnvPaths.has(e.executable.filename));
-        return [...nativeEnvs, ...uniqueModuleEnvs];
+        return mergeNativeAndModuleEnvs(nativeEnvs, this._moduleEnvs);
     }
 
     async resolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
