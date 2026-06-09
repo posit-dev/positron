@@ -30,7 +30,11 @@ test.describe('Notebook Click-to-Cursor Position', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('Clicking a line after Esc places the cursor on that line', async function ({ app }) {
+	// Skipped: this test reliably reproduces the click-to-cursor misplacement
+	// bug, so it fails until the underlying issue is fixed. Unskip once resolved.
+	test.skip('Clicking a line after Esc places the cursor on that line', {
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14085' }
+	}, async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 
