@@ -115,8 +115,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor });
 
 		try {
 			await start();
