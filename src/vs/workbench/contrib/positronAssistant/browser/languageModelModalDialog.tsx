@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantConfigurationService, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
@@ -29,7 +29,7 @@ import { syncAuthSessions } from './languageModelSessionSync.js';
 
 export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
-	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
+	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
 	options?: IShowLanguageModelConfigOptions,
 ) => {
@@ -48,20 +48,11 @@ export const showLanguageModelModalDialog = (
 	);
 };
 
-const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositronLanguageModelConfig => {
-	return {
-		...source.defaults,
-		name: source.provider.displayName,
-		provider: source.provider.id,
-		type: source.type
-	};
-};
-
 interface LanguageModelConfigurationProps {
 	sources: IPositronLanguageModelSource[];
 	renderer: PositronModalReactRenderer;
 	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
-	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
+	onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onClose: () => void;
 	preselectedProviderId?: string;
 }
@@ -105,7 +96,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
 
 	// Config for the provider, which is what is sent to the extension when signing in or out of a provider.
-	const [providerConfig, setProviderConfig] = useState<IPositronLanguageModelConfig>(() => providerSourceToConfig(defaultProvider));
+	const [providerConfig, setProviderConfig] = useState<IPositronLanguageModelConfig>(() => defaultProvider.defaults);
 	// Use a ref so submit handlers always read the latest config value.
 	const providerConfigRef = useRef(providerConfig);
 	providerConfigRef.current = providerConfig;
@@ -128,30 +119,23 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// the provider ID, auth methods and whether the user is signed in or not with the provider.
 	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(providers);
 
-	// Update the provider sources when the service emits a change to the language model config.
+	// Update the provider sources when the configuration service emits a change to a provider config.
 	// This occurs when a user signs in or out of a provider.
 	useEffect(() => {
+		const configService = props.renderer.services.get(IPositronAssistantConfigurationService);
 		const disposables: IDisposable[] = [];
-		disposables.push(props.renderer.services.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+		disposables.push(configService.onChangeProviderConfig(newSource => {
 			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
 			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
 			// for how the source is expanded from the stored model config.
-			setProviderSources(prevSources => {
-				const index = prevSources.findIndex(source => source.provider.id === newSource.provider.id);
-				const updatedSources = [...prevSources];
-				if (index !== -1) {
-					updatedSources[index] = {
-						...prevSources[index],
-						// We only update the signedIn status, as the other properties should not change, and the
-						// shape of the newSource differs from the original source.
-						signedIn: newSource.signedIn,
-					};
-				}
-				return updatedSources;
-			});
+			setProviderSources(prevSources =>
+				prevSources.map(source =>
+					source.provider.id === newSource.provider.id ? newSource : source
+				)
+			);
 		}));
 		return () => { disposables.forEach(d => d.dispose()); };
-	}, [props.renderer.services.positronAssistantService]);
+	}, [props.renderer.services]);
 
 	// Listen for auth session changes from the Authentication extension so API key providers
 	// update immediately after save/delete while the modal is open.
@@ -257,7 +241,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	/** When the user clicks a different provider in the modal */
 	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
 		setSelectedProvider(provider);
-		setProviderConfig(providerSourceToConfig(provider));
+		setProviderConfig(provider.defaults);
 		setShowProgress(false);
 		setErrorMessage(undefined);
 	};
@@ -337,11 +321,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					// When currently signed in, this button acts as sign out.
 					// Otherwise, treat it as sign in/save.
 					action = isSignedIn() ? 'delete' : 'save';
-					await props.onAction(currentConfig, action);
+					await props.onAction(selectedProvider, currentConfig, action);
 					break;
 				case AuthMethod.OAUTH:
 					action = isSignedIn() ? 'oauth-signout' : 'oauth-signin';
-					await props.onAction(currentConfig, action);
+					await props.onAction(selectedProvider, currentConfig, action);
 					break;
 				default:
 					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
@@ -351,15 +335,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			// Handle completion model if needed
 			if (currentConfig.completions) {
 				// Assume a completion source exists with the same provider ID and compatible auth details
-				const completionSource = allProviders.find((source) => source.provider.id === currentConfig.provider && source.type === 'completion')!;
+				const completionSource = allProviders.find((source) => source.provider.id === selectedProvider.provider.id && source.type === 'completion')!;
 				const completionConfig = {
-					provider: currentConfig.provider,
-					type: PositronLanguageModelType.Completion,
 					...completionSource.defaults,
 					apiKey: currentConfig.apiKey,
 					oauth: currentConfig.oauth,
 				};
 				await props.onAction(
+					completionSource,
 					completionConfig,
 					action === 'delete' ? 'delete' : 'save');
 			}
@@ -375,7 +358,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onCancel = async () => {
 		// NOTE: this action is currently only applicable to Copilot OAuth.
 		// See positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
-		await props.onAction(providerConfigRef.current, 'cancel')
+		await props.onAction(selectedProvider, providerConfigRef.current, 'cancel')
 			.catch((e) => {
 				setErrorMessage(e.message);
 			}).finally(() => {
@@ -450,6 +433,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							disabled={showProgress}
 							displayName={source.provider.displayName}
 							identifier={source.provider.id}
+							logoUrl={source.provider.logoUrl}
 							selected={source.provider.id === selectedProvider.provider.id}
 							onClick={() => onChangeProvider(source)}
 						/>;

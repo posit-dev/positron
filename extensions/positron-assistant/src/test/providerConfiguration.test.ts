@@ -35,8 +35,8 @@ suite('Provider Configuration Tests', () => {
 		// Mock positron.ai.getEnabledProviders
 		mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders');
 
-		// Mock positron.ai.registerProviderMetadata
-		sinon.stub(positron.ai, 'registerProviderMetadata');
+		// Mock positron.ai.registerProvider
+		sinon.stub(positron.ai, 'registerProvider');
 
 		// Mock getModelProviders to return test providers
 		stubGetModelProviders();

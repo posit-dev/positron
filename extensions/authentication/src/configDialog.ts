@@ -11,7 +11,6 @@ import { PositOAuthProvider } from './positOAuthProvider';
 import { FOUNDRY_AUTH_PROVIDER_ID } from './constants';
 import { log } from './log';
 import { FOUNDRY_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { getProviderSources } from './providerSources';
 
 export type ApiKeyValidator = (apiKey: string, config: positron.ai.LanguageModelConfig) => Promise<void>;
 
@@ -61,164 +60,92 @@ export function getAuthProvider(
 }
 
 /**
- * Enrich sources with credential state from registered auth providers.
+ * Enrich a provider's signedIn and autoconfigure state from its current sessions.
+ * The caller is responsible for fetching sessions via the appropriate mechanism.
  */
-async function enrichWithCredentialState(
-	sources: positron.ai.LanguageModelSource[]
-): Promise<positron.ai.LanguageModelSource[]> {
-	return Promise.all(sources.map(async (source) => {
-		const provider = authProviders.get(source.provider.id);
-		if (!provider) {
-			// Copilot authenticates via GitHub's built-in auth provider ('github'),
-			// not a registered AuthProvider, so we check its session directly.
-			if (source.provider.id === 'copilot-auth') {
-				try {
-					const session = await vscode.authentication.getSession('github', [], { silent: true });
-					const signedIn = !!session;
-					return {
-						...source,
-						signedIn,
-						defaults: {
-							...source.defaults,
-							autoconfigure: source.defaults.autoconfigure
-								? { ...source.defaults.autoconfigure, signedIn }
-								: source.defaults.autoconfigure,
-						},
-					};
-				} catch (err) {
-					log.error(`Failed to check credential state for ${source.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
-					return source;
-				}
-			}
-			return source;
+export function enrichProviderFromSessions(
+	providerId: string,
+	sessions: vscode.AuthenticationSession[],
+): void {
+	try {
+		const signedIn = sessions.length > 0;
+		// Chain sessions (env vars, credential chain, managed credentials) use
+		// the provider ID as their session ID; stored API-key sessions use a
+		// random UUID. Only autoconfigured sessions should show the
+		// "authenticated automatically" UI and hide the sign-out button.
+		const isAutoSession = signedIn && sessions[0].id === providerId;
+
+		if (isAutoSession && providerId === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+			positron.ai.enrichProvider(providerId, {
+				signedIn,
+				defaults: {
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.Custom,
+						message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
+						signedIn: true,
+					},
+				},
+			});
+		} else if (isAutoSession && providerId === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
+			positron.ai.enrichProvider(providerId, {
+				signedIn,
+				defaults: {
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.Custom,
+						message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
+						signedIn: true,
+					},
+				},
+			});
+		} else {
+			positron.ai.enrichProvider(providerId, { signedIn });
 		}
-		try {
-			const sessions = await provider.getSessions();
-			const signedIn = sessions.length > 0;
-			// Chain sessions (env vars, credential chain, managed credentials) use
-			// the provider ID as their session ID; stored API-key sessions use a
-			// random UUID. Only autoconfigured sessions should show the
-			// "authenticated automatically" UI and hide the sign-out button.
-			const isAutoSession = signedIn && sessions[0].id === source.provider.id;
-			if (isAutoSession && source.provider.id === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-				return {
-					...source,
-					signedIn,
-					defaults: {
-						...source.defaults,
-						autoconfigure: {
-							type: positron.ai.LanguageModelAutoconfigureType.Custom,
-							message: FOUNDRY_MANAGED_CREDENTIALS.displayName,
-							signedIn: true,
-						},
-					},
-				};
-			}
-			if (isAutoSession && source.provider.id === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
-				return {
-					...source,
-					signedIn,
-					defaults: {
-						...source.defaults,
-						autoconfigure: {
-							type: positron.ai.LanguageModelAutoconfigureType.Custom,
-							message: SNOWFLAKE_MANAGED_CREDENTIALS.displayName,
-							signedIn: true,
-						},
-					},
-				};
-			}
-			if (isAutoSession && source.defaults.autoconfigure) {
-				return {
-					...source,
-					signedIn,
-					defaults: {
-						...source.defaults,
-						autoconfigure: {
-							...source.defaults.autoconfigure,
-							signedIn: true,
-						},
-					},
-				};
-			}
-			return { ...source, signedIn };
-		} catch (err) {
-			log.error(`Failed to check credential state for ${source.provider.id}: ${err instanceof Error ? err.message : String(err)}`);
-			return source;
-		}
-	}));
+	} catch (err) {
+		log.error(`Failed to check credential state for ${providerId}: ${err instanceof Error ? err.message : String(err)}`);
+	}
 }
 
 /**
- * Show the language model configuration dialog. Builds the sources array
- * from registered provider definitions, enriches with credential state,
- * and handles all save/delete actions directly.
- *
- * Called via `vscode.commands.executeCommand('authentication.configureProviders', options)`.
+ * Action handler for all providers. Dispatches save/delete/cancel actions
+ * to the appropriate auth flow based on the provider.
  */
-export async function showConfigurationDialog(
-	options?: positron.ai.ShowLanguageModelConfigOptions
+export async function providerAction(
+	source: positron.ai.LanguageModelSource,
+	config: positron.ai.LanguageModelConfig,
+	action: string
 ): Promise<void> {
-	const enabledProviders = await positron.ai.getEnabledProviders();
-
-	if (enabledProviders.length === 0) {
-		const settingsAction = vscode.l10n.t('Open Settings');
-		const docsAction = vscode.l10n.t('View Documentation');
-		const result = await vscode.window.showInformationMessage(
-			vscode.l10n.t('No language model providers are enabled. Enable at least one provider in Settings.'),
-			settingsAction,
-			docsAction
-		);
-
-		if (result === settingsAction) {
-			await vscode.commands.executeCommand('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH);
-		} else if (result === docsAction) {
-			await vscode.env.openExternal(vscode.Uri.parse('https://positron.posit.co/assistant-getting-started'));
-		}
-		return;
-	}
-
-	const allSources = getProviderSources();
-	const sources = allSources.filter(s => enabledProviders.includes(s.provider.id));
-	const enrichedSources = await enrichWithCredentialState(sources);
-	log.info(`Opening config dialog with ${enrichedSources.length} source(s)`);
-
-	await positron.ai.showLanguageModelConfig(
-		enrichedSources,
-		async (config, action) => {
-			log.info(`Config dialog action: "${action}" for provider "${config.provider}"`);
-			switch (action) {
-				case 'save':
-				case 'oauth-signin': {
-					if (config.provider === 'copilot-auth') {
-						await handleCopilotSignIn();
-						break;
-					}
-					await handleSave(config);
-					notifyModelAdded(config);
-					break;
-				}
-				case 'delete':
-				case 'oauth-signout': {
-					await handleDelete(config);
-					notifyModelRemoved(config);
-					break;
-				}
-				case 'cancel': {
-					const provider = authProviders.get(config.provider);
-					if (provider instanceof PositOAuthProvider) {
-						provider.cancelSignIn();
-					}
-					break;
-				}
-				default:
-					throw new Error(
-						vscode.l10n.t('Invalid action: {0}', action)
-					);
+	const providerId = source.provider.id;
+	log.info(`Provider action: "${action}" for provider "${providerId}"`);
+	switch (action) {
+		case 'save':
+		case 'oauth-signin': {
+			if (providerId === 'copilot-auth') {
+				await handleCopilotSignIn();
+			} else {
+				await handleSave(providerId, config);
 			}
-		},
-		options
-	);
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('{0} has been added successfully.', source.provider.displayName)
+			);
+			break;
+		}
+		case 'delete':
+		case 'oauth-signout': {
+			await handleDelete(providerId);
+			break;
+		}
+		case 'cancel': {
+			const provider = authProviders.get(providerId);
+			if (provider instanceof PositOAuthProvider) {
+				provider.cancelSignIn();
+			}
+			break;
+		}
+		default:
+			throw new Error(
+				vscode.l10n.t('Invalid action: {0}', action)
+			);
+	}
 }
 
 const GITHUB_SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
@@ -246,22 +173,23 @@ async function handleCopilotSignIn(): Promise<void> {
  * config, validates and stores it. Otherwise resolves via createSession.
  */
 async function handleSave(
+	providerId: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<string> {
-	const provider = authProviders.get(config.provider);
+	const provider = authProviders.get(providerId);
 	if (!provider) {
 		throw new Error(
-			vscode.l10n.t('No auth provider registered for {0}', config.provider)
+			vscode.l10n.t('No auth provider registered for {0}', providerId)
 		);
 	}
 
 	if (config.apiKey !== undefined) {
-		return handleApiKeySave(config, provider);
+		return handleApiKeySave(providerId, config, provider);
 	}
 
 	// Persist settings (e.g. base URL) before resolving the chain
 	// so the chain validator uses the value the user just entered.
-	const onSave = onSaveCallbacks.get(config.provider);
+	const onSave = onSaveCallbacks.get(providerId);
 	if (onSave) {
 		await onSave(config);
 	}
@@ -271,16 +199,17 @@ async function handleSave(
 }
 
 async function handleApiKeySave(
+	providerId: string,
 	config: positron.ai.LanguageModelConfig,
 	provider: AuthProvider
 ): Promise<string> {
 	const apiKey = config.apiKey?.trim() ?? '';
-	const validateApiKey = apiKeyValidators.get(config.provider);
+	const validateApiKey = apiKeyValidators.get(providerId);
 	if (validateApiKey) {
 		await validateApiKey(apiKey, config);
 	}
 
-	const onSave = onSaveCallbacks.get(config.provider);
+	const onSave = onSaveCallbacks.get(providerId);
 	if (onSave) {
 		await onSave(config);
 	}
@@ -292,18 +221,18 @@ async function handleApiKeySave(
 	}
 
 	const accountId = randomUUID();
-	log.info(`Saving credential for provider "${config.provider}", name "${config.name}" (${accountId})`);
-	await provider.storeKey(accountId, config.name, apiKey);
+	log.info(`Saving credential for provider "${providerId}" (${accountId})`);
+	await provider.storeKey(accountId, providerId, apiKey);
 	return accountId;
 }
 
 async function handleDelete(
-	config: positron.ai.LanguageModelConfig
+	providerId: string,
 ): Promise<void> {
-	const provider = authProviders.get(config.provider);
+	const provider = authProviders.get(providerId);
 	if (!provider) {
 		throw new Error(
-			vscode.l10n.t('No auth provider registered for {0}', config.provider)
+			vscode.l10n.t('No auth provider registered for {0}', providerId)
 		);
 	}
 	const sessions = await provider.getSessions();
@@ -311,7 +240,7 @@ async function handleDelete(
 	// provider ID as their session ID. These cannot be removed via the
 	// UI -- the user must unset the environment variable and restart.
 	const deletable = provider.chainPreventsSignOut
-		? sessions.filter(s => s.id !== config.provider)
+		? sessions.filter(s => s.id !== providerId)
 		: sessions;
 	if (deletable.length === 0 && sessions.length > 0) {
 		throw new Error(
@@ -322,35 +251,9 @@ async function handleDelete(
 			)
 		);
 	}
-	log.info(`Deleting ${deletable.length} session(s) for provider "${config.provider}"`);
+	log.info(`Deleting ${deletable.length} session(s) for provider "${providerId}"`);
 	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
 }
 
-function notifyModelAdded(
-	config: positron.ai.LanguageModelConfig,
-): void {
-	positron.ai.addLanguageModelConfig({
-		type: positron.PositronLanguageModelType.Chat,
-		provider: { id: config.provider, displayName: config.name, settingName: '' },
-		supportedOptions: [],
-		defaults: { name: config.name, model: config.model },
-		signedIn: true,
-	});
-	vscode.window.showInformationMessage(
-		vscode.l10n.t('Language Model {0} has been added successfully.', config.name)
-	);
-}
-
-function notifyModelRemoved(
-	config: positron.ai.LanguageModelConfig,
-): void {
-	positron.ai.removeLanguageModelConfig({
-		type: positron.PositronLanguageModelType.Chat,
-		provider: { id: config.provider, displayName: config.name, settingName: '' },
-		supportedOptions: [],
-		defaults: { name: config.name, model: config.model },
-		signedIn: false,
-	});
-}

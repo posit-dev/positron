@@ -12,7 +12,7 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
@@ -22,7 +22,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
-	private readonly _languageModelRequestRegistry = new Map<string, (config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
+	private readonly _providerActionCallbacks = new Map<string, (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
+	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -48,15 +49,32 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
-		const id = generateUuid();
-		this._languageModelRequestRegistry.set(id, onAction);
-
-		try {
-			await this._proxy.$languageModelConfig(id, sources, options);
-		} catch (err) {
-			throw err;
+	registerProvider(extension: IExtensionDescription, source: IPositronLanguageModelSource, onAction?: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>): Disposable {
+		if (onAction) {
+			this._providerActionCallbacks.set(source.provider.id, onAction);
 		}
+		this._proxy.$registerProvider(source);
+
+		return new Disposable(() => {
+			this._providerActionCallbacks.delete(source.provider.id);
+			this._proxy.$unregisterProvider(source.provider.id);
+		});
+	}
+
+	enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+		this._proxy.$enrichProvider(id, update);
+	}
+
+	async showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
+		const id = generateUuid();
+
+		return new Promise<void>((resolve, reject) => {
+			this._dialogSessions.set(id, { resolve });
+			Promise.resolve(this._proxy.$languageModelConfig(id, options)).catch((err: unknown) => {
+				this._dialogSessions.delete(id);
+				reject(err);
+			});
+		});
 	}
 
 	async getCurrentPlotUri(): Promise<string | undefined> {
@@ -79,32 +97,24 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._proxy.$responseProgress(context.sessionResource, dto);
 	}
 
-	async $responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Promise<void> {
-		const onAction = this._languageModelRequestRegistry.get(id);
+	async $responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Promise<void> {
+		const onAction = this._providerActionCallbacks.get(source.provider.id);
 		if (!onAction) {
-			throw new Error('No matching language model configuration request found');
+			return;
 		}
-		return onAction(config, action);
+		return onAction(source, config, action);
 	}
 
 	$onCompleteLanguageModelConfig(id: string): void {
-		this._languageModelRequestRegistry.delete(id);
+		const session = this._dialogSessions.get(id);
+		if (session) {
+			session.resolve();
+			this._dialogSessions.delete(id);
+		}
 	}
 
 	async getChatExport(): Promise<object | undefined> {
 		return this._proxy.$getChatExport();
-	}
-
-	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
-		this._proxy.$registerProviderMetadata(metadata);
-	}
-
-	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		this._proxy.$addLanguageModelConfig(source);
-	}
-
-	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		this._proxy.$removeLanguageModelConfig(source);
 	}
 
 	async areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {

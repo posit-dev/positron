@@ -180,7 +180,6 @@ export class CopilotModelProvider extends ModelProvider {
 		provider: PROVIDER_METADATA.copilot,
 		supportedOptions: ['oauth', 'autoconfigure'],
 		defaults: {
-			name: 'GitHub Copilot',
 			model: 'github-copilot',
 			autoconfigure: {
 				type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -214,7 +213,7 @@ export class CopilotModelProvider extends ModelProvider {
 		readonly _config: ModelConfig,
 	) {
 		super(_config);
-		this.displayName = _config.name;
+		this.displayName = this.providerName;
 		this.providerId = _config.provider;
 		this.id = _config.id;
 	}

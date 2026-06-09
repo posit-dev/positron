@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { BufferedLogOutputChannel } from './log.js';
 import { getModelProviders } from './providers';
+import { getAllModelDefinitions } from './modelDefinitions.js';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -103,8 +104,12 @@ async function getConfiguredProviders(context: vscode.ExtensionContext, log: Buf
 			const firstModel = models[0];
 			const types = [...new Set(models.map(m => m.type))];
 
+			const modelName = firstModel.model
+				? getAllModelDefinitions(provider).find(def => def.identifier === firstModel.model)?.name ?? firstModel.model
+				: firstModel.id;
+
 			const fields = [
-				`- **${firstModel.name}**`,
+				`- **${modelName}**`,
 				`	- Provider: ${provider}`,
 				`	- Types: ${types.join(', ')}`,
 			];

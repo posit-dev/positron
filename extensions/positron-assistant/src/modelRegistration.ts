@@ -240,7 +240,6 @@ export async function registerModelsForProvider(context: vscode.ExtensionContext
 						id: providerId,
 						provider: providerId,
 						type: provider.source.type,
-						name: provider.source.provider.displayName,
 						model: provider.source.defaults.model,
 						toolCalls: provider.source.defaults.toolCalls,
 						completions: provider.source.defaults.completions,
@@ -307,9 +306,10 @@ export async function registerModelWithAPI(modelConfig: ModelConfig, context: vs
 	}
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
+		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context);
 		const completionProvider = newCompletionProvider(modelConfig);
 		// this uses the proposed inlineCompletionAdditions API
-		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: languageModel.displayName });
 		modelDisposables.push(new ModelDisposable(complDisp, modelConfig));
 	}
 }
