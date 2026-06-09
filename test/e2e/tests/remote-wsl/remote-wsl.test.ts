@@ -56,11 +56,20 @@ async function connectToWslDistro(app: Application): Promise<{ wslWin: Page; wsl
 			// The remote-indicator entries ("Connect to WSL", "Connect to WSL using Distro...")
 			// reuse the current window. Invoke the "in New Window" variant from the Command
 			// Palette instead so we get a fresh window to drive, mirroring the remote-ssh flow.
-			await app.workbench.quickaccess.runCommand('openremotewsl.connectUsingDistroInNewWindow');
+			//
+			// `keepOpen` is essential: this command chains straight into the "Select WSL distro"
+			// quick pick, so the quick-input box never disappears -- it morphs from the command
+			// palette into the distro picker. Without `keepOpen`, runCommand's default
+			// `waitForQuickInputClosed()` races that morph and intermittently times out on a cold
+			// machine (the palette and the distro picker share the same input element, so there is
+			// often no frame where it reads as closed). `keepOpen` skips that close-check.
+			await app.workbench.quickaccess.runCommand('openremotewsl.connectUsingDistroInNewWindow', { keepOpen: true });
 
-			// Pick the target distro from the distro quick pick the command opens.
+			// Pick the target distro from the distro quick pick the command opens. Allow a generous
+			// timeout to absorb a cold `wsl --list` enumeration on CI (the default actionTimeout is
+			// 15s, which can be tight on a freshly provisioned runner).
 			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.selectQuickInputElementContaining(WSL_DISTRO);
+			await app.workbench.quickInput.selectQuickInputElementContaining(WSL_DISTRO, { timeout: 30_000 });
 		}, { timeout: 60_000 });
 
 		const wslWin = await wslWinPromise;
