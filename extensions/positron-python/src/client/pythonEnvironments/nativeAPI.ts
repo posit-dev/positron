@@ -859,10 +859,7 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
             // its module metadata lands in the map and gets mislabeled.
             const moduleDiscovery = this.discoverModuleEnvironments();
             setModuleDiscoveryInFlight(moduleDiscovery);
-            const [, moduleEnvs] = await Promise.all([
-                this.nativeApi.triggerRefresh(query, options),
-                moduleDiscovery,
-            ]);
+            const [, moduleEnvs] = await Promise.all([this.nativeApi.triggerRefresh(query, options), moduleDiscovery]);
 
             // Update module environments and fire change events for new ones
             const oldModuleEnvPaths = new Set(this._moduleEnvs.map((e) => e.executable.filename));
