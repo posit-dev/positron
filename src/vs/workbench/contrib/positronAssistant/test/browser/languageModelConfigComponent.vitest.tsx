@@ -10,7 +10,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { LanguageModelConfigComponent } from '../../browser/components/languageModelConfigComponent.js';
 import { AuthMethod, AuthStatus } from '../../browser/types.js';
-import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelSource, PositronLanguageModelOptions, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 
 function makeSource(overrides?: Partial<Pick<IPositronLanguageModelSource, 'supportedOptions' | 'defaults'>> & { provider?: { id: string; displayName: string } }): IPositronLanguageModelSource {
 	const provider = overrides?.provider ?? { id: 'anthropic-api', displayName: 'Anthropic' };
@@ -102,7 +102,7 @@ describe('LanguageModelConfigComponent base-URL input', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderConfig(supportedOptions: string[]) {
+	function renderConfig(supportedOptions: PositronLanguageModelOptions[]) {
 		rtl.render(
 			<LanguageModelConfigComponent
 				authMethod={AuthMethod.NONE}
@@ -126,6 +126,80 @@ describe('LanguageModelConfigComponent base-URL input', () => {
 	it('does not render the base-URL input when supportedOptions is empty', () => {
 		renderConfig([]);
 
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+});
+
+describe('LanguageModelConfigComponent BaseUrl', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function renderComponent(options: {
+		providerId: string;
+		authMethod: AuthMethod;
+		supportedOptions: IPositronLanguageModelSource['supportedOptions'];
+	}): void {
+		const source: IPositronLanguageModelSource = {
+			type: PositronLanguageModelType.Chat,
+			provider: {
+				id: options.providerId,
+				displayName: options.providerId,
+			},
+			supportedOptions: options.supportedOptions,
+			defaults: { model: '' },
+		};
+		rtl.render(
+			<LanguageModelConfigComponent
+				authMethod={options.authMethod}
+				authStatus={AuthStatus.SIGNED_OUT}
+				closeDialog={() => { }}
+				config={{ model: '' }}
+				source={source}
+				onCancel={() => { }}
+				onChange={() => { }}
+				onSignIn={() => { }}
+			/>
+		);
+	}
+
+	it('shows the base URL input under OAuth when the provider supports baseUrl', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('hides the base URL input under OAuth when the provider does not support baseUrl', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth'],
+		});
+
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+	});
+
+	it('still shows the base URL input under API key auth', () => {
+		renderComponent({
+			providerId: 'some-provider',
+			authMethod: AuthMethod.API_KEY,
+			supportedOptions: ['apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('labels the Databricks base URL input as Workspace URL', () => {
+		renderComponent({
+			providerId: 'databricks',
+			authMethod: AuthMethod.OAUTH,
+			supportedOptions: ['oauth', 'apiKey', 'baseUrl'],
+		});
+
+		expect(screen.getByLabelText('Workspace URL')).toBeInTheDocument();
 		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 });
