@@ -71,7 +71,7 @@ test.describe('Notebook Focus and Selection', {
 	});
 
 
-	test('Notebook navigation and default cell selection between tabs', async function ({ app }) {
+	test('Notebook navigation and default cell selection between tabs', async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });

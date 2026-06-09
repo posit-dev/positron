@@ -25,6 +25,18 @@ import { getWindow } from '../../../../base/browser/dom.js';
 export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	readonly allowEditorOverflow = false;
 
+	private static _nextId = 0;
+
+	/**
+	 * A stable id for this overlay widget, assigned once at construction.
+	 *
+	 * The editor keys overlay widgets by their `getId()` at `addOverlayWidget`
+	 * time, so the id must remain stable for the widget's lifetime. Deriving it
+	 * from the mutable `_cell.id` would break removal after `updateCell()`
+	 * reassigns the cell, leaving a ghost toolbar in the DOM.
+	 */
+	private readonly _id = `quarto-cell-toolbar-${QuartoCellToolbar._nextId++}`;
+
 	private readonly _domNode: HTMLElement;
 	private _runButton!: HTMLButtonElement;
 	private _runAboveButton!: HTMLButtonElement;
@@ -72,7 +84,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	}
 
 	getId(): string {
-		return `quarto-cell-toolbar-${this._cell.id}`;
+		return this._id;
 	}
 
 	getDomNode(): HTMLElement {

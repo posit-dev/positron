@@ -6,11 +6,31 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { ANTHROPIC_AUTH_PROVIDER_ID, AWS_AUTH_PROVIDER_ID, CREDENTIAL_REFRESH_INTERVAL_MS, CUSTOM_PROVIDER_AUTH_PROVIDER_ID, FOUNDRY_AUTH_PROVIDER_ID, GEMINI_AUTH_PROVIDER_ID, GOOGLE_CLOUD_AUTH_PROVIDER_ID, OPENAI_AUTH_PROVIDER_ID, POSIT_AUTH_PROVIDER_ID } from './constants';
+import {
+	ANTHROPIC_AUTH_PROVIDER_ID,
+	AWS_AUTH_PROVIDER_ID,
+	CREDENTIAL_REFRESH_INTERVAL_MS,
+	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
+	FOUNDRY_AUTH_PROVIDER_ID,
+	GEMINI_AUTH_PROVIDER_ID,
+	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
+	OPENAI_AUTH_PROVIDER_ID,
+	POSIT_AUTH_PROVIDER_ID,
+} from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, showConfigurationDialog } from './configDialog';
 import { PROVIDER_METADATA } from './providerSources';
-import { normalizeToV1Url, validateAnthropicApiKey, validateCustomProviderApiKey, validateFoundryApiKey, validateGeminiApiKey, validateOpenaiApiKey, validateSnowflakeApiKey } from './validation';
+import {
+	normalizeToV1Url,
+	validateAnthropicApiKey,
+	validateCustomProviderApiKey,
+	validateDeepSeekApiKey,
+	validateFoundryApiKey,
+	validateGeminiApiKey,
+	validateOpenaiApiKey,
+	validateSnowflakeApiKey,
+} from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
 import { PositOAuthProvider } from './positOAuthProvider';
@@ -41,6 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
 	await registerGoogleVertexProvider(context);
+	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
 	// Register provider metadata so the Settings UI shows per-provider
@@ -344,13 +365,22 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 	registerAuthProvider('snowflake-cortex', provider, {
 		validateApiKey: validateSnowflakeApiKey,
 		onSave: async (config) => {
-			if (config.baseUrl) {
-				await vscode.workspace
-					.getConfiguration('authentication.snowflake-cortex')
-					.update(
-						'baseUrl', config.baseUrl,
-						vscode.ConfigurationTarget.Global
-					);
+			// baseUrl holds the bare account; persist it as SNOWFLAKE_ACCOUNT,
+			// not as a baseUrl setting like other providers do (#13750).
+			const account = config.baseUrl?.trim();
+			if (!account) {
+				return;
+			}
+			// Read the global scope only, matching the resolve() sync above.
+			const cfg = vscode.workspace.getConfiguration('authentication.snowflake');
+			const inspection = cfg.inspect<Record<string, string>>('credentials');
+			const globalValue = inspection?.globalValue ?? {};
+			if (globalValue.SNOWFLAKE_ACCOUNT !== account) {
+				await cfg.update(
+					'credentials',
+					{ ...globalValue, SNOWFLAKE_ACCOUNT: account },
+					vscode.ConfigurationTarget.Global
+				);
 			}
 		},
 	});
@@ -549,6 +579,73 @@ async function registerGoogleVertexProvider(
 	);
 
 	log.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
+}
+
+async function registerDeepSeekProvider(
+	context: vscode.ExtensionContext
+): Promise<void> {
+	const envBaseUrl = process.env.DEEPSEEK_BASE_URL;
+	if (envBaseUrl) {
+		await vscode.workspace
+			.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
+			.update(
+				'baseUrl', envBaseUrl,
+				vscode.ConfigurationTarget.Global
+			).then(undefined, err =>
+				log.error(`Failed to sync DeepSeek base URL: ${err}`)
+			);
+	}
+
+	const provider = new AuthProvider(
+		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context,
+		undefined,
+		{
+			resolve: async () => {
+				const apiKey = process.env.DEEPSEEK_API_KEY;
+				if (!apiKey) {
+					throw new Error('DEEPSEEK_API_KEY not set');
+				}
+				const baseUrl = vscode.workspace
+					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
+					.get<string>('baseUrl') || undefined;
+				await validateDeepSeekApiKey(apiKey, {
+					provider: DEEPSEEK_AUTH_PROVIDER_ID,
+					name: 'DeepSeek',
+					model: '',
+					type: positron.PositronLanguageModelType.Chat,
+					...(baseUrl && { baseUrl }),
+				});
+				return apiKey;
+			},
+			preventSignOut: true,
+		}
+	);
+	context.subscriptions.push(
+		vscode.authentication.registerAuthenticationProvider(
+			DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', provider,
+			{ supportsMultipleAccounts: true }
+		),
+		provider
+	);
+	registerAuthProvider(DEEPSEEK_AUTH_PROVIDER_ID, provider, {
+		validateApiKey: validateDeepSeekApiKey,
+		onSave: async (config) => {
+			if (config.baseUrl) {
+				await vscode.workspace
+					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
+					.update(
+						'baseUrl', config.baseUrl,
+						vscode.ConfigurationTarget.Global
+					);
+			}
+		},
+	});
+
+	await provider.resolveChainCredentials().catch(err =>
+		log.debug(`[DeepSeek] Initial credential resolution: ${err}`)
+	);
+
+	log.info(`Registered auth provider: ${DEEPSEEK_AUTH_PROVIDER_ID}`);
 }
 
 function registerCustomProvider(

@@ -106,6 +106,13 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
 			tags: ['preview'],
 		},
+		'packages.r.renvAutoSnapshot': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
+			tags: ['preview'],
+		},
 		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {
 			type: 'boolean',
 			default: true,

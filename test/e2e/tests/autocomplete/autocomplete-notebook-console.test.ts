@@ -7,7 +7,8 @@ import { join } from 'path';
 import { test, tags, expect } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	useLegacyNotebookEditor: true
 });
 
 test.describe('Autocomplete with Notebook Console', {

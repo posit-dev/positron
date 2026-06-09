@@ -9,13 +9,14 @@ import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getSnowflakeDefaultBaseUrl } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -79,6 +80,11 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 		displayName: 'Custom Provider',
 		settingName: 'customProvider',
+	},
+	deepseek: {
+		id: DEEPSEEK_AUTH_PROVIDER_ID,
+		displayName: 'DeepSeek',
+		settingName: 'deepseek',
 	},
 };
 
@@ -145,7 +151,9 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',
-				baseUrl: getSnowflakeDefaultBaseUrl(),
+				// baseUrl holds the bare account, not a URL: the Cortex URL is
+				// derived from the account. Don't make it a saved setting (#13750).
+				baseUrl: getConfiguredSnowflakeAccount(),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -190,7 +198,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Gemini 2.5 Flash (Vertex)',
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('googleVertex'),
+				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
 				...(vertexFromEnv && {
 					autoconfigure: {
@@ -224,6 +232,22 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				model: 'openai-compatible',
 				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
 				toolCalls: true,
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.deepseek,
+			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
+			defaults: {
+				name: 'DeepSeek',
+				model: 'deepseek-chat',
+				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
+				toolCalls: true,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+					key: 'DEEPSEEK_API_KEY',
+					signedIn: false,
+				},
 			},
 		},
 	];

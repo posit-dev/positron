@@ -268,30 +268,7 @@ export class Sessions {
 				await this.delete(sessionIds[i]);
 			}
 
-			// Workaround for external browser
-			if (this.code.driver.currentPage.url().includes('8080')) {
-				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
-			} else {
-				// Two Workbench-specific races can hide the empty-state message:
-				// (1) Positron is launched without a folder and auto-prompts an "Open
-				//     Folder" quickpick that intercepts pointer events.
-				// (2) The bottom panel's active tab is Terminal (not Console) on
-				//     startup, so the Console pane (and the "There is no session
-				//     running." text) is not rendered.
-				// Focus the Console first, then retry-dismiss-and-assert to cover the
-				// race where the picker appears just after a check returns false or
-				// re-pops after Escape.
-				// See https://github.com/posit-dev/positron/actions/runs/25334724797
-				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
-				const noSessionMessage = this.page.getByText('There is no session running.');
-				await expect(async () => {
-					if (await openFolderPicker.isVisible().catch(() => false)) {
-						await this.page.keyboard.press('Escape');
-					}
-					await this.console.focus();
-					await expect(noSessionMessage).toBeVisible({ timeout: 1000 });
-				}).toPass({ timeout: 15000 });
-			}
+			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
 		});
 	}
 
@@ -575,6 +552,9 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
+			// Give startup messaging a chance to appear before asserting it's gone,
+			// so we don't pass instantly when this check runs ahead of the UI.
+			await this.page.waitForTimeout(5000);
 			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
