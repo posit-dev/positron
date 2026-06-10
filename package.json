@@ -192,7 +192,7 @@
   },
   "devDependencies": {
     "@midleman/github-actions-reporter": "^1.10.1",
-    "@midleman/playwright-reporter": "^0.47.16",
+    "@midleman/playwright-reporter": "^0.52.0",
     "@playwright/cli": "^0.1.1",
     "@playwright/test": "^1.58.2",
     "@stylistic/eslint-plugin-ts": "^2.8.0",
