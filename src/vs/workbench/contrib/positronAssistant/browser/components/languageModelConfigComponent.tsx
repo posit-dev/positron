@@ -177,12 +177,13 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	// Under OAuth the base URL (e.g. the Databricks workspace URL) is an input to
-	// the sign-in flow, so it renders above the sign-in button; under API key the
-	// existing layout (inputs, then button, then base URL) is preserved.
+	// the sign-in flow, and once signed in (either method) it is read-only context
+	// for the sign-out action — in both cases it renders above the button. Only
+	// the API-key entry layout (inputs, then button, then base URL) is preserved.
 	const baseUrlElement = showBaseUrl
 		? <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />
 		: null;
-	const showBaseUrlAboveSignIn = authMethod === AuthMethod.OAUTH;
+	const showBaseUrlAboveSignIn = authMethod === AuthMethod.OAUTH || authStatus === AuthStatus.SIGNED_IN;
 
 	return <>
 		{showBaseUrlAboveSignIn && baseUrlElement}
