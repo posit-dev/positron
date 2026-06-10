@@ -797,6 +797,7 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     return native;
 }
 
+// --- Start Positron ---
 /**
  * Wrapper that combines the native Python environments API with module environments.
  * Module environments are discovered using the ModuleEnvironmentLocator and merged
@@ -1042,7 +1043,7 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
     }
 }
 
-// --- Start Positron ---
+
 /**
  * Partition module-discovered environments into those that duplicate a native
  * environment and those that are standalone.
