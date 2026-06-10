@@ -1,10 +1,17 @@
 import { ConfigurationTarget, Disposable, QuickPickItem, Uri } from 'vscode';
-import { Resource } from '../../common/types';
+// --- Start Positron ---
+import { InterpreterPathUpdateOptions, Resource } from '../../common/types';
+// --- End Positron ---
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { PythonExtension, ResolvedEnvironment } from '../../api/types';
 
 export interface IPythonPathUpdaterService {
-    updatePythonPath(pythonPath: string | undefined): Promise<void>;
+    updatePythonPath(
+        pythonPath: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void>;
 }
 
 export const IPythonPathUpdaterServiceFactory = Symbol('IPythonPathUpdaterServiceFactory');
@@ -21,6 +28,9 @@ export interface IPythonPathUpdaterServiceManager {
         configTarget: ConfigurationTarget,
         trigger: 'ui' | 'shebang' | 'load',
         wkspace?: Uri,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
     ): Promise<void>;
 }
 

@@ -17,6 +17,9 @@ import {
     IInterpreterPathService,
     InspectInterpreterSettingType,
     InterpreterConfigurationScope,
+    // --- Start Positron ---
+    InterpreterPathUpdateOptions,
+    // --- End Positron ---
     IPersistentState,
     IPersistentStateFactory,
     IPythonSettings,
@@ -55,7 +58,19 @@ export class InterpreterPathService implements IInterpreterPathService {
 
     public async onDidChangeConfiguration(event: ConfigurationChangeEvent) {
         if (event.affectsConfiguration(`python.${defaultInterpreterPathSetting}`)) {
-            this._didChangeInterpreterEmitter.fire({ uri: undefined, configTarget: ConfigurationTarget.Global });
+            // --- Start Positron ---
+            // This event only fires for real configuration changes: in Positron the extension
+            // never writes `python.defaultInterpreterPath` itself (the Global branch of update()
+            // below is disabled), so there is no "initial apply" fire at activation to filter out.
+            // Treat every fire as session intent. _onConfigChanged dedupes fires that do not
+            // change the effective interpreter.
+            this._didChangeInterpreterEmitter.fire({
+                uri: undefined,
+                configTarget: ConfigurationTarget.Global,
+                startSession: true,
+                source: 'config-change',
+            });
+            // --- End Positron ---
             traceVerbose('Interpreter Path updated', `python.${defaultInterpreterPathSetting}`);
         }
     }
@@ -108,6 +123,9 @@ export class InterpreterPathService implements IInterpreterPathService {
         resource: Resource,
         configTarget: ConfigurationTarget,
         pythonPath: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
     ): Promise<void> {
         resource = PythonSettings.getSettingsUriAndTarget(resource, this.workspaceService).uri;
         if (configTarget === ConfigurationTarget.Global) {
@@ -132,7 +150,17 @@ export class InterpreterPathService implements IInterpreterPathService {
         );
         if (persistentSetting.value !== pythonPath) {
             await persistentSetting.updateValue(pythonPath);
-            this._didChangeInterpreterEmitter.fire({ uri: resource, configTarget });
+            // --- Start Positron ---
+            // Default startSession: true preserves existing upstream semantics when callers don't
+            // pass options. Storage-only callers (copyOldInterpreterStorageValuesToNew, Positron
+            // session start) must opt out explicitly.
+            this._didChangeInterpreterEmitter.fire({
+                uri: resource,
+                configTarget,
+                startSession: options?.startSession ?? true,
+                source: options?.source ?? 'unspecified',
+            });
+            // --- End Positron ---
             traceVerbose('Interpreter Path updated', settingKey, pythonPath);
         }
     }
@@ -160,17 +188,38 @@ export class InterpreterPathService implements IInterpreterPathService {
         return settingKey;
     }
 
-    public async copyOldInterpreterStorageValuesToNew(resource: Resource): Promise<void> {
+    public async copyOldInterpreterStorageValuesToNew(
+        resource: Resource,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void> {
         resource = PythonSettings.getSettingsUriAndTarget(resource, this.workspaceService).uri;
         const oldSettings = this.inspect(resource, true);
+        // --- Start Positron ---
+        // Storage migration should never start a session. Callers can override source if they want
+        // a more specific tag; default is 'storage-migration'.
+        const migrationOptions: InterpreterPathUpdateOptions = {
+            startSession: options?.startSession ?? false,
+            source: options?.source ?? 'storage-migration',
+        };
+        // --- End Positron ---
         await Promise.all([
-            this._copyWorkspaceFolderValueToNewStorage(resource, oldSettings.workspaceFolderValue),
-            this._copyWorkspaceValueToNewStorage(resource, oldSettings.workspaceValue),
-            this._moveGlobalSettingValueToNewStorage(oldSettings.globalValue),
+            // --- Start Positron ---
+            this._copyWorkspaceFolderValueToNewStorage(resource, oldSettings.workspaceFolderValue, migrationOptions),
+            this._copyWorkspaceValueToNewStorage(resource, oldSettings.workspaceValue, migrationOptions),
+            this._moveGlobalSettingValueToNewStorage(oldSettings.globalValue, migrationOptions),
+            // --- End Positron ---
         ]);
     }
 
-    public async _copyWorkspaceFolderValueToNewStorage(resource: Resource, value: string | undefined): Promise<void> {
+    public async _copyWorkspaceFolderValueToNewStorage(
+        resource: Resource,
+        value: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void> {
         // Copy workspace folder setting into the new storage if it hasn't been copied already
         const workspaceFolderKey = this.workspaceService.getWorkspaceFolderIdentifier(resource, '');
         if (workspaceFolderKey === '') {
@@ -184,12 +233,20 @@ export class InterpreterPathService implements IInterpreterPathService {
         const flaggedWorkspaceFolderKeys = flaggedWorkspaceFolderKeysStorage.value;
         const shouldUpdateWorkspaceFolderSetting = !flaggedWorkspaceFolderKeys.includes(workspaceFolderKey);
         if (shouldUpdateWorkspaceFolderSetting) {
-            await this.update(resource, ConfigurationTarget.WorkspaceFolder, value);
+            // --- Start Positron ---
+            await this.update(resource, ConfigurationTarget.WorkspaceFolder, value, options);
+            // --- End Positron ---
             await flaggedWorkspaceFolderKeysStorage.updateValue([workspaceFolderKey, ...flaggedWorkspaceFolderKeys]);
         }
     }
 
-    public async _copyWorkspaceValueToNewStorage(resource: Resource, value: string | undefined): Promise<void> {
+    public async _copyWorkspaceValueToNewStorage(
+        resource: Resource,
+        value: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void> {
         // Copy workspace setting into the new storage if it hasn't been copied already
         const workspaceKey = this.workspaceService.workspaceFile
             ? this.fileSystemPaths.normCase(this.workspaceService.workspaceFile.fsPath)
@@ -204,12 +261,19 @@ export class InterpreterPathService implements IInterpreterPathService {
         const flaggedWorkspaceKeys = flaggedWorkspaceKeysStorage.value;
         const shouldUpdateWorkspaceSetting = !flaggedWorkspaceKeys.includes(workspaceKey);
         if (shouldUpdateWorkspaceSetting) {
-            await this.update(resource, ConfigurationTarget.Workspace, value);
+            // --- Start Positron ---
+            await this.update(resource, ConfigurationTarget.Workspace, value, options);
+            // --- End Positron ---
             await flaggedWorkspaceKeysStorage.updateValue([workspaceKey, ...flaggedWorkspaceKeys]);
         }
     }
 
-    public async _moveGlobalSettingValueToNewStorage(value: string | undefined) {
+    public async _moveGlobalSettingValueToNewStorage(
+        value: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ) {
         // Move global setting into the new storage if it hasn't been moved already
         const isGlobalSettingCopiedStorage = this.persistentStateFactory.createGlobalPersistentState<boolean>(
             isRemoteGlobalSettingCopiedKey,
@@ -217,7 +281,9 @@ export class InterpreterPathService implements IInterpreterPathService {
         );
         const shouldUpdateGlobalSetting = !isGlobalSettingCopiedStorage.value;
         if (shouldUpdateGlobalSetting) {
-            await this.update(undefined, ConfigurationTarget.Global, value);
+            // --- Start Positron ---
+            await this.update(undefined, ConfigurationTarget.Global, value, options);
+            // --- End Positron ---
             await isGlobalSettingCopiedStorage.updateValue(true);
         }
     }
