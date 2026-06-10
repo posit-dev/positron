@@ -44,6 +44,10 @@ services:
       - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
       - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
       - POSTGRES_DB=postgres
+      # postgres:18+ defaults PGDATA to a version-specific subdir and refuses to
+      # start when a volume is mounted at the legacy /var/lib/postgresql/data.
+      # Pin PGDATA to the mounted path so the volume below keeps working.
+      - PGDATA=/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d periodic"]
       interval: 5s
