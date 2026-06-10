@@ -22,11 +22,12 @@ test.describe('New Folder Flow: Jupyter Project', {
 	});
 
 	// Removing WIN tag until we get uv into windows CI as this expects uv to be the interpreter
-	// Q: Should the Positron notebook editor auto-bind the kernel for a notebook auto-opened by
-	// the New Folder Flow? It currently shows "No Kernel Selected" while the console session
-	// starts on the project runtime. Verify, then unskip.
+	// Blocked on the Positron notebook editor not auto-binding the kernel for the
+	// notebook auto-opened by the New Folder Flow (stays on "No Kernel Selected" in CI)
+	// and opening the untitled notebook in two editor tabs.
 	test.skip('Jupyter Folder Defaults', {
-		tag: [tags.CRITICAL, tags.INTERPRETER, tags.WIN]
+		tag: [tags.CRITICAL, tags.INTERPRETER, tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14163' }
 	}, async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('python-notebook-runtime');
 
