@@ -15,6 +15,10 @@ import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } 
 // so the capture frames just the console plus the session list to its right.
 const PANEL_CONTENT = '.part.panel > .content';
 const WORKSPACE_NAME = 'positron-web';
+// Fraction of the panel content height to keep for the python-objs capture, so the
+// full 32-row mtcars table is cut off partway (like the published image) rather than
+// making the screenshot very tall. Tune if the cutoff lands mid-row awkwardly.
+const PYTHON_OBJS_CLIP_FRACTION = 0.5;
 
 /**
  * Capture the panel content but trim the empty console area below the input
@@ -131,6 +135,17 @@ test.describe('Release Screenshots - Reticulate', () => {
 		// Scroll the console to the top last (no further re-renders after this) so the
 		// screenshot shows the command and start of output, not the auto-scrolled bottom.
 		await page.locator(ACTIVE_CONSOLE_INSTANCE).first().evaluate(el => { el.scrollTop = 0; });
-		await capturePanel(page, page.locator(PANEL_CONTENT), 'reticulate-python-objs.png');
+		// Clip to the top portion so the frame isn't dominated by the full 32-row
+		// table; the published image likewise cuts the output off partway.
+		const panelBox = await page.locator(PANEL_CONTENT).boundingBox();
+		if (!panelBox) {
+			throw new Error('Could not measure panel content for clipped capture');
+		}
+		await captureRegion(page, 'reticulate-python-objs.png', {
+			x: panelBox.x,
+			y: panelBox.y,
+			width: panelBox.width,
+			height: Math.round(panelBox.height * PYTHON_OBJS_CLIP_FRACTION),
+		});
 	});
 });
