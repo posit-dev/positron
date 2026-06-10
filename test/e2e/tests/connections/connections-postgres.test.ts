@@ -11,7 +11,7 @@ test.use({
 });
 
 const viewLine = '.lines-content .view-line';
-const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
+const dbName = 'periodic';
 const user = process.env.E2E_POSTGRES_USER || 'testuser';
 const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
 
