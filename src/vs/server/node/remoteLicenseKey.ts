@@ -79,6 +79,27 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
 /**
+ * An optional second RSA-4096 public key for orchestrated deployments (e.g.,
+ * JupyterHub). Embedded at build time via replace-license.sh for the
+ * orchestrator-targeted build. Empty string means no orchestrator key is
+ * configured; the slot is skipped during verification.
+ */
+const OrchestratorPublicKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAh8TyxevaejIdhTwcg/Dx
+s//61+20zynsyxWsArpgCzDGaELziUeipCWKUkwup85bq7vr9oABhfukPqygR4ZX
+j1F/nMLKguJcIAMAcaLSrD86crpqIuGMQTf6EOsXC10qhkuJPaoPThRC2D+i5CJi
+zne5a9BQf/EQh+sEVHKVFL5bz4ngg5/soK0p+hL3xim6I/HJzoVQsgCPJsFAbW2I
+It/LMnuqlVGhkoH3KP7GFEZ5n1RicvgNNFAKKLphO8XgkiiPt4u4tzTWtM6A6692
+cRlEDGusImjggvjtJKW6t17RzkO/QMiOnOHIHy5L0rgL6NP+7HiKsB8Rkx2Cs/Ad
+90tnhaaP7F85G0/lfcTxMXyAqP1jLrI8B2NGEFkZ2xrnUJh3VxDzf6wUZ6jCoj7Y
+vWD0wwB8Hp5TdjijL+IHhLFeYv/ZFwZLP7NrncPpa1BRs6wE9VEdZlAm1CdGWUaT
+qsSYoshXkKFTt5gQ15s5nUdPh6RX7dCyj0x7bOt45R3HMgreEyLWhTa4sCKY1ft6
+OjCRPyz0+w7mOX0sXOXlUZ6Yco7fzdDA5JvqVM1YUlUNJD4wHVLUvX90pTwXLihl
+Hl0ThYn+OZzm1PNQuJ3md6yk+TnXog1hehLL8WxrxPWQSF0vxOEbrHDQWpQlvtur
+y+ne0YoyHFkHQGfoEbJ/iQsCAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+/**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
  *
@@ -185,7 +206,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  * @param license The license key.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicense(connectionToken: string, license: string): Promise<ILicenseValidationResult> {
+export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[]): Promise<ILicenseValidationResult> {
 	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
@@ -216,26 +237,31 @@ export async function validateLicense(connectionToken: string, license: string):
 		return { valid: false };
 	}
 
-	// Parse the public key.
-	let publicKey: crypto.KeyObject;
-	try {
-		publicKey = crypto.createPublicKey({
-			key: PublicKey,
-			format: 'pem',
-		});
-	} catch (e) {
-		console.error('Error parsing public key: ', e);
-		return { valid: false };
+	// Try each supplied public key; accept the license if any key verifies.
+	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey].filter(k => k.trim() !== '');
+	const signature = Buffer.from(licenseKey.signature, 'base64');
+	let signatureValid = false;
+	for (const keyPem of keysToTry) {
+		if (!keyPem.trim()) {
+			continue;
+		}
+		try {
+			const key = crypto.createPublicKey({ key: keyPem, format: 'pem' });
+			const verifier = crypto.createVerify('sha256');
+			verifier.update(licenseKey.connection_token);
+			verifier.update(licenseKey.issuer);
+			verifier.update(licenseKey.licensee);
+			verifier.update(licenseKey.timestamp);
+			if (verifier.verify(key, signature)) {
+				signatureValid = true;
+				break;
+			}
+		} catch {
+			// Key parse failed or verification threw; try next key.
+		}
 	}
 
-	// Verify the signature.
-	const verifier = crypto.createVerify('sha256');
-	verifier.update(licenseKey.connection_token);
-	verifier.update(licenseKey.issuer);
-	verifier.update(licenseKey.licensee);
-	verifier.update(licenseKey.timestamp);
-	const signature = Buffer.from(licenseKey.signature, 'base64');
-	if (!verifier.verify(publicKey, signature)) {
+	if (!signatureValid) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
 		return { valid: false };
 	}
