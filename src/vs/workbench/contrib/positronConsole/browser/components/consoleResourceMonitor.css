@@ -1,0 +1,91 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.console-resource-monitor {
+	/*
+	 * Fill the grid column allocated by the dynamic action bar and pin content
+	 * to the right. Any slack pools on the left, merging with the gap between
+	 * the working directory and the right-hand action group.
+	 */
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	overflow: hidden;
+
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+/*
+ * When the console is busy, the interrupt (stop) button sits immediately to the
+ * left of the monitor. Reserve a small left gap (kept inside our box via
+ * box-sizing: border-box) so the right-aligned content doesn't butt up against
+ * the stop button.
+ */
+.console-resource-monitor.busy {
+	padding-left: 2px;
+}
+
+/*
+ * Frame the graph with a subtle 1px border on all sides. No horizontal padding
+ * is used so the chip width matches the graph width (plus the 1px side borders)
+ * closely, keeping the layout math accurate.
+ */
+.console-resource-monitor .resource-usage-graph-chip {
+	display: flex;
+	align-items: center;
+
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.console-resource-monitor .resource-usage-memory {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+}
+
+/*
+ * Reserve fixed widths for the values and align them right with tabular
+ * figures so the surrounding layout doesn't shift as the numbers change.
+ */
+.console-resource-monitor .resource-usage-value {
+	margin: 0;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.console-resource-monitor .resource-usage-memory-value {
+	/* Keep in sync with MEM_VALUE_WIDTH in consoleResourceMonitor.tsx. */
+	width: 46px;
+}
+
+/* Resource usage graph - mirrors the styling used in the console tab list. */
+.console-resource-monitor .resource-usage-graph {
+	display: block;
+}
+
+.console-resource-monitor .resource-usage-line {
+	fill: none;
+	stroke: var(--vscode-charts-lines, var(--vscode-foreground));
+	/* Keep in sync with the strokeWidth prop passed to ResourceUsageGraph in
+	   consoleResourceMonitor.tsx, which insets the baseline by half this value. */
+	stroke-width: 1.5;
+}
+
+.console-resource-monitor .resource-usage-fill {
+	fill: var(--vscode-charts-lines, var(--vscode-foreground));
+	opacity: 0.2;
+}
