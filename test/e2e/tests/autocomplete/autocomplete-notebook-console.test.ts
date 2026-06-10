@@ -33,7 +33,7 @@ test.describe('Autocomplete with Notebook Console', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, page, openFile, sessions, hotKeys, python }) {
+	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, page, openFile, sessions, python }) {
 		const { editors, console, notebooksPositron } = app.workbench;
 		const keyboard = page.keyboard;
 
@@ -282,7 +282,7 @@ test.describe('Autocomplete with Notebook Console', {
 
 	test('Python - Autocomplete in Quarto uses Quarto LSP after switching to console', {
 		tag: [tags.QUARTO]
-	}, async function ({ app, page, openFile, sessions, hotKeys }) {
+	}, async function ({ app, page, openFile, sessions }) {
 		const { editors, inlineQuarto } = app.workbench;
 		const keyboard = page.keyboard;
 		const suggestionList = page.locator('.suggest-widget .monaco-list-row');
