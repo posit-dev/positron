@@ -54,7 +54,7 @@ test.describe('Release Screenshots - Quarto', () => {
 	test('Release Screenshot - quarto-hello-python.png', async ({ app, page, openFile, python }) => {
 		const { editorActionBar, viewer, hotKeys, layouts, sessions } = app.workbench;
 
-		await setScreenshotWindowSize(app, { width: 960, height: 640 });
+		await setScreenshotWindowSize(app);
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'hello.qmd'), HELLO_QMD);

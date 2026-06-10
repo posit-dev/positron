@@ -28,10 +28,10 @@ test.describe('Release Screenshots - Run App Button', () => {
 	 * A Streamlit app file open in the editor with the "Run app" button in the
 	 * editor action bar called out.
 	 */
-	test('Release Screenshot - run-app-button.png', async ({ app, page, openFile, python, hotKeys }) => {
+	test('Release Screenshot - run-app-button.png', async ({ app, page, openFile, python, hotKeys, runCommand }) => {
 		const { editor, sessions } = app.workbench;
 
-		await setScreenshotWindowSize(app);
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 		await sessions.expectAllSessionsToBeReady();
 
 		await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
@@ -39,6 +39,7 @@ test.describe('Release Screenshots - Run App Button', () => {
 
 		// close the sidebar so the editor and its action bar are prominent
 		await hotKeys.closePrimarySidebar();
+		await runCommand('workbench.panel.positronPreview.focus');
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

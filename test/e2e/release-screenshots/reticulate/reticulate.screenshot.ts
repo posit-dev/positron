@@ -3,16 +3,34 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { test } from '../../tests/_test.setup';
 import { ACTIVE_CONSOLE_INSTANCE } from '../../pages/console';
-import { capturePanel } from '../_helpers/screenshot-utils';
+
+const CONSOLE_INPUT = '.console-input';
+import { capturePanel, captureRegion } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 // The panel's content area, excluding the CONSOLE/TERMINAL/... tab header,
 // so the capture frames just the console plus the session list to its right.
 const PANEL_CONTENT = '.part.panel > .content';
 const WORKSPACE_NAME = 'positron-web';
+
+/**
+ * Capture the panel content but trim the empty console area below the input
+ * prompt, so the frame hugs the content the way the published image does
+ * rather than including the full-height (mostly blank) console.
+ */
+async function capturePanelContentTrimmed(page: Page, filename: string): Promise<void> {
+	const panelBox = await page.locator(PANEL_CONTENT).boundingBox();
+	const inputBox = await page.locator(ACTIVE_CONSOLE_INSTANCE).first().locator(CONSOLE_INPUT).boundingBox();
+	if (!panelBox || !inputBox) {
+		throw new Error('Could not measure panel content / console input for trimmed capture');
+	}
+	const PADDING = 16;
+	const height = Math.ceil(inputBox.y + inputBox.height - panelBox.y + PADDING);
+	await captureRegion(page, filename, { x: panelBox.x, y: panelBox.y, width: panelBox.width, height });
+}
 
 test.use({
 	suiteId: __filename,
@@ -57,7 +75,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', WORKSPACE_NAME);
-		await capturePanel(page, page.locator(PANEL_CONTENT), 'reticulate-interpreter.png');
+		await capturePanelContentTrimmed(page, 'reticulate-interpreter.png');
 	});
 
 	/**
