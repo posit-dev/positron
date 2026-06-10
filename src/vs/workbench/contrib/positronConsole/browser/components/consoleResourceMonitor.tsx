@@ -28,10 +28,20 @@ import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRunt
  * the value boxes in consoleResourceMonitor.css; keep them in sync so the
  * layout computation matches what is actually rendered.
  */
-const MEM_VALUE_WIDTH = 42;		// Reserves room for e.g. "1023MB" / "10.5GB".
+const MEM_VALUE_WIDTH = 46;		// Reserves room for e.g. "1023MB" / "10.5GB".
 const GRAPH_MIN_WIDTH = 50;
 const GRAPH_MAX_WIDTH = 150;
 const GAP = 6;					// Gap between adjacent elements (graph, memory value).
+const SEPARATOR_WIDTH = 7;		// Trailing ActionBarSeparator; mirrors .action-bar-separator in CSS.
+
+/**
+ * The monitor always ends with an ActionBarSeparator, preceded by the standard
+ * inter-element gap. This trailing chrome is fixed overhead that must be
+ * reserved in every width calculation; otherwise the container is granted less
+ * room than it renders and the right-aligned memory value is clipped on its
+ * left edge by the container's overflow: hidden.
+ */
+const TRAILING_SEPARATOR_FOOTPRINT = GAP + SEPARATOR_WIDTH;
 
 /**
  * Extra slack added to the maximum width so the content is never clipped by
@@ -51,7 +61,7 @@ const GRAPH_HEIGHT = 16;
  * the monitor shows a full-width graph and the memory value.
  */
 export const RESOURCE_MONITOR_MAX_WIDTH =
-	GRAPH_MAX_WIDTH + GAP + MEM_VALUE_WIDTH + SAFETY_PADDING;
+	GRAPH_MAX_WIDTH + GAP + MEM_VALUE_WIDTH + TRAILING_SEPARATOR_FOOTPRINT + SAFETY_PADDING;
 
 const showResourceMonitorLabel = localize('positron.console.showResourceMonitor', "Show Resource Monitor");
 
@@ -141,13 +151,18 @@ export interface ResourceMonitorLayout {
  * @returns The resource monitor layout.
  */
 export function computeResourceMonitorLayout(width: number): ResourceMonitorLayout {
+	// Room needed for the memory value plus the trailing separator chrome.
+	const minMemoryWidth = MEM_VALUE_WIDTH + TRAILING_SEPARATOR_FOOTPRINT;
+
 	// Too narrow to show anything.
-	if (width < MEM_VALUE_WIDTH) {
+	if (width < minMemoryWidth) {
 		return { showMemory: false, graphWidth: 0 };
 	}
 
 	// There is room for the memory value. Determine whether a graph also fits.
-	const graphAvailable = width - MEM_VALUE_WIDTH - GAP;
+	// The graph needs its own width plus the gap that would sit between it and
+	// the memory value.
+	const graphAvailable = width - minMemoryWidth - GAP;
 	if (graphAvailable < GRAPH_MIN_WIDTH) {
 		return { showMemory: true, graphWidth: 0 };
 	}

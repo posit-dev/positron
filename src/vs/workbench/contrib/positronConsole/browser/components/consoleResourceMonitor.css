@@ -68,7 +68,8 @@
 }
 
 .console-resource-monitor .resource-usage-memory-value {
-	width: 42px;
+	/* Keep in sync with MEM_VALUE_WIDTH in consoleResourceMonitor.tsx. */
+	width: 46px;
 }
 
 /* Resource usage graph - mirrors the styling used in the console tab list. */
