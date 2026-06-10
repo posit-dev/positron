@@ -49,7 +49,7 @@ export class Editors {
 		await test.step('Run current file in console', async () => {
 			await this.code.driver.currentPage.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
 		});
-	};
+	}
 
 	async verifyTab(
 		tabName: string | RegExp,
