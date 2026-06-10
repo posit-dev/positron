@@ -38,10 +38,11 @@ test.describe('Release Screenshots - Run App Button', () => {
 		await expect(editor.playButton).toBeVisible();
 
 		// customize layout
-		await hotKeys.closePrimarySidebar();
 		await runCommand('workbench.panel.positronPreview.focus');
-		await hotKeys.focusConsole();
-		await layouts.resizePanel({ y: -20 });
+		await hotKeys.closePrimarySidebar();
+
+		// await hotKeys.focusConsole();
+		await layouts.resizePanel({ y: -50 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

@@ -63,9 +63,17 @@ test.describe('Release Screenshots - Quarto', () => {
 		// free up room for the editor + preview
 		await hotKeys.closePrimarySidebar();
 
-		// render the preview and wait for the document + plot to appear
-		await editorActionBar.verifyPreviewRendersHtml('Meet the penguins');
+		// Render the preview. Quarto's first preview of a freshly written file can
+		// fail with a path-resolution error (the preview process starts before its
+		// working directory is set to the workspace, so it stats the input via a
+		// bogus relative path); re-clicking Preview recovers. Retry until the
+		// rendered document appears.
 		const previewFrame = viewer.getViewerFrame().frameLocator('iframe');
+		await expect(async () => {
+			await editorActionBar.clickButton('Preview');
+			await expect(previewFrame.getByRole('heading', { name: 'Meet the penguins' }))
+				.toBeVisible({ timeout: 45000 });
+		}).toPass({ timeout: 180000, intervals: [2000] });
 		await expect(previewFrame.locator('img').first()).toBeVisible({ timeout: 30000 });
 
 		// collapse the preview log and widen the preview so it fills the right half
