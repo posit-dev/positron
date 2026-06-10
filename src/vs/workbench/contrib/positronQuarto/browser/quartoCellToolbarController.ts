@@ -7,7 +7,6 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ICodeEditor, IEditorMouseEvent, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
-import { Range } from '../../../../editor/common/core/range.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -16,7 +15,7 @@ import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
-import { computeDeleteCellEdit, computeJoinCellsEdit } from './quartoCellOperations.js';
+import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from './quartoCellOperations.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument, usingQuartoCellToolbar } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -616,14 +615,12 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * model so indices and enablement reflect the current state.
 	 */
 	private _showMoreActions(toolbar: QuartoCellToolbar): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(toolbar.cell);
+		if (!resolved) {
 			return;
 		}
-
-		const quartoModel = this._documentModelService.getModel(model);
+		const { quartoModel, fresh: cell } = resolved;
 		const cells = quartoModel.cells;
-		const cell = quartoModel.getCellById(toolbar.cell.id) ?? toolbar.cell;
 		const isFirst = cell.index === 0;
 		const isLast = cell.index === cells.length - 1;
 		const hasOutput = this._getOutputContribution()?.hasCopiableOutputForCellAtLine(cell.codeStartLine) ?? false;
@@ -698,37 +695,40 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	}
 
 	/**
-	 * Resolve the freshest version of a cell from the document model, falling
-	 * back to the passed-in cell if it can no longer be found by ID.
+	 * Resolve the active editor model, its Quarto document model, and the
+	 * freshest version of a cell (by ID, falling back to the passed-in cell).
+	 * Returns undefined when the editor has no model, letting callers bail with
+	 * a single guard instead of repeating the model/null-check boilerplate.
 	 */
-	private _resolveCell(cell: QuartoCodeCell): QuartoCodeCell {
+	private _resolveCellContext(cell: QuartoCodeCell): { model: ITextModel; quartoModel: IQuartoDocumentModel; fresh: QuartoCodeCell } | undefined {
 		const model = this._editor.getModel();
 		if (!model) {
-			return cell;
+			return undefined;
 		}
 		const quartoModel = this._documentModelService.getModel(model);
-		return quartoModel.getCellById(cell.id) ?? cell;
+		return { model, quartoModel, fresh: quartoModel.getCellById(cell.id) ?? cell };
 	}
 
 	/**
 	 * Copy the code of a cell (without its fences) to the clipboard.
 	 */
 	private _copyCellCode(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
-		this._clipboardService.writeText(quartoModel.getCellCode(fresh));
+		this._clipboardService.writeText(resolved.quartoModel.getCellCode(resolved.fresh));
 	}
 
 	/**
 	 * Copy a cell's output to the clipboard, reusing the output contribution.
 	 */
 	private _copyCellOutput(cell: QuartoCodeCell): void {
-		const fresh = this._resolveCell(cell);
-		this._getOutputContribution()?.copyOutputForCellAtLine(fresh.codeStartLine);
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		this._getOutputContribution()?.copyOutputForCellAtLine(resolved.fresh.codeStartLine);
 	}
 
 	/**
@@ -737,12 +737,11 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * so what lands on the clipboard matches what was removed.
 	 */
 	private async _cutCell(cell: QuartoCodeCell): Promise<void> {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
+		const { model, fresh } = resolved;
 
 		const lines: string[] = [];
 		for (let i = fresh.startLine; i <= fresh.endLine; i++) {
@@ -770,25 +769,22 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * Delete a cell (its fences and code) from the document.
 	 */
 	private _deleteCell(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
-		this._editor.executeEdits('quartoCellToolbar', computeDeleteCellEdit(model, fresh));
+		this._editor.executeEdits('quartoCellToolbar', computeDeleteCellEdit(resolved.model, resolved.fresh));
 	}
 
 	/**
 	 * Join a cell with the cell above it, merging both into a single chunk.
 	 */
 	private _joinWithAbove(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
+		const { model, quartoModel, fresh } = resolved;
 		const previous = quartoModel.getCellByIndex(fresh.index - 1);
 		if (!previous) {
 			return;
@@ -800,12 +796,11 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * Join a cell with the cell below it, merging both into a single chunk.
 	 */
 	private _joinWithBelow(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
+		const { model, quartoModel, fresh } = resolved;
 		const next = quartoModel.getCellByIndex(fresh.index + 1);
 		if (!next) {
 			return;
@@ -817,73 +812,35 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * Insert a new, empty code cell directly above the given cell.
 	 */
 	private _insertCellAbove(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
 		// Insert just before the cell's opening fence.
-		this._insertNewCell(model, fresh.language, fresh.startLine);
+		this._insertNewCell(resolved.model, resolved.fresh.language, resolved.fresh.startLine);
 	}
 
 	/**
 	 * Insert a new, empty code cell directly below the given cell.
 	 */
 	private _insertCellBelow(cell: QuartoCodeCell): void {
-		const model = this._editor.getModel();
-		if (!model) {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
 			return;
 		}
-		const quartoModel = this._documentModelService.getModel(model);
-		const fresh = quartoModel.getCellById(cell.id) ?? cell;
 		// Insert just after the cell's closing fence.
-		this._insertNewCell(model, fresh.language, fresh.endLine + 1);
+		this._insertNewCell(resolved.model, resolved.fresh.language, resolved.fresh.endLine + 1);
 	}
 
 	/**
 	 * Insert a new, empty code cell at the start of the given line (1-based),
-	 * guaranteeing at least one blank buffer line between the new cell and its
-	 * neighbors on both sides (except at the very top/bottom of the document).
-	 * The cursor is placed on the new cell's empty code line.
-	 *
-	 * Implemented as a direct edit (rather than delegating to the Quarto
-	 * extension's insert command) so the cell always lands exactly where the
-	 * user asked, without skipping past prose or abutting an adjacent fence.
+	 * placing the cursor on the new cell's empty code line. The edit math lives
+	 * in `computeInsertCellEdit` so it can be unit-tested without an editor.
 	 */
 	private _insertNewCell(model: ITextModel, language: string, insertLine: number): void {
-		const lineCount = model.getLineCount();
-		const fence = '```{' + (language || 'python') + '}';
-		// Opening fence, an empty code line (where the cursor lands), closing fence.
-		const cellBlock = fence + '\n\n```';
-
-		if (insertLine > lineCount) {
-			// Appending past the last line (e.g. inserting below a cell whose
-			// closing fence is the final line of the document).
-			const lastLineBlank = model.getLineContent(lineCount).trim() === '';
-			const prefixNewlines = lastLineBlank ? 1 : 2;
-			const text = '\n'.repeat(prefixNewlines) + cellBlock + '\n';
-			const endColumn = model.getLineMaxColumn(lineCount);
-			this._editor.executeEdits('quartoCellToolbar', [{ range: new Range(lineCount, endColumn, lineCount, endColumn), text }]);
-			const codeLine = lineCount + prefixNewlines + 1;
-			this._editor.setSelection(new Selection(codeLine, 1, codeLine, 1));
-			this._editor.focus();
-			return;
-		}
-
-		// Insert before the content of `insertLine`. Add a leading blank line
-		// unless we're at the top of the document or the line above is already
-		// blank; add a trailing blank line unless the line below is already blank.
-		const aboveBlank = insertLine <= 1 || model.getLineContent(insertLine - 1).trim() === '';
-		const belowBlank = model.getLineContent(insertLine).trim() === '';
-		const prefix = aboveBlank ? '' : '\n';
-		const suffix = belowBlank ? '\n' : '\n\n';
-		const text = prefix + cellBlock + suffix;
-		this._editor.executeEdits('quartoCellToolbar', [{ range: new Range(insertLine, 1, insertLine, 1), text }]);
-
-		// The empty code line sits one line below the opening fence.
-		const codeLine = insertLine + (prefix ? 1 : 0) + 1;
-		this._editor.setSelection(new Selection(codeLine, 1, codeLine, 1));
+		const { edits, cursorLine } = computeInsertCellEdit(model, language, insertLine);
+		this._editor.executeEdits('quartoCellToolbar', edits);
+		this._editor.setSelection(new Selection(cursorLine, 1, cursorLine, 1));
 		this._editor.focus();
 	}
 

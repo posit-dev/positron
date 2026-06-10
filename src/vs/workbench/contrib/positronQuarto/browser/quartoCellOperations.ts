@@ -100,6 +100,65 @@ export function computeJoinCellsEdit(textModel: ITextModel, firstCell: QuartoCod
 }
 
 /**
+ * The result of computing a cell insertion: the edits to apply and the 1-based
+ * line number where the cursor should land (the new cell's empty code line).
+ */
+export interface InsertCellEdit {
+	readonly edits: ISingleEditOperation[];
+	readonly cursorLine: number;
+}
+
+/**
+ * Compute the edit that inserts a new, empty code cell at the start of the
+ * given line (1-based), guaranteeing at least one blank buffer line between the
+ * new cell and its neighbors on both sides (except at the very top/bottom of
+ * the document). The returned `cursorLine` is the new cell's empty code line.
+ *
+ * Computed as a direct edit (rather than delegating to the Quarto extension's
+ * insert command) so the cell always lands exactly where the user asked,
+ * without skipping past prose or abutting an adjacent fence.
+ *
+ * @param textModel The document's text model.
+ * @param language The cell language (e.g. `python`, `r`); falls back to `python` when empty.
+ * @param insertLine The 1-based line at whose start to insert. A value past the
+ * last line appends to the end of the document.
+ * @returns The edit operations and the resulting cursor line.
+ */
+export function computeInsertCellEdit(textModel: ITextModel, language: string, insertLine: number): InsertCellEdit {
+	const lineCount = textModel.getLineCount();
+	const fence = '```{' + (language || 'python') + '}';
+	// Opening fence, an empty code line (where the cursor lands), closing fence.
+	const cellBlock = fence + '\n\n```';
+
+	if (insertLine > lineCount) {
+		// Appending past the last line (e.g. inserting below a cell whose
+		// closing fence is the final line of the document).
+		const lastLineBlank = textModel.getLineContent(lineCount).trim() === '';
+		const prefixNewlines = lastLineBlank ? 1 : 2;
+		const text = '\n'.repeat(prefixNewlines) + cellBlock + '\n';
+		const endColumn = textModel.getLineMaxColumn(lineCount);
+		return {
+			edits: [{ range: new Range(lineCount, endColumn, lineCount, endColumn), text }],
+			cursorLine: lineCount + prefixNewlines + 1,
+		};
+	}
+
+	// Insert before the content of `insertLine`. Add a leading blank line
+	// unless we're at the top of the document or the line above is already
+	// blank; add a trailing blank line unless the line below is already blank.
+	const aboveBlank = insertLine <= 1 || textModel.getLineContent(insertLine - 1).trim() === '';
+	const belowBlank = textModel.getLineContent(insertLine).trim() === '';
+	const prefix = aboveBlank ? '' : '\n';
+	const suffix = belowBlank ? '\n' : '\n\n';
+	const text = prefix + cellBlock + suffix;
+	return {
+		edits: [{ range: new Range(insertLine, 1, insertLine, 1), text }],
+		// The empty code line sits one line below the opening fence.
+		cursorLine: insertLine + (prefix ? 1 : 0) + 1,
+	};
+}
+
+/**
  * Get the code lines (between the fences) of a cell.
  */
 function getCellCodeLines(textModel: ITextModel, cell: QuartoCodeCell): string[] {

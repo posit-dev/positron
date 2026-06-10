@@ -10,7 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { QuartoDocumentModel } from '../../browser/quartoDocumentModel.js';
-import { computeDeleteCellEdit, computeJoinCellsEdit } from '../../browser/quartoCellOperations.js';
+import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from '../../browser/quartoCellOperations.js';
 
 describe('quartoCellOperations', () => {
 	const ctx = createTestContainer().build();
@@ -119,6 +119,94 @@ describe('quartoCellOperations', () => {
 				Prose.
 				"
 			`);
+		});
+
+		it('inserts the merged code when the first cell has no code lines', () => {
+			const { textModel, model } = buildModel(
+				'```{python}\n```\n\n```{python}\ny = 2\n```\n'
+			);
+
+			textModel.applyEdits(computeJoinCellsEdit(textModel, model.cells[0], model.cells[1]));
+
+			expect(textModel.getValue()).toMatchInlineSnapshot(`
+				"\`\`\`{python}
+				y = 2
+				\`\`\`
+				"
+			`);
+		});
+	});
+
+	describe('computeInsertCellEdit', () => {
+		it('inserts above the first cell at the top of the document', () => {
+			const { textModel, model } = buildModel(
+				'```{python}\nx = 1\n```\n'
+			);
+
+			const { edits, cursorLine } = computeInsertCellEdit(textModel, model.cells[0].language, model.cells[0].startLine);
+			textModel.applyEdits(edits);
+
+			expect(textModel.getValue()).toMatchInlineSnapshot(`
+				"\`\`\`{python}
+
+				\`\`\`
+
+				\`\`\`{python}
+				x = 1
+				\`\`\`
+				"
+			`);
+			expect(cursorLine).toBe(2);
+		});
+
+		it('appends below a cell whose closing fence is the last line', () => {
+			const { textModel, model } = buildModel(
+				'```{python}\nx = 1\n```'
+			);
+
+			// Insert below the only cell: its closing fence is the final line, so
+			// the insert line is past the end and the edit appends to the document.
+			const { edits, cursorLine } = computeInsertCellEdit(textModel, model.cells[0].language, model.cells[0].endLine + 1);
+			textModel.applyEdits(edits);
+
+			expect(textModel.getValue()).toMatchInlineSnapshot(`
+				"\`\`\`{python}
+				x = 1
+				\`\`\`
+
+				\`\`\`{python}
+
+				\`\`\`
+				"
+			`);
+			expect(cursorLine).toBe(6);
+		});
+
+		it('reuses the existing blank line between two cells instead of doubling it', () => {
+			const { textModel, model } = buildModel(
+				'```{python}\nx = 1\n```\n\n```{python}\ny = 2\n```\n'
+			);
+
+			// Insert above the second cell. The line above (blank) and the second
+			// cell's fence below are already separated, so no extra blank lines.
+			const { edits, cursorLine } = computeInsertCellEdit(textModel, model.cells[1].language, model.cells[1].startLine);
+			textModel.applyEdits(edits);
+
+			expect(textModel.getValue()).toMatchInlineSnapshot(`
+				"\`\`\`{python}
+				x = 1
+				\`\`\`
+
+				\`\`\`{python}
+
+				\`\`\`
+
+				\`\`\`{python}
+				y = 2
+				\`\`\`
+				"
+			`);
+			expect(cursorLine).toBe(6);
 		});
 	});
 });
