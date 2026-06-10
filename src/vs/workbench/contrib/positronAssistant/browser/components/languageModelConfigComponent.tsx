@@ -176,7 +176,16 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 		props.onChange({ ...props.config, apiKey: newApiKey });
 	};
 
+	// Under OAuth the base URL (e.g. the Databricks workspace URL) is an input to
+	// the sign-in flow, so it renders above the sign-in button; under API key the
+	// existing layout (inputs, then button, then base URL) is preserved.
+	const baseUrlElement = showBaseUrl
+		? <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />
+		: null;
+	const showBaseUrlAboveSignIn = authMethod === AuthMethod.OAUTH;
+
 	return <>
+		{showBaseUrlAboveSignIn && baseUrlElement}
 		{!hasAutoconfigure && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} inputRef={apiKeyInputRef} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={() => props.onSignIn(apiKeyInputRef.current?.value)} />
@@ -187,7 +196,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			}
 		</div>}
 		{source.provider.id === 'copilot-auth' && authStatus === AuthStatus.SIGNED_IN && <CopilotSignoutGuidance closeDialog={props.closeDialog} />}
-		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		{!showBaseUrlAboveSignIn && baseUrlElement}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} supportsBaseUrl={source.supportedOptions?.includes('baseUrl')} />
 		<ProviderNotice provider={source.provider} />
 	</>;
