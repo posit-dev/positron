@@ -1043,7 +1043,6 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
     }
 }
 
-
 /**
  * Partition module-discovered environments into those that duplicate a native
  * environment and those that are standalone.
