@@ -11,6 +11,8 @@ import test, { expect, FrameLocator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
+const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
+const CELL_EXECUTING_SPINNER = '.cell-statusbar-container .codicon-notebook-state-executing';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
@@ -52,6 +54,19 @@ export class Notebooks {
 
 	async closeNotebookWithoutSaving() {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
+	}
+
+	async executeCodeInCell() {
+		await test.step('Execute code in cell', async () => {
+			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
+			// Scoped to the cell status bar so unrelated spinners (kernel toolbar,
+			// outline, run-all action, kernel quick pick) don't trip this. Fast
+			// Python cells may not render the executing icon long enough for a
+			// positive wait to observe, so we stay with the negative count check
+			// and rely on downstream assertions (output, variable, etc.) to gate
+			// the actual completion behavior.
+			await expect(this.code.driver.currentPage.locator(CELL_EXECUTING_SPINNER), 'no cell to be in executing state').toHaveCount(0, { timeout: 30000 });
+		});
 	}
 
 	async runAllCells({ timeout = 15000 } = {}): Promise<void> {
