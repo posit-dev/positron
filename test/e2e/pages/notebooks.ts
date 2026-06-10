@@ -46,7 +46,7 @@ export class Notebooks {
 		this.hotKeys = hotKeys;
 
 		this.kernelLabel = this.code.driver.currentPage.locator(KERNEL_LABEL);
-		this.kernelDropdown = this.code.driver.currentPage.locator(KERNEL_DROPDOWN);
+		this.kernelDropdown = this.code.driver.currentPage.getByRole('button', { name: 'Kernel Actions' });
 		this.frameLocator = this.code.driver.currentPage.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 		this.notebookProgressBar = this.code.driver.currentPage.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 		this.cellIndex = (num = 0) => this.code.driver.currentPage.locator('.cell-inner-container > .cell').nth(num);

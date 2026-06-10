@@ -174,9 +174,15 @@ export class Editors {
 		}
 	}
 
-	async expectSuggestionListCount(count: number): Promise<void> {
+	async expectSuggestionListCount(count: number, options?: { retryTimeout?: number }): Promise<void> {
 		await test.step(`Expect editor suggestion list to have ${count} items`, async () => {
-			await expect(this.suggestionList).toHaveCount(count);
+			if (options?.retryTimeout) {
+				await expect(async () => {
+					await expect(this.suggestionList).toHaveCount(count);
+				}).toPass({ timeout: options.retryTimeout });
+			} else {
+				await expect(this.suggestionList).toHaveCount(count);
+			}
 		});
 	}
 
