@@ -3,36 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import assert from 'assert';
+/// <reference types="vitest/globals" />
+
 import React from 'react';
 import * as marked from '../../../../../base/common/marked/marked.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { MarkedFootnoteExtension } from '../../../markdown/common/markedFootnoteExtension.js';
 import { TokenMarkdownRenderer } from '../../browser/markdownRenderer.js';
-import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { NotebookLink } from '../../browser/notebookCells/NotebookLink.js';
 
 type AnyElement = React.ReactElement<any>;
-
-/**
- * Returns a stub that throws on any access. Used for services the code under
- * test must not touch -- a regression that starts calling one produces a
- * clear error instead of a cryptic null-deref.
- */
-function throwingServiceStub<T>(name: string): T {
-	return new Proxy({}, {
-		get(_target, prop) {
-			throw new Error(`Unexpected access to ${name}.${String(prop)} in footnote renderer test`);
-		},
-	}) as T;
-}
 
 /**
  * Tests for footnote rendering behavior in TokenMarkdownRenderer.
  * Validates deduplicate-definitions (first-wins), unique ref anchor IDs, and
  * footnote section structure.
  */
-suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
+describe('TokenMarkdownRenderer - Footnotes', () => {
 
 	function tokenize(src: string): marked.TokensList {
 		return new marked.Marked()
@@ -40,12 +29,12 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 			.lexer(src);
 	}
 
-	const extensionService = throwingServiceStub<IExtensionService>('IExtensionService');
-	const languageService = throwingServiceStub<ILanguageService>('ILanguageService');
-
 	function renderTokens(src: string): AnyElement[] {
 		const tokens = tokenize(src);
-		const renderer = new TokenMarkdownRenderer(extensionService, languageService);
+		const renderer = new TokenMarkdownRenderer(
+			stubInterface<IExtensionService>({}),
+			stubInterface<ILanguageService>({}),
+		);
 		return renderer.render(tokens as (marked.MarkedToken | MarkedFootnoteExtension.FootnoteToken)[]) as AnyElement[];
 	}
 
@@ -84,112 +73,109 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		return Array.isArray(children) ? children : [children];
 	}
 
-	function findChildAnchor(sup: AnyElement): AnyElement | undefined {
-		return getChildren(sup).find(
+	function findChildAnchor(sup: AnyElement): AnyElement {
+		const anchor = getChildren(sup).find(
 			(c: React.ReactNode) => React.isValidElement(c) &&
 				((c as AnyElement).type === 'a' || (c as AnyElement).type === NotebookLink)
-		) as AnyElement | undefined;
+		);
+		if (!anchor) {
+			throw new Error('footnote ref has no anchor child');
+		}
+		return anchor as AnyElement;
 	}
 
-	test('renders a footnotes section at the end', () => {
+	it('renders a footnotes section at the end', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: A note.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 	});
 
-	test('does not render a footnotes section when there are no footnotes', () => {
+	it('does not render a footnotes section when there are no footnotes', () => {
 		const elements = renderTokens('Just plain text.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 0);
+		expect(sections).toHaveLength(0);
 	});
 
-	test('deduplicates definitions by ID (first-wins)', () => {
+	it('deduplicates definitions by ID (first-wins)', () => {
 		const elements = renderTokens('[^1]: First.\n\n[^1]: Second.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 
 		// The <ol> should have only 1 <li>, not 2.
 		const lis = findElements([sections[0]], el => el.type === 'li');
-		assert.strictEqual(lis.length, 1, 'duplicate definition should be deduplicated');
-		assert.strictEqual(lis[0].props.id, 'fn-1');
+		expect(lis, 'duplicate definition should be deduplicated').toHaveLength(1);
+		expect(lis[0].props.id).toBe('fn-1');
 	});
 
-	test('multiple refs to same footnote get unique anchor IDs', () => {
+	it('multiple refs to same footnote get unique anchor IDs', () => {
 		const elements = renderTokens('A[^1] B[^1]\n\n[^1]: Shared.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 
 		const anchor0 = findChildAnchor(refs[0]);
 		const anchor1 = findChildAnchor(refs[1]);
-		assert.ok(anchor0);
-		assert.ok(anchor1);
-		assert.strictEqual(anchor0.props.id, 'fnref-1');
-		assert.strictEqual(anchor1.props.id, 'fnref-1-2');
+		expect(anchor0.props.id).toBe('fnref-1');
+		expect(anchor1.props.id).toBe('fnref-1-2');
 		// Both should link to the same definition
-		assert.strictEqual(anchor0.props.href, '#fn-1');
-		assert.strictEqual(anchor1.props.href, '#fn-1');
+		expect(anchor0.props.href).toBe('#fn-1');
+		expect(anchor1.props.href).toBe('#fn-1');
 	});
 
-	test('footnote numbers are sequential based on definition order', () => {
+	it('footnote numbers are sequential based on definition order', () => {
 		const elements = renderTokens('A[^b] B[^a]\n\n[^b]: Beta.\n\n[^a]: Alpha.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 
 		// [^b] is defined first, so gets number 1. [^a] gets number 2.
 		const anchor0 = findChildAnchor(refs[0]);
 		const anchor1 = findChildAnchor(refs[1]);
-		assert.ok(anchor0);
-		assert.ok(anchor1);
-		assert.strictEqual(anchor0.props.children, 1);
-		assert.strictEqual(anchor1.props.children, 2);
+		expect(anchor0.props.children).toBe(1);
+		expect(anchor1.props.children).toBe(2);
 	});
 
-	test('backref links point to the first reference anchor', () => {
+	it('backref links point to the first reference anchor', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: Note.');
 		const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefs.length, 1);
-		assert.strictEqual(backrefs[0].props.href, '#fnref-1');
+		expect(backrefs).toHaveLength(1);
+		expect(backrefs[0].props.href).toBe('#fnref-1');
 	});
 
-	test('unreferenced definitions do not render backref links', () => {
+	it('unreferenced definitions do not render backref links', () => {
 		const elements = renderTokens('[^1]: Orphan definition with no reference.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 		const backrefs = findElements([sections[0]], el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefs.length, 0);
+		expect(backrefs).toHaveLength(0);
 	});
 
-	test('special characters in footnote IDs are sanitized for DOM attributes', () => {
+	it('special characters in footnote IDs are sanitized for DOM attributes', () => {
 		const elements = renderTokens('Text[^a b]\n\n[^a b]: Note with spaces.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 1);
+		expect(refs).toHaveLength(1);
 		const anchor = findChildAnchor(refs[0]);
-		assert.ok(anchor);
 		// Space should be replaced with hyphen
-		assert.strictEqual(anchor.props.id, 'fnref-a-b');
-		assert.strictEqual(anchor.props.href, '#fn-a-b');
+		expect(anchor.props.id).toBe('fnref-a-b');
+		expect(anchor.props.href).toBe('#fn-a-b');
 	});
 
-	test('colliding sanitized IDs get unique suffixes', () => {
+	it('colliding sanitized IDs get unique suffixes', () => {
 		// "a b" sanitizes to "a-b", and "a-b" is already "a-b" -- collision.
 		const elements = renderTokens('X[^a b] Y[^a-b]\n\n[^a b]: First.\n\n[^a-b]: Second.');
 		const lis = findElements(elements, el => el.type === 'li');
-		assert.strictEqual(lis.length, 2);
+		expect(lis).toHaveLength(2);
 		// First definition gets "a-b", second gets "a-b-2"
-		assert.strictEqual(lis[0].props.id, 'fn-a-b');
-		assert.strictEqual(lis[1].props.id, 'fn-a-b-2');
+		expect(lis[0].props.id).toBe('fn-a-b');
+		expect(lis[1].props.id).toBe('fn-a-b-2');
 		// Refs should link to their respective definitions
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 		const anchor0 = findChildAnchor(refs[0]);
 		const anchor1 = findChildAnchor(refs[1]);
-		assert.ok(anchor0);
-		assert.ok(anchor1);
-		assert.strictEqual(anchor0.props.href, '#fn-a-b');
-		assert.strictEqual(anchor1.props.href, '#fn-a-b-2');
+		expect(anchor0.props.href).toBe('#fn-a-b');
+		expect(anchor1.props.href).toBe('#fn-a-b-2');
 	});
 
-	test('footnote refs nested in headings and lists are handled', () => {
+	it('footnote refs nested in headings and lists are handled', () => {
 		const input = [
 			'## Heading[^1]',
 			'',
@@ -201,12 +187,12 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		].join('\n');
 		const elements = renderTokens(input);
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 	});
 
-	test('footnote refs nested in table cells are handled', () => {
+	it('footnote refs nested in table cells are handled', () => {
 		const input = [
 			'| Col |',
 			'| --- |',
@@ -216,135 +202,212 @@ suite('Positron Notebook - TokenMarkdownRenderer Footnotes', () => {
 		].join('\n');
 		const elements = renderTokens(input);
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 1);
+		expect(refs).toHaveLength(1);
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 	});
 
-	test('backref is placed inside the last paragraph of a footnote definition', () => {
+	it('backref is placed inside the last paragraph of a footnote definition', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: Simple note.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 		// The backref should be inside the <p>, not a sibling after it.
 		const paragraphs = findElements([sections[0]], el => el.type === 'p');
-		assert.strictEqual(paragraphs.length, 1);
+		expect(paragraphs).toHaveLength(1);
 		const backrefInParagraph = findElements([paragraphs[0]], el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefInParagraph.length, 1, 'backref should be inside the paragraph');
+		expect(backrefInParagraph, 'backref should be inside the paragraph').toHaveLength(1);
 	});
 
-	test('backref is a sibling when last token is not a paragraph', () => {
+	it('backref is a sibling when last token is not a paragraph', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: intro\n  * item one\n  * item two');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 		// Last token is a list, so backref should be a sibling, not inside the list.
 		const backrefs = findElements([sections[0]], el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefs.length, 1);
+		expect(backrefs).toHaveLength(1);
 		// The backref should NOT be inside the <ul>
 		const lists = findElements([sections[0]], el => el.type === 'ul');
-		assert.strictEqual(lists.length, 1);
+		expect(lists).toHaveLength(1);
 		const backrefInList = findElements([lists[0]], el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefInList.length, 0, 'backref should not be inside the list');
+		expect(backrefInList, 'backref should not be inside the list').toHaveLength(0);
 	});
 
-	test('block content in definitions renders correctly', () => {
+	it('block content in definitions renders correctly', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: intro\n  * item one\n  * item two');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1);
+		expect(sections).toHaveLength(1);
 		const lists = findElements([sections[0]], el => el.type === 'ul');
-		assert.strictEqual(lists.length, 1, 'footnote with list content should render a ul');
+		expect(lists, 'footnote with list content should render a ul').toHaveLength(1);
 	});
 
-	test('[^id]:\\n  body with empty first line and indented continuation is accepted', () => {
+	it('[^id]:\\n  body with empty first line and indented continuation is accepted', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]:\n  deferred continuation.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 1, 'empty-first-line def with indented continuation should tokenize');
+		expect(sections, 'empty-first-line def with indented continuation should tokenize').toHaveLength(1);
 		const lis = findElements([sections[0]], el => el.type === 'li');
-		assert.strictEqual(lis.length, 1);
+		expect(lis).toHaveLength(1);
 	});
 
-	test('[^id]:text without a separator is rejected (falls through to plain text)', () => {
+	it('[^id]:text without a separator is rejected (falls through to plain text)', () => {
 		// Pair the bare form with a real ref so any section that does appear would
 		// be from this definition, not side-effects of the ref alone.
 		const elements = renderTokens('Text[^1]\n\n[^1]:no-separator body.');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 0, '[^id]:text should not tokenize as a definition');
+		expect(sections, '[^id]:text should not tokenize as a definition').toHaveLength(0);
 	});
 
-	test('[^id]: alone with no body or continuation is rejected', () => {
+	it('[^id]: alone with no body or continuation is rejected', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]:');
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 0, 'bare [^id]: should not tokenize as a definition');
+		expect(sections, 'bare [^id]: should not tokenize as a definition').toHaveLength(0);
 	});
 
-	test('ref to an undefined footnote still renders without a footnote section', () => {
+	it('ref to an undefined footnote still renders without a footnote section', () => {
 		const elements = renderTokens('Text[^missing] and more text.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 1);
+		expect(refs).toHaveLength(1);
 
 		const anchor = findChildAnchor(refs[0]);
-		assert.ok(anchor);
 		// With no matching definition, the raw id is used as the ref label and
 		// the href points at the (nonexistent) footnote anchor.
-		assert.strictEqual(anchor.props.children, 'missing');
-		assert.strictEqual(anchor.props.href, '#fn-missing');
-		assert.strictEqual(anchor.props.id, 'fnref-missing');
+		expect(anchor.props.children).toBe('missing');
+		expect(anchor.props.href).toBe('#fn-missing');
+		expect(anchor.props.id).toBe('fnref-missing');
 
 		// No section should be emitted when there are no definitions.
 		const sections = findElements(elements, el => el.props.className === 'footnotes');
-		assert.strictEqual(sections.length, 0);
+		expect(sections).toHaveLength(0);
 	});
 
-	test('undefined ref with colliding sanitized ID does not conflict with defined footnote', () => {
+	it('undefined ref with colliding sanitized ID does not conflict with defined footnote', () => {
 		// [^a-b] is defined but [^a b] is only referenced (undefined def).
 		// Both sanitize to "a-b", so the ref to [^a b] should get a unique ID.
 		const elements = renderTokens('X[^a b] Y[^a-b]\n\n[^a-b]: Defined.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 		const anchor0 = findChildAnchor(refs[0]); // ref to [^a b] (undefined)
 		const anchor1 = findChildAnchor(refs[1]); // ref to [^a-b] (defined)
-		assert.ok(anchor0);
-		assert.ok(anchor1);
 		// The two refs must have different IDs
-		assert.notStrictEqual(anchor0.props.id, anchor1.props.id);
+		expect(anchor0.props.id).not.toBe(anchor1.props.id);
 	});
 
-	test('footnote ref anchors use NotebookLink', () => {
+	it('footnote ref anchors use NotebookLink', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: Note.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 1);
+		expect(refs).toHaveLength(1);
 		const anchor = findChildAnchor(refs[0]);
-		assert.ok(anchor);
-		assert.strictEqual(anchor.type, NotebookLink, 'footnote ref should use NotebookLink');
+		expect(anchor.type, 'footnote ref should use NotebookLink').toBe(NotebookLink);
 	});
 
-	test('footnote backref anchors use NotebookLink', () => {
+	it('footnote backref anchors use NotebookLink', () => {
 		const elements = renderTokens('Text[^1]\n\n[^1]: Note.');
 		const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefs.length, 1);
-		assert.strictEqual(backrefs[0].type, NotebookLink, 'backref should use NotebookLink');
+		expect(backrefs).toHaveLength(1);
+		expect(backrefs[0].type, 'backref should use NotebookLink').toBe(NotebookLink);
 	});
 
-	test('footnote ref has doc-noteref role and aria-label with footnote number', () => {
+	it('footnote ref has doc-noteref role and aria-label with footnote number', () => {
 		const elements = renderTokens('Text[^a] More[^b]\n\n[^a]: First.\n\n[^b]: Second.');
 		const refs = findElements(elements, el => el.props.className === 'footnote-ref');
-		assert.strictEqual(refs.length, 2);
+		expect(refs).toHaveLength(2);
 		const anchor0 = findChildAnchor(refs[0]);
 		const anchor1 = findChildAnchor(refs[1]);
-		assert.ok(anchor0);
-		assert.ok(anchor1);
-		assert.strictEqual(anchor0.props.role, 'doc-noteref');
-		assert.strictEqual(anchor1.props.role, 'doc-noteref');
-		assert.strictEqual(anchor0.props['aria-label'], 'Footnote 1');
-		assert.strictEqual(anchor1.props['aria-label'], 'Footnote 2');
+		expect(anchor0.props.role).toBe('doc-noteref');
+		expect(anchor1.props.role).toBe('doc-noteref');
+		expect(anchor0.props['aria-label']).toBe('Footnote 1');
+		expect(anchor1.props['aria-label']).toBe('Footnote 2');
 	});
 
-	test('footnote backref has doc-backlink role and aria-label with footnote number', () => {
+	it('footnote backref has doc-backlink role and aria-label with footnote number', () => {
 		const elements = renderTokens('Text[^a] More[^b]\n\n[^a]: First.\n\n[^b]: Second.');
 		const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
-		assert.strictEqual(backrefs.length, 2);
-		assert.strictEqual(backrefs[0].props.role, 'doc-backlink');
-		assert.strictEqual(backrefs[1].props.role, 'doc-backlink');
-		assert.strictEqual(backrefs[0].props['aria-label'], 'Back to content 1');
-		assert.strictEqual(backrefs[1].props['aria-label'], 'Back to content 2');
+		expect(backrefs).toHaveLength(2);
+		expect(backrefs[0].props.role).toBe('doc-backlink');
+		expect(backrefs[1].props.role).toBe('doc-backlink');
+		expect(backrefs[0].props['aria-label']).toBe('Back to content 1');
+		expect(backrefs[1].props['aria-label']).toBe('Back to content 2');
+	});
+
+	// Renders the full markdown document from the issue and asserts every
+	// reference resolves to the correct definition anchor. Click-to-scroll
+	// behavior is intentionally out of scope for a unit test.
+	describe('footnote rendering test document (#13116)', () => {
+		const testDocument = [
+			'# Footnote Rendering Test',
+			'',
+			'This is a sentence with a footnote reference.[^1]',
+			'',
+			'Some text in between to ensure spacing and layout is preserved.',
+			'',
+			'Another paragraph with a second reference.[^long]',
+			'',
+			'More content here, including **bold text**, `inline code`, and a list:',
+			'',
+			'- Item one',
+			'- Item two with another footnote reference[^1]',
+			'',
+			'Even more text to separate the references from the definitions.',
+			'',
+			'---',
+			'',
+			'## Section Break',
+			'',
+			'This section exists to ensure footnotes still link correctly across longer distances.',
+			'',
+			'Here is one more reference to test scrolling behavior.[^long]',
+			'',
+			'---',
+			'',
+			'## Footnotes',
+			'',
+			'[^1]: This is a short footnote.',
+			'',
+			'[^long]: This is a longer footnote used multiple times to verify that:',
+			'    - clicking any reference scrolls correctly',
+			'    - the correct footnote is highlighted or targeted',
+			'    - repeated references resolve to the same footnote',
+		].join('\n');
+
+		it('every reference resolves to the correct definition anchor', () => {
+			const elements = renderTokens(testDocument);
+			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+			const anchors = refs.map(findChildAnchor);
+
+			// Document order: [^1], [^long], [^1] (in list), [^long] (after section break).
+			expect(anchors.map(a => a.props.href)).toEqual(['#fn-1', '#fn-long', '#fn-1', '#fn-long']);
+
+			// Each definition anchor exists exactly once in the footnotes section.
+			const sections = findElements(elements, el => el.props.className === 'footnotes');
+			expect(sections).toHaveLength(1);
+			const lis = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string');
+			expect(lis.map(li => li.props.id)).toEqual(['fn-1', 'fn-long']);
+		});
+
+		it('repeated references resolve to the same footnote with unique ref anchor IDs', () => {
+			const elements = renderTokens(testDocument);
+			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+			const anchors = refs.map(findChildAnchor);
+
+			expect(anchors.map(a => a.props.id)).toEqual(['fnref-1', 'fnref-long', 'fnref-1-2', 'fnref-long-2']);
+
+			// Repeated refs display the same footnote number ([^1] -> 1, [^long] -> 2).
+			expect(anchors.map(a => a.props.children)).toEqual([1, 2, 1, 2]);
+		});
+
+		it('backrefs from each definition point to the first reference anchor', () => {
+			const elements = renderTokens(testDocument);
+			const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
+			expect(backrefs.map(b => b.props.href)).toEqual(['#fnref-1', '#fnref-long']);
+		});
+
+		it('the long footnote definition renders its block list content', () => {
+			const elements = renderTokens(testDocument);
+			const sections = findElements(elements, el => el.props.className === 'footnotes');
+			expect(sections).toHaveLength(1);
+			const lists = findElements([sections[0]], el => el.type === 'ul');
+			expect(lists).toHaveLength(1);
+			const items = findElements([lists[0]], el => el.type === 'li');
+			expect(items).toHaveLength(3);
+		});
 	});
 });
