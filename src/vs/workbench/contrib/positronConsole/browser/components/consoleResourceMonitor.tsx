@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
@@ -193,6 +194,13 @@ function useResourceHover(content: string) {
 interface ConsoleResourceMonitorProps {
 	/** The resource usage history to display, oldest first. */
 	readonly data: ILanguageRuntimeResourceUsage[];
+
+	/**
+	 * Whether the console is busy. When busy, the interrupt (stop) button is
+	 * shown immediately to the monitor's left, so the monitor reserves a small
+	 * gap on its left edge to keep its content from butting up against the button.
+	 */
+	readonly busy?: boolean;
 }
 
 /**
@@ -205,7 +213,7 @@ interface ConsoleResourceMonitorProps {
  * @param props A ConsoleResourceMonitorProps that contains the component properties.
  * @returns The rendered component, or null when there is nothing to show.
  */
-export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) => {
+export const ConsoleResourceMonitor = ({ data, busy }: ConsoleResourceMonitorProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
@@ -278,7 +286,7 @@ export const ConsoleResourceMonitor = ({ data }: ConsoleResourceMonitorProps) =>
 		<div
 			ref={ref}
 			aria-label={resourceMonitorAriaLabel}
-			className='console-resource-monitor'
+			className={positronClassNames('console-resource-monitor', { 'busy': busy })}
 			role='img'
 			onContextMenu={handleContextMenu}
 		>

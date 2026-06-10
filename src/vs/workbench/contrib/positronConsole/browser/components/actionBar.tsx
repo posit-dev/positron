@@ -456,7 +456,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			fixedWidth: 0,
 			maxWidth: RESOURCE_MONITOR_MAX_WIDTH,
 			separator: false,
-			component: <ConsoleResourceMonitor data={resourceUsageHistory} />
+			component: <ConsoleResourceMonitor busy={interruptible} data={resourceUsageHistory} />
 		});
 	}
 
