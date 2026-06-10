@@ -49,32 +49,12 @@ export async function runDockerCommand(command: string, description: string): Pr
 }
 
 /**
- * Build the settings overrides driven by test options for the Docker apps.
- *
- * Mirrors the host-side `beforeApp` fixture: when a suite opts into the legacy
- * (VS Code) notebook editor, the Positron notebook editor is disabled. Returns
- * `undefined` when there is nothing to override.
- */
-export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean }): object | undefined {
-	const overrides: Record<string, unknown> = {};
-	if (opts.useLegacyNotebookEditor) {
-		overrides['positron.notebook.enabled'] = false;
-	}
-	return Object.keys(overrides).length > 0 ? overrides : undefined;
-}
-
-/**
- * Copy merged settings (base + Docker overrides) to the container.
- *
- * `overrides` are merged last so they win over anything in the fixture files. The
- * Docker apps read settings from the container rather than the host `settingsFile`,
- * so test-driven settings (e.g. `useLegacyNotebookEditor`) must be threaded in here.
+ * Copy merged settings (base + Docker overrides) to the container
  */
 export async function copyUserSettingsToContainer(
 	containerName: string,
 	userPath: string,
-	settingsFiles: string[],
-	overrides?: object
+	settingsFiles: string[]
 ): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 
@@ -86,11 +66,6 @@ export async function copyUserSettingsToContainer(
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
 			Object.assign(mergedSettings, settings);
 		}
-	}
-
-	// Test-driven overrides win over the fixture files
-	if (overrides) {
-		Object.assign(mergedSettings, overrides);
 	}
 
 	// Create temporary merged settings file
