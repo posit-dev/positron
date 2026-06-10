@@ -1325,7 +1325,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 See {learn-more-link} to learn more.
 `);
 		welcomeText = welcomeText.replace('{action-link}', `[${actionLinkMessage}](${actionLinkUri})`);
-		welcomeText = welcomeText.replace('{learn-more-link}', `[${learnMoreLinkMessage}](${this.docsService.getUrl('assistant')})`);
+		welcomeText = welcomeText.replace('{learn-more-link}', `[${learnMoreLinkMessage}](${this.docsService.getUrl('assistant.html')})`);
 
 		return {
 			title: welcomeTitle,

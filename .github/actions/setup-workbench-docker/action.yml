@@ -104,6 +104,7 @@ runs:
           -e SNOWFLAKE_ACCOUNT_="${SNOWFLAKE_ACCOUNT}" \
           -e SNOWFLAKE_CLIENT_ID_="${SNOWFLAKE_CLIENT_ID}" \
           -e SNOWFLAKE_CLIENT_SECRET_="${SNOWFLAKE_CLIENT_SECRET}" \
+          -e AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_="${AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET}" \
           test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }} $CREDENTIALS_FLAG"
 
     - name: Install custom Positron build (if provided)

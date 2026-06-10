@@ -13,6 +13,7 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
+import './contrib/help/NotebookHelpAction.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
@@ -148,7 +149,7 @@ class PositronNotebookContribution extends Disposable {
 
 	private registerEditor(): void {
 		this.registerNotebookEditor({
-			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support'),
 			extension: '.ipynb',
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
@@ -192,7 +193,6 @@ class PositronNotebookContribution extends Disposable {
 			info.globPattern,
 			editorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						(resource.scheme === Schemas.untitled ||
@@ -270,7 +270,6 @@ class PositronNotebookContribution extends Disposable {
 			// This does not seem to be an issue for file schemes (registered above).
 			cellEditorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;
@@ -398,7 +397,7 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
-// Register the prompt that invites users to try the new notebook editor
+// Register the prompt that invites users to try the native notebook editor
 registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 

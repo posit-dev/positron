@@ -154,7 +154,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// height; the renderer is set later via setItemRenderer so it can close over the latest
 	// packages/services state without forcing another recreation.
 	const listInstance = useMemo(() => new PositronListInstance<ILanguageRuntimePackage>({
-		defaultItemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
+		itemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
 		itemRenderer: () => null,
 	}), [itemSize]);
 

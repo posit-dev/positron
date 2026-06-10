@@ -437,8 +437,8 @@ describe('Positron - RuntimeNotebookKernel', () => {
 		// Spy on session.interrupt().
 		const sessionInterruptSpy = vi.spyOn(session, 'interrupt');
 
-		// Exit the session after the execution started but before the interrupt.
-		await session.shutdown(RuntimeExitReason.Shutdown);
+		// Crash the session after the execution started but before the interrupt.
+		await session.shutdown(RuntimeExitReason.Error);
 		await waitForRuntimeState(session, RuntimeState.Exited);
 
 		// Interrupt the execution.
@@ -457,6 +457,57 @@ describe('Positron - RuntimeNotebookKernel', () => {
 			runEndTime: expect.any(Number),
 			lastRunSuccess: false,
 			error: expect.any(Object),
+		});
+	});
+
+	it('cell errors when the session exits unexpectedly mid-execution', async () => {
+		// Start a session.
+		const session = await startSession();
+
+		// Start a long-running execution that never replies with an idle state.
+		const executionStartedPromise = new Promise<void>(resolve => {
+			ctx.disposables.add(session.onDidExecute(() => resolve()));
+		});
+		const executionEndedPromise = kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
+		await executionStartedPromise;
+
+		// The runtime crashes mid-execution.
+		await session.shutdown(RuntimeExitReason.Error);
+		await waitForRuntimeState(session, RuntimeState.Exited);
+		await executionEndedPromise;
+
+		// The cell is marked as failed so the run button resets.
+		const execution = getExecution(0).execution;
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
+			lastRunSuccess: false,
+			error: expect.any(Object),
+		});
+	});
+
+	it('cell ends without error when the session is restarted mid-execution', async () => {
+		// Start a session.
+		const session = await startSession();
+
+		// Start a long-running execution that never replies with an idle state.
+		const executionStartedPromise = new Promise<void>(resolve => {
+			ctx.disposables.add(session.onDidExecute(() => resolve()));
+		});
+		const executionEndedPromise = kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
+		await executionStartedPromise;
+
+		// The user restarts the runtime mid-execution.
+		await session.shutdown(RuntimeExitReason.Restart);
+		await waitForRuntimeState(session, RuntimeState.Exited);
+		await executionEndedPromise;
+
+		// The cell ends without a misleading error (and without a success result),
+		// so the run button resets but the cell is shown as interrupted.
+		const execution = getExecution(0).execution;
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
 		});
 	});
 });

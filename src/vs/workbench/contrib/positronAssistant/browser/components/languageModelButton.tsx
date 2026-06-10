@@ -8,6 +8,7 @@ import * as React from 'react';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
+import DeepSeek from '../icons/deepseek.js';
 import Gemini from '../icons/gemini.js';
 import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
@@ -63,6 +64,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <GithubCopilot className='language-model icon' />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
 				return <Bedrock className='language-model icon' />;
+			case 'deepseek-api':
+				return <DeepSeek className='language-model icon' />;
 			case 'openai-api':
 				return <OpenAI className='language-model icon' />;
 			case 'ms-foundry':

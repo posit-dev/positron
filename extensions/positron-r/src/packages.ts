@@ -113,9 +113,11 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
+			// Don't pass `lock = TRUE`: the lockfile update is decoupled from the
+			// install so a snapshot failure doesn't report the install as failed.
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
+			code = `renv::install(${pkgVector}, prompt = FALSE)`;
 		} else {
 			// If we're installing pak itself, don't try to install pak as a side effect.
 			const installingPak = packages.some((pkg) => pkg.name === 'pak');
@@ -135,6 +137,9 @@ export class RPackageManager {
 		}
 
 		await this._execute(code, token);
+		if (isRenv) {
+			this._snapshotRenv();
+		}
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -157,10 +162,12 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// renv::install supports "pkg@version" syntax
+			// renv::install supports "pkg@version" syntax. Don't pass `lock = TRUE`:
+			// the lockfile update is decoupled from the update so a snapshot failure
+			// doesn't report the update as failed.
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
+			code = `renv::install(${pkgVector}, prompt = FALSE)`;
 		} else {
 			const method = await this._resolveMethod(true);
 
@@ -178,6 +185,9 @@ export class RPackageManager {
 		}
 
 		await this._execute(code, token);
+		if (isRenv) {
+			this._snapshotRenv();
+		}
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -194,7 +204,10 @@ export class RPackageManager {
 		const isRenv = await this._detectRenv();
 
 		if (isRenv) {
-			await this._execute(`renv::update(lock = TRUE, prompt = FALSE)`, token);
+			// Don't pass `lock = TRUE`: the lockfile update is decoupled from the
+			// update so a snapshot failure doesn't report the update as failed.
+			await this._execute(`renv::update(prompt = FALSE)`, token);
+			this._snapshotRenv();
 		} else {
 			const method = await this._resolveMethod(true);
 
@@ -259,9 +272,10 @@ export class RPackageManager {
 			// Ignore errors from namespace unloading
 		}
 
-		// Update renv lockfile after removal
+		// Update renv lockfile after removal. Decoupled from the remove operation
+		// so a snapshot failure doesn't report the uninstall as failed.
 		if (isRenv) {
-			await this._executeSilently('renv::snapshot(prompt = FALSE)');
+			this._snapshotRenv();
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -326,6 +340,62 @@ export class RPackageManager {
 		} catch {
 			return false;
 		}
+	}
+
+	/**
+	 * Whether automatic renv snapshots after package operations are enabled.
+	 * Controlled by the `packages.r.renvAutoSnapshot` setting (default: true).
+	 */
+	private _isAutoSnapshotEnabled(): boolean {
+		return vscode.workspace.getConfiguration('packages.r').get<boolean>('renvAutoSnapshot', true);
+	}
+
+	/**
+	 * Fire `renv::snapshot()` in the console to bring `renv.lock` in sync after a
+	 * package operation. This is deliberately decoupled from the operation that
+	 * triggered it: the snapshot runs as a visible console side effect and its
+	 * success or failure does not affect the package command's result. If the
+	 * snapshot errors (e.g. a read-only `renv.lock`), surface a warning
+	 * notification, since the package operation itself reported success.
+	 *
+	 * No-op when the `packages.r.renvAutoSnapshot` setting is disabled.
+	 */
+	private _snapshotRenv(): void {
+		if (!this._isAutoSnapshotEnabled()) {
+			return;
+		}
+
+		const id = randomUUID();
+		const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+			if (msg.parent_id !== id) {
+				return;
+			}
+
+			if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+				const showConsole = vscode.l10n.t('Show Console');
+				void vscode.window.showWarningMessage(
+					vscode.l10n.t('Failed to update the renv lockfile with renv::snapshot(). Your renv.lock file may be out of date.'),
+					showConsole
+				).then((selection) => {
+					if (selection === showConsole) {
+						void vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+					}
+				});
+				disp.dispose();
+			} else if (msg.type === positron.LanguageRuntimeMessageType.State) {
+				const stateMsg = msg as positron.LanguageRuntimeState;
+				if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+					disp.dispose();
+				}
+			}
+		});
+
+		this._session.execute(
+			'renv::snapshot(prompt = FALSE)',
+			id,
+			positron.RuntimeCodeExecutionMode.NonInteractive,
+			positron.RuntimeErrorBehavior.Continue
+		);
 	}
 
 	/**
