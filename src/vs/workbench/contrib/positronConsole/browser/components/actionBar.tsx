@@ -602,14 +602,18 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 	});
 
-	// When the monitor is relevant but hidden by the setting, let the user
-	// right-click the empty space where it would appear to bring it back. This
-	// mirrors the right-click-to-hide affordance on the monitor itself.
-	const emptySpaceContextMenuHandler = resourceMonitorRelevant && !showResourceMonitor
+	// Whenever the monitor is relevant, let the user right-click the empty space
+	// to toggle it, regardless of whether it is currently shown. When the
+	// monitor is visible it only fills part of the gap, so the remaining empty
+	// space offers the same toggle as right-clicking the monitor itself; when it
+	// is hidden, the whole gap offers the toggle to bring it back. The toggle
+	// reflects the current visibility (showResourceMonitor) so the affordance is
+	// symmetric.
+	const emptySpaceContextMenuHandler = resourceMonitorRelevant
 		? (e: MouseEvent<HTMLDivElement>) => {
 			e.preventDefault();
 			e.stopPropagation();
-			showResourceMonitorContextMenu(services, e.clientX, e.clientY, false);
+			showResourceMonitorContextMenu(services, e.clientX, e.clientY, showResourceMonitor);
 		}
 		: undefined;
 
