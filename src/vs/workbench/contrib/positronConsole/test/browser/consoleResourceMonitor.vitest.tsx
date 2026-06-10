@@ -13,7 +13,8 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { ConsoleResourceMonitor, computeResourceMonitorLayout, formatCompactMemory, RESOURCE_MONITOR_MAX_WIDTH, showResourceMonitorContextMenu } from '../../browser/components/consoleResourceMonitor.js';
+import { formatCompactMemory } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { ConsoleResourceMonitor, computeResourceMonitorLayout, RESOURCE_MONITOR_MAX_WIDTH, showResourceMonitorContextMenu } from '../../browser/components/consoleResourceMonitor.js';
 
 const KB = 1024;
 const MB = KB * 1024;
