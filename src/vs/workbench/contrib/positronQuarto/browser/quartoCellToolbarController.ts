@@ -22,6 +22,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
@@ -51,6 +52,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -734,7 +736,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	 * then delete the cell. This mirrors Delete, which also removes the fences,
 	 * so what lands on the clipboard matches what was removed.
 	 */
-	private _cutCell(cell: QuartoCodeCell): void {
+	private async _cutCell(cell: QuartoCodeCell): Promise<void> {
 		const model = this._editor.getModel();
 		if (!model) {
 			return;
@@ -746,7 +748,20 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		for (let i = fresh.startLine; i <= fresh.endLine; i++) {
 			lines.push(model.getLineContent(i));
 		}
-		this._clipboardService.writeText(lines.join('\n'));
+
+		// Only delete the cell once the copy to the clipboard succeeds.
+		// Deleting after a failed write would discard the cell's content
+		// with no way to paste it back, causing unrecoverable data loss.
+		try {
+			await this._clipboardService.writeText(lines.join('\n'));
+		} catch (error) {
+			this._logService.error('[QuartoCellToolbarController] Failed to copy cell to clipboard during cut; cell not deleted', error);
+			this._notificationService.notify({
+				severity: Severity.Error,
+				message: localize('quarto.cell.cutFailed', "Failed to cut the cell because its contents could not be copied to the clipboard. The cell was not deleted."),
+			});
+			return;
+		}
 
 		this._deleteCell(fresh);
 	}
