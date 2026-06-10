@@ -34,7 +34,6 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 		// Open a new notebook and select the Python interpreter
 		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
-		// await notebooksPositron.selectInterpreter('Python');
 		await sessions.expectSessionPickerToBe('Untitled-1.ipynb');
 
 		// customize the layout
