@@ -1,0 +1,79 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { expect } from '@playwright/test';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import { test } from '../../tests/_test.setup';
+import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
+
+// Built via array+join because the project hygiene hook rejects source lines with
+// leading spaces; each .qmd line is authored flush-left as an array element.
+const HELLO_QMD = [
+	'---',
+	'title: "Hello, Quarto"',
+	'format: html',
+	'---',
+	'',
+	'## Meet the penguins',
+	'',
+	'The `penguins` data from the [plotnine](https://plotnine.readthedocs.io/en/stable/) package contains size measurements for 344 penguins from three species observed on three islands in the Palmer Archipelago, Antarctica.',
+	'',
+	'@fig-plot-penguins shows the relationship between flipper and bill lengths of these penguins.',
+	'',
+	'```{python}',
+	'#| label: fig-plot-penguins',
+	'#| fig-cap: "Flipper and bill length for penguins at Palmer Station LTER"',
+	'#| warning: false',
+	'#| echo: false',
+	'from plotnine import ggplot, aes, geom_point',
+	'from plotnine.data import penguins',
+	'ggplot(penguins, aes(x="flipper_length_mm", y="bill_length_mm", color="species", shape="species")) + geom_point()',
+	'```',
+	'',
+].join('\n');
+
+test.use({
+	suiteId: __filename,
+});
+
+test.afterEach(async ({ hotKeys }) => {
+	await hotKeys.closeAllEditors();
+});
+
+test.describe('Release Screenshots - Quarto', () => {
+	/**
+	 * Img Path: https://positron.posit.co/images/quarto-hello-python.png
+	 *
+	 * A Python Quarto document open in the editor with its rendered HTML preview
+	 * (a plotnine scatter plot of the Palmer penguins) shown in the Viewer.
+	 */
+	test('Release Screenshot - quarto-hello-python.png', async ({ app, page, openFile, python }) => {
+		const { editorActionBar, viewer, hotKeys, layouts, sessions } = app.workbench;
+
+		await setScreenshotWindowSize(app, { width: 960, height: 640 });
+		await sessions.expectAllSessionsToBeReady();
+
+		writeFileSync(join(app.workspacePathOrFolder, 'hello.qmd'), HELLO_QMD);
+		await openFile('hello.qmd');
+
+		// free up room for the editor + preview
+		await hotKeys.closePrimarySidebar();
+
+		// render the preview and wait for the document + plot to appear
+		await editorActionBar.verifyPreviewRendersHtml('Meet the penguins');
+		const previewFrame = viewer.getViewerFrame().frameLocator('iframe');
+		await expect(previewFrame.locator('img').first()).toBeVisible({ timeout: 30000 });
+
+		// collapse the preview log and widen the preview so it fills the right half
+		await hotKeys.minimizeBottomPanel();
+		await layouts.resizeAuxiliaryBar({ x: -400 });
+
+		// capture screenshot
+		await prepareForScreenshot(app, page);
+		await captureFullWindow(page, 'quarto-hello-python.png');
+	});
+});

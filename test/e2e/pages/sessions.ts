@@ -1025,6 +1025,15 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Open the "Start New Session" quickpick showing all available
+	 * runtimes (the full interpreter list). Leaves the quickpick open so the
+	 * caller can interact with or capture it.
+	 */
+	async openStartNewSessionQuickPick(): Promise<void> {
+		await this.quickPick.openSessionQuickPickMenu(true);
+	}
+
+	/**
 	 * Verify: the session is selected in the console tab list
 	 *
 	 * @param sessionIdOrName - the id, name, or pattern of the session
