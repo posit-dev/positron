@@ -651,7 +651,9 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
 
     test('session-intent fire (startSession: true) calls selectLanguageRuntimeFromPath', async () => {
         const interpreter = { path: '/path/to/python' } as PythonEnvironment;
-        interpreterService.setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny())).returns(() => Promise.resolve(interpreter));
+        interpreterService
+            .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve(interpreter));
 
         onDidChangeInterpreterEmitter.fire({
             resource: undefined,

@@ -300,11 +300,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
         if (this._pythonPathSetting === '' || this._pythonPathSetting !== pySettings.pythonPath) {
             this._pythonPathSetting = pySettings.pythonPath;
             // --- Start Positron ---
-            this.fireInterpreterChanged(
-                resource,
-                scope.startSession ?? true,
-                scope.source ?? 'unspecified',
-            );
+            this.fireInterpreterChanged(resource, scope.startSession ?? true, scope.source ?? 'unspecified');
             // --- End Positron ---
             const workspaceFolder = this.serviceContainer
                 .get<IWorkspaceService>(IWorkspaceService)
@@ -330,7 +326,9 @@ export class InterpreterService implements Disposable, IInterpreterService {
      */
     private fireInterpreterChanged(resource: Uri | undefined, startSession: boolean, source: string): void {
         traceInfo(
-            `onDidChangeInterpreter: source=${source}, startSession=${startSession}, resource=${resource?.fsPath ?? 'undefined'}`,
+            `onDidChangeInterpreter: source=${source}, startSession=${startSession}, resource=${
+                resource?.fsPath ?? 'undefined'
+            }`,
         );
         this.didChangeInterpreterEmitter.fire({ resource, startSession, source });
     }

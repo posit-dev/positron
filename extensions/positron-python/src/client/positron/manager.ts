@@ -113,9 +113,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                             traceInfo(
                                 `Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`,
                             );
-                            await Promise.all(
-                                toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)),
-                            );
+                            await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
                         }
                     } catch (error) {
                         traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
@@ -129,12 +127,16 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 // must not spawn a console here - that would reintroduce the #12116 regression.
                 if (!event.startSession) {
                     traceInfo(
-                        `Skipping session start for onDidChangeInterpreter fire (source=${event.source}, resource=${event.resource?.fsPath ?? 'undefined'})`,
+                        `Skipping session start for onDidChangeInterpreter fire (source=${event.source}, resource=${
+                            event.resource?.fsPath ?? 'undefined'
+                        })`,
                     );
                     return;
                 }
                 traceInfo(
-                    `Handling onDidChangeInterpreter fire (source=${event.source}, resource=${event.resource?.fsPath ?? 'undefined'})`,
+                    `Handling onDidChangeInterpreter fire (source=${event.source}, resource=${
+                        event.resource?.fsPath ?? 'undefined'
+                    })`,
                 );
                 const interpreter = await interpreterService.getActiveInterpreter(event.resource);
                 if (!interpreter) {
