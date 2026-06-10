@@ -28,6 +28,7 @@ import {
 } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
+import { PythonRuntimeSession } from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
@@ -664,6 +665,14 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.calledOnceWithExactly(selectSpy, '/path/to/python');
     });
 
+    /** Build a fake that passes the `instanceof PythonRuntimeSession` filter without invoking the constructor. */
+    function createFakePythonSession(extraRuntimeData: unknown, shutdown: sinon.SinonStub): PythonRuntimeSession {
+        return Object.assign(Object.create(PythonRuntimeSession.prototype), {
+            runtimeMetadata: { extraRuntimeData },
+            shutdown,
+        });
+    }
+
     test('interpreter deletion: clears registry entry and shuts down matching sessions', async () => {
         const deletedPath = '/path/to/deleted/python';
         pythonRuntimeManager.registeredPythonRuntimes.set(deletedPath, {
@@ -676,24 +685,27 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         const shutdownDone = new Promise<void>((resolve) => {
             shutdownResolver = resolve;
         });
-        const matchingSession = {
-            runtimeMetadata: { extraRuntimeData: { pythonPath: deletedPath } },
-            shutdown: sinon.stub().callsFake(async () => {
-                shutdownResolver();
-            }),
+        const matchingShutdown = sinon.stub().callsFake(async () => {
+            shutdownResolver();
+        });
+        const matchingSession = createFakePythonSession({ pythonPath: deletedPath }, matchingShutdown);
+        const otherShutdown = sinon.stub().resolves();
+        const otherSession = createFakePythonSession({ pythonPath: '/other/python' }, otherShutdown);
+        // A non-Python session (e.g. R) without extraRuntimeData must not abort the cleanup.
+        const nonPythonShutdown = sinon.stub().resolves();
+        const nonPythonSession = {
+            runtimeMetadata: { extraRuntimeData: undefined },
+            shutdown: nonPythonShutdown,
         };
-        const otherSession = {
-            runtimeMetadata: { extraRuntimeData: { pythonPath: '/other/python' } },
-            shutdown: sinon.stub().resolves(),
-        };
-        getActiveSessionsImpl = async () => [matchingSession as any, otherSession as any];
+        getActiveSessionsImpl = async () => [nonPythonSession as any, matchingSession, otherSession];
 
         onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
         await Promise.race([shutdownDone, new Promise((r) => setTimeout(r, 500))]);
 
         assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(deletedPath), false);
-        sinon.assert.calledOnce(matchingSession.shutdown);
-        sinon.assert.notCalled(otherSession.shutdown);
+        sinon.assert.calledOnce(matchingShutdown);
+        sinon.assert.notCalled(otherShutdown);
+        sinon.assert.notCalled(nonPythonShutdown);
         sinon.assert.notCalled(selectSpy);
     });
 });

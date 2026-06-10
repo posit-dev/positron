@@ -18,7 +18,7 @@ import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
-import { PythonRuntimeSession } from './session';
+import { getActivePythonSessions, PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
@@ -103,7 +103,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     const deletedPath = event.old.path;
                     this.registeredPythonRuntimes.delete(deletedPath);
                     try {
-                        const sessions = await positron.runtime.getActiveSessions();
+                        // Only Python sessions; other languages' sessions may not even have
+                        // extraRuntimeData (e.g. restored from a serialized state).
+                        const sessions = await getActivePythonSessions();
                         const toShutdown = sessions.filter(
                             (s) =>
                                 (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath ===
@@ -547,10 +549,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 return alreadyRegisteredRuntime;
             }
 
-            const sessions = await positron.runtime.getActiveSessions();
+            const sessions = await getActivePythonSessions();
             // Find any active sessions using this runtime
             const sessionsToShutdown = sessions.filter((session) => {
-                const sessionRuntime = session.runtimeMetadata.extraRuntimeData;
+                const sessionRuntime = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
                 return sessionRuntime.pythonPath === pythonPath;
             });
 
