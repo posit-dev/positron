@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePositronReactServicesContext } from './positronReactRendererContext.js';
-import { ContextKeyValue } from '../../platform/contextkey/common/contextkey.js';
+import { ContextKeyValue, IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../platform/extensions/common/extensions.js';
 
 
@@ -66,10 +66,16 @@ export const usePositronExtensionInstalled = (extensionId: string | ExtensionIde
  * usePositronContextKey hook.
  * @param key Context key to retrieve.
  * @param watch Whether to watch for changes. Default true.
+ * @param service The context key service to observe. Defaults to the service
+ *   from the React services context. Pass a scoped service (e.g. an editor's
+ *   `scopedContextKeyService`) to observe keys set on that scope.
  * @returns The context value.
  */
-export const usePositronContextKey = <T extends ContextKeyValue,>(key: string, watch: boolean = true): T | undefined => {
-	const { contextKeyService } = usePositronReactServicesContext();
+export const usePositronContextKey = <T extends ContextKeyValue,>(key: string, watch: boolean = true, service?: IContextKeyService): T | undefined => {
+	// Always read the context unconditionally to satisfy the rules of hooks; the
+	// `service` override (e.g. an editor's scoped service) wins when provided.
+	const defaultContextKeyService = usePositronReactServicesContext().contextKeyService;
+	const contextKeyService = service ?? defaultContextKeyService;
 	const [value, setValue] = useState(() => contextKeyService.getContextKeyValue<T>(key));
 
 	useEffect(() => {

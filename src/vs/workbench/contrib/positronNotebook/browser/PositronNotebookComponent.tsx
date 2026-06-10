@@ -30,7 +30,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
-import { useContextKeyValue } from './useContextKeyValue.js';
+import { usePositronContextKey } from '../../../../base/browser/positronReactHooks.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
@@ -58,9 +58,10 @@ export function PositronNotebookComponent() {
 	const [isScrolled, setIsScrolled] = React.useState(false);
 
 	// Track find widget visibility for scroll decoration
-	const isFindWidgetVisible = useContextKeyValue(
-		notebookInstance.scopedContextKeyService,
-		CONTEXT_FIND_WIDGET_VISIBLE
+	const isFindWidgetVisible = usePositronContextKey<boolean>(
+		CONTEXT_FIND_WIDGET_VISIBLE.key,
+		true,
+		notebookInstance.scopedContextKeyService
 	);
 
 	// Attach the container in the callback ref so it's available synchronously
