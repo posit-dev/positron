@@ -29,7 +29,7 @@ test.describe('Release Screenshots - Run App Button', () => {
 	 * editor action bar called out.
 	 */
 	test('Release Screenshot - run-app-button.png', async ({ app, page, openFile, python, hotKeys, runCommand }) => {
-		const { editor, sessions } = app.workbench;
+		const { editor, sessions, layouts } = app.workbench;
 
 		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 		await sessions.expectAllSessionsToBeReady();
@@ -37,9 +37,11 @@ test.describe('Release Screenshots - Run App Button', () => {
 		await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
 		await expect(editor.playButton).toBeVisible();
 
-		// close the sidebar so the editor and its action bar are prominent
+		// customize layout
 		await hotKeys.closePrimarySidebar();
 		await runCommand('workbench.panel.positronPreview.focus');
+		await hotKeys.focusConsole();
+		await layouts.resizePanel({ y: -20 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
