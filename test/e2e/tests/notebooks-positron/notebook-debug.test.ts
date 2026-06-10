@@ -26,19 +26,28 @@ test.describe('Positron Notebook Debugging', {
 	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test.skip('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
-		const { notebooksPositron, debug } = app.workbench;
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
+		const { notebooksPositron, debug, quickaccess } = app.workbench;
+		const keyboard = app.code.driver.currentPage.keyboard;
 
 		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.kernel.select('Python');
 		await notebooksPositron.addCodeToCell(0, pythonCode);
 
-		// Set 2 breakpoints
-		await debug.setBreakpointOnLine(5); // intermediate calculation
-		await debug.setBreakpointOnLine(9); // string formatting
+		// Set 2 breakpoints. The glyph-margin click in debug.setBreakpointOnLine targets
+		// the page's first Monaco editor, which is not the cell editor here, so place the
+		// cursor on each target line inside the cell editor and toggle via the command.
+		const cellEditor = notebooksPositron.editorWidgetAtIndex(0);
+		await cellEditor.locator('.view-line').filter({ hasText: 'intermediate = x * 2' }).click();
+		await quickaccess.runCommand('Debug: Toggle Breakpoint'); // intermediate calculation
+		await cellEditor.locator('.view-line').filter({ hasText: 'message = f' }).click();
+		await quickaccess.runCommand('Debug: Toggle Breakpoint'); // string formatting
 
-		// Start debugging
-		await debug.debugCell();
+		// Start debugging the cell. The Positron editor's Alt+Shift+Enter action invokes
+		// notebook.debugCell with the cell arguments it needs (debug.debugCell runs the
+		// bare command, which only resolves a cell in the VS Code notebook editor).
+		await notebooksPositron.selectCellAtIndex(0);
+		await keyboard.press('Alt+Shift+Enter');
 
 		// Verify 1st breakpoint
 		await debug.expectCurrentLineIndicatorVisible();
