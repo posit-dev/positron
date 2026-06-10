@@ -15,7 +15,7 @@ import { MockContextKeyService } from '../../../../../../platform/keybinding/tes
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellOutputActionBar } from '../../../browser/notebookCells/CellOutputActionBar.js';
-import { CellScopedContextKeyServiceProvider } from '../../../browser/notebookCells/CellContextKeyServiceProvider.js';
+import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { PositronNotebookCodeCell } from '../../../browser/PositronNotebookCells/PositronNotebookCodeCell.js';
 import { IMenu, IMenuService, MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -75,15 +75,17 @@ describe('CellOutputActionBar', () => {
 
 		// The action bar passes the cell through without dereferencing it in this test;
 		// stubInterface gives the typed "never read" stub.
-		const cell = stubInterface<PositronNotebookCodeCell>();
+		const cell = stubInterface<PositronNotebookCodeCell>({
+			scopedContextKeyService: contextKeyService,
+		});
 
 		// RTL's act() batches effects, so the menu is created and actions
 		// resolved in a single render pass.
 		return rtl.render(
 			<NotebookInstanceProvider instance={instance}>
-				<CellScopedContextKeyServiceProvider service={contextKeyService}>
+				<CellProvider cell={cell}>
 					<CellOutputActionBar cell={cell} scrollTargetRef={scrollTargetRef} />
-				</CellScopedContextKeyServiceProvider>
+				</CellProvider>
 			</NotebookInstanceProvider>
 		);
 	}

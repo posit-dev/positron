@@ -519,13 +519,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             if (sessionsToShutdown.length > 0) {
                 traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
                 await Promise.all(
-                    sessionsToShutdown.map(async (session) => {
-                        session.shutdown(positron.RuntimeExitReason.Shutdown);
-                    }),
+                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
                 );
-                // Remove the runtime from our registry so we can recreate it
-                this.registeredPythonRuntimes.delete(pythonPath);
             }
+
+            // clear stale entry so registerLanguageRuntime below fires _onDidDiscoverRuntime
+            // for the new runtime vs. leaving Positron with an orphaned stale entry.
+            this.registeredPythonRuntimes.delete(pythonPath);
         }
 
         // Get the interpreter corresponding to the new runtime.

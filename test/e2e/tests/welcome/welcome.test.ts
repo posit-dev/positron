@@ -7,7 +7,8 @@ import { availableRuntimes } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	useLegacyNotebookEditor: true
 });
 
 test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
@@ -29,7 +30,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectTabTitleToBe('Welcome');
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
-			await welcome.expectRecentToContain([]);
+			await welcome.expectRecentToBeVisible();
 			app.web
 				? await welcome.expectConnectToBeVisible(false)
 				: await welcome.expectConnectToBeVisible(true);
@@ -41,7 +42,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.reloadWindow(true);
 
 			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
@@ -51,7 +52,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher',
-				'Explore the Positron Notebook Editor in Alpha'
+				'Jupyter Notebooks in Positron'
 			]);
 		});
 
@@ -108,7 +109,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a Bug', 'Sign Up for Positron Updates']);
-			await welcome.expectRecentToContain(['qa-example-content']);
+			await welcome.expectRecentToBeVisible();
 		});
 
 		test('Verify clicking on `Open Folder` opens file browser', { tag: [tags.WEB_ONLY] }, async function ({ app, page }) {

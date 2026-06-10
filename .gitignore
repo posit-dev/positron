@@ -3,6 +3,7 @@
 npm-debug.log
 Thumbs.db
 node_modules/
+.tmp/
 .build/
 .vscode/extensions/**/out/
 extensions/**/dist/
@@ -29,6 +30,7 @@ product.overrides.json
 *.snap.actual
 *.tsbuildinfo
 .vscode-test
+.chat-simulation-data
 vscode-telemetry-docs/
 pwb-version
 # --- Start Positron ---
@@ -59,8 +61,27 @@ product.json.backup
 *.lic
 .superset/
 test/e2e/release-screenshots/output/
+# Log file written to cwd by the snowflake-sdk dependency (positron-catalog-explorer)
+snowflake.log
 # --- End Positron ---
 test-output.json
 test/componentFixtures/.screenshots/*
 !test/componentFixtures/.screenshots/baseline/
 dist
+.playwright-cli
+.playwright-mcp
+.claude/
+.agents/agents/*.local.md
+.github/agents/*.local.md
+.agents/agents/*.local.agent.md
+.github/agents/*.local.agent.md
+.agents/hooks/*.local.json
+.github/hooks/*.local.json
+.agents/instructions/*.local.instructions.md
+.github/instructions/*.local.instructions.md
+.agents/prompts/*.local.prompt.md
+.github/prompts/*.local.prompt.md
+.agents/skills/.local/
+.github/skills/.local/
+.sbom-tmp/
+.sbom-tmp/

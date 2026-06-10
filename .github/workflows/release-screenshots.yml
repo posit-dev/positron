@@ -24,6 +24,10 @@ on:
         description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
         default: true
+      slack_notify:
+        description: "Notify #positron-test-results on nightly failure. Always on for scheduled runs; opt-in for manual triggers."
+        type: boolean
+        default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
@@ -104,9 +108,24 @@ jobs:
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_ENV"
 
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+
       - name: Setup release-screenshot runtimes
         id: runtimes
         uses: ./.github/actions/setup-release-screenshot-runtimes
+
+      - name: Pre-warm matplotlib font cache
+        run: python -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Clone positron-website (public)
         if: env.MODE == 'nightly'
@@ -128,12 +147,26 @@ jobs:
         with:
           identifier: release-screenshots-${{ env.MODE }}
 
+      # Wait for bundled extensions (quarto, air, etc.) to finish bootstrapping
+      # so language-aware screenshots have the full set of languages and
+      # completions available. Mirrors the bootstrap step in the e2e workflows.
+      - name: Wait for bootstrap extensions
+        env:
+          POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
+          POSITRON_R_VER_SEL: '4.5.2'
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
       - name: Run release-screenshots project
         env:
           POSITRON_PY_VER_SEL: ${{ steps.runtimes.outputs.python-primary-version }}
           POSITRON_R_VER_SEL: '4.5.2'
           POSITRON_PY_ALT_VER_SEL: ${{ steps.runtimes.outputs.python-alt-version }}
           POSITRON_R_ALT_VER_SEL: '4.4.2'
+          ANTHROPIC_KEY: ${{ env.ANTHROPIC_KEY }}
+          OPENAI_KEY: ${{ env.OPENAI_KEY }}
+          POSIT_AUTH_HOST: ${{ env.POSIT_AUTH_HOST }}
+          POSIT_EMAIL: ${{ env.POSIT_EMAIL }}
+          POSIT_PASSWORD: ${{ env.POSIT_PASSWORD }}
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
           # Keep Playwright traces for every test (pass or fail) — debugging
@@ -144,7 +177,13 @@ jobs:
           # aspect ratio as the historical 1680x1050 config but scaled down
           # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
-        run: npx playwright test --project release-screenshots --workers 2
+          # Bootstrap already verified above; skip the bootstrap test inside
+          # the suite, and skip the workspace clone since globalSetup already
+          # populated it during the bootstrap run (re-running cp -R fails on
+          # the read-only .git/objects/pack files left behind).
+          SKIP_BOOTSTRAP: 'true'
+          SKIP_CLONE: 'true'
+        run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -336,13 +375,17 @@ jobs:
               --arg version "$VERSION" \
               '{
                 channel: $channel,
-                text: ("📸 *Screenshots Updated · Positron " + $version + "*\nposit-dev/positron-website · <" + $pr_url + "|PR #" + $pr_number + ">")
+                text: ("📸 *Screenshots Updated · Positron " + $version + "* · <" + $pr_url + "|PR #" + $pr_number + ">")
               }')"
 
   slack-notify:
-    # Nightly is on a schedule; failures should page #positron-test-results.
-    # Publish is on demand, so the operator already sees the result.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' }}
+    # Notify on cron failures always; manual runs only when the box is checked.
+    # Use github.event_name instead of comparing inputs.slack_notify to a string
+    # literal -- boolean inputs don't reliably coerce to strings in expressions.
+    if: >-
+      ${{ failure() &&
+          (inputs.mode || 'nightly') == 'nightly' &&
+          (github.event_name == 'schedule' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:

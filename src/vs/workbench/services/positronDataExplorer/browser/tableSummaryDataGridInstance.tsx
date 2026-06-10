@@ -27,7 +27,7 @@ import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrd
  */
 const SUMMARY_HEIGHT = 34;
 const PROFILE_LINE_HEIGHT = 20;
-const OVERSCAN_FACTOR = 3
+const OVERSCAN_FACTOR = 3;
 
 /**
  * TableSummaryDataGridInstance class.

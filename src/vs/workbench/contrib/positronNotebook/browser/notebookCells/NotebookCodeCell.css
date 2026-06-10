@@ -75,7 +75,7 @@
 
 		& .notebook-error,
 		& .notebook-stderr {
-			color: var(--vscode-positronNotebook-error-color);
+			color: var(--vscode-positronNotebook-errorForeground);
 		}
 
 		/*

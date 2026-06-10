@@ -9,12 +9,14 @@ import {
 	ANTHROPIC_AUTH_PROVIDER_ID,
 	AWS_AUTH_PROVIDER_ID,
 	CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
+	DEEPSEEK_AUTH_PROVIDER_ID,
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
+	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getSnowflakeDefaultBaseUrl } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -64,6 +66,11 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		displayName: 'Gemini Code Assist',
 		settingName: 'google',
 	},
+	googleVertex: {
+		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
+		displayName: 'Google Vertex AI',
+		settingName: 'googleVertex',
+	},
 	copilot: {
 		id: 'copilot-auth',
 		displayName: 'GitHub Copilot',
@@ -74,9 +81,20 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		displayName: 'Custom Provider',
 		settingName: 'customProvider',
 	},
+	deepseek: {
+		id: DEEPSEEK_AUTH_PROVIDER_ID,
+		displayName: 'DeepSeek',
+		settingName: 'deepseek',
+	},
 };
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
+	// Vertex shows an autoconfigure label only when project + location come from
+	// env vars. If the user supplied them via settings, the modal behaves like
+	// Bedrock (no label, Sign Out button visible).
+	const vertexFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
+		&& !!process.env.GOOGLE_VERTEX_LOCATION;
+
 	return [
 		{
 			type: positron.PositronLanguageModelType.Chat,
@@ -133,11 +151,13 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			defaults: {
 				name: 'Snowflake Cortex',
 				model: 'claude-4-sonnet',
-				baseUrl: getSnowflakeDefaultBaseUrl(),
+				// baseUrl holds the bare account, not a URL: the Cortex URL is
+				// derived from the account. Don't make it a saved setting (#13750).
+				baseUrl: getConfiguredSnowflakeAccount(),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
-					message: 'Automatically configured using Snowflake credentials',
+					message: 'Snowflake credentials',
 					signedIn: false,
 				},
 			},
@@ -167,6 +187,30 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		},
 		{
 			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.googleVertex,
+			// In env-var mode, omit 'baseUrl' from supportedOptions so the
+			// modal renders the simple env-var-driven label without trying
+			// to derive a _BASE_URL peer (the modal's derivation assumes a
+			// _API_KEY suffix, which doesn't apply here).
+			supportedOptions: vertexFromEnv
+				? ['autoconfigure']
+				: ['baseUrl', 'toolCalls'],
+			defaults: {
+				name: 'Gemini 2.5 Flash (Vertex)',
+				model: 'gemini-2.5-flash',
+				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
+				toolCalls: true,
+				...(vertexFromEnv && {
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+						key: 'GOOGLE_VERTEX_PROJECT',
+						signedIn: false,
+					},
+				}),
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
 			provider: PROVIDER_METADATA.copilot,
 			supportedOptions: ['oauth', 'autoconfigure'],
 			defaults: {
@@ -188,6 +232,22 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				model: 'openai-compatible',
 				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
 				toolCalls: true,
+			},
+		},
+		{
+			type: positron.PositronLanguageModelType.Chat,
+			provider: PROVIDER_METADATA.deepseek,
+			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
+			defaults: {
+				name: 'DeepSeek',
+				model: 'deepseek-chat',
+				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
+				toolCalls: true,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+					key: 'DEEPSEEK_API_KEY',
+					signedIn: false,
+				},
 			},
 		},
 	];

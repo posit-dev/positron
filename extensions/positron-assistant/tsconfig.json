@@ -11,6 +11,7 @@
 		"allowSyntheticDefaultImports": true,
 		"noImplicitAny": false,
 		"typeRoots": ["./node_modules/@types"],
+		"types": ["node", "mocha"],
 		"rootDir": "src",
 	},
 	"include": [

@@ -5,13 +5,9 @@
 
 .data-connections-panel {
 	flex: 1;
-	display: none;
+	display: flex;
 	min-height: 0;
 	flex-direction: column;
-}
-
-.data-connections-panel.active {
-	display: flex;
 }
 
 .data-connections-panel .data-connection-profiles-list {

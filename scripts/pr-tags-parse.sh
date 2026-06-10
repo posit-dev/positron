@@ -79,6 +79,10 @@ if echo "$PR_BODY" | grep -qE "@:workbench( |\$|,)"; then
 	echo "Found workbench tag in PR body. Setting to run workbench tests."
 	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:publisher"; then
+	echo "Found publisher tag in PR body. Enabling workbench tests so publisher tests can run."
+	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 if echo "$PR_BODY" | grep -q "@:workbench-stable"; then
 	echo "Found workbench-stable tag in PR body. Setting to run workbench tests against the last stable Workbench."
 	echo "workbench_stable_tag_found=true" >> "$GITHUB_OUTPUT"

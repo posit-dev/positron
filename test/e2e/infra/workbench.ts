@@ -52,6 +52,7 @@ import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
 import { Publisher } from '../pages/publisher.js';
 import { Packages } from '../pages/packages.js';
+import { SuggestWidget } from '../pages/suggestWidget.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -106,6 +107,7 @@ export class Workbench {
 	readonly inlineQuarto: InlineQuarto;
 	readonly publisher: Publisher;
 	readonly packages: Packages;
+	readonly suggestWidget: SuggestWidget;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -136,7 +138,7 @@ export class Workbench {
 		this.welcome = new Welcome(code);
 		this.terminal = new Terminal(code, this.quickaccess);
 		this.viewer = new Viewer(code, this.contextMenu);
-		this.editor = new Editor(code, this.toasts);
+		this.editor = new Editor(code);
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
@@ -155,10 +157,66 @@ export class Workbench {
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);
 		this.packages = new Packages(code, this.contextMenu, this.quickInput, this.toasts, this.help);
+		this.suggestWidget = new SuggestWidget(code);
 	}
 }
 
 export function createWorkbenchFromPage(parentCode: Code, page: playwright.Page): Workbench {
 	const code = createCodeFromPage(parentCode, page);
 	return new Workbench(code);
+}
+
+/**
+ * Waits for a new Electron window to appear, optionally running a trigger that opens it.
+ *
+ * Used by the remote backend tests (remote-ssh, remote-wsl) where connecting to a remote opens
+ * the workbench in a fresh window. Pair the returned page with {@link createWorkbenchFromPage}.
+ *
+ * @param app The Electron application to watch for new windows.
+ * @param trigger Optional action that opens the new window. Recommended so the listener is armed
+ *   before the window appears.
+ * @param opts.timeout How long to wait for the new window, in ms (default 30000).
+ * @param opts.loadState The load state to wait for on the new page (default 'domcontentloaded').
+ */
+export async function waitForAnyNewWindow(
+	app: playwright.ElectronApplication,
+	trigger?: () => Promise<void> | void,
+	opts: { timeout?: number; loadState?: 'load' | 'domcontentloaded' | 'networkidle' } = {}
+): Promise<playwright.Page> {
+	const { timeout = 30_000, loadState = 'domcontentloaded' } = opts;
+
+	// Snapshot existing windows so we can detect a new one even if the event is missed.
+	const before = new Set(app.windows());
+
+	// Start waiting for a new 'window' event *before* we trigger anything.
+	const eventWait = app.waitForEvent('window', { timeout }).catch(() => null);
+
+	// Optionally run whatever opens the window (recommended).
+	if (trigger) { await trigger(); }
+
+	// If we caught the event, great.
+	let win = await eventWait;
+
+	// Fallback: CI flake where window opened before listener -- scan for any new page.
+	if (!win) {
+		const start = Date.now();
+		while (Date.now() - start < timeout) {
+			const current = app.windows();
+			for (const p of current) {
+				if (!before.has(p)) {
+					win = p;
+					break;
+				}
+			}
+			if (win) { break; }
+			await new Promise(r => setTimeout(r, 100));
+		}
+	}
+
+	if (!win) { throw new Error('No new window appeared within timeout'); }
+
+	// Ensure it's at least minimally ready and on top
+	await win.waitForLoadState(loadState).catch(() => { });
+	await win.bringToFront().catch(() => { });
+	return win;
 }

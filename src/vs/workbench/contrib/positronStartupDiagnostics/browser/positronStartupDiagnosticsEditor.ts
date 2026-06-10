@@ -11,7 +11,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { ITimerService } from '../../../services/timer/browser/timerService.js';
+import { IStartupMetrics, ITimerService } from '../../../services/timer/browser/timerService.js';
 import { IDisposable, dispose } from '../../../../base/common/lifecycle.js';
 import { raceTimeout } from '../../../../base/common/async.js';
 import { IExtensionService, IResponsiveStateChangeEvent } from '../../../services/extensions/common/extensions.js';
@@ -172,56 +172,76 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 
 			writeTransientState(this._model, { wordWrapOverride: 'off' }, this._editorService);
 		}
-		this._updateModel();
+		this._updateModel().catch(() => {
+			// _updateModel is best-effort; failures leave the model showing the
+			// initial placeholder rather than blocking the editor from opening.
+		});
 		return Promise.resolve(this._model);
 	}
 
-	private _updateModel(): void {
-		Promise.all([
-			this._timerService.whenReady(),
-		]).then(async () => {
-			if (this._model && !this._model.isDisposed()) {
-				const md = new MarkdownBuilder();
-				md.heading(1, 'Positron Runtime Startup Diagnostics');
-				md.blank();
-				this._addSystemInfo(md);
-				md.blank();
-				this._addAffiliatedRuntimes(md);
-				md.blank();
-				this._addActiveRuntimes(md);
-				md.blank();
-				this._addTimeToFirstRuntime(md);
-				md.blank();
-				this._addStartupPhaseTiming(md);
-				md.blank();
-				this._addRawPerfMarks(md);
-				md.blank();
-				this._addPerSessionTiming(md);
-				md.blank();
-				this._addInterpreterSettings(md);
-				md.blank();
-				this._addAdminEnforcedSettings(md);
-				md.blank();
-				await this._addSessionLaunchInfo(md);
-				md.blank();
-				this._addDiscoveredRuntimes(md);
-				md.blank();
-				this._addDiscoveryCache(md);
-				md.blank();
-				this._addExtensionHostStatus(md);
-				md.blank();
-				await this._addOutputChannels(md);
+	private async _updateModel(): Promise<void> {
+		// Wait for the timer service barrier so _addSystemInfo can read
+		// startupMetrics, but cap the wait. The diagnostics report's job is to
+		// surface state even when startup is wedged (which is exactly when the
+		// barrier may not open), so we render best-effort if the wait expires.
+		await raceTimeout(this._timerService.whenReady(), 5000);
 
-				this._model.setValue(md.value);
-			}
-		});
+		if (!this._model || this._model.isDisposed()) {
+			return;
+		}
+
+		const md = new MarkdownBuilder();
+		md.heading(1, 'Positron Runtime Startup Diagnostics');
+		md.blank();
+		this._addSystemInfo(md);
+		md.blank();
+		this._addAffiliatedRuntimes(md);
+		md.blank();
+		this._addActiveRuntimes(md);
+		md.blank();
+		this._addTimeToFirstRuntime(md);
+		md.blank();
+		this._addStartupPhaseTiming(md);
+		md.blank();
+		this._addRawPerfMarks(md);
+		md.blank();
+		this._addPerSessionTiming(md);
+		md.blank();
+		this._addInterpreterSettings(md);
+		md.blank();
+		this._addAdminEnforcedSettings(md);
+		md.blank();
+		await this._addSessionLaunchInfo(md);
+		md.blank();
+		this._addDiscoveredRuntimes(md);
+		md.blank();
+		this._addDiscoveryCache(md);
+		md.blank();
+		this._addExtensionHostStatus(md);
+		md.blank();
+		await this._addOutputChannels(md);
+
+		// Re-check after the awaits above; the model may have been disposed
+		// while we were gathering data.
+		if (this._model && !this._model.isDisposed()) {
+			this._model.setValue(md.value);
+		}
 	}
 
 	private _addSystemInfo(md: MarkdownBuilder): void {
-		const metrics = this._timerService.startupMetrics;
 		md.heading(2, 'System Information');
 		md.li(`${this._productService.nameShort}: ${this._productService.positronVersion} build ${this._productService.positronBuildNumber} (Code OSS ${this._productService.version})`);
 		md.li(`Commit: ${this._productService.commit || 'unknown'}`);
+
+		// startupMetrics throws if accessed before the timer service barrier opens.
+		// Tolerate that: emit a note and continue so the rest of the report renders.
+		let metrics: IStartupMetrics | undefined;
+		try {
+			metrics = this._timerService.startupMetrics;
+		} catch {
+			md.li('Startup metrics: not yet available (timer service not ready)');
+			return;
+		}
 		md.li(`OS: ${metrics.platform}(${metrics.release})`);
 		if (metrics.cpus) {
 			md.li(`CPUs: ${metrics.cpus.model}(${metrics.cpus.count} x ${metrics.cpus.speed})`);

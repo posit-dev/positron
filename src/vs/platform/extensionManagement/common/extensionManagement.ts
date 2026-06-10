@@ -286,6 +286,7 @@ export interface ILocalExtension extends IExtension {
 	preRelease: boolean;
 	updated: boolean;
 	pinned: boolean;
+	forceAutoUpdate: boolean;
 	source: InstallSource;
 	size: number;
 }
@@ -381,6 +382,7 @@ export interface IExtensionInfo extends IExtensionIdentifier {
 	version?: string;
 	preRelease?: boolean;
 	hasPreRelease?: boolean;
+	currentVersion?: string;
 }
 
 export interface IExtensionQueryOptions {
@@ -389,6 +391,11 @@ export interface IExtensionQueryOptions {
 	compatible?: boolean;
 	queryAllVersions?: boolean;
 	source?: string;
+	// --- Start Positron ---
+	// Why this gallery request was issued. Plumbed to the outgoing request URL so P3M can
+	// bucket update-check traffic. See positronGalleryTelemetry.ts.
+	checkTrigger?: import('./positronGalleryTelemetry.js').PositronCheckTrigger;
+	// --- End Positron ---
 }
 
 export interface IExtensionGalleryCapabilities {

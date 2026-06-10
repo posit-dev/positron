@@ -211,6 +211,15 @@
 	justify-content: center;
 }
 
+/*
+ * In card mode the help button lives inside the header row, which baseline-aligns
+ * the name/version text. Center the icon-only button on the text line instead of
+ * letting its baseline (its bottom edge) sit on the text baseline.
+ */
+.packages-list-item.item-size-card .packages-list-item-header .packages-list-item-help {
+	align-self: center;
+}
+
 .packages-list-item .packages-list-item-help .codicon {
 	font-size: 13px;
 }

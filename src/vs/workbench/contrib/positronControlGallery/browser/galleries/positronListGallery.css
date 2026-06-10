@@ -1,0 +1,70 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-list-harness {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+}
+
+.positron-list-harness-toolbar {
+	flex: 0 0 auto;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	align-items: center;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.positron-list-harness-knob {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.9em;
+}
+
+.positron-list-harness-knob input {
+	width: 80px;
+	padding: 2px 6px;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 2px;
+}
+
+.positron-list-harness-checkbox input {
+	width: auto;
+	padding: 0;
+	background-color: transparent;
+	border: none;
+}
+
+.positron-list-harness-stats {
+	margin-left: auto;
+	opacity: 0.7;
+	font-size: 0.85em;
+}
+
+.positron-list-harness-preview {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.positron-list-harness-item {
+	padding: 0 12px;
+	line-height: 24px;
+}
+
+.positron-list-harness-section {
+	padding: 0 12px;
+	line-height: 32px;
+	font-weight: 600;
+	/* background-color: var(--vscode-sideBarSectionHeader-background);
+	color: var(--vscode-sideBarSectionHeader-foreground);
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, transparent); */
+}

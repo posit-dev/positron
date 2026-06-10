@@ -59,7 +59,7 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-windows-run"
+        default: "electron-win"
         type: string
       upload_logs:
         required: false
@@ -92,8 +92,8 @@ permissions:
   contents: read
 
 jobs:
-  e2e-windows-run:
-    name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
+  windows:
+    name: ${{ inputs.display_name || 'electron-win' }}-${{ matrix.shard }}
     timeout-minutes: 150
     runs-on: windows-latest-8x
     strategy:
@@ -260,6 +260,7 @@ jobs:
 
       - name: Restore Python packages cache
         id: cache-python
+        continue-on-error: true
         uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}\uv-cache
@@ -319,6 +320,7 @@ jobs:
 
       - name: Restore R packages cache
         id: cache-r
+        continue-on-error: true
         uses: actions/cache/restore@v5
         with:
           path: |
@@ -350,7 +352,7 @@ jobs:
           rig ls
 
       - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+        run: choco install graphviz -y --no-progress
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -364,6 +366,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: 🧪 Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
@@ -484,7 +490,7 @@ jobs:
     name: ${{ inputs.display_name }}
     timeout-minutes: 10
     if: ${{ !cancelled() }}
-    needs: [e2e-windows-run]
+    needs: [windows]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -502,6 +508,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Install Playwright
         shell: bash

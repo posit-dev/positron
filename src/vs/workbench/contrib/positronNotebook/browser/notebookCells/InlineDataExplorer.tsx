@@ -24,8 +24,7 @@ import { MenuId, MenuItemAction } from '../../../../../platform/actions/common/a
 import type { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
-import { useCell } from './CellProvider.js';
+import { useCodeCell } from './CellProvider.js';
 import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
 import { InlineDataExplorerActionButton } from './InlineDataExplorerActionButton.js';
 
@@ -74,14 +73,12 @@ const HEADER_MENU_OPTIONS = { shouldForwardArgs: true } as const;
  * only when the parent provides an `actionContext` -- typically when the inline
  * grid is connected and not stale.
  */
-export function InlineDataExplorerHeader({ title, shape, actionContext, contextKeyService: providedContextKeyService }: {
+export function InlineDataExplorerHeader({ title, shape, actionContext, contextKeyService }: {
 	title: string;
 	shape: { rows: number; columns: number };
 	actionContext: IInlineDataExplorerActionContext | undefined;
 	contextKeyService?: IContextKeyService;
 }) {
-	const cellScopedContextKeyService = useCellScopedContextKeyService();
-	const contextKeyService = providedContextKeyService ?? cellScopedContextKeyService;
 	const menu = useMenu(MenuId.PositronNotebookInlineDataExplorerHeader, contextKeyService);
 	const actionGroups = useMenuActions(menu, HEADER_MENU_OPTIONS);
 
@@ -119,7 +116,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, onFallback } = props;
 	const services = PositronReactServices.services;
 	const notebookInstance = useNotebookInstance();
-	const cell = useCell();
+	const cell = useCodeCell();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Don't create DisposableStore in useRef - it will leak on remount.
@@ -238,7 +235,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	// only when we have a cell and the grid is connected and non-stale -- this is
 	// the canonical "ready" state for any registered action.
 	const actionContext: IInlineDataExplorerActionContext | undefined =
-		cell && state.status === 'connected' && !isGridStale
+		state.status === 'connected' && !isGridStale
 			? {
 				documentUri: notebookInstance.uri,
 				sourceLanguage: cell.model.language,
@@ -272,6 +269,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		<div ref={containerRef} className='inline-data-explorer-container inline-data-explorer-container--clears-output-actions' style={{ height: `${dynamicHeight}px` }}>
 			<InlineDataExplorerHeader
 				actionContext={actionContext}
+				contextKeyService={cell.scopedContextKeyService}
 				shape={shape}
 				title={title}
 			/>

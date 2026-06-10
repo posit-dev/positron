@@ -56,9 +56,10 @@ import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS, POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT, POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING, POSITRON_NOTEBOOK_EXPERIMENTAL, POSITRON_NOTEBOOK_OUTPUT_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from './ContextKeysManager.js';
+import { CellContextKeys } from '../common/cellContextKeys.js';
+import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
-import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
+import { Action2, registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
@@ -78,10 +79,12 @@ import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IOutlinePane } from '../../outline/browser/outline.js';
 
 export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
-	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
+	NotebookContextKeys.editorFocused,
+	NotebookContextKeys.cellEditorFocused.toNegated(),
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
 	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
@@ -135,7 +138,7 @@ class PositronNotebookContribution extends Disposable {
 		super();
 
 		this._register(bindContextKey(
-			POSITRON_NOTEBOOK_EXPERIMENTAL,
+			NotebookContextKeys.experimental,
 			contextKeyService,
 			reader => positronNotebookService.experimentsEnabled.read(reader),
 		));
@@ -145,7 +148,7 @@ class PositronNotebookContribution extends Disposable {
 
 	private registerEditor(): void {
 		this.registerNotebookEditor({
-			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support'),
 			extension: '.ipynb',
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
@@ -189,7 +192,6 @@ class PositronNotebookContribution extends Disposable {
 			info.globPattern,
 			editorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						(resource.scheme === Schemas.untitled ||
@@ -267,7 +269,6 @@ class PositronNotebookContribution extends Disposable {
 			// This does not seem to be an issue for file schemes (registered above).
 			cellEditorInfo,
 			{
-				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;
@@ -395,7 +396,7 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
-// Register the prompt that invites users to try the new notebook editor
+// Register the prompt that invites users to try the native notebook editor
 registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
@@ -557,7 +558,7 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.quitEdit', "Exit Cell Edit Mode"),
 			keybinding: {
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+					NotebookContextKeys.cellEditorFocused,
 					// Don't exit when multiple selections are active (escape should cancel multi selection first #10385)
 					EditorContextKeys.hasMultipleSelections.toNegated(),
 					// Don't exit when text is selected (escape should deselect first)
@@ -845,9 +846,9 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-					CELL_CONTEXT_KEYS.isRunning.toNegated(),
-					CELL_CONTEXT_KEYS.isPending.toNegated()
+					CellContextKeys.isCode.isEqualTo(true),
+					CellContextKeys.isRunning.toNegated(),
+					CellContextKeys.isPending.toNegated()
 				)
 			}
 		});
@@ -873,10 +874,10 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+					CellContextKeys.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
-						CELL_CONTEXT_KEYS.isRunning.isEqualTo(true),
-						CELL_CONTEXT_KEYS.isPending.isEqualTo(true)
+						CellContextKeys.isRunning.isEqualTo(true),
+						CellContextKeys.isPending.isEqualTo(true)
 					)
 				)
 			}
@@ -901,10 +902,10 @@ registerAction2(class extends NotebookAction2 {
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 10,
-				when: CELL_CONTEXT_KEYS.isCode
+				when: CellContextKeys.isCode
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
 			}
@@ -941,16 +942,16 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 20,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-					CELL_CONTEXT_KEYS.isFirst.toNegated()
+					CellContextKeys.isCode.isEqualTo(true),
+					CellContextKeys.isFirst.toNegated()
 				)
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.Execution,
 				order: 10,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-					CELL_CONTEXT_KEYS.isFirst.toNegated()
+					CellContextKeys.isCode.isEqualTo(true),
+					CellContextKeys.isFirst.toNegated()
 				)
 			}]
 		});
@@ -986,16 +987,16 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 21,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-					CELL_CONTEXT_KEYS.isLast.toNegated()
+					CellContextKeys.isCode.isEqualTo(true),
+					CellContextKeys.isLast.toNegated()
 				)
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.Execution,
 				order: 20,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-					CELL_CONTEXT_KEYS.isLast.toNegated()
+					CellContextKeys.isCode.isEqualTo(true),
+					CellContextKeys.isLast.toNegated()
 				)
 			}]
 		});
@@ -1031,8 +1032,8 @@ export class OpenMarkdownEditorAction extends NotebookAction2 {
 				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
-					CELL_CONTEXT_KEYS.markdownEditorOpen.toNegated()
+					CellContextKeys.isMarkdown.isEqualTo(true),
+					CellContextKeys.markdownEditorOpen.toNegated()
 				)
 			}
 		});
@@ -1068,8 +1069,8 @@ export class ViewMarkdownAction extends NotebookAction2 {
 				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
-					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
-					CELL_CONTEXT_KEYS.markdownEditorOpen.isEqualTo(true)
+					CellContextKeys.isMarkdown.isEqualTo(true),
+					CellContextKeys.markdownEditorOpen.isEqualTo(true)
 				)
 			}
 		});
@@ -1097,7 +1098,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeOrToggleEditor',
 			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute Cell or Toggle Editor"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.Enter
 			}
@@ -1159,7 +1160,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeAndSelectBelow',
 			title: localize2('positronNotebook.cell.executeAndSelectBelow', "Execute Cell and Select Below"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.Enter
 			}
@@ -1205,7 +1206,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeAndInsertBelow',
 			title: localize2('positronNotebook.cell.executeAndInsertBelow', "Execute Cell and Insert Below"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.Enter
 			}
@@ -1351,10 +1352,10 @@ export class MoveCellUpAction extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 10,
 				group: PositronNotebookCellActionGroup.Order,
-				when: CELL_CONTEXT_KEYS.canMoveUp
+				when: CellContextKeys.canMoveUp
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
 			}
@@ -1378,10 +1379,10 @@ export class MoveCellDownAction extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 20,
 				group: PositronNotebookCellActionGroup.Order,
-				when: CELL_CONTEXT_KEYS.canMoveDown
+				when: CellContextKeys.canMoveDown
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
 			}
@@ -1405,12 +1406,12 @@ export class ChangeToCodeAction extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 10,
-				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+				when: ContextKeyExpr.or(CellContextKeys.isCode.toNegated(), CellContextKeys.isRaw)
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 10,
-				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+				when: ContextKeyExpr.or(CellContextKeys.isCode.toNegated(), CellContextKeys.isRaw)
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_COMMAND_MODE,
@@ -1439,12 +1440,12 @@ export class ChangeToMarkdownAction extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 20,
-				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+				when: CellContextKeys.isMarkdown.toNegated()
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 20,
-				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+				when: CellContextKeys.isMarkdown.toNegated()
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_COMMAND_MODE,
@@ -1471,12 +1472,12 @@ export class ChangeToRawAction extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 30,
-				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+				when: CellContextKeys.isRaw.toNegated()
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 30,
-				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+				when: CellContextKeys.isRaw.toNegated()
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_COMMAND_MODE,
@@ -1502,10 +1503,10 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 40,
-				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				when: NotebookContextKeys.cellEditorFocused,
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				when: NotebookContextKeys.cellEditorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Minus
 			}
@@ -1600,10 +1601,10 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 0,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING
+						CellContextKeys.hasOutputs,
+						CellContextKeys.outputIsCollapsed.toNegated(),
+						CellContextKeys.outputOverflows,
+						CellContextKeys.outputScrolling
 					)
 				},
 				{
@@ -1611,10 +1612,10 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 0,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING
+						CellContextKeys.hasOutputs,
+						CellContextKeys.outputIsCollapsed.toNegated(),
+						CellContextKeys.outputOverflows,
+						CellContextKeys.outputScrolling
 					)
 				}
 			]
@@ -1643,10 +1644,10 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 0,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING.toNegated()
+						CellContextKeys.hasOutputs,
+						CellContextKeys.outputIsCollapsed.toNegated(),
+						CellContextKeys.outputOverflows,
+						CellContextKeys.outputScrolling.toNegated()
 					)
 				},
 				{
@@ -1654,10 +1655,10 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Visibility,
 					order: 0,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_SCROLLING.toNegated()
+						CellContextKeys.hasOutputs,
+						CellContextKeys.outputIsCollapsed.toNegated(),
+						CellContextKeys.outputOverflows,
+						CellContextKeys.outputScrolling.toNegated()
 					)
 				}
 			]
@@ -1685,8 +1686,8 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 1,
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+					CellContextKeys.hasOutputs,
+					CellContextKeys.outputIsCollapsed.toNegated()
 				)
 			}
 		});
@@ -1713,8 +1714,8 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellOutputActionGroup.Visibility,
 				order: 2,
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED
+					CellContextKeys.hasOutputs,
+					CellContextKeys.outputIsCollapsed
 				)
 			}
 		});
@@ -1746,7 +1747,7 @@ registerAction2(class extends NotebookAction2 {
 					id: MenuId.PositronNotebookCellOutputActionContext,
 					group: PositronNotebookCellOutputActionGroup.Destructive,
 					order: 1,
-					when: POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS
+					when: CellContextKeys.hasOutputs
 				},
 			]
 		});
@@ -1771,10 +1772,10 @@ export class CopyOutputAction extends NotebookAction2 {
 			keybinding: {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-					POSITRON_NOTEBOOK_OUTPUT_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_HAS_OUTPUTS,
-					POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated(),
+					NotebookContextKeys.editorFocused,
+					CellContextKeys.outputFocused,
+					CellContextKeys.hasOutputs,
+					CellContextKeys.outputIsCollapsed.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 			},
@@ -1864,8 +1865,8 @@ class CopyOutputImageAction extends NotebookAction2 {
 						// Show the static "Copy Image" action only when there is exactly one
 						// image output. For multiple images, users can right-click individual
 						// images to copy them.
-						ContextKeyExpr.equals(POSITRON_NOTEBOOK_CELL_IMAGE_OUTPUT_COUNT.key, 1),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
+						CellContextKeys.outputIsCollapsed.toNegated()
 					)
 				},
 				{
@@ -1873,8 +1874,8 @@ class CopyOutputImageAction extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Copy,
 					order: 1,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+						CellContextKeys.outputImageTargeted,
+						CellContextKeys.outputIsCollapsed.toNegated()
 					)
 				},
 			],
@@ -1925,8 +1926,8 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Copy,
 					order: 2,
 					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals(POSITRON_NOTEBOOK_CELL_JSON_OUTPUT_COUNT.key, 1),
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+						ContextKeyExpr.equals(CellContextKeys.jsonOutputCount.key, 1),
+						CellContextKeys.outputIsCollapsed.toNegated()
 					)
 				},
 				{
@@ -1934,8 +1935,8 @@ registerAction2(class extends NotebookAction2 {
 					group: PositronNotebookCellOutputActionGroup.Copy,
 					order: 2,
 					when: ContextKeyExpr.and(
-						POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED,
-						POSITRON_NOTEBOOK_CELL_OUTPUT_COLLAPSED.toNegated()
+						CellContextKeys.outputJsonTargeted,
+						CellContextKeys.outputIsCollapsed.toNegated()
 					)
 				},
 			],
@@ -2186,6 +2187,39 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Toggle Outline - Reveals or hides the Outline view in the Explorer pane
+export class ToggleOutlineAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleOutline',
+			title: localize2('toggleOutline', 'Toggle Outline'),
+			icon: ThemeIcon.fromId('list-unordered'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 45,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			}
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const viewsService = accessor.get(IViewsService);
+		if (viewsService.isViewVisible(IOutlinePane.Id)) {
+			viewsService.closeView(IOutlinePane.Id);
+		} else {
+			await viewsService.openView(IOutlinePane.Id, true);
+		}
+	}
+}
+registerAction2(ToggleOutlineAction);
+
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
 // Action is defined in AskAssistantAction.ts
 
@@ -2217,6 +2251,6 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	// Only show these menu items when a notebook editor has focus to
 	// avoid these menu items showing up in other editors, such as the
 	// output panel (which is a monaco editor).
-	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+	when: NotebookContextKeys.editorFocused,
 	order: 0
 });

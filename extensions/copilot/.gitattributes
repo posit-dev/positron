@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# --- Start Positron ---
+# LFS disabled in Positron: the simulation test cache (test/simulation/cache/*.sqlite)
+# is hosted on Microsoft's LFS server, which Positron CI cannot read (404 on smudge).
+# Positron does not run the upstream simulation tests, so the cache files have been
+# removed from this branch. Leave this commented out to keep diffs minimal vs upstream.
+# *.sqlite filter=lfs diff=lfs merge=lfs -text
+# --- End Positron ---

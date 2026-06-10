@@ -98,14 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:116
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:138
       options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:116
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:138
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -151,6 +151,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4
@@ -371,6 +375,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Install Playwright
         run: |

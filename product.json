@@ -3,10 +3,11 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.06.0",
+	"positronVersion": "2026.07.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
+	"sharedDataFolderName": ".positron-shared",
 	"win32MutexName": "positron",
 	"licenseName": "Software Evaluation License",
 	"licenseUrl": "https://positron.posit.co/licensing",
@@ -62,8 +63,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.110.0",
-			"sha256": "ad3f7d935b64f4ee123853c464b47b3cba13e5018edef831770ae9c3eb218f5b",
+			"version": "1.117.0",
+			"sha256": "854eeb8a785b1f41ba2bd02d7ccd4fdbe10021b61473293973c7e96d036c7fb8",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -94,10 +95,20 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.5.8",
+			"version": "2026.6.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "81abe1e8b5d9bf6a227fa54eee90b791593f5cd271bb0b9cc487f67ee468be9a",
+			"sha256": "b5b01d809dd07693554c71bc918590a48f07772db340c5849aa316528a0cf830",
+			"metadata": {
+				"publisherDisplayName": "Posit PBC"
+			}
+		},
+		{
+			"name": "posit.slc",
+			"version": "0.6.0",
+			"positUrl": "https://cdn.posit.co/pwb-components/slc-extension",
+			"type": "reh-web-pwb",
+			"sha256": "105cd11357bde4c330bf12aac856b0ee3eae2c967bab6037c3dedacd55f59e7d",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -106,7 +117,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.44.0",
+			"version": "2026.48.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -230,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.3",
+			"version": "2.7.9",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -241,8 +252,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.132.0",
-			"sha256": "fe54121a32cae2b1bd9e6b8560fcfcbacc23515587abb09dd735110d3246245b",
+			"version": "1.133.0",
+			"sha256": "784b52b2bf42f2a73141c04f173d4d36530a6a4831d221c92ec2ad2a5734f068",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -294,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.7",
-			"sha256": "9a9ea58294d9c0b92d276e6e534a8866393f0f916e1025d0ad4c5fca07a681a9",
+			"version": "0.5.11",
+			"sha256": "b721bb67c4e978898043c316449ec5980b96c4e3da18a3f6d1d951ad14865694",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -335,6 +346,14 @@
 				"name": "Positron Assistant"
 			},
 			"enterprise": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			},
+			"google": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			},
+			"apple": {
 				"id": "positron.assistant",
 				"name": "Positron Assistant"
 			}
@@ -714,6 +733,10 @@
 			"positron.positron-assistant",
 			"posit.assistant"
 		],
+		"deepseek-api": [
+			"positron.authentication",
+			"posit.assistant"
+		],
 		"openai-compatible": [
 			"positron.authentication",
 			"positron.positron-assistant",
@@ -723,6 +746,88 @@
 			"positron.authentication",
 			"positron.positron-assistant",
 			"posit.assistant"
+		],
+		"google-cloud": [
+			"positron.authentication",
+			"posit.assistant"
 		]
-	}
+	},
+	"onboardingKeymaps": [
+		{
+			"id": "vscode",
+			"label": "VS Code",
+			"description": "Default keyboard mapping"
+		},
+		{
+			"id": "sublime",
+			"label": "Sublime Text",
+			"extensionId": "ms-vscode.sublime-keybindings",
+			"description": "Keyboard mapping from Sublime Text"
+		},
+		{
+			"id": "intellij",
+			"label": "IntelliJ / JetBrains",
+			"extensionId": "k--kato.intellij-idea-keybindings",
+			"description": "Keyboard mapping from IntelliJ IDEA"
+		},
+		{
+			"id": "vim",
+			"label": "Vim",
+			"extensionId": "vscodevim.vim",
+			"description": "Vim modal editing"
+		},
+		{
+			"id": "eclipse",
+			"label": "Eclipse",
+			"extensionId": "alphabotsec.vscode-eclipse-keybindings",
+			"description": "Keyboard mapping from Eclipse"
+		},
+		{
+			"id": "notepadpp",
+			"label": "Notepad++",
+			"extensionId": "ms-vscode.notepadplusplus-keybindings",
+			"description": "Keyboard mapping from Notepad++"
+		}
+	],
+	"onboardingThemes": [
+		{
+			"id": "dark-2026",
+			"label": "Dark 2026",
+			"themeId": "Dark 2026",
+			"type": "dark"
+		},
+		{
+			"id": "hc-dark",
+			"label": "Dark High Contrast",
+			"themeId": "Default High Contrast",
+			"type": "hcDark"
+		},
+		{
+			"id": "solarized-dark",
+			"label": "Solarized Dark",
+			"themeId": "Solarized Dark",
+			"type": "dark"
+		},
+		{
+			"id": "light-2026",
+			"label": "Light 2026",
+			"themeId": "Light 2026",
+			"type": "light"
+		},
+		{
+			"id": "hc-light",
+			"label": "Light High Contrast",
+			"themeId": "Default High Contrast Light",
+			"type": "hcLight"
+		},
+		{
+			"id": "solarized-light",
+			"label": "Solarized Light",
+			"themeId": "Solarized Light",
+			"type": "light"
+		}
+	],
+	"builtInExtensionsEnabledWithAutoUpdates": [
+		"GitHub.copilot-chat"
+	]
 }

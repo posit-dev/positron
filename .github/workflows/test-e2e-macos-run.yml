@@ -88,6 +88,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4
@@ -230,7 +234,7 @@ jobs:
           python -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Install ipykernel for 3.11.0
         run: |
@@ -244,7 +248,7 @@ jobs:
           pyenv global 3.10.10
 
       - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+        run: brew install graphviz
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -335,6 +339,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Install Playwright
         run: |

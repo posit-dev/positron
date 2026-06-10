@@ -8,13 +8,16 @@ import * as React from 'react';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
+import DeepSeek from '../icons/deepseek.js';
 import Gemini from '../icons/gemini.js';
 import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import OpenAI from '../icons/openai.js';
+import PositAi from '../icons/positAi.js';
 import Snowflake from '../icons/snowflake.js';
 import MicrosoftFoundry from '../icons/microsoftFoundry.js';
+import VertexAI from '../icons/vertexai.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
@@ -54,17 +57,21 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;
+			case 'google-cloud':
+				return <VertexAI className='language-model icon' />;
 			case 'copilot':
 			case 'copilot-auth':
 				return <GithubCopilot className='language-model icon' />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
 				return <Bedrock className='language-model icon' />;
+			case 'deepseek-api':
+				return <DeepSeek className='language-model icon' />;
 			case 'openai-api':
 				return <OpenAI className='language-model icon' />;
 			case 'ms-foundry':
 				return <MicrosoftFoundry className='language-model icon' />;
 			case 'posit-ai':
-				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
+				return <PositAi className='language-model icon' />;
 			case 'snowflake-cortex':
 				return <Snowflake className='language-model icon' />;
 			case 'openai-compatible':

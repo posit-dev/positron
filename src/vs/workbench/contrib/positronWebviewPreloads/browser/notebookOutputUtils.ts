@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 export function buildWebviewHTML(opts: {
 	content: string;
 	script?: string;
@@ -52,7 +51,11 @@ type WheelForwardMessage = {
 	deltaY: number;
 };
 
-type HTMLOutputWebviewMessage = HTMLOutputMetricsMessage | WheelForwardMessage;
+type DoubleClickMessage = {
+	type: 'doubleClick';
+};
+
+type HTMLOutputWebviewMessage = HTMLOutputMetricsMessage | WheelForwardMessage | DoubleClickMessage;
 
 
 export function isHTMLOutputWebviewMessage(message: unknown): message is HTMLOutputMetricsMessage {
@@ -66,31 +69,50 @@ export function isWheelForwardMessage(message: unknown): message is WheelForward
 		&& typeof m.deltaY === 'number';
 }
 
-// Ambient declaration for the webview-provided global. This MUST be `declare`
-// (no runtime body): a real local function gets renamed by the bundler (e.g. to
-// `acquireVsCodeApi2`) along with its reference inside `webviewMessageCode`.
-// Since `webviewMessageCode` is injected into the webview via `.toString()`,
-// the renamed identifier doesn't exist there and the injected script throws
-// `acquireVsCodeApi2 is not defined`, so the output never reports its size and
-// renders blank. See also the matching declaration in `downloadUtils.ts`.
-declare function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) => void };
+export function isDoubleClickMessage(message: unknown): message is DoubleClickMessage {
+	return (message as DoubleClickMessage | undefined)?.type === 'doubleClick';
+}
+
 
 function webviewMessageCode() {
-	const vscode = acquireVsCodeApi();
+	// acquireVsCodeApi is a global injected by the webview host. Access it
+	// through the window object so the production bundler cannot rename it.
+	// eslint-disable-next-line no-restricted-globals
+	const vscode: { postMessage: (message: HTMLOutputWebviewMessage) => void } =
+		(window as any)['acquireVsCodeApi']();
 
-	const sendSizeMessage = () => {
-		// Get body of the webview and measure content sizes
-		// eslint-disable-next-line no-restricted-syntax
+	const getBodyScrollHeight = () => {
 		const body = document.body;
-		// eslint-disable-next-line no-restricted-syntax
 		const documentElement = document.documentElement;
-		const bodyScrollHeight = body.scrollHeight || documentElement.scrollHeight;
-		const bodyScrollWidth = body.scrollWidth || documentElement.scrollWidth;
+		return body.scrollHeight || documentElement.scrollHeight;
+	};
 
+	const getBodyScrollWidth = () => {
+		const body = document.body;
+		const documentElement = document.documentElement;
+		return body.scrollWidth || documentElement.scrollWidth;
+	};
+
+	let lastHeight = -1;
+	let lastWidth = -1;
+	const sendSizeMessage = (force?: boolean) => {
+		const height = getBodyScrollHeight();
+		const width = getBodyScrollWidth();
+		if (!force && height === lastHeight && width === lastWidth) {
+			return;
+		}
+		lastHeight = height;
+		lastWidth = width;
 		vscode.postMessage({
 			type: 'webviewMetrics',
-			bodyScrollHeight,
-			bodyScrollWidth
+			bodyScrollHeight: height,
+			bodyScrollWidth: width
+		});
+	};
+
+	const sendDoubleClickMessage = () => {
+		vscode.postMessage({
+			type: 'doubleClick'
 		});
 	};
 
@@ -100,12 +122,51 @@ function webviewMessageCode() {
 	});
 
 	try {
-		// eslint-disable-next-line no-restricted-syntax
 		const documentElement = document.documentElement;
 		resizeObserver.observe(documentElement);
 	} catch (e) {
 		console.error('Error observing documentElement', e);
 	}
+
+	// ResizeObserver on documentElement only fires when the content box
+	// changes, not when scrollHeight changes. Content mutations (e.g.
+	// mermaid replacing a <pre> with a taller SVG) change scrollHeight
+	// without affecting the viewport-constrained content box. A
+	// MutationObserver catches these structural DOM changes.
+	let sizeUpdateFrame: number | undefined;
+	const debouncedSendSize = () => {
+		if (sizeUpdateFrame !== undefined) {
+			cancelAnimationFrame(sizeUpdateFrame);
+		}
+		sizeUpdateFrame = requestAnimationFrame(() => {
+			sizeUpdateFrame = undefined;
+			sendSizeMessage();
+		});
+	};
+
+	const installBodyObserver = () => {
+		const body = document.body;
+		if (!body) {
+			return;
+		}
+		const mutationObserver = new MutationObserver(debouncedSendSize);
+		mutationObserver.observe(body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			characterData: true
+		});
+	};
+
+	if (document.body) {
+		installBodyObserver();
+	} else {
+		document.addEventListener('DOMContentLoaded', installBodyObserver);
+	}
+
+	// Let specialized webview contents forward double-click interactions to
+	// the notebook cell that owns the webview.
+	window.addEventListener('positronWebviewDoubleClick', sendDoubleClickMessage);
 
 	// Two things can happen when the user wheels over a webview output:
 	//
@@ -128,15 +189,11 @@ function webviewMessageCode() {
 	// (the default), so the effective overflow is html's unless that is
 	// visible, in which case body's wins.
 	const getViewportScrollConsumer = (): Element | null => {
-		// eslint-disable-next-line no-restricted-syntax
 		const root = document.documentElement;
-		// eslint-disable-next-line no-restricted-syntax
 		const body = document.body;
-		// eslint-disable-next-line no-restricted-globals
 		const rootOverflow = window.getComputedStyle(root).overflowY;
 		let effectiveOverflow = rootOverflow;
 		if (rootOverflow === 'visible' && body) {
-			// eslint-disable-next-line no-restricted-globals
 			effectiveOverflow = window.getComputedStyle(body).overflowY;
 		}
 		if (effectiveOverflow === 'hidden' || effectiveOverflow === 'clip') {
@@ -159,7 +216,6 @@ function webviewMessageCode() {
 			if (!(node instanceof Element)) {
 				return null;
 			}
-			// eslint-disable-next-line no-restricted-syntax
 			const isBodyOrRoot = node === document.body || node === document.documentElement;
 			if (isBodyOrRoot) {
 				// Only the single viewport scroller implicitly scrolls on
@@ -169,7 +225,6 @@ function webviewMessageCode() {
 					continue;
 				}
 			} else {
-				// eslint-disable-next-line no-restricted-globals
 				const overflowY = window.getComputedStyle(node).overflowY;
 				if (overflowY !== 'auto' && overflowY !== 'scroll') {
 					continue;
@@ -207,7 +262,6 @@ function webviewMessageCode() {
 	let lastConsumedAt = 0;
 	let lastSeenDelta = 0;
 	let lastEventAt = 0;
-	// eslint-disable-next-line no-restricted-globals
 	window.addEventListener('wheel', (event: WheelEvent) => {
 		if (event.defaultPrevented || event.deltaY === 0) {
 			return;
@@ -242,9 +296,11 @@ function webviewMessageCode() {
 		});
 	}, { passive: true });
 
-	// Send message on load back to Positron
-	// eslint-disable-next-line no-restricted-globals
-	window.onload = sendSizeMessage;
+	// Send message on load back to Positron. Force bypasses the dedup
+	// guard so the host always receives the initial size even if an
+	// observer already posted the same dimensions before onMessage was
+	// attached.
+	window.onload = () => sendSizeMessage(true);
 }
 
 export const webviewMessageCodeString = `(${webviewMessageCode.toString()})();`;

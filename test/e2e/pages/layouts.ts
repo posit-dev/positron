@@ -101,6 +101,22 @@ export class Layouts {
 	}
 
 	/**
+	 * Resize the primary sidebar by dragging its right edge.
+	 * Positive x widens the sidebar, negative x narrows it.
+	 */
+	async resizeSidebar(delta: { x: number }): Promise<void> {
+		const sidebar = this.code.driver.currentPage.locator(SIDEBAR);
+		const box = await sidebar.boundingBox();
+		if (!box) {
+			throw new Error('sidebar not found or not visible');
+		}
+		await this.code.driver.clickAndDrag({
+			from: { x: box.x + box.width, y: box.y + box.height / 2 },
+			delta: { x: delta.x },
+		});
+	}
+
+	/**
 	 * Resize the secondary sidebar (auxiliary bar / variables-side) by
 	 * dragging its left edge. Negative x widens the bar, positive x narrows.
 	 */
@@ -133,6 +149,20 @@ export class Layouts {
 	}
 
 	/**
+	 * Resize the bottom panel to an exact pixel height, regardless of its
+	 * current size. More reliable than resizePanel() across environments where
+	 * the default panel height differs.
+	 */
+	async resizePanelToHeight(targetHeight: number): Promise<void> {
+		const panel = this.code.driver.currentPage.locator('.part.panel');
+		const box = await panel.boundingBox();
+		if (!box) {
+			throw new Error('panel not found or not visible');
+		}
+		await this.resizePanel({ y: box.height - targetHeight });
+	}
+
+	/**
 	 * A bounding box getting that errors if the element is not found rather than returning null.
 	 * @param locator Element locator to get bounding box of. E.g. `this.panelContent`.
 	 * @returns Bounding box object
@@ -156,6 +186,18 @@ export class Layouts {
 	async boundingBoxProperty(locator: Locator, property: 'x' | 'y' | 'width' | 'height') {
 		const boundingBox = await this.boundingBox(locator);
 		return boundingBox[property];
+	}
+
+	/**
+	 * Assert which view container is currently active (showing) in the sidebar by
+	 * its title. The sidebar can be visible while showing the wrong view, so this
+	 * checks the actual active composite rather than mere visibility.
+	 * @param title The expected title text of the active sidebar view (e.g. 'Chat').
+	 */
+	async expectActiveSidebarView(title: string): Promise<void> {
+		await test.step(`Expect active sidebar view to be "${title}"`, async () => {
+			await expect(this.sidebar.locator('.composite.title h2')).toHaveText(title);
+		});
 	}
 
 	/**

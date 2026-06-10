@@ -81,7 +81,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageResult(message => {
-			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
+			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult, message.execution_count);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageStream(message => {
@@ -189,6 +189,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	private handleRuntimeMessageOutput(
 		message: ILanguageRuntimeMessageOutput,
 		outputType: JupyterNotebookCellOutputType,
+		executionCount?: number,
 	): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
@@ -211,7 +212,8 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
-				metadata: { outputType, [outputIdKey]: message.output_id },
+				// Must be nested under `metadata` to be persisted to the .ipynb.
+				metadata: { outputType, [outputIdKey]: message.output_id, executionCount, metadata: message.outputMetadata },
 			}]
 		}]);
 	}

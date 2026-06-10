@@ -31,7 +31,10 @@ import { PositronPackagesView } from './positronPackagesView.js';
 
 export const POSITRON_PACKAGES_VIEW_CONTAINER_ID = 'workbench.viewContainer.positronPackages';
 
-const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.equals('config.positron.packages.enable', true);
+const POSITRON_PACKAGES_ENABLED = ContextKeyExpr.and(
+	ContextKeyExpr.equals('config.packages.enabled', true),
+	ContextKeyExpr.equals('config.positron.packages.enable', true),
+)!;
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
@@ -75,11 +78,38 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	type: 'object',
 	title: nls.localize('packagesConfigurationTitle', 'Packages'),
 	properties: {
+		'packages.enabled': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.enabled', 'Show the Packages pane.'),
+			tags: ['preview'],
+		},
 		'positron.packages.enable': {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: nls.localize('positron.packages.enable', 'Show the Packages pane.'),
+			markdownDeprecationMessage: nls.localize('positron.packages.enable.deprecated', "Deprecated. Use `#packages.enabled#` instead."),
+		},
+		'packages.r.installer': {
+			type: 'string',
+			enum: ['auto', 'pak', 'base'],
+			enumDescriptions: [
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
+				nls.localize('positron.packages.r.installer.base', "Always use base R."),
+			],
+			default: 'auto',
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
+			tags: ['preview'],
+		},
+		'packages.r.renvAutoSnapshot': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
 			tags: ['preview'],
 		}
 	}

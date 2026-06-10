@@ -149,7 +149,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>
-						<Icon icon={props.clearButtonIcon ?? Codicon.positronSearchCancel} />
+						<Icon icon={props.clearButtonIcon ?? Codicon.clearAll} />
 					</button>
 				)}
 				{props.onFilterButtonPressed && (

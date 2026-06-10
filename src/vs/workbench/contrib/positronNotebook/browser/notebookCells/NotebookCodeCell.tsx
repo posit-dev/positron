@@ -7,7 +7,7 @@
 import './NotebookCodeCell.css';
 
 // React.
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -35,8 +35,6 @@ import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
 import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_NOTEBOOK_OUTPUT_FOCUSED, POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED, POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS, POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED } from '../ContextKeysManager.js';
-import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useScrollingIndicator } from './useScrollingIndicator.js';
 import { CellOutputActionBar } from './CellOutputActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
@@ -60,33 +58,17 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	const services = usePositronReactServicesContext();
 	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
 	const perCellScrolling = useObservedValue(cell.outputScrolling);
-	const contextKeyService = useCellScopedContextKeyService();
-	const outputOverflowsKey = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_CELL_OUTPUT_OVERFLOWS.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputImageTargeted = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_IMAGE_TARGETED.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputJsonTargeted = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_JSON_TARGETED.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
-	const outputFocusedKey = useMemo(
-		() => contextKeyService ? POSITRON_NOTEBOOK_OUTPUT_FOCUSED.bindTo(contextKeyService) : undefined,
-		[contextKeyService]
-	);
+	const contextKeys = cell.contextKeys;
 	const { selectionStateMachine } = useNotebookInstance();
 	const handleOutputFocus = useCallback(() => {
-		outputFocusedKey?.set(true);
+		contextKeys?.outputFocused.set(true);
 		selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-	}, [outputFocusedKey, selectionStateMachine, cell]);
+	}, [contextKeys, selectionStateMachine, cell]);
 	const handleOutputBlur = useCallback((e: React.FocusEvent) => {
 		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-			outputFocusedKey?.set(false);
+			contextKeys?.outputFocused.set(false);
 		}
-	}, [outputFocusedKey]);
+	}, [contextKeys]);
 	const notebookOptions = useNotebookOptions();
 	const layout = notebookOptions.getLayoutConfiguration();
 	const outputsInnerRef = React.useRef<HTMLDivElement>(null);
@@ -127,15 +109,6 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			el.classList.add('height-override');
 		}
 	}, []);
-
-	// Update the output overflow context key.
-	React.useEffect(() => {
-		if (!outputOverflowsKey) { return; }
-		const hasOverflowingOutput = outputs.some(o =>
-			isParsedTextOutput(o.parsed) && o.parsed.content.trimEnd().split('\n').length > layout.outputLineLimit
-		);
-		outputOverflowsKey.set(hasOverflowingOutput);
-	}, [outputs, layout.outputLineLimit, outputOverflowsKey]);
 
 	const { showContextMenu } = useCellContextMenu({
 		cell,
@@ -184,12 +157,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 			: undefined;
 
 		// Set context keys so targeted copy menu items show only for the right output type.
-		outputImageTargeted?.set(!!imageDataUrl);
-		outputJsonTargeted?.set(!!jsonText);
+		contextKeys?.outputImageTargeted.set(!!imageDataUrl);
+		contextKeys?.outputJsonTargeted.set(!!jsonText);
 
 		const onHide = () => {
-			outputImageTargeted?.set(false);
-			outputJsonTargeted?.set(false);
+			contextKeys?.outputImageTargeted.set(false);
+			contextKeys?.outputJsonTargeted.set(false);
 		};
 
 		// Delay to next tick so the browser selection is up to date
@@ -358,7 +331,7 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
-			return <img alt='output image' src={parsed.dataUrl} />;
+			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
 		case 'html':
 			return renderHtml(parsed.content);
 		case 'markdown':

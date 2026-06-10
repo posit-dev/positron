@@ -31,16 +31,6 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 vi.mock('../../browser/notebookCells/NotebookCellActionBar.js', () => ({
 	NotebookCellActionBar: () => null,
 }));
-// Avoids the context-key binding effect (subscribes to many cell observables
-// and creates a real scoped IContextKeyService per cell). Returning undefined
-// is what the wrapper sees during its initial render before cellElement attaches.
-vi.mock('../../browser/notebookCells/useCellContextKeys.js', () => ({
-	useCellContextKeys: () => undefined,
-}));
-// Passthrough so the wrapper renders even when useCellContextKeys returns undefined.
-vi.mock('../../browser/notebookCells/CellContextKeyServiceProvider.js', () => ({
-	CellScopedContextKeyServiceProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
 
 describe('NotebookCellWrapper onClick', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
@@ -50,7 +40,6 @@ describe('NotebookCellWrapper onClick', () => {
 		const cell = notebook.cells.get()[cellIndex];
 		const environmentBundle = {
 			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
-			// Never invoked: useCellContextKeys is mocked above.
 			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
 		};
 		rtl.render(
@@ -192,16 +181,16 @@ describe('NotebookCellWrapper onClick', () => {
 	});
 });
 
-describe('NotebookCellWrapper MaybeCellProvider', () => {
+describe('NotebookCellWrapper CellProvider', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function CellSpy() {
 		const cell = useCell();
-		return <div data-testid='cell-spy'>{cell ? 'defined' : 'undefined'}</div>;
+		return <div data-testid='cell-spy'>{cell.kind}</div>;
 	}
 
-	function renderWithSpy(notebook: TestPositronNotebookInstance) {
+	function renderCell(notebook: TestPositronNotebookInstance, children: React.ReactNode) {
 		const cell = notebook.cells.get()[0];
 		const environmentBundle = {
 			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
@@ -211,7 +200,7 @@ describe('NotebookCellWrapper MaybeCellProvider', () => {
 			<NotebookInstanceProvider instance={notebook}>
 				<EnvironentProvider environmentBundle={environmentBundle}>
 					<NotebookCellWrapper cell={cell}>
-						<CellSpy />
+						{children}
 					</NotebookCellWrapper>
 				</EnvironentProvider>
 			</NotebookInstanceProvider>
@@ -223,25 +212,17 @@ describe('NotebookCellWrapper MaybeCellProvider', () => {
 			[['x', 'python', CellKind.Code]],
 			ctx,
 		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('defined');
+		renderCell(notebook, <CellSpy />);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent(String(CellKind.Code));
 	});
 
-	it('keeps useCell() undefined for markdown cells', () => {
+	it('exposes the cell to descendants for markdown cells', () => {
 		const notebook = createTestPositronNotebookInstance(
 			[['# md', 'markdown', CellKind.Markup]],
 			ctx,
 		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
+		renderCell(notebook, <CellSpy />);
+		expect(screen.getByTestId('cell-spy')).toHaveTextContent(String(CellKind.Markup));
 	});
 
-	it('keeps useCell() undefined for raw cells', () => {
-		const notebook = createTestPositronNotebookInstance(
-			[['raw content', 'raw', CellKind.Code]],
-			ctx,
-		);
-		renderWithSpy(notebook);
-		expect(screen.getByTestId('cell-spy')).toHaveTextContent('undefined');
-	});
 });

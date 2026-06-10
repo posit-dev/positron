@@ -27,8 +27,12 @@ const TRUST_BUTTON = 'button.bg-primary:has-text("Trust this workspace")';
 // Welcome/landing page elements
 const WELCOME_TITLE = '.text-4xl:has-text("Posit Assistant")';
 
-// Chat input area
-const CHAT_INPUT = 'textarea[placeholder="Ask Posit Assistant... Type / to see commands"]';
+// Chat input area.
+// Posit Assistant migrated the chat input from a <textarea> to a TipTap/ProseMirror
+// rich-text editor: a contenteditable <div class="tiptap-input-editor">. The
+// placeholder is no longer a `placeholder` attribute -- it renders as a separate
+// aria-hidden overlay -- so target the editor element by its class instead.
+const CHAT_INPUT = '.tiptap-input-editor';
 const SEND_BUTTON = 'button:has(svg.lucide-arrow-up)';
 const STOP_BUTTON = 'button:has(svg.lucide-square)';
 
@@ -51,10 +55,19 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
+const TOOL_CONFIRM_CARD = '.bg-warning';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
 const TOOL_DECLINE_BUTTON = 'button.rounded-r-none:has-text("Decline")';
+
+// Tool result accordion (rendered in the transcript after a tool runs)
+const TOOL_RESULT_ACCORDION_ITEM = '[data-slot="accordion-item"]';
+
+/** Posit Assistant qualifies MCP tool names as `mcp__<server>__<tool>` in the UI. */
+function mcpToolId(server: string, tool: string): string {
+	return `mcp__${server}__${tool}`;
+}
 
 /**
  * Page object for the Posit Assistant extension.
@@ -83,6 +96,16 @@ export class PositAssistant {
 		if (isSelected !== 'true') {
 			await button.click();
 		}
+		await this.expectViewOpen();
+	}
+
+	/**
+	 * Assert the Posit Assistant view is the active view in the sidebar by checking
+	 * that its activity bar button is selected. This avoids waiting on the webview
+	 * to load, so it is a reliable signal that the view container itself is open.
+	 */
+	async expectViewOpen(): Promise<void> {
+		const button = this.code.driver.currentPage.locator(ACTIVITY_BAR_BUTTON);
 		await expect(button.locator('..')).toHaveAttribute('aria-selected', 'true');
 	}
 
@@ -163,7 +186,11 @@ export class PositAssistant {
 	async enterMessage(message: string): Promise<void> {
 		const chatInput = this.frame.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.fill(message);
+		// The input is a TipTap/ProseMirror contenteditable, not a plain textarea.
+		// Click to focus then type so ProseMirror processes the input through its
+		// normal keystroke handling; `fill()` is unreliable on rich-text editors.
+		await chatInput.click();
+		await chatInput.pressSequentially(message);
 	}
 
 	/**
@@ -196,6 +223,42 @@ export class PositAssistant {
 		await this.clickSend();
 		if (waitForResponse) {
 			await this.waitForResponseComplete();
+		}
+	}
+
+	/**
+	 * Sends a message and waits for the response to complete, automatically
+	 * clicking "Allow for this session" whenever a tool confirmation dialog
+	 * appears. Handles multiple tool calls and dialogs that appear before or
+	 * after streaming begins.
+	 */
+	async sendMessageAndWait(message: string, options: { timeout?: number; newConversation?: boolean } = {}): Promise<void> {
+		const { timeout = 90000, newConversation = true } = options;
+		if (newConversation) {
+			await this.startNewConversation();
+		}
+		await this.enterMessage(message);
+		await this.clickSend();
+
+		const stopButton = this.frame.locator(STOP_BUTTON);
+		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		const deadline = Date.now() + timeout;
+
+		// Wait for streaming to start
+		await stopButton.waitFor({ state: 'visible', timeout });
+
+		// Loop while streaming: click "Allow for this session" whenever the
+		// tool confirmation dropdown appears, then wait for it to clear.
+		while (await stopButton.isVisible()) {
+			if (Date.now() > deadline) {
+				throw new Error(`Response did not complete within ${timeout}ms`);
+			}
+			if (await trigger.isVisible().catch(() => false)) {
+				await trigger.click();
+				await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+			} else {
+				await this.code.driver.currentPage.waitForTimeout(200);
+			}
 		}
 	}
 
@@ -401,7 +464,35 @@ export class PositAssistant {
 	 * Verifies the tool confirmation dialog is visible.
 	 */
 	async expectToolConfirmVisible(): Promise<void> {
-		await expect(this.frame.locator('.bg-warning').getByRole('heading', { level: 4 })).toBeVisible();
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD).getByRole('heading', { level: 4 })).toBeVisible();
+	}
+
+	/** Verifies the tool confirmation dialog identifies a specific MCP server + tool. */
+	async expectMcpToolConfirmVisible(server: string, tool: string): Promise<void> {
+		await expect(this.frame.locator(TOOL_CONFIRM_CARD)).toContainText(mcpToolId(server, tool));
+	}
+
+	/** Locator for the MCP tool-result accordion, rendered after the tool executes. */
+	mcpToolResult(server: string, tool: string) {
+		return this.frame.locator(
+			`${TOOL_RESULT_ACCORDION_ITEM}:has(:scope :text("${mcpToolId(server, tool)}"))`,
+		);
+	}
+
+	/** Verifies the MCP tool-result accordion is in the transcript. */
+	async expectMcpToolResultVisible(server: string, tool: string): Promise<void> {
+		await expect(this.mcpToolResult(server, tool)).toBeVisible();
+	}
+
+	/**
+	 * Asserts a literal text string is anywhere in the chat frame DOM.
+	 *
+	 * Uses `toBeAttached()` not `toBeVisible()`: tool-result accordion panels
+	 * use overflow-hidden + animated height that can read as visually hidden
+	 * even when fully expanded.
+	 */
+	async expectChatContainsText(text: string): Promise<void> {
+		await expect(this.frame.getByText(text, { exact: false }).first()).toBeAttached();
 	}
 
 	/**
@@ -410,6 +501,24 @@ export class PositAssistant {
 	async allowToolForSession(): Promise<void> {
 		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
 		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+	}
+
+	/**
+	 * Selects "Allow for this session" if the tool confirmation dropdown appears
+	 * within the given timeout. Silently does nothing if it never shows up.
+	 *
+	 * The tool dialog can appear before OR after streaming begins, so this does
+	 * not race against the stop button — it simply waits the full timeout.
+	 */
+	async allowToolForSessionIfVisible(timeout = 30000): Promise<void> {
+		const appeared = await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER)
+			.waitFor({ state: 'visible', timeout })
+			.then(() => true)
+			.catch(() => false);
+		if (appeared) {
+			await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
+			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+		}
 	}
 
 	/**

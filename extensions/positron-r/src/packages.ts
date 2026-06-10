@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { fetchP3MPackageMetadata } from './p3mSearch';
+import { LOGGER } from './extension';
 import { RSession } from './session';
 
 /**
@@ -40,8 +40,12 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Fetch supplemental metadata (latest version, license, publish date) from P3M
-	 * for the given package names.
+	 * Ask R which packages are outdated and return `latestVersion` for each.
+	 * Ark's `pkg_outdated` (backed by `utils::old.packages()`) queries the
+	 * user's configured repositories, so its `ReposVer` reflects what an
+	 * upgrade would actually fetch. Version comparison happens in R using
+	 * `numeric_version` semantics, since R package versions don't play
+	 * nicely with semver -- see ark PR #625.
 	 * @param packageNames Names of installed R packages to look up
 	 * @param token Optional cancellation token
 	 */
@@ -49,7 +53,44 @@ export class RPackageManager {
 		packageNames: string[],
 		token?: vscode.CancellationToken,
 	): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
-		return fetchP3MPackageMetadata(packageNames, token);
+		const outdated = await this._getOutdatedVersions(token);
+
+		const metadata = new Map<string, Partial<positron.LanguageRuntimePackage>>();
+		for (const name of packageNames) {
+			const key = name.toLowerCase();
+			const latestFromArk = outdated.get(name);
+			metadata.set(key, {
+				outdated: outdated.has(name),
+				...(latestFromArk ? { latestVersion: latestFromArk } : {}),
+			});
+		}
+
+		return metadata;
+	}
+
+	/**
+	 * Call `pkg_outdated` and return a map of package name to latest version
+	 * from the user's configured R repositories. Swallows errors -- the call
+	 * hits the network and can fail transiently; outdated state will
+	 * repopulate on the next refresh, and the package list stays usable.
+	 */
+	private async _getOutdatedVersions(token?: vscode.CancellationToken): Promise<Map<string, string>> {
+		try {
+			const outdated = await this._getOutdatedPackages(token);
+			return new Map(outdated.map(p => [p.name, p.latestVersion]));
+		} catch (err) {
+			LOGGER.warn(`Failed to fetch outdated R package list: ${err}`);
+			return new Map();
+		}
+	}
+
+	private async _getOutdatedPackages(
+		token?: vscode.CancellationToken,
+	): Promise<Array<{ name: string; latestVersion: string }>> {
+		const result = await this._callMethod<Array<{ name: string; latestVersion: string }> | null>(
+			'pkg_outdated', token
+		);
+		return result ?? [];
 	}
 
 	/**
@@ -72,17 +113,15 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
+			// Don't pass `lock = TRUE`: the lockfile update is decoupled from the
+			// install so a snapshot failure doesn't report the install as failed.
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
+			code = `renv::install(${pkgVector}, prompt = FALSE)`;
 		} else {
-			// If we're installing pak, don't prompt to install pak
-			let method: string;
-			if (packages.some((pkg) => pkg.name === 'pak')) {
-				method = await this._getPakMethod();
-			} else {
-				method = await this._ensurePak();
-			}
+			// If we're installing pak itself, don't try to install pak as a side effect.
+			const installingPak = packages.some((pkg) => pkg.name === 'pak');
+			const method = await this._resolveMethod(!installingPak);
 
 			if (method === 'pak') {
 				// pak supports "pkg@version" syntax directly
@@ -98,6 +137,9 @@ export class RPackageManager {
 		}
 
 		await this._execute(code, token);
+		if (isRenv) {
+			this._snapshotRenv();
+		}
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -120,12 +162,14 @@ export class RPackageManager {
 
 		let code: string;
 		if (isRenv) {
-			// renv::install supports "pkg@version" syntax
+			// renv::install supports "pkg@version" syntax. Don't pass `lock = TRUE`:
+			// the lockfile update is decoupled from the update so a snapshot failure
+			// doesn't report the update as failed.
 			const pkgSpecs = packages.map(p => p.version ? `${p.name}@${p.version}` : p.name);
 			const pkgVector = this._formatRVector(pkgSpecs);
-			code = `renv::install(${pkgVector}, lock = TRUE, prompt = FALSE)`;
+			code = `renv::install(${pkgVector}, prompt = FALSE)`;
 		} else {
-			const method = await this._ensurePak();
+			const method = await this._resolveMethod(true);
 
 			if (method === 'pak') {
 				// pak supports "pkg@version" syntax directly
@@ -141,6 +185,9 @@ export class RPackageManager {
 		}
 
 		await this._execute(code, token);
+		if (isRenv) {
+			this._snapshotRenv();
+		}
 		this._session.invalidatePackageResourceCaches();
 	}
 
@@ -157,17 +204,18 @@ export class RPackageManager {
 		const isRenv = await this._detectRenv();
 
 		if (isRenv) {
-			await this._execute(`renv::update(lock = TRUE, prompt = FALSE)`, token);
+			// Don't pass `lock = TRUE`: the lockfile update is decoupled from the
+			// update so a snapshot failure doesn't report the update as failed.
+			await this._execute(`renv::update(prompt = FALSE)`, token);
+			this._snapshotRenv();
 		} else {
-			const method = await this._ensurePak();
+			const method = await this._resolveMethod(true);
 
 			if (method === 'pak') {
 				// Get outdated packages via RPC, then update with pak
-				const outdated = await this._callMethod<string[] | null>(
-					'pkg_outdated', token
-				) ?? [];
+				const outdated = await this._getOutdatedPackages(token);
 				if (outdated.length > 0) {
-					const pkgVector = this._formatRVector(outdated);
+					const pkgVector = this._formatRVector(outdated.map(p => p.name));
 					await this._execute(`pak::pkg_install(${pkgVector}, ask = FALSE)`, token);
 				} else {
 					// TODO: notify user see https://github.com/posit-dev/positron/issues/11997
@@ -203,7 +251,7 @@ export class RPackageManager {
 		if (isRenv) {
 			code = `renv::remove(${pkgVector})`;
 		} else {
-			const method = await this._getPakMethod();
+			const method = await this._resolveMethod(false);
 
 			if (method === 'pak') {
 				code = `pak::pkg_remove(${pkgVector})`;
@@ -224,9 +272,10 @@ export class RPackageManager {
 			// Ignore errors from namespace unloading
 		}
 
-		// Update renv lockfile after removal
+		// Update renv lockfile after removal. Decoupled from the remove operation
+		// so a snapshot failure doesn't report the uninstall as failed.
 		if (isRenv) {
-			await this._executeSilently('renv::snapshot(prompt = FALSE)');
+			this._snapshotRenv();
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -242,7 +291,7 @@ export class RPackageManager {
 			throw new vscode.CancellationError();
 		}
 
-		const method = await this._getPakMethod();
+		const method = await this._resolveMethod(false);
 		const result = await this._callMethod<positron.LanguageRuntimePackage[] | null>(
 			'pkg_search', token, query, method
 		);
@@ -294,21 +343,80 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Get the method string based on pak availability (without prompting).
+	 * Whether automatic renv snapshots after package operations are enabled.
+	 * Controlled by the `packages.r.renvAutoSnapshot` setting (default: true).
 	 */
-	private async _getPakMethod(): Promise<string> {
-		const hasPak = await this._detectPak();
-		return hasPak ? 'pak' : 'base';
+	private _isAutoSnapshotEnabled(): boolean {
+		return vscode.workspace.getConfiguration('packages.r').get<boolean>('renvAutoSnapshot', true);
 	}
 
 	/**
-	 * Get the method string for package listing (renv > pak > base).
+	 * Fire `renv::snapshot()` in the console to bring `renv.lock` in sync after a
+	 * package operation. This is deliberately decoupled from the operation that
+	 * triggered it: the snapshot runs as a visible console side effect and its
+	 * success or failure does not affect the package command's result. If the
+	 * snapshot errors (e.g. a read-only `renv.lock`), surface a warning
+	 * notification, since the package operation itself reported success.
+	 *
+	 * No-op when the `packages.r.renvAutoSnapshot` setting is disabled.
+	 */
+	private _snapshotRenv(): void {
+		if (!this._isAutoSnapshotEnabled()) {
+			return;
+		}
+
+		const id = randomUUID();
+		const disp = this._session.onDidReceiveRuntimeMessage((msg) => {
+			if (msg.parent_id !== id) {
+				return;
+			}
+
+			if (msg.type === positron.LanguageRuntimeMessageType.Error) {
+				const showConsole = vscode.l10n.t('Show Console');
+				void vscode.window.showWarningMessage(
+					vscode.l10n.t('Failed to update the renv lockfile with renv::snapshot(). Your renv.lock file may be out of date.'),
+					showConsole
+				).then((selection) => {
+					if (selection === showConsole) {
+						void vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+					}
+				});
+				disp.dispose();
+			} else if (msg.type === positron.LanguageRuntimeMessageType.State) {
+				const stateMsg = msg as positron.LanguageRuntimeState;
+				if (stateMsg.state === positron.RuntimeOnlineState.Idle) {
+					disp.dispose();
+				}
+			}
+		});
+
+		this._session.execute(
+			'renv::snapshot(prompt = FALSE)',
+			id,
+			positron.RuntimeCodeExecutionMode.NonInteractive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+	}
+
+	/**
+	 * Read the configured R packages installer preference.
+	 * 'auto' means: prefer pak, prompt to install it when missing, fall back to base on decline.
+	 * 'pak' means: prefer pak, install it without prompting when missing.
+	 * 'base' means: never use or install pak.
+	 */
+	private _getConfiguredInstaller(): 'auto' | 'pak' | 'base' {
+		const value = vscode.workspace.getConfiguration('packages.r').get<string>('installer');
+		return value === 'pak' || value === 'base' ? value : 'auto';
+	}
+
+	/**
+	 * Get the method string for package listing (renv > resolved method).
 	 */
 	private async _getPackageMethod(): Promise<string> {
 		if (await this._detectRenv()) {
 			return 'renv';
 		}
-		return this._getPakMethod();
+		return this._resolveMethod(false);
 	}
 
 	/**
@@ -325,29 +433,42 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Ensure pak is available, prompting to install if needed.
-	 * Returns 'pak' or 'base' depending on availability.
+	 * Resolve which installer to use, honoring the `packages.r.installer` setting.
+	 *
+	 * @param allowInstallPak When true (install/update operations), may install pak, either
+	 *                       by prompting the user (setting: 'auto') or silently (setting: 'pak').
+	 *                       When false (list/search/uninstall), only detects what is available.
 	 */
-	private async _ensurePak(): Promise<string> {
-		const hasPak = await this._detectPak();
-		if (hasPak) {
+	private async _resolveMethod(allowInstallPak: boolean): Promise<string> {
+		const setting = this._getConfiguredInstaller();
+		if (setting === 'base') {
+			return 'base';
+		}
+
+		if (await this._detectPak()) {
 			return 'pak';
 		}
 
-		if (this._pakDeclined) {
+		if (!allowInstallPak) {
 			return 'base';
 		}
 
-		const install = await this._promptInstallPak();
-		if (install) {
-			// Use base R to install pak
+		if (setting === 'pak') {
+			// User opted in to pak; install without prompting.
 			await this._execute('install.packages("pak")');
-			const nowHasPak = await this._detectPak();
-			return nowHasPak ? 'pak' : 'base';
-		} else {
-			this._pakDeclined = true;
+			return (await this._detectPak()) ? 'pak' : 'base';
+		}
+
+		// setting === 'auto': prompt once per session, remember declines.
+		if (this._pakDeclined) {
 			return 'base';
 		}
+		if (await this._promptInstallPak()) {
+			await this._execute('install.packages("pak")');
+			return (await this._detectPak()) ? 'pak' : 'base';
+		}
+		this._pakDeclined = true;
+		return 'base';
 	}
 
 	/**

@@ -12,27 +12,9 @@ type BuildOptions = Partial<esbuild.BuildOptions> & {
 	outdir: string;
 };
 
-/**
- * Build the source code once using esbuild.
- */
-async function build(options: BuildOptions, didBuild?: (outDir: string) => unknown): Promise<void> {
-	await esbuild.build(options);
-	await didBuild?.(options.outdir);
-}
-
-/**
- * Build the source code once using esbuild, logging errors instead of throwing.
- */
-async function tryBuild(options: BuildOptions, didBuild?: (outDir: string) => unknown): Promise<void> {
-	try {
-		await build(options, didBuild);
-	} catch (err) {
-		console.error(err);
-	}
-}
-
 interface RunConfig {
 	readonly platform: 'node' | 'browser';
+	readonly format?: 'cjs' | 'esm';
 	readonly srcDir: string;
 	readonly outdir: string;
 	readonly entryPoints: string[] | Record<string, string> | { in: string; out: string }[];
@@ -47,7 +29,12 @@ function resolveOptions(config: RunConfig, outdir: string): BuildOptions {
 		treeShaking: true,
 		sourcemap: true,
 		target: ['es2024'],
+		// --- Start Positron ---
+		// Add 'positron' to the default externals so extensions can `import * as positron from 'positron'`
+		// without bundling it (positron is injected at runtime by the host).
 		external: ['vscode', 'positron'],
+		// --- End Positron ---
+		format: config.format ?? 'cjs',
 		entryPoints: config.entryPoints,
 		outdir,
 		logOverride: {
@@ -57,10 +44,8 @@ function resolveOptions(config: RunConfig, outdir: string): BuildOptions {
 	};
 
 	if (config.platform === 'node') {
-		options.format = 'cjs';
 		options.mainFields = ['module', 'main'];
 	} else if (config.platform === 'browser') {
-		options.format = 'cjs';
 		options.mainFields = ['browser', 'module', 'main'];
 		options.alias = {
 			'path': 'path-browserify',
@@ -88,10 +73,34 @@ export async function run(config: RunConfig, args: string[], didBuild?: (outDir:
 
 	const isWatch = args.indexOf('--watch') >= 0;
 	if (isWatch) {
-		await tryBuild(resolvedOptions, didBuild);
-		const watcher = await import('@parcel/watcher');
-		watcher.subscribe(config.srcDir, () => tryBuild(resolvedOptions, didBuild));
+		if (didBuild) {
+			resolvedOptions.plugins = [
+				...(resolvedOptions.plugins || []),
+				{
+					name: 'did-build', setup(pluginBuild) {
+						pluginBuild.onEnd(async result => {
+							if (result.errors.length > 0) {
+								return;
+							}
+
+							try {
+								await didBuild(outdir);
+							} catch (error) {
+								console.error('didBuild failed:', error);
+							}
+						});
+					},
+				}
+			];
+		}
+		const ctx = await esbuild.context(resolvedOptions);
+		await ctx.watch();
 	} else {
-		return build(resolvedOptions, didBuild).catch(() => process.exit(1));
+		try {
+			await esbuild.build(resolvedOptions);
+			await didBuild?.(outdir);
+		} catch {
+			process.exit(1);
+		}
 	}
 }

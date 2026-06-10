@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
 import { UndoCommand, RedoCommand } from '../../../../../../editor/browser/editorExtensions.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
@@ -34,8 +34,8 @@ function shouldHandleUndoRedo(editorService: IEditorService): boolean {
 	const { scopedContextKeyService } = instance;
 
 	// Read context keys from the scoped context service that actually has these keys bound
-	const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_FOCUSED.key) ?? false;
-	const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
+	const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(NotebookContextKeys.editorFocused.key) ?? false;
+	const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(NotebookContextKeys.cellEditorFocused.key) ?? false;
 
 	// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty
 	// This allows undo to work even when typing in a cell (common after adding a new cell)

@@ -138,7 +138,8 @@ export function evalTests(
 	getModelKeys().forEach((modelKey, index) => {
 		const modelConfig = getModelConfig(modelKey);
 
-		test.describe(modelKey, () => {
+		// Fix me: Skipping test for now as we transition to Posit Assistant
+		test.describe.fixme(modelKey, () => {
 			test.beforeAll(async ({ assistant }) => {
 				if (index > 0 || modelKey !== 'sonnet') {
 					await assistant.selectChatModel(modelConfig.pickerName);

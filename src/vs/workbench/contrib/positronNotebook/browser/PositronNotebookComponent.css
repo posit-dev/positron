@@ -1,36 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook {
-	/* Color variables used throughout notebooks */
-	--vscode-positronNotebook-foreground: var(
-		--vscode-positronDataExplorer-foreground
-	);
-	--vscode-positronNotebook-deemphasized-foreground: var(
-		--vscode-positronActionBar-foreground
-	);
-	--vscode-positronNotebook-img-placeholder-background: var(
-		--vscode-positronVariables-activeSelectionBackground
-	);
-	--vscode-positronNotebook-error-color: var(
-		--vscode-editorError-foreground,
-		orangered
-	);
-	--vscode-positronNotebook-border-color: var(--vscode-button-border, grey);
-	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
-	used to give the spinning effect */
-	--vscode-positronNotebook-border-color-offset: var(
-		--vscode-positronModalDialog-checkboxBorder,
-		grey
-	);
-	--vscode-positronNotebook-output-background: var(
-		--vscode-notebook-outputContainerBackgroundColor,
-		white
-	);
-	--vscode-positronNotebook-action-bar-background: var(--vscode-editor-background);
-	--vscode-positronNotebook-action-bar-border-color: var(--vscode-notebook-cellToolbarSeparator);
+	/*
+	 * Color variables are registered as theme colors in src/vs/workbench/common/theme.ts
+	 * (search for POSITRON_NOTEBOOK_*) and surfaced here automatically as
+	 * --vscode-positronNotebook-<field>. Do not redefine those custom properties in CSS —
+	 * overrides here would mask the theme contribution.
+	 */
 
 	/* Size variables used throughout notebooks */
 	--vscode-positronNotebook-cell-radius: 8px;
@@ -39,14 +18,11 @@
 		var(--vscode-positronNotebook-action-bar-h) / 2
 	);
 	--_positron-notebook-cell-gap: 4px;
-	--_positron-notebook-cells-padding-block: 1.5rem;
+	/* Match the top/bottom padding to the cell gap */
+	--_positron-notebook-cells-padding-block: var(--_positron-notebook-cell-gap);
 	--_positron-notebook-add-cell-buttons-height: 26px; /* Icon 18px + padding 8px */
 	/* Gap between buttons in cell and output action bars */
 	--_positron-notebook-cell-action-bar-button-gap: 0.25rem;
-
-	/* Misc variables */
-	--vscode-positronNotebook-border: 1px solid
-		var(--vscode-positronNotebook-border-color);
 
 	color: var(--vscode-positronNotebook-foreground);
 	user-select: text;

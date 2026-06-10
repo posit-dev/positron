@@ -21,7 +21,6 @@
     "defaultChatParticipant",
     "findFiles2",
     "inlineCompletionsAdditions",
-    "languageModelDataPart",
     "languageModelSystem"
   ],
   "contributes": {
@@ -239,6 +238,7 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
+            "markdownDeprecationMessage": "%configuration.enable.markdownDeprecationMessage%",
             "tags": [
               "preview"
             ]

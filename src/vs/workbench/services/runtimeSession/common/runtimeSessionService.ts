@@ -307,6 +307,14 @@ export interface ILanguageRuntimePackage {
 	 */
 	attached?: boolean;
 
+	/**
+	 * Whether the installed version is strictly older than the latest
+	 * available version. Computed by the language runtime using native
+	 * version semantics (R's `numeric_version`, Python's PEP 440) so the
+	 * frontend never re-implements version comparison.
+	 */
+	outdated?: boolean;
+
 	/** Optional short description or summary. */
 	description?: string;
 }

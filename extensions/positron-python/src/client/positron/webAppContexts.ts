@@ -13,7 +13,7 @@ function getSupportedLibraries(): string[] {
 }
 
 export function detectWebApp(document: vscode.TextDocument): void {
-    if (document.languageId !== 'python') {
+    if (document.languageId !== 'python' || document.uri.scheme === 'vscode-notebook-cell') {
         executeCommand('setContext', 'pythonAppFramework', undefined);
         return;
     }
@@ -101,9 +101,11 @@ export function activateAppDetection(disposables: vscode.Disposable[]): void {
     disposables.push(
         // Trigger when the active editor changes
         vscode.window.onDidChangeActiveTextEditor((editor) => {
+            activeEditor = editor;
             if (editor) {
-                activeEditor = editor;
                 triggerUpdateApp();
+            } else {
+                executeCommand('setContext', 'pythonAppFramework', undefined);
             }
         }),
 

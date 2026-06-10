@@ -27,7 +27,7 @@ import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNo
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
@@ -104,16 +104,17 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current) { return; }
+		if (!editorPartRef.current || !cell.scopedContextKeyService) { return; }
 
 		const disposables = new DisposableStore();
 
 		const language = cell.model.language;
 
-		// Create a scoped context key service for this editor's DOM element
-		// This creates a child context of the notebook's context, maintaining hierarchy
-		// IMPORTANT: The provider returns a scope that Monaco's CodeEditorWidget will use as parent
-		const editorContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
+		// Create a scoped context key service for this editor as a child of the cell's scope.
+		// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
+		// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
+		// from this one for editor-specific keys.
+		const editorContextKeyService = cell.scopedContextKeyService.createScoped(editorPartRef.current);
 		disposables.add(editorContextKeyService);
 
 		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
@@ -126,15 +127,6 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
-		//
-		// Monaco Context Key Service Configuration:
-		// We provide a scoped IContextKeyService to Monaco to ensure proper context hierarchy.
-		// This creates a chain: Global → Notebook → Cell → Editor
-		//
-		// Previous attempts to omit this caused keybinding leakage (notebook commands firing in editor).
-		// Previous naive implementations caused "double-scoping" by not setting inCompositeEditor flag.
-		//
-		// This implementation follows VSCode's pattern from cellRenderer.ts:282-285
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
@@ -184,7 +176,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		// Bind the cell editor focused context key to the editor's internal scoped service
 		// (CodeEditorWidget creates this synchronously in its constructor)
-		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
+		const cellEditorFocusedKey = NotebookContextKeys.cellEditorFocused.bindTo(editor.contextKeyService);
 
 		// Track whether the most recent mousedown had modifier keys held.
 		// Monaco's _onMouseDown calls focus() BEFORE emitting onMouseDown,

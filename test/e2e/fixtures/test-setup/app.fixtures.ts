@@ -15,6 +15,14 @@ export interface AppFixtureOptions {
 	logsPath: string;
 	logger: MultiLogger;
 	workerInfo: playwright.WorkerInfo;
+	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
+	/**
+	 * When true, suites opt into the legacy (VS Code) notebook editor. The local
+	 * (Electron/managed) apps apply this via the host `settingsFile` in `beforeApp`,
+	 * but the Docker-based apps (Jupyter, Workbench) read settings copied into the
+	 * container, so they must merge the override in themselves.
+	 */
+	useLegacyNotebookEditor?: boolean;
 }
 
 /**

@@ -2045,7 +2045,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		for (const [outputId, webview] of this._webviewsByOutputId) {
 			const container = this._webviewContainersByOutputId.get(outputId);
 			if (container) {
-				webview.webview.layoutWebviewOverElement(container, undefined, this._clippingContainer);
+				webview.webview.setAnchorElement(container, this._clippingContainer);
 			}
 		}
 	}
@@ -2549,7 +2549,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.layoutWebviewOverElement(webviewContainer, undefined, this._clippingContainer);
+			webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
 
 			// Listen for webview messages to get the actual content height
 			// The webview sends webviewMetrics messages with bodyScrollHeight when content loads/resizes
@@ -2562,7 +2562,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					webviewContainer.style.height = `${boundedHeight}px`;
 					// Update the view zone height and re-layout the webview
 					this._updateHeight();
-					webview.webview.layoutWebviewOverElement(webviewContainer, undefined, this._clippingContainer);
+					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
 				}
 			}));
 
@@ -2576,7 +2576,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.layoutWebviewOverElement(webviewContainer, undefined, this._clippingContainer);
+					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
 				}
 			}));
 
@@ -2646,7 +2646,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.layoutWebviewOverElement(container, undefined, this._clippingContainer);
+			webview.webview.setAnchorElement(container, this._clippingContainer);
 
 			// Listen for webview messages to get the actual content height
 			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
@@ -2655,7 +2655,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
 					container.style.height = `${boundedHeight}px`;
 					this._updateHeight();
-					webview.webview.layoutWebviewOverElement(container, undefined, this._clippingContainer);
+					webview.webview.setAnchorElement(container, this._clippingContainer);
 				}
 			}));
 
@@ -2669,7 +2669,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.layoutWebviewOverElement(container, undefined, this._clippingContainer);
+					webview.webview.setAnchorElement(container, this._clippingContainer);
 				}
 			}));
 

@@ -38,7 +38,7 @@ const parsedArgs = minimist(process.argv.slice(2), {
 	boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
 	// --- Start PWB ---
 	// PWB: adding cert and cert-key options to string arg list
-	string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'cert-key', 'cert'],
+	string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'agent-host-port', 'agent-host-path', 'cert-key', 'cert'],
 	// --- End PWB ---
 	alias: { help: 'h', version: 'v' }
 });
@@ -170,6 +170,25 @@ if (shouldSpawnCli) {
 		(globalThis as { vscodeServerListenTime?: number }).vscodeServerListenTime = performance.now();
 
 		await getRemoteExtensionHostAgentServer();
+
+		// --- Start Positron ---
+		// Start the kernel supervisor only after the license check in
+		// getRemoteExtensionHostAgentServer() passes.
+		//
+		// In web mode (used in Posit Workbench), start the Positron Kernel
+		// Supervisor process that will manage all the kernels for all the windows
+		// that connect to this server.
+		//
+		// If hasWebUi is false, then this is a headless REH server (probably remote
+		// SSH) and we'll let it manage its own kernels.
+		const hasWebUi =
+			fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
+		if (hasWebUi) {
+			await startKernelSupervisor();
+		} else {
+			console.info('Skipping Kernel Supervisor startup for headless REH server.');
+		}
+		// --- End Positron ---
 	});
 
 	process.on('exit', () => {
@@ -178,23 +197,6 @@ if (shouldSpawnCli) {
 			_remoteExtensionHostAgentServer.dispose();
 		}
 	});
-
-	// --- Start Positron ---
-	// In web mode (used in Posit Workbench), start the Positron Kernel
-	// Supervisor process that will manage all the kernels for all the windows
-	// that connect to this server. This speeds session startup significantly
-	// since the supervisor is already running when the first window connects.
-	//
-	// If hasWebUi is false, then this is a headless REH server (probably remote
-	// SSH) and we'll let it manage its own kernels.
-	const hasWebUi =
-		fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
-	if (hasWebUi) {
-		await startKernelSupervisor();
-	} else {
-		console.info('Skipping Kernel Supervisor startup for headless REH server.');
-	}
-	// --- End Positron ---
 }
 
 function sanitizeStringArg(val: unknown): string | undefined {
