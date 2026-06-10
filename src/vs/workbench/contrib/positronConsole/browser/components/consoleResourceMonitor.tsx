@@ -287,6 +287,7 @@ export const ConsoleResourceMonitor = ({ data, busy }: ConsoleResourceMonitorPro
 								data={data}
 								flushToBottom={true}
 								height={GRAPH_HEIGHT}
+								strokeWidth={1.5}
 								width={layout.graphWidth}
 							/>
 						</div>

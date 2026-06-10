@@ -80,6 +80,8 @@
 .console-resource-monitor .resource-usage-line {
 	fill: none;
 	stroke: var(--vscode-charts-lines, var(--vscode-foreground));
+	/* Keep in sync with the strokeWidth prop passed to ResourceUsageGraph in
+	   consoleResourceMonitor.tsx, which insets the baseline by half this value. */
 	stroke-width: 1.5;
 }
 

@@ -37,14 +37,21 @@ interface ResourceUsageGraphProps {
 	/** The height of the graph in pixels */
 	height: number;
 	/**
-	 * When true, the 0% baseline sits flush against the bottom edge so a flat
-	 * idle line rests directly on a surrounding bottom border (used by the
-	 * console action bar, whose graph is framed by a border). The SVG clips the
-	 * lower half of the stroke. When false (the default), the baseline is inset
+	 * When true, a flat idle line rests directly on a surrounding bottom border
+	 * (used by the console action bar, whose graph is framed by a border): the
+	 * 0% baseline is inset by half the stroke width so the bottom of the stroke
+	 * touches the bottom edge and the full stroke stays visible (rather than the
+	 * lower half being clipped). When false (the default), the baseline is inset
 	 * by {@link BOTTOM_PADDING} so the full stroke of a flat idle line is
 	 * visible (used by the console tab list, which has no surrounding border).
 	 */
 	flushToBottom?: boolean;
+	/**
+	 * Width of the line stroke in pixels. Used to inset the baseline when
+	 * {@link flushToBottom} is set so the full stroke clears the bottom edge.
+	 * Must match the `stroke-width` applied to `.resource-usage-line` in CSS.
+	 */
+	strokeWidth?: number;
 }
 
 const title = localize('positronConsole.resourceUsageGraph.title', 'CPU usage');
@@ -53,7 +60,7 @@ const title = localize('positronConsole.resourceUsageGraph.title', 'CPU usage');
  * ResourceUsageGraph component.
  * Renders an SVG line chart showing CPU utilization over time.
  */
-export const ResourceUsageGraph = ({ data, width, height, flushToBottom }: ResourceUsageGraphProps) => {
+export const ResourceUsageGraph = ({ data, width, height, flushToBottom, strokeWidth = 2 }: ResourceUsageGraphProps) => {
 	// Calculate the SVG path for the line and fill area
 	const { linePath, fillPath } = useMemo(() => {
 		if (data.length === 0) {
@@ -72,11 +79,12 @@ export const ResourceUsageGraph = ({ data, width, height, flushToBottom }: Resou
 		}
 
 		// Calculate the drawable height. The top is inset by TOP_PADDING so 100%
-		// doesn't clip. The 0% baseline sits either flush at the bottom edge (so
-		// a flat idle line rests on a surrounding border, with the SVG clipping
-		// the lower half of the stroke) or inset by BOTTOM_PADDING (so the full
-		// stroke of a flat idle line is visible). See flushToBottom.
-		const baseline = flushToBottom ? height : height - BOTTOM_PADDING;
+		// doesn't clip. The 0% baseline is inset from the bottom either by half
+		// the stroke width (so a flat idle line rests on a surrounding border
+		// with its full stroke visible rather than half-clipped) or by
+		// BOTTOM_PADDING (so the full stroke of a flat idle line is visible).
+		// See flushToBottom.
+		const baseline = flushToBottom ? height - strokeWidth / 2 : height - BOTTOM_PADDING;
 		const drawableHeight = baseline - TOP_PADDING;
 
 		// Build path points - draw from right edge, newest data on right
