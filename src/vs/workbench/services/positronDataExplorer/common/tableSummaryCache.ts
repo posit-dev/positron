@@ -206,77 +206,85 @@ export class TableSummaryCache extends Disposable {
 			return;
 		}
 
-		// Set the updating flag.
+		// Set the updating flag. This is cleared in the finally block below, even when a backend
+		// task rejects, so that a single failed update (e.g. a column profile timing out on a very
+		// wide dataset) cannot permanently wedge the cache and freeze summary pagination.
 		this._updating = true;
+		try {
+			// Get the size of the data.
+			const tableState = await this._dataExplorerClientInstance.getBackendState();
+			this._columns = tableState.table_shape.num_columns;
+			this._rows = tableState.table_shape.num_rows;
 
-		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
-
-		// Set the column indices of the column schema we need to load.
-		let columnIndices: number[];
-		if (updateDescriptor.invalidateCache) {
-			columnIndices = updateDescriptor.columnIndices;
-		} else {
-			columnIndices = [];
-			for (const index of updateDescriptor.columnIndices) {
-				if (!this._columnSchemaCache.has(index)) {
-					columnIndices.push(index);
+			// Set the column indices of the column schema we need to load.
+			let columnIndices: number[];
+			if (updateDescriptor.invalidateCache) {
+				columnIndices = updateDescriptor.columnIndices;
+			} else {
+				columnIndices = [];
+				for (const index of updateDescriptor.columnIndices) {
+					if (!this._columnSchemaCache.has(index)) {
+						columnIndices.push(index);
+					}
 				}
 			}
-		}
 
-		// Load the column schema.
-		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+			// Load the column schema.
+			const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-		// Invalidate the cache, if we're supposed to.
-		if (updateDescriptor.invalidateCache) {
-			this._columnSchemaCache.clear();
-			this._columnProfileCache.clear();
-		}
+			// Invalidate the cache, if we're supposed to.
+			if (updateDescriptor.invalidateCache) {
+				this._columnSchemaCache.clear();
+				this._columnProfileCache.clear();
+			}
 
-		// Cache the column schema that was returned.
-		for (const columnSchema of tableSchema.columns) {
-			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
-		}
+			// Cache the column schema that was returned.
+			for (const columnSchema of tableSchema.columns) {
+				this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+			}
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
 
-		// Update the column profile cache.
-		await this.updateColumnProfileCache(columnIndices);
+			// Update the column profile cache.
+			await this.updateColumnProfileCache(columnIndices);
 
-		// Clear the updating flag.
-		this._updating = false;
+			// Schedule trimming the cache if we didn't already invalidate the cache and we have
+			// column indices to keep. We don't want to schedule a trim if columnIndices is empty
+			// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
+			// is 0) because that would clear all cached data.
+			if (!updateDescriptor.invalidateCache && updateDescriptor.columnIndices.length) {
+				// Clear previously scheduled trim calls before scheduling a new one
+				// to prevent previously scheduled trim calls from clearing data that
+				// is now visible and should be in the cache. This can happen when a
+				// user is scrolling rapidly.
+				this.clearTrimCacheTimeout();
+				// Set the trim cache timeout.
+				this._trimCacheTimeout = setTimeout(() => {
+					// Release the trim cache timeout.
+					this._trimCacheTimeout = undefined;
+					// Trim the cache.
+					this.trimCache(new Set(updateDescriptor.columnIndices));
+				}, TRIM_CACHE_TIMEOUT);
+			}
+		} catch (error) {
+			// Log and swallow. Rethrowing would skip draining the pending descriptor below, which
+			// would stall scroll-driven updates after a transient backend failure.
+			console.error('Failed to update the table summary cache:', error);
+		} finally {
+			// Clear the updating flag.
+			this._updating = false;
 
-		// If there's a pending update descriptor, update the cache again.
-		if (this._pendingUpdateDescriptor) {
-			// Get the pending update descriptor and clear it.
-			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
-			this._pendingUpdateDescriptor = undefined;
+			// If an update arrived while this one was in flight, process it now so that scrolling
+			// continues to load columns even after a failure.
+			if (this._pendingUpdateDescriptor) {
+				// Get the pending update descriptor and clear it.
+				const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
+				this._pendingUpdateDescriptor = undefined;
 
-			// Update the cache for the pending update descriptor.
-			return this.update(pendingUpdateDescriptor);
-		}
-
-		// Schedule trimming the cache if we didn't already invalidate the cache and we have
-		// column indices to keep. We don't want to schedule a trim if columnIndices is empty
-		// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
-		// is 0) because that would clear all cached data.
-		if (!updateDescriptor.invalidateCache && updateDescriptor.columnIndices.length) {
-			// Clear previously scheduled trim calls before scheduling a new one
-			// to prevent previously scheduled trim calls from clearing data that
-			// is now visible and should be in the cache. This can happen when a
-			// user is scrolling rapidly.
-			this.clearTrimCacheTimeout();
-			// Set the trim cache timeout.
-			this._trimCacheTimeout = setTimeout(() => {
-				// Release the trim cache timeout.
-				this._trimCacheTimeout = undefined;
-				// Trim the cache.
-				this.trimCache(new Set(updateDescriptor.columnIndices));
-			}, TRIM_CACHE_TIMEOUT);
+				// Update the cache for the pending update descriptor.
+				await this.update(pendingUpdateDescriptor);
+			}
 		}
 	}
 
