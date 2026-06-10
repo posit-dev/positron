@@ -66,10 +66,14 @@ export function isWheelForwardMessage(message: unknown): message is WheelForward
 		&& typeof m.deltaY === 'number';
 }
 
-// Helper function for TypeScript typing
-function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) => void } {
-	throw new Error('Function not implemented.');
-}
+// Ambient declaration for the webview-provided global. This MUST be `declare`
+// (no runtime body): a real local function gets renamed by the bundler (e.g. to
+// `acquireVsCodeApi2`) along with its reference inside `webviewMessageCode`.
+// Since `webviewMessageCode` is injected into the webview via `.toString()`,
+// the renamed identifier doesn't exist there and the injected script throws
+// `acquireVsCodeApi2 is not defined`, so the output never reports its size and
+// renders blank. See also the matching declaration in `downloadUtils.ts`.
+declare function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) => void };
 
 function webviewMessageCode() {
 	const vscode = acquireVsCodeApi();
