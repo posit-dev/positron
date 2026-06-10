@@ -21,6 +21,12 @@ const PIXELS_PER_POINT = 2;
 const TOP_PADDING = 2;
 
 /**
+ * Bottom padding (when not drawing flush to the bottom) so the full stroke of a
+ * flat 0% idle line is visible rather than half-clipped by the SVG bounds.
+ */
+const BOTTOM_PADDING = 2;
+
+/**
  * ResourceUsageGraphProps interface.
  */
 interface ResourceUsageGraphProps {
@@ -30,6 +36,15 @@ interface ResourceUsageGraphProps {
 	width: number;
 	/** The height of the graph in pixels */
 	height: number;
+	/**
+	 * When true, the 0% baseline sits flush against the bottom edge so a flat
+	 * idle line rests directly on a surrounding bottom border (used by the
+	 * console action bar, whose graph is framed by a border). The SVG clips the
+	 * lower half of the stroke. When false (the default), the baseline is inset
+	 * by {@link BOTTOM_PADDING} so the full stroke of a flat idle line is
+	 * visible (used by the console tab list, which has no surrounding border).
+	 */
+	flushToBottom?: boolean;
 }
 
 const title = localize('positronConsole.resourceUsageGraph.title', 'CPU usage');
@@ -38,7 +53,7 @@ const title = localize('positronConsole.resourceUsageGraph.title', 'CPU usage');
  * ResourceUsageGraph component.
  * Renders an SVG line chart showing CPU utilization over time.
  */
-export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphProps) => {
+export const ResourceUsageGraph = ({ data, width, height, flushToBottom }: ResourceUsageGraphProps) => {
 	// Calculate the SVG path for the line and fill area
 	const { linePath, fillPath } = useMemo(() => {
 		if (data.length === 0) {
@@ -56,11 +71,12 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 			return { linePath: '', fillPath: '' };
 		}
 
-		// Calculate the drawable height. The top is inset by TOP_PADDING (so
-		// 100% doesn't clip); the 0% baseline sits right at the bottom edge so a
-		// flat line rests on the bottom border. The SVG clips the lower half of
-		// the stroke, leaving the line flush against the border with no gap.
-		const baseline = height;
+		// Calculate the drawable height. The top is inset by TOP_PADDING so 100%
+		// doesn't clip. The 0% baseline sits either flush at the bottom edge (so
+		// a flat idle line rests on a surrounding border, with the SVG clipping
+		// the lower half of the stroke) or inset by BOTTOM_PADDING (so the full
+		// stroke of a flat idle line is visible). See flushToBottom.
+		const baseline = flushToBottom ? height : height - BOTTOM_PADDING;
 		const drawableHeight = baseline - TOP_PADDING;
 
 		// Build path points - draw from right edge, newest data on right
@@ -85,18 +101,19 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 		const fillPoints = `${linePoints} L ${lastPoint.x} ${baseline} L ${firstPoint.x} ${baseline} Z`;
 
 		return { linePath: linePoints, fillPath: fillPoints };
-	}, [data, width, height]);
+	}, [data, width, height, flushToBottom]);
 
 	return (
 		<svg
 			className="resource-usage-graph"
 			height={height}
-			// Fill the rendered box on both axes rather than scaling uniformly.
-			// When flex shrinks the chip, the rendered width can fall below the
-			// declared width; the default "xMidYMid meet" would then scale the
-			// whole graph down and center it vertically, lifting the idle (0%)
-			// line off the bottom border. "none" keeps the baseline flush.
-			preserveAspectRatio="none"
+			// When drawing flush to the bottom, fill the rendered box on both
+			// axes rather than scaling uniformly. When flex shrinks the chip, the
+			// rendered width can fall below the declared width; the default
+			// "xMidYMid meet" would then scale the whole graph down and center it
+			// vertically, lifting the idle (0%) line off the bottom border.
+			// "none" keeps the baseline flush. Otherwise use the SVG default.
+			preserveAspectRatio={flushToBottom ? 'none' : undefined}
 			viewBox={`0 0 ${width} ${height}`}
 			width={width}
 		>

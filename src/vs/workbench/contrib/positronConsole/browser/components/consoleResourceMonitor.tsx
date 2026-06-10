@@ -302,6 +302,7 @@ export const ConsoleResourceMonitor = ({ data, busy }: ConsoleResourceMonitorPro
 						>
 							<ResourceUsageGraph
 								data={data}
+								flushToBottom={true}
 								height={GRAPH_HEIGHT}
 								width={layout.graphWidth}
 							/>
