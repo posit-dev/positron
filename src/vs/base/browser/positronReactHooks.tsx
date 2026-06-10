@@ -72,10 +72,12 @@ export const usePositronExtensionInstalled = (extensionId: string | ExtensionIde
  * @returns The context value.
  */
 export const usePositronContextKey = <T extends ContextKeyValue,>(key: string, watch: boolean = true, service?: IContextKeyService): T | undefined => {
-	// Always read the context unconditionally to satisfy the rules of hooks; the
-	// `service` override (e.g. an editor's scoped service) wins when provided.
-	const defaultContextKeyService = usePositronReactServicesContext().contextKeyService;
-	const contextKeyService = service ?? defaultContextKeyService;
+	// Always call the context hook to satisfy the rules of hooks, but only read
+	// `.contextKeyService` off it when no `service` override is given. This lets
+	// callers that pass a scoped service (e.g. an editor's scopedContextKeyService)
+	// work without a PositronReactServicesProvider in scope.
+	const services = usePositronReactServicesContext();
+	const contextKeyService = service ?? services.contextKeyService;
 	const [value, setValue] = useState(() => contextKeyService.getContextKeyValue<T>(key));
 
 	useEffect(() => {
