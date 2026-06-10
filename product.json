@@ -750,6 +750,10 @@
 		"google-cloud": [
 			"positron.authentication",
 			"posit.assistant"
+		],
+		"databricks": [
+			"positron.authentication",
+			"posit.assistant"
 		]
 	},
 	"onboardingKeymaps": [
