@@ -854,7 +854,14 @@ const grantTypesSupported = ['authorization_code', 'refresh_token', 'urn:ietf:pa
  * the spec and require an exact match.
  */
 export const DEFAULT_AUTH_FLOW_PORT = 33418;
-export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[]): Promise<IAuthorizationDynamicClientRegistrationResponse> {
+export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[],
+	// --- Start Positron ---
+	// Additional redirect URIs to register, e.g. the web client's own
+	// /callback route when served from a host that vscode.dev's redirect
+	// page will not forward to (https://github.com/posit-dev/positron/issues/13446).
+	additionalRedirectUris?: string[]
+	// --- End Positron ---
+): Promise<IAuthorizationDynamicClientRegistrationResponse> {
 	if (!serverMetadata.registration_endpoint) {
 		throw new Error('Server does not support dynamic registration');
 	}
@@ -874,7 +881,10 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			// only exact match on the redirect URI even
 			// though the spec says it should not care
 			// about the port.
-			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`
+			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
+			// --- Start Positron ---
+			...(additionalRedirectUris ?? [])
+			// --- End Positron ---
 		],
 		scope: scopes?.join(AUTH_SCOPE_SEPARATOR),
 		token_endpoint_auth_method: 'none',

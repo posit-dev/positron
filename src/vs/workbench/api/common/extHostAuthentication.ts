@@ -28,6 +28,10 @@ import { IProgressStep } from '../../../platform/progress/common/progress.js';
 import { CancellationError, isCancellationError } from '../../../base/common/errors.js';
 import { raceCancellationError, SequencerByKey } from '../../../base/common/async.js';
 
+// --- Start Positron ---
+import { getOAuthRedirectUri, getRegistrationRedirectUri } from './positron/extHostOAuthRedirect.js';
+// --- End Positron ---
+
 export interface IExtHostAuthentication extends ExtHostAuthentication { }
 export const IExtHostAuthentication = createDecorator<IExtHostAuthentication>('IExtHostAuthentication');
 
@@ -264,7 +268,15 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 			const authorizationServer = URI.revive(authorizationServerComponents);
 			if (serverMetadata.registration_endpoint) {
 				try {
-					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported);
+					// --- Start Positron ---
+					// On web clients served from arbitrary hosts (e.g. Posit Workbench),
+					// also register the client's own /callback route so it can be used
+					// as the OAuth redirect URI (vscode.dev's redirect page refuses to
+					// forward to hosts outside its allowlist).
+					// const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported);
+					const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logService);
+					const registration = await fetchDynamicRegistration(serverMetadata, this._initData.environment.appName, resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+					// --- End Positron ---
 					clientId = registration.client_id;
 					clientSecret = registration.client_secret;
 				} catch (err) {
@@ -606,7 +618,15 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		}
 
 		// Use a redirect URI that matches what was registered during dynamic registration
-		const redirectUri = 'https://vscode.dev/redirect';
+		// --- Start Positron ---
+		// On web clients served from arbitrary hosts (e.g. Posit Workbench), redirect
+		// straight to the client's own /callback route; vscode.dev's redirect page
+		// refuses to forward to hosts outside its allowlist. The full callback URL
+		// (including the vscode-* params) travels in the `state` parameter and is
+		// unwrapped by callback.html. See https://github.com/posit-dev/positron/issues/13446.
+		// const redirectUri = 'https://vscode.dev/redirect';
+		const redirectUri = getOAuthRedirectUri(state) ?? 'https://vscode.dev/redirect';
+		// --- End Positron ---
 		authorizationUrl.searchParams.append('redirect_uri', redirectUri);
 
 		const promise = this.waitForAuthorizationCode(callbackUri);
@@ -667,7 +687,13 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		const result = await this._proxy.$waitForUriHandler(expectedState);
 		// Extract the code parameter directly from the query string. NOTE, URLSearchParams does not work here because
 		// it will decode the query string and we need to keep it encoded.
-		const codeMatch = /[?&]code=([^&]+)/.exec(result.query || '');
+		// --- Start Positron ---
+		// Also match `code` as the first query parameter. The web client's
+		// callback page rebuilds the query with `code` first, which the
+		// upstream pattern (requiring a preceding ? or &) never matched.
+		// const codeMatch = /[?&]code=([^&]+)/.exec(result.query || '');
+		const codeMatch = /(?:^|[?&])code=([^&]+)/.exec(result.query || '');
+		// --- End Positron ---
 		if (!codeMatch || codeMatch.length < 2) {
 			// No code parameter found in the query string
 			throw new Error('Authentication failed: No authorization code received');
@@ -777,7 +803,13 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 
 	protected async _generateNewClientId(): Promise<void> {
 		try {
-			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported);
+			// --- Start Positron ---
+			// Match the redirect URIs used during initial registration; see
+			// $registerDynamicAuthProvider.
+			// const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported);
+			const registrationRedirectUri = await getRegistrationRedirectUri(this._extHostUrls, this._initData.environment.appUriScheme, this._logger);
+			const registration = await fetchDynamicRegistration(this._serverMetadata, this._initData.environment.appName, this._resourceMetadata?.scopes_supported, registrationRedirectUri ? [registrationRedirectUri] : undefined);
+			// --- End Positron ---
 			this._clientId = registration.client_id;
 			this._clientSecret = registration.client_secret;
 			this._onDidChangeClientId.fire();

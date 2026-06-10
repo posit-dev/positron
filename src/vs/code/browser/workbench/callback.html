@@ -17,7 +17,33 @@
 			}
 
 			const url = new URL(window.location.href);
-			const params = url.searchParams;
+			// --- Start Positron ---
+			// When an OAuth authorization server redirects here directly (instead of
+			// via vscode.dev/redirect), the original callback URL - carrying the
+			// vscode-* parameters - arrives wrapped in the OAuth `state` parameter.
+			// Unwrap it and merge the other received parameters (e.g. `code`) so the
+			// request looks the same as one forwarded by vscode.dev/redirect.
+			// See https://github.com/posit-dev/positron/issues/13446.
+			// const params = url.searchParams;
+			let params = url.searchParams;
+			if (!params.has('vscode-reqid') && params.has('state')) {
+				try {
+					const stateUrl = new URL(params.get('state'));
+					// Only unwrap a state that points back at this same callback page.
+					if (stateUrl.origin === url.origin && stateUrl.pathname === url.pathname) {
+						const merged = stateUrl.searchParams;
+						for (const [key, value] of params) {
+							if (key !== 'state') {
+								merged.set(key, value);
+							}
+						}
+						params = merged;
+					}
+				} catch {
+					// state is not a URL; fall through to the standard handling below.
+				}
+			}
+			// --- End Positron ---
 			const id = decode(params.get('vscode-reqid'));
 			const scheme = decode(params.get('vscode-scheme'));
 			const authority = decode(params.get('vscode-authority'));
