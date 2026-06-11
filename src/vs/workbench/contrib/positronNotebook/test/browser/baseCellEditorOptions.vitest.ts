@@ -41,4 +41,11 @@ describe('BaseCellEditorOptions', () => {
 		expect(options.value.lineNumbersMinChars).toBe(2);
 		expect(options.value.lineDecorationsWidth).toBe(10);
 	});
+
+	it('updates the line-number width via setLineNumbersMinChars', () => {
+		const options = createOptions();
+		expect(options.value.lineNumbersMinChars).toBe(2);
+		options.setLineNumbersMinChars(3);
+		expect(options.value.lineNumbersMinChars).toBe(3);
+	});
 });
