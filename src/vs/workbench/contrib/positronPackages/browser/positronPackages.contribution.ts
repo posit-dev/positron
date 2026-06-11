@@ -209,37 +209,6 @@ function showRestartSessionNotification(
 	);
 }
 
-/**
- * Shows a notification suggesting the user restart their session after updating all packages.
- */
-function showRestartSessionNotificationForUpdateAll(
-	notifications: INotificationService,
-	runtimeSessionService: IRuntimeSessionService,
-	commandService: ICommandService,
-	packagesService: IPositronPackagesService
-): void {
-	const session = packagesService.activeSession;
-	if (!session) {
-		return;
-	}
-
-	const message = nls.localize(
-		'positronPackages.restartSessionUpdateAll',
-		'Packages were updated. A session restart may be required for changes to take effect.'
-	);
-
-	notifications.prompt(
-		Severity.Info,
-		message,
-		[{
-			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
-			run: async () => {
-				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
-				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-			}
-		}]
-	);
-}
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
@@ -528,13 +497,22 @@ class UpdateAllPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					await service.updateAllPackages(cts.token);
-					showRestartSessionNotificationForUpdateAll(
-						notifications,
-						runtimeSessionService,
-						commandService,
-						service
-					);
+					const updated = await service.updateAllPackages(cts.token);
+					if (cts.token.isCancellationRequested) {
+						return;
+					}
+					if (updated.length === 0) {
+						notifications.info(nls.localize('positronPackages.allUpToDate', 'All packages are already up to date.'));
+					} else {
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationUpdated', 'updated'),
+							updated
+						);
+					}
 				} catch (e) {
 					notifications.error(cleanErrorMessage(e));
 					throw e;
