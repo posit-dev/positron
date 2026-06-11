@@ -9,12 +9,13 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget, PositronFindWidgetHandle, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
+import { PositronFindWidget, PositronFindWidgetHandle, type PositronFindWidgetKeybindingHints, type PositronFindWidgetReplaceProps } from './PositronFindWidget.js';
 import type { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import type { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
+import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Options for configuring the PositronFindInstance.
@@ -45,6 +46,16 @@ export interface IPositronFindInstanceOptions {
 	 * Context view service for dropdowns and suggestions.
 	 */
 	contextViewService: IContextViewService;
+
+	/**
+	 * Hover manager used to show tooltips on the widget's action buttons.
+	 */
+	hoverManager?: IHoverManager;
+
+	/**
+	 * Keybinding hints appended to the action button tooltips, e.g. " (F3)".
+	 */
+	keybindingHints?: PositronFindWidgetKeybindingHints;
 }
 
 /**
@@ -139,7 +150,9 @@ export class PositronFindInstance extends Disposable {
 				contextViewService: this._options.contextViewService,
 				findInputOptions: this._options.findInputOptions,
 				findText: this.searchString,
+				hoverManager: this._options.hoverManager,
 				isVisible: this._isVisible,
+				keybindingHints: this._options.keybindingHints,
 				matchCase: this.matchCase,
 				matchCount: this.matchCount,
 				matchIndex: this.matchIndex,

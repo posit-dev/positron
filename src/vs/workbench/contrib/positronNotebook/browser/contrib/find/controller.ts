@@ -147,6 +147,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	/**
 	 * Gets the find instance, creating it if necessary.
 	 */
+	/**
+	 * Returns a parenthesized keybinding hint for a command, e.g. " (F3)",
+	 * or an empty string when the command has no keybinding.
+	 */
+	private keybindingLabelFor(commandId: string): string {
+		const label = this._keybindingService.lookupKeybinding(commandId)?.getLabel();
+		return label ? ` (${label})` : '';
+	}
+
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
 			if (!this._notebook.overlayContainer) {
@@ -182,6 +191,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
+				hoverManager: this._notebook.hoverManager,
+				keybindingHints: {
+					previousMatch: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.previous),
+					nextMatch: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.next),
+					close: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.hide),
+					toggleReplace: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceStart),
+					replace: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replace),
+					replaceAll: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceAll),
+				},
 			}));
 			this._findInstance = findInstance;
 
