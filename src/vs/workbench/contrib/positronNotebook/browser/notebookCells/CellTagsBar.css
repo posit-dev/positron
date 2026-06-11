@@ -13,8 +13,10 @@
 	overflow-y: hidden;
 	/* Small, consistent gaps between pills and the add control. */
 	gap: 4px;
-	/* Tag-bar typography for footer and standalone (markdown / raw) placement. */
-	font-size: 11px;
+	/* Tag-bar typography for footer and standalone (markdown / raw) placement.
+	The registered size token (11px by default) keeps the bar in step with themes
+	or users that bump the base font sizes. */
+	font-size: var(--vscode-bodyFontSize-xSmall);
 }
 
 /* Standalone placement (markdown / raw cells, which have no footer). */
@@ -32,9 +34,13 @@ metadata, not a button. */
 	align-items: center;
 	box-sizing: border-box;
 	flex-shrink: 0;
-	height: 18px;
+	/* 18px at the default 11px font; tracks the size token so a larger font
+	doesn't clip descenders. */
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
 	padding: 0 8px;
-	border: 1px solid var(--vscode-widget-border);
+	/* A dedicated tag border color: the widget border is transparent in some
+	minimal themes, which left the pills invisible. */
+	border: 1px solid var(--vscode-positronNotebook-cellTagBorder);
 	border-radius: 999px;
 	background: transparent;
 	/* Muted footer text; also drives the close icon color via inherit. */
@@ -48,12 +54,12 @@ metadata, not a button. */
 `.monaco-workbench button { font-size: 100% }` is (0,1,1) and beats a single tag-bar
 class on its own; code cells only looked correct because the footer sets 11px so
 100% still computed to 11px -- standalone markdown / raw cells do not. Scoped under
-the tag bar (0,2,1) so explicit 11px wins in every placement. */
+the tag bar (0,2,1) so the explicit size wins in every placement. */
 .positron-notebook-cell-tags .positron-notebook-cell-tag-label {
 	border: none;
 	background: transparent;
 	color: inherit;
-	font-size: 11px;
+	font-size: var(--vscode-bodyFontSize-xSmall);
 	/* overflow:hidden (for the ellipsis) clips the line box, and at line-height:1
 	that box is too short for descenders (j/p/g) -- give it room; the 18px pill
 	centers the taller line box with space to spare. */
@@ -113,14 +119,14 @@ horizontally, so it stays reachable even in large tag sets. */
 	box-sizing: border-box;
 	flex-shrink: 0;
 	gap: 3px;
-	height: 18px;
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
 	padding: 0 8px;
-	border: 1px solid var(--vscode-widget-border);
+	border: 1px solid var(--vscode-positronNotebook-cellTagBorder);
 	border-radius: 999px;
 	/* Opaque so tags scrolling underneath it (while sticky) don't bleed through. */
 	background-color: var(--vscode-notebook-cellEditorBackground);
 	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
-	font-size: 11px;
+	font-size: var(--vscode-bodyFontSize-xSmall);
 	line-height: 1;
 	cursor: pointer;
 	position: sticky;
@@ -137,13 +143,13 @@ horizontally, so it stays reachable even in large tag sets. */
 	pointer-events: auto;
 }
 
-/* On hover the add pill picks up the accent/link color with a faint accent-tinted
-fill. The wash is mixed over the opaque footer background (not transparent) so the
-pill stays opaque while sticky. */
+/* On hover the add pill picks up the tag hover accent color with a faint
+accent-tinted fill. The wash is mixed over the opaque footer background (not
+transparent) so the pill stays opaque while sticky. */
 .positron-notebook-cell-tags .positron-notebook-cell-tag-add:hover {
-	color: var(--vscode-textLink-foreground);
-	border-color: var(--vscode-textLink-foreground);
-	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, var(--vscode-notebook-cellEditorBackground));
+	color: var(--vscode-positronNotebook-cellTagHoverForeground);
+	border-color: var(--vscode-positronNotebook-cellTagHoverForeground);
+	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, var(--vscode-notebook-cellEditorBackground));
 }
 
 .positron-notebook-cell-tags .positron-notebook-cell-tag-add-label {
@@ -159,18 +165,18 @@ needs neither the opaque backdrop nor the sticky pin. */
 }
 
 .positron-notebook-cell-tags.standalone .positron-notebook-cell-tag-add:hover {
-	background-color: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
+	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, transparent);
 }
 
 /* Tag codicons (close + plus) are scoped under the tag bar to reach specificity
 (0,4,0) and beat the workbench base `.monaco-workbench .codicon[class*='codicon-']`
 16px rule (0,3,0) -- otherwise the 10px size and inherited color are ignored.
 `add-small` in particular is drawn to fill its em box, so it reads heavy at the
-label's 11px; 10px keeps the plus at the label's cap height. color:inherit lets
-each affordance drive its own glyph color per state. */
+label size; one pixel under it keeps the plus at the label's cap height.
+color:inherit lets each affordance drive its own glyph color per state. */
 .positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon,
 .positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
-	font-size: 10px;
+	font-size: calc(var(--vscode-bodyFontSize-xSmall) - 1px);
 	line-height: 1;
 	color: inherit;
 }
@@ -191,7 +197,7 @@ display pill: 200px label + 16px horizontal padding + 2px border. */
 .positron-notebook-cell-tags .positron-notebook-cell-tag-input {
 	flex: 0 0 auto;
 	box-sizing: border-box;
-	height: 18px;
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
 	min-width: 70px;
 	max-width: 218px;
 	width: auto;
@@ -200,7 +206,7 @@ display pill: 200px label + 16px horizontal padding + 2px border. */
 	border: 1px solid var(--vscode-focusBorder);
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
-	font-size: 11px;
+	font-size: var(--vscode-bodyFontSize-xSmall);
 	line-height: 1;
 	padding: 0 8px;
 	outline: none;
