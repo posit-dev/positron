@@ -269,6 +269,15 @@ export class Sessions {
 			}
 
 			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
+
+			// Deleted sessions stay attached (hidden) in the DOM until the runtime
+			// finishes shutting down, and getSessionCount() counts attached nodes.
+			// Wait for full teardown so the next test's session-reuse check doesn't
+			// race it. Skipped on server/workbench, where delete() can intentionally
+			// leave a session behind (see workaround above).
+			if (!/(8080|8787)/.test(this.code.driver.currentPage.url())) {
+				await expect(this.sessions).toHaveCount(0, { timeout: 15000 });
+			}
 		});
 	}
 
