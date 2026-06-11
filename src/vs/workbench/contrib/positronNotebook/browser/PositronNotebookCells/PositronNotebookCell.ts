@@ -172,6 +172,13 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this.model.getValue();
 	}
 
+	getLineCount(): number {
+		// The editor model exists only while the cell is open and reflects
+		// in-flight edits; the text buffer is always present but can lag the
+		// edited cell. Prefer the model when open, fall back to the buffer.
+		return this.model.textModel?.getLineCount() ?? this.model.textBuffer.getLineCount();
+	}
+
 	async getTextEditorModel(): Promise<ITextModel> {
 		// Cache and reuse a single model reference for the lifetime of this cell.
 		// This reference will be disposed when the cell is disposed.
