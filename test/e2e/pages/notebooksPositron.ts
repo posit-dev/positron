@@ -100,6 +100,9 @@ export class PositronNotebooks extends Notebooks {
 	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
 	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
 	private searchDecoration = this.code.driver.currentPage.locator('.findMatchInline');
+	private searchMatchCaseToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Case' });
+	private searchWholeWordToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Whole Word' });
+	private searchRegexToggle = this.searchWidget.getByRole('checkbox', { name: 'Use Regular Expression' });
 
 	// Ghost Cell
 	private ghostCellHeader = this.code.driver.currentPage.locator('.ghost-cell-header');
@@ -1007,6 +1010,59 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Set a search option toggle to the given state.
+	 * Clicks the toggle only if its current state differs from the desired one.
+	 * @param toggle - The search option toggle to set.
+	 * @param enabled - The desired checked state.
+	 */
+	async searchSetToggle(toggle: 'matchCase' | 'wholeWord' | 'regex', enabled: boolean): Promise<void> {
+		await test.step(`Set search toggle ${toggle} to ${enabled}`, async () => {
+			const toggleLocator = {
+				matchCase: this.searchMatchCaseToggle,
+				wholeWord: this.searchWholeWordToggle,
+				regex: this.searchRegexToggle,
+			}[toggle];
+
+			if (await toggleLocator.getAttribute('aria-checked') !== String(enabled)) {
+				await toggleLocator.click();
+			}
+			await expect(toggleLocator).toHaveAttribute('aria-checked', String(enabled), { timeout: 2000 });
+		});
+	}
+
+	/**
+	 * Action: Fill the replace input without performing a replace.
+	 * Expands the replace row if it is not already visible.
+	 * @param replaceText - The text to fill into the replace input.
+	 */
+	async searchSetReplaceText(replaceText: string): Promise<void> {
+		await test.step(`Set replace text to: ${replaceText}`, async () => {
+			await this.searchExpandReplace();
+			await this.replaceInput.fill(replaceText);
+		});
+	}
+
+	/**
+	 * Action: Click the 'Replace' button.
+	 * Replaces the current match and advances to the next one. Note: if no
+	 * match is active yet, the first click only navigates to the first match
+	 * without replacing (two-step behavior, matching the editor find widget).
+	 */
+	async searchReplaceNext(): Promise<void> {
+		await test.step('Replace current match', async () => {
+			await this.replaceButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the 'Replace All' button.
+	 */
+	async searchReplaceAll(): Promise<void> {
+		await test.step('Replace all matches', async () => {
+			await this.replaceAllButton.click();
+		});
+	}
 
 	// #endregion
 
