@@ -659,7 +659,11 @@ export class AddTagAction extends NotebookAction2 {
 			// Don't refocus the cell before running -- we're about to open the inline
 			// tag input and want it to keep focus.
 			grabFocusOnRun: false,
-			precondition: NotebookContextKeys.editorFocused,
+			// Gate on the active editor, not editor focus: right-clicking rendered
+			// markdown content doesn't move DOM focus into the notebook container,
+			// so a focus-based precondition would show these disabled in the
+			// markdown cell context menu.
+			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 			menu: [{
 				// The cell action bar "..." submenu -- the only general cell menu
 				// available on code cells (their right-click menu is output-only).
@@ -707,7 +711,7 @@ export class ToggleCellTagsAction extends NotebookAction2 {
 			title: localize2('positronNotebook.toggleCellTags', "Toggle Cell Tag Visibility"),
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			f1: true,
-			precondition: NotebookContextKeys.editorFocused,
+			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.Tags,
@@ -733,7 +737,7 @@ export class RemoveAllCellTagsAction extends NotebookAction2 {
 			title: localize2('positronNotebook.removeAllCellTags', "Remove All Cell Tags"),
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			f1: true,
-			precondition: NotebookContextKeys.editorFocused,
+			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.Tags,
