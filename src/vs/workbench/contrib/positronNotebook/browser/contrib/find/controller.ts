@@ -50,6 +50,17 @@ export class CurrentPositronCellMatch {
 /** Maximum matches returned by research() for decorations. */
 const MATCHES_LIMIT = 999;
 
+/** Command IDs for the notebook find actions registered in actions.ts. */
+export const POSITRON_NOTEBOOK_FIND_COMMAND_IDS = {
+	start: 'positronNotebook.find.start',
+	hide: 'positronNotebook.find.hide',
+	next: 'positronNotebook.find.next',
+	previous: 'positronNotebook.find.previous',
+	replaceStart: 'positronNotebook.find.replaceStart',
+	replace: 'positronNotebook.find.replace',
+	replaceAll: 'positronNotebook.find.replaceAll',
+} as const;
+
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
