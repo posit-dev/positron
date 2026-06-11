@@ -4,54 +4,67 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import Database from 'better-sqlite3';
-import {
-	createGroupNode,
-	createIndexNode,
-	createTableNode,
-	createViewNode,
-} from './sqliteNodes.js';
+import { SqliteError, SqliteWorkerClient } from './sqliteWorkerClient.js';
+import { createRootNodes } from './sqliteNodes.js';
+
+/**
+ * Maps a worker-reported open/probe error to a user-facing message, preserving
+ * the wording used before SQLite moved into a child process.
+ */
+function describeOpenError(err: SqliteError, databasePath: string): string {
+	// Can't open error.
+	if (err?.code === 'SQLITE_CANTOPEN' || err?.message?.includes('directory does not exist')) {
+		return `Cannot open SQLite database: ${databasePath}. File does not exist or is not accessible.`;
+	}
+
+	// File is not a database error.
+	if (err?.message?.includes('file is not a database')) {
+		return `The file at ${databasePath} is not a valid SQLite database.`;
+	}
+
+	// Other errors.
+	return `Failed to open SQLite database: ${err?.message ?? err}`;
+}
 
 /**
  * A live SQLite connection implementing the DataConnection interface.
- * Opens the database in the constructor and provides schema browsing
- * via getChildren().
+ *
+ * The native SQLite database runs in a separate child process via
+ * SqliteWorkerClient, so a native failure (e.g. a corrupt database file or a
+ * native abort) takes down only that child instead of the entire extension
+ * host. This class is a thin host-side facade over the worker client; schema
+ * browsing is provided via getChildren().
  */
 export class SQLiteConnection implements positron.DataConnection {
-	// The open database handle, or null after disconnect.
-	private _db: Database.Database | null;
-
-	// Whether this connection was opened in read-only mode.
-	private readonly _readOnly: boolean;
+	// The worker client, or undefined before connect()/after disconnect().
+	private _client: SqliteWorkerClient | undefined;
 
 	/**
-	 * Constructor.
-	 * @param databasePath Absolute path to the SQLite database file.
-	 * @param readOnly Whether to open the database in read-only mode.
+	 * Constructor. Call connect() after constructing to open the database.
+	 * @param _databasePath Absolute path to the SQLite database file.
+	 * @param _readOnly Whether to open the database in read-only mode.
 	 */
-	constructor(databasePath: string, readOnly: boolean) {
+	constructor(
+		private readonly _databasePath: string,
+		private readonly _readOnly: boolean
+	) { }
+
+	/**
+	 * Opens the database in the worker process. Must be called before any other
+	 * method. Rejects with a descriptive error if the database cannot be opened
+	 * (e.g. a missing file, or a file that is not a valid SQLite database).
+	 */
+	async connect(): Promise<void> {
+		const client = new SqliteWorkerClient({ databasePath: this._databasePath, readOnly: this._readOnly });
 		try {
-			// Open the database.
-			this._db = new Database(databasePath, {
-				readonly: readOnly,
-				fileMustExist: true,
-			});
-
-			// Set the read only flag.
-			this._readOnly = readOnly;
-		} catch (err: any) {
-			// Can't open error.
-			if (err.code === 'SQLITE_CANTOPEN' || err.message?.includes('directory does not exist')) {
-				throw new Error(`Cannot open SQLite database: ${databasePath}. File does not exist or is not accessible.`);
-			}
-
-			// File is not a database error.
-			if (err.message?.includes('file is not a database')) {
-				throw new Error(`The file at ${databasePath} is not a valid SQLite database.`);
-			}
-
-			// Other errors.
-			throw new Error(`Failed to open SQLite database: ${err.message}`);
+			// Probe the connection so an open failure surfaces here rather than on
+			// the first schema query. better-sqlite3 validates the file as a
+			// database on first access, so this also catches "not a database".
+			await client.runQuery('SELECT 1');
+			this._client = client;
+		} catch (err) {
+			client.dispose();
+			throw new Error(describeOpenError(err as SqliteError, this._databasePath));
 		}
 	}
 
@@ -61,25 +74,7 @@ export class SQLiteConnection implements positron.DataConnection {
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-
-		return [
-			createGroupNode('Tables', positron.DataConnectionNodeKind.GroupTables, () => this._listObjects('table').map(name => createTableNode(this._db!, name))),
-			createGroupNode('Views', positron.DataConnectionNodeKind.GroupViews, () => this._listObjects('view').map(name => createViewNode(this._db!, name))),
-			createGroupNode('Indexes', positron.DataConnectionNodeKind.GroupIndexes, () => this._listObjects('index').map(name => createIndexNode(this._db!, name))),
-		];
-	}
-
-	/**
-	 * Lists object names of the given sqlite_master type ('table' | 'view' | 'index'),
-	 * excluding internal sqlite_-prefixed objects and auto-generated indexes (sqlite_autoindex_*
-	 * is already covered by the sqlite_ filter).
-	 */
-	private _listObjects(type: 'table' | 'view' | 'index'): string[] {
-		this._ensureConnected();
-		const rows = this._db!.prepare(
-			`SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%' ORDER BY name`
-		).all(type) as Array<{ name: string }>;
-		return rows.map(row => row.name);
+		return createRootNodes(this._client!);
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */
@@ -89,19 +84,19 @@ export class SQLiteConnection implements positron.DataConnection {
 
 	/** Closes the database. Idempotent -- safe to call multiple times. */
 	async disconnect(): Promise<void> {
-		if (this._db) {
-			this._db.close();
-			this._db = null;
-		}
+		this._client?.dispose();
+		this._client = undefined;
 	}
 
-	/** Checks whether the database handle is still open and operational. */
+	/** Checks whether the connection is still open and operational. */
 	async isConnected(): Promise<boolean> {
-		if (!this._db) {
+		// A crashed worker leaves the client present but not alive; don't respawn
+		// just to answer this.
+		if (!this._client || !this._client.isAlive) {
 			return false;
 		}
 		try {
-			this._db.prepare('SELECT 1').get();
+			await this._client.runQuery('SELECT 1');
 			return true;
 		} catch {
 			return false;
@@ -110,7 +105,7 @@ export class SQLiteConnection implements positron.DataConnection {
 
 	// Throws if the database has been disconnected.
 	private _ensureConnected(): void {
-		if (!this._db) {
+		if (!this._client) {
 			throw new Error('Database connection is closed');
 		}
 	}

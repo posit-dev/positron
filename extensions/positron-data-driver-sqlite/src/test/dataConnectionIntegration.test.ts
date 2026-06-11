@@ -44,6 +44,14 @@ suite('Data Connection Integration', () => {
 		return dbPath;
 	}
 
+	// Returns the children of the named top-level category group ('Tables' | 'Views' | 'Indexes').
+	async function groupChildren(conn: positron.DataConnection, groupName: string): Promise<positron.DataConnectionNode[]> {
+		const groups = await conn.getChildren();
+		const group = groups.find(g => g.name === groupName);
+		assert.ok(group, `group '${groupName}' should exist`);
+		return group.getChildren!();
+	}
+
 	suite('Driver Discovery', () => {
 
 		test('getDrivers returns the SQLite driver', async () => {
@@ -122,7 +130,7 @@ suite('Data Connection Integration', () => {
 			await conn.disconnect();
 		});
 
-		test('getChildren returns tables and views', async () => {
+		test('groups list tables and views', async () => {
 			// Create a test DB with two tables and one view.
 			const dbPath = createTestDb('schema.db', (db) => {
 				db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)');
@@ -136,19 +144,14 @@ suite('Data Connection Integration', () => {
 				readOnly: false,
 			});
 
-			// Get the children and assert that there are three.
-			const children = await conn.getChildren();
-			assert.strictEqual(children.length, 3);
-
-			// Get the tables and views and check that the correct number were returned.
-			const tables = children.filter(c => c.kind === positron.DataConnectionNodeKind.Table);
-			const views = children.filter(c => c.kind === positron.DataConnectionNodeKind.View);
+			// Navigate into the Tables and Views groups.
+			const tables = await groupChildren(conn, 'Tables');
+			const views = await groupChildren(conn, 'Views');
 			assert.strictEqual(tables.length, 2);
 			assert.strictEqual(views.length, 1);
 
 			// Test the table names and view name.
-			const tableNames = tables.map(t => t.name).sort();
-			assert.deepStrictEqual(tableNames, ['orders', 'users']);
+			assert.deepStrictEqual(tables.map(t => t.name).sort(), ['orders', 'users']);
 			assert.strictEqual(views[0].name, 'user_orders');
 
 			// Disconnect.
@@ -167,9 +170,9 @@ suite('Data Connection Integration', () => {
 				readOnly: true,
 			});
 
-			// Get the children, find the products node, and get its children.
-			const children = await conn.getChildren();
-			const productsNode = children.find(c => c.name === 'products');
+			// Navigate to the products table.
+			const tables = await groupChildren(conn, 'Tables');
+			const productsNode = tables.find(t => t.name === 'products');
 			assert.ok(productsNode);
 			assert.ok(productsNode.getChildren);
 
@@ -182,13 +185,9 @@ suite('Data Connection Integration', () => {
 			assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
 			assert.strictEqual(idField.dataType, 'INTEGER');
 
-			// Check the name field.
-			const nameField = fields.find(f => f.name === 'name')!;
-			assert.strictEqual(nameField.dataType, 'TEXT');
-
-			// Check the prixe field.
-			const priceField = fields.find(f => f.name === 'price')!;
-			assert.strictEqual(priceField.dataType, 'REAL');
+			// Check the name and price fields.
+			assert.strictEqual(fields.find(f => f.name === 'name')!.dataType, 'TEXT');
+			assert.strictEqual(fields.find(f => f.name === 'price')!.dataType, 'REAL');
 
 			// Check that the field nodes are leaves.
 			assert.strictEqual(idField.getChildren, undefined);
@@ -210,23 +209,21 @@ suite('Data Connection Integration', () => {
 				readOnly: false,
 			});
 
-			// Test view node.
-			const children = await conn.getChildren();
-			const viewNode = children.find(c => c.name === 'user_list');
+			// Navigate to the view node.
+			const views = await groupChildren(conn, 'Views');
+			const viewNode = views.find(v => v.name === 'user_list');
 			assert.ok(viewNode);
 			assert.ok(viewNode.getChildren);
 
 			// Test view fields.
 			const fields = await viewNode.getChildren!();
-			assert.strictEqual(fields.length, 2);
-			assert.strictEqual(fields[0].name, 'id');
-			assert.strictEqual(fields[1].name, 'name');
+			assert.deepStrictEqual(fields.map(f => f.name), ['id', 'name']);
 
 			// Disconnect.
 			await conn.disconnect();
 		});
 
-		test('empty database returns no children', async () => {
+		test('empty database has empty groups', async () => {
 			// Create a test DB.
 			const dbPath = createTestDb('empty.db');
 
@@ -236,9 +233,10 @@ suite('Data Connection Integration', () => {
 				readOnly: false,
 			});
 
-			// Test that there are no children.
-			const children = await conn.getChildren();
-			assert.strictEqual(children.length, 0);
+			// Test that the top-level groups exist but are empty.
+			const groups = await conn.getChildren();
+			assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views', 'Indexes']);
+			assert.strictEqual((await groupChildren(conn, 'Tables')).length, 0);
 
 			// Disconnect.
 			await conn.disconnect();
@@ -284,9 +282,8 @@ suite('Data Connection Integration', () => {
 			// Test that the test DB is read only.
 			assert.strictEqual(await conn.isReadOnly(), true);
 
-			// Test the children count.
-			const children = await conn.getChildren();
-			assert.strictEqual(children.length, 1);
+			// Test the table count.
+			assert.strictEqual((await groupChildren(conn, 'Tables')).length, 1);
 
 			// Disconnect.
 			await conn.disconnect();
@@ -328,7 +325,7 @@ suite('Data Connection Integration', () => {
 
 			// 3. Connect through the full stack:
 			//    ext host -> main thread service -> main thread adapter
-			//    -> RPC -> ext host $driverConnect -> SQLiteConnection
+			//    -> RPC -> ext host $driverConnect -> SQLiteConnection -> worker process
 			const conn = await positron.dataConnections.connect('positron-data-driver-sqlite', {
 				databasePath: dbPath,
 				readOnly: false,
@@ -336,12 +333,9 @@ suite('Data Connection Integration', () => {
 			assert.strictEqual(await conn.isConnected(), true);
 
 			// 4. Browse the schema tree (each call goes through the
-			//    main thread and back to the ext host).
-			const topLevel = await conn.getChildren();
-			assert.strictEqual(topLevel.length, 2);
-
-			// Test employees.
-			const employeesNode = topLevel.find(n => n.name === 'employees')!;
+			//    main thread and back to the ext host, then over IPC to the worker).
+			const tables = await groupChildren(conn, 'Tables');
+			const employeesNode = tables.find(n => n.name === 'employees')!;
 			assert.strictEqual(employeesNode.kind, positron.DataConnectionNodeKind.Table);
 			assert.ok(employeesNode.getChildren);
 
@@ -359,8 +353,9 @@ suite('Data Connection Integration', () => {
 			assert.strictEqual(fields[0].kind, positron.DataConnectionNodeKind.Field);
 			assert.strictEqual(fields[0].getChildren, undefined);
 
-			// Test department_count/
-			const viewNode = topLevel.find(n => n.name === 'department_count')!;
+			// Test department_count.
+			const views = await groupChildren(conn, 'Views');
+			const viewNode = views.find(n => n.name === 'department_count')!;
 			assert.strictEqual(viewNode.kind, positron.DataConnectionNodeKind.View);
 			const viewFields = await viewNode.getChildren!();
 			assert.strictEqual(viewFields.length, 2);

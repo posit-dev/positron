@@ -30,6 +30,7 @@ test.use({
 test.describe('Python Venv Auto-Creation', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
+	test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 	test.slow();
 
 	test.beforeAll(async function ({ settings }) {
@@ -41,8 +42,6 @@ test.describe('Python Venv Auto-Creation', {
 	});
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
-		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
-
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');

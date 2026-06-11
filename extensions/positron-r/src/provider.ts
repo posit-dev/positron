@@ -388,23 +388,85 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 }
 
 /**
+ * The kinds of packager metadata an R binary can carry, declared in ascending
+ * order of precedence. When a single binary path is contributed by multiple
+ * sources, the surviving metadata is the one whose kind is declared latest here.
+ * The ordering reflects how much each kind determines correct launch behavior:
+ * metadata that injects a startup command or activates an environment (Module,
+ * Conda, Pixi) outranks the merely descriptive RVersions metadata, which in turn
+ * outranks no metadata at all (a plain system/PATH discovery).
+ *
+ * To add a packager source, declare its kind at the right position here and add
+ * the matching branch to {@link classifyMetadata}; precedence follows declaration
+ * order, so no separate ranking needs maintaining.
+ */
+enum MetadataKind {
+	None = 'none',
+	RVersions = 'rversions',
+	Conda = 'conda',
+	Pixi = 'pixi',
+	Module = 'module',
+}
+
+/** Precedence lookup derived from {@link MetadataKind} declaration order. */
+const METADATA_PRECEDENCE: readonly MetadataKind[] = Object.values(MetadataKind);
+
+/**
+ * Classify packager metadata into one of the {@link MetadataKind} values. The
+ * trailing `never` assignment makes this exhaustive: adding a new PackagerMetadata
+ * variant without handling it here is a compile error.
+ */
+function classifyMetadata(metadata: PackagerMetadata | undefined): MetadataKind {
+	if (!metadata) {
+		return MetadataKind.None;
+	}
+	if (isModuleMetadata(metadata)) {
+		return MetadataKind.Module;
+	}
+	if (isPixiMetadata(metadata)) {
+		return MetadataKind.Pixi;
+	}
+	if (isCondaMetadata(metadata)) {
+		return MetadataKind.Conda;
+	}
+	if (isRVersionsMetadata(metadata)) {
+		return MetadataKind.RVersions;
+	}
+	const unhandled: never = metadata;
+	throw new Error(`Unhandled packager metadata: ${JSON.stringify(unhandled)}`);
+}
+
+/**
+ * Rank packager metadata by its position in {@link METADATA_PRECEDENCE}; higher wins.
+ *
+ * @param metadata The packager metadata to rank, or `undefined` if none.
+ * @returns A numeric priority; higher wins.
+ */
+function metadataPriority(metadata: PackagerMetadata | undefined): number {
+	return METADATA_PRECEDENCE.indexOf(classifyMetadata(metadata));
+}
+
+/**
  * Deduplicate a list of R binaries, merging the reasons for each binary.
- * When the same binary is found via multiple sources, prefer r-versions metadata
- * with a label since it provides a custom display name.
+ * When the same binary is found via multiple sources, retain the metadata that
+ * most affects how the runtime launches (see {@link metadataPriority}). Ties keep
+ * the first-seen metadata for stability.
  * @param binaries Binaries to deduplicate
  * @returns Deduplicated binaries
  */
-function deduplicateRBinaries(binaries: RBinary[]) {
+export function deduplicateRBinaries(binaries: RBinary[]) {
 	const binariesMap = binaries.reduce((acc, binary) => {
 		if (acc.has(binary.path)) {
 			const existingBinary = acc.get(binary.path)!;
 			const mergedReasons = Array.from(new Set([...existingBinary.reasons, ...binary.reasons]));
 
-			// Prefer r-versions metadata with a label over other metadata
-			let preferredMetadata = existingBinary.packagerMetadata;
-			if (binary.packagerMetadata && isRVersionsMetadata(binary.packagerMetadata) && binary.packagerMetadata.label) {
-				preferredMetadata = binary.packagerMetadata;
-			}
+			// Keep whichever metadata most affects how the runtime launches. The
+			// incoming entry only wins on a strictly higher priority, so ties
+			// preserve the first-seen metadata.
+			const preferredMetadata =
+				metadataPriority(binary.packagerMetadata) > metadataPriority(existingBinary.packagerMetadata)
+					? binary.packagerMetadata
+					: existingBinary.packagerMetadata;
 
 			acc.set(binary.path, { ...existingBinary, reasons: mergedReasons, packagerMetadata: preferredMetadata });
 		} else {

@@ -333,6 +333,9 @@ jobs:
       - name: Install R packages for 4.4.0
         run: |
           Rscript -e "install.packages('pak')"
+          # openssl 2.4.1 Windows binary was never published to the package manager; pin to 2.4.2
+          # so pak doesn't attempt to download the missing binary.
+          Rscript -e "pak::pak('openssl@2.4.2')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       - name: Save R packages cache

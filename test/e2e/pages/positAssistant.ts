@@ -227,6 +227,42 @@ export class PositAssistant {
 	}
 
 	/**
+	 * Sends a message and waits for the response to complete, automatically
+	 * clicking "Allow for this session" whenever a tool confirmation dialog
+	 * appears. Handles multiple tool calls and dialogs that appear before or
+	 * after streaming begins.
+	 */
+	async sendMessageAndWait(message: string, options: { timeout?: number; newConversation?: boolean } = {}): Promise<void> {
+		const { timeout = 90000, newConversation = true } = options;
+		if (newConversation) {
+			await this.startNewConversation();
+		}
+		await this.enterMessage(message);
+		await this.clickSend();
+
+		const stopButton = this.frame.locator(STOP_BUTTON);
+		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		const deadline = Date.now() + timeout;
+
+		// Wait for streaming to start
+		await stopButton.waitFor({ state: 'visible', timeout });
+
+		// Loop while streaming: click "Allow for this session" whenever the
+		// tool confirmation dropdown appears, then wait for it to clear.
+		while (await stopButton.isVisible()) {
+			if (Date.now() > deadline) {
+				throw new Error(`Response did not complete within ${timeout}ms`);
+			}
+			if (await trigger.isVisible().catch(() => false)) {
+				await trigger.click();
+				await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+			} else {
+				await this.code.driver.currentPage.waitForTimeout(200);
+			}
+		}
+	}
+
+	/**
 	 * Waits for the chat response to complete by waiting for the stop button
 	 * to appear (busy) and then disappear (done).
 	 * @param timeout Maximum time to wait in milliseconds (default: 60000)
@@ -465,6 +501,24 @@ export class PositAssistant {
 	async allowToolForSession(): Promise<void> {
 		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
 		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+	}
+
+	/**
+	 * Selects "Allow for this session" if the tool confirmation dropdown appears
+	 * within the given timeout. Silently does nothing if it never shows up.
+	 *
+	 * The tool dialog can appear before OR after streaming begins, so this does
+	 * not race against the stop button — it simply waits the full timeout.
+	 */
+	async allowToolForSessionIfVisible(timeout = 30000): Promise<void> {
+		const appeared = await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER)
+			.waitFor({ state: 'visible', timeout })
+			.then(() => true)
+			.catch(() => false);
+		if (appeared) {
+			await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
+			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+		}
 	}
 
 	/**
