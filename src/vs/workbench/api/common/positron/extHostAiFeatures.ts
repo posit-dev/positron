@@ -11,6 +11,7 @@ import * as extHostProtocol from './extHost.positron.protocol.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
@@ -24,6 +25,9 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	private readonly _disposables: DisposableStore = new DisposableStore();
 	private readonly _providerActionCallbacks = new Map<string, (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
 	private readonly _dialogSessions = new Map<string, { resolve: () => void }>();
+	private readonly _onDidChangeProviderConfigEmitter = this._disposables.add(new Emitter<IPositronLanguageModelSource>());
+
+	readonly onDidChangeProviderConfig = this._onDidChangeProviderConfigEmitter.event;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -61,8 +65,16 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
-		this._proxy.$enrichProvider(id, update);
+	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+		this._proxy.$updateProvider(id, update);
+	}
+
+	async getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
+		return this._proxy.$getRegisteredProviders();
+	}
+
+	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void {
+		this._onDidChangeProviderConfigEmitter.fire(source);
 	}
 
 	async showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {

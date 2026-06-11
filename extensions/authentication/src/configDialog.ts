@@ -28,6 +28,36 @@ const onSaveCallbacks = new Map<string, OnSaveCallback>();
 
 const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
 
+// Global state used to persist which providers have previously signed in,
+// so that after a reload an empty session list can be reported as an
+// expired session ('error') rather than a never-configured provider (null).
+let globalState: vscode.Memento | undefined;
+
+/**
+ * Provide access to the extension's global state for credential tracking.
+ * Call once during activation, before any provider updates.
+ */
+export function initializeCredentialTracking(context: vscode.ExtensionContext): void {
+	globalState = context.globalState;
+}
+
+function previouslySignedInKey(providerId: string): string {
+	return `authentication.previouslySignedIn.${providerId}`;
+}
+
+function wasPreviouslySignedIn(providerId: string): boolean {
+	return globalState?.get<boolean>(previouslySignedInKey(providerId)) === true;
+}
+
+/**
+ * Record or clear the persisted "previously signed in" flag for a provider.
+ * Cleared on explicit sign-out so a later empty session list reads as
+ * "not configured" rather than "expired".
+ */
+export function setPreviouslySignedIn(providerId: string, value: boolean): void {
+	globalState?.update(previouslySignedInKey(providerId), value ? true : undefined);
+}
+
 /**
  * Register an auth provider so the config dialog can store/remove
  * credentials through it.
@@ -61,10 +91,10 @@ export function getAuthProvider(
 }
 
 /**
- * Enrich a provider's signedIn and autoconfigure state from its current sessions.
+ * Update a provider's signedIn and autoconfigure state from its current sessions.
  * The caller is responsible for fetching sessions via the appropriate mechanism.
  */
-export function enrichProviderFromSessions(
+export function updateProviderFromSessions(
 	providerId: string,
 	sessions: vscode.AuthenticationSession[],
 ): void {
@@ -76,9 +106,25 @@ export function enrichProviderFromSessions(
 		// "authenticated automatically" UI and hide the sign-out button.
 		const isAutoSession = signedIn && sessions[0].id === providerId;
 
+		// Distinguish "configured but expired" from "never configured" using
+		// the persisted flag. Copilot is excluded: it rides GitHub's built-in
+		// auth, so an Accounts-menu sign-out is indistinguishable from expiry.
+		let status: 'ok' | 'error' | null;
+		let statusMessage: string | undefined;
+		if (signedIn) {
+			setPreviouslySignedIn(providerId, true);
+			status = 'ok';
+		} else if (providerId !== 'copilot-auth' && wasPreviouslySignedIn(providerId)) {
+			status = 'error';
+			statusMessage = vscode.l10n.t('Authentication expired');
+		} else {
+			status = null;
+		}
+
 		if (isAutoSession && providerId === FOUNDRY_AUTH_PROVIDER_ID && hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-			positron.ai.enrichProvider(providerId, {
+			positron.ai.updateProvider(providerId, {
 				signedIn,
+				status,
 				defaults: {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -88,8 +134,9 @@ export function enrichProviderFromSessions(
 				},
 			});
 		} else if (isAutoSession && providerId === 'snowflake-cortex' && hasManagedCredentials(SNOWFLAKE_MANAGED_CREDENTIALS)) {
-			positron.ai.enrichProvider(providerId, {
+			positron.ai.updateProvider(providerId, {
 				signedIn,
+				status,
 				defaults: {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -102,13 +149,13 @@ export function enrichProviderFromSessions(
 			// Generic autoconfigure (e.g. env-var credentials): mark the
 			// provider's autoconfigure default as signed in so the dialog shows
 			// the "authenticated automatically" UI. Preserve the registered
-			// autoconfigure type/key, which enrichProvider replaces wholesale.
+			// autoconfigure type/key, which updateProvider replaces wholesale.
 			const autoconfigure = isAutoSession
 				? getProviderSources().find(s => s.provider.id === providerId)?.defaults.autoconfigure
 				: undefined;
-			positron.ai.enrichProvider(providerId, autoconfigure
-				? { signedIn, defaults: { autoconfigure: { ...autoconfigure, signedIn: true } } }
-				: { signedIn });
+			positron.ai.updateProvider(providerId, autoconfigure
+				? { signedIn, status, statusMessage, defaults: { autoconfigure: { ...autoconfigure, signedIn: true } } }
+				: { signedIn, status, statusMessage });
 		}
 	} catch (err) {
 		log.error(`Failed to check credential state for ${providerId}: ${err instanceof Error ? err.message : String(err)}`);
@@ -262,6 +309,7 @@ async function handleDelete(
 		);
 	}
 	log.info(`Deleting ${deletable.length} session(s) for provider "${providerId}"`);
+	setPreviouslySignedIn(providerId, false);
 	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}

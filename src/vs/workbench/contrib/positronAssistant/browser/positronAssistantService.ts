@@ -53,12 +53,19 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	// activation, independent of sign-in state.
 	private _providerRegistrations = new Map<string, IPositronLanguageModelSource>();
 
+	// Providers already notified about an 'error' status. Prevents repeat
+	// notifications until the provider returns to 'ok'/null or is
+	// unregistered.
+	private _statusErrorNotified = new Set<string>();
+
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
 	readonly onChangeEnabledProviders = this._enabledProvidersEmitter.event;
 	readonly onChangeProviderConfig = this._onChangeProviderConfigEmitter.event;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super();
 
@@ -83,20 +90,36 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	unregisterProvider(id: string): void {
 		const source = this._providerRegistrations.get(id);
 		this._providerRegistrations.delete(id);
+		this._statusErrorNotified.delete(id);
 		if (source) {
 			this._onChangeProviderConfigEmitter.fire(source);
 		}
 	}
 
-	enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
 		const source = this._providerRegistrations.get(id);
 		if (!source) {
-			console.warn(`Cannot enrich unknown provider: ${id}`);
+			console.warn(`Cannot update unknown provider: ${id}`);
 			return;
 		}
 
 		if (update.signedIn !== undefined) {
 			source.signedIn = update.signedIn;
+			// A fresh sign-in invalidates prior health observations.
+			if (update.signedIn && update.status === undefined) {
+				source.status = 'ok';
+				source.statusMessage = undefined;
+			}
+		}
+		if (update.statusMessage !== undefined) {
+			source.statusMessage = update.statusMessage;
+		}
+		if (update.status !== undefined) {
+			// An explicit null is stored; only undefined means "leave untouched".
+			source.status = update.status;
+			if (update.status !== 'error') {
+				source.statusMessage = undefined;
+			}
 		}
 		if (update.authMethods !== undefined) {
 			source.authMethods = update.authMethods;
@@ -114,6 +137,37 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		if (id === 'copilot-auth' && update.signedIn !== undefined) {
 			this.copilotEnabled = !!update.signedIn;
 		}
+
+		this.notifyProviderStatusError(source);
+	}
+
+	/**
+	 * Surface a provider's 'error' status as a notification, once per
+	 * provider until the status returns to 'ok'/null.
+	 */
+	private notifyProviderStatusError(source: IPositronLanguageModelSource): void {
+		const id = source.provider.id;
+
+		if (source.status !== 'error') {
+			this._statusErrorNotified.delete(id);
+			return;
+		}
+		if (this._statusErrorNotified.has(id) || !this.isProviderEnabled(id)) {
+			return;
+		}
+		this._statusErrorNotified.add(id);
+
+		const message = source.statusMessage
+			? localize('positron.providerStatusError', "{0}: {1}", source.provider.displayName, source.statusMessage)
+			: localize('positron.providerStatusErrorGeneric', "{0} reported a problem with its configuration or credentials.", source.provider.displayName);
+		this._notificationService.prompt(
+			Severity.Info,
+			message,
+			[{
+				label: localize('positron.configureProvider', "Configure"),
+				run: () => this._commandService.executeCommand('authentication.configureProviders', { preselectedProviderId: id }),
+			}]
+		);
 	}
 
 	getRegisteredSources(): IPositronLanguageModelSource[] {

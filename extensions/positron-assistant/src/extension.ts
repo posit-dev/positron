@@ -567,7 +567,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const storedModels = getStoredModels(context);
 			if (storedModels.length) {
 				storedModels.forEach(stored => {
-					positron.ai.enrichProvider(stored.provider, { signedIn: true });
+					positron.ai.updateProvider(stored.provider, { signedIn: true });
 				});
 			}
 		} catch (error) {

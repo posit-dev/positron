@@ -472,7 +472,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 							this._context,
 							this
 						).then(() => {
-							positron.ai.enrichProvider(this._config.provider, { signedIn: true });
+							positron.ai.updateProvider(this._config.provider, { signedIn: true });
 							PositronAssistantApi.get().notifySignIn(this.providerName);
 						});
 					}

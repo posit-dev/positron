@@ -287,7 +287,8 @@ export interface MainThreadAiFeaturesShape {
 	$getChatExport(): Thenable<object | undefined>;
 	$registerProvider(registration: IPositronLanguageModelSource): void;
 	$unregisterProvider(id: string): void;
-	$enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
+	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
+	$getRegisteredProviders(): Promise<IPositronLanguageModelSource[]>;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	$getCurrentChatMode(): Thenable<string | undefined>;
@@ -299,6 +300,7 @@ export interface MainThreadAiFeaturesShape {
 export interface ExtHostAiFeaturesShape {
 	$responseProviderAction(source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
+	$onDidChangeProviderConfig(source: IPositronLanguageModelSource): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
 	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;

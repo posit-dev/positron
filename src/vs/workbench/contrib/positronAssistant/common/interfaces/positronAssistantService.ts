@@ -70,6 +70,8 @@ export interface IPositronLanguageModelSource {
 	defaults: IPositronLanguageModelConfig;
 	signedIn?: boolean;
 	authMethods?: string[];
+	status?: 'ok' | 'error' | null;
+	statusMessage?: string;
 }
 
 // Equivalent in positron.d.ts API: LanguageModelAutoconfigureType
@@ -156,7 +158,7 @@ export interface IPositronAssistantConfigurationService {
 	registerProvider(source: IPositronLanguageModelSource): void;
 
 	/**
-	 * Unregisters a provider, removing its registration and enrichment state.
+	 * Unregisters a provider, removing its registration and dynamic state.
 	 * Fires onChangeProviderConfig so open dialogs update immediately.
 	 *
 	 * @param id Provider ID to unregister
@@ -168,9 +170,9 @@ export interface IPositronAssistantConfigurationService {
 	 * Fires onChangeProviderConfig so listeners react immediately.
 	 *
 	 * @param id Provider ID (must match a previously registered provider)
-	 * @param enrichment Partial state to deep-merge
+	 * @param update Partial state to deep-merge
 	 */
-	enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
+	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
 
 	/**
 	 * Returns sources for all registered, enabled providers.
@@ -179,7 +181,7 @@ export interface IPositronAssistantConfigurationService {
 
 	/**
 	 * Event that fires when a provider's configuration changes via
-	 * registerProvider, unregisterProvider, or enrichProvider.
+	 * registerProvider, unregisterProvider, or updateProvider.
 	 */
 	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
 

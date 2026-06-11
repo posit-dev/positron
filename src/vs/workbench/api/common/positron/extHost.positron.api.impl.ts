@@ -463,8 +463,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerProvider(source: positron.ai.LanguageModelSource, onAction?: (source: positron.ai.LanguageModelSource, config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): vscode.Disposable {
 				return extHostAiFeatures.registerProvider(extension, source as IPositronLanguageModelSource, onAction as (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>);
 			},
-			enrichProvider(id: string, update: Partial<positron.ai.LanguageModelSource>): void {
-				return extHostAiFeatures.enrichProvider(id, update as Partial<IPositronLanguageModelSource>);
+			updateProvider(id: string, update: Partial<positron.ai.LanguageModelSource>): void {
+				return extHostAiFeatures.updateProvider(id, update as Partial<IPositronLanguageModelSource>);
+			},
+			getRegisteredProviders(): Thenable<positron.ai.LanguageModelSource[]> {
+				return extHostAiFeatures.getRegisteredProviders() as Thenable<positron.ai.LanguageModelSource[]>;
+			},
+			onDidChangeProviderConfig: (listener, thisArgs?, disposables?) => {
+				return extHostAiFeatures.onDidChangeProviderConfig(
+					source => listener.call(thisArgs, source as positron.ai.LanguageModelSource),
+					undefined,
+					disposables
+				);
 			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);

@@ -36,6 +36,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		super();
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostAiFeatures);
+
+		// Forward provider configuration changes to the extension host.
+		this._register(this._positronAssistantConfigurationService.onChangeProviderConfig(source => {
+			this._proxy.$onDidChangeProviderConfig(source);
+		}));
 	}
 
 	/**
@@ -111,8 +116,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		this._positronAssistantConfigurationService.registerProvider(registration);
 	}
 
-	$enrichProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
-		this._positronAssistantConfigurationService.enrichProvider(id, update);
+	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+		this._positronAssistantConfigurationService.updateProvider(id, update);
 
 		// Invalidate the provider's model cache so the model picker and
 		// welcome view update to reflect that the provider is no longer
@@ -125,6 +130,10 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	$unregisterProvider(id: string): void {
 		this._positronAssistantConfigurationService.unregisterProvider(id);
 		this._languageModelsService.invalidateProvider(id);
+	}
+
+	async $getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
+		return this._positronAssistantConfigurationService.getRegisteredSources();
 	}
 
 	/**

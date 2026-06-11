@@ -139,7 +139,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 
 	clearTokenUsage(targetConfig.provider);
 
-	positron.ai.enrichProvider(targetConfig.provider, { signedIn: false });
+	positron.ai.updateProvider(targetConfig.provider, { signedIn: false });
 
 	// Refresh CopilotService signed-in state if this was a copilot model
 	if (targetConfig.provider === 'copilot-auth') {

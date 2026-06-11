@@ -3101,6 +3101,17 @@ declare module 'positron' {
 			defaults: LanguageModelConfig;
 			signedIn?: boolean;
 			authMethods?: string[];
+			/**
+			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
+			 * problem worth surfacing, described by `statusMessage`; `null` =
+			 * nothing to report.
+			 */
+			status?: 'ok' | 'error' | null;
+			/**
+			 * Human-readable reason when `status` is `'error'`
+			 * (e.g. "Authentication expired").
+			 */
+			statusMessage?: string;
 		}
 
 		/**
@@ -3224,7 +3235,20 @@ declare module 'positron' {
 		 * @param id Provider ID (must match a previously registered provider)
 		 * @param update Partial state to deep-merge
 		 */
-		export function enrichProvider(id: string, update: Partial<LanguageModelSource>): void;
+		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
+
+		/**
+		 * Returns the sources of all registered, enabled language model
+		 * providers, including their current `signedIn`, `status`, and
+		 * `statusMessage` state.
+		 */
+		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
+
+		/**
+		 * Event that fires when a provider's configuration changes via
+		 * registerProvider, unregisterProvider, or updateProvider.
+		 */
+		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
 
 		/**
 		 * The context in which a chat request is made.
