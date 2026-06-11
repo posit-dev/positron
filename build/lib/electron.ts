@@ -138,9 +138,17 @@ export const config = {
 		darwinBundleDocumentType(['json'], 'JSON'),
 		darwinBundleDocumentType(['less'], 'Less'),
 		darwinBundleDocumentType(['markdown', 'md', 'mdoc', 'mdown', 'mdtext', 'mdtxt', 'mdwn', 'mkd', 'mkdn'], 'Markdown'),
+		// --- Start Positron ---
+		darwinBundleDocumentType(['qmd'], 'Quarto'),
+		// --- End Positron ---
 		darwinBundleDocumentType(['php'], 'PHP', 'source code'),
 		darwinBundleDocumentType(['ps1', 'psd1', 'psm1'], 'Powershell', 'script'),
 		darwinBundleDocumentType(['py', 'pyi'], 'Python', 'script'),
+		// --- Start Positron ---
+		// R is a first-class Positron language but upstream ships no R icon, so
+		// these associations fell through to the generic icon. Give them the R logo.
+		...darwinBundleDocumentTypes({ 'R source code': 'r', 'R Data file': ['rdata', 'rda', 'rds'] }, 'r'),
+		// --- End Positron ---
 		darwinBundleDocumentType(['gemspec', 'rb', 'erb'], 'Ruby', 'source code'),
 		darwinBundleDocumentType(['scss', 'sass'], 'SASS', 'file'),
 		darwinBundleDocumentType(['sql'], 'SQL', 'script'),
@@ -176,8 +184,6 @@ export const config = {
 			'Xcode project file': 'xcodeproj',
 			'Xcode workspace file': 'xcworkspace',
 			'Visual Basic script': 'vb',
-			'R source code': 'r',
-			'R Data file': ['rdata', 'rda', 'rds'],
 			'Rust source code': 'rs',
 			'Restructured Text document': 'rst',
 			'LaTeX document': ['tex', 'cls'],
