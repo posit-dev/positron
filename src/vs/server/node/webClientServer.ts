@@ -568,6 +568,10 @@ export class WebClientServer {
 			disableExtension: this._environmentService.args['disable-extension'],
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
 			positronDocsUrl,
+			// Forward EXTENSIONS_GALLERY so the browser can apply the same
+			// env-var-over-setting precedence and reporting as desktop. The
+			// browser cannot read the server process environment directly.
+			extensionsGalleryEnv: process.env['EXTENSIONS_GALLERY'],
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute,

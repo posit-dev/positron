@@ -344,7 +344,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					localize('positron.extensions.gallerySource.positP3m.label', "Posit Public Package Manager"),
 					localize('positron.extensions.gallerySource.openVsx.label', "Open VSX Registry"),
 				],
-				markdownDescription: localize('positron.extensions.gallerySource', "Choose which extension gallery (marketplace) to use for browsing and installing extensions. Changes require a restart.\n\nNote: when the `EXTENSIONS_GALLERY` environment variable is set, it overrides this setting."),
+				markdownDescription: localize('positron.extensions.gallerySource', "Choose which extension gallery (marketplace) to use for browsing and installing extensions. Changes require a restart.\n\nNote: when the `EXTENSIONS_GALLERY` environment variable is set to a valid value, it overrides this setting."),
 				default: 'posit-p3m',
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices'],
