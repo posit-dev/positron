@@ -179,7 +179,7 @@ export async function providerAction(
 			if (providerId === 'copilot-auth') {
 				await handleCopilotSignIn();
 			} else {
-				await handleSave(providerId, config);
+				await handleSave(source, config);
 			}
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('{0} has been added successfully.', source.provider.displayName)
@@ -230,9 +230,10 @@ async function handleCopilotSignIn(): Promise<void> {
  * config, validates and stores it. Otherwise resolves via createSession.
  */
 async function handleSave(
-	providerId: string,
+	source: positron.ai.LanguageModelSource,
 	config: positron.ai.LanguageModelConfig
 ): Promise<string> {
+	const providerId = source.provider.id;
 	const provider = authProviders.get(providerId);
 	if (!provider) {
 		throw new Error(
@@ -241,7 +242,7 @@ async function handleSave(
 	}
 
 	if (config.apiKey !== undefined) {
-		return handleApiKeySave(providerId, config, provider);
+		return handleApiKeySave(source, config, provider);
 	}
 
 	// Persist settings (e.g. base URL) before resolving the chain
@@ -256,10 +257,11 @@ async function handleSave(
 }
 
 async function handleApiKeySave(
-	providerId: string,
+	source: positron.ai.LanguageModelSource,
 	config: positron.ai.LanguageModelConfig,
 	provider: AuthProvider
 ): Promise<string> {
+	const providerId = source.provider.id;
 	const apiKey = config.apiKey?.trim() ?? '';
 	const validateApiKey = apiKeyValidators.get(providerId);
 	if (validateApiKey) {
@@ -279,7 +281,7 @@ async function handleApiKeySave(
 
 	const accountId = randomUUID();
 	log.info(`Saving credential for provider "${providerId}" (${accountId})`);
-	await provider.storeKey(accountId, providerId, apiKey);
+	await provider.storeKey(accountId, source.provider.displayName, apiKey);
 	return accountId;
 }
 
