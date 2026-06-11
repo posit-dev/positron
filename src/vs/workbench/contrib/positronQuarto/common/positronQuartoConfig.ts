@@ -105,7 +105,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.showCellToolbar',
-				'Show the cell toolbar (Run Cell, More Actions, etc.) on Quarto code cells. Disable this to hide the toolbar if you find it distracting.'
+				'Show the floating cell toolbar (Run Cell, Run Previous, etc.) on Quarto code cells.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
