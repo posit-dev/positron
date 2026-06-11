@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { isHTMLInputElement } from '../../../../../base/browser/dom.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -44,6 +45,10 @@ function stopTagBarBubble(e: React.MouseEvent) {
  * On code cells this is embedded in the cell footer alongside the execution
  * status; markdown / raw cells (which have no footer) render it standalone at
  * the bottom of the cell.
+ *
+ * Keyboard-wise the bar is a toolbar-pattern composite widget: a single tab
+ * stop (the add control, which leads the row), with the arrow keys moving
+ * between the controls inside and Escape returning focus to the cell.
  */
 export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell; standalone?: boolean }) {
 	const { notificationService } = usePositronReactServicesContext();
@@ -51,6 +56,7 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 	const isAddingTag = useObservedValue(cell.isAddingTag);
 	const cellTagsHidden = useObservedValue(cell.cellTagsHidden);
 	const [editingTag, setEditingTag] = React.useState<string | null>(null);
+	const barRef = React.useRef<HTMLDivElement>(null);
 
 	// The notebook can hide all cell tags (a transient, per-notebook toggle).
 	if (cellTagsHidden) {
@@ -94,12 +100,91 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		notifyTagResult(notificationService, cell.addTag(raw), raw.trim());
 	};
 
+	// The bar is a composite widget with a single tab stop (the add control,
+	// tabIndex 0); everything else is tabIndex -1 and reached with the arrow
+	// keys, per the WAI-ARIA toolbar pattern. This keeps a long tag list from
+	// adding a tab stop per tag for keyboard users traversing the notebook.
+	const handleBarKeyDown = (e: React.KeyboardEvent) => {
+		// The inline tag input handles (and stops) its own keys.
+		if (isHTMLInputElement(e.target)) {
+			return;
+		}
+		switch (e.key) {
+			case 'ArrowRight':
+			case 'ArrowLeft':
+			case 'Home':
+			case 'End': {
+				// Move focus within the bar instead of letting the notebook's
+				// command-mode keybindings move the cell selection.
+				e.preventDefault();
+				e.stopPropagation();
+				// eslint-disable-next-line no-restricted-syntax -- enumerating the bar's own buttons in DOM order for roving focus, not reaching into structure via a fragile selector
+				const buttons = Array.from(barRef.current?.querySelectorAll('button') ?? []);
+				if (buttons.length === 0) {
+					return;
+				}
+				const current = buttons.indexOf(e.target as HTMLButtonElement);
+				const next =
+					e.key === 'Home' ? 0 :
+						e.key === 'End' ? buttons.length - 1 :
+							// Wrap around at the ends.
+							(current + (e.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+				buttons[next].focus();
+				break;
+			}
+			case 'Enter':
+			case ' ': {
+				// Let the focused button's native activation run, but keep the
+				// key from reaching the notebook's command-mode keybindings --
+				// Enter would otherwise put the cell into edit mode on top of
+				// the tag action.
+				e.stopPropagation();
+				break;
+			}
+			case 'Escape': {
+				// Hand focus back to the cell so notebook-level navigation resumes.
+				e.preventDefault();
+				e.stopPropagation();
+				cell.container?.focus({ preventScroll: true });
+				break;
+			}
+		}
+	};
+
 	return (
 		<div
+			ref={barRef}
+			aria-label={localize('positron.notebook.cellTag.toolbar', "Cell tags")}
 			className={positronClassNames('positron-notebook-cell-tags', { standalone })}
 			data-testid='cell-tags-bar'
+			role='toolbar'
+			onKeyDown={handleBarKeyDown}
 			onMouseDown={stopTagBarBubble}
 		>
+			{isAddingTag ? (
+				<TagInput
+					initialValue=''
+					onCancel={() => cell.endAddTag()}
+					onCommit={commitAdd}
+				/>
+			) : (
+				<button
+					aria-label={localize('positron.notebook.cellTag.add', "Add tag")}
+					className='positron-notebook-cell-tag-add'
+					// The bar's single tab stop; the tags that follow are
+					// reached with the arrow keys (see handleBarKeyDown).
+					tabIndex={0}
+					title={localize('positron.notebook.cellTag.add', "Add tag")}
+					type='button'
+					onClick={(e) => { stopTagBarPointer(e); cell.beginAddTag(); }}
+					onMouseDown={stopTagBarPointer}
+				>
+					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.addSmall} />
+					<span className='positron-notebook-cell-tag-add-label'>
+						{localize('positron.notebook.cellTag.add', "Add tag")}
+					</span>
+				</button>
+			)}
 			{tags.map((tag) =>
 				editingTag === tag ? (
 					// The edit target is tracked by tag value (the cell model
@@ -119,46 +204,27 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 						<button
 							aria-label={localize('positron.notebook.cellTag.edit', "Edit tag {0}", tag)}
 							className='positron-notebook-cell-tag-label'
+							tabIndex={-1}
 							title={localize('positron.notebook.cellTag.editHint', "Click to edit tag")}
 							type='button'
-							onMouseDown={stopTagBarPointer}
 							onClick={(e) => { stopTagBarPointer(e); setEditingTag(tag); }}
+							onMouseDown={stopTagBarPointer}
 						>
 							{tag}
 						</button>
 						<button
 							aria-label={localize('positron.notebook.cellTag.remove', "Remove tag {0}", tag)}
 							className='positron-notebook-cell-tag-remove'
+							tabIndex={-1}
 							title={localize('positron.notebook.cellTag.remove', "Remove tag {0}", tag)}
 							type='button'
-							onMouseDown={stopTagBarPointer}
 							onClick={(e) => { stopTagBarPointer(e); removeTag(tag); }}
+							onMouseDown={stopTagBarPointer}
 						>
 							<Icon className='positron-notebook-cell-tag-icon' icon={Codicon.close} />
 						</button>
 					</span>
 				)
-			)}
-			{isAddingTag ? (
-				<TagInput
-					initialValue=''
-					onCancel={() => cell.endAddTag()}
-					onCommit={commitAdd}
-				/>
-			) : (
-				<button
-					aria-label={localize('positron.notebook.cellTag.add', "Add tag")}
-					className='positron-notebook-cell-tag-add'
-					title={localize('positron.notebook.cellTag.add', "Add tag")}
-					type='button'
-					onMouseDown={stopTagBarPointer}
-					onClick={(e) => { stopTagBarPointer(e); cell.beginAddTag(); }}
-				>
-					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.addSmall} />
-					<span className='positron-notebook-cell-tag-add-label'>
-						{localize('positron.notebook.cellTag.add', "Add tag")}
-					</span>
-				</button>
 			)}
 		</div>
 	);
@@ -190,7 +256,6 @@ function TagInput({ initialValue, onCommit, onCancel }: {
 			value={value}
 			onBlur={() => onCommit(value)}
 			onChange={(e) => setValue(e.target.value)}
-			onMouseDown={stopTagBarBubble}
 			onClick={stopTagBarBubble}
 			// Stop keystrokes from reaching the notebook's command-mode handlers.
 			onKeyDown={(e) => {
@@ -203,6 +268,7 @@ function TagInput({ initialValue, onCommit, onCancel }: {
 				}
 				e.stopPropagation();
 			}}
+			onMouseDown={stopTagBarBubble}
 		/>
 	);
 }
