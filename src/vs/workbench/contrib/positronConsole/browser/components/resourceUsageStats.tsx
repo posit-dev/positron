@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Other dependencies.
-import { ByteSize } from '../../../../../platform/files/common/files.js';
+import { formatCompactMemory } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { localize } from '../../../../../nls.js';
 
 /**
@@ -28,8 +28,8 @@ export const ResourceUsageStats = ({ cpuPercent, memoryBytes }: ResourceUsageSta
 	// Format CPU as integer percentage
 	const cpuValue = `${Math.round(cpuPercent)}%`;
 
-	// Format memory using ByteSize helper
-	const memoryValue = ByteSize.formatSize(memoryBytes);
+	// Format memory using the compact formatter so it fits in 3-4 characters
+	const memoryValue = formatCompactMemory(memoryBytes);
 
 	return (
 		<dl className="resource-usage-stats" aria-live="polite" aria-atomic="true">

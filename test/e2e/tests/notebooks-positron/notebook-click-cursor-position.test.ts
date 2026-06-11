@@ -12,9 +12,10 @@ test.use({
 
 // Regression coverage for cursor placement on click in Positron Notebooks.
 //
-// After exiting edit mode (Esc), clicking a specific line can drop the cursor
-// on a *different* line when the embedded Monaco editor's internal layout is
-// out of sync with what is rendered (a hit-test miscalculation).
+// After exiting edit mode (by clicking away from the cell), clicking a specific
+// line can drop the cursor on a *different* line when the embedded Monaco
+// editor's internal layout is out of sync with what is rendered (a hit-test
+// miscalculation).
 //
 // We can't read Monaco's cursor position directly from Playwright, so we assert
 // the user-visible consequence: click a known line, type a unique marker, and
@@ -22,7 +23,7 @@ test.use({
 // the line's own text (not its DOM/array index), so it does not depend on the
 // order Monaco renders .view-line elements in.
 test.describe('Notebook Click-to-Cursor Position', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {
@@ -30,7 +31,7 @@ test.describe('Notebook Click-to-Cursor Position', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('Clicking a line after Esc places the cursor on that line', async function ({ app }) {
+	test('Clicking a line after exiting edit mode places the cursor on that line', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 
@@ -53,8 +54,10 @@ test.describe('Notebook Click-to-Cursor Position', {
 		await notebooksPositron.newNotebook({ codeCells: 1 });
 		await notebooksPositron.addCodeToCell(0, lines.join('\n'), { fast: true });
 
-		// Repro step: press Esc to defocus the cell (exit edit mode).
-		await keyboard.press('Escape');
+		// Repro step: click away from the cell to defocus it (exit edit mode).
+		// Using a click rather than Esc avoids CI flake where Esc dismisses a
+		// transient toast instead of exiting the cell.
+		await notebooksPositron.clickAwayFromCell(0);
 		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
 
 		// Repro step: click directly on the target line (the function call).

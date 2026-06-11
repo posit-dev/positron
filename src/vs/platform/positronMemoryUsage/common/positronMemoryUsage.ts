@@ -4,7 +4,39 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
+import { ByteSize } from '../../files/common/files.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
+
+/**
+ * Formats a byte count for a compact memory display. The numeric portion is held
+ * to at most 3 significant digits (4 characters including the decimal point),
+ * shedding precision as the magnitude grows so the value stays narrow and the
+ * layout doesn't shift as usage changes. Examples: "203MB", "5.45GB", "10.5GB".
+ *
+ * @param bytes The memory usage in bytes.
+ * @returns The abbreviated memory size.
+ */
+export function formatCompactMemory(bytes: number): string {
+	const units: readonly [number, string][] = [
+		[ByteSize.TB, 'TB'],
+		[ByteSize.GB, 'GB'],
+		[ByteSize.MB, 'MB'],
+		[ByteSize.KB, 'KB'],
+	];
+
+	for (const [unitSize, suffix] of units) {
+		if (bytes >= unitSize) {
+			const value = bytes / unitSize;
+			// Fewer decimals as the value grows, keeping the numeric part within
+			// 3 significant digits (at most 4 characters including the period).
+			const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+			return `${value.toFixed(decimals)}${suffix}`;
+		}
+	}
+
+	// Below 1KB the raw byte count is already at most 3 digits with no decimals.
+	return `${Math.round(bytes)}B`;
+}
 
 // --- Low-level provider interface (platform-specific) ---
 

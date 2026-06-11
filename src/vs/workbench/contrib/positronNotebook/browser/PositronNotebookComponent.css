@@ -40,6 +40,11 @@
 	span {
 		cursor: text;
 	}
+
+	.colorpicker-color-decoration,
+	.colorpicker-header span {
+		cursor: pointer;
+	}
 }
 
 .monaco-workbench .positron-notebook-editor {
