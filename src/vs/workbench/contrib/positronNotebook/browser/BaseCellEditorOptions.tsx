@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,7 +14,6 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { deepClone } from '../../../../base/common/objects.js';
-import { POSITRON_NOTEBOOK_FOLDING_KEY } from '../common/positronNotebookConfig.js';
 
 export class BaseCellEditorOptions extends Disposable implements IBaseCellEditorOptions {
 	private static fixedEditorOptions: IEditorOptions = {
@@ -30,6 +29,7 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		renderLineHighlightOnlyWhenFocus: true,
 		overviewRulerLanes: 0,
 		lineDecorationsWidth: 10,
+		folding: true,
 		fixedOverflowWidgets: true,
 		minimap: { enabled: false },
 		renderValidationDecorations: 'on',
@@ -48,7 +48,7 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 	constructor(readonly notebookEditor: Pick<INotebookEditorDelegate, 'onDidChangeModel' | 'hasModel' | 'onDidChangeOptions' | 'isReadOnly'>, readonly notebookOptions: NotebookOptions, readonly configurationService: IConfigurationService, readonly language: string) {
 		super();
 		this._register(configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('editor') || e.affectsConfiguration('notebook') || e.affectsConfiguration(POSITRON_NOTEBOOK_FOLDING_KEY)) {
+			if (e.affectsConfiguration('editor') || e.affectsConfiguration('notebook')) {
 				this._recomputeOptions();
 			}
 		}));
@@ -87,19 +87,17 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 
 	private _computeEditorOptions() {
 		const editorOptions = deepClone(this.configurationService.getValue<IEditorOptions>('editor', { overrideIdentifier: this.language }));
-		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {};
+		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {} as any;
 		const editorOptionsOverride: { [key: string]: any } = {};
-		for (const [key, value] of Object.entries(editorOptionsOverrideRaw)) {
+		for (const key in editorOptionsOverrideRaw) {
 			if (key.indexOf('editor.') === 0) {
-				editorOptionsOverride[key.substring(7)] = value;
+				editorOptionsOverride[key.substring(7)] = editorOptionsOverrideRaw[key];
 			}
 		}
-		const folding = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_FOLDING_KEY) ?? true;
 		const computed = Object.freeze({
 			...editorOptions,
 			...BaseCellEditorOptions.fixedEditorOptions,
 			...editorOptionsOverride,
-			folding,
 			...{ padding: { top: 12, bottom: 12 } },
 			readOnly: this.notebookEditor.isReadOnly
 		});
