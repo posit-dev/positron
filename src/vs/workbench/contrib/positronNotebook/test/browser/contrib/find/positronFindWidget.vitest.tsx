@@ -7,14 +7,16 @@
 
 import type { Mock } from 'vitest';
 import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../../../test/vitest/reactTestingLibrary.js';
 import { ISettableObservable, observableValue } from '../../../../../../../base/common/observable.js';
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
+import { IHoverManager } from '../../../../../../../platform/hover/browser/hoverManager.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
-import { PositronFindWidget } from '../../../../browser/contrib/find/PositronFindWidget.js';
+import { PositronFindWidget, type PositronFindWidgetKeybindingHints } from '../../../../browser/contrib/find/PositronFindWidget.js';
 
 describe('PositronFindWidget', () => {
 	const rtl = setupRTLRenderer();
@@ -40,7 +42,11 @@ describe('PositronFindWidget', () => {
 	let onReplaceInputFocus: Mock;
 	let onReplaceInputBlur: Mock;
 
-	function renderWidget({ useReplace } = { useReplace: false }) {
+	function renderWidget({ useReplace = false, hoverManager, keybindingHints }: {
+		useReplace?: boolean;
+		hoverManager?: IHoverManager;
+		keybindingHints?: PositronFindWidgetKeybindingHints;
+	} = {}) {
 		const result = rtl.render(
 			<PositronFindWidget
 				contextKeyService={new MockContextKeyService()}
@@ -53,7 +59,9 @@ describe('PositronFindWidget', () => {
 					toggleStyles: unthemedToggleStyles,
 				}}
 				findText={findText}
+				hoverManager={hoverManager}
 				isVisible={isVisible}
+				keybindingHints={keybindingHints}
 				matchCase={matchCase}
 				matchCount={matchCount}
 				matchIndex={matchIndex}
@@ -277,6 +285,62 @@ describe('PositronFindWidget', () => {
 
 			expect(screen.getByRole('button', { name: /^Replace$/ })).toBeDisabled();
 			expect(screen.getByRole('button', { name: 'Replace All' })).toBeDisabled();
+		});
+	});
+
+	describe('Tooltips', () => {
+		let showHover: Mock;
+		let hoverManager: IHoverManager;
+
+		beforeEach(() => {
+			showHover = vi.fn();
+			hoverManager = stubInterface<IHoverManager>({ showHover, hideHover: vi.fn() });
+		});
+
+		it('shows label-plus-keybinding tooltips on hover', async () => {
+			const user = userEvent.setup();
+			// Enable every button: matches exist and a query is entered.
+			findText.set('foo', undefined);
+			matchCount.set(3, undefined);
+			replaceIsVisible.set(true, undefined);
+			renderWidget({
+				useReplace: true,
+				hoverManager,
+				keybindingHints: {
+					previousMatch: ' (Shift+F3)',
+					nextMatch: ' (F3)',
+					close: ' (Escape)',
+					toggleReplace: ' (Ctrl+H)',
+					replace: ' (Ctrl+Shift+1)',
+					replaceAll: ' (Ctrl+Alt+Enter)',
+				},
+			});
+
+			const expectedTooltips: [string | RegExp, string][] = [
+				['Previous Match', 'Previous Match (Shift+F3)'],
+				['Next Match', 'Next Match (F3)'],
+				['Close', 'Close (Escape)'],
+				['Toggle Replace', 'Toggle Replace (Ctrl+H)'],
+				[/^Replace$/, 'Replace (Ctrl+Shift+1)'],
+				['Replace All', 'Replace All (Ctrl+Alt+Enter)'],
+			];
+			for (const [name, tooltip] of expectedTooltips) {
+				const button = screen.getByRole('button', { name });
+				await user.hover(button);
+				expect(showHover, `Expected hover on "${tooltip}"`).toHaveBeenLastCalledWith(button, tooltip);
+				await user.unhover(button);
+			}
+		});
+
+		it('falls back to plain labels when no keybinding hints are provided', async () => {
+			const user = userEvent.setup();
+			matchCount.set(3, undefined);
+			renderWidget({ hoverManager });
+
+			const button = screen.getByRole('button', { name: 'Next Match' });
+			await user.hover(button);
+
+			expect(showHover).toHaveBeenLastCalledWith(button, 'Next Match');
 		});
 	});
 });
