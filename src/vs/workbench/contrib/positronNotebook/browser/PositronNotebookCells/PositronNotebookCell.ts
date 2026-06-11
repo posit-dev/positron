@@ -172,6 +172,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this.model.getValue();
 	}
 
+	getLineCount(): number {
+		return this.model.textModel?.getLineCount() ?? 1;
+	}
+
 	async getTextEditorModel(): Promise<ITextModel> {
 		// Cache and reuse a single model reference for the lifetime of this cell.
 		// This reference will be disposed when the cell is disposed.
