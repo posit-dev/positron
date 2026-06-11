@@ -207,7 +207,9 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 	return result;
 }
 
-const DOCS_IMAGE_BASE_URL = 'https://positron.posit.co/images';
+const DOCS_IMAGE_BASE_URL = process.env.DOCS_IMAGE_COMMIT_SHA
+	? `https://raw.githubusercontent.com/posit-dev/positron-website/${process.env.DOCS_IMAGE_COMMIT_SHA}/images`
+	: 'https://positron.posit.co/images'; // fallback for local runs
 const THUMBNAIL_WIDTH = 400;
 
 function imageCell(url) {
@@ -218,7 +220,10 @@ export function formatSummary(classification, opts = {}) {
 	const reportUrl = opts.reportUrl;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
-		return '📄 Screenshot Report\n\nNo images were generated.\n';
+		return '📄 Screenshot Report
+
+No images were generated.
+';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
 	for (const info of Object.values(classification)) {
@@ -239,7 +244,8 @@ export function formatSummary(classification, opts = {}) {
 		'',
 		totalsLine,
 		'',
-	].join('\n');
+	].join('
+');
 }
 
 const HTML_STATUS_LABEL = {
@@ -314,7 +320,8 @@ function htmlSection(status, entries, screenshotBaseUrl, openByDefault) {
 		return '';
 	}
 	const label = HTML_STATUS_LABEL[status];
-	const cards = filtered.map(([name, info]) => htmlCard(name, info, screenshotBaseUrl)).join('\n');
+	const cards = filtered.map(([name, info]) => htmlCard(name, info, screenshotBaseUrl)).join('
+');
 	return `
 <details data-status="${status}"${openByDefault ? ' open' : ''}>
 	<summary>${label} <span class="section-count">(${filtered.length})</span></summary>
@@ -334,7 +341,8 @@ export function formatHtml(classification, opts = {}) {
 		htmlSection('new', entries, screenshotBaseUrl, true),
 		htmlSection('changed', entries, screenshotBaseUrl, true),
 		htmlSection('unchanged', entries, screenshotBaseUrl, false),
-	].filter(Boolean).join('\n');
+	].filter(Boolean).join('
+');
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -454,7 +462,9 @@ async function main() {
 		}
 	}
 	const outputPath = process.env.GITHUB_OUTPUT;
-	const outputs = `changed_count=${counts.changed}\nnew_count=${counts.new}\n`;
+	const outputs = `changed_count=${counts.changed}
+new_count=${counts.new}
+`;
 	if (outputPath) {
 		await appendFile(outputPath, outputs);
 	} else {
