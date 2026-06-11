@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
+import { InputBoundariesRequest, InputBoundariesResponse } from './input-boundaries';
 import { LOGGER } from './extension';
 import { RErrorHandler } from './error-handler';
 
@@ -377,6 +378,14 @@ export class ArkLsp implements vscode.Disposable {
 				return await handles.promise;
 			}
 		}
+	}
+
+	async inputBoundaries(text: string): Promise<InputBoundariesResponse> {
+		if (!this.client) {
+			throw new Error('Cannot get input boundaries; LSP client has not been started');
+		}
+
+		return await this.client.sendRequest(InputBoundariesRequest.type, { text });
 	}
 
 	/**

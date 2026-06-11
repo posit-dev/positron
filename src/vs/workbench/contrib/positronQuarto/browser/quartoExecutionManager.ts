@@ -88,6 +88,25 @@ interface SerializedQueueState {
 	runningCell: string | undefined;
 }
 
+interface RInputBoundaryRange {
+	start: number;
+	end: number;
+}
+
+type RInputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
+
+interface RInputBoundary {
+	range: RInputBoundaryRange;
+	kind: RInputBoundaryKind;
+	data?: {
+		message?: string;
+	};
+}
+
+interface RInputBoundariesResponse {
+	boundaries: RInputBoundary[];
+}
+
 /**
  * Implementation of the Quarto execution manager.
  * Manages code execution queue and output collection for Quarto documents.
@@ -1533,12 +1552,95 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Split R code into line-aligned complete expressions.
+	 * Split R code into complete expressions using the runtime's boundary RPC.
 	 *
-	 * Falls back to executing the original code as one request if the runtime
-	 * cannot determine whether a prefix is complete.
+	 * Falls back to the older line-by-line completeness probe if the runtime
+	 * does not expose input boundaries.
 	 */
 	private async _getRCodeFragments(session: ILanguageRuntimeSession, code: string): Promise<string[]> {
+		const boundaryFragments = await this._getRCodeFragmentsFromBoundaries(session, code);
+		if (boundaryFragments) {
+			return boundaryFragments;
+		}
+
+		return this._getRCodeFragmentsByCompleteness(session, code);
+	}
+
+	/**
+	 * Ask the runtime for all input boundaries in one request and split the
+	 * code accordingly.
+	 */
+	private async _getRCodeFragmentsFromBoundaries(session: ILanguageRuntimeSession, code: string): Promise<string[] | undefined> {
+		if (!session.callMethod) {
+			return undefined;
+		}
+
+		let response: unknown;
+		try {
+			response = await session.callMethod('inputBoundaries', code);
+		} catch (error) {
+			this._logService.debug('[QuartoExecutionManager] Failed to query R input boundaries; falling back to line-by-line completeness checks', error);
+			return undefined;
+		}
+
+		return this._getRCodeFragmentsFromBoundaryResponse(code, response);
+	}
+
+	private _getRCodeFragmentsFromBoundaryResponse(code: string, response: unknown): string[] | undefined {
+		if (!response || typeof response !== 'object') {
+			return undefined;
+		}
+
+		const boundaries = (response as Partial<RInputBoundariesResponse>).boundaries;
+		if (!Array.isArray(boundaries)) {
+			return undefined;
+		}
+
+		const lines = code.split('\n');
+		const fragments: string[] = [];
+		let sawValidBoundary = false;
+
+		for (const boundary of boundaries) {
+			if (!boundary || typeof boundary !== 'object') {
+				continue;
+			}
+
+			const kind = (boundary as RInputBoundary).kind;
+			if (kind !== 'whitespace' &&
+				kind !== 'complete' &&
+				kind !== 'incomplete' &&
+				kind !== 'invalid'
+			) {
+				continue;
+			}
+
+			const range = (boundary as RInputBoundary).range;
+			if (!range || typeof range.start !== 'number' || typeof range.end !== 'number') {
+				continue;
+			}
+
+			sawValidBoundary = true;
+			if (kind === 'whitespace') {
+				continue;
+			}
+
+			const fragment = lines.slice(range.start, range.end).join('\n');
+			if (fragment.length > 0) {
+				fragments.push(fragment);
+			}
+		}
+
+		if (!sawValidBoundary) {
+			return undefined;
+		}
+
+		return fragments.length > 0 ? fragments : [code];
+	}
+
+	/**
+	 * Legacy fallback for runtimes that do not expose input boundaries.
+	 */
+	private async _getRCodeFragmentsByCompleteness(session: ILanguageRuntimeSession, code: string): Promise<string[]> {
 		const fragments: string[] = [];
 		const pendingLines: string[] = [];
 

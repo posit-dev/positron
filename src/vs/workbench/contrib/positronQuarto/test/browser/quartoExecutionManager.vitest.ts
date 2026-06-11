@@ -13,7 +13,7 @@ import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { Range } from '../../../../../editor/common/core/range.js';
-import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
@@ -173,7 +173,7 @@ describe('QuartoExecutionManager', () => {
 	});
 
 	describe('Output Handling', () => {
-		it('executes complete R expressions separately and keeps each result', async () => {
+		it('queries input boundaries once and keeps each R result', async () => {
 			const documentUri = URI.file('/test-r-expressions.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-r-expressions',
@@ -203,13 +203,20 @@ describe('QuartoExecutionManager', () => {
 				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
 			};
 
-			vi.spyOn(mockSession, 'isCodeFragmentComplete').mockImplementation(async code => {
-				const openParens = code.match(/\(/g)?.length ?? 0;
-				const closeParens = code.match(/\)/g)?.length ?? 0;
-				return openParens === closeParens
-					? RuntimeCodeFragmentStatus.Complete
-					: RuntimeCodeFragmentStatus.Incomplete;
+			let requestedMethod: string | undefined;
+			let requestedCode: string | undefined;
+			const callMethodSpy = vi.spyOn(mockSession, 'callMethod').mockImplementation(async (method, ...args) => {
+				requestedMethod = method;
+				requestedCode = typeof args[0] === 'string' ? args[0] : undefined;
+				return {
+					boundaries: [
+						{ range: { start: 0, end: 3 }, kind: 'complete' },
+						{ range: { start: 3, end: 4 }, kind: 'complete' },
+						{ range: { start: 4, end: 5 }, kind: 'complete' },
+					],
+				};
 			});
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete');
 			const executeSpy = vi.spyOn(mockSession, 'execute');
 			const outputsReceived: ICellOutput[] = [];
 			ctx.disposables.add(executionManager.onDidReceiveOutput(event => {
@@ -251,6 +258,10 @@ describe('QuartoExecutionManager', () => {
 
 			await executionPromise;
 
+			expect(callMethodSpy).toHaveBeenCalledTimes(1);
+			expect(requestedMethod).toBe('inputBoundaries');
+			expect(requestedCode).toBe('values <- list(\n  1\n)\nvalues[[1]]\n2');
+			expect(completenessSpy).not.toHaveBeenCalled();
 			expect(executeSpy.mock.calls.map(call => call[0])).toEqual([
 				'values <- list(\n  1\n)',
 				'values[[1]]',
