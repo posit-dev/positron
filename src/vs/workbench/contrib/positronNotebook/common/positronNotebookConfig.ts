@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -34,9 +34,6 @@ export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.n
 
 // Configuration key that gates experimental Positron notebook features.
 export const POSITRON_NOTEBOOK_EXPERIMENTAL_KEY = 'positron.notebook.experimental';
-
-// Configuration key for showing code folding controls in notebook cell editors.
-export const POSITRON_NOTEBOOK_FOLDING_KEY = 'positron.notebook.folding';
 
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
@@ -131,16 +128,6 @@ configurationRegistry.registerConfiguration({
 			),
 			tags: ['experimental', 'positronNotebook'],
 			scope: ConfigurationScope.WINDOW,
-		},
-		[POSITRON_NOTEBOOK_FOLDING_KEY]: {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize(
-				'positron.notebook.folding',
-				'Show code folding controls in the editor of code cells. When disabled, the code cell gutter is narrower.'
-			),
-			scope: ConfigurationScope.WINDOW,
-			tags: ['positronNotebook'],
 		},
 	},
 });
