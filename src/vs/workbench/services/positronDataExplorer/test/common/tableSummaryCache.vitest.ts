@@ -13,11 +13,18 @@ import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtil
 import {
 	BackendState,
 	ColumnDisplayType,
+	ColumnProfileRequest,
+	ColumnProfileResult,
 	ColumnProfileType,
 	SchemaUpdateEvent,
 	SupportStatus,
 	TableSchema
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+
+/** Builds an array of `count` consecutive column indices starting at `start`. */
+function range(start: number, count: number): number[] {
+	return Array.from({ length: count }, (_, i) => start + i);
+}
 
 /**
  * Builds a backend state with the given column count. Neither histograms nor frequency tables are
@@ -110,6 +117,114 @@ describe('TableSummaryCache', () => {
 			firstWindowCached: 'col0',
 			secondWindowCached: 'col2',
 			schemaFetchCount: 2,
+		});
+	});
+
+	it('loads profiles in chunks, revealing them progressively', async () => {
+		getColumnProfiles.mockImplementation(
+			async (requests: ColumnProfileRequest[]): Promise<ColumnProfileResult[]> =>
+				requests.map(r => ({ null_count: r.column_index }))
+		);
+
+		// Count the onDidUpdate events: one fires after the schema loads, then one per profile chunk.
+		let updateFires = 0;
+		const listener = cache.onDidUpdate(() => updateFires++);
+
+		// 20 columns with a chunk size of 8 -> three chunks of 8, 8, 4.
+		await cache.update({ invalidateCache: true, columnIndices: range(0, 20) });
+		listener.dispose();
+
+		const cachedProfiles = range(0, 20).filter(i => cache.getColumnProfile(i) !== undefined).length;
+
+		expect({
+			chunkRequestSizes: getColumnProfiles.mock.calls.map(call => (call[0] as ColumnProfileRequest[]).length),
+			cachedProfiles,
+			updateFires,
+		}).toEqual({
+			chunkRequestSizes: [8, 8, 4],
+			cachedProfiles: 20,
+			updateFires: 4,
+		});
+	});
+
+	it('profiles visible columns whose schema is cached but profile is missing', async () => {
+		// First pass returns no profiles (simulating a pass cancelled mid-scroll), so the columns
+		// end up schema-cached but unprofiled; later calls return real profiles.
+		getColumnProfiles
+			.mockResolvedValueOnce([])
+			.mockImplementation(
+				async (requests: ColumnProfileRequest[]): Promise<ColumnProfileResult[]> =>
+					requests.map(r => ({ null_count: r.column_index }))
+			);
+
+		// First update: schema gets cached, but no profiles are cached.
+		await cache.update({ invalidateCache: true, columnIndices: range(0, 4) });
+		const afterFirst = {
+			schemaCached: cache.getColumnSchema(2)?.column_name,
+			profileCached: cache.getColumnProfile(2),
+			profileCalls: getColumnProfiles.mock.calls.length,
+		};
+
+		// Second update for the same window (no invalidation), as when jumping to a region whose
+		// columns were schema-cached while scrolling past. Profiles are still missing and must be
+		// fetched now -- gating on the schema-miss set (empty here) used to skip them entirely.
+		await cache.update({ invalidateCache: false, columnIndices: range(0, 4) });
+
+		expect({
+			afterFirst,
+			profileCachedNow: cache.getColumnProfile(2)?.null_count,
+			profileCallsTotal: getColumnProfiles.mock.calls.length,
+		}).toEqual({
+			afterFirst: { schemaCached: 'col2', profileCached: undefined, profileCalls: 1 },
+			profileCachedNow: 2,
+			profileCallsTotal: 2,
+		});
+	});
+
+	it('cancels the in-flight pass and abandons remaining chunks when a new update arrives', async () => {
+		// Gate the first window's first chunk so a second update can arrive while it is in flight.
+		let signalFirstChunkStarted!: () => void;
+		const firstChunkStarted = new Promise<void>(resolve => { signalFirstChunkStarted = resolve; });
+		let releaseFirstChunk!: () => void;
+		const firstChunkGate = new Promise<void>(resolve => { releaseFirstChunk = resolve; });
+
+		let callIndex = 0;
+		getColumnProfiles.mockImplementation(
+			async (requests: ColumnProfileRequest[]): Promise<ColumnProfileResult[]> => {
+				if (callIndex++ === 0) {
+					signalFirstChunkStarted();
+					await firstChunkGate;
+				}
+				return requests.map(r => ({ null_count: r.column_index }));
+			}
+		);
+
+		// First window: columns 0-15 (two chunks). Not awaited -- it parks on the first chunk.
+		const firstPass = cache.update({ invalidateCache: true, columnIndices: range(0, 16) });
+		await firstChunkStarted;
+
+		// The user scrolls to a new window (100-115) while the first pass is parked, cancelling it.
+		await cache.update({ invalidateCache: false, columnIndices: range(100, 16) });
+
+		// Release the first window's in-flight chunk; its result must be discarded and its second
+		// chunk never requested.
+		releaseFirstChunk();
+		await firstPass;
+
+		const requestedIndices = getColumnProfiles.mock.calls.flatMap(
+			call => (call[0] as ColumnProfileRequest[]).map(r => r.column_index)
+		);
+
+		expect({
+			firstWindowInFlightDiscarded: cache.getColumnProfile(0),
+			firstWindowSecondChunkRequested: requestedIndices.includes(8),
+			secondWindowRequested: requestedIndices.includes(100),
+			secondWindowCached: cache.getColumnProfile(100)?.null_count,
+		}).toEqual({
+			firstWindowInFlightDiscarded: undefined,
+			firstWindowSecondChunkRequested: false,
+			secondWindowRequested: true,
+			secondWindowCached: 100,
 		});
 	});
 });
