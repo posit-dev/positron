@@ -5,6 +5,7 @@
 	"r.command.sourceCurrentFile.title": "Source R File",
 	"r.command.sourceCurrentFileWithEcho.title": "Source R File with Echo",
 	"r.command.createNewFile.title": "New R File",
+	"r.command.installPak.title": "Install pak",
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.insertPipe.title": "Insert the pipe operator",
 	"r.command.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",

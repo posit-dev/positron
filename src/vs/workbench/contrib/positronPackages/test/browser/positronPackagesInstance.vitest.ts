@@ -14,7 +14,7 @@ import { InMemoryStorageService } from '../../../../../platform/storage/common/s
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, IPackageRecommendation } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from '../../browser/packageMetadataCache.js';
 import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
@@ -214,6 +214,52 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 		expect(cache.get(RUNTIME_ID)?.packages).toEqual({
 			numpy: { version: '1.26.0', outdated: true, latestVersion: '2.1.0' },
 			pandas: { version: '2.0.0', outdated: true, latestVersion: '2.2.0' },
+		});
+	});
+
+	describe('recommendations', () => {
+		const recommendation: IPackageRecommendation = {
+			id: 'pak',
+			message: 'The pak package provides faster and more reliable package operations.',
+			command: { title: 'Install pak', command: 'r.installPak' },
+		};
+
+		/** Build an instance whose package manager returns the given recommendations (or omits the method). */
+		function makeInstanceWithRecommendations(
+			getRecommendations?: ILanguageRuntimePackageManager['getRecommendations'],
+		): PositronPackagesInstance {
+			const packageManager = stubInterface<ILanguageRuntimePackageManager>({
+				getPackages,
+				getPackageMetadata,
+				...(getRecommendations ? { getRecommendations } : {}),
+			});
+			const recSession = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'session-1',
+				runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: RUNTIME_ID }),
+				getRuntimeState: () => RuntimeState.Uninitialized,
+				onDidChangeRuntimeState: Event.None,
+				getPackageManager: () => packageManager,
+			});
+			return disposables.add(new PositronPackagesInstance(recSession, new NullLogService(), cache));
+		}
+
+		it('exposes recommendations from the package manager and fires the change event', async () => {
+			const instance = makeInstanceWithRecommendations(async () => [recommendation]);
+			const fires = waitForEvents(instance.onDidChangeRecommendations, 1);
+			await instance.refreshPackages();
+			const [recs] = await fires;
+
+			expect(recs).toEqual([recommendation]);
+			expect(instance.recommendations).toEqual([recommendation]);
+		});
+
+		it('leaves recommendations empty when the package manager does not implement getRecommendations', async () => {
+			const instance = makeInstanceWithRecommendations();
+			await instance.refreshPackages();
+			// Give the fire-and-forget recommendation fetch a microtask to run.
+			await new Promise(resolve => setTimeout(resolve, 10));
+
+			expect(instance.recommendations).toEqual([]);
 		});
 	});
 });

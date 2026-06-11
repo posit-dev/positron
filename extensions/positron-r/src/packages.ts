@@ -318,6 +318,38 @@ export class RPackageManager {
 		return result ?? [];
 	}
 
+	/**
+	 * Recommend installing pak when it would be used but isn't present. Skipped
+	 * for renv projects (which use renv, not pak) and when the installer setting
+	 * is pinned to base R. The message mirrors the install prompt so the banner
+	 * gives the same context, minus the blocking question.
+	 * @param token Optional cancellation token
+	 */
+	async getRecommendations(token?: vscode.CancellationToken): Promise<positron.PackageManagerRecommendation[]> {
+		if (token?.isCancellationRequested) {
+			return [];
+		}
+
+		if (this._getConfiguredInstaller() === 'base') {
+			return [];
+		}
+		if (await this._detectRenv()) {
+			return [];
+		}
+		if (await this._detectPak()) {
+			return [];
+		}
+
+		return [{
+			id: 'pak',
+			message: vscode.l10n.t('The pak package provides faster and more reliable package operations.'),
+			command: {
+				title: vscode.l10n.t('Install pak'),
+				command: 'r.installPak',
+			},
+		}];
+	}
+
 	// =========================================================================
 	// Private helper methods
 	// =========================================================================
@@ -326,8 +358,7 @@ export class RPackageManager {
 	 * Detect if pak is available in the R session.
 	 */
 	private async _detectPak(): Promise<boolean> {
-		const pak = await this._session.packageVersion('pak', null, true);
-		return pak?.compatible ?? false;
+		return this._session.isPakInstalled();
 	}
 
 	/**
@@ -636,3 +667,5 @@ export class RPackageManager {
 		return promise;
 	}
 }
+
+

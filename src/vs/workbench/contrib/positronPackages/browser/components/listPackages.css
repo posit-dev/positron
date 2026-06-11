@@ -19,6 +19,40 @@
 	padding: 4px 8px;
 }
 
+.packages-recommendation {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px;
+	background-color: var(--vscode-editorWidget-background);
+	border-bottom: 1px solid var(--vscode-positronPackages-border);
+}
+
+.packages-recommendation-icon {
+	flex: 0 0 auto;
+	color: var(--vscode-notificationsInfoIcon-foreground);
+}
+
+.packages-recommendation-message {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.packages-recommendation-action {
+	flex: 0 0 auto;
+	padding: 2px 8px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 2px;
+	color: var(--vscode-button-secondaryForeground);
+	background-color: var(--vscode-button-secondaryBackground);
+	white-space: nowrap;
+}
+
+.packages-recommendation-action:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
 .packages-list-container {
 	flex: 1 1 auto;
 	min-height: 0;

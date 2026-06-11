@@ -35,6 +35,11 @@
         "shortTitle": "%r.menu.createNewFile.title%"
       },
       {
+        "command": "r.installPak",
+        "category": "R",
+        "title": "%r.command.installPak.title%"
+      },
+      {
         "command": "r.insertPipe",
         "category": "R",
         "title": "%r.command.insertPipe.title%",

@@ -22,7 +22,7 @@ import { ViewsProps } from '../positronPackages.js';
 import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, IPackageRecommendation } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
@@ -58,6 +58,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
 
+	// Recommendations surfaced as banners (e.g. "install pak"), driven by the
+	// active instance.
+	const [recommendations, setRecommendations] = useState<IPackageRecommendation[]>([]);
+
 	// Item size mode ('card' or 'row'), driven by the packages service.
 	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
 	useEffect(() => {
@@ -86,6 +90,32 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 		return () => disposable.dispose();
 	}, [activeInstance]);
+
+	// Subscribe to recommendation changes for the active instance.
+	useEffect(() => {
+		if (!activeInstance) {
+			setRecommendations([]);
+			return;
+		}
+
+		const disposable = activeInstance.onDidChangeRecommendations((recommendations) => {
+			setRecommendations(recommendations);
+		});
+
+		setRecommendations(activeInstance.recommendations);
+
+		return () => disposable.dispose();
+	}, [activeInstance]);
+
+	// Run a recommendation's action, then refresh so the banner clears once the
+	// recommended state is reached (e.g. pak is now installed).
+	const runRecommendation = useCallback(async (recommendation: IPackageRecommendation) => {
+		await services.commandService.executeCommand(
+			recommendation.command.command,
+			...(recommendation.command.arguments ?? []),
+		);
+		await activeInstance?.refreshPackages();
+	}, [activeInstance, services]);
 
 	useEffect(() => {
 		let progressBar: ProgressBar | undefined;
@@ -536,6 +566,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	return (
 		<div className='positron-packages-list'>
 			<div ref={progressRef} id='packages-progress' />
+
+			{recommendations.map((recommendation) => (
+				<div key={recommendation.id} className='packages-recommendation'>
+					<span className='codicon codicon-info packages-recommendation-icon' />
+					<span className='packages-recommendation-message'>{recommendation.message}</span>
+					<Button
+						className='packages-recommendation-action'
+						onPressed={() => { void runRecommendation(recommendation); }}
+					>
+						{recommendation.command.title}
+					</Button>
+				</div>
+			))}
 
 			<div className='packages-filter-container'>
 				<ActionBarFilter

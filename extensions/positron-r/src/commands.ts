@@ -32,6 +32,28 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			});
 		}),
 
+		// Install the pak package into the active R session. Surfaced as a
+		// recommendation banner in the Packages pane when pak is missing, so
+		// users can opt into pak without the blocking install prompt.
+		vscode.commands.registerCommand('r.installPak', async () => {
+			const session = await RSessionManager.instance.getConsoleSession();
+			if (!session) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Cannot install pak: no active R session.'));
+				return;
+			}
+			try {
+				await vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('Installing pak...'),
+				}, async () => {
+					await session.getPackageManager().installPackages([{ name: 'pak' }]);
+				});
+			} catch (err) {
+				vscode.window.showErrorMessage(
+					vscode.l10n.t('Failed to install pak: {0}', err instanceof Error ? err.message : String(err)));
+			}
+		}),
+
 		vscode.commands.registerCommand('r.insertPipe', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';

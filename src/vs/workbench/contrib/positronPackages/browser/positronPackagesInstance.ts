@@ -10,7 +10,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageRecommendation, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
 
 export interface IPositronPackagesInstance {
@@ -27,7 +27,12 @@ export interface IPositronPackagesInstance {
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
+	/** Recommendations to surface as banners (e.g. install a faster backend). */
+	readonly recommendations: IPackageRecommendation[];
+
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
+
+	readonly onDidChangeRecommendations: Event<IPackageRecommendation[]>;
 
 	readonly onDidChangeRefreshState: Event<boolean>;
 
@@ -46,6 +51,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	/** Raw package list from the kernel (no metadata) */
 	private _packages: ILanguageRuntimePackage[] = [];
+
+	/** Latest recommendations surfaced for this session (e.g. install pak). */
+	private _recommendations: IPackageRecommendation[] = [];
 
 	/**
 	 * Cached outdated state keyed by lowercase package name. Each entry carries
@@ -76,6 +84,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	private readonly _onDidChangeUpdateState = this._register(new Emitter<boolean>());
 
 	private readonly _onDidChangeUpdateAllState = this._register(new Emitter<boolean>());
+
+	private readonly _onDidChangeRecommendations = this._register(new Emitter<IPackageRecommendation[]>());
 
 	constructor(
 		session: ILanguageRuntimeSession,
@@ -109,6 +119,15 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	readonly onDidChangeUpdateState = this._onDidChangeUpdateState.event;
 
 	readonly onDidChangeUpdateAllState = this._onDidChangeUpdateAllState.event;
+
+	readonly onDidChangeRecommendations = this._onDidChangeRecommendations.event;
+
+	/**
+	 * Gets the current recommendations for this session.
+	 */
+	get recommendations(): IPackageRecommendation[] {
+		return this._recommendations;
+	}
 
 	/**
 	 * Gets the packages with metadata merged from the cache.
@@ -204,6 +223,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._packages = await packageManager.getPackages(token);
 		this._onDidRefreshPackagesInstance.fire(this.packages);
 
+		// Refresh recommendations (e.g. "install pak") without blocking the
+		// package list render. Recomputed on every refresh so the banner clears
+		// once the recommended action is taken.
+		void this._refreshRecommendations(packageManager, token);
+
 		// Stage 2: Fetch metadata asynchronously (don't block). When the
 		// persisted entry has aged past its freshness window, refetch every
 		// package so a new upstream release surfaces even though nothing
@@ -291,6 +315,29 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			if (this._metadataFetch === fetch) {
 				this._metadataFetch = undefined;
 			}
+		}
+	}
+
+	/**
+	 * Fetch recommendations from the package manager (if supported) and fire the
+	 * change event. Swallows errors -- a failed recommendation fetch must never
+	 * break the package list. Clears recommendations when unsupported.
+	 */
+	private async _refreshRecommendations(
+		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
+		token: CancellationToken,
+	): Promise<void> {
+		try {
+			const recommendations = packageManager.getRecommendations
+				? await packageManager.getRecommendations(token)
+				: [];
+			if (token.isCancellationRequested) {
+				return;
+			}
+			this._recommendations = recommendations;
+			this._onDidChangeRecommendations.fire(recommendations);
+		} catch (err) {
+			this._logService.warn(`[Packages] Failed to fetch recommendations: ${err}`);
 		}
 	}
 

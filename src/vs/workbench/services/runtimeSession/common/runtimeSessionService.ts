@@ -330,6 +330,25 @@ export interface IPackageSpec {
 }
 
 /**
+ * A recommendation surfaced in the Packages pane, such as suggesting the user
+ * install a faster package backend. Mirrors `positron.PackageManagerRecommendation`.
+ */
+export interface IPackageRecommendation {
+	/** Stable identifier for the recommendation (e.g. 'pak'). */
+	readonly id: string;
+
+	/** Human-readable message explaining the recommendation. */
+	readonly message: string;
+
+	/** The action to offer; `command.title` is the button label. */
+	readonly command: {
+		readonly title: string;
+		readonly command: string;
+		readonly arguments?: readonly unknown[];
+	};
+}
+
+/**
  * Interface for package management functionality.
  *
  * Provides package management operations for a language runtime session.
@@ -394,6 +413,14 @@ export interface ILanguageRuntimePackageManager {
 		packageNames: string[],
 		token?: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+
+	/**
+	 * Get recommendations to surface in the Packages pane (e.g. suggesting a
+	 * faster install backend). Returns an empty array when there is nothing to
+	 * recommend.
+	 * @param token Optional cancellation token
+	 */
+	getRecommendations?(token?: CancellationToken): Promise<IPackageRecommendation[]>;
 }
 
 /**

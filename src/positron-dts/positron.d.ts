@@ -1334,6 +1334,30 @@ declare module 'positron' {
 			packageNames: string[],
 			token?: vscode.CancellationToken,
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
+
+		/**
+		 * Get recommendations to surface in the Packages pane (e.g. suggesting a
+		 * faster install backend). Each recommendation renders as a dismissable
+		 * banner with an action button. Return an empty array when there is
+		 * nothing to recommend.
+		 * @param token Optional cancellation token
+		 */
+		getRecommendations?(token?: vscode.CancellationToken): Thenable<PackageManagerRecommendation[]>;
+	}
+
+	/**
+	 * A recommendation surfaced in the Packages pane, such as suggesting the
+	 * user install a faster package backend.
+	 */
+	export interface PackageManagerRecommendation {
+		/** Stable identifier for the recommendation (e.g. 'pak'). */
+		id: string;
+
+		/** Human-readable message explaining the recommendation. */
+		message: string;
+
+		/** The action to offer. `command.title` is used as the button label. */
+		command: vscode.Command;
 	}
 
 	/**

@@ -793,6 +793,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		return this._packageManager;
 	}
 
+	/**
+	 * Whether the `pak` package is installed and compatible in this session.
+	 * Forces a fresh check rather than trusting the package cache.
+	 */
+	public async isPakInstalled(): Promise<boolean> {
+		const pak = await this.packageVersion('pak', null, true);
+		return pak?.compatible ?? false;
+	}
+
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
 		this.adapterApi = await supervisorApi();
 
