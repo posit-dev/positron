@@ -604,7 +604,16 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		const authorizationUrl = new URL(this._serverMetadata.authorization_endpoint);
 		authorizationUrl.searchParams.append('client_id', this._clientId);
 		authorizationUrl.searchParams.append('response_type', 'code');
-		authorizationUrl.searchParams.append('state', state.toString());
+		// --- Start Positron ---
+		// Serialize the state without URI.toString()'s component encoding, which
+		// percent-encodes the `=` and `&` separators inside the callback URL's
+		// query. The authorization server echoes the state byte-exact, so the
+		// extra encoding survives the round trip and callback.html can no longer
+		// parse the callback URL's query parameters. URLSearchParams applies the
+		// single transport encoding this parameter needs.
+		// authorizationUrl.searchParams.append('state', state.toString());
+		authorizationUrl.searchParams.append('state', state.toString(true));
+		// --- End Positron ---
 		authorizationUrl.searchParams.append('code_challenge', codeChallenge);
 		authorizationUrl.searchParams.append('code_challenge_method', 'S256');
 		const scopeString = scopes.join(' ');
@@ -698,7 +707,21 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			// No code parameter found in the query string
 			throw new Error('Authentication failed: No authorization code received');
 		}
-		return { code: codeMatch[1] };
+		// --- Start Positron ---
+		// The code is captured percent-encoded from the redirect URL, but
+		// exchangeCodeForToken serializes it with URLSearchParams, which encodes
+		// it again - so codes containing reserved characters (e.g. Sentry's
+		// `123:abc:def`) arrive at the token endpoint double-encoded and are
+		// rejected. Decode once so the exchange matches the loopback flow, which
+		// extracts the code with URLSearchParams.get (decoded). Fall back to the
+		// raw capture for codes that are not valid percent-encoding.
+		// return { code: codeMatch[1] };
+		try {
+			return { code: decodeURIComponent(codeMatch[1]) };
+		} catch {
+			return { code: codeMatch[1] };
+		}
+		// --- End Positron ---
 	}
 
 	protected async exchangeCodeForToken(code: string, codeVerifier: string, redirectUri: string): Promise<IAuthorizationTokenResponse> {
