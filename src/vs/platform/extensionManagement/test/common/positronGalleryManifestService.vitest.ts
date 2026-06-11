@@ -38,7 +38,7 @@ describe('POSITRON_GALLERY_PRESETS', () => {
 			'serviceUrl', 'itemUrl', 'publisherUrl', 'resourceUrlTemplate',
 			'extensionUrlTemplate', 'controlUrl', 'nlsBaseUrl',
 		];
-		for (const [name, preset] of Object.entries(POSITRON_GALLERY_PRESETS)) {
+		for (const preset of Object.values(POSITRON_GALLERY_PRESETS)) {
 			for (const field of requiredFields) {
 				expect(preset).toHaveProperty(field);
 			}
@@ -241,6 +241,22 @@ describe('parseExtensionsGalleryEnv', () => {
 		const truncated = '{"serviceUrl": "https://open-vsx';
 		expect(parseExtensionsGalleryEnv(truncated)).toBeUndefined();
 		expect(warnSpy).toHaveBeenCalledOnce();
+	});
+
+	it('returns undefined and warns when serviceUrl is missing (e.g. misspelled key)', () => {
+		// Valid JSON, but "serviceUrls" (plural) leaves the required serviceUrl
+		// unset -- previously this parsed truthy and silently disabled the gallery.
+		const typo = JSON.stringify({ serviceUrls: 'https://open-vsx.org/vscode/gallery', itemUrl: '' });
+		expect(parseExtensionsGalleryEnv(typo)).toBeUndefined();
+		expect(warnSpy).toHaveBeenCalledOnce();
+	});
+
+	it('returns undefined and warns on valid JSON that is not a gallery object', () => {
+		// {}, [], and primitives parse cleanly but lack a serviceUrl.
+		expect(parseExtensionsGalleryEnv('{}')).toBeUndefined();
+		expect(parseExtensionsGalleryEnv('42')).toBeUndefined();
+		expect(parseExtensionsGalleryEnv('null')).toBeUndefined();
+		expect(warnSpy).toHaveBeenCalledTimes(3);
 	});
 
 	it('returns undefined and warns on the empty string', () => {
