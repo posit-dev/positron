@@ -87,4 +87,95 @@ test.describe('Positron Notebooks: Find & Replace', {
 		// The skipped 'apple_two' prefix match is intact
 		await notebooksPositron.expectCellContentsToBe(['pear = 1', 'apple_two = pear', 'apple_three = apple + 1']);
 	});
+
+	test('Verify replace updates markdown cells', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Cell contents are '# Cell 0' (code) and '### Cell 1' (markdown, rendered)
+		await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 1 });
+
+		await notebooksPositron.search('Cell');
+		await notebooksPositron.expectSearchCountToBe({ total: 2 });
+
+		await notebooksPositron.searchSetReplaceText('Block');
+		await notebooksPositron.searchReplaceAll();
+		await notebooksPositron.expectSearchCountToBe({ total: 0 });
+		await notebooksPositron.searchClose('button');
+
+		// Source updated in both the code cell and the markdown cell
+		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Block 0');
+		await notebooksPositron.expectCellContentAtIndexToBe(1, '### Block 1');
+
+		// Rendered markdown reflects the replacement
+		await notebooksPositron.expectMarkdownTagToBe('h3', 'Block 1');
+	});
+
+	test('Verify case sensitivity and whole word toggles', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'test = Test');
+		await notebooksPositron.addCodeToCell(1, 'testing = "test"', { fast: true });
+
+		// Case-insensitive, partial word: test, Test, testing, "test"
+		await notebooksPositron.search('test');
+		await notebooksPositron.expectSearchCountToBe({ total: 4 });
+
+		// Case-sensitive drops 'Test'
+		await notebooksPositron.searchSetToggle('matchCase', true);
+		await notebooksPositron.expectSearchCountToBe({ total: 3 });
+
+		// Whole word additionally drops 'testing' (quotes are word boundaries)
+		await notebooksPositron.searchSetToggle('wholeWord', true);
+		await notebooksPositron.expectSearchCountToBe({ total: 2 });
+
+		// Case-insensitive again: 'Test' matches once more
+		await notebooksPositron.searchSetToggle('matchCase', false);
+		await notebooksPositron.expectSearchCountToBe({ total: 3 });
+
+		// Replace all with whole word on: 'testing' is untouched
+		await notebooksPositron.searchSetReplaceText('exam');
+		await notebooksPositron.searchReplaceAll();
+		await notebooksPositron.searchClose('button');
+		await notebooksPositron.expectCellContentsToBe(['exam = exam', 'testing = "exam"']);
+	});
+
+	test('Verify no matches state', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'alpha = 1');
+
+		await notebooksPositron.search('zebra');
+		await notebooksPositron.expectSearchCountToBe({ total: 0 });
+		await notebooksPositron.expectSearchDecorationCountToBe(0);
+
+		// The widget disables Replace/Replace All only when the find text is
+		// empty (matching the editor find widget), so with a query that has
+		// zero matches the buttons stay enabled and replacing is a no-op.
+		await notebooksPositron.searchExpandReplace();
+		await notebooksPositron.expectReplaceButtonsEnabled(true);
+		await notebooksPositron.searchSetReplaceText('x');
+		await notebooksPositron.searchReplaceAll();
+		await notebooksPositron.expectCellContentAtIndexToBe(0, 'alpha = 1');
+
+		// With an empty find text the replace buttons are disabled
+		await notebooksPositron.search('', { enterKey: false });
+		await notebooksPositron.expectReplaceButtonsEnabled(false);
+	});
+
+	test('Verify replacing with an empty string deletes matches', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'hello_world = 1');
+
+		await notebooksPositron.search('_world');
+		await notebooksPositron.expectSearchCountToBe({ current: 1, total: 1 });
+
+		await notebooksPositron.searchSetReplaceText('');
+		await notebooksPositron.searchReplaceAll();
+		await notebooksPositron.expectSearchCountToBe({ total: 0 });
+		await notebooksPositron.expectCellContentAtIndexToBe(0, 'hello = 1');
+	});
 });
