@@ -7,7 +7,7 @@
 import './languageModelModalDialog.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -101,6 +101,19 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return providers[0];
 	})();
 
+	// Log service for tracing the provider sign-in flow. Prefixed so traces can be
+	// filtered from the log, e.g. when investigating GitHub Copilot sign-in issues.
+	// useCallback keeps the reference stable so it can be listed in effect deps.
+	const logService = props.renderer.services.logService;
+	const trace = useCallback(
+		(message: string) => logService.trace(`[Positron Assistant] [sign-in] ${message}`),
+		[logService]
+	);
+	const logError = useCallback(
+		(message: string) => logService.error(`[Positron Assistant] [sign-in] ${message}`),
+		[logService]
+	);
+
 	// The currently selected language model provider. The UI preselects this initial provider.
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
 
@@ -136,6 +149,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
 			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
 			// for how the source is expanded from the stored model config.
+			trace(`onChangeLanguageModelConfig: provider=${newSource.provider.id} signedIn=${newSource.signedIn}`);
 			setProviderSources(prevSources => {
 				const index = prevSources.findIndex(source => source.provider.id === newSource.provider.id);
 				const updatedSources = [...prevSources];
@@ -151,7 +165,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			});
 		}));
 		return () => { disposables.forEach(d => d.dispose()); };
-	}, [props.renderer.services.positronAssistantService]);
+	}, [props.renderer.services.positronAssistantService, trace]);
 
 	// Listen for auth session changes from the Authentication extension so API key providers
 	// update immediately after save/delete while the modal is open.
@@ -161,6 +175,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			authService,
 			providers.map(source => source.provider.id),
 			(providerId, signedIn) => {
+				trace(`auth session sync: provider=${providerId} signedIn=${signedIn}`);
 				setProviderSources(prevSources => {
 					const index = prevSources.findIndex(source => source.provider.id === providerId);
 					if (index === -1) {
@@ -176,7 +191,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}
 		);
 		return () => disposable.dispose();
-	}, [props.renderer.services, providers]);
+	}, [props.renderer.services, providers, trace]);
 
 	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
@@ -256,6 +271,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** When the user clicks a different provider in the modal */
 	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
+		trace(`onChangeProvider: provider=${provider.provider.id} signedIn=${!!provider.signedIn}`);
 		setSelectedProvider(provider);
 		setProviderConfig(providerSourceToConfig(provider));
 		setShowProgress(false);
@@ -306,8 +322,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	/** When the user clicks the Sign In button */
 	const onSignIn = async (apiKeyFromInput?: string) => {
 		if (!selectedProvider) {
+			trace('onSignIn called with no selected provider; aborting');
 			return;
 		}
+		trace(`onSignIn: provider=${selectedProvider.provider.id} authMethod=${getAuthMethod()} signedIn=${isSignedIn()}`);
 		setShowProgress(true);
 		setErrorMessage(undefined);
 		let currentConfig = providerConfigRef.current;
@@ -337,13 +355,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					// When currently signed in, this button acts as sign out.
 					// Otherwise, treat it as sign in/save.
 					action = isSignedIn() ? 'delete' : 'save';
+					trace(`dispatching action='${action}' (API_KEY) for provider=${currentConfig.provider}`);
 					await props.onAction(currentConfig, action);
+					trace(`action='${action}' (API_KEY) for provider=${currentConfig.provider} resolved`);
 					break;
 				case AuthMethod.OAUTH:
 					action = isSignedIn() ? 'oauth-signout' : 'oauth-signin';
+					trace(`dispatching action='${action}' (OAUTH) for provider=${currentConfig.provider}`);
 					await props.onAction(currentConfig, action);
+					trace(`action='${action}' (OAUTH) for provider=${currentConfig.provider} resolved`);
 					break;
 				default:
+					trace(`unsupported auth method for provider=${currentConfig.provider}`);
 					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
 					return;
 			}
@@ -365,8 +388,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}
 
 		} catch (e) {
+			logError(`onSignIn failed for provider=${selectedProvider.provider.id}: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {
+			trace(`onSignIn finished for provider=${selectedProvider.provider.id}`);
 			setShowProgress(false);
 		}
 	};
@@ -375,8 +400,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onCancel = async () => {
 		// NOTE: this action is currently only applicable to Copilot OAuth.
 		// See positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
+		trace(`onCancel: dispatching action='cancel' for provider=${providerConfigRef.current.provider}`);
 		await props.onAction(providerConfigRef.current, 'cancel')
 			.catch((e) => {
+				logError(`onCancel failed for provider=${providerConfigRef.current.provider}: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
 				setErrorMessage(e.message);
 			}).finally(() => {
 				setShowProgress(false);
