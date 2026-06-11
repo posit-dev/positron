@@ -118,10 +118,14 @@ test.describe('Remote SSH', {
 			// The remote Save As dialog asynchronously re-populates its path
 			// input with a suggested name derived from the file's first line,
 			// which can clobber a single type() before we click OK. Retry the
-			// type until "test.py" actually sticks in the input.
+			// type until "test.py" actually sticks. Use a short settle wait +
+			// short assertion timeout so toPass can re-type quickly if the
+			// value was reset (the default 15s expect timeout would block the
+			// loop and only allow a couple of attempts).
 			await expect(async () => {
 				await sshWorkbench.quickInput.type('test.py');
-				await expect(sshWorkbench.quickInput.quickInput).toHaveValue('test.py');
+				await sshWin.waitForTimeout(750); // let any async re-population land
+				await expect(sshWorkbench.quickInput.quickInput).toHaveValue('test.py', { timeout: 1000 });
 			}).toPass({ timeout: 30000 });
 
 			await expect(async () => {
