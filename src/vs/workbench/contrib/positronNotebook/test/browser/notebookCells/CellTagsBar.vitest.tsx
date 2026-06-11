@@ -150,6 +150,64 @@ describe('CellTagsBar', () => {
 		expect(renameTag).toHaveBeenCalledWith('old', 'new');
 	});
 
+	it('is a single-tab-stop toolbar with the add control leading the row', () => {
+		const { cell } = createTagCell(['data', 'wip']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		const buttons = screen.getAllByRole('button');
+		expect(screen.getByRole('toolbar')).toBeInTheDocument();
+		// The add control leads and is the only tab stop; tags are reached with
+		// the arrow keys so a long tag list doesn't add a tab stop per tag.
+		expect(buttons[0]).toHaveAccessibleName('Add tag');
+		expect(buttons[0]).toHaveAttribute('tabindex', '0');
+		for (const button of buttons.slice(1)) {
+			expect(button).toHaveAttribute('tabindex', '-1');
+		}
+	});
+
+	it('moves focus through the controls with arrow keys', async () => {
+		const user = userEvent.setup();
+		const { cell } = createTagCell(['data']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		// Tab enters the bar at its single tab stop, the add control.
+		await user.tab();
+		expect(screen.getByRole('button', { name: 'Add tag' })).toHaveFocus();
+
+		await user.keyboard('{ArrowRight}');
+		expect(screen.getByRole('button', { name: 'Edit tag data' })).toHaveFocus();
+
+		await user.keyboard('{ArrowRight}');
+		expect(screen.getByRole('button', { name: 'Remove tag data' })).toHaveFocus();
+
+		// The ends wrap around.
+		await user.keyboard('{ArrowRight}');
+		expect(screen.getByRole('button', { name: 'Add tag' })).toHaveFocus();
+		await user.keyboard('{ArrowLeft}');
+		expect(screen.getByRole('button', { name: 'Remove tag data' })).toHaveFocus();
+	});
+
+	it('activates the focused control with Enter without leaking the key to the notebook', async () => {
+		// Regression: keys handled inside the bar must not bubble out of it,
+		// where the notebook's command-mode keybindings live -- Enter would
+		// otherwise put the cell into edit mode on top of opening the tag editor.
+		const user = userEvent.setup();
+		const outerKeyDown = vi.fn();
+		const { cell } = createTagCell(['data']);
+		rtl.render(
+			// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- stand-in for the notebook's key handling, not UI under test
+			<div onKeyDown={outerKeyDown}>
+				<CellTagsBar cell={cell} />
+			</div>
+		);
+
+		await user.tab();
+		await user.keyboard('{ArrowRight}{Enter}');
+
+		expect(screen.getByRole('textbox')).toHaveFocus();
+		expect(outerKeyDown).not.toHaveBeenCalled();
+	});
+
 	it('removes a tag via its close affordance', async () => {
 		const user = userEvent.setup();
 		const { cell, removeTag } = createTagCell(['keep', 'drop']);
