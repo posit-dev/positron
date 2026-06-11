@@ -178,4 +178,27 @@ test.describe('Positron Notebooks: Find & Replace', {
 		await notebooksPositron.expectSearchCountToBe({ total: 0 });
 		await notebooksPositron.expectCellContentAtIndexToBe(0, 'hello = 1');
 	});
+
+	// Skipped until the find widget tooltip fix (#14198) merges -- the widget
+	// buttons do not show tooltips without it. Unskip after that PR lands.
+	test.skip('Verify search widget buttons show tooltips on hover', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Use a query with a match so every button is enabled (disabled
+		// buttons do not receive mouse events, so no tooltip can show)
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'alpha = 1');
+		await notebooksPositron.search('alpha');
+		await notebooksPositron.expectSearchCountToBe({ current: 1, total: 1 });
+		await notebooksPositron.searchExpandReplace();
+
+		// Tooltips are the button label plus a platform-specific keybinding
+		// hint, so assert on the label substring only
+		await notebooksPositron.expectSearchButtonTooltip('previous', 'Previous Match');
+		await notebooksPositron.expectSearchButtonTooltip('next', 'Next Match');
+		await notebooksPositron.expectSearchButtonTooltip('close', 'Close');
+		await notebooksPositron.expectSearchButtonTooltip('toggleReplace', 'Toggle Replace');
+		await notebooksPositron.expectSearchButtonTooltip('replace', 'Replace');
+		await notebooksPositron.expectSearchButtonTooltip('replaceAll', 'Replace All');
+	});
 });
