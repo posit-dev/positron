@@ -297,7 +297,7 @@ configurationRegistry.registerConfiguration({
 		'console.showResourceMonitor': {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console tab list."),
+			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console. The monitor appears in the session list when multiple sessions are running, or in the console action bar when a single session is running."),
 		}
 	}
 });

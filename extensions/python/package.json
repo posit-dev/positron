@@ -49,8 +49,7 @@
     ],
     "configurationDefaults": {
       "[python]": {
-        "diffEditor.ignoreTrimWhitespace": false,
-        "editor.defaultColorDecorators": "never"
+        "diffEditor.ignoreTrimWhitespace": false
       }
     }
   },

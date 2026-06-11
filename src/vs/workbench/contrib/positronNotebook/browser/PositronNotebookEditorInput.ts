@@ -41,22 +41,7 @@ export interface PositronNotebookEditorInputOptions {
 }
 
 
-/**
- * PositronDataToolEditorInput class.
- */
 export class PositronNotebookEditorInput extends EditorInput {
-
-	/**
-	 * Value to keep track of what input instance we're on.
-	 * Used for keeping track in the logs.
-	 */
-	static count = 0;
-
-	/**
-	 * Unique identifier for this specific input instance
-	 */
-	readonly uniqueId: string = `positron-notebook-${PositronNotebookEditorInput.count++}`;
-
 	//#region Static Properties
 
 	/**

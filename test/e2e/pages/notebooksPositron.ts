@@ -909,6 +909,14 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	async expectNotebookAssistantModalVisible(timeout = 10000): Promise<void> {
+		await expect(
+			this.code.driver.currentPage
+				.locator('.positron-modal-dialog-box')
+				.filter({ hasText: 'Positron Notebook Assistant' })
+		).toBeVisible({ timeout });
+	}
+
 	/**
 	 * Action: Search Notebook.
 	 * @param searchText - The text to search for.

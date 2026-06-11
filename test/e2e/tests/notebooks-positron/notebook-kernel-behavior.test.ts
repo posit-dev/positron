@@ -215,8 +215,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.waitForReady('>>>');
 		await console.typeToConsole('x = 42', true);
 		await console.waitForReady('>>>');
-		await console.typeToConsole('print(x)', true);
-		await console.waitForConsoleContents('42');
+		await console.typeToConsole('print(f"value_is_{x}")', true);
+		await console.waitForConsoleContents('value_is_42');
 
 		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...

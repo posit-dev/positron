@@ -110,6 +110,8 @@ runs:
       run: |
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
         Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+        # Extra packages for screenshot tests not in qa-example-content's DESCRIPTION.
+        Rscript -e "options(pak.install_binary = TRUE); pak::pak(c('nycflights13', 'dbplyr'))"
 
     - name: Install R (alternate)
       shell: bash
