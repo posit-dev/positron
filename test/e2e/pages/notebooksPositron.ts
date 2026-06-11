@@ -103,6 +103,7 @@ export class PositronNotebooks extends Notebooks {
 	private searchMatchCaseToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Case' });
 	private searchWholeWordToggle = this.searchWidget.getByRole('checkbox', { name: 'Match Whole Word' });
 	private searchRegexToggle = this.searchWidget.getByRole('checkbox', { name: 'Use Regular Expression' });
+	private hoverTooltip = this.code.driver.currentPage.locator('.hover-contents');
 
 	// Ghost Cell
 	private ghostCellHeader = this.code.driver.currentPage.locator('.ghost-cell-header');
@@ -1147,6 +1148,52 @@ export class PositronNotebooks extends Notebooks {
 	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
 		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
 			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Verify: Replace and Replace All buttons enabled state.
+	 * Note: the widget disables these buttons only when the find text is
+	 * empty, not when a query has zero matches.
+	 * @param enabled - Whether the buttons should be enabled (true) or disabled (false).
+	 */
+	async expectReplaceButtonsEnabled(enabled: boolean = true): Promise<void> {
+		await test.step(`Expect replace buttons to be ${enabled ? 'enabled' : 'disabled'}`, async () => {
+			if (enabled) {
+				await expect(this.replaceButton).toBeEnabled({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.replaceAllButton).toBeEnabled({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				await expect(this.replaceButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
+				await expect(this.replaceAllButton).toBeDisabled({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: hovering a search widget button shows a tooltip with the expected text.
+	 * @param button - The search widget button to hover.
+	 * @param expectedTooltip - The expected tooltip text (string or regex).
+	 */
+	async expectSearchButtonTooltip(
+		button: 'previous' | 'next' | 'close' | 'toggleReplace' | 'replace' | 'replaceAll',
+		expectedTooltip: string | RegExp
+	): Promise<void> {
+		await test.step(`Expect tooltip on ${button} button: ${expectedTooltip}`, async () => {
+			const buttonLocator = {
+				previous: this.searchPreviousButton,
+				next: this.searchNextButton,
+				close: this.searchCloseButton,
+				toggleReplace: this.toggleReplaceButton,
+				replace: this.replaceButton,
+				replaceAll: this.replaceAllButton,
+			}[button];
+
+			// Park the mouse elsewhere first so the hover delay applies cleanly,
+			// then hover the button and wait for the tooltip to render.
+			await this.code.driver.currentPage.mouse.move(0, 0);
+			await expect(this.hoverTooltip).not.toBeVisible({ timeout: 5000 });
+			await buttonLocator.hover();
+			await expect(this.hoverTooltip).toContainText(expectedTooltip, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
