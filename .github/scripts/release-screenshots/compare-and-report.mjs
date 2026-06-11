@@ -220,10 +220,7 @@ export function formatSummary(classification, opts = {}) {
 	const reportUrl = opts.reportUrl;
 	const entries = Object.entries(classification);
 	if (entries.length === 0) {
-		return '📄 Screenshot Report
-
-No images were generated.
-';
+		return '📄 Screenshot Report\n\nNo images were generated.\n';
 	}
 	const counts = { unchanged: 0, changed: 0, new: 0 };
 	for (const info of Object.values(classification)) {
@@ -244,8 +241,7 @@ No images were generated.
 		'',
 		totalsLine,
 		'',
-	].join('
-');
+	].join('\n');
 }
 
 const HTML_STATUS_LABEL = {
@@ -320,8 +316,7 @@ function htmlSection(status, entries, screenshotBaseUrl, openByDefault) {
 		return '';
 	}
 	const label = HTML_STATUS_LABEL[status];
-	const cards = filtered.map(([name, info]) => htmlCard(name, info, screenshotBaseUrl)).join('
-');
+	const cards = filtered.map(([name, info]) => htmlCard(name, info, screenshotBaseUrl)).join('\n');
 	return `
 <details data-status="${status}"${openByDefault ? ' open' : ''}>
 	<summary>${label} <span class="section-count">(${filtered.length})</span></summary>
@@ -341,8 +336,7 @@ export function formatHtml(classification, opts = {}) {
 		htmlSection('new', entries, screenshotBaseUrl, true),
 		htmlSection('changed', entries, screenshotBaseUrl, true),
 		htmlSection('unchanged', entries, screenshotBaseUrl, false),
-	].filter(Boolean).join('
-');
+	].filter(Boolean).join('\n');
 
 	return `<!DOCTYPE html>
 <html lang="en">
