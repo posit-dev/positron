@@ -50,7 +50,6 @@ test.describe('Release Screenshots - Reticulate', () => {
 
 	test.beforeEach(async ({ app, sessions }) => {
 		await sessions.deleteAll();
-		await setScreenshotWindowSize(app);
 	});
 
 	test.afterEach(async ({ hotKeys }) => {
@@ -65,6 +64,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 	 */
 	test('Release Screenshot - reticulate-interpreter.png', async ({ app, page }) => {
 		const { console, sessions, hotKeys } = app.workbench;
+		await setScreenshotWindowSize(app, { width: 1200, height: 800 });
 
 		await sessions.start('r');
 		await console.pasteCodeToConsole('reticulate::repl_python()', true);
@@ -90,6 +90,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 	 */
 	test('Release Screenshot - reticulate-interpreter-list.png', async ({ app, page }) => {
 		const { sessions, quickInput } = app.workbench;
+		await setScreenshotWindowSize(app);
 
 		await sessions.openStartNewSessionQuickPick();
 		await sessions.expectStartNewSessionMenuToBeVisible();
@@ -111,6 +112,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 	 */
 	test('Release Screenshot - reticulate-python-objs.png', async ({ app, page }) => {
 		const { console, sessions, hotKeys } = app.workbench;
+		await setScreenshotWindowSize(app);
 
 		await sessions.start('r');
 		await console.pasteCodeToConsole('reticulate::repl_python()', true);

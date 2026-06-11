@@ -52,9 +52,9 @@ test.describe('Release Screenshots - Quarto', () => {
 	 * (a plotnine scatter plot of the Palmer penguins) shown in the Viewer.
 	 */
 	test('Release Screenshot - quarto-hello-python.png', async ({ app, page, openFile, python }) => {
-		const { editorActionBar, viewer, hotKeys, layouts, sessions } = app.workbench;
+		const { editorActionBar, viewer, hotKeys, layouts, sessions, plots } = app.workbench;
 
-		await setScreenshotWindowSize(app, { width: 900, height: 600 });
+		await setScreenshotWindowSize(app, { width: 1200, height: 800 });
 		await sessions.expectAllSessionsToBeReady();
 
 		writeFileSync(join(app.workspacePathOrFolder, 'hello.qmd'), HELLO_QMD);
@@ -75,6 +75,7 @@ test.describe('Release Screenshots - Quarto', () => {
 				.toBeVisible({ timeout: 45000 });
 		}).toPass({ timeout: 180000, intervals: [2000] });
 		await expect(previewFrame.locator('img').first()).toBeVisible({ timeout: 30000 });
+		await plots.setThePlotZoom('100%');
 
 		// collapse the preview log and widen the preview so it fills the right half
 		await hotKeys.minimizeBottomPanel();
