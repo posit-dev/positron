@@ -231,6 +231,21 @@ describe('Positron - Plots Service', () => {
 		expect(plotsService.selectedPlotId).toBe(undefined);
 	});
 
+	it('removal: removing a single plot leaves the other plots intact', async () => {
+		const session = await createSession();
+
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot3');
+
+		expect(plotsService.positronPlotInstances.length).toBe(3);
+
+		// Removing one plot should remove only that plot, not its neighbor.
+		plotsService.removePlot('plot1');
+
+		expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['plot2', 'plot3']);
+	});
+
 	it('selection: expect error removing plot when no plot selected', () => {
 		expect(() => plotsService.removeSelectedPlot()).toThrow('No plot is selected');
 	});
