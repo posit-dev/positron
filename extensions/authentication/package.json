@@ -278,7 +278,7 @@
 				},
 				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
 					"tags": [
 						"experimental"
@@ -286,7 +286,7 @@
 				},
 				"assistant.provider.deepseek.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
 					"tags": [
 						"experimental"
