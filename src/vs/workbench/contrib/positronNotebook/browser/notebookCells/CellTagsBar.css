@@ -6,11 +6,12 @@
 .positron-notebook-cell-tags {
 	display: inline-flex;
 	flex: 1 1 auto;
-	flex-wrap: nowrap;
+	/* Large tag sets wrap onto extra rows (in both the footer and standalone
+	placements) rather than scrolling horizontally -- a scrollable row has no
+	visual affordance that more tags exist. */
+	flex-wrap: wrap;
 	align-items: center;
 	min-width: 0;
-	overflow-x: auto;
-	overflow-y: hidden;
 	/* Small, consistent gaps between pills and the add control. */
 	gap: 4px;
 	/* Tag-bar typography for footer and standalone (markdown / raw) placement.
@@ -22,8 +23,6 @@
 /* Standalone placement (markdown / raw cells, which have no footer). */
 .positron-notebook-cell-tags.standalone {
 	flex: initial;
-	flex-wrap: wrap;
-	overflow: visible;
 	margin: 4px 1rem 6px 1rem;
 }
 
@@ -111,8 +110,7 @@ the pill's trailing padding on hover to keep the right inset balanced with the l
 
 /* Add affordance, styled to match the tag pills (thin outline, fully rounded).
 Hidden at rest and revealed on hover of the tag bar (or keyboard focus) so an
-untouched row stays calm. Sticks to the right edge when the row overflows
-horizontally, so it stays reachable even in large tag sets. */
+untouched row stays calm. */
 .positron-notebook-cell-tags .positron-notebook-cell-tag-add {
 	display: inline-flex;
 	align-items: center;
@@ -123,14 +121,11 @@ horizontally, so it stays reachable even in large tag sets. */
 	padding: 0 8px;
 	border: 1px solid var(--vscode-positronNotebook-cellTagBorder);
 	border-radius: 999px;
-	/* Opaque so tags scrolling underneath it (while sticky) don't bleed through. */
-	background-color: var(--vscode-notebook-cellEditorBackground);
+	background-color: transparent;
 	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
 	font-size: var(--vscode-bodyFontSize-xSmall);
 	line-height: 1;
 	cursor: pointer;
-	position: sticky;
-	right: 0;
 	/* Revealed via opacity (kept in layout) so hovering doesn't reflow the row. */
 	opacity: 0;
 	pointer-events: none;
@@ -144,28 +139,15 @@ horizontally, so it stays reachable even in large tag sets. */
 }
 
 /* On hover the add pill picks up the tag hover accent color with a faint
-accent-tinted fill. The wash is mixed over the opaque footer background (not
-transparent) so the pill stays opaque while sticky. */
+accent-tinted fill. */
 .positron-notebook-cell-tags .positron-notebook-cell-tag-add:hover {
 	color: var(--vscode-positronNotebook-cellTagHoverForeground);
 	border-color: var(--vscode-positronNotebook-cellTagHoverForeground);
-	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, var(--vscode-notebook-cellEditorBackground));
+	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, transparent);
 }
 
 .positron-notebook-cell-tags .positron-notebook-cell-tag-add-label {
 	white-space: nowrap;
-}
-
-/* Standalone (markdown / raw) cells render the bar on the cell background with no
-footer chrome behind it, and the row wraps instead of scrolling -- so the add pill
-needs neither the opaque backdrop nor the sticky pin. */
-.positron-notebook-cell-tags.standalone .positron-notebook-cell-tag-add {
-	position: static;
-	background-color: transparent;
-}
-
-.positron-notebook-cell-tags.standalone .positron-notebook-cell-tag-add:hover {
-	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, transparent);
 }
 
 /* Tag codicons (close + plus) are scoped under the tag bar to reach specificity
