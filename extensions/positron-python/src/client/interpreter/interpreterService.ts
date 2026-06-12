@@ -78,7 +78,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
 
     // --- Start Positron ---
-    // Was: public get onDidChangeInterpreter(): Event<Uri | undefined>
+    // public get onDidChangeInterpreter(): Event<Uri | undefined> {
     public get onDidChangeInterpreter(): Event<InterpreterChangeEvent> {
         return this.didChangeInterpreterEmitter.event;
     }
@@ -103,7 +103,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
     private readonly interpreterPathService: IInterpreterPathService;
 
     // --- Start Positron ---
-    // Was: EventEmitter<Uri | undefined>
+    // rivate readonly didChangeInterpreterEmitter = new EventEmitter<Uri | undefined>();
     private readonly didChangeInterpreterEmitter = new EventEmitter<InterpreterChangeEvent>();
     // --- End Positron ---
 
@@ -280,7 +280,8 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
 
     // --- Start Positron ---
-    // Was: public async _onConfigChanged(resource?: Uri)
+    // public async _onConfigChanged(resource?: Uri): Promise<void> {
+    //
     // Accept an InterpreterConfigurationScope (or bare Uri for backwards-compatible test calls) so
     // we can thread startSession / source through to listeners. Unit tests pass a bare Uri.
     public async _onConfigChanged(scopeOrUri?: InterpreterConfigurationScope | Uri): Promise<void> {

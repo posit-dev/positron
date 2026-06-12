@@ -95,7 +95,7 @@ export interface IInterpreterService {
     readonly onDidChangeInterpreters: Event<PythonEnvironmentsChangedEvent>;
     onDidChangeInterpreterConfiguration: Event<Uri | undefined>;
     // --- Start Positron ---
-    // Was: onDidChangeInterpreter: Event<Uri | undefined>;
+    // onDidChangeInterpreter: Event<Uri | undefined>;
     onDidChangeInterpreter: Event<InterpreterChangeEvent>;
     // --- End Positron ---
     onDidChangeInterpreterInformation: Event<PythonEnvironment>;
