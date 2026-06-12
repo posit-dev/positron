@@ -27,7 +27,10 @@ export function registerChatExportZipAction() {
 				id: 'workbench.action.chat.exportAsZip',
 				category: CHAT_CATEGORY,
 				title: localize2('chat.exportAsZip.label', "Export Chat as Zip..."),
-				precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatEntitlementContextKeys.Entitlement.internal),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(ChatContextKeys.available, ChatEntitlementContextKeys.Entitlement.internal),
+				// --- End Positron ---
 				f1: true,
 			});
 		}
