@@ -300,9 +300,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						notebookUri,
 						`Runtime kernel ${this.id} executed a code fragment for notebook`,
 					);
+				// No `cellId` for fragments: the fragment's line numbers don't
+				// correspond to the cell's content, so the kernel's breakpoint
+				// mapping for the cell document would be wrong (see executeCell).
 				await this._notebookExecutionSequencer.queue(
 					notebookUri,
-					() => this.executeCell(cell, notebook, session, code),
+					() => this.executeCellCode(cell, notebook, session, { code }),
 				);
 			} finally {
 				// If the queued execution never started (e.g. the session failed
@@ -325,15 +328,43 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * @param cell The notebook cell text model.
 	 * @param notebook The notebook text model.
 	 * @param session The session to execute in.
-	 * @param codeOverride When set, execute this code instead of the cell's
-	 *   content (see {@link executeCodeInCell}). Output still lands on the cell.
 	 * @returns
 	 */
 	private async executeCell(
 		cell: NotebookCellTextModel,
 		notebook: NotebookTextModel,
 		session: ILanguageRuntimeSession,
-		codeOverride?: string,
+	): Promise<void> {
+		return this.executeCellCode(cell, notebook, session, {
+			code: cell.getValue(),
+			// Include `cellId` so the kernel can identify this as a notebook
+			// cell execution and look up breakpoints via the Jupyter Debug
+			// Protocol's mapping of cell documents to kernel temp files. Only
+			// whole-cell executions get one; a fragment's line numbers don't
+			// match the cell document (see executeCodeInCell).
+			cellId: cell.uri.toString(),
+		});
+	}
+
+	/**
+	 * Execute code in a notebook cell, with replies (outputs, errors, etc.)
+	 * applied to that cell.
+	 *
+	 * Shared by {@link executeCell} (the cell's own content) and
+	 * {@link executeCodeInCell} (a fragment of the cell, e.g. the user's
+	 * selection); the two differ only in the options they pass.
+	 *
+	 * @param cell The notebook cell text model.
+	 * @param notebook The notebook text model.
+	 * @param session The session to execute in.
+	 * @param options The code to execute and, for whole-cell executions, the
+	 *   cell ID to attach to the execution for breakpoint mapping.
+	 */
+	private async executeCellCode(
+		cell: NotebookCellTextModel,
+		notebook: NotebookTextModel,
+		session: ILanguageRuntimeSession,
+		options: { code: string; cellId?: string },
 	): Promise<void> {
 		this._logService.trace(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
 
@@ -342,9 +373,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			return;
 		}
 
-		const code = codeOverride ?? cell.getValue();
+		const code = options.code;
 
-		// If the cell is empty, skip it.
+		// If the code is empty, skip it.
 		if (!code.trim()) {
 			return;
 		}
@@ -402,12 +433,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		// appropriately (e.g. for plot rendering).
 		const executionMetadata = this._getExecutionMetadata(notebook.uri);
 
-		// Execute the code. Include `cellId` in execution metadata so the
-		// kernel can identify this as a notebook cell execution and look up
-		// breakpoints via the Jupyter Debug Protocol's temp file mapping.
-		// Code fragments don't get a `cellId`: their line numbers don't
-		// correspond to the cell's content, so the breakpoint mapping would be
-		// wrong.
+		// Execute the code.
+		const metadata: Record<string, unknown> = { ...executionMetadata };
+		if (options.cellId !== undefined) {
+			metadata.cellId = options.cellId;
+		}
 		try {
 			session.execute(
 				code,
@@ -415,9 +445,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
 				undefined,
-				codeOverride === undefined
-					? { ...executionMetadata, cellId: cell.uri.toString() }
-					: { ...executionMetadata },
+				metadata,
 			);
 		} catch (err) {
 			execution.error(err);
