@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize2 } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from './positronNotebookConfig.js';
 
@@ -21,6 +22,18 @@ export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
  */
 export function usingPositronNotebooks(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
+}
+
+export const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
+
+// Group IDs used to organize cell actions in menus and context menus
+export enum PositronNotebookCellActionGroup {
+	Clipboard = '0_clipboard',
+	CellType = '1_celltype',
+	Insert = '2_insert',
+	Order = '3_order',
+	Execution = '4_execution',
+	Tags = '5_tags',
 }
 
 // Group IDs used to visually differentiate actions in the cell action bar

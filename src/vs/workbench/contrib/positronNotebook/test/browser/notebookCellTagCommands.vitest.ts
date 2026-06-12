@@ -8,7 +8,7 @@
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
-import { RemoveAllCellTagsAction, ToggleCellTagsAction } from '../../browser/positronNotebook.contribution.js';
+import { RemoveAllCellTagsAction, ToggleCellTagsAction } from '../../browser/contrib/cellTags/actions.js';
 import { createLabelledTestNotebook, createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 
 /**
