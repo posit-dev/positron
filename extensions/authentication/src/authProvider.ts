@@ -64,6 +64,7 @@ export class AuthProvider
 
 	private _chainSession: vscode.AuthenticationSession | undefined;
 	private _chainExpiration: Date | undefined;
+	private _chainResolution: Promise<vscode.AuthenticationSession | undefined> | undefined;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 	private _disposed = false;
 	private readonly logger: AuthProviderLogger;
@@ -112,12 +113,28 @@ export class AuthProvider
 		return `apiKey-${this.providerId}-${accountId}`;
 	}
 
+	private get chainConfiguredKey(): string {
+		return `authentication.previouslySignedIn.${this.providerId}`;
+	}
+
+	private isChainConfigured(): boolean {
+		return !!this.context.globalState.get<boolean>(this.chainConfiguredKey);
+	}
+
+	/** True if the user has set up this provider, regardless of current session validity. */
+	async isConfigured(): Promise<boolean> {
+		return this.isChainConfigured() || this.getStoredAccounts().length > 0;
+	}
+
 	async getSessions(
 		_scopes?: readonly string[],
 		options?: vscode.AuthenticationProviderSessionOptions
 	): Promise<vscode.AuthenticationSession[]> {
 		// Credential chain (e.g. AWS, Snowflake)
 		if (this.credentialChain) {
+			if (this._chainResolution) {
+				await this._chainResolution;
+			}
 			if (this.shouldRefreshNow()) {
 				await this.resolveChainCredentials();
 			} else if (this.credentialChain.shouldRefresh) {
@@ -231,11 +248,8 @@ export class AuthProvider
 	}
 
 	async removeSession(sessionId: string): Promise<void> {
-		if (this._chainSession?.id === sessionId) {
-			// If the chain can still resolve, re-resolve immediately
-			// instead of leaving an inconsistent state where the
-			// session is gone but registered models still work.
-			if (this.credentialChain?.preventSignOut) {
+		if (this.credentialChain && sessionId === this.providerId) {
+			if (this.credentialChain.preventSignOut) {
 				try {
 					const result = await this.credentialChain.resolve();
 					const token = typeof result === 'string' ? result : result.token;
@@ -263,9 +277,12 @@ export class AuthProvider
 			const removed = this._chainSession;
 			this._chainSession = undefined;
 			this._chainExpiration = undefined;
-			this._onDidChangeSessions.fire({
-				added: [], removed: [removed], changed: [],
-			});
+			await this.context.globalState.update(this.chainConfiguredKey, undefined);
+			if (removed) {
+				this._onDidChangeSessions.fire({
+					added: [], removed: [removed], changed: [],
+				});
+			}
 			this.logger.logSessionChange('removed', 'Chain session removed');
 			return;
 		}
@@ -303,6 +320,22 @@ export class AuthProvider
 		if (!this.credentialChain) {
 			return undefined;
 		}
+		const resolution = this.doResolveChainCredentials();
+		this._chainResolution = resolution;
+		try {
+			return await resolution;
+		} finally {
+			if (this._chainResolution === resolution) {
+				this._chainResolution = undefined;
+			}
+		}
+	}
+
+	private async doResolveChainCredentials(
+	): Promise<vscode.AuthenticationSession | undefined> {
+		if (!this.credentialChain) {
+			return undefined;
+		}
 
 		try {
 			const result = await this.credentialChain.resolve();
@@ -327,6 +360,10 @@ export class AuthProvider
 			this._chainExpiration = expiration;
 			this.startRefreshTimer();
 
+			if (!this.credentialChain.preventSignOut && !this.isChainConfigured()) {
+				await this.context.globalState.update(this.chainConfiguredKey, true);
+			}
+
 			if (!previous) {
 				this._onDidChangeSessions.fire({
 					added: [session], removed: [], changed: [],
@@ -340,7 +377,12 @@ export class AuthProvider
 
 			return session;
 		} catch (err) {
-			this.logger.logCredentialResolution('failed', `${err instanceof Error ? err.message : String(err)}`);
+			const message = err instanceof Error ? err.message : String(err);
+			if (this.isChainConfigured()) {
+				this.logger.warn(`Credential resolution failed for previously signed-in provider: ${message}`);
+			} else {
+				this.logger.logCredentialResolution('failed', message);
+			}
 
 			if (this._chainSession) {
 				const removed = this._chainSession;

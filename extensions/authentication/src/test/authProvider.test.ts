@@ -7,6 +7,32 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../authProvider';
+import { log } from '../log';
+
+function createMockContext(): vscode.ExtensionContext {
+	const secrets = new Map<string, string>();
+	const globalState = new Map<string, unknown>();
+	return {
+		secrets: {
+			get: (key: string) => Promise.resolve(secrets.get(key)),
+			store: (key: string, value: string) => {
+				secrets.set(key, value);
+				return Promise.resolve();
+			},
+			delete: (key: string) => {
+				secrets.delete(key);
+				return Promise.resolve();
+			},
+		},
+		globalState: {
+			get: <T>(key: string) => globalState.get(key) as T | undefined,
+			update: (key: string, value: unknown) => {
+				globalState.set(key, value);
+				return Promise.resolve();
+			},
+		},
+	} as unknown as vscode.ExtensionContext;
+}
 
 suite('AuthProvider', () => {
 	let provider: AuthProvider;
@@ -124,31 +150,6 @@ suite('AuthProvider (credential chain)', () => {
 	let chainProvider: AuthProvider;
 	let resolveResult: string;
 	let resolveShouldFail: boolean;
-
-	function createMockContext(): vscode.ExtensionContext {
-		const secrets = new Map<string, string>();
-		const globalState = new Map<string, unknown>();
-		return {
-			secrets: {
-				get: (key: string) => Promise.resolve(secrets.get(key)),
-				store: (key: string, value: string) => {
-					secrets.set(key, value);
-					return Promise.resolve();
-				},
-				delete: (key: string) => {
-					secrets.delete(key);
-					return Promise.resolve();
-				},
-			},
-			globalState: {
-				get: <T>(key: string) => globalState.get(key) as T | undefined,
-				update: (key: string, value: unknown) => {
-					globalState.set(key, value);
-					return Promise.resolve();
-				},
-			},
-		} as unknown as vscode.ExtensionContext;
-	}
 
 	setup(() => {
 		resolveResult = JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'secret' });
@@ -290,31 +291,6 @@ suite('AuthProvider (credential chain)', () => {
 });
 
 suite('AuthProvider - credential chain refresh', () => {
-	function createMockContext(): vscode.ExtensionContext {
-		const secrets = new Map<string, string>();
-		const globalState = new Map<string, unknown>();
-		return {
-			secrets: {
-				get: (key: string) => Promise.resolve(secrets.get(key)),
-				store: (key: string, value: string) => {
-					secrets.set(key, value);
-					return Promise.resolve();
-				},
-				delete: (key: string) => {
-					secrets.delete(key);
-					return Promise.resolve();
-				},
-			},
-			globalState: {
-				get: <T>(key: string) => globalState.get(key) as T | undefined,
-				update: (key: string, value: unknown) => {
-					globalState.set(key, value);
-					return Promise.resolve();
-				},
-			},
-		} as unknown as vscode.ExtensionContext;
-	}
-
 	const providers: AuthProvider[] = [];
 
 	function track(provider: AuthProvider): AuthProvider {
@@ -521,5 +497,170 @@ suite('AuthProvider - credential chain refresh', () => {
 			provider.dispose();
 			clock.restore();
 		}
+	});
+
+	test('getSessions waits for an in-flight resolution instead of returning no sessions', async () => {
+		let release!: () => void;
+		const gate = new Promise<void>(resolve => { release = resolve; });
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { await gate; return 'x'; } }
+		));
+
+		// Fire-and-forget, like the eager resolve during activation.
+		const resolution = provider.resolveChainCredentials();
+		const sessionsPromise = provider.getSessions();
+		release();
+		await resolution;
+
+		const sessions = await sessionsPromise;
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].accessToken, 'x');
+	});
+});
+
+suite('AuthProvider - configured provider state', () => {
+	const providers: AuthProvider[] = [];
+
+	function track(provider: AuthProvider): AuthProvider {
+		providers.push(provider);
+		return provider;
+	}
+
+	teardown(() => {
+		sinon.restore();
+		while (providers.length) {
+			providers.pop()!.dispose();
+		}
+	});
+
+	test('chain provider is not configured before first resolution', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => 'x' }
+		));
+
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
+	test('successful chain resolution marks the provider configured', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => 'x' }
+		));
+
+		await provider.resolveChainCredentials();
+
+		assert.strictEqual(await provider.isConfigured(), true);
+	});
+
+	test('failed resolution keeps a previously configured provider configured', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					if (count++ === 0) { return 'x'; }
+					throw new Error('chain failed');
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.resolveChainCredentials();
+
+		assert.strictEqual((await provider.getSessions()).length, 0);
+		assert.strictEqual(await provider.isConfigured(), true);
+	});
+
+	test('chain sign-out clears the configured flag', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => 'x' }
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.removeSession('test');
+
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
+	test('sign-out clears the configured flag even when the cached session is gone', async () => {
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					if (count++ === 0) { return 'x'; }
+					throw new Error('chain failed');
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.resolveChainCredentials(); // fails, invalidates session
+		await provider.removeSession('test');
+
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
+	test('preventSignOut chains are not marked configured', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => 'x', preventSignOut: true }
+		));
+
+		await provider.resolveChainCredentials();
+
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
+	test('stored API keys mark the provider configured until removed', async () => {
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext()
+		));
+
+		await provider.storeKey('acc-1', 'Account', 'sk-key');
+		assert.strictEqual(await provider.isConfigured(), true);
+
+		await provider.removeSession('acc-1');
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
+	test('failed resolution for a configured provider logs at warn', async () => {
+		const warnSpy = sinon.spy(log, 'warn');
+		let count = 0;
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{
+				resolve: async () => {
+					if (count++ === 0) { return 'x'; }
+					throw new Error('chain failed');
+				},
+			}
+		));
+
+		await provider.resolveChainCredentials();
+		await provider.resolveChainCredentials();
+
+		const warnings = warnSpy.getCalls().map(call => String(call.args[0]));
+		assert.ok(
+			warnings.some(msg => msg.includes('[Test]') && msg.includes('chain failed')),
+			`expected warn naming provider and error, got: ${warnings.join(' | ')}`
+		);
+	});
+
+	test('failed resolution for an unconfigured provider does not warn', async () => {
+		const warnSpy = sinon.spy(log, 'warn');
+		const provider = track(new AuthProvider(
+			'test', 'Test', createMockContext(), undefined,
+			{ resolve: async () => { throw new Error('no creds'); } }
+		));
+
+		await provider.resolveChainCredentials();
+
+		const providerWarnings = warnSpy.getCalls()
+			.filter(call => String(call.args[0]).includes('[Test]'));
+		assert.strictEqual(providerWarnings.length, 0);
 	});
 });
