@@ -904,6 +904,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			// When the user types into the focused input while the console is scrolled up to
+			// view history, scroll the input back into view. This keeps clicking from yanking
+			// the viewport (#11772) while still bringing the cursor's context into view as soon
+			// as the user starts typing (#13991).
+			if (props.positronConsoleInstance.scrollLocked && codeEditorWidget.hasTextFocus()) {
+				codeEditorWidgetContainerRef.current?.scrollIntoView({
+					behavior: 'auto',
+					block: 'end'
+				});
+			}
+
 			// If the history browser is up, update the list of history item matches with the
 			// current match strategy.
 			if (historyBrowserActiveRef.current) {
@@ -961,10 +972,22 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		);
 
 		// Add the onFocusInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+		disposableStore.add(props.positronConsoleInstance.onFocusInput((options) => {
 			// Focus the input editor when the Console takes focus, i.e. when the
-			// user clicks somewhere on the console output
-			codeEditorWidget.focus();
+			// user clicks somewhere on the console output.
+			if (options.preventScroll) {
+				// Focus the editor's text area directly so the browser does not scroll it
+				// into view, preserving the user's scroll position (#11772). Typing will
+				// scroll the input back into view via onDidChangeModelContent (#13991).
+				const textArea = codeEditorWidget.getDomNode()?.querySelector('textarea');
+				if (textArea) {
+					textArea.focus({ preventScroll: true });
+				} else {
+					codeEditorWidget.focus();
+				}
+			} else {
+				codeEditorWidget.focus();
+			}
 		}));
 
 		// Add the onDidChangeState event handler.

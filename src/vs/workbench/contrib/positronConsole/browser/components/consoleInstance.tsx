@@ -367,11 +367,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
 		const selection = getSelection();
 		if (!selection || selection.type !== 'Range') {
-			// Don't steal focus when the user has scrolled up to view history.
-			// Focusing the input causes the browser to scroll it into view.
-			if (!props.positronConsoleInstance.scrollLocked) {
-				props.positronConsoleInstance.focusInput();
-			}
+			// Move the cursor to the console input. When the user has scrolled up to view
+			// history, focus without scrolling so the viewport stays put (#11772); typing
+			// will scroll the input back into view (#13991).
+			props.positronConsoleInstance.focusInput({
+				preventScroll: props.positronConsoleInstance.scrollLocked
+			});
 		}
 	};
 
@@ -554,11 +555,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
 				getActiveWindow().document.execCommand('copy');
-				// Don't steal focus when the user has scrolled up to view history.
-				// Focusing the input causes the browser to scroll it into view.
-				if (!props.positronConsoleInstance.scrollLocked) {
-					props.positronConsoleInstance.focusInput();
-				}
+				// Move the cursor to the console input. When the user has scrolled up to
+				// view history, focus without scrolling so the viewport stays put (#11772).
+				props.positronConsoleInstance.focusInput({
+					preventScroll: props.positronConsoleInstance.scrollLocked
+				});
 				return;
 			}
 		}
