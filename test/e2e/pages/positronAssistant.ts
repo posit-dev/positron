@@ -490,6 +490,8 @@ export class Assistant {
 	}
 
 	async clickCloseButton({ abandonChanges = true } = {}) {
+		// Credential-expiry toasts render in the bottom-right and can cover the Close button.
+		await this.toasts.closeAll();
 		await this.code.driver.currentPage.locator(CLOSE_BUTTON).click();
 
 		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
