@@ -1,0 +1,133 @@
+name: "CI: Approve Fork PR"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  approve:
+    # Cheap pre-filter only. The exact command is validated in the "Parse command"
+    # step below so prose mentions (e.g. "don't /run-ci yet") never approve a PR.
+    if: >
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/run-ci')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse command
+        id: cmd
+        env:
+          # Read the attacker-controlled comment body via env, never inline it into
+          # the script (that would be a shell-injection vector).
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          # The command must start its own line: "/run-ci" alone or followed by an
+          # argument. A substring inside prose (e.g. "don't /run-ci yet") does not
+          # match, so it never triggers an approval. The argument is NOT validated
+          # here -- the "Pin approved commit" step strictly checks it's the full
+          # 40-char head SHA and posts actionable feedback otherwise.
+          LINE=$(printf '%s\n' "$COMMENT_BODY" \
+            | grep -iE '^[[:space:]]*/run-ci([[:space:]].*)?$' \
+            | head -n1 || true)
+
+          if [ -z "$LINE" ]; then
+            echo "No '/run-ci' command found on its own line; ignoring mention."
+            echo "match=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          REQUESTED_SHA=$(printf '%s' "$LINE" | awk '{print $2}' | tr 'A-Z' 'a-z')
+          echo "match=true" >> "$GITHUB_OUTPUT"
+          echo "requested_sha=$REQUESTED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Check team membership
+        if: steps.cmd.outputs.match == 'true'
+        env:
+          # POSITRON_GITHUB_PAT only needs the read:org scope (team membership read).
+          GH_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          STATUS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "orgs/posit-dev/teams/positron-dev/memberships/${COMMENTER}" \
+            --jq '.state' 2>/dev/null || echo "not_found")
+
+          if [ "$STATUS" != "active" ]; then
+            echo "::error::User ${COMMENTER} is not a member of posit-dev/positron-dev"
+            exit 1
+          fi
+
+      - name: Pin approved commit
+        id: pin
+        if: steps.cmd.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_SHA: ${{ steps.cmd.outputs.requested_sha }}
+        run: |
+          HEAD_SHA=$(gh pr view "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --json headRefOid --jq '.headRefOid')
+
+          # The maintainer must name the exact commit they reviewed. A bare
+          # /run-ci is rejected so approval can never drift to an unreviewed head.
+          if [ -z "$REQUESTED_SHA" ]; then
+            gh pr comment "${{ github.event.issue.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "\`/run-ci\` requires the commit you reviewed. Comment \`/run-ci ${HEAD_SHA}\` to approve the current head."
+            echo "::error::/run-ci requires an explicit commit SHA (current head ${HEAD_SHA})"
+            exit 1
+          fi
+
+          # Require the full 40-char SHA. A short SHA is only a prefix (28 bits for
+          # 7 chars) and is brute-forceable via commit grinding, so it is rejected
+          # as a security pin -- not merely for tidiness.
+          if ! printf '%s' "$REQUESTED_SHA" | grep -qiE '^[0-9a-f]{40}$'; then
+            gh pr comment "${{ github.event.issue.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "\`${REQUESTED_SHA}\` is not a full 40-character commit SHA. Use the full SHA (GitHub's commit view has a copy button): \`/run-ci ${HEAD_SHA}\`."
+            echo "::error::Requested SHA ${REQUESTED_SHA} is not a full 40-char commit SHA"
+            exit 1
+          fi
+
+          # The reviewed commit must still be the current head (exact match, no
+          # prefixes). Otherwise the author pushed after review and the new code
+          # has NOT been reviewed -- refuse and force a fresh /run-ci.
+          if [ "$REQUESTED_SHA" != "$HEAD_SHA" ]; then
+            gh pr comment "${{ github.event.issue.number }}" \
+              --repo "${{ github.repository }}" \
+              --body "Requested commit \`${REQUESTED_SHA}\` no longer matches the PR head (\`${HEAD_SHA}\`). New commits were pushed after review. Re-review and comment \`/run-ci ${HEAD_SHA}\`."
+            echo "::error::Requested commit ${REQUESTED_SHA} does not match current head ${HEAD_SHA}"
+            exit 1
+          fi
+
+          echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Add run-ci label
+        if: steps.cmd.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "run-ci"
+
+      - name: Confirm approval
+        if: steps.cmd.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPROVED_SHA: ${{ steps.pin.outputs.sha }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content='rocket'
+
+          # Leave an audit trail of exactly which commit was approved and by whom.
+          gh pr comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "🚀 CI approved for commit \`${APPROVED_SHA}\` by @${COMMENTER}. Any new push will revoke this approval."

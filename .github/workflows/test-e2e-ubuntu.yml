@@ -3,6 +3,11 @@ name: "Test: E2E (Ubuntu)"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -136,6 +141,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit }}
+          # Fork code may run here; don't persist GITHUB_TOKEN in .git/config.
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
 

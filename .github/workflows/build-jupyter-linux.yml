@@ -2,6 +2,12 @@ name: "Build: Positron Server (Linux x64)"
 
 on:
   workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to build"
+        required: false
+        default: ""
+        type: string
     outputs:
       artifact-name:
         description: "Name of the server artifact uploaded"
@@ -28,6 +34,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit }}
+          # Fork code may run here; don't persist GITHUB_TOKEN in .git/config.
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
 

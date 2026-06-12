@@ -37,13 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit }}
+          # Fork code may run here; don't persist GITHUB_TOKEN in .git/config.
+          persist-credentials: false
           submodules: recursive
-
-      - name: Checkout specific commit
-        if: ${{ inputs.commit != '' }}
-        run: |
-          git checkout ${{ inputs.commit }}
-          git submodule update --init --recursive
 
       - uses: actions/setup-node@v6
         with:
