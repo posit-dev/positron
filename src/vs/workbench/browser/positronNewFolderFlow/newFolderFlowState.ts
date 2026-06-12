@@ -46,6 +46,7 @@ export interface NewFolderFlowState {
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
+	generateWithAIPrompt: string | undefined;
 }
 
 /**
@@ -98,6 +99,9 @@ export class NewFolderFlowStateManager
 	private _useRenv: boolean | undefined;
 	private _minimumRVersion: string | undefined;
 
+	// AI generation state.
+	private _generateWithAIPrompt: string | undefined;
+
 	// The steps in the New Folder Flow.
 	private _steps: NewFolderFlowStep[];
 	private _currentStep: NewFolderFlowStep;
@@ -145,6 +149,7 @@ export class NewFolderFlowStateManager
 		this._condaPythonVersionInfo = undefined;
 		this._uvPythonVersionInfo = undefined;
 		this._minimumRVersion = undefined;
+		this._generateWithAIPrompt = undefined;
 
 		if (this._services.languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 			// If the runtime startup is already complete, initialize the flow state and update
@@ -439,6 +444,14 @@ export class NewFolderFlowStateManager
 		this._useRenv = value;
 	}
 
+	get generateWithAIPrompt(): string | undefined {
+		return this._generateWithAIPrompt;
+	}
+
+	set generateWithAIPrompt(value: string | undefined) {
+		this._generateWithAIPrompt = value;
+	}
+
 	/**
 	 * Gets the Conda Python version.
 	 * @returns The Conda Python version.
@@ -647,6 +660,7 @@ export class NewFolderFlowStateManager
 			condaPythonVersion: this._condaPythonVersion,
 			uvPythonVersion: this._uvPythonVersion,
 			useRenv: this._useRenv,
+			generateWithAIPrompt: this._generateWithAIPrompt,
 		} satisfies NewFolderFlowState;
 	}
 

@@ -14,6 +14,9 @@ import { NewFolderFlowStep } from './interfaces/newFolderFlowEnums.js';
 import { showChooseNewFolderWindowModalDialog } from './chooseNewFolderWindowModalDialog.js';
 import { URI } from '../../../base/common/uri.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
+import { VSBuffer } from '../../../base/common/buffer.js';
+import { CancellationToken } from '../../../base/common/cancellation.js';
+import { ChatMessageRole } from '../../contrib/chat/common/languageModels.js';
 
 /**
  * Shows the NewFolderFlowModalDialog.
@@ -35,6 +38,49 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 					const existingFolder = await renderer.services.fileService.exists(folder);
 					if (!existingFolder) {
 						await renderer.services.fileService.createFolder(folder);
+					}
+
+					// Generate project files with AI if a prompt was provided.
+					if (result.generateWithAIPrompt) {
+						try {
+							const models = await renderer.services.languageModelsService.selectLanguageModels({});
+							if (models.length > 0) {
+								const aiPrompt = `You are helping set up a new Python project. The user described their project as: "${result.generateWithAIPrompt}"
+
+Generate 2-3 starter files for this Python project. Return ONLY a JSON array in this exact format, with no markdown or extra text:
+[{"filename":"README.md","content":"..."},{"filename":"main.py","content":"..."}]`;
+
+								const response = await renderer.services.languageModelsService.sendChatRequest(
+									models[0],
+									undefined,
+									[{ role: ChatMessageRole.User, content: [{ type: 'text', value: aiPrompt }] }],
+									{},
+									CancellationToken.None
+								);
+
+								let responseText = '';
+								for await (const part of response.stream) {
+									if (Array.isArray(part)) {
+										for (const p of part) {
+											if (p.type === 'text') { responseText += p.value; }
+										}
+									} else if (part.type === 'text') {
+										responseText += part.value;
+									}
+								}
+
+								// Strip markdown code fences if the model wrapped the response.
+								responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+								const files: Array<{ filename: string; content: string }> = JSON.parse(responseText);
+								for (const file of files) {
+									const fileUri = URI.joinPath(folder, file.filename);
+									await renderer.services.fileService.writeFile(fileUri, VSBuffer.fromString(file.content));
+								}
+							}
+						} catch (err) {
+							renderer.services.logService.error('Failed to generate project files with AI:', err);
+						}
 					}
 
 					// Install ipykernel if applicable.
@@ -95,6 +141,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						uvPythonVersion: result.uvPythonVersion,
 						useRenv: result.useRenv,
 						openInNewWindow: result.openInNewWindow,
+						generateWithAIPrompt: result.generateWithAIPrompt,
 					};
 
 					// Store the new folder configuration.

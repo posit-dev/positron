@@ -965,7 +965,16 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 		if (this._newFolderConfig) {
 			// We're in the new folder window, so we can clear the config from the storage service.
+			const generateWithAIPrompt = this._newFolderConfig.generateWithAIPrompt;
 			this.clearNewFolderConfig();
+
+			// Open Posit Assistant chat with the user's prompt in this window.
+			if (generateWithAIPrompt) {
+				this._commandService.executeCommand('workbench.action.chat.open', {
+					query: `@assistant ${generateWithAIPrompt}`,
+					isPartialQuery: false,
+				});
+			}
 
 			// Apply layout before awaiting trust since layout changes don't require trust.
 			this._startupPhase.set(

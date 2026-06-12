@@ -53,6 +53,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 
 	// Hooks.
 	const [folderName, setFolderName] = useState(context.folderName);
+	const [generateWithAIPrompt, setGenerateWithAIPrompt] = useState(context.generateWithAIPrompt ?? '');
 	const [parentFolder, setParentFolder] = useState(() => pathUriToLabel(context.parentFolder, labelService));
 	const [folderNameFeedback, setFolderNameFeedback] = useState(context.folderNameFeedback);
 	const [maxFolderPathLength, setMaxFolderPathLength] = useState(() => getMaxFolderPathLength(parentFolder.length));
@@ -328,6 +329,27 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 					/>
 				)}
 			</PositronFlowSubStep>
+			{context.folderTemplate === FolderTemplate.PythonProject && (
+				<PositronFlowSubStep
+					title={localize(
+						'folderNameLocationSubStep.generateWithAI.label',
+						"Generate with AI"
+					)}
+				>
+					<LabeledTextInput
+						label={localize(
+							'folderNameLocationSubStep.generateWithAI.description',
+							"Describe your project and Posit Assistant will generate initial files (optional)"
+						)}
+						type='text'
+						value={generateWithAIPrompt}
+						onChange={(e) => {
+							setGenerateWithAIPrompt(e.target.value);
+							context.generateWithAIPrompt = e.target.value || undefined;
+						}}
+					/>
+				</PositronFlowSubStep>
+			)}
 		</PositronFlowStep>
 	);
 };

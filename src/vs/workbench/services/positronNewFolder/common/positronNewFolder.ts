@@ -108,6 +108,7 @@ export interface NewFolderConfiguration {
 	readonly uvPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
 	readonly openInNewWindow: boolean;
+	readonly generateWithAIPrompt: string | undefined;
 }
 
 /**
