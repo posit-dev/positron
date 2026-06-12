@@ -489,6 +489,47 @@ describe('PositronNotebookFindController', () => {
 			expect(revealSpy).toHaveBeenCalledWith(notebook.cells.get()[1]);
 		});
 
+		// https://github.com/posit-dev/positron/issues/14130: find jumps to the
+		// right cell but not the matching line. navigateToMatch() only sets the
+		// selection and reveals the line when the cell already has an attached
+		// editor; for a cell whose editor attaches late (e.g. it was outside the
+		// viewport when the search navigated to it), the line reveal is skipped
+		// and never retried. These tests document the expected behavior and are
+		// marked `fails` until the bug is fixed -- flip them to `it` then.
+
+		it.fails('applies the match selection once a late-attaching editor attaches', () => {
+			const { notebook, controller, find } = findFixture([
+				['alpha', 'python', CellKind.Code],
+				['line one\nline two\ntarget here', 'python', CellKind.Code],
+			]);
+			const cell = notebook.cells.get()[1];
+			const editor = cell.currentEditor!;
+			cell.detachEditor();
+
+			find.searchString.set('target', undefined);
+			controller.findNext();
+			cell.attachEditor(editor);
+
+			expect(getCellSelection(cell)).toEqual([3, 1, 3, 7]);
+		});
+
+		it.fails('requests an editor reveal once a late-attaching editor attaches', () => {
+			const { notebook, controller, find } = findFixture([
+				['alpha', 'python', CellKind.Code],
+				['line one\nline two\ntarget here', 'python', CellKind.Code],
+			]);
+			const cell = notebook.cells.get()[1];
+			const editor = cell.currentEditor!;
+			const revealSpy = vi.spyOn(editor, 'revealRangeInCenter');
+			cell.detachEditor();
+
+			find.searchString.set('target', undefined);
+			controller.findNext();
+			cell.attachEditor(editor);
+
+			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({ startLineNumber: 3 }));
+		});
+
 	});
 
 	describe('Notebook Structure Changes', () => {
