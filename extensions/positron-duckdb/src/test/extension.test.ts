@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable local/code-no-unexternalized-strings -- test file; strings need not be externalized */
+
 import * as assert from 'assert';
 import * as path from 'path';
 import * as zlib from 'zlib';
@@ -44,13 +46,14 @@ import {
 	ColumnHistogramParamsMethod,
 	GetColumnProfilesParams,
 	ColumnHistogram,
-	ColumnSummaryStats
+	ColumnSummaryStats,
+	DataExplorerUiEvent,
+	ReturnColumnProfilesEvent
 } from 'positron-data-explorer-protocol';
 import { randomBytes, randomUUID } from 'crypto';
 import * as os from 'os';
 import * as fs from 'fs';
 import { DataExplorerRpcHandler, DuckDBInstance } from '../extension';
-import { DataExplorerUiEvent } from 'positron-data-explorer-protocol';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -75,8 +78,11 @@ let testHandler: DataExplorerRpcHandler | undefined;
 
 // The handler's UI-event sink: routes column profiles / schema updates to the test registries above.
 function routeUiEvent(event: DataExplorerUiEvent) {
-	const params = event.params as any;
-	if (event.method === 'return_column_profiles' && params.callback_id) {
+	if (event.method === 'return_column_profiles') {
+		const params = event.params as ReturnColumnProfilesEvent;
+		if (!params.callback_id) {
+			return;
+		}
 		const callback = columnProfileCallbacks.get(params.callback_id);
 		if (callback) {
 			callback(params);
