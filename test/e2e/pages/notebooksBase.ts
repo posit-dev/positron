@@ -18,9 +18,11 @@ const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 
 /*
- * Shared Notebooks functionality for both Vscode and Positron notebooks.
+ * Shared base for the notebook page objects. Holds functionality common to both
+ * the Positron and VS Code notebook editors; extended by `PositronNotebooks` and
+ * `VsCodeNotebooks`. Not registered as a page object itself.
  */
-export class Notebooks {
+export class NotebooksBase {
 	protected code: Code;
 	protected quickinput: QuickInput;
 	protected quickaccess: QuickAccess;

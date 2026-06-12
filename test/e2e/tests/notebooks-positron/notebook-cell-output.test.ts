@@ -15,11 +15,11 @@ test.describe('Positron Notebooks: Cell Output', {
 }, () => {
 
 	test('Collapse, expand, and clear output', async function ({ app }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 
 		await test.step('Setup: Open a notebook and run the first cell', async () => {
 			// Setup the notebook
-			await notebooks.createNewNotebook();
+			await notebooksPositron.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1);
 			await notebooksPositron.kernel.select('Python');
 

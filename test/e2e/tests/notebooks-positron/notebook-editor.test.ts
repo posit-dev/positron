@@ -19,7 +19,7 @@ test.describe('Positron Notebooks: Open & Save', {
 }, () => {
 
 	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
-		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
+		const { notebooksVscode, notebooksPositron } = app.workbench;
 
 		// Positron notebooks are enabled by default for notebooks-positron tests
 		// Verify that opening a notebook uses the Positron editor
@@ -30,7 +30,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		await hotKeys.closeAllEditors();
 		await notebooksPositron.disablePositronNotebooks(settings);
 
-		await notebooks.openNotebook(NOTEBOOK_PATH);
+		await notebooksVscode.openNotebook(NOTEBOOK_PATH);
 		await notebooksVscode.expectToBeVisible();
 
 		// Switch back to Positron notebook editor and verify it works
@@ -44,10 +44,10 @@ test.describe('Positron Notebooks: Open & Save', {
 
 	test('Positron notebooks can open new untitled notebooks and saving works properly', { tag: [tags.WEB] },
 		async function ({ app, runCommand, cleanup }) {
-			const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
+			const { notebooksPositron, quickInput, editors } = app.workbench;
 
 			// Create a new untitled notebook
-			await notebooks.createNewNotebook();
+			await notebooksPositron.createNewNotebook();
 			await notebooksPositron.expectToBeVisible();
 
 			// New notebooks should automatically be named "Untitled-1.ipynb" by default
@@ -73,10 +73,10 @@ test.describe('Positron Notebooks: Open & Save', {
 		});
 
 	test('Ghost editor issue: Positron notebook does not create duplicate VS Code notebook on reload with dirty notebook', async function ({ app, hotKeys }) {
-		const { notebooks, notebooksPositron, editors } = app.workbench;
+		const { notebooksPositron, editors } = app.workbench;
 
 		// Create a new notebook (which starts dirty)
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 
 		// Verify only the expected tab is open (new notebooks are named Untitled-N.ipynb)

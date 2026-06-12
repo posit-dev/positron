@@ -29,10 +29,10 @@ test.describe('Positron Notebooks: Kernel Startup', {
 
 	for (const { lang, target } of LANGUAGES) {
 		test(`Notebook Kernel Start: ${lang}`, async function ({ app, metric }) {
-			const { notebooks, notebooksPositron } = app.workbench;
+			const { notebooksPositron } = app.workbench;
 
 			// Fresh untitled Positron notebook so kernel startup happens under test control.
-			await notebooks.createNewNotebook();
+			await notebooksPositron.createNewNotebook();
 			await notebooksPositron.expectToBeVisible();
 
 			const { duration_ms } = await metric.sessions.start(async () => {

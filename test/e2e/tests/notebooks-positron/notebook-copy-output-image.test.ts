@@ -22,9 +22,9 @@ test.describe('Positron Notebooks: Copy Output Image', {
 }, () => {
 
 	test.beforeEach(async function ({ app, python }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 		await app.workbench.layouts.enterLayout('notebook');
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await notebooksPositron.kernel.select('Python');
 	});

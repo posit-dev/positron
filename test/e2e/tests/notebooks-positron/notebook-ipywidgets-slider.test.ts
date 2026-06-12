@@ -13,8 +13,8 @@ test.describe('Positron Notebooks: ipywidgets', {
 }, () => {
 
 	test.beforeEach(async ({ app }) => {
-		const { notebooks, notebooksPositron } = app.workbench;
-		await notebooks.createNewNotebook();
+		const { notebooksPositron } = app.workbench;
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectCellCountToBe(1);
 		await notebooksPositron.kernel.select('Python');
 	});
