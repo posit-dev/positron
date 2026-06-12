@@ -976,12 +976,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Focus the input editor when the Console takes focus, i.e. when the
 			// user clicks somewhere on the console output.
 			if (options.preventScroll) {
-				// Focus the editor's text area directly so the browser does not scroll it
-				// into view, preserving the user's scroll position (#11772). Typing will
-				// scroll the input back into view via onDidChangeModelContent (#13991).
-				const textArea = codeEditorWidget.getDomNode()?.querySelector('textarea');
-				if (textArea) {
-					textArea.focus({ preventScroll: true });
+				// Focus the editor's editable element directly so the browser does not scroll
+				// it into view, preserving the user's scroll position (#11772). Typing will
+				// scroll the input back into view via onDidChangeModelContent (#13991). The
+				// editable element is a <textarea> or, when the EditContext API is in use (the
+				// Electron default), a .native-edit-context div; both support focus options.
+				const editTarget = codeEditorWidget.getDomNode()
+					?.querySelector<HTMLElement>('textarea, .native-edit-context');
+				if (editTarget) {
+					editTarget.focus({ preventScroll: true });
 				} else {
 					codeEditorWidget.focus();
 				}
