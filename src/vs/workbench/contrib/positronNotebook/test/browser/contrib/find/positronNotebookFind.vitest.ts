@@ -451,6 +451,46 @@ describe('PositronNotebookFindController', () => {
 
 	});
 
+	describe('Match Reveal', () => {
+
+		it('navigating to a match on a later line selects that line in the editor', () => {
+			const { notebook, controller, find } = findFixture([
+				['line one\nline two\ntarget here', 'python', CellKind.Code],
+			]);
+			find.searchString.set('target', undefined);
+
+			controller.findNext();
+
+			expect(getCellSelection(notebook.cells.get()[0])).toEqual([3, 1, 3, 7]);
+		});
+
+		it('navigating to a match requests an editor reveal of the match line', () => {
+			const { notebook, controller, find } = findFixture([
+				['line one\nline two\ntarget here', 'python', CellKind.Code],
+			]);
+			const revealSpy = vi.spyOn(notebook.cells.get()[0].currentEditor!, 'revealRangeInCenter');
+			find.searchString.set('target', undefined);
+
+			controller.findNext();
+
+			expect(revealSpy).toHaveBeenCalledWith(expect.objectContaining({ startLineNumber: 3 }));
+		});
+
+		it('navigating to a match in another cell requests a cell reveal', () => {
+			const { notebook, controller, find } = findFixture([
+				['alpha', 'python', CellKind.Code],
+				['target', 'python', CellKind.Code],
+			]);
+			const revealSpy = vi.spyOn(notebook, 'revealInCenterIfOutsideViewport');
+			find.searchString.set('target', undefined);
+
+			controller.findNext();
+
+			expect(revealSpy).toHaveBeenCalledWith(notebook.cells.get()[1]);
+		});
+
+	});
+
 	describe('Notebook Structure Changes', () => {
 
 		it('adding a cell with matching content recomputes matches', () => runWithFakedTimers({}, async () => {
