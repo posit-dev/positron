@@ -33,7 +33,7 @@ test.describe('Autocomplete with Notebook Console', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, page, openFile, sessions, python }) {
+	test('Python - Autocomplete in script works after opening notebook console', async function ({ app, page, openFile, sessions, python, runCommand }) {
 		const { editors, console, notebooksPositron } = app.workbench;
 		const keyboard = page.keyboard;
 
@@ -69,6 +69,13 @@ test.describe('Autocomplete with Notebook Console', {
 
 		// Autocomplete should still work after the notebook console was opened
 		await editors.expectSuggestionListCount(1, { retryTimeout: 30000 });
+
+		// Closing the notebook removes its console session (#12940)
+		await test.step('Closing the notebook removes its console session', async () => {
+			await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
+			await runCommand('workbench.action.revertAndCloseActiveEditor');
+			await sessions.expectSessionCountToBe(1);
+		});
 	});
 
 	test('R - Autocomplete in script works after opening notebook console', {
