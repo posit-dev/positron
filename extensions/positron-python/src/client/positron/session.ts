@@ -512,10 +512,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {
             // Update the active environment in the Python extension.
+            // Storage-only: the session is already starting here, so the listener in
+            // PythonRuntimeManager must not start another one.
             this._interpreterPathService.update(
                 undefined,
                 vscode.ConfigurationTarget.WorkspaceFolder,
                 interpreter.path,
+                { startSession: false, source: 'positron-session-start' },
             );
         }
 
