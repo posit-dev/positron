@@ -301,10 +301,10 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console. The monitor appears in the session list when multiple sessions are running, or in the console action bar when a single session is running."),
 		},
 		// Whether to show Assistant-powered actions (Fix, Explain) on console errors
-		'console.assistantActions.enable': {
+		'console.assistantActions.enabled': {
 			type: 'boolean',
 			default: true,
-			description: localize('positron.console.assistantActions.enable', "Enable Assistant-powered console actions, such as Fix and Explain."),
+			description: localize('positron.console.assistantActions.enabled', "Enable Assistant-powered console actions, such as Fix and Explain."),
 			tags: ['preview'],
 		}
 	}
@@ -317,7 +317,7 @@ Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.Co
 	.registerConfigurationMigrations([{
 		key: 'positron.assistant.consoleActions.enable',
 		migrateFn: (value: boolean) => [
-			['console.assistantActions.enable', { value }],
+			['console.assistantActions.enabled', { value }],
 			['positron.assistant.consoleActions.enable', { value: undefined }],
 		],
 	}]);

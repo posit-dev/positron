@@ -35,7 +35,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const [showTraceback, setShowTraceback] = useState(false);
 
 	// Configuration hooks.
-	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enable');
+	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
 	// Set by the Posit Assistant extension when it has at least one usable model
 	// (a configured cloud provider, a local provider, or a vscode.lm model such

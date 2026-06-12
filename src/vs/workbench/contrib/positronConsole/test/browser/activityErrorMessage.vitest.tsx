@@ -35,7 +35,7 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 	function setup(options: { actionsEnabled?: boolean; hasChatModels?: boolean }) {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('console.assistantActions.enable', options.actionsEnabled ?? true);
+		configurationService.setUserConfiguration('console.assistantActions.enabled', options.actionsEnabled ?? true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', options.hasChatModels ?? true);
 	}
 
@@ -69,7 +69,7 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 	it('hides the actions when Posit Assistant is not installed', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('console.assistantActions.enable', true);
+		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
