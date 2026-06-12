@@ -2356,9 +2356,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Removes every tag from every cell in the notebook in a single undoable edit.
-	 * A no-op when no cell has tags.
+	 * A no-op when no cell has tags or the notebook is read-only.
 	 */
 	removeAllCellTags(): void {
+		// Tag edits are document mutations, so respect a read-only notebook
+		// (mirrors the reorder guard in PositronNotebookComponent and setTags on
+		// the cell).
+		if (this.isReadOnly) {
+			return;
+		}
 		this._assertTextModel();
 		const textModel = this.textModel;
 		const cells = this.cells.get();
@@ -2379,8 +2385,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (edits.length === 0) {
 			return;
 		}
-		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		textModel.applyEdits(edits, true, undefined, () => undefined, undefined, computeUndoRedo);
+		// The trailing `true` is computeUndoRedo, so the removal remains undoable
+		// (the read-only guard above already excluded the non-undoable case).
+		textModel.applyEdits(edits, true, undefined, () => undefined, undefined, true);
 	}
 
 	/**

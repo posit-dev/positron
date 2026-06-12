@@ -253,6 +253,34 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.tags.get()).toEqual(['a']);
 	});
 
+	it('tag writes fail on a read-only notebook', () => {
+		// Tag edits are document mutations, so a read-only notebook rejects them
+		// at the setTags choke point and the verbs report 'failed'.
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata: { metadata: { tags: ['seeded'] } },
+			internalMetadata: {},
+		}], ctx);
+		vi.spyOn(notebook, 'isReadOnly', 'get').mockReturnValue(true);
+		const cell = notebook.cells.get()[0];
+
+		expect({
+			add: cell.addTag('new'),
+			remove: cell.removeTag('seeded'),
+			rename: cell.renameTag('seeded', 'renamed'),
+			tags: cell.tags.get(),
+		}).toEqual({
+			add: 'failed',
+			remove: 'failed',
+			rename: 'failed',
+			tags: ['seeded'],
+		});
+	});
+
 	it('tagUIVisible folds tags, an in-progress add, and the notebook-wide hide toggle', () => {
 		// The cell owns the tag UI visibility predicate the tag bar and the code
 		// cell footer both render against.

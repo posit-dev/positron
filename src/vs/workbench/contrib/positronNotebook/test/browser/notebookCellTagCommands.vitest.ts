@@ -57,4 +57,16 @@ describe('RemoveAllCellTagsAction', () => {
 
 		expect(notebook.cells.get().map(c => c.tags.get())).toEqual([[], [], []]);
 	});
+
+	it('is a no-op on a read-only notebook', () => {
+		// Tag edits are document mutations; a read-only notebook keeps its tags.
+		const notebook = createTestPositronNotebookInstance([
+			['a', 'python', CellKind.Code, [], { metadata: { tags: ['kept'] } }],
+		], ctx);
+		vi.spyOn(notebook, 'isReadOnly', 'get').mockReturnValue(true);
+
+		new TestableRemoveAllCellTagsAction().testRun(notebook);
+
+		expect(notebook.cells.get()[0].tags.get()).toEqual(['kept']);
+	});
 });
