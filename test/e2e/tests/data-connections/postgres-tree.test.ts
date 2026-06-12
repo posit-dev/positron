@@ -6,7 +6,11 @@
 import { test, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
+	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
+	// read settings copied in at launch rather than the host settings file written at runtime.
+	enableDataConnections: true,
 });
 
 // The password is read from E2E_POSTGRES_PASSWORD (from the project's .env file locally, 1Password in CI).
@@ -37,13 +41,8 @@ const actorColumns = [
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
 test.describe('Data Connections - Postgres Tree', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		// The Data Connections panel is gated behind this preview setting and requires a reload.
-		await settings.set({ 'dataConnections.enabled': true }, { reload: true });
-	});
 
 	test('Can configure a Postgres data connection', async function ({ app }) {
 		const { dataConnections } = app.workbench;

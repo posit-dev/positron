@@ -55,10 +55,13 @@ export async function runDockerCommand(command: string, description: string): Pr
  * (VS Code) notebook editor, the Positron notebook editor is disabled. Returns
  * `undefined` when there is nothing to override.
  */
-export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean }): object | undefined {
+export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean }): object | undefined {
 	const overrides: Record<string, unknown> = {};
 	if (opts.useLegacyNotebookEditor) {
 		overrides['positron.notebook.enabled'] = false;
+	}
+	if (opts.enableDataConnections) {
+		overrides['dataConnections.enabled'] = true;
 	}
 	return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
