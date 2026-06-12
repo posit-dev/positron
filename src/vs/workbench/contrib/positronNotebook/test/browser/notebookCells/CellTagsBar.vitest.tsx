@@ -7,7 +7,7 @@
 
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { observableValue } from '../../../../../../base/common/observable.js';
+import { derived, observableValue } from '../../../../../../base/common/observable.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
@@ -27,6 +27,11 @@ function createTagCell(initial: string[] = []) {
 	const tags = observableValue<string[]>('tags', [...initial]);
 	const isAddingTag = observableValue<boolean>('isAddingTag', false);
 	const cellTagsHidden = observableValue<boolean>('cellTagsHidden', false);
+	// Mirrors the real cell's tagUIVisible derivation so the stub honors the
+	// same contract the bar renders against.
+	const tagUIVisible = derived(reader =>
+		!cellTagsHidden.read(reader) && (tags.read(reader).length > 0 || isAddingTag.read(reader))
+	);
 	const addTag = vi.fn((tag: string): TagWriteResult => {
 		tags.set([...tags.get(), tag], undefined);
 		return 'ok';
@@ -43,7 +48,7 @@ function createTagCell(initial: string[] = []) {
 	// signal the "Add Tag" command flips), so wire them to the observable.
 	const beginAddTag = vi.fn(() => isAddingTag.set(true, undefined));
 	const endAddTag = vi.fn(() => isAddingTag.set(false, undefined));
-	const cell = stubInterface<IPositronNotebookCell>({ tags, isAddingTag, cellTagsHidden, addTag, removeTag, renameTag, beginAddTag, endAddTag });
+	const cell = stubInterface<IPositronNotebookCell>({ tags, isAddingTag, tagUIVisible, addTag, removeTag, renameTag, beginAddTag, endAddTag });
 	return { cell, tags, isAddingTag, cellTagsHidden, addTag, removeTag, renameTag, beginAddTag, endAddTag };
 }
 

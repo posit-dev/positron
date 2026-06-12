@@ -138,11 +138,13 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	endAddTag(): void;
 
 	/**
-	 * Whether cell tags are hidden across the owning notebook (a transient,
-	 * per-notebook toggle). Surfaced on the cell so the tag bar / footer can hide
-	 * tags without reaching for the notebook instance.
+	 * Whether the cell's tag UI (tag pills or the inline add input) should
+	 * currently render: false when the owning notebook hides tags (a transient,
+	 * per-notebook toggle) or when there is neither a tag nor an in-progress
+	 * tag-add. Owned by the cell so the tag bar and the code cell footer share
+	 * one visibility predicate instead of each re-deriving it.
 	 */
-	readonly cellTagsHidden: IObservable<boolean>;
+	readonly tagUIVisible: IObservable<boolean>;
 
 	/**
 	 * Delete this cell
