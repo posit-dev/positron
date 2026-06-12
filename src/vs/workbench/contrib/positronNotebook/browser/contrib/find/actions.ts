@@ -19,7 +19,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { getActiveCell } from '../../selectionMachine.js';
-import { PositronNotebookFindController } from './controller.js';
+import { POSITRON_NOTEBOOK_FIND_COMMAND_IDS, PositronNotebookFindController } from './controller.js';
 
 function registerPositronNotebookFindAction(
 	options: IAction2Options & { run: (controller: PositronNotebookFindController) => void | Promise<void> },
@@ -71,7 +71,7 @@ function findEditorActionImplementation(handler: (controller: PositronNotebookFi
 
 // Start/reveal the find widget
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.start',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.start,
 	title: localize2('positron.notebook.find.start.title', 'Find'),
 	keybinding: [{
 		when: NotebookContextKeys.editorFocused,
@@ -83,7 +83,7 @@ registerPositronNotebookFindAction({
 
 // Hide the find widget
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.hide',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.hide,
 	title: localize2('positron.notebook.find.hide.title', 'Hide Find'),
 	keybinding: [{
 		when: ContextKeyExpr.and(
@@ -98,7 +98,7 @@ registerPositronNotebookFindAction({
 
 // Find the next match
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.next',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.next,
 	title: localize2('positron.notebook.find.next.title', 'Find Next'),
 	keybinding: [{
 		// From cell editor
@@ -120,7 +120,7 @@ registerPositronNotebookFindAction({
 
 // Find the previous match from command mode
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.previous',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.previous,
 	title: localize2('positron.notebook.find.previous.title', 'Find Previous'),
 	keybinding: [{
 		// From cell editor
@@ -146,7 +146,7 @@ PreviousMatchFindAction.addImplementation(0, findEditorActionImplementation((con
 
 // Open find widget with replace expanded
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.replaceStart',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceStart,
 	title: localize2('positron.notebook.find.replaceStart.title', 'Find and Replace'),
 	keybinding: [{
 		when: NotebookContextKeys.editorFocused,
@@ -159,7 +159,7 @@ registerPositronNotebookFindAction({
 
 // Replace the current match
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.replace',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replace,
 	title: localize2('positron.notebook.find.replace.title', 'Replace'),
 	keybinding: [{
 		when: ContextKeyExpr.and(
@@ -182,7 +182,7 @@ registerPositronNotebookFindAction({
 
 // Replace all matches
 registerPositronNotebookFindAction({
-	id: 'positronNotebook.find.replaceAll',
+	id: POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceAll,
 	title: localize2('positron.notebook.find.replaceAll.title', 'Replace All'),
 	keybinding: [{
 		when: ContextKeyExpr.and(
