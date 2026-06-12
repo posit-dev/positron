@@ -47,8 +47,9 @@ function stopTagBarBubble(e: React.MouseEvent) {
  * the bottom of the cell.
  *
  * Keyboard-wise the bar is a toolbar-pattern composite widget: a single tab
- * stop (the add control, which leads the row), with the arrow keys moving
- * between the controls inside and Escape returning focus to the cell.
+ * stop (the first tag, falling back to the add control on a tagless cell),
+ * with the arrow keys moving between the controls inside and Escape
+ * returning focus to the cell.
  */
 export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell; standalone?: boolean }) {
 	const { notificationService } = usePositronReactServicesContext();
@@ -100,10 +101,11 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		notifyTagResult(notificationService, cell.addTag(raw), raw.trim());
 	};
 
-	// The bar is a composite widget with a single tab stop (the add control,
-	// tabIndex 0); everything else is tabIndex -1 and reached with the arrow
-	// keys, per the WAI-ARIA toolbar pattern. This keeps a long tag list from
-	// adding a tab stop per tag for keyboard users traversing the notebook.
+	// The bar is a composite widget with a single tab stop (the first tag's
+	// label, or the add control when the cell has no tags); everything else is
+	// tabIndex -1 and reached with the arrow keys, per the WAI-ARIA toolbar
+	// pattern. This keeps a long tag list from adding a tab stop per tag for
+	// keyboard users traversing the notebook.
 	const handleBarKeyDown = (e: React.KeyboardEvent) => {
 		// The inline tag input handles (and stops) its own keys.
 		if (isHTMLInputElement(e.target)) {
@@ -161,30 +163,6 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 			onKeyDown={handleBarKeyDown}
 			onMouseDown={stopTagBarBubble}
 		>
-			{isAddingTag ? (
-				<TagInput
-					initialValue=''
-					onCancel={() => cell.endAddTag()}
-					onCommit={commitAdd}
-				/>
-			) : (
-				<button
-					aria-label={localize('positron.notebook.cellTag.add', "Add tag")}
-					className='positron-notebook-cell-tag-add'
-					// The bar's single tab stop; the tags that follow are
-					// reached with the arrow keys (see handleBarKeyDown).
-					tabIndex={0}
-					title={localize('positron.notebook.cellTag.add', "Add tag")}
-					type='button'
-					onClick={(e) => { stopTagBarPointer(e); cell.beginAddTag(); }}
-					onMouseDown={stopTagBarPointer}
-				>
-					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.addSmall} />
-					<span className='positron-notebook-cell-tag-add-label'>
-						{localize('positron.notebook.cellTag.add', "Add tag")}
-					</span>
-				</button>
-			)}
 			{tags.map((tag) =>
 				editingTag === tag ? (
 					// The edit target is tracked by tag value (the cell model
@@ -204,7 +182,9 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 						<button
 							aria-label={localize('positron.notebook.cellTag.edit', "Edit tag {0}", tag)}
 							className='positron-notebook-cell-tag-label'
-							tabIndex={-1}
+							// The first tag is the bar's tab stop (see the
+							// roving-tabindex note on handleBarKeyDown).
+							tabIndex={tag === tags[0] ? 0 : -1}
 							title={localize('positron.notebook.cellTag.editHint', "Click to edit tag")}
 							type='button'
 							onClick={(e) => { stopTagBarPointer(e); setEditingTag(tag); }}
@@ -225,6 +205,30 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 						</button>
 					</span>
 				)
+			)}
+			{isAddingTag ? (
+				<TagInput
+					initialValue=''
+					onCancel={() => cell.endAddTag()}
+					onCommit={commitAdd}
+				/>
+			) : (
+				<button
+					aria-label={localize('positron.notebook.cellTag.add', "Add tag")}
+					className='positron-notebook-cell-tag-add'
+					// Only the bar's tab stop when there are no tags ahead of it
+					// (see the roving-tabindex note on handleBarKeyDown).
+					tabIndex={tags.length === 0 ? 0 : -1}
+					title={localize('positron.notebook.cellTag.add', "Add tag")}
+					type='button'
+					onClick={(e) => { stopTagBarPointer(e); cell.beginAddTag(); }}
+					onMouseDown={stopTagBarPointer}
+				>
+					<Icon className='positron-notebook-cell-tag-add-icon' icon={Codicon.addSmall} />
+					<span className='positron-notebook-cell-tag-add-label'>
+						{localize('positron.notebook.cellTag.add', "Add tag")}
+					</span>
+				</button>
 			)}
 		</div>
 	);
