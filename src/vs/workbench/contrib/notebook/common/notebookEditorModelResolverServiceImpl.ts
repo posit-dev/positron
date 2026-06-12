@@ -316,11 +316,14 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 			reference.dispose();
 			throw err;
 			// --- Start Positron ---
+		} finally {
 			// If validateResourceViewType minted an untitled resource for us
 			// (no resource was provided), release the name reservation made by
-			// createUntitledUri: the model is now either resolved (and visible to
-			// createUntitledUri's checks) or failed to load (#13561).
-		} finally {
+			// createUntitledUri: the model is now either resolved (and visible
+			// to createUntitledUri's checks) or failed to load (#13561).
+			// validateResourceViewType cannot throw after minting -- a freshly
+			// minted resource has no existing model to conflict with -- so a
+			// reservation always reaches this finally.
 			if (!resource) {
 				this._pendingUntitledUris.delete(validated.resource.toString());
 			}
