@@ -31,7 +31,10 @@ test.describe('Positron Notebooks: Run All / Interrupt Toggle', {
 		});
 
 		await test.step('Trigger Run All via keyboard shortcut', async () => {
-			await notebooksPositron.selectCellAtIndex(0);
+			// Exit edit mode first: while a code cell editor is focused,
+			// Cmd/Ctrl+Shift+Enter runs the selection in the cell (#3804). Run
+			// All / Interrupt own the shortcut in command mode.
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 			await keyboard.press(runAllOrInterrupt);
 		});
 

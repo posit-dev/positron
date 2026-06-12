@@ -417,7 +417,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				undefined,
 				codeOverride === undefined
 					? { ...executionMetadata, cellId: cell.uri.toString() }
-					: executionMetadata,
+					: { ...executionMetadata },
 			);
 		} catch (err) {
 			execution.error(err);

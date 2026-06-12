@@ -15,6 +15,7 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { mock } from '../../../../test/common/workbenchTestServices.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { CellExecutionUpdateType } from '../../../notebook/common/notebookExecutionService.js';
@@ -658,7 +659,7 @@ describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
 
 		// A fragment's line numbers don't correspond to the cell's content, so
 		// the cellId used for breakpoint mapping must not be sent.
-		const fragmentMetadata = executeSpy.mock.calls[0][5] as Record<string, unknown>;
+		const fragmentMetadata = (executeSpy.mock.calls[0] as unknown as unknown[])[5] as Record<string, unknown>;
 		expect(fragmentMetadata.output_width_px).toBe(724);
 		expect(fragmentMetadata.cellId).toBeUndefined();
 
@@ -666,7 +667,7 @@ describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
 		notebookExecutionStateService.createCellExecution(notebookDocument.uri, cell.handle);
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [cell.handle]);
 
-		const fullCellMetadata = executeSpy.mock.calls[1][5] as Record<string, unknown>;
+		const fullCellMetadata = (executeSpy.mock.calls[1] as unknown as unknown[])[5] as Record<string, unknown>;
 		expect(fullCellMetadata.cellId).toBe(cell.uri.toString());
 	});
 

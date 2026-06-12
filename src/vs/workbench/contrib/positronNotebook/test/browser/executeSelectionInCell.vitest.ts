@@ -13,12 +13,12 @@ import { Selection } from '../../../../../editor/common/core/selection.js';
 import { createTextModel } from '../../../../../editor/test/common/testTextModel.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
-import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { IKeybindingRule, KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { INotebookKernel } from '../../../notebook/common/notebookKernelService.js';
+import { RuntimeNotebookKernel } from '../../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IRuntimeNotebookKernelService } from '../../../runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
@@ -121,7 +121,7 @@ describe('ExecuteSelectionInCellAction', () => {
 	function createNotebook(cell: IPositronNotebookCell, options?: { kernelSelected?: boolean }): IPositronNotebookInstance {
 		const kernel = options?.kernelSelected === false
 			? undefined
-			: stubInterface<INotebookKernel>({ id: 'test-kernel' });
+			: stubInterface<RuntimeNotebookKernel>({ id: 'test-kernel' });
 		return stubInterface<IPositronNotebookInstance>({
 			uri: notebookUri,
 			kernel: observableValue('kernel', kernel),
@@ -155,11 +155,13 @@ describe('ExecuteSelectionInCellAction', () => {
 	it('declares the Cmd/Ctrl+Shift+Enter keybinding scoped to focused code cell editors', () => {
 		const action = new ExecuteSelectionInCellAction();
 		expect(action.desc.id).toBe('positronNotebook.cell.executeSelection');
-		expect(action.desc.keybinding?.primary).toBe(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter);
+		// The action declares a single keybinding rule; narrow from OneOrN.
+		const keybinding = action.desc.keybinding as Omit<IKeybindingRule, 'id'>;
+		expect(keybinding.primary).toBe(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter);
 		// WorkbenchContrib so it deterministically wins over the EditorContrib
 		// Run All / Stop All bindings on the same key while editing a code cell.
-		expect(action.desc.keybinding?.weight).toBe(KeybindingWeight.WorkbenchContrib);
-		expect(action.desc.keybinding?.when?.serialize()).toBe(
+		expect(keybinding.weight).toBe(KeybindingWeight.WorkbenchContrib);
+		expect(keybinding.when?.serialize()).toBe(
 			ContextKeyExpr.and(NotebookContextKeys.cellEditorFocused, CellContextKeys.isCode)!.serialize()
 		);
 	});
