@@ -29,7 +29,14 @@ import {
     IInterpreterAutoSelectionProxyService,
 } from '../../client/interpreter/autoSelection/types';
 import { IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
-import { IComponentAdapter, IInterpreterDisplay, IInterpreterHelper } from '../../client/interpreter/contracts';
+// --- Start Positron ---
+import {
+    IComponentAdapter,
+    IInterpreterDisplay,
+    IInterpreterHelper,
+    InterpreterChangeEvent,
+} from '../../client/interpreter/contracts';
+// --- End Positron ---
 import { InterpreterService } from '../../client/interpreter/interpreterService';
 import { ServiceContainer } from '../../client/ioc/container';
 import { ServiceManager } from '../../client/ioc/serviceManager';
@@ -305,4 +312,45 @@ suite('Interpreters service', () => {
         interpreterDisplay.verifyAll();
         expect(reportActiveInterpreterChangedStub.notCalled).to.be.equal(true);
     });
+
+    // --- Start Positron ---
+    test('_onConfigChanged threads startSession and source from the scope into onDidChangeInterpreter', async () => {
+        const service = new InterpreterService(serviceContainer, pyenvs.object);
+        const resource = Uri.parse('a');
+        const workspaceFolder = { uri: resource, name: '', index: 0 };
+        workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
+        service._pythonPathSetting = 'stored setting';
+        configService.reset();
+        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
+        interpreterDisplay.setup((i) => i.refresh()).returns(() => Promise.resolve());
+        const events: InterpreterChangeEvent[] = [];
+        service.onDidChangeInterpreter((e) => events.push(e));
+
+        await service._onConfigChanged({
+            uri: resource,
+            configTarget: ConfigurationTarget.Global,
+            startSession: false,
+            source: 'storage-migration',
+        });
+
+        expect(events).to.deep.equal([{ resource, startSession: false, source: 'storage-migration' }]);
+    });
+
+    test('_onConfigChanged with a bare Uri fires with startSession: true and source unspecified', async () => {
+        const service = new InterpreterService(serviceContainer, pyenvs.object);
+        const resource = Uri.parse('a');
+        const workspaceFolder = { uri: resource, name: '', index: 0 };
+        workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
+        service._pythonPathSetting = 'stored setting';
+        configService.reset();
+        configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
+        interpreterDisplay.setup((i) => i.refresh()).returns(() => Promise.resolve());
+        const events: InterpreterChangeEvent[] = [];
+        service.onDidChangeInterpreter((e) => events.push(e));
+
+        await service._onConfigChanged(resource);
+
+        expect(events).to.deep.equal([{ resource, startSession: true, source: 'unspecified' }]);
+    });
+    // --- End Positron ---
 });

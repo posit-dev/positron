@@ -34,6 +34,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	managedCredentials: [undefined, { scope: 'worker', option: true }],
 
+	enableDataConnections: [false, { scope: 'worker', option: true }],
+
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
@@ -100,13 +102,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
 	beforeApp: [
-		async ({ }, use) => {
+		async ({ enableDataConnections, settingsFile }, use) => {
+			if (enableDataConnections) {
+				// The Data Connections panel is a preview feature gated behind this
+				// setting, which requires a reload to take effect. Enable it before the
+				// app starts so no reload is needed. Suites opt in with
+				// `test.use({ enableDataConnections: true })`.
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials });
+	app: [async ({ options, logsPath, logger, managedCredentials, enableDataConnections, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, enableDataConnections });
 
 		try {
 			await start();
@@ -522,6 +532,7 @@ export interface TestFixtures {
 export interface WorkerFixtures {
 	suiteId: string;
 	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
+	enableDataConnections: boolean;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

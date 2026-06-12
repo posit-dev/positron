@@ -27,7 +27,7 @@ export function encodeNodeId(
 	testSuperLabel: string | undefined = undefined
 ) {
 	return testSuperLabel
-		? `${testFile}&${testSuperLabel}: ${testLabel}`
+		? `${testFile}&${testSuperLabel} / ${testLabel}`
 		: testLabel
 			? `${testFile}&${testLabel}`
 			: testFile;

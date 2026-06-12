@@ -49,12 +49,32 @@ export async function runDockerCommand(command: string, description: string): Pr
 }
 
 /**
- * Copy merged settings (base + Docker overrides) to the container
+ * Build the settings overrides driven by test options for the Docker apps.
+ *
+ * Mirrors the host-side `beforeApp` fixture: when a suite opts into the Data
+ * Connections preview panel, the `dataConnections.enabled` setting is turned on.
+ * Returns `undefined` when there is nothing to override.
+ */
+export function dockerSettingsOverrides(opts: { enableDataConnections?: boolean }): object | undefined {
+	const overrides: Record<string, unknown> = {};
+	if (opts.enableDataConnections) {
+		overrides['dataConnections.enabled'] = true;
+	}
+	return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
+/**
+ * Copy merged settings (base + Docker overrides) to the container.
+ *
+ * `overrides` are merged last so they win over anything in the fixture files. The
+ * Docker apps read settings from the container rather than the host `settingsFile`,
+ * so test-driven settings (e.g. `enableDataConnections`) must be threaded in here.
  */
 export async function copyUserSettingsToContainer(
 	containerName: string,
 	userPath: string,
-	settingsFiles: string[]
+	settingsFiles: string[],
+	overrides?: object
 ): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 
@@ -66,6 +86,11 @@ export async function copyUserSettingsToContainer(
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
 			Object.assign(mergedSettings, settings);
 		}
+	}
+
+	// Test-driven overrides win over the fixture files
+	if (overrides) {
+		Object.assign(mergedSettings, overrides);
 	}
 
 	// Create temporary merged settings file

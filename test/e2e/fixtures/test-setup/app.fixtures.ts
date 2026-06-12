@@ -16,6 +16,13 @@ export interface AppFixtureOptions {
 	logger: MultiLogger;
 	workerInfo: playwright.WorkerInfo;
 	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
+	/**
+	 * When true, suites opt into the Data Connections preview panel. The local
+	 * (Electron/managed) apps apply this via the host `settingsFile` in `beforeApp`,
+	 * while the Docker-based apps (Jupyter, Workbench) read settings copied into the
+	 * container, so they must merge the override into those settings themselves.
+	 */
+	enableDataConnections?: boolean;
 }
 
 /**
