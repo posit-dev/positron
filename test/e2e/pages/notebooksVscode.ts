@@ -19,7 +19,7 @@ export class VsCodeNotebooks extends Notebooks {
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
 
-		this.startChatButton = this.code.driver.currentPage.getByLabel(/Start Chat to Generate Code/).first();
+		this.startChatButton = this.code.driver.currentPage.getByLabel(/Restart Kernel \(0 0\)/).first();
 	}
 
 	/**
@@ -27,7 +27,9 @@ export class VsCodeNotebooks extends Notebooks {
 	 */
 	async expectToBeVisible(timeout = 25000): Promise<void> {
 		await test.step('Verify VS Code notebook is visible', async () => {
+			await this.hotKeys.closeSecondarySidebar();
 			await expect(this.startChatButton).toBeVisible({ timeout });
+			await this.hotKeys.showSecondarySidebar();
 		});
 	}
 }
