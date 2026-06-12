@@ -2606,29 +2606,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(loadingIndicator);
 
 		try {
-			// Create a runtime message for the HTML content
-			const runtimeMessage: ILanguageRuntimeMessageWebOutput = {
-				id: output.outputId,
-				parent_id: '',
-				when: new Date().toISOString(),
-				type: LanguageRuntimeMessageType.Output,
-				event_clock: 0,
-				kind: RuntimeOutputKind.ViewerWidget,
-				data: { 'text/html': content },
-				output_location: PositronOutputLocation.Console,
-				resource_roots: undefined,
-			};
-
-			// Create the webview
-			const webview = await this._webviewService.createNotebookOutputWebview({
-				id: output.outputId,
-				runtime: this._session,
-				output: runtimeMessage,
-				viewType: 'jupyter-notebook',
-			});
+			// Render the self-contained HTML document directly in an overlay
+			// webview. We must NOT route this through `createNotebookOutputWebview`,
+			// which only builds a webview when an extension renderer is registered
+			// for the MIME type; plain `text/html` has none, so it falls back to
+			// the built-in renderer that strips `<head>` and scripts, leaving
+			// interactive widgets (plotly, leaflet) blank. The raw path injects the
+			// document verbatim with scripts enabled. This reaches us only for
+			// unsafe HTML (see `_renderHtml`/`_isSafeHtml`), i.e. exactly the
+			// script-bearing documents that need it.
+			const webview = await this._webviewService.createRawHtmlOutputWebview(
+				output.outputId,
+				content,
+			);
 
 			if (!webview) {
-				// No renderer available - show the HTML escaped
+				// No webview available - show the HTML escaped
 				container.removeChild(loadingIndicator);
 				const pre = document.createElement('pre');
 				pre.className = 'quarto-output-html-escaped';
