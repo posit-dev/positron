@@ -76,6 +76,12 @@ test.describe('Release Screenshots - Quarto', () => {
 		}).toPass({ timeout: 180000, intervals: [2000] });
 		await expect(previewFrame.locator('img').first()).toBeVisible({ timeout: 30000 });
 
+		// The preview chrome (the webview wrapping the Quarto Preview iframe) has a
+		// native <select id="zoom"> that defaults to Auto; set it to 100% so the
+		// captured plot matches the published image. It lives in the outer viewer
+		// frame, not the inner Quarto Preview iframe (previewFrame).
+		await viewer.getViewerFrame().locator('#zoom').selectOption('100');
+
 		// collapse the preview log and widen the preview so it fills the right half
 		await hotKeys.minimizeBottomPanel();
 		await layouts.resizeAuxiliaryBar({ x: -400 });
