@@ -398,7 +398,7 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
-// Register the prompt that invites users to try the new notebook editor
+// Register the prompt that invites users to try the native notebook editor
 registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
