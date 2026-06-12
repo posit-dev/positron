@@ -22,10 +22,7 @@ import { FileEditorInput } from '../../../files/browser/editors/fileEditorInput.
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
 import { IChatContextPickService, IChatContextValueItem, IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPicker } from '../attachments/chatContextPickService.js';
 import { IChatRequestToolEntry, IChatRequestToolSetEntry, IChatRequestVariableEntry, IImageVariableEntry, toToolSetVariableEntry, toToolVariableEntry } from '../../common/attachments/chatVariableEntries.js';
-// --- Start Positron ---
-// Add ILanguageModelToolsService for the Positron-only tool service constructor injection.
-import { isToolSet, ILanguageModelToolsService, ToolDataSource } from '../../common/tools/languageModelToolsService.js';
-// --- End Positron ---
+import { isToolSet, ToolDataSource } from '../../common/tools/languageModelToolsService.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { IChatWidget } from '../chat.js';
 import { imageToHash, isImage } from '../widget/input/editor/chatPasteProviders.js';
@@ -78,12 +75,6 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 	readonly icon: ThemeIcon = Codicon.tools;
 	readonly ordinal = -500;
 
-	// --- Start Positron ---
-	constructor(
-		@ILanguageModelToolsService private readonly _languageModelToolsService: ILanguageModelToolsService,
-	) { }
-	// --- End Positron ---
-
 	isEnabled(widget: IChatWidget): boolean {
 		return !!widget.attachmentCapabilities.supportsToolAttachments;
 	}
@@ -93,27 +84,9 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 		type Pick = IChatContextPickerPickItem & { toolInfo: { ordinal: number; label: string } };
 		const items: Pick[] = [];
 
-		// --- Start Positron ---
-		const selectedLanguageModel = widget.input.selectedLanguageModel.get();
-		// --- End Positron ---
-
 		for (const [entry, enabled] of widget.input.selectedToolsModel.entriesMap.get()) {
 			if (enabled) {
 				if (isToolSet(entry)) {
-					// --- Start Positron ---
-					// If no tools in the set are enabled for the selected model, skip the set
-					const tools = entry.getTools();
-					let hasEnabledTools = false;
-					for (const tool of tools) {
-						if (this._languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)) {
-							hasEnabledTools = true;
-							break;
-						}
-					}
-					if (!hasEnabledTools) {
-						continue;
-					}
-					// --- End Positron ---
 					items.push({
 						toolInfo: ToolDataSource.classify(entry.source),
 						label: entry.referenceName,
@@ -121,12 +94,6 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 						asAttachment: (): IChatRequestToolSetEntry => toToolSetVariableEntry(entry)
 					});
 				} else {
-					// --- Start Positron ---
-					// Filter out tools not enabled for the selected model
-					if (!this._languageModelToolsService.isToolEnabledForModel(entry.id, selectedLanguageModel)) {
-						continue;
-					}
-					// --- End Positron ---
 					items.push({
 						toolInfo: ToolDataSource.classify(entry.source),
 						label: entry.toolReferenceName ?? entry.displayName,

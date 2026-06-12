@@ -30,11 +30,6 @@ import { ILanguageModelChatMetadata, LanguageModelPartAudience } from '../langua
 import { UserSelectedTools } from '../participants/chatAgents.js';
 import { PromptElementJSON, stringifyPromptElementJSON } from './promptTsxTypes.js';
 
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { ILanguageModelChatMetadataAndIdentifier } from '../languageModels.js';
-// --- End Positron ---
-
 /**
  * Selector for matching language models by vendor, family, version, or id.
  * Used to filter tools to specific models or model families.
@@ -611,9 +606,6 @@ export interface ILanguageModelToolsService {
 
 	toFullReferenceNames(map: IToolAndToolSetEnablementMap): string[];
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[];
-	// --- Start Positron ---
-	isToolEnabledForModel(toolId: string, selectedLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean;
-	// --- End Positron ---
 }
 
 

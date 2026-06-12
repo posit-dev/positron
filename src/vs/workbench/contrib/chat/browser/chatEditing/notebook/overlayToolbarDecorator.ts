@@ -11,11 +11,7 @@ import { MenuId } from '../../../../../../platform/actions/common/actions.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../../../platform/instantiation/common/serviceCollection.js';
-// --- Start Positron ---
-// Use IChatEditingNotebookEditor for compatibility with both VS Code and Positron notebooks
-import { CellEditState } from '../../../../notebook/browser/notebookBrowser.js';
-import { IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
-// --- End Positron ---
+import { CellEditState, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { CellKind } from '../../../../notebook/common/notebookCommon.js';
 import { IModifiedFileEntryChangeHunk } from '../../../common/editing/chatEditingService.js';
@@ -146,10 +142,7 @@ export class OverlayToolbarDecorator extends Disposable {
 			return undefined;
 		}
 		const cell = this.notebookModel.cells[change.modifiedCellIndex];
-		// --- Start Positron ---
-		// Use optional chaining for viewCells since Positron notebooks don't have viewCells
-		const cellViewModel = this.notebookEditor.getViewModel()?.viewCells?.find(c => c.handle === cell.handle);
-		// --- End Positron ---
+		const cellViewModel = this.notebookEditor.getViewModel()?.viewCells.find(c => c.handle === cell.handle);
 		return cellViewModel;
 	}
 
