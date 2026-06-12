@@ -17,6 +17,8 @@ import { formatCellDuration, getRelativeTime } from '../../positronNotebook/brow
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -2606,29 +2608,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(loadingIndicator);
 
 		try {
-			// Render the self-contained HTML document directly in an overlay
-			// webview. We must NOT route this through `createNotebookOutputWebview`,
-			// which only builds a webview when an extension renderer is registered
-			// for the MIME type; plain `text/html` has none, so it falls back to
-			// the built-in renderer that strips `<head>` and scripts, leaving
-			// interactive widgets (plotly, leaflet) blank. The raw path injects the
-			// document verbatim with scripts enabled. This reaches us only for
-			// unsafe HTML (see `_renderHtml`/`_isSafeHtml`), i.e. exactly the
-			// script-bearing documents that need it.
+			// Resolve relative assets against the document's directory when it
+			// lives on disk (untitled documents have no meaningful base).
+			const baseUri = this._documentUri && this._documentUri.scheme !== Schemas.untitled
+				? dirname(this._documentUri)
+				: undefined;
+
+			// Render raw HTML content as a self-contained document (i.e. an R
+			// leaflet map). Using `createNotebookOutputWebview()` would find the
+			// built-in renderer for `text/html` and flatten the self-contained
+			// document, dropping `<head>` and scripts.
 			const webview = await this._webviewService.createRawHtmlOutputWebview(
 				output.outputId,
 				content,
+				baseUri,
 			);
-
-			if (!webview) {
-				// No webview available - show the HTML escaped
-				container.removeChild(loadingIndicator);
-				const pre = document.createElement('pre');
-				pre.className = 'quarto-output-html-escaped';
-				pre.textContent = content.substring(0, 1000) + (content.length > 1000 ? '...' : '');
-				container.appendChild(pre);
-				return;
-			}
 
 			// Store the webview and container for later cleanup and scroll updates
 			this._webviewsByOutputId.set(output.outputId, webview);
