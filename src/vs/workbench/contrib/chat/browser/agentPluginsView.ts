@@ -588,7 +588,10 @@ class CheckForPluginUpdatesCommand extends Action2 {
 			id: 'workbench.agentPlugins.checkForUpdates',
 			title: localize2('agentPlugins.checkForUpdates', "Update Plugins"),
 			category: localize2('chat.category', "Chat"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 		});
 	}
@@ -604,7 +607,10 @@ class ForceUpdatePluginsCommand extends Action2 {
 			id: 'workbench.agentPlugins.forceUpdate',
 			title: localize2('agentPlugins.forceUpdate', "Update Plugins (Force)"),
 			category: localize2('chat.category', "Chat"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 		});
 	}

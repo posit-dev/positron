@@ -71,6 +71,10 @@ export class ChatAgentRecommendation extends Disposable implements IWorkbenchCon
 					f1: false,
 					category: CHAT_CATEGORY,
 					icon: Codicon.extensions,
+					// --- Start Positron ---
+					// Hide when AI features are disabled.
+					precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					// --- End Positron ---
 					menu: [
 						{
 							id: MenuId.ChatNewMenu,

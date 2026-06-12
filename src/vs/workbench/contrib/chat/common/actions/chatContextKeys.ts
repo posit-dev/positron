@@ -57,6 +57,11 @@ export namespace ChatContextKeys {
 
 	export const supported = ContextKeyExpr.or(IsWebContext.negate(), RemoteNameContext.notEqualsTo(''), ContextKeyExpr.has('config.chat.experimental.serverlessWebEnabled'));
 	export const enabled = new RawContextKey<boolean>('chatIsEnabled', false, { type: 'boolean', description: localize('chatIsEnabled', "True when chat is enabled because a default chat participant is activated with an implementation.") });
+	// --- Start Positron ---
+	// available = enabled AND Positron's AI features are not disabled via chat.disableAIFeatures.
+	// Use this in action preconditions instead of combining enabled + notEquals() inline everywhere.
+	export const available = ContextKeyExpr.and(enabled, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true))!;
+	// --- End Positron ---
 	export const accountPolicyGateActive = ChatAccountPolicyGateActiveContext;
 
 	/**
