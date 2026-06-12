@@ -2213,6 +2213,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register as a Data Explorer backend provider over the typed channel. The session lets the
 	// handler push async frontend events (schema updates, column profiles) back to the UI.
+	// Forward reference: the handler's closure captures `session`, which is only assigned once
+	// registerRpcHandler returns below, so this must be `let` despite the single assignment.
+	// eslint-disable-next-line prefer-const
 	let session: positron.DataExplorerRpcSession | undefined;
 	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event));
 	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
