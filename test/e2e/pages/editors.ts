@@ -5,6 +5,7 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { escapeRegExp } from '../utils/strings';
 
 
 export class Editors {
@@ -68,10 +69,6 @@ export class Editors {
 		});
 	}
 
-	escapeRegex(s: string) {
-		return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}
-
 	async waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
 		const { currentPage } = this.code.driver;
 		const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
@@ -82,7 +79,7 @@ export class Editors {
 		await expect(active).toBeVisible();
 
 		const attrMatcher =
-			fileName instanceof RegExp ? fileName : new RegExp(`${this.escapeRegex(fileName)}$`);
+			fileName instanceof RegExp ? fileName : new RegExp(`${escapeRegExp(fileName)}$`);
 
 		await expect(active).toHaveAttribute('data-resource-name', attrMatcher);
 	}
