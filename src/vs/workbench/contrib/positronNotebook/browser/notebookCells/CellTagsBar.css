@@ -20,6 +20,18 @@
 	font-size: var(--vscode-bodyFontSize-xSmall);
 }
 
+/* "You're in the group" cue while keyboard-navigating the bar (it is a single
+tab stop with arrow-key movement inside, so the group needs to read as entered).
+The focused control's own ring comes from the workbench-wide `button:focus`
+rule; this outline is the group-level layer of the toolbar pattern.
+`:has(button:focus-visible)` keeps it keyboard-only and excludes the inline
+tag input, which carries its own focusBorder. */
+.positron-notebook-cell-tags:has(button:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
 /* Standalone placement (markdown / raw cells, which have no footer). */
 .positron-notebook-cell-tags.standalone {
 	flex: initial;
