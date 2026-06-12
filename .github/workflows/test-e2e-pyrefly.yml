@@ -58,7 +58,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: e2e-electron
+          identifier: e2e-electron-pyrefly
 
       - name: 🧪 Run Playwright Tests - Electron
         shell: bash
