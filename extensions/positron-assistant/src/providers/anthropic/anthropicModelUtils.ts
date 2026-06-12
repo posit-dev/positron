@@ -58,7 +58,6 @@ export function handleVercelSdkRateLimitError(error: unknown, providerName: stri
 	}
 }
 
-export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
 export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
 
 /**

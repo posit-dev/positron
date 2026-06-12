@@ -52,7 +52,6 @@ suite('PositModelProvider', () => {
 		// Create a mock configuration
 		const config: ModelConfig = {
 			id: 'test-model',
-			name: 'Test Model',
 			provider: 'posit-ai',
 			model: 'claude-sonnet-4-5-20250929',
 			apiKey: '', // Not used for OAuth-based Posit AI

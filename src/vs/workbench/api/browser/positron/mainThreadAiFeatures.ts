@@ -12,7 +12,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/model/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -36,6 +36,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		super();
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostAiFeatures);
+
+		// Forward provider configuration changes to the extension host.
+		this._register(this._positronAssistantConfigurationService.onChangeProviderConfig(source => {
+			this._proxy.$onDidChangeProviderConfig(source);
+		}));
 	}
 
 	/**
@@ -57,12 +62,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.
 	 */
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void> {
+	$languageModelConfig(id: string, options?: IShowLanguageModelConfigOptions): Thenable<void> {
 		return new Promise((resolve, reject) => {
 			this._positronAssistantService.showLanguageModelModalDialog(
-				sources,
-				async (config, action) => {
-					await this._proxy.$responseLanguageModelConfig(id, config, action);
+				async (source, config, action) => {
+					await this._proxy.$responseProviderAction(source, config, action);
 				},
 				() => {
 					this._proxy.$onCompleteLanguageModelConfig(id);
@@ -108,22 +112,28 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		return this._positronAssistantService.getChatExport();
 	}
 
-	$registerProviderMetadata(metadata: IPositronProviderMetadata): void {
-		this._positronAssistantConfigurationService.registerProviderMetadata(metadata);
+	$registerProvider(registration: IPositronLanguageModelSource): void {
+		this._positronAssistantConfigurationService.registerProvider(registration);
 	}
 
-	$addLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		source.signedIn = true;
-		this._positronAssistantService.addLanguageModelConfig(source);
-	}
+	$updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+		this._positronAssistantConfigurationService.updateProvider(id, update);
 
-	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		source.signedIn = false;
-		this._positronAssistantService.removeLanguageModelConfig(source);
 		// Invalidate the provider's model cache so the model picker and
 		// welcome view update to reflect that the provider is no longer
 		// signed in.
-		this._languageModelsService.invalidateProvider(source.provider.id);
+		if (update.signedIn === false) {
+			this._languageModelsService.invalidateProvider(id);
+		}
+	}
+
+	$unregisterProvider(id: string): void {
+		this._positronAssistantConfigurationService.unregisterProvider(id);
+		this._languageModelsService.invalidateProvider(id);
+	}
+
+	async $getRegisteredProviders(): Promise<IPositronLanguageModelSource[]> {
+		return this._positronAssistantConfigurationService.getRegisteredSources();
 	}
 
 	/**

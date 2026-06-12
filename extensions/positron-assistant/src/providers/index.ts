@@ -183,7 +183,6 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 				id: `${model.source.provider.id}`,
 				provider: model.source.provider.id,
 				type: positron.PositronLanguageModelType.Chat,
-				name: model.source.provider.displayName,
 				model: model.source.defaults.model,
 				toolCalls: model.source.defaults.toolCalls,
 				completions: model.source.defaults.completions,

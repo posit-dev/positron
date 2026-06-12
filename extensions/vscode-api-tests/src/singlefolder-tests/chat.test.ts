@@ -21,17 +21,19 @@ suite('chat', () => {
 	setup(() => {
 		disposables = [];
 		// --- Start Positron ---
-		positron.ai.registerProviderMetadata({
-			id: 'test-lm-vendor',
-			displayName: 'Test LM Vendor',
-			settingName: 'testLmVendor'
+		positron.ai.registerProvider({
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			type: positron.PositronLanguageModelType.Chat,
+			supportedOptions: [],
+			defaults: {},
 		});
-		// Register copilot provider metadata so it's enabled in Positron
+		// Register copilot provider so it's enabled in Positron
 		// The 'copilot' vendor is enabled via 'copilot-auth' provider with 'githubCopilot' setting (default: true)
-		positron.ai.registerProviderMetadata({
-			id: 'copilot-auth',
-			displayName: 'Test Copilot',
-			settingName: 'githubCopilot'
+		positron.ai.registerProvider({
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot', settingName: 'githubCopilot' },
+			type: positron.PositronLanguageModelType.Chat,
+			supportedOptions: [],
+			defaults: {},
 		});
 		// --- End Positron ---
 

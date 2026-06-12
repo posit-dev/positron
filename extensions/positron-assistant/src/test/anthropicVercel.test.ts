@@ -22,7 +22,6 @@ suite('AnthropicAIModelProvider (Vercel)', () => {
 		// Create a mock configuration
 		const config: ModelConfig = {
 			id: 'test-model',
-			name: 'Test Model',
 			provider: 'anthropic-api',
 			model: 'claude-test',
 			apiKey: 'test-api-key',

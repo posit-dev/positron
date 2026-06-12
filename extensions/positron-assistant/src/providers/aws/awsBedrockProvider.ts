@@ -17,7 +17,7 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { getStoredModels, expandConfigToSource } from '../../config';
+import { getStoredModels } from '../../config';
 import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { AssistantError } from '../../errors';
@@ -148,7 +148,6 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		provider: PROVIDER_METADATA.amazonBedrock,
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 4 Sonnet Bedrock',
 			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
 		},
@@ -473,8 +472,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 							this._context,
 							this
 						).then(() => {
-							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
-							PositronAssistantApi.get().notifySignIn(this._config.name);
+							positron.ai.updateProvider(this._config.provider, { signedIn: true });
+							PositronAssistantApi.get().notifySignIn(this.providerName);
 						});
 					}
 					resolve(success);

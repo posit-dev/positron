@@ -13,21 +13,15 @@ import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMe
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
 import { log } from '../../log.js';
 import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
-import { getAllModelDefinitions } from '../../modelDefinitions.js';
-import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
 import { ModelProviderLogger } from '../base/modelProviderLogger.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 import {
-	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
 	getAnthropicModelsFromConfig,
 	handleNativeSdkRateLimitError
 } from './anthropicModelUtils.js';
-
-// Re-export for consumers that import from this file
-export { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH };
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -75,7 +69,6 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
-			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			baseUrl: 'https://api.anthropic.com',
 			toolCalls: true,

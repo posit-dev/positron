@@ -22,6 +22,7 @@ import VertexAI from '../icons/vertexai.js';
 interface LanguageModelButtonProps {
 	identifier: string;
 	displayName: string;
+	logoUrl?: string;
 	selected?: boolean;
 	disabled?: boolean;
 	onClick?: () => void;
@@ -42,7 +43,7 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 			onPressed={props.onClick}>
 			<div ref={ref} id={`${props.identifier}-provider-button`}>
 				<VerticalStack>
-					<LanguageModelIcon provider={props.identifier} />
+					<LanguageModelIcon logoUrl={props.logoUrl} provider={props.identifier} />
 					{props.displayName}
 				</VerticalStack>
 			</div>
@@ -50,8 +51,11 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 	);
 });
 
-export const LanguageModelIcon = (props: { provider: string }) => {
+export const LanguageModelIcon = (props: { provider: string; logoUrl?: string }) => {
 	function getIcon() {
+		if (props.logoUrl) {
+			return <img className='language-model icon' src={props.logoUrl} />;
+		}
 		switch (props.provider) {
 			case 'anthropic-api':
 				return <Claude className='language-model icon' />;

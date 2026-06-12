@@ -37,13 +37,7 @@ suite('validateCustomProviderApiKey', () => {
 	});
 
 	function makeConfig(): positron.ai.LanguageModelConfig {
-		return {
-			provider: 'openai-compatible',
-			name: 'Custom Provider',
-			model: '',
-			type: positron.PositronLanguageModelType.Chat,
-			baseUrl: 'https://example.com/v1',
-		};
+		return { baseUrl: 'https://example.com/v1' };
 	}
 
 	function stubFetch(status: number): void {

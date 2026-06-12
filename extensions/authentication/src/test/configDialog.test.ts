@@ -6,26 +6,33 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { authProviders, registerAuthProvider, showConfigurationDialog } from '../configDialog';
+import { authProviders, registerAuthProvider, providerAction, updateProviderFromSessions, initializeCredentialTracking } from '../configDialog';
 import { AuthProvider } from '../authProvider';
 import { validateAnthropicApiKey } from '../validation';
 
 suite('configDialog', () => {
-	let originalShowLanguageModelConfig: typeof positron.ai.showLanguageModelConfig;
 	let originalGetEnabledProviders: typeof positron.ai.getEnabledProviders;
+	let originalUpdateProvider: typeof positron.ai.updateProvider;
 	let originalFetch: typeof globalThis.fetch;
 	let provider: AuthProvider;
+	let updateCalls: Array<{ id: string; update: Partial<positron.ai.LanguageModelSource> }>;
 
 	setup(() => {
 		authProviders.clear();
-		originalShowLanguageModelConfig = positron.ai.showLanguageModelConfig;
 		originalGetEnabledProviders = positron.ai.getEnabledProviders;
+		originalUpdateProvider = positron.ai.updateProvider;
 		originalFetch = globalThis.fetch;
 
 		// Mock getEnabledProviders to return all providers by default
 		(positron.ai as any).getEnabledProviders = async () => [
 			'anthropic-api', 'openai-api', 'openai-compatible', 'test-chain'
 		];
+
+		// Capture updateProvider calls for credential-state assertions
+		updateCalls = [];
+		(positron.ai as any).updateProvider = (id: string, update: Partial<positron.ai.LanguageModelSource>) => {
+			updateCalls.push({ id, update });
+		};
 
 		const secrets = new Map<string, string>();
 		const globalState = new Map<string, unknown>();
@@ -49,6 +56,7 @@ suite('configDialog', () => {
 				},
 			},
 		} as unknown as vscode.ExtensionContext;
+		initializeCredentialTracking(mockContext);
 		provider = new AuthProvider('anthropic-api', 'Anthropic', mockContext);
 		registerAuthProvider('anthropic-api', provider, {
 			validateApiKey: async (apiKey, config) => validateAnthropicApiKey(apiKey, config),
@@ -58,34 +66,14 @@ suite('configDialog', () => {
 	teardown(() => {
 		provider.dispose();
 		authProviders.clear();
-		positron.ai.showLanguageModelConfig = originalShowLanguageModelConfig;
 		(positron.ai as any).getEnabledProviders = originalGetEnabledProviders;
+		(positron.ai as any).updateProvider = originalUpdateProvider;
 		globalThis.fetch = originalFetch;
 	});
 
-	test('shows info message when no providers are enabled', async () => {
-		(positron.ai as any).getEnabledProviders = async () => [];
-
-		let shownMessage: string | undefined;
-		const originalShowInfo = vscode.window.showInformationMessage;
-		(vscode.window as any).showInformationMessage = async (message: string, ...items: string[]) => {
-			shownMessage = message;
-			return undefined;
-		};
-
-		let dialogOpened = false;
-		positron.ai.showLanguageModelConfig = async () => {
-			dialogOpened = true;
-		};
-
-		try {
-			await showConfigurationDialog();
-			assert.ok(shownMessage?.includes('No language model providers are enabled'), 'Should show no-providers message');
-			assert.strictEqual(dialogOpened, false, 'Should not open config dialog');
-		} finally {
-			(vscode.window as any).showInformationMessage = originalShowInfo;
-		}
-	});
+	function makeSession(id: string): vscode.AuthenticationSession {
+		return { id, accessToken: 'token', account: { id, label: 'Test' }, scopes: [] };
+	}
 
 	test('validates Anthropic key before storing', async () => {
 		let validated = false;
@@ -105,11 +93,11 @@ suite('configDialog', () => {
 			};
 		};
 
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0', apiKey: 'sk-ant-valid' }, 'save');
-		};
-
-		await showConfigurationDialog();
+		await providerAction(
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: '' }, supportedOptions: [], defaults: {} },
+			{ model: 'claude-sonnet-4-0', apiKey: 'sk-ant-valid' },
+			'save'
+		);
 
 		assert.strictEqual(validated, true);
 		assert.strictEqual(stored, true);
@@ -131,12 +119,12 @@ suite('configDialog', () => {
 			};
 		};
 
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0', apiKey: 'sk-ant-invalid' }, 'save');
-		};
-
 		await assert.rejects(
-			showConfigurationDialog(),
+			providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: '' }, supportedOptions: [], defaults: {} },
+				{ model: 'claude-sonnet-4-0', apiKey: 'sk-ant-invalid' },
+				'save'
+			),
 			(error: Error) => error.message.includes('Invalid Anthropic API key')
 		);
 		assert.strictEqual(stored, false);
@@ -166,12 +154,12 @@ suite('configDialog', () => {
 		registerAuthProvider('anthropic-api', chainProvider);
 		await chainProvider.resolveChainCredentials();
 
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({ provider: 'anthropic-api', type: positron.PositronLanguageModelType.Chat, name: 'Anthropic', model: 'claude-sonnet-4-0' }, 'delete');
-		};
-
 		await assert.rejects(
-			showConfigurationDialog(),
+			providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: '' }, supportedOptions: [], defaults: {} },
+				{ model: 'claude-sonnet-4-0' },
+				'delete'
+			),
 			(error: Error) => error.message.includes('environment variable')
 		);
 
@@ -202,17 +190,12 @@ suite('configDialog', () => {
 		);
 		registerAuthProvider('test-chain', chainProvider);
 
-		const actions: { action: string; provider: string }[] = [];
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			const config = { provider: 'test-chain', type: positron.PositronLanguageModelType.Chat, name: 'Test Chain', model: 'test-model' };
-			await onAction(config, 'save');
-			actions.push({ action: 'save', provider: config.provider });
-		};
+		await providerAction(
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'test-chain', displayName: 'Test Chain', settingName: '' }, supportedOptions: [], defaults: {} },
+			{ model: 'test-model' },
+			'save'
+		);
 
-		await showConfigurationDialog();
-
-		assert.strictEqual(actions.length, 1);
-		assert.strictEqual(actions[0].action, 'save');
 		const sessions = await chainProvider.getSessions();
 		assert.strictEqual(sessions.length, 1);
 		chainProvider.dispose();
@@ -251,23 +234,12 @@ suite('configDialog', () => {
 			},
 		});
 
-		const actions: { action: string; provider: string }[] = [];
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({
-				provider: 'openai-compatible',
-				type: positron.PositronLanguageModelType.Chat,
-				name: 'Custom Provider',
-				model: 'local-model',
-				baseUrl: 'http://localhost:1234/v1',
-				apiKey: '',
-			}, 'save');
-			actions.push({ action: 'save', provider: 'openai-compatible' });
-		};
+		await providerAction(
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-compatible', displayName: 'Custom Provider', settingName: '' }, supportedOptions: [], defaults: {} },
+			{ model: 'local-model', baseUrl: 'http://localhost:1234/v1', apiKey: '' },
+			'save'
+		);
 
-		await showConfigurationDialog();
-
-		assert.strictEqual(actions.length, 1);
-		assert.strictEqual(actions[0].action, 'save');
 		assert.strictEqual(validatedWithEmptyKey, true, 'should validate even with empty key');
 
 		// Verify a session was created with an empty access token
@@ -321,27 +293,67 @@ suite('configDialog', () => {
 			},
 		});
 
-		const actions: { action: string; provider: string }[] = [];
-		positron.ai.showLanguageModelConfig = async (_sources, onAction) => {
-			await onAction({
-				provider: 'openai-api',
-				type: positron.PositronLanguageModelType.Chat,
-				name: 'OpenAI',
-				model: 'gpt-4o',
-				baseUrl: 'https://my-proxy.example.com/v1',
-			}, 'save');
-			actions.push({ action: 'save', provider: 'openai-api' });
-		};
-
-		await showConfigurationDialog();
+		await providerAction(
+			{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'openai-api', displayName: 'OpenAI', settingName: '' }, supportedOptions: [], defaults: {} },
+			{ model: 'gpt-4o', baseUrl: 'https://my-proxy.example.com/v1' },
+			'save'
+		);
 
 		assert.strictEqual(savedBaseUrl, 'https://my-proxy.example.com/v1',
 			'onSave should have been called with the custom base URL');
 		assert.strictEqual(baseUrlDuringResolve, 'https://my-proxy.example.com/v1',
 			'base URL should be persisted before chain resolution');
-		assert.strictEqual(actions.length, 1);
-		assert.strictEqual(actions[0].action, 'save');
 
 		chainProvider.dispose();
+	});
+
+	suite('credential state updates', () => {
+		test('sessions present reports ok and persists the sign-in', () => {
+			// Chain sessions use the provider ID as the session ID.
+			updateProviderFromSessions('amazon-bedrock', [makeSession('amazon-bedrock')]);
+			// Sessions later disappear (e.g. expired chain after a reload):
+			// the persisted flag turns the empty list into an expired session.
+			updateProviderFromSessions('amazon-bedrock', []);
+
+			assert.deepStrictEqual(updateCalls, [
+				{ id: 'amazon-bedrock', update: { signedIn: true, status: 'ok', statusMessage: undefined } },
+				{ id: 'amazon-bedrock', update: { signedIn: false, status: 'error', statusMessage: 'Authentication expired' } },
+			]);
+		});
+
+		test('no sessions and no prior sign-in reports null status', () => {
+			updateProviderFromSessions('anthropic-api', []);
+
+			assert.deepStrictEqual(updateCalls, [
+				{ id: 'anthropic-api', update: { signedIn: false, status: null, statusMessage: undefined } },
+			]);
+		});
+
+		test('delete clears the persisted sign-in', async () => {
+			await provider.storeKey('uuid-1', 'Anthropic', 'sk-ant-key');
+			updateProviderFromSessions('anthropic-api', await provider.getSessions());
+
+			await providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: '' }, supportedOptions: [], defaults: {} },
+				{},
+				'delete'
+			);
+			updateProviderFromSessions('anthropic-api', await provider.getSessions());
+
+			assert.deepStrictEqual(updateCalls.at(-1), {
+				id: 'anthropic-api',
+				update: { signedIn: false, status: null, statusMessage: undefined },
+			});
+		});
+
+		test('copilot-auth never reports an expired session', () => {
+			updateProviderFromSessions('copilot-auth', [makeSession('gh-uuid')]);
+			updateProviderFromSessions('copilot-auth', []);
+
+			assert.deepStrictEqual(updateCalls.at(-1), {
+				id: 'copilot-auth',
+				update: { signedIn: false, status: null, statusMessage: undefined },
+			});
+		});
 	});
 });

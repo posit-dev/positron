@@ -21,13 +21,7 @@ suite('validateAnthropicApiKey', () => {
 	});
 
 	function makeConfig(baseUrl?: string): positron.ai.LanguageModelConfig {
-		return {
-			provider: 'anthropic-api',
-			name: 'Anthropic',
-			model: '',
-			type: positron.PositronLanguageModelType.Chat,
-			...(baseUrl !== undefined && { baseUrl }),
-		};
+		return { baseUrl };
 	}
 
 	test('uses https://api.anthropic.com/v1 when no baseUrl is provided', async () => {

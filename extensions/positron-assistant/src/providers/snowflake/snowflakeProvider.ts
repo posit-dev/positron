@@ -90,7 +90,6 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 		provider: PROVIDER_METADATA.snowflake,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 		defaults: {
-			name: 'Snowflake Cortex',
 			model: 'claude-4-sonnet',
 			baseUrl: getSnowflakeDefaultBaseUrl(),
 			toolCalls: true,
