@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .memory-usage-meter {
-	width: 100%;
+	/* Shrink-wrap the content and hug the right edge of the cell so the hover
+	   background tracks the content rather than the full (over-allocated) cell
+	   width, which would otherwise leave empty space to the left. */
+	width: fit-content;
+	max-width: 100%;
+	margin-inline-start: auto;
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
@@ -53,6 +58,17 @@
 	background-color: transparent;
 }
 
+/* Low-memory state: error-colored border and non-kernel memory. */
+
+.memory-bar-container.low-memory {
+	border-color: var(--vscode-errorForeground);
+}
+
+.memory-bar-container.low-memory .memory-bar-segment.positron,
+.memory-bar-container.low-memory .memory-bar-segment.other {
+	background-color: var(--vscode-errorForeground);
+}
+
 /* Highlight/dim states for two-way hover linking */
 
 .memory-bar-segment.highlighted {
@@ -82,6 +98,24 @@
 	color: var(--vscode-descriptionForeground);
 	white-space: nowrap;
 	user-select: none;
+	font-variant-numeric: tabular-nums;
+}
+
+/* When the meter is too narrow to show the warning icon, color the size label
+   with the warning foreground (matching the icon) to indicate low memory. */
+.memory-usage-meter .memory-size-label.low-memory {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+.memory-usage-meter .memory-low-warning.codicon {
+	flex-shrink: 0;
+	display: flex !important;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px !important;
+	/* Chain the .codicon class to outrank the global `.monaco-workbench
+	   .codicon { color: var(--vscode-icon-foreground) }` rule. */
+	color: var(--vscode-editorWarning-foreground);
 }
 
 .memory-usage-meter .memory-drop-down-arrow {

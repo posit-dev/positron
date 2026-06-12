@@ -16,7 +16,6 @@ import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useMenu } from '../useMenu.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useWheelForwarding } from './useWheelForwarding.js';
-import { useCellScopedContextKeyService } from './CellProvider.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 
@@ -27,8 +26,7 @@ interface CellOutputActionBarProps {
 
 export function CellOutputActionBar({ cell, scrollTargetRef }: CellOutputActionBarProps) {
 	const instance = useNotebookInstance();
-	const contextKeyService = useCellScopedContextKeyService();
-	const menu = useMenu(MenuId.PositronNotebookCellOutputActionBar, contextKeyService);
+	const menu = useMenu(MenuId.PositronNotebookCellOutputActionBar, cell.scopedContextKeyService);
 	const actionGroups = useMenuActions(menu);
 
 	// Forward wheel events to the scrollable output container so scrolling

@@ -297,7 +297,7 @@ configurationRegistry.registerConfiguration({
 		'console.showResourceMonitor': {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console tab list."),
+			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console. The monitor appears in the session list when multiple sessions are running, or in the console action bar when a single session is running."),
 		}
 	}
 });
@@ -1294,6 +1294,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidNavigateInputHistoryUpEmitter = this._register(new Emitter<DidNavigateInputHistoryUpEventArgs>());
 
 	/**
+	 * The onDidEngageHistoryInfixSearch event emitter.
+	 */
+	private readonly _onDidEngageHistoryInfixSearchEmitter = this._register(new Emitter<void>());
+
+	/**
 	 * The onDidClearInputHistory event emitter.
 	 */
 	private readonly _onDidClearInputHistoryEmitter = this._register(new Emitter<void>);
@@ -1646,6 +1651,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidNavigateInputHistoryUp = this._onDidNavigateInputHistoryUpEmitter.event;
 
 	/**
+	 * onDidEngageHistoryInfixSearch event.
+	 */
+	readonly onDidEngageHistoryInfixSearch = this._onDidEngageHistoryInfixSearchEmitter.event;
+
+	/**
 	 * onDidClearInputHistory event.
 	 */
 	readonly onDidClearInputHistory = this._onDidClearInputHistoryEmitter.event;
@@ -1783,6 +1793,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._onDidNavigateInputHistoryUpEmitter.fire({
 			usingPrefixMatch,
 		});
+	}
+
+	/**
+	 * Engages a reverse history search using infix matching.
+	 */
+	engageHistoryInfixSearch(): void {
+		this._onDidEngageHistoryInfixSearchEmitter.fire();
 	}
 
 	/**

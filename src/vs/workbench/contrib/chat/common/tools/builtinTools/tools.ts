@@ -19,17 +19,6 @@ import { SetArtifactsTool, SetArtifactsToolData } from './setArtifactsTool.js';
 import { SetArtifactRulesTool, SetArtifactRulesToolData } from './setArtifactRulesTool.js';
 import { TaskCompleteTool, TaskCompleteToolData } from './taskCompleteTool.js';
 
-// --- Start Positron ---
-/**
- * src/vs/workbench/contrib/chat/browser/tools/tools.ts is derived from this file.
- * Please keep the two files in sync with any core changes and ensure that tools
- * do not conflict with each other.
- *
- * Note: There may be some overlap with tools and the ones registered here are
- * used by Copilot Chat.
- */
-// --- End Positron ---
-
 export class BuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'chat.builtinTools';

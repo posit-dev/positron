@@ -47,7 +47,6 @@ vi.mock('../../browser/notebookCells/CellProvider.js', () => ({
 	CellProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 	useCell: () => ({ scopedContextKeyService: undefined }),
 	useCodeCell: () => { throw new Error('not a code cell'); },
-	useCellScopedContextKeyService: () => undefined,
 }));
 
 describe('NotebookMarkdownCell', () => {

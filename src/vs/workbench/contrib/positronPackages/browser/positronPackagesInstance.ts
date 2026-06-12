@@ -11,6 +11,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ICachedPackageMetadata, PackageMetadataCache } from './packageMetadataCache.js';
 
 export interface IPositronPackagesInstance {
 	packages: ILanguageRuntimePackage[];
@@ -46,11 +47,19 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	/** Raw package list from the kernel (no metadata) */
 	private _packages: ILanguageRuntimePackage[] = [];
 
-	/** Cached metadata from P3M, keyed by lowercase package name */
-	private readonly _metadataCache = new Map<string, Partial<ILanguageRuntimePackage>>();
+	/**
+	 * Cached outdated state keyed by lowercase package name. Each entry carries
+	 * the installed version it was computed against so the getter can ignore a
+	 * stale entry (different library context, or a since-changed install).
+	 * Seeded from disk in the constructor so indicators render immediately.
+	 */
+	private readonly _metadataCache = new Map<string, ICachedPackageMetadata>();
 
 	/** Handle to the in-flight metadata fetch so re-entrance can supersede it */
 	private _metadataFetch?: CancelablePromise<void>;
+
+	/** Stable per-interpreter key for the persisted cache. */
+	private readonly _runtimeId: string;
 
 	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
@@ -71,11 +80,22 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	constructor(
 		session: ILanguageRuntimeSession,
 		logService: ILogService,
+		private readonly _cache: PackageMetadataCache,
 	) {
 		super();
 
 		this._session = session;
 		this._logService = logService;
+		this._runtimeId = session.runtimeMetadata.runtimeId;
+
+		// Seed from the persisted cache so the first refresh can render update
+		// indicators immediately, before the live outdated fetch completes.
+		const persisted = this._cache.get(this._runtimeId);
+		if (persisted) {
+			for (const [name, metadata] of Object.entries(persisted.packages)) {
+				this._metadataCache.set(name, metadata);
+			}
+		}
 	}
 
 	readonly onDidRefreshPackagesInstance = this._onDidRefreshPackagesInstance.event;
@@ -96,11 +116,21 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	get packages(): ILanguageRuntimePackage[] {
 		return this._packages.map((pkg) => {
 			const metadata = this._metadataCache.get(pkg.name.toLowerCase());
-			if (metadata) {
-				return { ...pkg, ...metadata };
+			// Apply cached outdated state only when it was computed against the
+			// version that is installed now. A mismatch means the entry is from
+			// a different library context or a since-changed install, so we
+			// drop it rather than risk a misleading indicator.
+			if (metadata && metadata.version === pkg.version) {
+				return { ...pkg, outdated: metadata.outdated, latestVersion: metadata.latestVersion };
 			}
 			return pkg;
 		});
+	}
+
+	/** Whether the cache holds outdated state for the package's current version. */
+	private _hasFreshMetadata(pkg: ILanguageRuntimePackage): boolean {
+		const metadata = this._metadataCache.get(pkg.name.toLowerCase());
+		return metadata !== undefined && metadata.version === pkg.version;
 	}
 
 	/**
@@ -158,13 +188,13 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._metadataFetch?.cancel();
 		this._metadataCache.clear();
 
-		await this._fetchAndMergeMetadata(packageManager, effectiveToken);
+		await this._fetchAndMergeMetadata(packageManager, effectiveToken, true /* fetchAll */);
 	}
 
 	/**
 	 * Internal helper to refresh packages with two-stage metadata fetch.
 	 * Stage 1: Get basic packages and fire event immediately (with cached metadata).
-	 * Stage 2: Fetch metadata asynchronously for uncached packages.
+	 * Stage 2: Fetch outdated metadata asynchronously.
 	 */
 	private async _refreshPackagesInternal(
 		packageManager: ReturnType<typeof this.getPackageManagerOrThrow>,
@@ -174,37 +204,49 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		this._packages = await packageManager.getPackages(token);
 		this._onDidRefreshPackagesInstance.fire(this.packages);
 
-		// Stage 2: Fetch metadata asynchronously for uncached packages (don't block)
-		// Use CancellationToken.None since this runs after the main operation completes
+		// Stage 2: Fetch metadata asynchronously (don't block). When the
+		// persisted entry has aged past its freshness window, refetch every
+		// package so a new upstream release surfaces even though nothing
+		// installed locally changed; otherwise only the packages without a
+		// fresh cache hit are fetched (and a fully-fresh warm start makes no
+		// network call at all). Use CancellationToken.None since this runs
+		// after the main operation completes.
 		if (packageManager.getPackageMetadata && this._packages.length > 0) {
-			this._fetchAndMergeMetadata(packageManager, CancellationToken.None);
+			const fetchAll = !this._cache.isFresh(this._runtimeId);
+			this._fetchAndMergeMetadata(packageManager, CancellationToken.None, fetchAll);
 		}
 	}
 
 	/**
-	 * Fetch package metadata and store it in the cache.
-	 * Only fetches metadata for packages not already in the cache.
+	 * Fetch package outdated metadata and store it in the cache, persisting the
+	 * result to disk on success. When `fetchAll` is false, only packages
+	 * lacking a fresh (version-matching) cache hit are fetched.
 	 * This runs asynchronously after the initial package list is returned.
 	 */
 	private async _fetchAndMergeMetadata(
 		packageManager: { getPackageMetadata?: (names: string[], token?: CancellationToken) => Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined> },
 		externalToken: CancellationToken,
+		fetchAll: boolean,
 	): Promise<void> {
 		// Cancel any prior in-flight fetch so re-entrance supersedes rather than no-ops
 		this._metadataFetch?.cancel();
 
-		const uncachedPackages = this._packages.filter(
-			(pkg) => !this._metadataCache.has(pkg.name.toLowerCase())
-		);
+		const packagesToFetch = fetchAll
+			? this._packages
+			: this._packages.filter((pkg) => !this._hasFreshMetadata(pkg));
 
-		if (uncachedPackages.length === 0) {
-			// All packages already have cached metadata, just fire the event
+		if (packagesToFetch.length === 0) {
+			// Every package already has fresh cached metadata, just fire the event
 			this._onDidRefreshPackagesInstance.fire(this.packages);
 			return;
 		}
 
+		// Look up installed versions so each cached entry records the version
+		// its outdated state was computed against.
+		const versionByName = new Map(this._packages.map((pkg) => [pkg.name.toLowerCase(), pkg.version]));
+
 		const fetch = createCancelablePromise<void>(async (token) => {
-			const packageNames = uncachedPackages.map((pkg) => pkg.name);
+			const packageNames = packagesToFetch.map((pkg) => pkg.name);
 			const metadataMap = await packageManager.getPackageMetadata!(packageNames, token);
 
 			// Re-check cancellation before writing so a cancelled fetch
@@ -214,8 +256,22 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			}
 
 			for (const [name, metadata] of metadataMap) {
-				this._metadataCache.set(name.toLowerCase(), metadata);
+				const key = name.toLowerCase();
+				const version = versionByName.get(key);
+				if (version === undefined) {
+					// Not currently installed; nothing to anchor the entry to.
+					continue;
+				}
+				this._metadataCache.set(key, {
+					version,
+					outdated: metadata.outdated,
+					latestVersion: metadata.latestVersion,
+				});
 			}
+
+			// Persist only after a successful fetch so a failed or cancelled
+			// fetch leaves the previous on-disk entry intact.
+			this._cache.upsert(this._runtimeId, this._snapshotForPersist());
 
 			this._onDidRefreshPackagesInstance.fire(this.packages);
 		});
@@ -345,6 +401,26 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		for (const name of packageNames) {
 			this._metadataCache.delete(name.toLowerCase());
 		}
+		// Drop the on-disk entries too so a stale indicator can't outlive the
+		// change if the window closes before the follow-up fetch persists.
+		this._cache.evict(this._runtimeId, packageNames);
+	}
+
+	/**
+	 * Build the snapshot to persist: every currently-installed package whose
+	 * cached metadata matches its installed version. Excludes uninstalled
+	 * packages and stale entries so the on-disk cache stays lean and trusted.
+	 */
+	private _snapshotForPersist(): Record<string, ICachedPackageMetadata> {
+		const snapshot: Record<string, ICachedPackageMetadata> = {};
+		for (const pkg of this._packages) {
+			const key = pkg.name.toLowerCase();
+			const metadata = this._metadataCache.get(key);
+			if (metadata && metadata.version === pkg.version) {
+				snapshot[key] = metadata;
+			}
+		}
+		return snapshot;
 	}
 
 	async searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]> {

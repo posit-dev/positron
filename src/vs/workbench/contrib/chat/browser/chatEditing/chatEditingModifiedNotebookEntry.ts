@@ -34,9 +34,7 @@ import { IAiEditTelemetryService } from '../../../editTelemetry/browser/telemetr
 import { NotebookTextDiffEditor } from '../../../notebook/browser/diff/notebookDiffEditor.js';
 import { INotebookTextDiffEditor } from '../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
 import { CellDiffInfo } from '../../../notebook/browser/diff/notebookDiffViewModel.js';
-// --- Start Positron ---
-import { getNotebookEditorFromEditorPane } from '../../../positronNotebook/browser/NotebookEditorProxyService.js';
-// --- End Positron ---
+import { getNotebookEditorFromEditorPane } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, ICellDto2, ICellEditOperation, ICellReplaceEdit, IResolvedNotebookEditorModel, NotebookCellsChangeType, NotebookSetting, NotebookTextModelChangedEvent, TransientOptions } from '../../../notebook/common/notebookCommon.js';
@@ -280,14 +278,9 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			return;
 		}
 
-		// --- Start Positron ---
-		// Only process edits when there's an active pending diff (Modified state).
-		// Accepted/Rejected entries should not process new edits - their job is done.
-		// This prevents stale baseline issues when edits occur outside the chat editing flow.
-		if (currentState !== ModifiedFileEntryState.Modified) {
+		if (currentState === ModifiedFileEntryState.Rejected) {
 			return;
 		}
-		// --- End Positron ---
 
 		if (isTransientIPyNbExtensionEvent(this.modifiedModel.notebookType, e)) {
 			return;

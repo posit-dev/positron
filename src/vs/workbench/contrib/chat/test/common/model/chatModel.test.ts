@@ -44,8 +44,12 @@ suite('ChatModel', () => {
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
+		// --- Start Positron ---
+		// ChatAgentService subscribes to configuration changes in its constructor,
+		// so IConfigurationService must be stubbed before the service is created.
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
+		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IChatService, new MockChatService());
 	});
 
@@ -1016,8 +1020,12 @@ suite('ChatResponseModel', () => {
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
+		// --- Start Positron ---
+		// ChatAgentService subscribes to configuration changes in its constructor,
+		// so IConfigurationService must be stubbed before the service is created.
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
+		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IChatService, new MockChatService());
 	});
 
@@ -1204,8 +1212,12 @@ suite('ChatModel - Pending Requests', () => {
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
-		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
+		// --- Start Positron ---
+		// ChatAgentService subscribes to configuration changes in its constructor,
+		// so IConfigurationService must be stubbed before the service is created.
 		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
+		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IChatService, new MockChatService());
 	});
 

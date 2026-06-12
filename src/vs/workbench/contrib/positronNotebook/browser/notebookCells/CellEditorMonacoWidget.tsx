@@ -34,7 +34,6 @@ import { EditorContextKeys } from '../../../../../editor/common/editorContextKey
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_REPLACE_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { useCellScopedContextKeyService } from './CellProvider.js';
 
 /**
  *
@@ -99,14 +98,13 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
-	const cellContextKeyService = useCellScopedContextKeyService();
 
 	// Create an element ref to contain the editor
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current || !cellContextKeyService) { return; }
+		if (!editorPartRef.current || !cell.scopedContextKeyService) { return; }
 
 		const disposables = new DisposableStore();
 
@@ -116,7 +114,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
 		// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
 		// from this one for editor-specific keys.
-		const editorContextKeyService = cellContextKeyService.createScoped(editorPartRef.current);
+		const editorContextKeyService = cell.scopedContextKeyService.createScoped(editorPartRef.current);
 		disposables.add(editorContextKeyService);
 
 		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
@@ -308,7 +306,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, cellContextKeyService, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
+	}, [cell, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {

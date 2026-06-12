@@ -31,11 +31,6 @@ import * as semver from '../../../../../../base/common/semver/semver.js';
 import { IModelPickerDelegate } from './modelPickerActionItem.js';
 import { IUriIdentityService } from '../../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IUpdateService, StateType } from '../../../../../../platform/update/common/update.js';
-// --- Start Positron ---
-import { getProviderIcon } from './providerIcons.js';
-import { IThemeService } from '../../../../../../platform/theme/common/themeService.js';
-import { isDark } from '../../../../../../platform/theme/common/theme.js';
-// --- End Positron ---
 
 function isVersionAtLeast(current: string, required: string): boolean {
 	const currentSemver = semver.coerce(current);
@@ -152,13 +147,6 @@ function createModelAction(
 	languageModelsService: ILanguageModelsService,
 	section?: string,
 ): IActionWidgetDropdownAction & { section?: string } {
-	// --- Start Positron ---
-	// Check if this model is marked as the default for its provider
-	const isDefaultForLocation = model.metadata.isDefaultForLocation;
-	const isDefault = isDefaultForLocation && Object.values(isDefaultForLocation).some(v => v);
-	// Add "(default)" suffix to label if this is the default model
-	const label = isDefault ? localize('chat.modelPicker.defaultModel', "{0} (default)", model.metadata.name) : model.metadata.name;
-	// --- End Positron ---
 	const toolbarActions = languageModelsService.getModelConfigurationActions(model.identifier);
 	const configDescription = getModelConfigurationDescription(model, languageModelsService);
 	const baseDescription = model.metadata.multiplier ?? model.metadata.detail;
@@ -173,7 +161,7 @@ function createModelAction(
 		class: undefined,
 		description,
 		tooltip: model.metadata.name,
-		label: label,
+		label: model.metadata.name,
 		section,
 		toolbarActions: toolbarActions && toolbarActions.length > 0 ? toolbarActions : undefined,
 		run: () => onSelect(model),
@@ -228,11 +216,6 @@ export function buildModelPickerItems(
 	showUnavailableFeatured: boolean,
 	showFeatured: boolean,
 	languageModelsService?: ILanguageModelsService,
-	// --- Start Positron ---
-	vendorDisplayNames?: ReadonlyMap<string, string>,
-	commandService?: ICommandService,
-	isDarkTheme?: boolean,
-	// --- End Positron ---
 ): IActionListItem<IActionWidgetDropdownAction>[] {
 	const items: IActionListItem<IActionWidgetDropdownAction>[] = [];
 	if (models.length === 0) {
@@ -281,12 +264,11 @@ export function buildModelPickerItems(
 			};
 
 			// --- 1. Auto ---
-			// --- Start Positron ---
-			// In Positron, Auto is not promoted to the first position. It is
-			// treated like any other model and appears in the Other Models
-			// section (or in promoted if explicitly selected/recent/featured).
 			const autoModel = models.find(m => isAutoModel(m));
-			// --- End Positron ---
+			if (autoModel) {
+				markPlaced(autoModel.identifier, autoModel.metadata.id);
+				items.push(createModelItem(createModelAction(autoModel, selectedModelId, onSelect, languageModelsService!), autoModel));
+			}
 
 			// --- 2. Promoted section (selected + recently used + featured) ---
 			type PromotedItem =
@@ -421,24 +403,7 @@ export function buildModelPickerItems(
 					section: ModelPickerSection.Other,
 					isSectionToggle: true,
 				});
-				// --- Start Positron ---
-				// Group models by vendor and add provider separators.
-				let otherLastVendor: string | undefined;
-				// --- End Positron ---
 				for (const model of otherModels) {
-					// --- Start Positron ---
-					if (model.metadata.vendor !== otherLastVendor) {
-						otherLastVendor = model.metadata.vendor;
-						const providerIcon = getProviderIcon(model.metadata.vendor, isDarkTheme);
-						const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
-						items.push({
-							kind: ActionListItemKind.Separator,
-							label: providerLabel,
-							group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel },
-							section: ModelPickerSection.Other,
-						});
-					}
-					// --- End Positron ---
 					const entry = controlModels[model.metadata.id] ?? controlModels[model.identifier];
 					if (entry?.minVSCodeVersion && !isVersionAtLeast(currentVSCodeVersion, entry.minVSCodeVersion)) {
 						items.push(createUnavailableModelItem(model.metadata.id, entry, 'update', manageSettingsUrl, updateStateType, chatEntitlementService, ModelPickerSection.Other));
@@ -449,11 +414,18 @@ export function buildModelPickerItems(
 			}
 		}
 
-		// --- Start Positron ---
-		// The upstream `manageModelsAction` push was removed here because the
-		// Positron footer below adds Manage Models alongside Configure Model
-		// Providers for all picker modes. Leaving both produced duplicates.
-		// --- End Positron ---
+		if (manageModelsAction) {
+			items.push({ kind: ActionListItemKind.Separator, section: otherModels.length ? ModelPickerSection.Other : undefined });
+			items.push({
+				item: manageModelsAction,
+				kind: ActionListItemKind.Action,
+				label: manageModelsAction.label,
+				group: { title: '', icon: Codicon.blank },
+				hideIcon: false,
+				section: otherModels.length ? ModelPickerSection.Other : undefined,
+				showAlways: true,
+			});
+		}
 	} else {
 		// Flat list: auto first, then all models sorted alphabetically
 		const autoModel = models.find(m => isAutoModel(m));
@@ -466,79 +438,10 @@ export function buildModelPickerItems(
 				const vendorCmp = a.metadata.vendor.localeCompare(b.metadata.vendor);
 				return vendorCmp !== 0 ? vendorCmp : a.metadata.name.localeCompare(b.metadata.name);
 			});
-		// --- Start Positron ---
-		// Group models by vendor and add provider separators
-		let lastVendor: string | undefined;
 		for (const model of sortedModels) {
-			if (model.metadata.vendor !== lastVendor) {
-				lastVendor = model.metadata.vendor;
-				const providerIcon = getProviderIcon(model.metadata.vendor, isDarkTheme);
-				const providerLabel = model.metadata.auth?.providerLabel ?? vendorDisplayNames?.get(model.metadata.vendor) ?? model.metadata.vendor;
-				items.push({
-					kind: ActionListItemKind.Separator,
-					label: providerLabel,
-					group: providerIcon ? { title: providerLabel, icon: providerIcon.themeIcon } : { title: providerLabel }
-				});
-			}
 			items.push(createModelItem(createModelAction(model, selectedModelId, onSelect, languageModelsService!), model));
 		}
-		// --- End Positron ---
-		return items;
 	}
-
-	if (
-		// --- Start Positron ---
-		// In Positron, we want to show "Manage Models" to all users regardless of entitlement
-		chatEntitlementService.entitlement === ChatEntitlement.Unknown ||
-		// --- End Positron ---
-		chatEntitlementService.entitlement === ChatEntitlement.Free ||
-		chatEntitlementService.entitlement === ChatEntitlement.Pro ||
-		chatEntitlementService.entitlement === ChatEntitlement.ProPlus ||
-		chatEntitlementService.entitlement === ChatEntitlement.Business ||
-		chatEntitlementService.entitlement === ChatEntitlement.Enterprise ||
-		chatEntitlementService.isInternal
-	) {
-		// Modified from upstream to always show separator
-		items.push({ kind: ActionListItemKind.Separator });
-		items.push({
-			item: {
-				id: 'manageModels',
-				enabled: true,
-				checked: false,
-				class: undefined,
-				tooltip: localize('chat.manageModels.tooltip', "Manage Language Models"),
-				label: localize('chat.manageModels', "Manage Models..."),
-				run: () => { commandService?.executeCommand(MANAGE_CHAT_COMMAND_ID); }
-			},
-			kind: ActionListItemKind.Action,
-			label: localize('chat.manageModels', "Manage Models..."),
-			group: { title: '', icon: Codicon.blank },
-			hideIcon: false,
-			// In Positron, "Manage Models" is not placed in the Other collapsible section - it is always visible in the footer
-			// section: otherModels.length ? ModelPickerSection.Other : undefined,
-			showAlways: true,
-		});
-	}
-
-	// --- Start Positron ---
-	// Add footer actions for Positron
-	items.push({
-		item: {
-			id: 'configureProviders',
-			enabled: true,
-			checked: false,
-			class: undefined,
-			tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
-			label: localize('chat.configureProviders', "Configure Model Providers..."),
-			run: () => { commandService?.executeCommand('positron-assistant.configureProviders'); }
-		},
-		kind: ActionListItemKind.Action,
-		label: localize('chat.configureProviders', "Configure Model Providers..."),
-		group: { title: '', icon: Codicon.blank },
-		hideIcon: false,
-		showAlways: true,
-	});
-	// --- End Positron ---
 
 	return items;
 }
@@ -667,19 +570,12 @@ export class ModelPickerWidget extends Disposable {
 		@IChatEntitlementService private readonly _entitlementService: IChatEntitlementService,
 		@IUpdateService private readonly _updateService: IUpdateService,
 		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService,
-		// --- Start Positron ---
-		@IThemeService private readonly _themeService: IThemeService,
-		// --- End Positron ---
 	) {
 		super();
 
 		this._register(this._languageModelsService.onDidChangeLanguageModels(() => {
 			this._renderLabel();
 		}));
-		// --- Start Positron ---
-		// Re-render the label when the theme changes so provider icons recolor.
-		this._register(this._themeService.onDidColorThemeChange(() => this._renderLabel()));
-		// --- End Positron ---
 	}
 
 	setHideChevrons(hideChevrons: IObservable<boolean>): void {
@@ -790,11 +686,6 @@ export class ModelPickerWidget extends Disposable {
 			this._delegate.showUnavailableFeatured(),
 			this._delegate.showFeatured(),
 			this._languageModelsService,
-			// --- Start Positron ---
-			new Map(this._languageModelsService.getVendors().map(v => [v.vendor, v.displayName])),
-			this._commandService,
-			isDark(this._themeService.getColorTheme().type),
-			// --- End Positron ---
 		);
 
 		const listOptions = {
@@ -872,30 +763,8 @@ export class ModelPickerWidget extends Disposable {
 			return;
 		}
 
-		const { name, statusIcon, vendor } = this._selectedModel?.metadata || {};
+		const { name, statusIcon } = this._selectedModel?.metadata || {};
 		const domChildren: (HTMLElement | string)[] = [];
-
-		// --- Start Positron ---
-		// Show provider icon for the selected model
-		if (vendor) {
-			const providerIcon = getProviderIcon(vendor, isDark(this._themeService.getColorTheme().type));
-			if (providerIcon) {
-				if (providerIcon.svgContent) {
-					// SVG-based icons: render as background image
-					const base64 = btoa(providerIcon.svgContent);
-					const providerIconElement = dom.$('span.chat-model-picker-provider-icon');
-					providerIconElement.style.backgroundImage = `url(data:image/svg+xml;base64,${base64})`;
-					providerIconElement.style.marginRight = '4px';
-					domChildren.push(providerIconElement);
-				} else {
-					// Codicon-based icons: use renderIcon
-					const providerIconElement = renderIcon(providerIcon.themeIcon);
-					providerIconElement.classList.add('chat-model-picker-provider-icon');
-					domChildren.push(providerIconElement);
-				}
-			}
-		}
-		// --- End Positron ---
 
 		if (statusIcon) {
 			const iconElement = renderIcon(statusIcon);
@@ -930,22 +799,6 @@ function getModelHoverContent(model: ILanguageModelChatMetadataAndIdentifier): M
 	const isAuto = isAutoModel(model);
 	const markdown = new MarkdownString('', { isTrusted: true, supportThemeIcons: true });
 	let hasContent = false;
-
-	// --- Start Positron ---
-	// Show provider icon and name in hover header.
-	const providerLabel = model.metadata.auth?.providerLabel ?? model.metadata.vendor;
-	const providerIcon = getProviderIcon(model.metadata.vendor);
-	if (providerIcon?.svgContent) {
-		const base64 = btoa(providerIcon.svgContent);
-		markdown.appendMarkdown(`![${providerLabel}](data:image/svg+xml;base64,${base64}|height=14)&nbsp;**${model.metadata.name}**`);
-	} else if (providerIcon?.themeIcon) {
-		markdown.appendMarkdown(`$(${providerIcon.themeIcon.id})&nbsp;**${model.metadata.name}**`);
-	} else {
-		markdown.appendMarkdown(`**${providerLabel} - ${model.metadata.name}**`);
-	}
-	markdown.appendText(`\n`);
-	hasContent = true;
-	// --- End Positron ---
 
 	if (model.metadata.tooltip) {
 		if (model.metadata.statusIcon) {

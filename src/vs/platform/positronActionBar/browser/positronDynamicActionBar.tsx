@@ -82,6 +82,15 @@ export interface DynamicActionBarAction {
 	 * truncating its content (e.g. via CSS text-overflow: ellipsis).
 	 */
 	growable?: boolean;
+
+	/**
+	 * The maximum (preferred) width of the action in pixels. When set, the
+	 * action is allocated its {@link fixedWidth} during layout and then grows
+	 * into any leftover space (the gap between the left and right action
+	 * groups) up to this width. The action's component is responsible for
+	 * adapting its content to the granted width (e.g. via a ResizeObserver).
+	 */
+	maxWidth?: number;
 }
 
 /**
@@ -92,6 +101,15 @@ interface CommonPositronDynamicActionBarProps {
 	paddingRight?: number;
 	leftActions: DynamicActionBarAction[];
 	rightActions: DynamicActionBarAction[];
+
+	/**
+	 * Optional context menu handler for the empty space between the left and
+	 * right action groups. When provided, right-clicking the gap invokes it.
+	 * This lets a consumer offer an action (e.g. re-showing a hidden status
+	 * element) in the region where that element would otherwise appear. When the
+	 * action bar is full there is no gap, so there is nothing to right-click.
+	 */
+	onEmptySpaceContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -345,6 +363,25 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		// Text measurement is complete. Remove the canvas.
 		canvas.remove();
 
+		// Distribute any leftover space (the gap that would otherwise become the
+		// '1fr' column) to actions that declare a maxWidth, growing them up to
+		// their preferred width. This lets an action such as the console
+		// resource monitor expand into available space and shrink as the action
+		// bar narrows.
+		const growableEntries = [...rightGridEntries, ...leftGridEntries].filter(entry => entry.action.maxWidth);
+		for (const entry of growableEntries) {
+			if (layoutWidth <= 0) {
+				break;
+			}
+			const headroom = entry.action.maxWidth! - entry.width;
+			if (headroom <= 0) {
+				continue;
+			}
+			const grant = Math.min(headroom, layoutWidth);
+			entry.width += grant;
+			layoutWidth -= grant;
+		}
+
 		/**
 		 * Lays out the grid entries.
 		 * @param gridEntries The grid entries.
@@ -472,9 +509,14 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		gridColumns.push('1fr');
 		gridColumns.push(...rightGridColumns);
 
-		// Construct the grid elements.
+		// Construct the grid elements. The middle element fills the '1fr' gap
+		// between the left and right groups; it stretches to the full height so
+		// it can host an optional context menu (see onEmptySpaceContextMenu).
 		gridComponents.push(...leftGridElements);
-		gridComponents.push(<div />);
+		gridComponents.push(
+			// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- optional right-click-only affordance for empty space; any action it offers is also reachable elsewhere (e.g. Settings), so no keyboard equivalent is required here.
+			<div className='action-bar-gap' onContextMenu={props.onEmptySpaceContextMenu} />
+		);
 		gridComponents.push(...rightGridElements);
 	}
 

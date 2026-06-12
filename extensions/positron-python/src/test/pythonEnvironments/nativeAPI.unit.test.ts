@@ -655,3 +655,90 @@ suite('Native Python API', () => {
     });
     // --- End Positron ---
 });
+
+// --- Start Positron ---
+suite('partitionModuleEnvsByNative', () => {
+    // Build a minimal PythonEnvInfo carrying just the executable path the
+    // partitioner reads; the other fields are irrelevant to the matching logic.
+    function envWith(filename: string): PythonEnvInfo {
+        return {
+            arch: Architecture.Unknown,
+            id: filename,
+            detailedDisplayName: filename,
+            display: filename,
+            distro: { org: '' },
+            executable: { filename, sysPrefix: '', ctime: -1, mtime: -1 },
+            kind: PythonEnvKind.Unknown,
+            location: filename,
+            source: [],
+            name: '',
+            type: undefined,
+            version: { sysVersion: undefined, major: -1, minor: -1, micro: -1 },
+        };
+    }
+
+    // Fake symlink resolver: returns the canonical target from the map, or the
+    // path itself when it isn't a symlink.
+    function resolverFrom(canonical: Record<string, string>): (p: string) => Promise<string> {
+        return (p: string) => Promise.resolve(canonical[p] ?? p);
+    }
+
+    test('re-keys a module interpreter that resolves to the same target as a native env', async () => {
+        // The native locator surfaces bin/python; the module locator resolves
+        // python3 first (bin/python3). Both symlink to the same interpreter.
+        const target = '/uv/cpython-3.11.14/bin/python3.11';
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            [envWith('/uv/cpython-3.11.14/bin/python')],
+            resolverFrom({
+                '/uv/cpython-3.11.14/bin/python': target,
+                '/uv/cpython-3.11.14/bin/python3': target,
+            }),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            {
+                uniqueModuleEnvs: [],
+                reKeys: [{ from: '/uv/cpython-3.11.14/bin/python3', to: '/uv/cpython-3.11.14/bin/python' }],
+            },
+        );
+    });
+
+    test('keeps a module interpreter that has no native equivalent', async () => {
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/opt/mod/bin/python3')],
+            [envWith('/usr/bin/python')],
+            resolverFrom({}),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: ['/opt/mod/bin/python3'], reKeys: [] },
+        );
+    });
+
+    test('drops a module interpreter whose path matches the native env without re-keying', async () => {
+        const target = '/uv/cpython-3.11.14/bin/python3.11';
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            [envWith('/uv/cpython-3.11.14/bin/python3')],
+            resolverFrom({ '/uv/cpython-3.11.14/bin/python3': target }),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: [], reKeys: [] },
+        );
+    });
+
+    test('returns module envs unchanged when there are no native envs', async () => {
+        const result = await nativeAPI.partitionModuleEnvsByNative(
+            [envWith('/opt/mod/bin/python3')],
+            [],
+            resolverFrom({}),
+        );
+        assert.deepEqual(
+            { uniqueModuleEnvs: result.uniqueModuleEnvs.map((e) => e.executable.filename), reKeys: result.reKeys },
+            { uniqueModuleEnvs: ['/opt/mod/bin/python3'], reKeys: [] },
+        );
+    });
+});
+// --- End Positron ---
