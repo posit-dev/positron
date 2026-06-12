@@ -490,7 +490,7 @@ describe('PositronNotebookFindController', () => {
 		});
 
 		// https://github.com/posit-dev/positron/issues/14130: find jumps to the
-		// right cell but not the matching line. navigateToMatch() only sets the
+		// right cell but not the matching line. `navigateToMatch()` only sets the
 		// selection and reveals the line when the cell already has an attached
 		// editor; for a cell whose editor attaches late (e.g. it was outside the
 		// viewport when the search navigated to it), the line reveal is skipped
