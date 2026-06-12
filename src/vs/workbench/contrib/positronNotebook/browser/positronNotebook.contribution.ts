@@ -13,13 +13,13 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
+import './contrib/cellTags/actions.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { timeout } from '../../../../base/common/async.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -55,7 +55,7 @@ import { bindContextKey } from '../../../../platform/observable/common/platformO
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellActionGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
@@ -89,18 +89,6 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
 	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
-
-const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
-
-// Group IDs used to organize cell actions in menus and context menus
-enum PositronNotebookCellActionGroup {
-	Clipboard = '0_clipboard',
-	CellType = '1_celltype',
-	Insert = '2_insert',
-	Order = '3_order',
-	Execution = '4_execution',
-	Tags = '5_tags',
-}
 
 /**
  * Infer the notebook view type from a resource's file extension.
@@ -645,115 +633,6 @@ KeybindingsRegistry.registerKeybindingRule({
 // Register delete command with UI in one call
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
-
-// Add Tag - opens the inline tag input on the active cell by flipping the cell's
-// isAddingTag signal (the tag bar reacts by showing a focused input). This is the
-// entry point for the first tag; once a cell has tags, the bar's hover add pill
-// adds further tags.
-export class AddTagAction extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.cell.addTag',
-			title: localize2('positronNotebook.cell.addTag', "Add Tag"),
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			f1: true,
-			// Don't refocus the cell before running -- we're about to open the inline
-			// tag input and want it to keep focus.
-			grabFocusOnRun: false,
-			// Gate on the active editor, not editor focus: right-clicking rendered
-			// markdown content doesn't move DOM focus into the notebook container,
-			// so a focus-based precondition would show these disabled in the
-			// markdown cell context menu.
-			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-			menu: [{
-				// The cell action bar "..." submenu -- the only general cell menu
-				// available on code cells (their right-click menu is output-only).
-				id: MenuId.PositronNotebookCellActionBarSubmenu,
-				group: PositronNotebookCellActionGroup.Tags,
-			}, {
-				// Right-click menu -- currently wired up on markdown cells.
-				id: MenuId.PositronNotebookCellContext,
-				group: PositronNotebookCellActionGroup.Tags,
-			}]
-		});
-	}
-
-	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
-		const notificationService = accessor.get(INotificationService);
-
-		const state = notebook.selectionStateMachine.state.get();
-		// Every selection state except NoCells has an active cell, and NoCells has
-		// no selection either, so the active cell is the only target to consider.
-		const cell = getActiveCell(state);
-		if (!cell) {
-			notificationService.info(
-				localize('positron.notebook.cellTag.noCell', "Select a cell to add a tag.")
-			);
-			return;
-		}
-
-		// The menu/palette that launched this command is still closing and will
-		// restore focus to the notebook cell. Wait a tick so that happens first,
-		// otherwise the cell refocus would steal focus from the inline tag input we
-		// are about to open (blur-committing it as empty before the user types).
-		await timeout(0);
-		cell.beginAddTag();
-	}
-}
-registerAction2(AddTagAction);
-
-// Toggle Cell Tag Visibility - hides or shows all cell tags across the notebook.
-// Transient per-notebook view state (see IPositronNotebookInstance.cellTagsHidden);
-// not persisted, so reopening the notebook shows tags again.
-export class ToggleCellTagsAction extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.toggleCellTags',
-			title: localize2('positronNotebook.toggleCellTags', "Toggle Cell Tag Visibility"),
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			f1: true,
-			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-			menu: [{
-				id: MenuId.PositronNotebookCellActionBarSubmenu,
-				group: PositronNotebookCellActionGroup.Tags,
-			}, {
-				id: MenuId.PositronNotebookCellContext,
-				group: PositronNotebookCellActionGroup.Tags,
-			}]
-		});
-	}
-
-	override runNotebookAction(notebook: IPositronNotebookInstance) {
-		notebook.toggleCellTagsHidden();
-	}
-}
-registerAction2(ToggleCellTagsAction);
-
-// Remove All Cell Tags - clears every tag from every cell in the notebook in a
-// single undoable edit.
-export class RemoveAllCellTagsAction extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.removeAllCellTags',
-			title: localize2('positronNotebook.removeAllCellTags', "Remove All Cell Tags"),
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			f1: true,
-			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-			menu: [{
-				id: MenuId.PositronNotebookCellActionBarSubmenu,
-				group: PositronNotebookCellActionGroup.Tags,
-			}, {
-				id: MenuId.PositronNotebookCellContext,
-				group: PositronNotebookCellActionGroup.Tags,
-			}]
-		});
-	}
-
-	override runNotebookAction(notebook: IPositronNotebookInstance) {
-		notebook.removeAllCellTags();
-	}
-}
-registerAction2(RemoveAllCellTagsAction);
 
 registerAction2(class extends NotebookAction2 {
 	constructor() {

@@ -11,7 +11,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
-import { AddTagAction } from '../../browser/positronNotebook.contribution.js';
+import { AddTagAction } from '../../browser/contrib/cellTags/actions.js';
 import { createLabelledTestNotebook } from './testPositronNotebookInstance.js';
 
 /**
