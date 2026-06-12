@@ -1005,6 +1005,8 @@ export class PositronNotebooks extends Notebooks {
 	async searchExpandReplace(): Promise<void> {
 		await test.step('Expand replace row', async () => {
 			if (!await this.replaceInput.isVisible()) {
+				// Move the mouse away to dismiss any tooltip that may intercept the click
+				await this.code.driver.currentPage.mouse.move(0, 0);
 				await this.toggleReplaceButton.click();
 			}
 			await expect(this.replaceInput).toBeVisible({ timeout: 2000 });
