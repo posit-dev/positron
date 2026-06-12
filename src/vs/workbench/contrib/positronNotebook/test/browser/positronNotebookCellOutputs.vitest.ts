@@ -284,7 +284,7 @@ describe('Positron Notebook Cell Outputs', () => {
 
 	// Model-level coverage for the Collapse Output, Show Hidden Output (expand),
 	// and Clear Output cell actions (#12411). The action handlers in
-	// positronNotebook.contribution.ts delegate to these cell/instance methods,
+	// `positronNotebook.contribution.ts` delegate to these cell/instance methods,
 	// and their menu visibility is driven by the context keys asserted below.
 	describe('output visibility and clear actions (#12411)', () => {
 		function cellWithOutputs(...outputs: { mime: string; data: VSBuffer }[][]): TestCellInput {
