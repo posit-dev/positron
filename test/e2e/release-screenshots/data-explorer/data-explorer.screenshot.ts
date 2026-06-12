@@ -76,11 +76,6 @@ test.describe('Release Screenshots - Data Explorer', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		// Clip to the editor group, but clamp the bottom to the top of the
-		// workbench status bar. The editor-group-container box gets inflated to
-		// the CDP-forced viewport height when the OS window is clamped shorter,
-		// which would spill the capture past the editor into the status bar and
-		// the empty white space below it.
 		const editorBox = await page.locator('.part.editor .editor-group-container').boundingBox();
 		const statusbarBox = await page.locator('.part.statusbar').boundingBox();
 		if (!editorBox || !statusbarBox) {

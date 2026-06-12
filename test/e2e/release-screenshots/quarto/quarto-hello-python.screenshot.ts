@@ -59,13 +59,17 @@ test.describe('Release Screenshots - Quarto', () => {
 	test('Release Screenshot - quarto-hello-python.png', async ({ app, page, openFile, python }) => {
 		const { editorActionBar, viewer, hotKeys, layouts, sessions } = app.workbench;
 
+		// Quarto's first preview can hit a CWD path-resolution error (see the
+		// retry below); recovering can take a couple of re-clicks, each of which
+		// burns the inner timeout, pushing past the default 120s test timeout.
+		test.setTimeout(180_000);
+
 		await setScreenshotWindowSize(app, { width: 1200, height: 800 });
 		await sessions.expectAllSessionsToBeReady();
 
+		// Write the Quarto document to the workspace and open it in the editor
 		writeFileSync(join(app.workspacePathOrFolder, 'hello.qmd'), HELLO_QMD);
 		await openFile('hello.qmd');
-
-		// free up room for the editor + preview
 		await hotKeys.closePrimarySidebar();
 
 		// Render the preview. Quarto's first preview of a freshly written file can
@@ -78,7 +82,7 @@ test.describe('Release Screenshots - Quarto', () => {
 			await editorActionBar.clickButton('Preview');
 			await expect(previewFrame.getByRole('heading', { name: 'Meet the penguins' }))
 				.toBeVisible({ timeout: 45000 });
-		}).toPass({ timeout: 180000, intervals: [2000] });
+		}).toPass({ timeout: 150000, intervals: [2000] });
 		await expect(previewFrame.locator('img').first()).toBeVisible({ timeout: 30000 });
 
 		// customize the layout

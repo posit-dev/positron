@@ -34,14 +34,13 @@ test.describe('Release Screenshots - Run App Button', () => {
 		await setScreenshotWindowSize(app, { width: 960, height: 640 });
 		await sessions.expectAllSessionsToBeReady();
 
+		// Open the Streamlit app file
 		await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
 		await expect(editor.playButton).toBeVisible();
 
 		// customize layout
 		await runCommand('workbench.panel.positronPreview.focus');
 		await hotKeys.closePrimarySidebar();
-
-		// await hotKeys.focusConsole();
 		await layouts.resizePanel({ y: -50 });
 
 		// capture screenshot

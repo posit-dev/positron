@@ -66,12 +66,13 @@ test.describe('Release Screenshots - Reticulate', () => {
 		const { console, sessions, hotKeys } = app.workbench;
 		await setScreenshotWindowSize(app, { width: 1200, height: 800 });
 
+		// start an R session and launch the Python (reticulate) REPL
 		await sessions.start('r');
 		await console.pasteCodeToConsole('reticulate::repl_python()', true);
 		await console.waitForReadyAndStarted('>>>');
 		await sessions.expectAllSessionsToBeReady();
 
-		// customize the layout: just the panel, session list visible to the right
+		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await console.maximizeConsole();
 		await sessions.resizeSessionList({ x: -80 });
@@ -92,10 +93,11 @@ test.describe('Release Screenshots - Reticulate', () => {
 		const { sessions, quickInput } = app.workbench;
 		await setScreenshotWindowSize(app);
 
+		// open the "Start New Session" quickpick
 		await sessions.openStartNewSessionQuickPick();
 		await sessions.expectStartNewSessionMenuToBeVisible();
 
-		// Clear the leftover "New Session" filter text so every runtime is listed.
+		// clear the leftover "New Session" filter text so every runtime is listed.
 		await page.locator('.quick-input-box input').fill('');
 		await expect(quickInput.widget.getByText('Python (reticulate)').first()).toBeVisible();
 
@@ -114,6 +116,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 		const { console, sessions, hotKeys } = app.workbench;
 		await setScreenshotWindowSize(app);
 
+		// start an R session and launch the Python (reticulate) REPL
 		await sessions.start('r');
 		await console.pasteCodeToConsole('reticulate::repl_python()', true);
 		await console.waitForReadyAndStarted('>>>');
@@ -134,11 +137,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', WORKSPACE_NAME);
-		// Scroll the console to the top last (no further re-renders after this) so the
-		// screenshot shows the command and start of output, not the auto-scrolled bottom.
 		await page.locator(ACTIVE_CONSOLE_INSTANCE).first().evaluate(el => { el.scrollTop = 0; });
-		// Clip to the top portion so the frame isn't dominated by the full 32-row
-		// table; the published image likewise cuts the output off partway.
 		const panelBox = await page.locator(PANEL_CONTENT).boundingBox();
 		if (!panelBox) {
 			throw new Error('Could not measure panel content for clipped capture');
