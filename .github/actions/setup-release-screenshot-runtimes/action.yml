@@ -77,7 +77,7 @@ runs:
         uv pip install ipykernel
         # Extra packages for screenshot tests not yet in qa-example-content's
         # requirements.
-        uv pip install astropy matplotlib
+        uv pip install astropy matplotlib plotnine
 
     - name: Install Python (alternate, no venv activation)
       id: setup-python-alt
