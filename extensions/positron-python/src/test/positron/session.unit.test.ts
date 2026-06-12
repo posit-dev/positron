@@ -221,6 +221,9 @@ suite('Python Runtime Session', () => {
             undefined,
             vscode.ConfigurationTarget.WorkspaceFolder,
             interpreter.path,
+            // Session start is a storage-only fire: the session is already starting here, so the
+            // PythonRuntimeManager listener must not start another one.
+            { startSession: false, source: 'positron-session-start' },
         );
     });
 
