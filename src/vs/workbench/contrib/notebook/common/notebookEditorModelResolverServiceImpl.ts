@@ -13,7 +13,12 @@ import { AsyncEmitter, Emitter, Event } from '../../../../base/common/event.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { INotebookConflictEvent, INotebookEditorModelResolverService, IUntitledNotebookResource } from './notebookEditorModelResolverService.js';
-import { ResourceMap } from '../../../../base/common/map.js';
+// --- Start Positron ---
+// Also import ResourceSet for untitled name reservations (#13561).
+// Commented out upstream code:
+// import { ResourceMap } from '../../../../base/common/map.js';
+import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
+// --- End Positron ---
 import { FileWorkingCopyManager, IFileWorkingCopyManager } from '../../../services/workingCopy/common/fileWorkingCopyManager.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { NotebookProviderInfo } from './notebookProvider.js';
@@ -170,8 +175,12 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 
 	// --- Start Positron ---
 	// Untitled resources handed out by createUntitledUri whose models are
-	// still being created. See createUntitledUri for why (#13561).
-	private readonly _pendingUntitledUris = new Set<string>();
+	// still being created. See createUntitledUri for why (#13561). Keyed by
+	// URI comparison key so that the canonical form callers release always
+	// matches the minted form reserved in createUntitledUri: asCanonicalUri
+	// finds the canonical entry by this same key, so the two agree by
+	// construction.
+	private readonly _pendingUntitledUris = new ResourceSet(uri => this._uriIdentService.extUri.getComparisonKey(uri));
 	// --- End Positron ---
 
 	constructor(
@@ -217,8 +226,8 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 		// }
 		for (let counter = 1; ; counter++) {
 			const candidate = URI.from({ scheme: Schemas.untitled, path: `Untitled-${counter}${suffix}`, query: notebookType });
-			if (!this._notebookService.getNotebookTextModel(candidate) && !this._data.isListeningToModel(candidate) && !this._pendingUntitledUris.has(candidate.toString())) {
-				this._pendingUntitledUris.add(candidate.toString());
+			if (!this._notebookService.getNotebookTextModel(candidate) && !this._data.isListeningToModel(candidate) && !this._pendingUntitledUris.has(candidate)) {
+				this._pendingUntitledUris.add(candidate);
 				return candidate;
 			}
 		}
@@ -282,7 +291,7 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 		try {
 			return (await this._notebookService.createNotebookTextModel(viewType, resource));
 		} finally {
-			this._pendingUntitledUris.delete(resource.toString());
+			this._pendingUntitledUris.delete(resource);
 		}
 		// --- End Positron ---
 	}
@@ -325,7 +334,7 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 			// minted resource has no existing model to conflict with -- so a
 			// reservation always reaches this finally.
 			if (!resource) {
-				this._pendingUntitledUris.delete(validated.resource.toString());
+				this._pendingUntitledUris.delete(validated.resource);
 			}
 			// --- End Positron ---
 		}
