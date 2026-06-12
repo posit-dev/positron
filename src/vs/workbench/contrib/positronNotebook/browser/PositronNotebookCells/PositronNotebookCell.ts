@@ -82,6 +82,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	/** Whether the inline tag-add input is currently requested for this cell. */
 	private readonly _isAddingTag = observableValue<boolean>('cellIsAddingTag', false);
 	public readonly isAddingTag: IObservable<boolean> = this._isAddingTag;
+	/**
+	 * The single visibility predicate for this cell's tag UI (pills + inline add
+	 * input); see {@link IPositronNotebookCell.tagUIVisible}.
+	 */
+	public readonly tagUIVisible: IObservable<boolean>;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
@@ -127,6 +132,13 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 				}
 				return [...new Set(raw.filter((tag): tag is string => typeof tag === 'string'))];
 			},
+		);
+
+		// The tag UI shows when the cell has a tag or an inline add is in
+		// progress, unless the notebook-wide toggle hides tags.
+		this.tagUIVisible = derived(this, reader =>
+			!this._instance.cellTagsHidden.read(reader) &&
+			(this.tags.read(reader).length > 0 || this._isAddingTag.read(reader))
 		);
 
 		// Track this cell's current execution
@@ -183,11 +195,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	get notebookUri(): URI {
 		return this._instance.uri;
-	}
-
-	/** Notebook-wide tag visibility; delegates to the owning instance. */
-	get cellTagsHidden(): IObservable<boolean> {
-		return this._instance.cellTagsHidden;
 	}
 
 	/**

@@ -252,6 +252,36 @@ describe('PositronNotebookCell tags', () => {
 		expect(cell.renameTag('missing', 'new')).toBe('failed');
 		expect(cell.tags.get()).toEqual(['a']);
 	});
+
+	it('tagUIVisible folds tags, an in-progress add, and the notebook-wide hide toggle', () => {
+		// The cell owns the tag UI visibility predicate the tag bar and the code
+		// cell footer both render against.
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata: {},
+			internalMetadata: {},
+		}], ctx);
+		const cell = notebook.cells.get()[0];
+		expect(cell.tagUIVisible.get()).toBe(false);
+
+		// An in-progress add shows the UI on an untagged cell; ending it hides it.
+		cell.beginAddTag();
+		expect(cell.tagUIVisible.get()).toBe(true);
+		cell.endAddTag();
+		expect(cell.tagUIVisible.get()).toBe(false);
+
+		expect(cell.addTag('tag')).toBe('ok');
+		expect(cell.tagUIVisible.get()).toBe(true);
+
+		// The notebook-wide toggle hides the UI without touching the tags.
+		notebook.toggleCellTagsHidden();
+		expect(cell.tagUIVisible.get()).toBe(false);
+		expect(cell.tags.get()).toEqual(['tag']);
+	});
 });
 
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
