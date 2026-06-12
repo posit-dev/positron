@@ -6,6 +6,7 @@
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
+import { hasKey } from '../../../../base/common/types.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
@@ -106,6 +107,16 @@ export function getPlainTextOutputContent(outputs: ReadonlyArray<{ parsed: Parse
 		.filter(o => isParsedTextOutput(o.parsed))
 		.map(o => removeAnsiEscapeCodes((o.parsed as ParsedTextOutput).content))
 		.join('\n');
+}
+
+/**
+ * The text content of a parsed output, ANSI escape codes stripped, or
+ * `undefined` for outputs with no text content (images, JSON, data explorer,
+ * interrupts). Broader than {@link isParsedTextOutput}: html, markdown, latex,
+ * and unknown outputs count as text here.
+ */
+export function getParsedOutputContent(parsed: ParsedOutput): string | undefined {
+	return hasKey(parsed, { content: true }) ? removeAnsiEscapeCodes(parsed.content) : undefined;
 }
 
 /**
