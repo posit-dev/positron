@@ -44,7 +44,6 @@ import { Search } from '../pages/search.js';
 import { Assistant } from '../pages/positronAssistant.js';
 import { HotKeys } from '../pages/hotKeys.js';
 import { PositConnect } from '../pages/connect.js';
-import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
@@ -70,7 +69,6 @@ export class Workbench {
 	readonly dataExplorer: DataExplorer;
 	readonly sideBar: SideBar;
 	readonly plots: Plots;
-	readonly notebooks: Notebooks;
 	readonly notebooksVscode: VsCodeNotebooks;
 	readonly notebooksPositron: PositronNotebooks;
 	readonly newFolderFlow: NewFolderFlow;
@@ -135,7 +133,6 @@ export class Workbench {
 		this.modals = new Modals(code, this.toasts, this.console);
 		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu, this.modals);
-		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.welcome = new Welcome(code);

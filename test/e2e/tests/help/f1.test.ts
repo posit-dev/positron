@@ -7,8 +7,7 @@ import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename,
-	useLegacyNotebookEditor: true
+	suiteId: __filename
 });
 
 
@@ -54,13 +53,15 @@ test.describe('F1 Help', {
 
 	});
 
-	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r }) {
+	test('R - Verify basic F1 notebook help functionality', {
+		tag: tags.NOTEBOOKS
+	}, async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 
 		await app.workbench.layouts.enterLayout('notebook');
 
-		// workaround
-		await app.workbench.notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
+		// workaround: select the R kernel so the language server backs F1 help
+		await app.workbench.notebooksPositron.kernel.select('R');
 
 		await app.code.driver.currentPage.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 
@@ -115,11 +116,13 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python }) {
+	test('Python - Verify basic F1 notebook help functionality', {
+		tag: tags.NOTEBOOKS
+	}, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
 		// Position the mouse over the notebook for scrolling
-		await app.code.driver.currentPage.locator('.cell').first().hover();
+		await app.workbench.notebooksPositron.cell.first().hover();
 
 		const target = app.code.driver.currentPage.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first();
 

@@ -51,15 +51,12 @@ export async function runDockerCommand(command: string, description: string): Pr
 /**
  * Build the settings overrides driven by test options for the Docker apps.
  *
- * Mirrors the host-side `beforeApp` fixture: when a suite opts into the legacy
- * (VS Code) notebook editor, the Positron notebook editor is disabled. Returns
- * `undefined` when there is nothing to override.
+ * Mirrors the host-side `beforeApp` fixture: when a suite opts into the Data
+ * Connections preview panel, the `dataConnections.enabled` setting is turned on.
+ * Returns `undefined` when there is nothing to override.
  */
-export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean }): object | undefined {
+export function dockerSettingsOverrides(opts: { enableDataConnections?: boolean }): object | undefined {
 	const overrides: Record<string, unknown> = {};
-	if (opts.useLegacyNotebookEditor) {
-		overrides['positron.notebook.enabled'] = false;
-	}
 	if (opts.enableDataConnections) {
 		overrides['dataConnections.enabled'] = true;
 	}
@@ -71,7 +68,7 @@ export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolea
  *
  * `overrides` are merged last so they win over anything in the fixture files. The
  * Docker apps read settings from the container rather than the host `settingsFile`,
- * so test-driven settings (e.g. `useLegacyNotebookEditor`) must be threaded in here.
+ * so test-driven settings (e.g. `enableDataConnections`) must be threaded in here.
  */
 export async function copyUserSettingsToContainer(
 	containerName: string,

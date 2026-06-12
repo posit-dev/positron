@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Notebooks } from './notebooks';
+import { NotebooksBase } from './notebooksBase';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
@@ -13,7 +13,7 @@ import { HotKeys } from './hotKeys.js';
 /**
  * Notebooks functionality exclusive to VS Code notebooks.
  */
-export class VsCodeNotebooks extends Notebooks {
+export class VsCodeNotebooks extends NotebooksBase {
 	startChatButton: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {

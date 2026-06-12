@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Notebooks } from './notebooks';
+import { NotebooksBase } from './notebooksBase';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
@@ -29,7 +29,7 @@ type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Outpu
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
-export class PositronNotebooks extends Notebooks {
+export class PositronNotebooks extends NotebooksBase {
 	// Containers, generic locators
 	private positronNotebook = this.code.driver.currentPage.locator('.positron-notebook').first();
 	cellsContainer = this.positronNotebook.locator('.positron-notebook-cells-container').first();

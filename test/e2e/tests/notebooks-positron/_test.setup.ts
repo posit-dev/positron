@@ -3,32 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';
+import { test as base } from '../_test.setup';
 
-interface NotebooksPositronTestFixtures extends TestFixtures {
-}
-
-interface NotebooksPositronWorkerFixtures extends WorkerFixtures {
-	enablePositronNotebooks: boolean;
-}
-
-export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositronWorkerFixtures>({
-	enablePositronNotebooks: [true, { scope: 'worker', option: true }],
-
-	beforeApp: [
-		async ({ enablePositronNotebooks, settingsFile }, use) => {
-			if (enablePositronNotebooks) {
-				// Enable Positron notebooks before the app fixture starts
-				// to avoid waiting for a window reload
-				settingsFile.append({ 'positron.notebook.enabled': true });
-			}
-
-			await use();
-		},
-
-		{ scope: 'worker' }
-	],
-});
+// The Positron notebook editor is the default for .ipynb files; this scoped
+// extension exists so the suite-wide afterEach below does not leak to other suites.
+export const test = base.extend({});
 
 test.afterEach(async function ({ hotKeys }) {
 	await hotKeys.closeAllEditors();
