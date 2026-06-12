@@ -29,6 +29,7 @@ export let dirs = [
 	'extensions/positron-dev-containers',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
+	'extensions/positron-data-explorer-protocol',
 	'extensions/positron-data-driver-duckdb',
 	'extensions/positron-data-driver-postgresql',
 	'extensions/positron-data-driver-sqlite',

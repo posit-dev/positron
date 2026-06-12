@@ -35,9 +35,17 @@ suite('DuckDB Driver Tests', () => {
 		return dbPath;
 	}
 
+	// A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
+	// handler would register a vscode command that collides with the activated extension's.
+	const dataExplorerHost = {
+		openTableView: async () => { },
+		openColumnView: async () => { },
+		closeTableView: () => { },
+	};
+
 	// Opens a DuckDBConnection with the given config.
 	async function connect(config: DuckDBConnectionConfig): Promise<DuckDBConnection> {
-		const conn = new DuckDBConnection(config);
+		const conn = new DuckDBConnection(config, dataExplorerHost);
 		await conn.connect();
 		return conn;
 	}
@@ -168,9 +176,9 @@ suite('DuckDB Driver Tests', () => {
 		const priceField = fields.find(f => f.name === 'price')!;
 		assert.strictEqual(priceField.dataType, 'DOUBLE');
 
-		// Field nodes should be leaves.
+		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		assert.strictEqual(idField.getChildren, undefined);
-		assert.strictEqual(idField.preview, undefined);
+		assert.strictEqual(typeof idField.preview, 'function');
 
 		await conn.disconnect();
 	});

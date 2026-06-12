@@ -5,7 +5,11 @@
 
 import * as positron from 'positron';
 import { DuckDBWorkerClient } from './duckdbWorkerClient.js';
-import { createSchemasGroupNode } from './duckdbNodes.js';
+import { createSchemasGroupNode, IDuckDBPreviewHost } from './duckdbNodes.js';
+import { DUCKDB_DATA_EXPLORER_PROVIDER_ID, IDuckDBDataExplorerHost } from './duckdbDataExplorerRpcHandler.js';
+
+/** Monotonically increasing id so each connection's previewed datasets get a unique key. */
+let nextConnectionId = 1;
 
 /**
  * Connection configuration passed from the driver.
@@ -30,15 +34,25 @@ export interface DuckDBConnectionConfig {
  * thin host-side facade over the worker client; schema browsing is provided via
  * getChildren().
  */
-export class DuckDBConnection implements positron.DataConnection {
+export class DuckDBConnection implements positron.DataConnection, IDuckDBPreviewHost {
 	// The worker client, or undefined before connect()/after disconnect().
 	private _client: DuckDBWorkerClient | undefined;
+
+	// Unique id for this connection, used to key its previewed datasets.
+	private readonly _connectionId = `duckdb-${nextConnectionId++}`;
+
+	// Dataset ids opened via the preview methods, so they can be released on disconnect.
+	private readonly _openedDatasets = new Set<string>();
 
 	/**
 	 * Constructor. Call connect() after constructing to open the database.
 	 * @param _config The connection configuration.
+	 * @param _dataExplorerHandler Hosts table views previewed in the Data Explorer.
 	 */
-	constructor(private readonly _config: DuckDBConnectionConfig) { }
+	constructor(
+		private readonly _config: DuckDBConnectionConfig,
+		private readonly _dataExplorerHandler: IDuckDBDataExplorerHost
+	) { }
 
 	/**
 	 * Opens the database in the worker process. Must be called before any other
@@ -74,7 +88,40 @@ export class DuckDBConnection implements positron.DataConnection {
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
-		return [createSchemasGroupNode(this._client!)];
+		return [createSchemasGroupNode(this._client!, this)];
+	}
+
+	/**
+	 * Opens the given table or view in the Data Explorer. Registers a table view with the RPC
+	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
+	 * explorer backed by this extension's provider.
+	 */
+	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+		this._ensureConnected();
+		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
+		await this._dataExplorerHandler.openTableView(datasetId, this._client!, schemaName, tableName, kind);
+		this._openedDatasets.add(datasetId);
+		await positron.dataExplorer.open({
+			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
+			datasetId,
+			displayName: tableName,
+		});
+	}
+
+	/**
+	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
+	 * Uses a dataset id distinct from the table's so both can be open at once.
+	 */
+	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+		this._ensureConnected();
+		const datasetId = `duckdbconn:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
+		await this._dataExplorerHandler.openColumnView(datasetId, this._client!, schemaName, tableName, kind, columnName);
+		this._openedDatasets.add(datasetId);
+		await positron.dataExplorer.open({
+			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
+			datasetId,
+			displayName: `${tableName}.${columnName}`,
+		});
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */
@@ -83,8 +130,12 @@ export class DuckDBConnection implements positron.DataConnection {
 		return this._config.readOnly && !this._config.inMemory;
 	}
 
-	/** Closes the database. Idempotent -- safe to call multiple times. */
+	/** Closes the database and releases any previewed table views. Idempotent. */
 	async disconnect(): Promise<void> {
+		for (const datasetId of this._openedDatasets) {
+			this._dataExplorerHandler.closeTableView(datasetId);
+		}
+		this._openedDatasets.clear();
 		this._client?.dispose();
 		this._client = undefined;
 	}
