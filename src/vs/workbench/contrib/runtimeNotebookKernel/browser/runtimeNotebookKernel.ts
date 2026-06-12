@@ -26,6 +26,7 @@ import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessi
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { NotebookCellExecutionState } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
@@ -246,17 +247,93 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	/**
+	 * Execute a code fragment in the context of an existing notebook cell.
+	 *
+	 * Used by the "run selection in cell" feature: the fragment (e.g. the
+	 * user's selection or current line) executes in the notebook's session and
+	 * its output lands on the originating cell, like a regular execution of
+	 * that cell.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param cellHandle The handle of the cell the code belongs to.
+	 * @param code The code fragment to execute.
+	 */
+	async executeCodeInCell(notebookUri: URI, cellHandle: number, code: string): Promise<void> {
+		// NOTE: Like executeNotebookCellsRequest, this method should not throw;
+		// errors are logged and surfaced through the cell execution itself.
+		try {
+			const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+			if (!notebook) {
+				throw new Error(`No notebook document for '${notebookUri.fsPath}'`);
+			}
+
+			const cell = notebook.cells.find(cell => cell.handle === cellHandle);
+			if (!cell) {
+				this._logService.warn(
+					`[RuntimeNotebookKernel] Cell handle ${cellHandle} not found in notebook ` +
+					`${notebookUri.fsPath}; skipping code fragment execution`
+				);
+				return;
+			}
+
+			// Match executeCell's guards before creating any execution state.
+			if (cell.language === 'raw' || !code.trim()) {
+				return;
+			}
+
+			// If the cell is already executing (or queued), don't interleave
+			// another execution on the same cell.
+			if (this._notebookExecutionStateService.getCellExecution(cell.uri)) {
+				this._logService.debug(
+					`[RuntimeNotebookKernel] Cell ${cell.handle} already has an active execution; ` +
+					`skipping code fragment execution`
+				);
+				return;
+			}
+
+			// Create the cell execution up front so the cell immediately shows
+			// as pending, mirroring NotebookExecutionService.executeNotebookCells.
+			const cellExecution = this._notebookExecutionStateService.createCellExecution(notebookUri, cell.handle);
+			try {
+				const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri)
+					?? await this.ensureSessionStarted(
+						notebookUri,
+						`Runtime kernel ${this.id} executed a code fragment for notebook`,
+					);
+				await this._notebookExecutionSequencer.queue(
+					notebookUri,
+					() => this.executeCell(cell, notebook, session, code),
+				);
+			} finally {
+				// If the queued execution never started (e.g. the session failed
+				// to start, or an earlier queued cell errored), complete the
+				// pending execution so the cell doesn't show as pending forever.
+				// Mirrors the unconfirmed-execution sweep in
+				// NotebookExecutionService.executeNotebookCells.
+				if (cellExecution.state === NotebookCellExecutionState.Unconfirmed) {
+					cellExecution.complete({});
+				}
+			}
+		} catch (err) {
+			this._logService.error(`Error executing code fragment in cell: ${err.stack ?? err.toString()}`);
+		}
+	}
+
+	/**
 	 * Execute a notebook cell.
 	 *
 	 * @param cell The notebook cell text model.
 	 * @param notebook The notebook text model.
-	 * @param session
+	 * @param session The session to execute in.
+	 * @param codeOverride When set, execute this code instead of the cell's
+	 *   content (see {@link executeCodeInCell}). Output still lands on the cell.
 	 * @returns
 	 */
 	private async executeCell(
 		cell: NotebookCellTextModel,
 		notebook: NotebookTextModel,
 		session: ILanguageRuntimeSession,
+		codeOverride?: string,
 	): Promise<void> {
 		this._logService.trace(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
 
@@ -265,7 +342,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			return;
 		}
 
-		const code = cell.getValue();
+		const code = codeOverride ?? cell.getValue();
 
 		// If the cell is empty, skip it.
 		if (!code.trim()) {
@@ -328,6 +405,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		// Execute the code. Include `cellId` in execution metadata so the
 		// kernel can identify this as a notebook cell execution and look up
 		// breakpoints via the Jupyter Debug Protocol's temp file mapping.
+		// Code fragments don't get a `cellId`: their line numbers don't
+		// correspond to the cell's content, so the breakpoint mapping would be
+		// wrong.
 		try {
 			session.execute(
 				code,
@@ -335,7 +415,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				RuntimeCodeExecutionMode.Interactive,
 				errorBehavior,
 				undefined,
-				{ ...executionMetadata, cellId: cell.uri.toString() },
+				codeOverride === undefined
+					? { ...executionMetadata, cellId: cell.uri.toString() }
+					: executionMetadata,
 			);
 		} catch (err) {
 			execution.error(err);
