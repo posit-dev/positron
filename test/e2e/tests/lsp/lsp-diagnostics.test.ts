@@ -75,7 +75,7 @@ test.describe('Diagnostics', {
 		// add code with undefined variable and verify the diagnostic
 		await notebooksPositron.addCodeToCell(0, 'x = 1\nprint(xx)');
 		await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(xx)']);
-		await problems.expectWarningText('Undefined variable `xx`');
+		await problems.expectWarningText('Could not find name `xx`');
 
 		await test.step('Fix the error', async () => {
 			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
