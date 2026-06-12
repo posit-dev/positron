@@ -44,14 +44,13 @@ export class DebugCellController extends Disposable {
 			}
 		}));
 
-		// Stop debugging when the cell execution is complete.
+		// Keep the debug session alive after cell execution completes.
 		const executeComplete = this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 			if (this._executionId &&
 				message.parent_id === this._executionId &&
 				message.type === positron.LanguageRuntimeMessageType.State &&
 				(message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
 				executeComplete.dispose();
-				await vscode.debug.stopDebugging(this._debugSession);
 			}
 		}));
 

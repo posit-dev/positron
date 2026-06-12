@@ -42,6 +42,10 @@ import { saveAllBeforeDebugStart, resolveChildSession } from '../common/debugUti
 import { showLoadedScriptMenu } from '../common/loadedScriptsPicker.js';
 import { openBreakpointSource } from './breakpointsView.js';
 import { showDebugSessionMenu } from './debugSessionPicker.js';
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_EDITOR_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
+import { ActiveNotebookRuntimeSupportsDebugging } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+// --- End Positron ---
 
 export const ADD_CONFIGURATION_ID = 'debug.addConfiguration';
 export const COPY_ADDRESS_ID = 'editor.debug.action.copyAddress';
@@ -760,6 +764,29 @@ CommandsRegistry.registerCommand({
 		showDebugSessionMenu(accessor, SELECT_AND_START_ID);
 	}
 });
+
+// --- Start Positron ---
+// Route F5 to native notebook debugging, bypassing CONTEXT_DEBUGGERS_AVAILABLE.
+// Fixes #12845, #10226, #10231.
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: 'positron.notebook.startDebugging',
+	weight: KeybindingWeight.WorkbenchContrib + 10,
+	primary: KeyCode.F5,
+	when: ContextKeyExpr.and(
+		ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+		CONTEXT_DEBUG_STATE.isEqualTo('inactive'),
+	),
+	handler: async (accessor: ServicesAccessor) => {
+		const contextKeyService = accessor.get(IContextKeyService);
+		const commandService = accessor.get(ICommandService);
+		if (ActiveNotebookRuntimeSupportsDebugging.getValue(contextKeyService)) {
+			await commandService.executeCommand('notebook.debugCell');
+		} else {
+			await commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
+		}
+	}
+});
+// --- End Positron ---
 
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: DEBUG_START_COMMAND_ID,
