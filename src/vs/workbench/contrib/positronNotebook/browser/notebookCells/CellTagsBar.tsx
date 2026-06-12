@@ -72,10 +72,11 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 	}
 
 	const removeTag = (tag: string) => {
-		// The cell owns the membership check and the write; only surface a failed
-		// write (e.g. detached cell), otherwise removal is silent.
-		if (!cell.removeTag(tag)) {
-			notifyTagResult(notificationService, 'failed', tag);
+		// The cell owns the membership check and the write; notifyTagResult only
+		// surfaces a failed write (e.g. detached cell), removal is otherwise silent.
+		const result = cell.removeTag(tag);
+		notifyTagResult(notificationService, result, tag);
+		if (result !== 'ok') {
 			return;
 		}
 		// The remove button unmounts on success; keep focus on this cell so selection

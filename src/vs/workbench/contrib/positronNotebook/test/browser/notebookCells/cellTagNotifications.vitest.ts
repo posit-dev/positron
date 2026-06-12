@@ -29,9 +29,9 @@ describe('notifyTagResult', () => {
 		expect(info).toHaveBeenCalledWith(expect.stringContaining('Could not update'));
 	});
 
-	it('is silent for a successful add', () => {
+	it('is silent for a successful write', () => {
 		const { notificationService, info } = setup();
-		notifyTagResult(notificationService, 'added', 'wip');
+		notifyTagResult(notificationService, 'ok', 'wip');
 		expect(info).not.toHaveBeenCalled();
 	});
 });

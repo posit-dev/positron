@@ -125,8 +125,8 @@ describe('PositronNotebookCell tags', () => {
 
 	it('a tag write lands in the nested location, not the top level', () => {
 		const cell = createCellWithMetadata({});
-		expect(cell.addTag('important')).toBe('added');
-		expect(cell.addTag('wip')).toBe('added');
+		expect(cell.addTag('important')).toBe('ok');
+		expect(cell.addTag('wip')).toBe('ok');
 
 		expect((cell.model.metadata.metadata as Record<string, unknown>).tags).toEqual(['important', 'wip']);
 		expect(cell.model.metadata.tags).toBeUndefined();
@@ -140,7 +140,7 @@ describe('PositronNotebookCell tags', () => {
 		const cell = createCellWithMetadata({
 			metadata: { collapsed: true, vscode: { languageId: 'python' } },
 		});
-		expect(cell.addTag('tag')).toBe('added');
+		expect(cell.addTag('tag')).toBe('ok');
 
 		expect(cell.model.metadata.metadata).toEqual({
 			collapsed: true,
@@ -151,7 +151,7 @@ describe('PositronNotebookCell tags', () => {
 
 	it('removing the last tag drops the tags key per nbformat convention', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['gone'], collapsed: true } });
-		expect(cell.removeTag('gone')).toBe(true);
+		expect(cell.removeTag('gone')).toBe('ok');
 
 		expect(cell.model.metadata.metadata).toEqual({ collapsed: true });
 		expect(cell.tags.get()).toEqual([]);
@@ -162,7 +162,7 @@ describe('PositronNotebookCell tags', () => {
 		// keys (e.g. {0:'a',1:'b',...}). A malformed value is dropped and only the
 		// tag metadata is written.
 		const cell = createCellWithMetadata({ metadata: 'abc' });
-		expect(cell.addTag('tag')).toBe('added');
+		expect(cell.addTag('tag')).toBe('ok');
 
 		expect(cell.model.metadata.metadata).toEqual({ tags: ['tag'] });
 	});
@@ -175,21 +175,21 @@ describe('PositronNotebookCell tags', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
 		const before = cell.model.metadata;
 
-		expect(cell.renameTag('a', 'a')).toBe('added');
+		expect(cell.renameTag('a', 'a')).toBe('ok');
 		expect(cell.model.metadata).toBe(before);
 	});
 
-	it('addTag trims, appends, and reports "added"', () => {
+	it('addTag trims, appends, and reports "ok"', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 
-		expect(cell.addTag('  second  ')).toBe('added');
+		expect(cell.addTag('  second  ')).toBe('ok');
 		expect(cell.tags.get()).toEqual(['first', 'second']);
 	});
 
 	it('addTag is a silent no-op for a whitespace-only tag', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
 
-		expect(cell.addTag('   ')).toBe('added');
+		expect(cell.addTag('   ')).toBe('ok');
 		expect(cell.tags.get()).toEqual(['first']);
 	});
 
@@ -212,7 +212,7 @@ describe('PositronNotebookCell tags', () => {
 	it('removeTag filters the tag and reports success', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b', 'c'] } });
 
-		expect(cell.removeTag('b')).toBe(true);
+		expect(cell.removeTag('b')).toBe('ok');
 		expect(cell.tags.get()).toEqual(['a', 'c']);
 	});
 
@@ -220,22 +220,22 @@ describe('PositronNotebookCell tags', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
 		const before = cell.model.metadata;
 
-		expect(cell.removeTag('missing')).toBe(true);
+		expect(cell.removeTag('missing')).toBe('ok');
 		expect(cell.model.metadata).toBe(before);
 		expect(cell.tags.get()).toEqual(['a']);
 	});
 
-	it('renameTag trims, replaces in place, and reports "added"', () => {
+	it('renameTag trims, replaces in place, and reports "ok"', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['old', 'keep'] } });
 
-		expect(cell.renameTag('old', '  new  ')).toBe('added');
+		expect(cell.renameTag('old', '  new  ')).toBe('ok');
 		expect(cell.tags.get()).toEqual(['new', 'keep']);
 	});
 
 	it('renameTag is a silent no-op for a whitespace-only value', () => {
 		const cell = createCellWithMetadata({ metadata: { tags: ['old'] } });
 
-		expect(cell.renameTag('old', '   ')).toBe('added');
+		expect(cell.renameTag('old', '   ')).toBe('ok');
 		expect(cell.tags.get()).toEqual(['old']);
 	});
 
