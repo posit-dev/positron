@@ -229,6 +229,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		if (arraysEqual(this.tags.get(), tags)) {
 			return true;
 		}
+		// Tag edits are document mutations, so respect a read-only notebook
+		// (mirrors the reorder guard in PositronNotebookComponent).
+		if (this._instance.isReadOnly) {
+			return false;
+		}
 		const textModel = this._instance.textModel;
 		if (!textModel) {
 			return false;
