@@ -15,7 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, usePositronContextKey, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -44,7 +44,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// TODO: When Positron Assistant is deprecated in favor of Posit Assistant,
 	// replace this with a signal owned by Posit Assistant (context key or
 	// equivalent) - this key goes away with the built-in extension.
-	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
+	const hasChatModels = useContextKeyFromString<boolean>('positron-assistant.hasChatModels');
 	const showAssistantActions = enableAssistantActions && positAssistantInstalled && !!hasChatModels;
 
 	// Traceback useEffect.
