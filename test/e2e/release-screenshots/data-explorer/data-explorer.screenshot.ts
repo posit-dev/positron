@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { test } from '../../tests/_test.setup';
-import { capturePanel, captureRegion } from '../_helpers/screenshot-utils';
+import { captureRegion } from '../_helpers/screenshot-utils';
 import { hideDataGridCursor, hideNotificationBadges, hideToasts, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 type ExecuteCode = (
@@ -76,11 +76,22 @@ test.describe('Release Screenshots - Data Explorer', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await capturePanel(
-			page,
-			page.locator('.part.editor .editor-group-container'),
-			'data-explorer.png',
-		);
+		// Clip to the editor group, but clamp the bottom to the top of the
+		// workbench status bar. The editor-group-container box gets inflated to
+		// the CDP-forced viewport height when the OS window is clamped shorter,
+		// which would spill the capture past the editor into the status bar and
+		// the empty white space below it.
+		const editorBox = await page.locator('.part.editor .editor-group-container').boundingBox();
+		const statusbarBox = await page.locator('.part.statusbar').boundingBox();
+		if (!editorBox || !statusbarBox) {
+			throw new Error('Could not measure editor group / status bar for data-explorer capture');
+		}
+		await captureRegion(page, 'data-explorer.png', {
+			x: editorBox.x,
+			y: editorBox.y,
+			width: editorBox.width,
+			height: Math.ceil(statusbarBox.y - editorBox.y),
+		});
 	});
 
 	/**
