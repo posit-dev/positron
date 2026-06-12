@@ -275,14 +275,24 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		}));
 
 		/**
-		 * Resize the editor widget to fill the width of its container and the height of its
-		 * content.
-		 * @param height Height to set. Defaults to checking content height.
+		 * Resize the editor to its content height, capped to the available viewport
+		 * space so tall cells are internally scrollable (enables Monaco's native
+		 * drag-to-scroll selection).
 		 */
 		function resizeEditor(height: number = editor.getContentHeight()) {
 			if (!editorPartRef.current) { return; }
+			const container = instance.cellsContainer;
+			let maxHeight = Infinity;
+			if (container && height > container.clientHeight) {
+				const containerRect = container.getBoundingClientRect();
+				const editorTop = editorPartRef.current.getBoundingClientRect().top;
+				const available = containerRect.bottom - Math.max(editorTop, containerRect.top);
+				if (available > 0) {
+					maxHeight = available;
+				}
+			}
 			editor.layout({
-				height,
+				height: Math.min(height, maxHeight),
 				width: editorPartRef.current.offsetWidth,
 			});
 		}
