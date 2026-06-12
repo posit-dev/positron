@@ -55,6 +55,11 @@ describe('getSelectedCodeFragment', () => {
 		expect(getSelectedCodeFragment(editor)).toBe('x = 1\ny = 2');
 	});
 
+	it('does not trim surrounding whitespace from a selection', () => {
+		const editor = createEditor('  x = 1  ', new Selection(1, 1, 1, 10));
+		expect(getSelectedCodeFragment(editor)).toBe('  x = 1  ');
+	});
+
 	it('returns the cursor line, trimmed, when the selection is empty', () => {
 		const editor = createEditor('x = 1\n    y = 2', new Selection(2, 3, 2, 3));
 		expect(getSelectedCodeFragment(editor)).toBe('y = 2');

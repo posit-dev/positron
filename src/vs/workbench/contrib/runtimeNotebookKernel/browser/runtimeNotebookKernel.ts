@@ -276,7 +276,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				return;
 			}
 
-			// Match executeCell's guards before creating any execution state.
+			// Check raw/empty up front, before creating any execution state, so
+			// a fragment that would be skipped never flashes the cell into a
+			// pending state. executeCellCode re-checks at dequeue time; that
+			// copy of the guards is load-bearing for the whole-cell path, which
+			// has no pre-check.
 			if (cell.language === 'raw' || !code.trim()) {
 				return;
 			}

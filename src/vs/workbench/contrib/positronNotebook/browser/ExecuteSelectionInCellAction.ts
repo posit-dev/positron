@@ -24,6 +24,10 @@ import { getActiveCell } from './selectionMachine.js';
  * Get the code to execute from a cell editor: the selected text, or the
  * cursor's line (trimmed) when the selection is empty. Returns undefined when
  * there is nothing runnable.
+ *
+ * A non-empty selection is returned exactly as highlighted (no trimming), for
+ * parity with ExecuteSelectionInConsoleAction. The current line is trimmed so
+ * that an indented line runs on its own (e.g. in Python).
  */
 export function getSelectedCodeFragment(editor: ICodeEditor): string | undefined {
 	if (!editor.hasModel()) {
