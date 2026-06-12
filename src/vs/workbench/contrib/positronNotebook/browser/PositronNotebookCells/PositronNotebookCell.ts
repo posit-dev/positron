@@ -14,7 +14,7 @@ import { IScopedContextKeyService } from '../../../../../platform/contextkey/com
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellEditType, CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, AddTagResult } from './IPositronNotebookCell.js';
+import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, TagWriteResult } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableFromEventOpts, observableSignal, observableValue } from '../../../../../base/common/observable.js';
@@ -243,35 +243,35 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return true;
 	}
 
-	addTag(tag: string): AddTagResult {
+	addTag(tag: string): TagWriteResult {
 		const value = tag.trim();
 		if (!value) {
-			// Blank input is a silent no-op; report it as a (vacuous) success.
-			return 'added';
+			// Blank input: nothing to add, the desired state already holds.
+			return 'ok';
 		}
 		const existing = this.tags.get();
 		if (existing.includes(value)) {
 			return 'duplicate';
 		}
 		// setTags reports false if the write was skipped; surface that as 'failed'.
-		return this.setTags([...existing, value]) ? 'added' : 'failed';
+		return this.setTags([...existing, value]) ? 'ok' : 'failed';
 	}
 
-	removeTag(tag: string): boolean {
+	removeTag(tag: string): TagWriteResult {
 		const existing = this.tags.get();
 		if (!existing.includes(tag)) {
-			// Already absent: the desired state holds, so report success without
-			// writing (mirrors the no-op skip in setTags).
-			return true;
+			// Already absent: the desired state holds without writing (mirrors the
+			// no-op skip in setTags).
+			return 'ok';
 		}
-		return this.setTags(existing.filter(t => t !== tag));
+		return this.setTags(existing.filter(t => t !== tag)) ? 'ok' : 'failed';
 	}
 
-	renameTag(oldTag: string, newTag: string): AddTagResult {
+	renameTag(oldTag: string, newTag: string): TagWriteResult {
 		const value = newTag.trim();
 		if (!value) {
-			// Blank input is a silent no-op; report it as a (vacuous) success.
-			return 'added';
+			// Blank input: nothing to rename to, the desired state already holds.
+			return 'ok';
 		}
 		const existing = this.tags.get();
 		const index = existing.indexOf(oldTag);
@@ -287,7 +287,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		const next = [...existing];
 		next[index] = value;
 		// setTags reports false if the write was skipped; surface that as 'failed'.
-		return this.setTags(next) ? 'added' : 'failed';
+		return this.setTags(next) ? 'ok' : 'failed';
 	}
 
 	beginAddTag(): void {

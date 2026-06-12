@@ -13,7 +13,7 @@ import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibr
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { CellTagsBar } from '../../../browser/notebookCells/CellTagsBar.js';
-import { AddTagResult, IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookCell, TagWriteResult } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
  * A minimal cell stub. The tag-set invariant (trim / dedup / duplicate
@@ -27,17 +27,17 @@ function createTagCell(initial: string[] = []) {
 	const tags = observableValue<string[]>('tags', [...initial]);
 	const isAddingTag = observableValue<boolean>('isAddingTag', false);
 	const cellTagsHidden = observableValue<boolean>('cellTagsHidden', false);
-	const addTag = vi.fn((tag: string): AddTagResult => {
+	const addTag = vi.fn((tag: string): TagWriteResult => {
 		tags.set([...tags.get(), tag], undefined);
-		return 'added';
+		return 'ok';
 	});
-	const removeTag = vi.fn((tag: string): boolean => {
+	const removeTag = vi.fn((tag: string): TagWriteResult => {
 		tags.set(tags.get().filter(t => t !== tag), undefined);
-		return true;
+		return 'ok';
 	});
-	const renameTag = vi.fn((oldTag: string, newTag: string): AddTagResult => {
+	const renameTag = vi.fn((oldTag: string, newTag: string): TagWriteResult => {
 		tags.set(tags.get().map(t => (t === oldTag ? newTag : t)), undefined);
-		return 'added';
+		return 'ok';
 	});
 	// The bar reads isAddingTag and drives it through begin/endAddTag (the same
 	// signal the "Add Tag" command flips), so wire them to the observable.
@@ -240,7 +240,7 @@ describe('CellTagsBar', () => {
 		// of silently no-opping.
 		const user = userEvent.setup();
 		const { cell, removeTag } = createTagCell(['keep', 'drop']);
-		removeTag.mockReturnValue(false);
+		removeTag.mockReturnValue('failed');
 		rtl.render(<CellTagsBar cell={cell} />);
 
 		await user.click(screen.getByRole('button', { name: 'Remove tag drop' }));

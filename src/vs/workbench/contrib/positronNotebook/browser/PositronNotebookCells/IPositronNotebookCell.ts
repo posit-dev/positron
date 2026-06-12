@@ -19,11 +19,12 @@ import { ICellRevealOptions } from './PositronNotebookCell.js';
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 /**
- * The outcome of a tag write. `'added'` is success (a blank input is a vacuous
- * success), `'duplicate'` means the tag already existed, and `'failed'` means
- * the write could not be applied (no text model, or the cell left the notebook).
+ * The outcome of a tag write. `'ok'` means the desired state holds, whether the
+ * write happened or was a no-op (blank input, removing an absent tag).
+ * `'duplicate'` means the tag already existed, and `'failed'` means the write
+ * could not be applied (no text model, or the cell left the notebook).
  */
-export type AddTagResult = 'added' | 'duplicate' | 'failed';
+export type TagWriteResult = 'ok' | 'duplicate' | 'failed';
 
 export enum CellSelectionStatus {
 	Unselected = 'unselected',
@@ -105,21 +106,22 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 
 	/**
 	 * Append a trimmed tag. Blank or duplicate input is ignored. Returns the write
-	 * {@link AddTagResult}.
+	 * {@link TagWriteResult}.
 	 */
-	addTag(tag: string): AddTagResult;
+	addTag(tag: string): TagWriteResult;
 
 	/**
-	 * Remove a tag (an absent tag is a no-op). Returns `false` only if the write
-	 * was skipped (no text model, or the cell left the notebook).
+	 * Remove a tag (an absent tag is a no-op success). Returns the write
+	 * {@link TagWriteResult}.
 	 */
-	removeTag(tag: string): boolean;
+	removeTag(tag: string): TagWriteResult;
 
 	/**
-	 * Rename a tag to a trimmed value. A blank, missing, or duplicate target is
-	 * rejected without writing. Returns the write {@link AddTagResult}.
+	 * Rename a tag to a trimmed value. A missing or duplicate target is rejected
+	 * without writing; a blank value is a no-op. Returns the write
+	 * {@link TagWriteResult}.
 	 */
-	renameTag(oldTag: string, newTag: string): AddTagResult;
+	renameTag(oldTag: string, newTag: string): TagWriteResult;
 
 	/**
 	 * Whether an inline tag-add input should be shown for this cell. Lives on the
