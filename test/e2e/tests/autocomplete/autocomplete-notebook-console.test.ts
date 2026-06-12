@@ -71,6 +71,7 @@ test.describe('Autocomplete with Notebook Console', {
 		await editors.expectSuggestionListCount(1, { retryTimeout: 30000 });
 
 		// Closing the notebook removes its console session (#12940)
+		// As a step in the end here instead of new test to make faster/optimal in CI
 		await test.step('Closing the notebook removes its console session', async () => {
 			await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
 			await runCommand('workbench.action.revertAndCloseActiveEditor');
