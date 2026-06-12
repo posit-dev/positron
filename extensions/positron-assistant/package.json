@@ -352,14 +352,6 @@
               "minimum": 512
             }
           },
-          "positron.assistant.consoleActions.enable": {
-            "type": "boolean",
-            "default": true,
-            "description": "%configuration.consoleActions.enable.description%",
-            "tags": [
-              "preview"
-            ]
-          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,
