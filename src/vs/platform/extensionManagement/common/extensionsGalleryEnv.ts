@@ -12,8 +12,9 @@ import type { IProductConfiguration } from '../../../base/common/product.js';
 
 /**
  * Parses the EXTENSIONS_GALLERY env var into an extensions-gallery config.
- * Returns undefined if the value is not valid JSON, so a malformed env var is
- * ignored rather than crashing startup. The caller should fall back to the
+ * Returns undefined if the value is not valid JSON or lacks a non-empty
+ * serviceUrl, so a malformed env var is ignored rather than crashing startup or
+ * silently disabling the marketplace. The caller should fall back to the
  * default product gallery when undefined is returned.
  *
  * Pass `warn` to route the failure message somewhere persistent (e.g. an
@@ -29,11 +30,24 @@ export function parseExtensionsGalleryEnv<T = NonNullable<IProductConfiguration[
 	envValue: string,
 	warn: (message: string) => void = msg => console.warn(msg),
 ): T | undefined {
+	let parsed: unknown;
 	try {
-		return JSON.parse(envValue) as T;
+		parsed = JSON.parse(envValue);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		warn(`Ignoring EXTENSIONS_GALLERY env var: not valid JSON (${message}).`);
 		return undefined;
 	}
+	// Valid JSON can still be an unusable gallery config: {}, [], 42, or an object
+	// with a misspelled key like "serviceUrls". Require a non-empty serviceUrl
+	// string so a malformed value falls back to the default gallery instead of
+	// silently disabling the marketplace. The other fields are checked later in
+	// the gallery manifest service and can be logged there, but serviceUrl is
+	// essential to know up front whether this config is usable at all.
+	const serviceUrl = (parsed as { serviceUrl?: unknown } | null)?.serviceUrl;
+	if (typeof serviceUrl !== 'string' || serviceUrl.length === 0) {
+		warn(`Ignoring EXTENSIONS_GALLERY env var: missing required "serviceUrl" string.`);
+		return undefined;
+	}
+	return parsed as T;
 }
