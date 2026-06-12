@@ -36,7 +36,7 @@ const HELLO_QMD = [
 	'#| fig-cap: "Flipper and bill length for penguins at Palmer Station LTER"',
 	'#| warning: false',
 	'#| echo: false',
-	'ggplot(penguins, aes(x="flipper_length_mm", y="bill_length_mm", color="species", shape="species")) + geom_point() + theme_minimal()',
+	'ggplot(penguins, aes(x="flipper_length_mm", y="bill_length_mm", color="species", shape="species")) + geom_point() + scale_color_manual(values=["#FF8C00", "#A020F0", "#008B8B"]) + theme_minimal()',
 	'```',
 	'',
 ].join('\n');
