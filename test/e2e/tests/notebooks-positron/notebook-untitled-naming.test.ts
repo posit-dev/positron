@@ -10,6 +10,11 @@ test.use({
 	suiteId: __filename
 });
 
+// Regression tests for https://github.com/posit-dev/positron/issues/13561
+// (unsaved notebooks reusing the Untitled-1.ipynb name). The concurrent
+// creation race itself is covered at the API level in
+// extensions/vscode-api-tests/src/singlefolder-tests/notebook.api.test.ts;
+// these tests pin the user-visible naming behavior in the full app.
 test.describe('Positron Notebooks: Untitled naming', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
@@ -17,20 +22,13 @@ test.describe('Positron Notebooks: Untitled naming', {
 	test('Creating multiple untitled notebooks increments the name suffix', async function ({ app }) {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
-		// TEMP DIAGNOSTIC for #13561 -- surface renderer console logs in test output
-		app.code.driver.currentPage.on('console', msg => {
-			if (msg.text().includes('[13561]')) {
-				console.log('[renderer]', msg.text());
-			}
-		});
-
 		// First untitled notebook is named Untitled-1.ipynb
 		await notebooks.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 
 		// Subsequent untitled notebooks increment the suffix instead of
-		// reusing Untitled-1.ipynb (https://github.com/posit-dev/positron/issues/13561)
+		// reusing Untitled-1.ipynb
 		await notebooks.createNewNotebook();
 		await editors.waitForActiveTab('Untitled-2.ipynb', true);
 
@@ -41,14 +39,6 @@ test.describe('Positron Notebooks: Untitled naming', {
 	test('Untitled names keep incrementing after a window reload restores a dirty notebook', async function ({ app, hotKeys }) {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
-		// TEMP DIAGNOSTIC for #13561 -- surface renderer console logs in test output
-		const attachLogger = () => app.code.driver.currentPage.on('console', msg => {
-			if (msg.text().includes('[13561]')) {
-				console.log('[renderer]', msg.text());
-			}
-		});
-		attachLogger();
-
 		// Create a dirty untitled notebook then reload the window so it is
 		// restored from a working copy backup
 		await notebooks.createNewNotebook();
@@ -56,7 +46,6 @@ test.describe('Positron Notebooks: Untitled naming', {
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 
 		await hotKeys.reloadWindow(true);
-		attachLogger(); // page changed after reload
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 		await notebooksPositron.expectToBeVisible();
 
@@ -65,26 +54,19 @@ test.describe('Positron Notebooks: Untitled naming', {
 		await editors.waitForActiveTab('Untitled-2.ipynb', true);
 	});
 
-	test('VS Code editor: creating multiple untitled notebooks increments the name suffix', async function ({ app, settings }) {
-		const { notebooks, notebooksVscode, notebooksPositron, editors } = app.workbench;
+	test('Closing an unsaved notebook releases its name for reuse', async function ({ app, hotKeys }) {
+		const { notebooks, notebooksPositron, editors } = app.workbench;
 
-		// TEMP DIAGNOSTIC for #13561 -- surface renderer console logs in test output
-		app.code.driver.currentPage.on('console', msg => {
-			if (msg.text().includes('[13561]')) {
-				console.log('[renderer]', msg.text());
-			}
-		});
-
-		await notebooksPositron.disablePositronNotebooks(settings);
-
+		// Create and discard an untitled notebook
 		await notebooks.createNewNotebook();
-		await notebooksVscode.expectToBeVisible();
+		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
+		await hotKeys.closeAllEditors();
 
+		// The discarded name is reused (matches untitled text file behavior),
+		// and creating the next notebook must not error
 		await notebooks.createNewNotebook();
-		await editors.waitForActiveTab('Untitled-2.ipynb', true);
-
-		await notebooks.createNewNotebook();
-		await editors.waitForActiveTab('Untitled-3.ipynb', true);
+		await notebooksPositron.expectToBeVisible();
+		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 	});
 });
