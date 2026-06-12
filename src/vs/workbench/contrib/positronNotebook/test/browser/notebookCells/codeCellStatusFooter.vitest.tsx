@@ -7,6 +7,7 @@
 
 import { screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { CodeCellStatusFooter } from '../../../browser/notebookCells/CodeCellStatusFooter.js';
@@ -19,18 +20,30 @@ interface CellState {
 	lastExecutionDuration?: number;
 	lastRunEndTime?: number;
 	lastRunSuccess?: boolean;
+	tags?: string[];
+	isAddingTag?: boolean;
+	cellTagsHidden?: boolean;
 }
 
 describe('CodeCellStatusFooter', () => {
-	const rtl = setupRTLRenderer();
+	// The footer embeds CellTagsBar, which reads the React services context, so
+	// render through the provider tree rather than the prop-only renderer.
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderFooter(state: CellState = {}, hasError = false) {
+		// Mirrors the real cell's tagUIVisible derivation (tags or an in-progress
+		// add, unless the notebook hides tags).
+		const tagUIVisible = ((state.tags?.length ?? 0) > 0 || (state.isAddingTag ?? false)) && !(state.cellTagsHidden ?? false);
 		const cell = stubInterface<PositronNotebookCodeCell>({
 			executionStatus: observableValue<ExecutionStatus>('executionStatus', state.executionStatus ?? 'idle'),
 			lastExecutionOrder: observableValue<number | undefined>('lastExecutionOrder', state.lastExecutionOrder),
 			lastExecutionDuration: observableValue<number | undefined>('lastExecutionDuration', state.lastExecutionDuration),
 			lastRunEndTime: observableValue<number | undefined>('lastRunEndTime', state.lastRunEndTime),
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
+			tags: observableValue<string[]>('tags', state.tags ?? []),
+			isAddingTag: observableValue<boolean>('isAddingTag', state.isAddingTag ?? false),
+			tagUIVisible: observableValue<boolean>('tagUIVisible', tagUIVisible),
 			isInViewport: () => true,
 		});
 
@@ -116,5 +129,34 @@ describe('CodeCellStatusFooter', () => {
 		renderFooter({ lastExecutionOrder: 1 });
 
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
+	});
+
+	// The footer hosts the tag bar, so its collapse/divider layout depends on the
+	// cell's tag UI visibility as well as execution metadata: a visible tag UI
+	// (tags or an in-progress tag-add) keeps it open, hiding tags notebook-wide
+	// collapses it, and the divider only appears when execution metadata precedes
+	// the tag UI (otherwise it is an orphan with nothing before it).
+	const tagLayoutCases: { name: string; state: CellState; collapsed: boolean; separator: boolean }[] = [
+		{ name: 'execution metadata and tags', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] }, collapsed: false, separator: true },
+		{ name: 'execution metadata and a tag-add in progress', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, isAddingTag: true }, collapsed: false, separator: true },
+		{ name: 'tags only', state: { tags: ['wip'] }, collapsed: false, separator: false },
+		{ name: 'tags hidden notebook-wide', state: { tags: ['wip'], cellTagsHidden: true }, collapsed: true, separator: false },
+		{ name: 'a tag-add in progress', state: { isAddingTag: true }, collapsed: false, separator: false },
+	];
+
+	it.each(tagLayoutCases)('tag footer layout with $name', ({ state, collapsed, separator }) => {
+		renderFooter(state);
+		const footer = getFooter({ hidden: true });
+
+		if (collapsed) {
+			expect(footer).toHaveClass('collapsed');
+		} else {
+			expect(footer).not.toHaveClass('collapsed');
+		}
+		if (separator) {
+			expect(screen.getByTestId('cell-footer-tags-separator')).toBeInTheDocument();
+		} else {
+			expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
+		}
 	});
 });
