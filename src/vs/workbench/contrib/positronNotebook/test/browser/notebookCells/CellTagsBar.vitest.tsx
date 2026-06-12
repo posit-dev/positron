@@ -150,16 +150,18 @@ describe('CellTagsBar', () => {
 		expect(renameTag).toHaveBeenCalledWith('old', 'new');
 	});
 
-	it('is a single-tab-stop toolbar with the add control leading the row', () => {
+	it('is a single-tab-stop toolbar entered at the first tag, with the add control last', () => {
 		const { cell } = createTagCell(['data', 'wip']);
 		rtl.render(<CellTagsBar cell={cell} />);
 
 		const buttons = screen.getAllByRole('button');
 		expect(screen.getByRole('toolbar')).toBeInTheDocument();
-		// The add control leads and is the only tab stop; tags are reached with
-		// the arrow keys so a long tag list doesn't add a tab stop per tag.
-		expect(buttons[0]).toHaveAccessibleName('Add tag');
+		// The first tag is the only tab stop; the rest of the row (including
+		// the trailing add control) is reached with the arrow keys so a long
+		// tag list doesn't add a tab stop per tag.
+		expect(buttons[0]).toHaveAccessibleName('Edit tag data');
 		expect(buttons[0]).toHaveAttribute('tabindex', '0');
+		expect(buttons[buttons.length - 1]).toHaveAccessibleName('Add tag');
 		for (const button of buttons.slice(1)) {
 			expect(button).toHaveAttribute('tabindex', '-1');
 		}
@@ -170,21 +172,21 @@ describe('CellTagsBar', () => {
 		const { cell } = createTagCell(['data']);
 		rtl.render(<CellTagsBar cell={cell} />);
 
-		// Tab enters the bar at its single tab stop, the add control.
+		// Tab enters the bar at its single tab stop, the first tag.
 		await user.tab();
-		expect(screen.getByRole('button', { name: 'Add tag' })).toHaveFocus();
-
-		await user.keyboard('{ArrowRight}');
 		expect(screen.getByRole('button', { name: 'Edit tag data' })).toHaveFocus();
 
 		await user.keyboard('{ArrowRight}');
 		expect(screen.getByRole('button', { name: 'Remove tag data' })).toHaveFocus();
 
-		// The ends wrap around.
 		await user.keyboard('{ArrowRight}');
 		expect(screen.getByRole('button', { name: 'Add tag' })).toHaveFocus();
+
+		// The ends wrap around.
+		await user.keyboard('{ArrowRight}');
+		expect(screen.getByRole('button', { name: 'Edit tag data' })).toHaveFocus();
 		await user.keyboard('{ArrowLeft}');
-		expect(screen.getByRole('button', { name: 'Remove tag data' })).toHaveFocus();
+		expect(screen.getByRole('button', { name: 'Add tag' })).toHaveFocus();
 	});
 
 	it('activates the focused control with Enter without leaking the key to the notebook', async () => {
@@ -202,7 +204,7 @@ describe('CellTagsBar', () => {
 		);
 
 		await user.tab();
-		await user.keyboard('{ArrowRight}{Enter}');
+		await user.keyboard('{Enter}');
 
 		expect(screen.getByRole('textbox')).toHaveFocus();
 		expect(outerKeyDown).not.toHaveBeenCalled();
