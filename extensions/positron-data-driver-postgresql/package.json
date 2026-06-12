@@ -19,7 +19,8 @@
   },
   "contributes": {},
   "dependencies": {
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol"
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",

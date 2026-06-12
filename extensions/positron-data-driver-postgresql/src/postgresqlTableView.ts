@@ -59,7 +59,7 @@ import {
 	TableSchema,
 	TableSelectionKind,
 	TextSearchType,
-} from './interfaces.js';
+} from 'positron-data-explorer-protocol';
 
 /** The query surface the table view needs. Implemented by the connection over its `pg` client. */
 export interface IPostgresQueryClient {

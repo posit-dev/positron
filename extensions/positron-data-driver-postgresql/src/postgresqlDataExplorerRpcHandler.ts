@@ -23,7 +23,7 @@ import {
 	SearchSchemaParams,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
-} from './interfaces.js';
+} from 'positron-data-explorer-protocol';
 
 /** The provider id this extension registers its Data Explorer RPC handler under. */
 export const POSTGRESQL_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-postgresql';

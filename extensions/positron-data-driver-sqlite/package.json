@@ -19,7 +19,8 @@
   },
   "contributes": {},
   "dependencies": {
-    "better-sqlite3": "^12.8.0"
+    "better-sqlite3": "^12.8.0",
+    "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",

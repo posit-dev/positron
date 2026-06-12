@@ -15,7 +15,7 @@ import {
 	RowFilter,
 	RowFilterType,
 	TextSearchType,
-} from '../interfaces.js';
+} from 'positron-data-explorer-protocol';
 
 /** A fake query client that records SQL and answers from a caller-supplied responder. */
 class FakeQueryClient {

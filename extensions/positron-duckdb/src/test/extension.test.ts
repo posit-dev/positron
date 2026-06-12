@@ -45,12 +45,12 @@ import {
 	GetColumnProfilesParams,
 	ColumnHistogram,
 	ColumnSummaryStats
-} from '../interfaces';
+} from 'positron-data-explorer-protocol';
 import { randomBytes, randomUUID } from 'crypto';
 import * as os from 'os';
 import * as fs from 'fs';
 import { DataExplorerRpcHandler, DuckDBInstance } from '../extension';
-import { DataExplorerUiEvent } from '../interfaces';
+import { DataExplorerUiEvent } from 'positron-data-explorer-protocol';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,

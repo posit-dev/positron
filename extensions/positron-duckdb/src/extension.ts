@@ -69,7 +69,7 @@ import {
 	TableSchema,
 	TableSelectionKind,
 	TextSearchType
-} from './interfaces';
+} from 'positron-data-explorer-protocol';
 
 /**
  * Type guard to check if an ArraySelection is a DataSelectionRange (has first_index/last_index).

@@ -60,7 +60,7 @@ import {
 	TableSchema,
 	TableSelectionKind,
 	TextSearchType,
-} from './interfaces.js';
+} from 'positron-data-explorer-protocol';
 
 /** Sentinel codes for special cell values, matching the Data Explorer wire protocol. */
 const SENTINEL_NULL = 0;

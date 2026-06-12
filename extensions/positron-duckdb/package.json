@@ -33,7 +33,8 @@
     "@vscode/vsce": "^3.3.2"
   },
   "dependencies": {
-    "@duckdb/node-api": "1.5.3-r.3"
+    "@duckdb/node-api": "1.5.3-r.3",
+    "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol"
   },
   "repository": {
     "type": "git",
