@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Notebooks: Find & Replace', {
+test.describe('Positron Notebooks: Find and Replace', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB, tags.WIN]
 }, () => {
 
@@ -150,8 +150,8 @@ test.describe('Positron Notebooks: Find & Replace', {
 		await notebooksPositron.expectSearchCountToBe({ total: 0 });
 		await notebooksPositron.expectSearchDecorationCountToBe(0);
 
-		// The widget disables Replace/Replace All only when the find text is
-		// empty (matching the editor find widget), so with a query that has
+		// The widget disables Replace/Replace All only when the  text is
+		// empty (matching the editor  widget), so with a query that has
 		// zero matches the buttons stay enabled and replacing is a no-op.
 		await notebooksPositron.searchExpandReplace();
 		await notebooksPositron.expectReplaceButtonsEnabled(true);
@@ -159,7 +159,7 @@ test.describe('Positron Notebooks: Find & Replace', {
 		await notebooksPositron.searchReplaceAll();
 		await notebooksPositron.expectCellContentAtIndexToBe(0, 'alpha = 1');
 
-		// With an empty find text the replace buttons are disabled
+		// With an empty  text the replace buttons are disabled
 		await notebooksPositron.search('', { enterKey: false });
 		await notebooksPositron.expectReplaceButtonsEnabled(false);
 	});
@@ -179,7 +179,7 @@ test.describe('Positron Notebooks: Find & Replace', {
 		await notebooksPositron.expectCellContentAtIndexToBe(0, 'hello = 1');
 	});
 
-	// Skipped until the find widget tooltip fix (#14198) merges -- the widget
+	// Skipped until the  widget tooltip fix (#14198) merges -- the widget
 	// buttons do not show tooltips without it. Unskip after that PR lands.
 	test.skip('Verify search widget buttons show tooltips on hover', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
