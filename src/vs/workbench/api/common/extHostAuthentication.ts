@@ -29,7 +29,7 @@ import { CancellationError, isCancellationError } from '../../../base/common/err
 import { raceCancellationError, SequencerByKey } from '../../../base/common/async.js';
 
 // --- Start Positron ---
-import { getOAuthRedirectUri, getRegistrationRedirectUri } from './positron/extHostOAuthRedirect.js';
+import { getOAuthRedirectUri, getRegistrationRedirectUri, parseAuthorizationCode } from './positron/extHostOAuthRedirect.js';
 // --- End Positron ---
 
 export interface IExtHostAuthentication extends ExtHostAuthentication { }
@@ -605,12 +605,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		authorizationUrl.searchParams.append('client_id', this._clientId);
 		authorizationUrl.searchParams.append('response_type', 'code');
 		// --- Start Positron ---
-		// Serialize the state without URI.toString()'s component encoding, which
-		// percent-encodes the `=` and `&` separators inside the callback URL's
-		// query. The authorization server echoes the state byte-exact, so the
-		// extra encoding survives the round trip and callback.html can no longer
-		// parse the callback URL's query parameters. URLSearchParams applies the
-		// single transport encoding this parameter needs.
+		// toString(true) avoids double-encoding the `=` and `&` separators in the state.
 		// authorizationUrl.searchParams.append('state', state.toString());
 		authorizationUrl.searchParams.append('state', state.toString(true));
 		// --- End Positron ---
@@ -626,13 +621,7 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 			authorizationUrl.searchParams.append('resource', this._resourceMetadata.resource);
 		}
 
-		// Use a redirect URI that matches what was registered during dynamic registration
 		// --- Start Positron ---
-		// On web clients served from arbitrary hosts (e.g. Posit Workbench), redirect
-		// straight to the client's own /callback route; vscode.dev's redirect page
-		// refuses to forward to hosts outside its allowlist. The full callback URL
-		// (including the vscode-* params) travels in the `state` parameter and is
-		// unwrapped by callback.html. See https://github.com/posit-dev/positron/issues/13446.
 		// const redirectUri = 'https://vscode.dev/redirect';
 		const redirectUri = getOAuthRedirectUri(state) ?? 'https://vscode.dev/redirect';
 		// --- End Positron ---
@@ -697,30 +686,10 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		// Extract the code parameter directly from the query string. NOTE, URLSearchParams does not work here because
 		// it will decode the query string and we need to keep it encoded.
 		// --- Start Positron ---
-		// Also match `code` as the first query parameter. The web client's
-		// callback page rebuilds the query with `code` first, which the
-		// upstream pattern (requiring a preceding ? or &) never matched.
 		// const codeMatch = /[?&]code=([^&]+)/.exec(result.query || '');
-		const codeMatch = /(?:^|[?&])code=([^&]+)/.exec(result.query || '');
-		// --- End Positron ---
-		if (!codeMatch || codeMatch.length < 2) {
-			// No code parameter found in the query string
-			throw new Error('Authentication failed: No authorization code received');
-		}
-		// --- Start Positron ---
-		// The code is captured percent-encoded from the redirect URL, but
-		// exchangeCodeForToken serializes it with URLSearchParams, which encodes
-		// it again - so codes containing reserved characters (e.g. Sentry's
-		// `123:abc:def`) arrive at the token endpoint double-encoded and are
-		// rejected. Decode once so the exchange matches the loopback flow, which
-		// extracts the code with URLSearchParams.get (decoded). Fall back to the
-		// raw capture for codes that are not valid percent-encoding.
+		// ...
 		// return { code: codeMatch[1] };
-		try {
-			return { code: decodeURIComponent(codeMatch[1]) };
-		} catch {
-			return { code: codeMatch[1] };
-		}
+		return { code: parseAuthorizationCode(result.query || '') };
 		// --- End Positron ---
 	}
 

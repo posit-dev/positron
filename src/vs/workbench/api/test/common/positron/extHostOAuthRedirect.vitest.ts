@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { NullLogger } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IExtHostUrlsService } from '../../../common/extHostUrls.js';
-import { getOAuthRedirectUri, getRegistrationRedirectUri } from '../../../common/positron/extHostOAuthRedirect.js';
+import { getOAuthRedirectUri, getRegistrationRedirectUri, parseAuthorizationCode } from '../../../common/positron/extHostOAuthRedirect.js';
 
 describe('getOAuthRedirectUri', () => {
 	it('returns the bare callback URL for a workbench https app URI', () => {
@@ -45,6 +45,41 @@ describe('getOAuthRedirectUri', () => {
 	it('matches vscode.dev hosts case-insensitively', () => {
 		const appUri = URI.parse('https://VSCode.dev/callback?vscode-reqid=3');
 		expect(getOAuthRedirectUri(appUri)).toBeUndefined();
+	});
+});
+
+describe('parseAuthorizationCode', () => {
+	it('extracts code when it is the first (and only) parameter', () => {
+		// URLSearchParams.toString() produces a bare query string with no leading
+		// `?`, so `code` at the start has no preceding separator.
+		expect(parseAuthorizationCode('code=abc123')).toBe('abc123');
+	});
+
+	it('extracts code when it is the first of several parameters', () => {
+		expect(parseAuthorizationCode('code=abc123&nonce=xyz')).toBe('abc123');
+	});
+
+	it('extracts code when it follows other parameters', () => {
+		expect(parseAuthorizationCode('nonce=xyz&code=abc123')).toBe('abc123');
+	});
+
+	it('decodes percent-encoded characters in the code', () => {
+		// Codes containing reserved characters arrive percent-encoded in the
+		// redirect URL. Decoding once here prevents double-encoding at the token
+		// endpoint, where URLSearchParams encodes the value a second time.
+		expect(parseAuthorizationCode('code=123%3Aabc%3Adef&nonce=xyz')).toBe('123:abc:def');
+	});
+
+	it('falls back to the raw capture when the code is not valid percent-encoding', () => {
+		expect(parseAuthorizationCode('code=%ZZinvalid')).toBe('%ZZinvalid');
+	});
+
+	it('throws when no code parameter is present', () => {
+		expect(() => parseAuthorizationCode('nonce=xyz&state=abc')).toThrow('No authorization code received');
+	});
+
+	it('throws for an empty query string', () => {
+		expect(() => parseAuthorizationCode('')).toThrow('No authorization code received');
 	});
 });
 
