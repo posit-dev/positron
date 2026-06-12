@@ -685,6 +685,22 @@ export class LayoutManager {
 	}
 
 	/**
+	 * Clears all size overrides.
+	 */
+	clearSizeOverrides() {
+		// If there aren't any size overrides, return.
+		if (this._customEntrySizes.size === 0) {
+			return;
+		}
+
+		// Clear the size overrides.
+		this._customEntrySizes.clear();
+
+		// Invalidate cached calculations.
+		this.invalidateCachedCalculations();
+	}
+
+	/**
 	 * Checks if the given index is pinned.
 	 * @param index The index to check.
 	 * @returns true if the index is pinned, false otherwise.

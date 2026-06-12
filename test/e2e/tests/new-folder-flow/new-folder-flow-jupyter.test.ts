@@ -9,7 +9,8 @@ import { test, tags, expect } from '../_test.setup';
 import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	useLegacyNotebookEditor: true
 });
 
 test.describe('New Folder Flow: Jupyter Project', {

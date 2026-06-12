@@ -10,7 +10,6 @@ import { useEffect, useRef } from 'react';
 import { ActionRunner, IAction } from '../../../../../base/common/actions.js';
 import { IMenuActionOptions, MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useCellScopedContextKeyService } from './CellProvider.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -39,7 +38,6 @@ export interface UseCellContextMenuOptions {
  */
 export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) {
 	const instance = useNotebookInstance();
-	const contextKeyService = useCellScopedContextKeyService();
 	const { contextMenuService } = usePositronReactServicesContext();
 	const actionRunnerRef = useRef<ActionRunner | undefined>(undefined);
 
@@ -89,7 +87,7 @@ export function useCellContextMenu({ cell, menuId }: UseCellContextMenuOptions) 
 		contextMenuService.showContextMenu({
 			menuId,
 			menuActionOptions,
-			contextKeyService,
+			contextKeyService: cell.scopedContextKeyService,
 			getAnchor: () => anchor,
 			actionRunner: actionRunnerRef.current,
 			getActions,

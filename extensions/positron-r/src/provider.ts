@@ -388,23 +388,85 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 }
 
 /**
+ * The kinds of packager metadata an R binary can carry, declared in ascending
+ * order of precedence. When a single binary path is contributed by multiple
+ * sources, the surviving metadata is the one whose kind is declared latest here.
+ * The ordering reflects how much each kind determines correct launch behavior:
+ * metadata that injects a startup command or activates an environment (Module,
+ * Conda, Pixi) outranks the merely descriptive RVersions metadata, which in turn
+ * outranks no metadata at all (a plain system/PATH discovery).
+ *
+ * To add a packager source, declare its kind at the right position here and add
+ * the matching branch to {@link classifyMetadata}; precedence follows declaration
+ * order, so no separate ranking needs maintaining.
+ */
+enum MetadataKind {
+	None = 'none',
+	RVersions = 'rversions',
+	Conda = 'conda',
+	Pixi = 'pixi',
+	Module = 'module',
+}
+
+/** Precedence lookup derived from {@link MetadataKind} declaration order. */
+const METADATA_PRECEDENCE: readonly MetadataKind[] = Object.values(MetadataKind);
+
+/**
+ * Classify packager metadata into one of the {@link MetadataKind} values. The
+ * trailing `never` assignment makes this exhaustive: adding a new PackagerMetadata
+ * variant without handling it here is a compile error.
+ */
+function classifyMetadata(metadata: PackagerMetadata | undefined): MetadataKind {
+	if (!metadata) {
+		return MetadataKind.None;
+	}
+	if (isModuleMetadata(metadata)) {
+		return MetadataKind.Module;
+	}
+	if (isPixiMetadata(metadata)) {
+		return MetadataKind.Pixi;
+	}
+	if (isCondaMetadata(metadata)) {
+		return MetadataKind.Conda;
+	}
+	if (isRVersionsMetadata(metadata)) {
+		return MetadataKind.RVersions;
+	}
+	const unhandled: never = metadata;
+	throw new Error(`Unhandled packager metadata: ${JSON.stringify(unhandled)}`);
+}
+
+/**
+ * Rank packager metadata by its position in {@link METADATA_PRECEDENCE}; higher wins.
+ *
+ * @param metadata The packager metadata to rank, or `undefined` if none.
+ * @returns A numeric priority; higher wins.
+ */
+function metadataPriority(metadata: PackagerMetadata | undefined): number {
+	return METADATA_PRECEDENCE.indexOf(classifyMetadata(metadata));
+}
+
+/**
  * Deduplicate a list of R binaries, merging the reasons for each binary.
- * When the same binary is found via multiple sources, prefer r-versions metadata
- * with a label since it provides a custom display name.
+ * When the same binary is found via multiple sources, retain the metadata that
+ * most affects how the runtime launches (see {@link metadataPriority}). Ties keep
+ * the first-seen metadata for stability.
  * @param binaries Binaries to deduplicate
  * @returns Deduplicated binaries
  */
-function deduplicateRBinaries(binaries: RBinary[]) {
+export function deduplicateRBinaries(binaries: RBinary[]) {
 	const binariesMap = binaries.reduce((acc, binary) => {
 		if (acc.has(binary.path)) {
 			const existingBinary = acc.get(binary.path)!;
 			const mergedReasons = Array.from(new Set([...existingBinary.reasons, ...binary.reasons]));
 
-			// Prefer r-versions metadata with a label over other metadata
-			let preferredMetadata = existingBinary.packagerMetadata;
-			if (binary.packagerMetadata && isRVersionsMetadata(binary.packagerMetadata) && binary.packagerMetadata.label) {
-				preferredMetadata = binary.packagerMetadata;
-			}
+			// Keep whichever metadata most affects how the runtime launches. The
+			// incoming entry only wins on a strictly higher priority, so ties
+			// preserve the first-seen metadata.
+			const preferredMetadata =
+				metadataPriority(binary.packagerMetadata) > metadataPriority(existingBinary.packagerMetadata)
+					? binary.packagerMetadata
+					: existingBinary.packagerMetadata;
 
 			acc.set(binary.path, { ...existingBinary, reasons: mergedReasons, packagerMetadata: preferredMetadata });
 		} else {
@@ -457,6 +519,17 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 		return false;
 	}
 
+	// Pixi/Module metadata disqualifies regardless of discovery reason. The
+	// metadata is the source of truth for whether launch depends on dynamic,
+	// per-workspace state: a runtime can carry it without the matching reason
+	// (e.g. an affiliated module runtime restored as `[affiliated, PATH]` -- see
+	// RuntimeManager.validateMetadata), so checking reasons alone would wrongly
+	// cache it across windows.
+	const metadata = rInst.packagerMetadata;
+	if (metadata !== undefined && (isModuleMetadata(metadata) || isPixiMetadata(metadata))) {
+		return false;
+	}
+
 	// Pixi/Module reasons disqualify regardless of any other reason on the
 	// merged binary record.
 	for (const r of reasons) {
@@ -486,6 +559,59 @@ function isRRuntimeCacheable(rInst: RInstallation): boolean {
 	return true;
 }
 
+/**
+ * Classify the source/packager that governs an R installation, used for the
+ * runtime's display source (System, Module, Conda, ...) and name amendment.
+ *
+ * Packager metadata takes precedence over the discovery reason: the metadata is
+ * the source of truth for how the runtime launches (it carries the module
+ * startup command, or the conda/pixi environment), and a runtime can carry this
+ * metadata without the matching discovery reason. For example, an affiliated
+ * runtime restored from storage is rebuilt with the `affiliated` reason (see
+ * RuntimeManager.validateMetadata) but keeps its module metadata; keying the
+ * source off the discovery reason alone would mislabel it as System even though
+ * it launches via `module load`. We fall back to the discovery reason for
+ * installations discovered without metadata.
+ *
+ * The Module/Pixi/Conda checks come first because such installations can also
+ * live under a Homebrew or user path.
+ *
+ * @param binpath The R binary path (used to detect Homebrew installations).
+ * @param packagerMetadata The packager metadata, if any.
+ * @param reasonDiscovered How the binary was discovered, if known.
+ * @param isUserInstallation Whether the binary lives under the user's home dir.
+ * @returns The runtime source to display.
+ */
+export function classifyRRuntimeSource(
+	binpath: string,
+	packagerMetadata: PackagerMetadata | undefined,
+	reasonDiscovered: ReasonDiscovered[] | null,
+	isUserInstallation: boolean
+): RRuntimeSource {
+	const hasReason = (reason: ReasonDiscovered) => reasonDiscovered?.includes(reason) ?? false;
+	const isModuleInstallation =
+		(packagerMetadata !== undefined && isModuleMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.MODULE);
+	const isPixiInstallation =
+		(packagerMetadata !== undefined && isPixiMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.PIXI);
+	const isCondaInstallation =
+		(packagerMetadata !== undefined && isCondaMetadata(packagerMetadata)) || hasReason(ReasonDiscovered.CONDA);
+	// Homebrew installations are identified by a 'homebrew' path component.
+	const isHomebrewInstallation = binpath.includes('/homebrew/');
+
+	if (isModuleInstallation) {
+		return RRuntimeSource.module;
+	} else if (isPixiInstallation) {
+		return RRuntimeSource.pixi;
+	} else if (isCondaInstallation) {
+		return RRuntimeSource.conda;
+	} else if (isHomebrewInstallation) {
+		return RRuntimeSource.homebrew;
+	} else if (isUserInstallation) {
+		return RRuntimeSource.user;
+	}
+	return RRuntimeSource.system;
+}
+
 export async function makeMetadata(
 	rInst: RInstallation,
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
@@ -506,27 +632,14 @@ export async function makeMetadata(
 	// replaced with 'Rscript' or 'Rscript.exe, respectively.
 	const scriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'Rscript$1');
 
-	// Does the runtime path have 'homebrew' as a component? (we assume that
-	// it's a Homebrew installation if it does)
-	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
-
-	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
-	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
-	const isModuleInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.MODULE);
-
-	// Be sure to check for pixi/conda/module installations first, as they can be installed via Homebrew
-	let runtimeSource = RRuntimeSource.system;
-	if (isModuleInstallation) {
-		runtimeSource = RRuntimeSource.module;
-	} else if (isPixiInstallation) {
-		runtimeSource = RRuntimeSource.pixi;
-	} else if (isCondaInstallation) {
-		runtimeSource = RRuntimeSource.conda;
-	} else if (isHomebrewInstallation) {
-		runtimeSource = RRuntimeSource.homebrew;
-	} else if (isUserInstallation) {
-		runtimeSource = RRuntimeSource.user;
-	}
+	// Determine the source/packager that governs this installation (System,
+	// Module, Conda, etc.). See classifyRRuntimeSource for the precedence rules.
+	const runtimeSource = classifyRRuntimeSource(
+		rInst.binpath,
+		rInst.packagerMetadata,
+		rInst.reasonDiscovered,
+		isUserInstallation
+	);
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
@@ -538,13 +651,13 @@ export async function makeMetadata(
 		runtimeName = rInst.packagerMetadata.label;
 	} else {
 		let packagerAmendment = '';
-		if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		if (runtimeSource === RRuntimeSource.module && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
-		} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
+		} else if (runtimeSource === RRuntimeSource.conda && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
+		} else if (runtimeSource === RRuntimeSource.pixi && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
 			packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
-		} else if (isHomebrewInstallation) {
+		} else if (runtimeSource === RRuntimeSource.homebrew) {
 			packagerAmendment = ' (Homebrew)';
 		}
 		runtimeName = `R ${runtimeShortName}${packagerAmendment}`;

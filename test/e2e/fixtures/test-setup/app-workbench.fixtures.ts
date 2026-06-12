@@ -7,7 +7,7 @@ import * as os from 'os';
 import { join } from 'path';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, RunResult } from './docker-utils';
+import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, RunResult } from './docker-utils';
 
 export { RunResult };
 
@@ -19,8 +19,8 @@ export { RunResult };
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, managedCredentials } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials);
+	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections);
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -83,7 +83,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
@@ -121,7 +121,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	await copyUserSettingsToContainer(
 		'test',
 		'/home/user1/.positron-server/User/',
-		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json']
+		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
 	);
 	await copyKeyBindingsToContainer('test', '/home/user1/.positron-server/User/');
 

@@ -373,6 +373,11 @@
                 "title": "%python.command.python.createEnvironment.title%"
             },
             {
+                "category": "Python",
+                "command": "python.installPythonViaUv",
+                "title": "%python.command.python.installPythonViaUv.title%"
+            },
+            {
                 "command": "python.installPackages",
                 "title": "Install Python Packages",
                 "category": "Python"
@@ -1557,6 +1562,12 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.installPythonViaUv",
+                    "title": "%python.command.python.installPythonViaUv.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
                     "command": "python.createEnvironment-button",
                     "title": "%python.command.python.createEnvironment.title%",
                     "when": "false"
@@ -2184,7 +2195,7 @@
         "unicode": "^14.0.0",
         "vscode-debugprotocol": "^1.28.0",
         "vscode-jsonrpc": "^9.0.0-next.5",
-        "vscode-languageclient": "^10.0.0-next.12",
+        "vscode-languageclient": "^10.0.0",
         "vscode-languageserver-protocol": "^3.17.6-next.10",
         "vscode-tas-client": "^0.1.84",
         "which": "^2.0.2",

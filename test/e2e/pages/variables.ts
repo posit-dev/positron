@@ -167,6 +167,13 @@ export class Variables {
 		await this.code.driver.currentPage.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
 
+	variableRow(name: string): Locator {
+		return this.code.driver.currentPage
+			.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`)
+			.filter({ has: this.code.driver.currentPage.getByText(name, { exact: true }) })
+			.first();
+	}
+
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.currentPage.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ has: this.code.driver.currentPage.getByText(rowName, { exact: true }) }).locator(DATABASE_ICON).click();
