@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { usePositronContextKey } from '../../../../base/browser/positronReactHooks.js';
+import { useContextKey } from '../../../../base/browser/positronReactHooks.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 
 /**
@@ -11,5 +11,5 @@ import { NotebookContextKeys } from '../common/notebookContextKeys.js';
  * Re-renders the calling component when the flag flips.
  */
 export function usePositronNotebookExperimental(): boolean {
-	return usePositronContextKey<boolean>(NotebookContextKeys.experimental.key) ?? false;
+	return useContextKey(NotebookContextKeys.experimental) ?? false;
 }
