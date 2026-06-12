@@ -72,6 +72,7 @@ jobs:
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          SHARD_NAME: pyrefly-electron
           USE_KEY: true
           GH_SUMMARY_REPORT: true
         run: |
