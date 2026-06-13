@@ -173,6 +173,103 @@ describe('QuartoExecutionManager', () => {
 	});
 
 	describe('Output Handling', () => {
+		it('queries input boundaries once and keeps each R result', async () => {
+			const documentUri = URI.file('/test-r-expressions.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-r-expressions',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 7,
+				codeStartLine: 2,
+				codeEndLine: 6,
+				label: undefined,
+				options: '',
+				contentHash: 'r-expressions',
+			};
+			const documentLines = [
+				'```{r}',
+				'values <- list(',
+				'  1',
+				')',
+				'values[[1]]',
+				'2',
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let requestedMethod: string | undefined;
+			let requestedCode: string | undefined;
+			const callMethodSpy = vi.spyOn(mockSession, 'callMethod').mockImplementation(async (method, ...args) => {
+				requestedMethod = method;
+				requestedCode = typeof args[0] === 'string' ? args[0] : undefined;
+				return {
+					boundaries: [
+						{ range: { start: 0, end: 3 }, kind: 'complete' },
+						{ range: { start: 3, end: 4 }, kind: 'complete' },
+						{ range: { start: 4, end: 5 }, kind: 'complete' },
+					],
+				};
+			});
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete');
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+			const outputsReceived: ICellOutput[] = [];
+			ctx.disposables.add(executionManager.onDidReceiveOutput(event => {
+				outputsReceived.push(event.output);
+			}));
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			const assignmentId = await mockKernelManager.waitForExecution();
+			mockSession.receiveStateMessage({
+				parent_id: assignmentId,
+				state: RuntimeOnlineState.Idle,
+			});
+			mockSession.setRuntimeState(RuntimeState.Ready);
+
+			const firstResultId = await mockKernelManager.waitForExecution();
+			mockSession.receiveResultMessage({
+				parent_id: firstResultId,
+				kind: RuntimeOutputKind.Text,
+				data: { 'text/plain': '1' },
+			});
+			mockSession.receiveStateMessage({
+				parent_id: firstResultId,
+				state: RuntimeOnlineState.Idle,
+			});
+			mockSession.setRuntimeState(RuntimeState.Ready);
+
+			const secondResultId = await mockKernelManager.waitForExecution();
+			mockSession.receiveResultMessage({
+				parent_id: secondResultId,
+				kind: RuntimeOutputKind.Text,
+				data: { 'text/plain': '2' },
+			});
+			mockSession.receiveStateMessage({
+				parent_id: secondResultId,
+				state: RuntimeOnlineState.Idle,
+			});
+			mockSession.setRuntimeState(RuntimeState.Ready);
+
+			await executionPromise;
+
+			expect(callMethodSpy).toHaveBeenCalledTimes(1);
+			expect(requestedMethod).toBe('inputBoundaries');
+			expect(requestedCode).toBe('values <- list(\n  1\n)\nvalues[[1]]\n2');
+			expect(completenessSpy).not.toHaveBeenCalled();
+			expect(executeSpy.mock.calls.map(call => call[0])).toEqual([
+				'values <- list(\n  1\n)',
+				'values[[1]]',
+				'2',
+			]);
+			expect(outputsReceived.map(output => output.items[0].data)).toEqual(['1', '2']);
+		});
+
 		it('filters out text/plain when text/html is present (DataFrame case)', async () => {
 			// This test verifies that when both text/html and text/plain are returned
 			// (as happens with pandas DataFrames), only text/html is included in output.
@@ -768,8 +865,13 @@ class MockKernelManager extends Disposable {
 		super();
 		// Listen for executions via the session's built-in test event
 		this._register(_session.onDidExecute(id => {
-			this.lastExecutionId = id;
-			this._executionResolve?.(id);
+			const executionResolve = this._executionResolve;
+			if (executionResolve) {
+				this.lastExecutionId = undefined;
+				executionResolve(id);
+			} else {
+				this.lastExecutionId = id;
+			}
 		}));
 	}
 
@@ -894,13 +996,14 @@ function asDocumentModelService(mock: MockDocumentModelService): IQuartoDocument
 class MockQuartoDocumentModel {
 	private _cells: Map<string, QuartoCodeCell> = new Map();
 	private _documentLines: string[] = [];
-	readonly primaryLanguage = 'python';
+	readonly primaryLanguage: string;
 
 	get cells(): QuartoCodeCell[] {
 		return Array.from(this._cells.values());
 	}
 
-	constructor(cells: QuartoCodeCell[], documentLines: string[]) {
+	constructor(cells: QuartoCodeCell[], documentLines: string[], primaryLanguage = 'python') {
+		this.primaryLanguage = primaryLanguage;
 		for (const cell of cells) {
 			this._cells.set(cell.id, cell);
 		}
