@@ -3089,6 +3089,12 @@ declare module 'positron' {
 			 * Positron's Assistant Service automatically reads this from registered providers.
 			 */
 			settingName: string;
+			/**
+			 * Maturity status of the provider. Drives how it's presented in the
+			 * configuration modal: stable providers (no status) are listed first,
+			 * then 'preview', then 'experimental'.
+			 */
+			status?: 'preview' | 'experimental';
 		}
 
 		/**
