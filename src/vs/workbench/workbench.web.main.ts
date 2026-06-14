@@ -76,6 +76,7 @@ import '../platform/sandbox/browser/sandboxHelperService.js';
 // --- Start Positron ---
 import './services/ephemeralState/browser/ephemeralStateService.js';
 import './services/positronMemoryUsage/browser/positronMemoryUsageRemoteProvider.js';
+import './services/positronHeadlessLanguageModel/browser/headlessLanguageModelService.js';
 // --- End Positron ---
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';

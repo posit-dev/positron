@@ -116,6 +116,9 @@ import { IPositronLicenseeInfo } from '../../platform/remote/common/remoteAgentE
 import { IPositronIdleTrackingService } from '../../platform/positronIdleTracking/common/positronIdleTracking.js';
 import { PositronIdleTrackingService } from '../../platform/positronIdleTracking/node/positronIdleTrackingService.js';
 import { POSITRON_IDLE_TRACKING_CHANNEL_NAME, PositronIdleTrackingChannel } from '../../platform/positronIdleTracking/common/positronIdleTrackingIpc.js';
+import { HEADLESS_LM_ENGINE_CHANNEL } from '../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { HeadlessLanguageModelEngine } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
+import { HeadlessLanguageModelEngineChannel } from '../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -343,6 +346,11 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		// Idle Tracking
 		const idleTrackingChannel = new PositronIdleTrackingChannel(accessor.get(IPositronIdleTrackingService));
 		socketServer.registerChannel(POSITRON_IDLE_TRACKING_CHANNEL_NAME, idleTrackingChannel);
+
+		// Headless Language Model engine: in Remote SSH / web, model API calls
+		// originate from this remote host; the workbench reaches it here.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(logService);
+		socketServer.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
 		// --- End Positron ---
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());
