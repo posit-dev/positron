@@ -119,11 +119,14 @@ export function useContextKey<T extends ContextKeyValue>(key: RawContextKey<T>):
  * @returns The current value of the context key, or undefined.
  */
 export function useContextKeyFromString<T extends ContextKeyValue>(key: string): T | undefined {
-	// Read directly from the service rather than wrapping the string in a
-	// RawContextKey: a fabricated key would carry a made-up default, and the
-	// service is the source of truth for the value (including the official
-	// default registered by whoever owns the key). This cannot delegate to
-	// useScopedContextKey because that requires a real RawContextKey.
+	// We could delegate to useScopedContextKey by wrapping the string in a
+	// `new RawContextKey(key, undefined, true)`, and today it would behave
+	// identically: getValue only reads the service, never the key's default.
+	// We deliberately don't. This is a deprecated escape hatch we want to keep
+	// behaving the same even if RawContextKey/getValue semantics shift later
+	// (e.g. if getValue ever started falling back to the key's default). Reading
+	// from the service directly pins the behavior, avoids fabricating a key whose
+	// default no one reads, and needs no hide-flag to stay out of the registry.
 	const { contextKeyService } = usePositronReactServicesContext();
 	const [value, setValue] = useState<T | undefined>(() => contextKeyService.getContextKeyValue<T>(key));
 
