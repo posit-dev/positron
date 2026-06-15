@@ -215,6 +215,38 @@ describe('CellTagsBar', () => {
 		expect(outerKeyDown).not.toHaveBeenCalled();
 	});
 
+	it('keeps the focus ring in the bar by landing on a neighbor after a keyboard removal', async () => {
+		// A removed control unmounts; a keyboard user must not lose the focus ring
+		// to <body>. Arrow to the second tag's remove control and activate it.
+		const user = userEvent.setup();
+		const { cell, removeTag } = createTagCell(['keep', 'drop']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.tab();
+		await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+		expect(screen.getByRole('button', { name: 'Remove tag drop' })).toHaveFocus();
+		await user.keyboard('{Enter}');
+
+		expect(removeTag).toHaveBeenCalledWith('drop');
+		// Focus slides to the neighbor that now occupies the row, not <body>.
+		expect(screen.getByRole('button', { name: 'Edit tag keep' })).toHaveFocus();
+	});
+
+	it('returns focus to the pill after an Enter-committed edit', async () => {
+		const user = userEvent.setup();
+		const { cell } = createTagCell(['old']);
+		rtl.render(<CellTagsBar cell={cell} />);
+
+		await user.click(screen.getByRole('button', { name: 'Edit tag old' }));
+		const input = screen.getByRole('textbox');
+		await user.clear(input);
+		await user.type(input, 'new{Enter}');
+
+		// The input unmounts on commit; focus returns to the renamed pill rather
+		// than dropping to <body>.
+		expect(screen.getByRole('button', { name: 'Edit tag new' })).toHaveFocus();
+	});
+
 	it('removes a tag via its close affordance', async () => {
 		const user = userEvent.setup();
 		const { cell, removeTag } = createTagCell(['keep', 'drop']);

@@ -58,6 +58,33 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 	const tagUIVisible = useObservedValue(cell.tagUIVisible);
 	const [editingTag, setEditingTag] = React.useState<string | null>(null);
 	const barRef = React.useRef<HTMLDivElement>(null);
+	// A committed edit or a removed tag unmounts the focused control, which would
+	// drop the keyboard focus ring to <body>. removeTag / commitEdit record the
+	// tag whose pill to focus next; this effect restores it once the render commits.
+	const pendingFocusRef = React.useRef<string | null>(null);
+
+	React.useLayoutEffect(() => {
+		const pendingTag = pendingFocusRef.current;
+		pendingFocusRef.current = null;
+		const bar = barRef.current;
+		if (pendingTag === null || !bar) {
+			return;
+		}
+		// Match by tag value (not a `[data-tag="..."]` selector, which breaks on
+		// values with quotes or other selector syntax).
+		// eslint-disable-next-line no-restricted-syntax -- enumerating the bar's own tag labels to find one by value, not reaching into structure
+		const labels = Array.from(bar.querySelectorAll<HTMLButtonElement>('.positron-notebook-cell-tag-label'));
+		labels.find(label => label.dataset.tag === pendingTag)?.focus();
+	});
+
+	// True when DOM focus is currently inside the bar -- i.e. the user is driving
+	// it by keyboard, so a mutation should keep the focus ring in the bar. A
+	// mouse interaction leaves focus outside (the buttons preventDefault their
+	// mousedown), and a blur-driven commit has already moved focus away.
+	const barHasFocus = () => {
+		const bar = barRef.current;
+		return !!bar && bar.contains(bar.ownerDocument.activeElement);
+	};
 
 	// The cell owns the visibility predicate: nothing to show unless the cell has
 	// a tag or a tag-add was requested (via the command or the hover add pill),
@@ -74,9 +101,18 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 		if (result !== 'ok') {
 			return;
 		}
-		// The remove button unmounts on success; keep focus on this cell so selection
-		// chrome does not flicker onto the following cell.
-		cell.container?.focus({ preventScroll: true });
+		// The removed control unmounts. For a keyboard removal with tags left, keep
+		// the focus ring in the bar by landing on the neighbor that slides into this
+		// slot (or the new last tag). Otherwise -- a mouse removal (focus was never
+		// in the bar), or removing the last tag (the whole bar unmounts as
+		// tagUIVisible turns false) -- pin focus to the cell so selection chrome does
+		// not flicker onto the following cell.
+		const remaining = tags.filter(t => t !== tag);
+		if (barHasFocus() && remaining.length > 0) {
+			pendingFocusRef.current = remaining[Math.min(tags.indexOf(tag), remaining.length - 1)];
+		} else {
+			cell.container?.focus({ preventScroll: true });
+		}
 	};
 
 	const commitEdit = (originalTag: string, raw: string) => {
@@ -87,7 +123,14 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 			removeTag(originalTag);
 			return;
 		}
-		notifyTagResult(notificationService, cell.renameTag(originalTag, raw), raw.trim());
+		const result = cell.renameTag(originalTag, raw);
+		notifyTagResult(notificationService, result, raw.trim());
+		// Return the focus ring to the pill once the input unmounts -- but only for
+		// an Enter commit (focus still in the bar); a blur commit means the user
+		// already moved focus elsewhere. A rejected rename keeps the original tag.
+		if (barHasFocus()) {
+			pendingFocusRef.current = result === 'ok' ? raw.trim() : originalTag;
+		}
 	};
 
 	const commitAdd = (raw: string) => {
@@ -178,6 +221,9 @@ export function CellTagsBar({ cell, standalone }: { cell: IPositronNotebookCell;
 						<button
 							aria-label={localize('positron.notebook.cellTag.edit', "Edit tag {0}", tag)}
 							className='positron-notebook-cell-tag-label'
+							// Lets the focus-restoration effect find this pill by value
+							// after a neighbor is removed or this tag is renamed.
+							data-tag={tag}
 							// The first tag is the bar's tab stop (see the
 							// roving-tabindex note on handleBarKeyDown).
 							tabIndex={tag === tags[0] ? 0 : -1}
