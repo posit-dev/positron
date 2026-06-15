@@ -7,7 +7,7 @@ pylint
 pycodestyle
 pydocstyle
 prospector
-pytest
+pytest<9.1.0
 flask
 fastapi
 uvicorn
