@@ -55,6 +55,9 @@ function onExtensionCompilationEnd(): void {
 // });
 const compilations = [
 	// --- Start Positron ---
+	// Shared, generated Data Explorer protocol types consumed by the data driver extensions.
+	// Compiled here so the data driver extensions can resolve its out/ (.js + .d.ts).
+	'extensions/positron-data-explorer-protocol/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',

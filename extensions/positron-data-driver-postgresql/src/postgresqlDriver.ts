@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { PostgreSQLConnection } from './postgresqlConnection.js';
+import { PostgresDataExplorerRpcHandler } from './postgresqlDataExplorerRpcHandler.js';
 
 /**
  * Type guard for a non-empty string.
@@ -21,7 +22,8 @@ function isNonEmptyString(value: unknown): value is string {
  * @param context The extension context, used to locate the icon asset.
  */
 export function createPostgreSQLDriver(
-	context: vscode.ExtensionContext
+	context: vscode.ExtensionContext,
+	dataExplorerHandler: PostgresDataExplorerRpcHandler
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgresql.svg');
@@ -117,7 +119,7 @@ export function createPostgreSQLDriver(
 				password,
 				ssl,
 				readOnly
-			});
+			}, dataExplorerHandler);
 
 			// Connect the connection.
 			await connection.connect();
