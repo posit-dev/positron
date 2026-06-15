@@ -20,8 +20,7 @@ Summary:
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename

@@ -19,6 +19,17 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 	readOnly: true
 };
 
+// A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
+// handler would register a vscode command that collides with the activated extension's. One object
+// satisfies both the connection's host interface and the node-builder's preview-host interface.
+const noopHost = {
+	previewObject: async () => { },
+	previewColumn: async () => { },
+	openTableView: async () => { },
+	openColumnView: async () => { },
+	closeTableView: () => { },
+};
+
 // Creates a mock pg Client with configurable query results.
 function createMockClient(queryHandler?: (sql: string, params?: any[]) => { rows: any[] }): any {
 	const defaultHandler = () => ({ rows: [] });
@@ -32,7 +43,7 @@ function createMockClient(queryHandler?: (sql: string, params?: any[]) => { rows
 
 // Injects a mock client into a PostgreSQLConnection, bypassing the real pg Client.
 function createTestConnection(mockClient: any): PostgreSQLConnection {
-	const conn = new PostgreSQLConnection(TEST_CONFIG);
+	const conn = new PostgreSQLConnection(TEST_CONFIG, noopHost);
 	// eslint-disable-next-line local/code-no-any-casts
 	(conn as any)._client = mockClient;
 	return conn;
@@ -87,7 +98,7 @@ suite('PostgreSQL Driver Tests', () => {
 	});
 
 	test('connect failure throws', async () => {
-		const conn = new PostgreSQLConnection(TEST_CONFIG);
+		const conn = new PostgreSQLConnection(TEST_CONFIG, noopHost);
 		// eslint-disable-next-line local/code-no-any-casts
 		(conn as any)._client = {
 			connect: async () => { throw new Error('Connection refused'); },
@@ -204,7 +215,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const groups = await schemaNode.getChildren!();
 		assert.strictEqual(groups.length, 2);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
@@ -282,7 +293,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schemaNode);
 		const productsNode = tables.find(c => c.name === 'products')!;
 
@@ -302,10 +313,10 @@ suite('PostgreSQL Driver Tests', () => {
 		const activeField = fields.find(f => f.name === 'active')!;
 		assert.strictEqual(activeField.dataType, 'boolean');
 
-		// Field nodes should be leaves.
+		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		fields.forEach(f => {
 			assert.strictEqual(f.getChildren, undefined);
-			assert.strictEqual(f.preview, undefined);
+			assert.strictEqual(typeof f.preview, 'function');
 		});
 	});
 
@@ -327,7 +338,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schemaNode = createSchemaNode(mock, 'public');
+		const schemaNode = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schemaNode);
 		const productsNode = tables.find(c => c.name === 'products')!;
 
@@ -365,7 +376,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'text[]');
@@ -392,7 +403,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'order_status');
@@ -419,7 +430,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		const fields = await columnsOf(tables[0]);
 		assert.strictEqual(fields[0].dataType, 'numeric(18)');
@@ -448,7 +459,7 @@ suite('PostgreSQL Driver Tests', () => {
 			return { rows: [] };
 		});
 
-		const schema = createSchemaNode(mock, 'public');
+		const schema = createSchemaNode(mock, noopHost, 'public');
 		const tables = await tablesOf(schema);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();

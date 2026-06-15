@@ -21,7 +21,7 @@
 }
 
 .language-model.button-container .language-model.button {
-	width: 110px;
+	width: 124px;
 }
 
 .language-model.button .vertical-stack {
@@ -51,6 +51,17 @@
 
 .language-model.button .content {
 	align-items: center;
+}
+
+/* Matches the Settings editor's preview/experimental tag (.setting-item-preview). */
+.language-model.button-status {
+	align-self: center;
+	margin-top: 4px;
+	padding: 0 4px 2px;
+	border-radius: 4px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-style: italic;
 }
 
 .language-model.button.disabled {
