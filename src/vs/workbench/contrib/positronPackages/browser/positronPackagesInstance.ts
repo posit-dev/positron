@@ -29,6 +29,14 @@ export interface IPositronPackagesInstance {
 
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
 
+	/**
+	 * Fires after a successful install or update with the names of the packages
+	 * the operation added or changed, so the view can scroll to and highlight
+	 * them. For install/update these are the requested packages; for update-all
+	 * they are the packages whose version actually changed.
+	 */
+	readonly onDidChangePackages: Event<string[]>;
+
 	readonly onDidChangeRefreshState: Event<boolean>;
 
 	readonly onDidChangeInstallState: Event<boolean>;
@@ -67,6 +75,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private readonly _onDidRefreshPackagesInstance = this._register(new Emitter<ILanguageRuntimePackage[]>());
 
+	private readonly _onDidChangePackages = this._register(new Emitter<string[]>());
+
 	private readonly _onDidChangeRefreshState = this._register(new Emitter<boolean>());
 
 	private readonly _onDidChangeInstallState = this._register(new Emitter<boolean>());
@@ -99,6 +109,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	readonly onDidRefreshPackagesInstance = this._onDidRefreshPackagesInstance.event;
+
+	readonly onDidChangePackages = this._onDidChangePackages.event;
 
 	readonly onDidChangeRefreshState = this._onDidChangeRefreshState.event;
 
@@ -310,6 +322,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// Highlight the requested packages in the view. Dependencies the
+			// package manager pulled in are not in `packages`, so they are
+			// intentionally excluded.
+			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -354,6 +371,9 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// Highlight the updated packages in the view.
+			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -367,6 +387,10 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
 
+		// Snapshot installed versions before the update so we can report which
+		// packages actually changed once the refresh completes.
+		const versionsBefore = new Map(this._packages.map((pkg) => [pkg.name, pkg.version]));
+
 		try {
 			await packageManager.updateAllPackages(effectiveToken);
 			if (effectiveToken.isCancellationRequested) {
@@ -379,6 +403,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// Highlight every package whose version changed. Update-all may
+			// leave many packages untouched (already current), so diffing
+			// against the pre-update snapshot avoids flashing the whole list.
+			const changed = this._packages
+				.filter((pkg) => versionsBefore.get(pkg.name) !== pkg.version)
+				.map((pkg) => pkg.name);
+			this._onDidChangePackages.fire(changed);
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);

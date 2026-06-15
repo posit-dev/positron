@@ -216,4 +216,34 @@ describe('PositronPackagesInstance disk-cache integration', () => {
 			pandas: { version: '2.0.0', outdated: true, latestVersion: '2.2.0' },
 		});
 	});
+
+	it('fires onDidChangePackages with the requested names after install', async () => {
+		const instance = makeInstance();
+		const fired = waitForEvents(instance.onDidChangePackages, 1);
+		await instance.installPackages([{ name: 'requests' }], CancellationToken.None);
+
+		expect(await fired).toEqual([['requests']]);
+	});
+
+	it('fires onDidChangePackages with the requested names after update', async () => {
+		const instance = makeInstance();
+		const fired = waitForEvents(instance.onDidChangePackages, 1);
+		await instance.updatePackages([{ name: 'numpy' }], CancellationToken.None);
+
+		expect(await fired).toEqual([['numpy']]);
+	});
+
+	it('fires onDidChangePackages with only the version-changed packages after updateAll', async () => {
+		const instance = makeInstance();
+		// Seed the pre-update snapshot (numpy 1.26.0, pandas 2.0.0).
+		await instance.refreshPackages();
+
+		// After update-all the kernel reports a new numpy but an unchanged pandas.
+		getPackages.mockResolvedValue([pkg('numpy', '2.1.0'), pkg('pandas', '2.0.0')]);
+
+		const fired = waitForEvents(instance.onDidChangePackages, 1);
+		await instance.updateAllPackages(CancellationToken.None);
+
+		expect(await fired).toEqual([['numpy']]);
+	});
 });
