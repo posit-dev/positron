@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { expect } from '@playwright/test';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
