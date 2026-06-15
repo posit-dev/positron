@@ -227,6 +227,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronDataConnections",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronOutputWebview",
 			"project": "vscode-workbench"
 		},

@@ -93,6 +93,26 @@ function createTestCache(): ITestDiscoveryCache {
 				buckets.set(bucketKey(extId, langId), { ...bucket, entries: filtered });
 			}
 		},
+		upsert: async (md: ILanguageRuntimeMetadata) => {
+			const key = bucketKey(md.extensionId.value, md.languageId);
+			const bucket = buckets.get(key);
+			const entry: ICachedRuntime = {
+				metadata: md,
+				fingerprint: { size: 1, mtimeMs: 1, ctimeMs: 1 },
+				resolvedPath: md.runtimePath,
+				firstSeen: Date.now(),
+				lastValidated: Date.now(),
+			};
+			const others = (bucket?.entries ?? []).filter(e => e.metadata.runtimePath !== md.runtimePath);
+			buckets.set(key, {
+				extensionId: md.extensionId.value,
+				languageId: md.languageId,
+				entries: [...others, entry],
+				lastFullDiscovery: bucket?.lastFullDiscovery ?? 0,
+				discoveryRootSignature: bucket?.discoveryRootSignature,
+			});
+			return entry;
+		},
 		markValidated: () => true,
 		sessionCounters: counters,
 		setBucket(bucket: IDiscoveryCacheBucket) {
@@ -131,6 +151,13 @@ interface IManagerOptions {
 	 */
 	contributions?: IHostedLanguageContribution[];
 	contributionsBehavior?: 'normal' | 'throws';
+	/**
+	 * Override for `validateMetadata`. Defaults to the identity function. Set
+	 * this to model R's `current`-redirect, where revalidating a cached
+	 * `current: true` entry returns metadata for a *different* binary (wherever
+	 * the rig `current`/`Current` symlink now points).
+	 */
+	validate?: (m: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>;
 }
 
 function makeManager(opts: IManagerOptions): IRuntimeManager {
@@ -147,7 +174,7 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 		markDiscoveryComplete: () => { /* no-op for unit test */ },
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
-		validateMetadata: async (m) => m,
+		validateMetadata: opts.validate ?? (async (m) => m),
 		getDiscoveryRootSignature: async (extensionId: string, languageId: string) => {
 			if (opts.rootSignatureBehavior === 'throws') {
 				throw new Error('boom');
@@ -767,6 +794,99 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			await loadFromDiscoveryCache(svc, new Set());
 
 			expect(registeredPaths().sort()).toEqual(['/usr/bin/python3', '/usr/local/bin/R']);
+		});
+	});
+
+	describe('background revalidation key migration', () => {
+		// `revalidateOne` is private; test via string-index access.
+		function revalidateOne(svc: RuntimeStartupService, task: {
+			extensionId: string;
+			languageId: string;
+			metadata: ILanguageRuntimeMetadata;
+			freshFingerprint: IRuntimeFingerprint;
+		}): Promise<void> {
+			return (svc as unknown as {
+				revalidateOne: (t: typeof task) => Promise<void>;
+			}).revalidateOne(task);
+		}
+
+		it('evicts the stale key when a current-version entry is redirected to a new binary', async () => {
+			// Models the rig bug: a cached `current: true` R entry for the
+			// formerly-default version (4.5.2) is revalidated, and R's
+			// validateMetadata re-resolves "current" to wherever the rig
+			// `current` symlink now points (4.6.0). The cache is keyed by
+			// runtimePath, so without evicting the old key the cache would keep
+			// BOTH the stale 4.5.2 entry and the new 4.6.0 entry across sessions.
+			const oldMd = metadata({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/opt/R/4.5.2/bin/R',
+				runtimeId: 'r-452',
+			});
+			const newMd = metadata({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/opt/R/4.6.0/bin/R',
+				runtimeId: 'r-460',
+			});
+			cache.setBucket(makeBucket({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/opt/R/4.5.2/bin/R',
+				runtimeId: 'r-452',
+			}));
+
+			const svc = makeService();
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 1,
+				owns: [oldMd],
+				validate: async () => newMd,
+			})));
+
+			await revalidateOne(svc, {
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				metadata: oldMd,
+				freshFingerprint: { size: 2, mtimeMs: 2, ctimeMs: 2 },
+			});
+
+			// Only the redirected entry survives; the stale 4.5.2 key is gone.
+			expect(cache.getEntries('positron.positron-r', 'r').map(e => e.metadata.runtimePath))
+				.toEqual(['/opt/R/4.6.0/bin/R']);
+		});
+
+		it('does not evict when the entry is revalidated in place (same path)', async () => {
+			// A normal fingerprint refresh (e.g. in-place R upgrade at the same
+			// path) must not trip the eviction branch.
+			const md = metadata({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/opt/R/4.6.0/bin/R',
+				runtimeId: 'r-460',
+			});
+			cache.setBucket(makeBucket({
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				runtimePath: '/opt/R/4.6.0/bin/R',
+				runtimeId: 'r-460',
+			}));
+
+			const svc = makeService();
+			ctx.disposables.add(svc.registerRuntimeManager(makeManager({
+				id: 1,
+				owns: [md],
+				validate: async (m) => m,
+			})));
+
+			await revalidateOne(svc, {
+				extensionId: 'positron.positron-r',
+				languageId: 'r',
+				metadata: md,
+				freshFingerprint: { size: 2, mtimeMs: 2, ctimeMs: 2 },
+			});
+
+			expect(cache.getEntries('positron.positron-r', 'r').map(e => e.metadata.runtimePath))
+				.toEqual(['/opt/R/4.6.0/bin/R']);
 		});
 	});
 
