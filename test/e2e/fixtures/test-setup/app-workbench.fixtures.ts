@@ -11,7 +11,7 @@ import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContain
 
 export { RunResult };
 
-const CONTAINER_NAME = 'wb-test';
+const CONTAINER_NAME = 'test';
 
 /**
  * Workbench Positron session (Docker on port 8787)
