@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../_test.setup';
-import { test, expect } from './_test.setup.js';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
