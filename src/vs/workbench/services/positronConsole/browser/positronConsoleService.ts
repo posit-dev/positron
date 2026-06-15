@@ -43,6 +43,7 @@ import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js'
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
@@ -298,9 +299,28 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console. The monitor appears in the session list when multiple sessions are running, or in the console action bar when a single session is running."),
+		},
+		// Whether to show Assistant-powered actions (Fix, Explain) on console errors
+		'console.assistantActions.enabled': {
+			type: 'boolean',
+			default: true,
+			description: localize('positron.console.assistantActions.enabled', "Enable Assistant-powered console actions, such as Fix and Explain."),
+			tags: ['preview'],
 		}
 	}
 });
+
+// Migrate the legacy setting key (previously contributed by the built-in
+// positron-assistant extension) to the new core-owned key, preserving any
+// value the user had set.
+Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.ConfigurationMigration)
+	.registerConfigurationMigrations([{
+		key: 'positron.assistant.consoleActions.enable',
+		migrateFn: (value: boolean) => [
+			['console.assistantActions.enabled', { value }],
+			['positron.assistant.consoleActions.enable', { value: undefined }],
+		],
+	}]);
 
 /**
  * PositronConsoleService class.
