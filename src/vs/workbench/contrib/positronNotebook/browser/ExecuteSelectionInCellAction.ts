@@ -11,6 +11,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IRuntimeNotebookKernelService } from '../../runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
@@ -94,6 +95,7 @@ export class ExecuteSelectionInCellAction extends NotebookAction2 {
 		const commandService = accessor.get(ICommandService);
 		const runtimeNotebookKernelService = accessor.get(IRuntimeNotebookKernelService);
 		const notificationService = accessor.get(INotificationService);
+		const logService = accessor.get(ILogService);
 
 		const cell = getActiveCell(notebook.selectionStateMachine.state.get());
 		if (!cell?.isCodeCell()) {
@@ -119,10 +121,12 @@ export class ExecuteSelectionInCellAction extends NotebookAction2 {
 		try {
 			await runtimeNotebookKernelService.executeCodeInCell(notebook.uri, cell.handle, code);
 		} catch (err) {
+			// The underlying error messages carry internal detail (URIs, etc.)
+			// that isn't useful to the user; log them and show a clean message.
+			logService.error(`Run Selection in Cell failed: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
 			notificationService.error(localize(
 				'positron.notebook.executeSelection.failed',
-				"Could not run the selected code: {0}",
-				err instanceof Error ? err.message : String(err)
+				"Could not run the selected code."
 			));
 		}
 	}

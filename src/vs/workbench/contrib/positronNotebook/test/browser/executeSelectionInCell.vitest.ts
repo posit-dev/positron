@@ -14,6 +14,7 @@ import { createTextModel } from '../../../../../editor/test/common/testTextModel
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
@@ -141,10 +142,12 @@ describe('ExecuteSelectionInCellAction', () => {
 			.mockResolvedValue(undefined);
 		const executeCommand = vi.fn().mockResolvedValue(undefined);
 		const notifyError = vi.fn();
+		const logError = vi.fn();
 		const services = new Map<unknown, unknown>([
 			[IRuntimeNotebookKernelService, { executeCodeInCell }],
 			[ICommandService, { executeCommand }],
 			[INotificationService, { error: notifyError }],
+			[ILogService, { error: logError }],
 		]);
 		const accessor: ServicesAccessor = {
 			get: <T>(id: unknown): T => {
@@ -154,7 +157,7 @@ describe('ExecuteSelectionInCellAction', () => {
 				return services.get(id) as T;
 			},
 		};
-		return { accessor, executeCodeInCell, executeCommand, notifyError };
+		return { accessor, executeCodeInCell, executeCommand, notifyError, logError };
 	}
 
 	it('declares the Cmd/Ctrl+Shift+Enter keybinding scoped to focused code cell editors', () => {
@@ -245,15 +248,19 @@ describe('ExecuteSelectionInCellAction', () => {
 			.toBeLessThan(executeCodeInCell.mock.invocationCallOrder[0]);
 	});
 
-	it('notifies the user when execution fails to start', async () => {
+	it('logs the failure detail but shows a clean message when execution fails', async () => {
 		const editor = createEditor('flights', new Selection(1, 1, 1, 8));
 		const cell = createCodeCell(5, editor);
 		const notebook = createNotebook(cell);
-		const { accessor, executeCodeInCell, notifyError } = createServices();
-		executeCodeInCell.mockRejectedValue(new Error('no kernel'));
+		const { accessor, executeCodeInCell, notifyError, logError } = createServices();
+		executeCodeInCell.mockRejectedValue(new Error('no selected kernel: file:///test.ipynb'));
 
 		await new TestableExecuteSelectionInCellAction().testRun(notebook, accessor);
 
+		// The user-facing toast is self-contained and must not leak the raw
+		// internal error (URIs, etc.); that detail goes to the log instead.
 		expect(notifyError).toHaveBeenCalledOnce();
+		expect(notifyError.mock.calls[0][0]).not.toContain('file:///');
+		expect(logError).toHaveBeenCalledOnce();
 	});
 });
