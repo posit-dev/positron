@@ -17,11 +17,11 @@ test.describe('Data Explorer - Sparklines', {
 		await hotKeys.stackedLayout();
 	});
 
-	test.afterEach(async ({ hotKeys }) => {
+	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python Pandas - Verify downward trending graph', async ({ app, executeCode, hotKeys, python }) => {
+	test('Python Pandas - Verify downward trending graph', async function ({ app, executeCode, hotKeys, python }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await executeCode('Python', pythonScript);
@@ -37,7 +37,7 @@ test.describe('Data Explorer - Sparklines', {
 	});
 
 
-	test('R - Verify downward trending graph', async ({ app, executeCode, hotKeys, r }) => {
+	test('R - Verify downward trending graph', async function ({ app, executeCode, hotKeys, r }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await executeCode('R', rScript);

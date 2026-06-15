@@ -12,7 +12,7 @@ test.describe('Positron Notebooks: ipywidgets', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test.beforeEach(async ({ app }) => {
+	test.beforeEach(async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 		await notebooks.createNewNotebook();
 		await notebooksPositron.expectCellCountToBe(1);

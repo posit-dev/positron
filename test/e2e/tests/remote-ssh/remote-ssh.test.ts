@@ -29,7 +29,7 @@ test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
 }, () => {
 
-	test.beforeAll(async ({ settings }) => {
+	test.beforeAll(async function ({ settings }) {
 
 		try {
 			sshKeyscan('127.0.0.1', 3456, '/tmp/known_hosts');

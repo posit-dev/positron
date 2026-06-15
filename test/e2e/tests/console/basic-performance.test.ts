@@ -14,7 +14,7 @@ test.describe('Console Performance', {
 	tag: [tags.SESSIONS, tags.CONSOLE, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python Performance - Console loads under 30 seconds', async ({ app, python, sessions }) => {
+	test('Python Performance - Console loads under 30 seconds', async function ({ app, python, sessions }) {
 		const start = Date.now();
 		await sessions.expectAllSessionsToBeReady();
 		const end = Date.now();
@@ -23,7 +23,7 @@ test.describe('Console Performance', {
 		expect(loadTime).toBeLessThan(30);
 	});
 
-	test('R Performance - Console loads under 30 seconds', { tag: [tags.ARK] }, async ({ app, r, sessions }) => {
+	test('R Performance - Console loads under 30 seconds', { tag: [tags.ARK] }, async function ({ app, r, sessions }) {
 		const start = Date.now();
 		await sessions.expectAllSessionsToBeReady();
 		const end = Date.now();

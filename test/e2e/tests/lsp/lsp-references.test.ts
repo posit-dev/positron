@@ -16,7 +16,7 @@ test.describe('References', {
 	tag: [tags.PYREFLY, tags.WEB]
 }, () => {
 
-	test.afterEach(async ({ app, runCommand }) => {
+	test.afterEach(async function ({ app, runCommand }) {
 
 		await app.workbench.references.close();
 		await runCommand('workbench.action.closeAllEditors');

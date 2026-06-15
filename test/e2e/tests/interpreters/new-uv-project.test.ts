@@ -20,7 +20,7 @@ test.describe('New uv Environment', {
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { reload: 'web' });
 	});
 
-	test.afterAll(async () => {
+	test.afterAll(async function () {
 		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
 		try {
 			await fs.rm(projPath, { recursive: true, force: true });

@@ -53,7 +53,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
 	});
 
-	test('Quarto Shiny App renders correctly', async ({ app, openFile }) => {
+	test('Quarto Shiny App renders correctly', async function ({ app, openFile }) {
 		await openFile(join('workspaces', 'quarto_shiny', 'mini-app.qmd'));
 		await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
 		await app.code.driver.currentPage

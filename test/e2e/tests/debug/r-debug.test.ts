@@ -46,7 +46,7 @@ test.describe('R Debugging', {
 		await app.workbench.console.clearButton.click();
 	});
 
-	test('R - Verify call stack behavior and order', async ({ app, page }) => {
+	test('R - Verify call stack behavior and order', async function ({ app, page }) {
 		const { debug, console, editors } = app.workbench;
 
 		// Trigger the breakpoint
@@ -125,7 +125,7 @@ test.describe('R Debugging', {
 			await console.waitForConsoleContents('Found 2 fruits!');
 		});
 
-	test('R - Verify debugging with `browser()` via console', async ({ app, page, openFile, runCommand, executeCode }) => {
+	test('R - Verify debugging with `browser()` via console', async function ({ app, page, openFile, runCommand, executeCode }) {
 		const { debug, console } = app.workbench;
 
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
@@ -157,7 +157,7 @@ test.describe('R Debugging', {
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
-	test('R - Verify debugging with `browser()` via debugging UI tools', async ({ app, page, openFile, runCommand, executeCode }) => {
+	test('R - Verify debugging with `browser()` via debugging UI tools', async function ({ app, page, openFile, runCommand, executeCode }) {
 		const { debug, console } = app.workbench;
 
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
@@ -186,7 +186,7 @@ test.describe('R Debugging', {
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
-	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
+	test('R - Verify debugging with `debugonce()` pauses only once', async function ({ app, page, executeCode, openFile, runCommand }) {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/fruit_avg.r');
@@ -220,11 +220,11 @@ test.describe('R Breakpoints', {
 }, () => {
 	let breakpointSession: SessionMetaData;
 
-	test.beforeAll(async ({ sessions }) => {
+	test.beforeAll(async function ({ sessions }) {
 		breakpointSession = await sessions.start('r');
 	});
 
-	test.afterEach(async ({ app, page, hotKeys, cleanup }) => {
+	test.afterEach(async function ({ app, page, hotKeys, cleanup }) {
 		// Focus the console
 		await app.workbench.console.focus();
 
@@ -286,7 +286,7 @@ test.describe('R Breakpoints', {
 		await console.waitForReady('>');
 	});
 
-	test('R - Verify breakpoints in dirty (unsaved) documents', async ({ app, page, openFile, hotKeys }) => {
+	test('R - Verify breakpoints in dirty (unsaved) documents', async function ({ app, page, openFile, hotKeys }) {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/breakpoint_test.r');
@@ -443,7 +443,7 @@ test.describe('R Breakpoints', {
 		await console.waitForReady('>');
 	});
 
-	test('R - Verify editing file while at breakpoint invalidates breakpoints', async ({ app, page, openFile, hotKeys }) => {
+	test('R - Verify editing file while at breakpoint invalidates breakpoints', async function ({ app, page, openFile, hotKeys }) {
 		const { debug, console } = app.workbench;
 
 		await openFile('workspaces/r-debugging/breakpoint_test.r');

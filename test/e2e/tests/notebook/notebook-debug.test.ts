@@ -31,17 +31,17 @@ test.describe('Notebook Debugging', {
 	tag: [tags.DEBUG, tags.NOTEBOOKS, tags.WEB, tags.WIN]
 }, () => {
 
-	test.beforeEach(async ({ app }) => {
+	test.beforeEach(async function ({ app }) {
 		await app.workbench.notebooks.createNewNotebook();
 		await app.workbench.notebooks.selectInterpreter('Python');
 	});
 
-	test.afterEach(async ({ app }) => {
+	test.afterEach(async function ({ app }) {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();
 	});
 
 	// Single, simpler test that covers it all basics, instead of many separate and redundant tests.
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger, hotKeys }) => {
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async function ({ app, logger, hotKeys }) {
 		const code = [
 			'# Initialize variables',
 			'x = 10',

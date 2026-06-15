@@ -31,7 +31,7 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB, t
 
 	for (const { language, testLine, prompt, restartRegex, extraTags } of testCases) {
 
-		test(`${language} - Verify copy from console & paste to console`, { tag: extraTags }, async ({ app, sessions, hotKeys }) => {
+		test(`${language} - Verify copy from console & paste to console`, { tag: extraTags }, async function ({ app, sessions, hotKeys }) {
 			const { console, clipboard } = app.workbench;
 
 			// start a new session

@@ -38,7 +38,7 @@ test.describe('Data Explorer - Histogram Rounding', {
   tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
-  test.afterEach(async ({ hotKeys }) => {
+  test.afterEach(async function ({ hotKeys }) {
     await hotKeys.closeAllEditors();
   });
 
@@ -86,7 +86,7 @@ test.describe('Data Explorer - Histogram Rounding', {
   ];
 
   for (const testCase of cases) {
-    test(testCase.name, async ({ app, python }) => {
+    test(testCase.name, async function ({ app, python }) {
       const { dataExplorer, variables, editors } = app.workbench;
       await app.workbench.console.pasteCodeToConsole(testCase.python, true);
 

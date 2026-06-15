@@ -14,7 +14,7 @@ test.describe.skip('Restart Host Extension', {
 	annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 }, () => {
 
-	test.afterEach(async ({ app }) => {
+	test.afterEach(async function ({ app }) {
 		await app.workbench.sessions.deleteAll();
 	});
 

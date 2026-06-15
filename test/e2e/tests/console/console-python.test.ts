@@ -11,11 +11,11 @@ test.use({
 
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
-	test.beforeAll(async ({ settings }) => {
+	test.beforeAll(async function ({ settings }) {
 		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true, waitMs: 1000 });
 	});
 
-	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
+	test('Verify alternate python can skip bundled ipykernel', async function ({ app, sessions }) {
 		await sessions.start('pythonAlt');
 		await sessions.clearConsoleAllSessions();
 		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');

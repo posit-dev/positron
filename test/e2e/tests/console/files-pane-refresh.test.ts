@@ -14,7 +14,7 @@ test.use({
 
 test.describe('Files Pane Refresh', { tag: [tags.WEB, tags.WORKBENCH, tags.CONSOLE, tags.JUPYTER] }, () => {
 
-	test.afterAll(async ({ cleanup }) => {
+	test.afterAll(async function ({ cleanup }) {
 		await cleanup.removeTestFiles(['file.txt']);
 	});
 

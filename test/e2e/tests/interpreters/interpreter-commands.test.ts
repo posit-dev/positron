@@ -27,7 +27,7 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 	tag: [tags.WEB, tags.INTERPRETER]
 }, () => {
 
-	test.afterEach(async ({ app }) => {
+	test.afterEach(async function ({ app }) {
 		await app.workbench.sessions.deleteAll();
 	});
 

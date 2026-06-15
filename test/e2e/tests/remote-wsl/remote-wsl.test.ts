@@ -89,7 +89,7 @@ test.describe('Remote WSL', {
 	tag: [tags.REMOTE_WSL]
 }, () => {
 
-	test.beforeAll(async ({ settings }) => {
+	test.beforeAll(async function ({ settings }) {
 		// `remote.WSL.serverDownloadUrlTemplate` is an application-scoped setting, so it must live in
 		// user settings (which `settings.set` writes). The WSL resolver reads it when installing the
 		// server inside the distro.
