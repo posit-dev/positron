@@ -386,6 +386,8 @@ describe('TokenMarkdownRenderer - Footnotes', () => {
 			const anchors = refs.map(findChildAnchor);
 			const sections = findElements(elements, el => el.props.className === 'footnotes');
 			expect(sections).toHaveLength(1);
+			// The id filter keeps only the definition <li>s (e.g. id "fn-1"); content
+			// <li>s from a footnote body's own list have no id and must be excluded.
 			const definitionIds = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string')
 				.map(li => li.props.id);
 
