@@ -271,6 +271,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			if (preRender?.settings) {
 				const preRenderPlot = plotResultToRenderedPlot(preRender as PlotResult & { settings: NonNullable<PlotResult['settings']> });
 
+				// Capture the current render request BEFORE updating _lastRender; otherwise
+				// the fallback `?? this._lastRender` below would compare against the pre-render
+				// itself and always short-circuit, never queuing a full re-render.
+				const currentRenderRequest = this._currentRender?.renderRequest ?? this._lastRender;
+
 				// Store the pre-rendering as the last render
 				this._lastRender = preRenderPlot;
 
@@ -281,8 +286,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 				this._renderUpdateEmitter.fire(preRenderPlot);
 
 				// Check if the current render settings match
-				const currentRenderRequest = this._currentRender?.renderRequest ?? this._lastRender;
-
 				if (currentRenderRequest && this.settingsEqual(
 					preRender.settings,
 					currentRenderRequest
@@ -309,15 +312,19 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._register(this._commProxy.onDidShowPlot(async (evt) => {
 			const preRender = evt.pre_render;
 
-			// If there's a pre-rendering, use it for immediate display
+			// If there's a pre-rendering with new content, use it for immediate display.
+			// For brand-new plots, comm_open already placed the same pre-render in _lastRender
+			// via the constructor, so the URIs match and we skip the redundant DOM update.
 			if (preRender?.settings) {
 				const preRenderPlot = plotResultToRenderedPlot(preRender as PlotResult & { settings: NonNullable<PlotResult['settings']> });
 
-				// Store the pre-rendering as the last render
-				this._lastRender = preRenderPlot;
+				if (preRenderPlot.uri !== this._lastRender?.uri) {
+					// Store the pre-rendering as the last render
+					this._lastRender = preRenderPlot;
 
-				// Fire the complete render event to update the plot display
-				this._completeRenderEmitter.fire(preRenderPlot);
+					// Fire the complete render event to update the plot display
+					this._completeRenderEmitter.fire(preRenderPlot);
+				}
 			}
 
 			this._didShowPlotEmitter.fire();
