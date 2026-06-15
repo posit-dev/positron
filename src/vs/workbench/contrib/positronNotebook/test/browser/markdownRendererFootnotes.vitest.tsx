@@ -379,8 +379,8 @@ describe('TokenMarkdownRenderer - Footnotes', () => {
 			// Each definition anchor exists exactly once in the footnotes section.
 			const sections = findElements(elements, el => el.props.className === 'footnotes');
 			expect(sections).toHaveLength(1);
-			const lis = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string');
-			expect(lis.map(li => li.props.id)).toEqual(['fn-1', 'fn-long']);
+			const footnote_lis = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string');
+			expect(footnote_lis.map(li => li.props.id)).toEqual(['fn-1', 'fn-long']);
 		});
 
 		it('repeated references resolve to the same footnote with unique ref anchor IDs', () => {
