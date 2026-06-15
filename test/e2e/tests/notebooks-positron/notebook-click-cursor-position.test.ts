@@ -23,7 +23,7 @@ test.use({
 // the line's own text (not its DOM/array index), so it does not depend on the
 // order Monaco renders .view-line elements in.
 test.describe('Notebook Click-to-Cursor Position', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {

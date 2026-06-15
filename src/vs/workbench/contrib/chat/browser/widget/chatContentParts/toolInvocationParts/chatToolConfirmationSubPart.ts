@@ -157,11 +157,7 @@ export class ToolConfirmationSubPart extends AbstractToolConfirmationSubPart {
 			return message;
 		} else {
 			const codeBlockRenderOptions: ICodeBlockRenderOptions = {
-				// --- Start Positron ---
-				// Show the toolbar for code execution tool confirmations to allow copy/apply in editor
-				// Original upstream: hideToolbar: true,
-				hideToolbar: toolInvocation.toolId !== 'executeCode',
-				// --- End Positron ---
+				hideToolbar: true,
 				reserveWidth: 19,
 				verticalPadding: 5,
 				editorOptions: {

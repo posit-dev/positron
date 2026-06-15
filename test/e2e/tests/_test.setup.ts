@@ -36,6 +36,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	useLegacyNotebookEditor: [false, { scope: 'worker', option: true }],
 
+	enableDataConnections: [false, { scope: 'worker', option: true }],
+
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
@@ -102,7 +104,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
 			if (useLegacyNotebookEditor) {
 				// These tests exercise the legacy (VS Code) notebook editor. The
 				// Positron notebook editor is now the default, so disable it before
@@ -111,12 +113,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				await settingsFile.append({ 'positron.notebook.enabled': false });
 			}
 
+			if (enableDataConnections) {
+				// The Data Connections panel is a preview feature gated behind this
+				// setting, which requires a reload to take effect. Enable it before the
+				// app starts so no reload is needed. Suites opt in with
+				// `test.use({ enableDataConnections: true })`.
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections });
 
 		try {
 			await start();
@@ -533,6 +543,7 @@ export interface WorkerFixtures {
 	suiteId: string;
 	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
 	useLegacyNotebookEditor: boolean;
+	enableDataConnections: boolean;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

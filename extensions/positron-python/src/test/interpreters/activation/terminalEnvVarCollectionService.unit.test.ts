@@ -177,14 +177,20 @@ suite('Terminal Environment Variable Collection Service', () => {
         const applyCollectionStub = sinon.stub(terminalEnvVarCollectionService, '_applyCollection');
         applyCollectionStub.resolves();
         const resource = Uri.file('x');
-        let callback: (resource: Resource) => Promise<void>;
+        // --- Start Positron ---
+        // The listener callback now receives an InterpreterChangeEvent (payload split), not a bare
+        // Resource. The service extracts event.resource before passing to _applyCollection.
+        let callback: (event: { resource: Resource; startSession: boolean; source: string }) => Promise<void>;
+        // --- End Positron ---
         when(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).thenCall((cb) => {
             callback = cb;
         });
         when(applicationEnvironment.onDidChangeShell(anything(), anything(), anything())).thenReturn();
         await terminalEnvVarCollectionService.activate(undefined);
 
-        await callback!(resource);
+        // --- Start Positron ---
+        await callback!({ resource, startSession: true, source: 'quickpick' });
+        // --- End Positron ---
         assert(applyCollectionStub.calledWithExactly(resource));
     });
 

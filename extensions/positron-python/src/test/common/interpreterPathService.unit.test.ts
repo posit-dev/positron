@@ -158,10 +158,20 @@ suite('Interpreter Path Service', async () => {
 
         const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
         interpreterPathService._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        // --- Start Positron ---
+        // Payload now carries startSession/source; default for .update() is true/'unspecified'.
         _didChangeInterpreterEmitter
-            .setup((emitter) => emitter.fire({ uri: resource, configTarget: ConfigurationTarget.Workspace }))
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: resource,
+                    configTarget: ConfigurationTarget.Workspace,
+                    startSession: true,
+                    source: 'unspecified',
+                }),
+            )
             .returns(() => undefined)
             .verifiable(TypeMoq.Times.once());
+        // --- End Positron ---
 
         await interpreterPathService.update(resource, ConfigurationTarget.Workspace, interpreterPath);
 
@@ -223,10 +233,19 @@ suite('Interpreter Path Service', async () => {
 
         const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
         interpreterPathService._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        // --- Start Positron ---
         _didChangeInterpreterEmitter
-            .setup((emitter) => emitter.fire({ uri: resource, configTarget: ConfigurationTarget.WorkspaceFolder }))
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: resource,
+                    configTarget: ConfigurationTarget.WorkspaceFolder,
+                    startSession: true,
+                    source: 'unspecified',
+                }),
+            )
             .returns(() => undefined)
             .verifiable(TypeMoq.Times.once());
+        // --- End Positron ---
 
         await interpreterPathService.update(resource, ConfigurationTarget.WorkspaceFolder, interpreterPath);
 
@@ -466,10 +485,21 @@ suite('Interpreter Path Service', async () => {
             .returns(() => true)
             .verifiable(TypeMoq.Times.once());
         interpreterPathService._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        // --- Start Positron ---
+        // Config changes are always session intent: the extension never writes
+        // `python.defaultInterpreterPath` itself in Positron, so every fire is a real edit.
         _didChangeInterpreterEmitter
-            .setup((emitter) => emitter.fire({ uri: undefined, configTarget: ConfigurationTarget.Global }))
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: undefined,
+                    configTarget: ConfigurationTarget.Global,
+                    startSession: true,
+                    source: 'config-change',
+                }),
+            )
             .returns(() => undefined)
             .verifiable(TypeMoq.Times.once());
+        // --- End Positron ---
         await interpreterPathService.onDidChangeConfiguration(event.object);
         _didChangeInterpreterEmitter.verifyAll();
         event.verifyAll();
