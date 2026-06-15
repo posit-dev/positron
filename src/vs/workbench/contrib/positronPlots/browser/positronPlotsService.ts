@@ -1140,13 +1140,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param id The ID of the plot to remove
 	 */
 	removePlot(id: string): void {
-		// Find the plot with the given ID and dispose it
-		this._plots.forEach((plot, index) => {
-			if (plot.id === id) {
-				this.unregisterPlotClient(plot);
-				this._plots.splice(index, 1);
-			}
-		});
+		// Find the plot with the given ID, remove it from the list, and dispose
+		// it. We remove the plot from the list *before* disposing it: disposing
+		// a PlotClientInstance also removes it from the list (see
+		// registerPlotClient), so splicing by index after disposal could remove
+		// the wrong plot once the array had shifted.
+		const index = this._plots.findIndex(plot => plot.id === id);
+		if (index >= 0) {
+			const plot = this._plots[index];
+			this._plots.splice(index, 1);
+			this.unregisterPlotClient(plot);
+		}
 
 		// If this plot was selected, select the first plot in the list
 		if (this._selectedPlotId === id) {
