@@ -1921,12 +1921,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return existingOptions;
 		}
 
-		const options = new BaseCellEditorOptions({
+		const options = this._register(new BaseCellEditorOptions({
 			onDidChangeModel: this.onDidChangeModel,
 			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
-		}, this.notebookOptions, this.configurationService, language);
+		}, this.notebookOptions, this.configurationService, language));
 		this._baseCellEditorOptions.set(language, options);
 		this._recomputeLineNumberWidth();
 		return options;
