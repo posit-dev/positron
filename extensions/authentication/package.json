@@ -19,6 +19,7 @@
 		"onAuthenticationRequest:openai-compatible",
 		"onAuthenticationRequest:google",
 		"onAuthenticationRequest:google-cloud",
+		"onAuthenticationRequest:deepseek-api",
 		"onCommand:authentication.configureProviders",
 		"onCommand:authentication.migrateApiKey"
 	],
@@ -68,6 +69,10 @@
 			{
 				"id": "google-cloud",
 				"label": "Google Vertex AI"
+			},
+			{
+				"id": "deepseek-api",
+				"label": "DeepSeek"
 			}
 		],
 		"commands": [
@@ -278,7 +283,7 @@
 				},
 				"assistant.provider.googleVertex.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%configuration.provider.googleVertex.enabled.description%",
 					"tags": [
 						"experimental"
@@ -286,7 +291,7 @@
 				},
 				"assistant.provider.deepseek.enabled": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "%configuration.provider.deepseek.enabled.description%",
 					"tags": [
 						"experimental"

@@ -7,6 +7,7 @@ import { expect, test, chromium, Browser, BrowserContext, Locator, Page } from '
 import { Code } from '../infra/code';
 import { Modals } from './dialog-modals.js';
 import { HotKeys } from './hotKeys.js';
+import { Toasts } from './dialog-toasts.js';
 
 // Page object for the shared "Configure Language Model Providers" component.
 // Both Positron Assistant and Posit Assistant use this component to
@@ -182,7 +183,7 @@ export class ModelProviderAuth {
 
 	private hotKeys: HotKeys;
 
-	constructor(private code: Code, private modals: Modals) {
+	constructor(private code: Code, private modals: Modals, private toasts: Toasts) {
 		this.hotKeys = new HotKeys(code);
 	}
 
@@ -335,6 +336,11 @@ export class ModelProviderAuth {
 	}
 
 	async clickCloseButton({ abandonChanges = true } = {}) {
+		// Sign-in/sign-out can surface toast notifications that overlap the
+		// modal's Close button, making it fail Playwright's actionability check.
+		// Dismiss any toasts first so the click lands reliably.
+		await this.toasts.closeAll();
+
 		await this.code.driver.currentPage.locator(CLOSE_BUTTON).click();
 
 		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();

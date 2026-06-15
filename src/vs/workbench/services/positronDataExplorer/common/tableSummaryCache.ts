@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
@@ -16,7 +17,13 @@ const SMALL_HISTOGRAM_NUM_BINS = 80;
 const LARGE_HISTOGRAM_NUM_BINS = 200;
 const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
-const UPDATE_EVENT_DEBOUNCE_DELAY = 50;
+
+/**
+ * The number of columns whose profiles are requested per backend round-trip. Profiles are loaded in
+ * chunks so that results appear progressively and so that a cancellation (the user scrolling to a
+ * new set of columns) takes effect within roughly one chunk rather than after the whole window.
+ */
+const PROFILE_CHUNK_SIZE = 8;
 
 /**
  * UpdateDescriptor interface.
@@ -48,9 +55,11 @@ export class TableSummaryCache extends Disposable {
 	private _trimCacheTimeout?: Timeout;
 
 	/**
-	 * Gets or sets the debounced update event timeout.
+	 * The cancellation token source for the in-flight column profile pass. Cancelling it stops the
+	 * pass from issuing further chunks and abandons the chunk currently in flight, so a new pass
+	 * (started when the user scrolls to a different set of columns) is not stuck behind stale work.
 	 */
-	private _debouncedUpdateTimeout?: Timeout;
+	private readonly _profileCts = this._register(new MutableDisposable<CancellationTokenSource>());
 
 	/**
 	 * Gets or sets the columns.
@@ -117,8 +126,8 @@ export class TableSummaryCache extends Disposable {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
 
-		// Clear the debounced update timeout.
-		this.clearDebouncedUpdateTimeout();
+		// Cancel any in-flight column profile pass so its awaiters settle.
+		this._profileCts.value?.cancel();
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -178,9 +187,11 @@ export class TableSummaryCache extends Disposable {
 		}
 
 		// Otherewise, expand it, fire the onDidUpdate event, and fetch the column profile data.
+		// This loads independently of the visible-window profile pass (no shared cancellation
+		// token) so expanding a column neither cancels that pass nor is cancelled by it.
 		this._expandedColumns.add(columnIndex);
 		this._onDidUpdateEmitter.fire();
-		await this.updateColumnProfileCache([columnIndex]);
+		await this.loadColumnProfiles([columnIndex], CancellationToken.None);
 	}
 
 	/**
@@ -203,80 +214,100 @@ export class TableSummaryCache extends Disposable {
 		// scrollbar rapidly.)
 		if (this._updating) {
 			this._pendingUpdateDescriptor = updateDescriptor;
+			// Cancel the in-flight profile pass so it stops issuing chunks promptly and the new
+			// descriptor (the columns the user scrolled to) is processed without waiting for the
+			// stale histogram/frequency work to finish.
+			this._profileCts.value?.cancel();
 			return;
 		}
 
-		// Set the updating flag.
+		// Set the updating flag. This is cleared in the finally block below, even when a backend
+		// task rejects, so that a single failed update (e.g. a column profile timing out on a very
+		// wide dataset) cannot permanently wedge the cache and freeze summary pagination.
 		this._updating = true;
+		try {
+			// Get the size of the data.
+			const tableState = await this._dataExplorerClientInstance.getBackendState();
+			this._columns = tableState.table_shape.num_columns;
+			this._rows = tableState.table_shape.num_rows;
 
-		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
+			// The visible window of columns this update is for.
+			const visibleIndices = updateDescriptor.columnIndices;
 
-		// Set the column indices of the column schema we need to load.
-		let columnIndices: number[];
-		if (updateDescriptor.invalidateCache) {
-			columnIndices = updateDescriptor.columnIndices;
-		} else {
-			columnIndices = [];
-			for (const index of updateDescriptor.columnIndices) {
-				if (!this._columnSchemaCache.has(index)) {
-					columnIndices.push(index);
-				}
+			// Determine which columns need their schema loaded. On invalidation we reload the whole
+			// window; otherwise only columns whose schema isn't already cached.
+			const schemaIndices = updateDescriptor.invalidateCache
+				? visibleIndices
+				: visibleIndices.filter(index => !this._columnSchemaCache.has(index));
+
+			// Load the column schema for those columns.
+			const tableSchema = await this._dataExplorerClientInstance.getSchema(schemaIndices);
+
+			// Invalidate the cache, if we're supposed to.
+			if (updateDescriptor.invalidateCache) {
+				this._columnSchemaCache.clear();
+				this._columnProfileCache.clear();
 			}
-		}
 
-		// Load the column schema.
-		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+			// Cache the column schema that was returned.
+			for (const columnSchema of tableSchema.columns) {
+				this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+			}
 
-		// Invalidate the cache, if we're supposed to.
-		if (updateDescriptor.invalidateCache) {
-			this._columnSchemaCache.clear();
-			this._columnProfileCache.clear();
-		}
+			// Fire the onDidUpdate event so newly loaded schema renders before profiles arrive.
+			this._onDidUpdateEmitter.fire();
 
-		// Cache the column schema that was returned.
-		for (const columnSchema of tableSchema.columns) {
-			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
-		}
+			// Determine which visible columns still need a profile. This is deliberately independent
+			// of the schema fetch above: a column's schema may already be cached (e.g. fetched while
+			// the user scrolled past it) while its profile was never computed -- for instance because
+			// an earlier profile pass was cancelled when the user kept moving. Gating profiles on the
+			// schema-miss set would skip those columns and leave them permanently without a
+			// histogram/frequency summary (this is what broke when jumping to the middle of a wide
+			// table). On invalidation the profile cache was just cleared, so the whole window needs
+			// profiles.
+			const profileIndices = updateDescriptor.invalidateCache
+				? visibleIndices
+				: visibleIndices.filter(index => !this._columnProfileCache.has(index));
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+			// Load the column profiles as a fresh cancelable pass.
+			await this.updateColumnProfileCache(profileIndices);
 
-		// Update the column profile cache.
-		await this.updateColumnProfileCache(columnIndices);
+			// Schedule trimming the cache if we didn't already invalidate the cache and we have
+			// column indices to keep. We don't want to schedule a trim if columnIndices is empty
+			// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
+			// is 0) because that would clear all cached data.
+			if (!updateDescriptor.invalidateCache && updateDescriptor.columnIndices.length) {
+				// Clear previously scheduled trim calls before scheduling a new one
+				// to prevent previously scheduled trim calls from clearing data that
+				// is now visible and should be in the cache. This can happen when a
+				// user is scrolling rapidly.
+				this.clearTrimCacheTimeout();
+				// Set the trim cache timeout.
+				this._trimCacheTimeout = setTimeout(() => {
+					// Release the trim cache timeout.
+					this._trimCacheTimeout = undefined;
+					// Trim the cache.
+					this.trimCache(new Set(updateDescriptor.columnIndices));
+				}, TRIM_CACHE_TIMEOUT);
+			}
+		} catch (error) {
+			// Log and swallow. Rethrowing would skip draining the pending descriptor below, which
+			// would stall scroll-driven updates after a transient backend failure.
+			console.error('Failed to update the table summary cache:', error);
+		} finally {
+			// Clear the updating flag.
+			this._updating = false;
 
-		// Clear the updating flag.
-		this._updating = false;
+			// If an update arrived while this one was in flight, process it now so that scrolling
+			// continues to load columns even after a failure.
+			if (this._pendingUpdateDescriptor) {
+				// Get the pending update descriptor and clear it.
+				const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
+				this._pendingUpdateDescriptor = undefined;
 
-		// If there's a pending update descriptor, update the cache again.
-		if (this._pendingUpdateDescriptor) {
-			// Get the pending update descriptor and clear it.
-			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
-			this._pendingUpdateDescriptor = undefined;
-
-			// Update the cache for the pending update descriptor.
-			return this.update(pendingUpdateDescriptor);
-		}
-
-		// Schedule trimming the cache if we didn't already invalidate the cache and we have
-		// column indices to keep. We don't want to schedule a trim if columnIndices is empty
-		// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
-		// is 0) because that would clear all cached data.
-		if (!updateDescriptor.invalidateCache && updateDescriptor.columnIndices.length) {
-			// Clear previously scheduled trim calls before scheduling a new one
-			// to prevent previously scheduled trim calls from clearing data that
-			// is now visible and should be in the cache. This can happen when a
-			// user is scrolling rapidly.
-			this.clearTrimCacheTimeout();
-			// Set the trim cache timeout.
-			this._trimCacheTimeout = setTimeout(() => {
-				// Release the trim cache timeout.
-				this._trimCacheTimeout = undefined;
-				// Trim the cache.
-				this.trimCache(new Set(updateDescriptor.columnIndices));
-			}, TRIM_CACHE_TIMEOUT);
+				// Update the cache for the pending update descriptor.
+				await this.update(pendingUpdateDescriptor);
+			}
 		}
 	}
 
@@ -318,10 +349,27 @@ export class TableSummaryCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Updates the column profile cache for the specified column indices.
+	 * Updates the column profile cache for the specified column indices as a fresh, cancelable pass.
+	 * Cancels any pass already in flight so that, when the user scrolls to a new set of columns, the
+	 * new window's profiles are not queued behind stale histogram/frequency work.
 	 * @param columnIndices The column indices.
 	 */
 	private async updateColumnProfileCache(columnIndices: number[]) {
+		// Cancel any in-flight profile pass and start a fresh one.
+		this._profileCts.value?.cancel();
+		const cts = new CancellationTokenSource();
+		this._profileCts.value = cts;
+		await this.loadColumnProfiles(columnIndices, cts.token);
+	}
+
+	/**
+	 * Loads profiles for the specified column indices in cancelable chunks, caching each chunk and
+	 * firing onDidUpdate as it arrives so profiles are revealed progressively. Honors the supplied
+	 * cancellation token between and during chunks.
+	 * @param columnIndices The column indices.
+	 * @param token The cancellation token for this load.
+	 */
+	private async loadColumnProfiles(columnIndices: number[], token: CancellationToken) {
 		// Determne whether histograms and frequency tables are supported.
 		const histogramSupported = this.isHistogramSupported();
 		const frequencyTableSupported = this.isFrequencyTableSupported();
@@ -421,48 +469,33 @@ export class TableSummaryCache extends Disposable {
 			return { column_index, profiles };
 		});
 
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-
-		// For more than 1 million rows, we request profiles one by one rather than as a batch for
-		// better responsiveness
-		const BATCHING_THRESHOLD = 1_000_000;
-		if (tableState.table_shape.num_rows > BATCHING_THRESHOLD) {
-			// Start all requests and store promises
-			const profilePromises = columnRequests.map((columnRequest, index) => {
-				const columnIndex = columnIndices[index];
-
-				// Start the request and handle result immediately when it completes
-				const promise = this._dataExplorerClientInstance.getColumnProfiles([columnRequest])
-					.then(results => {
-						// Cache the result as soon as it's available
-						if (results.length > 0) {
-							this._columnProfileCache.set(columnIndex, results[0]);
-						}
-						// Fire the onDidUpdate event with debouncing for smoother updates
-						this.fireOnDidUpdateDebounced();
-						return results;
-					})
-					.catch(error => {
-						// Handle errors gracefully
-						console.error(`Failed to get column profile for index ${columnIndex}:`, error);
-						throw error;
-					});
-
-				return promise;
-			});
-
-			// Wait for all requests to complete
-			await Promise.allSettled(profilePromises);
-		} else {
-			// Load the column profiles as a batch
-			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
-				columnRequests
-			);
-			// Cache the column profiles that were returned.
-			for (let i = 0; i < columnProfileResults.length; i++) {
-				this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
+		// Process the requests in small chunks. After each chunk we cache its results and fire the
+		// onDidUpdate event, so profiles are revealed progressively rather than all at once when the
+		// whole window finishes computing. Between chunks we bail if the pass was cancelled because
+		// the user scrolled to a different set of columns.
+		for (let i = 0; i < columnRequests.length; i += PROFILE_CHUNK_SIZE) {
+			// Stop issuing chunks once the pass has been cancelled.
+			if (token.isCancellationRequested) {
+				return;
 			}
-			// Fire the onDidUpdate event.
+
+			// Request this chunk's profiles. The token is forwarded so the in-flight request is
+			// abandoned on cancellation.
+			const chunk = columnRequests.slice(i, i + PROFILE_CHUNK_SIZE);
+			const results = await this._dataExplorerClientInstance.getColumnProfiles(chunk, token);
+
+			// If the pass was cancelled while awaiting, drop the results (cancellation resolves the
+			// request to an empty array) and stop without firing an update.
+			if (token.isCancellationRequested) {
+				return;
+			}
+
+			// Cache the column profiles that were returned.
+			for (let j = 0; j < results.length && j < chunk.length; j++) {
+				this._columnProfileCache.set(chunk[j].column_index, results[j]);
+			}
+
+			// Fire the onDidUpdate event so the just-loaded columns render.
 			this._onDidUpdateEmitter.fire();
 		}
 	}
@@ -512,31 +545,6 @@ export class TableSummaryCache extends Disposable {
 			clearTimeout(this._trimCacheTimeout);
 			this._trimCacheTimeout = undefined;
 		}
-	}
-
-	/**
-	 * Clears the debounced update timeout.
-	 */
-	private clearDebouncedUpdateTimeout() {
-		// If there is a debounced update timeout scheduled, clear it.
-		if (this._debouncedUpdateTimeout) {
-			clearTimeout(this._debouncedUpdateTimeout);
-			this._debouncedUpdateTimeout = undefined;
-		}
-	}
-
-	/**
-	 * Fires the onDidUpdate event with debouncing to smooth incremental updates.
-	 */
-	private fireOnDidUpdateDebounced() {
-		// Clear any existing debounced update timeout.
-		this.clearDebouncedUpdateTimeout();
-
-		// Set a new debounced update timeout.
-		this._debouncedUpdateTimeout = setTimeout(() => {
-			this._debouncedUpdateTimeout = undefined;
-			this._onDidUpdateEmitter.fire();
-		}, UPDATE_EVENT_DEBOUNCE_DELAY);
 	}
 
 	/**

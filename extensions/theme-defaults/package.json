@@ -62,18 +62,6 @@
         "path": "./themes/positron_light.json"
       },
       {
-        "id": "Experimental Positron Dark",
-        "label": "%positronExperimentalDarkThemeLabel%",
-        "uiTheme": "vs-dark",
-        "path": "./themes/positron_experimental_dark.json"
-      },
-      {
-        "id": "Experimental Positron Light",
-        "label": "%positronExperimentalLightThemeLabel%",
-        "uiTheme": "vs",
-        "path": "./themes/positron_experimental_light.json"
-      },
-      {
         "id": "Visual Studio Dark",
         "label": "%darkColorThemeLabel%",
         "uiTheme": "vs-dark",
