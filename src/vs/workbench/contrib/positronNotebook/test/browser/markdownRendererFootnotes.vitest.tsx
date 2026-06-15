@@ -368,36 +368,79 @@ describe('TokenMarkdownRenderer - Footnotes', () => {
 			'    - repeated references resolve to the same footnote',
 		].join('\n');
 
-		it('every reference resolves to the correct definition anchor', () => {
+		// What #13116 cares about is referential integrity, not the exact id
+		// spelling: a cosmetic id rename should not fail these. The checks below
+		// assert relationships; the canary keeps one literal assertion so an
+		// unintended change to the id format is still noticed.
+		it('reference hrefs follow the documented spelling (canary)', () => {
 			const elements = renderTokens(testDocument);
 			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
 			const anchors = refs.map(findChildAnchor);
-
 			// Document order: [^1], [^long], [^1] (in list), [^long] (after section break).
 			expect(anchors.map(a => a.props.href)).toEqual(['#fn-1', '#fn-long', '#fn-1', '#fn-long']);
-
-			// Each definition anchor exists exactly once in the footnotes section.
-			const sections = findElements(elements, el => el.props.className === 'footnotes');
-			expect(sections).toHaveLength(1);
-			const footnote_lis = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string');
-			expect(footnote_lis.map(li => li.props.id)).toEqual(['fn-1', 'fn-long']);
 		});
 
-		it('repeated references resolve to the same footnote with unique ref anchor IDs', () => {
+		it('every reference href targets an existing definition id', () => {
+			const elements = renderTokens(testDocument);
+			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+			const anchors = refs.map(findChildAnchor);
+			const sections = findElements(elements, el => el.props.className === 'footnotes');
+			expect(sections).toHaveLength(1);
+			const definitionIds = findElements([sections[0]], el => el.type === 'li' && typeof el.props.id === 'string')
+				.map(li => li.props.id);
+
+			// Every ref must resolve: its "#fn-x" href points at a definition that exists.
+			for (const anchor of anchors) {
+				expect(definitionIds).toContain(anchor.props.href.replace('#', ''));
+			}
+		});
+
+		it('repeated references share an href but get distinct anchor ids', () => {
 			const elements = renderTokens(testDocument);
 			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
 			const anchors = refs.map(findChildAnchor);
 
-			expect(anchors.map(a => a.props.id)).toEqual(['fnref-1', 'fnref-long', 'fnref-1-2', 'fnref-long-2']);
+			// Group refs by the footnote number they display; repeats of the same
+			// footnote land in the same group (here [^1] twice and [^long] twice).
+			const groups = new Map<number, AnyElement[]>();
+			for (const anchor of anchors) {
+				const number = anchor.props.children as number;
+				const group = groups.get(number) ?? [];
+				group.push(anchor);
+				groups.set(number, group);
+			}
+			// At least one footnote is referenced more than once (otherwise the
+			// share/distinct checks below would pass vacuously).
+			expect([...groups.values()].some(group => group.length > 1)).toBe(true);
 
-			// Repeated refs display the same footnote number ([^1] -> 1, [^long] -> 2).
-			expect(anchors.map(a => a.props.children)).toEqual([1, 2, 1, 2]);
+			for (const group of groups.values()) {
+				// Same destination definition ...
+				expect(new Set(group.map(a => a.props.href)).size).toBe(1);
+				// ... but each occurrence needs a unique anchor id for its backref to target.
+				expect(new Set(group.map(a => a.props.id)).size).toBe(group.length);
+			}
 		});
 
-		it('backrefs from each definition point to the first reference anchor', () => {
+		it('each definition backref points at the first reference to that footnote', () => {
 			const elements = renderTokens(testDocument);
+			const refs = findElements(elements, el => el.props.className === 'footnote-ref');
+			const anchors = refs.map(findChildAnchor);
 			const backrefs = findElements(elements, el => el.props.className === 'footnote-backref');
-			expect(backrefs.map(b => b.props.href)).toEqual(['#fnref-1', '#fnref-long']);
+
+			// First ref anchor id seen for each footnote number, in first-seen order
+			// (which matches the order the definitions render in).
+			const firstRefId = new Map<number, string>();
+			for (const anchor of anchors) {
+				const number = anchor.props.children as number;
+				if (!firstRefId.has(number)) {
+					firstRefId.set(number, anchor.props.id);
+				}
+			}
+
+			// One backref per definition, each pointing back at that footnote's first ref.
+			expect(backrefs.map(b => b.props.href)).toEqual(
+				[...firstRefId.values()].map(id => `#${id}`)
+			);
 		});
 
 		it('the long footnote definition renders its block list content', () => {
