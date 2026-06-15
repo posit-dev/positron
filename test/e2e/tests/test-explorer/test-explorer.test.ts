@@ -8,8 +8,14 @@ import { test as base, expect, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'files.simpleDialog.enable': true });
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'files.simpleDialog.enable': true });
 			await use();
 		},
 		{ scope: 'worker' }

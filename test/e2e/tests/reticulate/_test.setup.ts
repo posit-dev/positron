@@ -15,9 +15,15 @@ export const test = base.extend<ReticulateTestFixtures, ReticulateWorkerFixtures
 	enableReticulate: [true, { scope: 'worker', option: true }],
 
 	beforeApp: [
-		async ({ enableReticulate, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, enableReticulate, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
 			if (enableReticulate) {
-				settingsFile.append({
+				await settingsFile.append({
 					'positron.reticulate.enabled': true,
 					'kernelSupervisor.transport': 'tcp'
 				});

@@ -7,10 +7,16 @@ import { test as base, expect, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
 			// Enable reduced motion so we don't have to wait for animations of expanding
 			// and collapsing the panel.
-			settingsFile.append({ 'workbench.reduceMotion': 'on' });
+			await settingsFile.append({ 'workbench.reduceMotion': 'on' });
 			await use();
 		},
 		{ scope: 'worker' }

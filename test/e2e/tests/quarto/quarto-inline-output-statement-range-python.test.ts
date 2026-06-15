@@ -8,8 +8,14 @@ import { test as base, tags } from './_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({
 				'positron.quarto.inlineOutput.enabled': true,
 				'console.showNotebookConsoles': true,
 				'workbench.editor.enablePreview': false,

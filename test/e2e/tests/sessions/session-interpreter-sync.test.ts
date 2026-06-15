@@ -14,8 +14,14 @@ import { test as base, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'positron.notebook.enabled': true });
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'positron.notebook.enabled': true });
 			await use();
 		},
 		{ scope: 'worker' }

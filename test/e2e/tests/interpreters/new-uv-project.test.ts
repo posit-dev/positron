@@ -9,8 +9,14 @@ import * as fs from 'fs';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'interpreters.startupBehavior': 'auto' });
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'interpreters.startupBehavior': 'auto' });
 			await use();
 		},
 		{ scope: 'worker' }

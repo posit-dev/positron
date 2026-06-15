@@ -7,8 +7,14 @@ import { test as base, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'python.useBundledIpykernel': false });
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'python.useBundledIpykernel': false });
 			await use();
 		},
 		{ scope: 'worker' }

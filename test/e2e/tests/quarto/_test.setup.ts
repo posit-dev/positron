@@ -15,9 +15,15 @@ export const test = base.extend<QuartoTestFixtures, QuartoWorkerFixtures>({
 	enableQuartoInlineOutput: [true, { scope: 'worker', option: true }],
 
 	beforeApp: [
-		async ({ enableQuartoInlineOutput, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, enableQuartoInlineOutput, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
 			if (enableQuartoInlineOutput) {
-				settingsFile.append({ 'positron.quarto.inlineOutput.enabled': true });
+				await settingsFile.append({ 'positron.quarto.inlineOutput.enabled': true });
 			}
 			await use();
 		},
