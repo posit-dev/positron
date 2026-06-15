@@ -27,6 +27,7 @@ const AI_SIGNIN_CONCEPT = /copilot|ai features/i;
 const TITLE_BAR_SIGN_IN = 'Sign In';
 const EDITOR_PRESETUP_ITEMS = ['Explain', 'Fix', 'Code Review'];
 const HIDE_AI_COMMAND = 'Learn How to Hide AI Features';
+const USE_AI_FEATURES_COMMAND = 'Use AI Features with Copilot for free';
 
 test.describe('Assistant: Copilot sign-in surfaces suppressed', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 
@@ -92,6 +93,23 @@ test.describe('Assistant: Copilot sign-in surfaces suppressed', { tag: [tags.WIN
 		// so assert the exact command title isn't among them.
 		await expect(
 			quickInput.quickInputResult.filter({ hasText: HIDE_AI_COMMAND })
+		).toHaveCount(0);
+
+		await quickInput.closeQuickInput();
+	});
+
+	test('Command palette does not list the Copilot "Use AI Features with Copilot for free..." command', async function ({ app }) {
+		const { hotKeys, quickInput } = app.workbench;
+
+		await hotKeys.openCommandPalette();
+		await quickInput.type(`>${USE_AI_FEATURES_COMMAND}`);
+		// Wait for the palette to return a result first, so the count below is meaningful.
+		await quickInput.waitForQuickInputElementText();
+
+		// With the f1 entry suppressed, the palette falls back to fuzzy "similar commands",
+		// so assert the exact command title isn't among them.
+		await expect(
+			quickInput.quickInputResult.filter({ hasText: USE_AI_FEATURES_COMMAND })
 		).toHaveCount(0);
 
 		await quickInput.closeQuickInput();

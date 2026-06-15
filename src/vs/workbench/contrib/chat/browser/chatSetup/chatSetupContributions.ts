@@ -250,8 +250,16 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					id: CHAT_SETUP_ACTION_ID,
 					title: ChatSetupTriggerAction.CHAT_SETUP_ACTION_LABEL,
 					category: CHAT_CATEGORY,
-					f1: true,
 					// --- Start Positron ---
+					// Don't surface "Use AI Features with Copilot for free..." in the
+					// command palette: it reads as GitHub Copilot and opens the upstream
+					// Copilot chat-setup sign-in dialog. The command stays registered so
+					// the programmatic callers (chat status dashboard, anonymous
+					// rate-limited part, title-bar status widget) still work; only the F1
+					// palette entry is dropped. See issue #13955.
+					/*
+					f1: true,
+					*/
 					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ContextKeyExpr.or(
