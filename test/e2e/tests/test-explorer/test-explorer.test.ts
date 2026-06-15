@@ -4,24 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
-import { test, expect, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			settingsFile.append({ 'files.simpleDialog.enable': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, settings, r, hotKeys }) {
-		try {
-			// don't use native file picker
-			await settings.set({
-				'files.simpleDialog.enable': true
-			}, { reload: true, waitForReady: true });
-		} catch (e) {
-			await app.code.driver.takeScreenshot('testExplorerSetup');
-			throw e;
-		}
-	});
 
 	test.skip('R - Verify Basic Test Explorer Functionality', {
 		tag: [tags.ARK],

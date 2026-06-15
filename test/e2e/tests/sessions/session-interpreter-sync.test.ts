@@ -10,7 +10,17 @@
  * when navigating between different file types (.R, .py, .ipynb).
  */
 
-import { test, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			settingsFile.append({ 'positron.notebook.enabled': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -19,15 +29,6 @@ test.use({
 test.describe('Sessions: Interpreter Sync', {
 	tag: [tags.WIN, tags.WEB, tags.SESSIONS, tags.CONSOLE]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set(
-			{
-				'positron.notebook.enabled': true
-			},
-			{ reload: 'web', waitMs: 1000 }
-		);
-	});
 
 	test.beforeEach(async function ({ hotKeys }) {
 		await hotKeys.closePrimarySidebar();

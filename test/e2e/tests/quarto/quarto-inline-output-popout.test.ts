@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import * as fs from 'fs';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags, expect } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -14,12 +14,6 @@ test.use({
 test.describe('Quarto - Inline Output: Popout', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
-
-	test.beforeAll(async function ({ python, settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
