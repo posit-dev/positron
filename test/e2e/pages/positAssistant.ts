@@ -146,13 +146,33 @@ export class PositAssistant {
 	/**
 	 * Starts a new conversation by clicking the new chat button.
 	 * If the button is disabled (already on landing page), this is a no-op.
+	 *
+	 * The new-conversation button is disabled both while a response is streaming
+	 * and when the conversation is already empty (`isNewConversation`). That
+	 * disabled state is derived from async-loaded webview state (messages-loaded +
+	 * streaming), so immediately after the chat input renders the button can be
+	 * transiently enabled while messages are still loading, then flip to disabled
+	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
+	 * followed by `click()` races that flip and fails with a 30s click timeout on
+	 * a now-disabled button, so guard the click and treat a disabled flip as the
+	 * desired "already on a fresh conversation" end state.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
 		if (await button.isDisabled()) {
+			// Already on a fresh conversation (or streaming) -- nothing to start.
 			return;
 		}
-		await button.click();
+		try {
+			await button.click({ timeout: 5000 });
+		} catch (e) {
+			// If the button flipped to disabled mid-click we're already on a fresh
+			// conversation, which is the desired end state; otherwise re-throw.
+			if (await button.isDisabled()) {
+				return;
+			}
+			throw e;
+		}
 		await this.waitForReady();
 	}
 
