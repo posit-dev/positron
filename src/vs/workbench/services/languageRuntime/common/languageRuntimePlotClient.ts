@@ -439,7 +439,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			pixel_ratio,
 			format
 		};
-		const deferred = new DeferredRender(request);
+		const deferred = new DeferredRender(request, preview);
 
 		// Check which render request is currently pending. If we are currently
 		// rendering, then it's the queued render request. Otherwise, it's the
@@ -500,12 +500,23 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					this._lastRenderTimeMs = rendered.renderTimeMs;
 					this._completeRenderEmitter.fire(rendered);
 				}
-			}).catch((err) => {
+				this.startQueuedRenderIfNeeded();
+			}).catch((_err) => {
 				this._stateEmitter.fire(PlotClientState.Rendered);
+				this.startQueuedRenderIfNeeded();
 			});
 
 			this._commProxy.render(request);
 		}, delay);
+	}
+
+	private startQueuedRenderIfNeeded(): void {
+		if (this._queuedRender && !this._queuedRender.isComplete) {
+			const queued = this._queuedRender;
+			this._queuedRender = undefined;
+			this._currentRender = queued;
+			this.scheduleRender(queued, 0, queued.preview);
+		}
 	}
 
 	/**
