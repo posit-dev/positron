@@ -1255,6 +1255,14 @@ declare module 'positron' {
 
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
+
+		/**
+		 * The package's primary external URL (its homepage, falling back to its
+		 * repository, etc.). Runtimes should pick the single best link from
+		 * whatever metadata they have; the Packages pane validates it
+		 * (http/https only) and surfaces it via the row's external-link button.
+		 */
+		url?: string;
 	}
 
 	/**

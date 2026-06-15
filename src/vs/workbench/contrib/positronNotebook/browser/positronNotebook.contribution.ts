@@ -13,6 +13,7 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
+import './contrib/help/NotebookHelpAction.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';

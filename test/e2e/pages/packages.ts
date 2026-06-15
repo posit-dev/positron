@@ -145,6 +145,14 @@ export class Packages {
 	}
 
 	/**
+	 * Locates the external-link button on a package row.
+	 * @param packageName The exact package name whose URL button to return.
+	 */
+	urlButton(packageName: string): Locator {
+		return this.packagesContainer.getByRole('button', { name: `Open website for ${packageName}` });
+	}
+
+	/**
 	 * Click the filter funnel to open the Filter/Sort options menu.
 	 * Asserts the top-level menu is visible.
 	 */

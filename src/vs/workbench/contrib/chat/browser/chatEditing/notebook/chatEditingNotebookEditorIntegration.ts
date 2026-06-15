@@ -23,12 +23,7 @@ import { NotebookDeletedCellDecorator } from '../../../../notebook/browser/diff/
 import { NotebookInsertedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookInsertedCellDecorator.js';
 import { NotebookModifiedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookModifiedCellDecorator.js';
 import { INotebookTextDiffEditor } from '../../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
-import { CellEditState, ICellViewModel } from '../../../../notebook/browser/notebookBrowser.js';
-// --- Start Positron ---
-// Use proxy to get editors from both VS Code and Positron notebook sources
-import { getNotebookEditorFromEditorPane } from '../../../../positronNotebook/browser/NotebookEditorProxyService.js';
-import { IChatEditingCellViewModel, IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
-// --- End Positron ---
+import { CellEditState, getNotebookEditorFromEditorPane, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../../../notebook/browser/services/notebookEditorService.js';
 import { NotebookCellTextModel } from '../../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
@@ -138,13 +133,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 		const shouldBeReadonly = _entry.isCurrentlyBeingModifiedBy.map(value => !!value);
 		this._register(autorun(r => {
 			const isReadOnly = shouldBeReadonly.read(r);
-			// --- Start Positron ---
-			// Use the notebook editor we already have, or try to retrieve from service
-			let notebookEditor: INotebookEditor | undefined = this.notebookEditor;
-			if (!notebookEditor || notebookEditor.textModel !== this.notebookModel) {
-				notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
-			}
-			// --- End Positron ---
+			const notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
 			if (!notebookEditor) {
 				return;
 			}
@@ -243,10 +232,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 					return;
 				}
 				if (cell.cellKind === CellKind.Markup && !this.markupCellListeners.has(cell.handle)) {
-					// --- Start Positron ---
-					// viewCells is optional in IChatEditingNotebookViewModel
-					const cellModel = this.notebookEditor.getViewModel()?.viewCells?.find(c => c.handle === cell.handle);
-					// --- End Positron ---
+					const cellModel = this.notebookEditor.getViewModel()?.viewCells.find(c => c.handle === cell.handle);
 					if (cellModel) {
 						const listener = cellModel.onDidChangeState((e) => {
 							if (e.editStateChanged) {
@@ -440,33 +426,6 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 							.catch(err => { this.logService.warn(`Error revealing change in view: ${err}`); });
 						return true;
 					}
-					// --- Start Positron ---
-					// For Positron notebooks, cellViewModel is undefined
-					// because Positron uses IPositronNotebookCell rather than
-					// ICellViewModel. So handle this by finding the cell editor
-					// directly and revealing the range manually.
-					this.updateCurrentIndex(change, indexInCell);
-					// Find the cell editor integration if available
-					const cell = this.notebookModel.cells[change.modifiedCellIndex!];
-					if (cell) {
-						const integration = this.cellEditorIntegrations.get(cell)?.integration;
-						if (integration && textChange) {
-							// Try to reveal in the editor directly
-							// Use IChatEditingCellViewModel which is the narrower type for codeEditors
-							const editor = this.notebookEditor.codeEditors.find(([vm]: [IChatEditingCellViewModel, unknown]) => {
-								return vm.handle === cell.handle;
-							})?.[1];
-							if (editor && editor.hasModel()) {
-								const range = textChange.modified.toInclusiveRange();
-								if (range) {
-									editor.revealRangeInCenter(range);
-									editor.setPosition(range.getStartPosition());
-								}
-							}
-						}
-						return true;
-					}
-					// --- End Positron ---
 					break;
 				}
 			case 'delete':
@@ -486,10 +445,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 			return undefined;
 		}
 		const cell = this.notebookModel.cells[change.modifiedCellIndex];
-		// --- Start Positron ---
-		// viewCells is optional in IChatEditingNotebookViewModel
-		const cellViewModel = this.notebookEditor.getViewModel()?.viewCells?.find(c => c.handle === cell.handle);
-		// --- End Positron ---
+		const cellViewModel = this.notebookEditor.getViewModel()?.viewCells.find(c => c.handle === cell.handle);
 		return cellViewModel;
 	}
 
