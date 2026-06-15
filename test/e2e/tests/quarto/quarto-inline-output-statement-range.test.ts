@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test as base, tags } from './_test.setup';
+import { test as base, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [

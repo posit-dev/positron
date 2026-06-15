@@ -14,13 +14,12 @@ import { test as base, tags } from '../_test.setup';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
-			if (useLegacyNotebookEditor) {
-				await settingsFile.append({ 'positron.notebook.enabled': false });
-			}
+		async ({ enableDataConnections, settingsFile }, use) => {
 			if (enableDataConnections) {
 				await settingsFile.append({ 'dataConnections.enabled': true });
 			}
+			// This test requires the new notebook editor and is incompatible with
+			// useLegacyNotebookEditor; always enable it.
 			await settingsFile.append({ 'positron.notebook.enabled': true });
 			await use();
 		},
