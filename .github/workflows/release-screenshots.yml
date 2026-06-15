@@ -199,7 +199,8 @@ jobs:
           SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
           POSITRON_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          node .github/scripts/release-screenshots/compare-and-report.mjs \
+          DOCS_IMAGE_COMMIT_SHA=$(git -C "$RUNNER_TEMP/positron-website" rev-parse HEAD)
+          DOCS_IMAGE_COMMIT_SHA="$DOCS_IMAGE_COMMIT_SHA" node .github/scripts/release-screenshots/compare-and-report.mjs \
             test/e2e/release-screenshots/output \
             "$RUNNER_TEMP/positron-website/images" \
             "$RUNNER_TEMP/classification.json"

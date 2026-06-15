@@ -17,6 +17,7 @@ import { Plots } from '../pages/plots';
 import { NewFolderFlow } from '../pages/newFolderFlow';
 import { Explorer } from '../pages/explorer';
 import { Connections } from '../pages/connections';
+import { DataConnections } from '../pages/dataConnections';
 import { Help } from '../pages/help';
 import { TopActionBar } from '../pages/topActionBar';
 import { Layouts } from '../pages/layouts';
@@ -75,6 +76,7 @@ export class Workbench {
 	readonly newFolderFlow: NewFolderFlow;
 	readonly explorer: Explorer;
 	readonly connections: Connections;
+	readonly dataConnections: DataConnections;
 	readonly help: Help;
 	readonly topActionBar: TopActionBar;
 	readonly layouts: Layouts;
@@ -126,6 +128,7 @@ export class Workbench {
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
 		this.connections = new Connections(code, this.quickaccess);
+		this.dataConnections = new DataConnections(code, this.quickaccess);
 		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.hotKeys, this.contextMenu);
@@ -152,7 +155,7 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
-		this.modelProviderAuth = new ModelProviderAuth(code, this.modals);
+		this.modelProviderAuth = new ModelProviderAuth(code, this.modals, this.toasts);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);
 		this.publisher = new Publisher(this.quickInput);

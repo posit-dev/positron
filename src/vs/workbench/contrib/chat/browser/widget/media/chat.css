@@ -63,9 +63,7 @@
 .interactive-item-container .header .user {
 	display: flex;
 	align-items: center;
-	/* --- Start Positron --- */
-	gap: 4px;
-	/* --- End Positron --- */
+	gap: 8px;
 
 	/*
 	Rendering the avatar icon as round makes it a little larger than the .user container.
@@ -151,20 +149,15 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	/* --- Start Positron --- */
-	width: 32px;
-	height: 32px;
-	/* border-radius: 50%; */
-	/* outline: 1px solid var(--vscode-chat-requestBorder); */
-	/* --- End Positron --- */
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	outline: 1px solid var(--vscode-chat-requestBorder);
 }
 
-/* --- Start Positron --- */
-/*
 .interactive-item-container .header .avatar.codicon-avatar {
 	background: var(--vscode-chat-avatarBackground);
-} */
-/* --- End Positron --- */
+}
 
 .interactive-item-container .header .avatar + .avatar {
 	margin-left: -8px;
@@ -179,9 +172,7 @@
 
 .interactive-item-container .header .avatar .codicon {
 	color: var(--vscode-chat-avatarForeground) !important;
-	/* --- Start Positron --- */
-	font-size: 28px;
-	/* --- End Positron --- */
+	font-size: 14px;
 }
 
 .monaco-list-row:not(.focused) .interactive-item-container:not(:hover) .header .monaco-toolbar,
@@ -516,13 +507,6 @@
 	> div[data-code]:first-child .interactive-result-code-block .interactive-result-code-block-toolbar > .monaco-toolbar {
 		top: 6px;
 	}
-	/* --- Start Positron --- */
-	/* Ensures that the toolbar is positioned correctly at the bottom */
-	> div[data-code]:first-child .interactive-result-code-block .interactive-result-code-block-toolbar.bottom > .monaco-toolbar {
-		top: unset;
-		bottom: 15px;
-	}
-	/* --- End Positron --- */
 }
 
 .interactive-item-container .value.inline-progress {
@@ -1756,18 +1740,6 @@ have to be updated for changes to the rules above, or to support more deeply nes
 		.codicon {
 			flex-shrink: 0;
 		}
-
-		/* --- Start Positron --- */
-		.provider-icon {
-			background-size: contain;
-			background-repeat: no-repeat;
-			background-position: center;
-			width: 16px;
-			height: 16px;
-			display: inline-block;
-			margin-right: 6px;
-		}
-		/* --- End Positron --- */
 	}
 }
 

@@ -854,7 +854,11 @@ const grantTypesSupported = ['authorization_code', 'refresh_token', 'urn:ietf:pa
  * the spec and require an exact match.
  */
 export const DEFAULT_AUTH_FLOW_PORT = 33418;
-export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[]): Promise<IAuthorizationDynamicClientRegistrationResponse> {
+// --- Start Positron ---
+export async function fetchDynamicRegistration(serverMetadata: IAuthorizationServerMetadata, clientName: string, scopes?: string[],
+	additionalRedirectUris?: string[]
+): Promise<IAuthorizationDynamicClientRegistrationResponse> {
+	// --- End Positron ---
 	if (!serverMetadata.registration_endpoint) {
 		throw new Error('Server does not support dynamic registration');
 	}
@@ -874,7 +878,10 @@ export async function fetchDynamicRegistration(serverMetadata: IAuthorizationSer
 			// only exact match on the redirect URI even
 			// though the spec says it should not care
 			// about the port.
-			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`
+			`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
+			// --- Start Positron ---
+			...(additionalRedirectUris ?? [])
+			// --- End Positron ---
 		],
 		scope: scopes?.join(AUTH_SCOPE_SEPARATOR),
 		token_endpoint_auth_method: 'none',

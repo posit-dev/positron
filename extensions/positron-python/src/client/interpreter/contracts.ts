@@ -71,6 +71,22 @@ export interface ICondaService {
     ): Promise<{ path: string | undefined; type: 'local' | 'global' } | undefined>;
 }
 
+// --- Start Positron ---
+/**
+ * Payload for {@link IInterpreterService.onDidChangeInterpreter}.
+ *
+ * Splits "storage update" fires (the stored interpreter path changed, e.g. autoselect,
+ * migration, post-install) from "user intent" fires (start a session for this interpreter).
+ */
+export interface InterpreterChangeEvent {
+    resource: Uri | undefined;
+    /** If true, a session should be started for this interpreter. */
+    startSession: boolean;
+    /** Debug-only tag identifying which caller fired. */
+    source: string;
+}
+// --- End Positron ---
+
 export const IInterpreterService = Symbol('IInterpreterService');
 export interface IInterpreterService {
     triggerRefresh(query?: PythonLocatorQuery, options?: TriggerRefreshOptions): Promise<void>;
@@ -78,7 +94,10 @@ export interface IInterpreterService {
     getRefreshPromise(options?: GetRefreshEnvironmentsOptions): Promise<void> | undefined;
     readonly onDidChangeInterpreters: Event<PythonEnvironmentsChangedEvent>;
     onDidChangeInterpreterConfiguration: Event<Uri | undefined>;
-    onDidChangeInterpreter: Event<Uri | undefined>;
+    // --- Start Positron ---
+    // onDidChangeInterpreter: Event<Uri | undefined>;
+    onDidChangeInterpreter: Event<InterpreterChangeEvent>;
+    // --- End Positron ---
     onDidChangeInterpreterInformation: Event<PythonEnvironment>;
     /**
      * Note this API does not trigger the refresh but only works with the current refresh if any. Information

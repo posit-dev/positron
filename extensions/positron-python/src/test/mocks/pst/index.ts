@@ -102,3 +102,15 @@ export enum LanguageRuntimeArchitecture {
     X64 = 'x64',
     Other = 'other',
 }
+
+export enum RuntimeExitReason {
+    StartupFailed = 'startupFailed',
+    Shutdown = 'shutdown',
+    ForcedQuit = 'forcedQuit',
+    Restart = 'restart',
+    SwitchRuntime = 'switchRuntime',
+    Error = 'error',
+    Transferred = 'transferred',
+    ExtensionHost = 'extensionHost',
+    Unknown = 'unknown',
+}

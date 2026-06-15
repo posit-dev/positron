@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, tags, expect } from '../_test.setup';
 import { SessionRuntimes } from '../../pages/sessions.js';
 
 test.use({
@@ -88,6 +88,19 @@ test.describe('Packages Pane', {
 
 				await packages.clickHelpButton('numpy');
 				await packages.expectHelpPaneToContainText('NumPy', 1);
+			});
+	});
+
+	test.describe('URL button', () => {
+		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
+			async function ({ app, python: _python }) {
+				const { packages } = app.workbench;
+
+				// numpy publishes a `Project-URL: Homepage` in its wheel metadata,
+				// so the kernel surfaces a `url` and the row renders the link button.
+				await packages.verifyPackagesList();
+				await packages.searchPackages('numpy');
+				await expect(packages.urlButton('numpy')).toBeVisible();
 			});
 	});
 });

@@ -50,6 +50,15 @@ const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${commsDir}/../../extensions/positron-python/python_files/posit/positron`;
 
+/// The directory to write the shared extension-facing protocol types to. This is the `src` of a
+/// small local package that backend-providing extensions (e.g. the data driver extensions) depend
+/// on, so they share one generated copy of the protocol types instead of vendoring their own.
+const protocolTypesOutputDir = `${commsDir}/../../extensions/positron-data-explorer-protocol/src`;
+
+/// Comms that have an extension-facing protocol-types module generated alongside the comm. Only
+/// comms with extension-provided backends need this; today that is just the Data Explorer.
+const protocolTypesComms = ['data_explorer'];
+
 const year = new Date().getFullYear();
 
 interface CommMetadata {
@@ -1294,6 +1303,140 @@ function* createTypescriptInterface(
 }
 
 /**
+ * Create the shared extension-facing protocol types for a comm: the value types, enums, frontend
+ * event interfaces, the backend-request / frontend-event method enums, and the RPC envelope
+ * wrappers -- but WITHOUT the PositronBaseComm class or its runtime-client imports.
+ *
+ * This is the shape consumed by backend-providing extensions (e.g. the data driver extensions),
+ * which implement the protocol over the typed ext-host channel rather than a Jupyter comm. It is
+ * generated from the same OpenRPC contract as positron<Name>Comm.ts so the two never drift.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ */
+function* createTypescriptProtocolTypes(name: string, frontend: any, backend: any): Generator<string> {
+	const sentenceName = snakeCaseToSentenceCase(name);
+	yield `/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+//
+// AUTO-GENERATED from ${name}.json; do not edit.
+//
+// Shared protocol types for extensions that provide a ${sentenceName} backend. Generated from the
+// same OpenRPC contract as positron${sentenceName}Comm.ts, minus the comm class and its imports.
+//
+
+`;
+
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// This module is self-contained; bail loudly if the comm ever gains cross-comm references, since
+	// there is no import strategy for them in the extension-facing module.
+	const externalReferences = collectExternalReferences(contracts, name);
+	if (externalReferences.some(ref => ref.refs.length)) {
+		throw new Error(`Cannot generate protocol types for '${name}': it references external comms, ` +
+			`which the extension-facing protocol module does not support.`);
+	}
+
+	// Envelope wrappers: how an extension receives a backend RPC and pushes a UI event. These mirror
+	// the lean DataExplorerRpc* shapes in positron.d.ts but type method/params against this comm.
+	if (backend) {
+		const paramTypes = [...new Set(backend.methods
+			.filter((m: any) => m.params && m.params.length > 0)
+			.map((m: any) => `${snakeCaseToSentenceCase(m.name)}Params`))];
+		yield `/**\n * Descriptor for a ${sentenceName} backend RPC request dispatched to a provider.\n */\n`;
+		yield `export interface ${sentenceName}Rpc {\n`;
+		yield `\t/** The backend request method. */\n`;
+		yield `\tmethod: ${sentenceName}BackendRequest;\n\n`;
+		yield `\t/** The dataset identifier the request targets (absent for dataset-less bootstrap calls). */\n`;
+		yield `\turi?: string;\n\n`;
+		yield `\t/** Method-specific parameters. */\n`;
+		yield `\tparams: ${[...paramTypes, '{}'].join(' |\n\t')};\n`;
+		yield `}\n\n`;
+
+		// `result` is `any` (not `unknown`) so extensions can read result properties without a cast,
+		// matching the long-standing hand-written shape these modules replace.
+		yield `/**\n * Opaque ${sentenceName} backend response: an RPC result or an error message.\n */\n`;
+		yield `export interface ${sentenceName}Response {\n`;
+		yield `\tresult?: any;\n\n`;
+		yield `\terror_message?: string;\n`;
+		yield `}\n\n`;
+	}
+
+	if (frontend) {
+		const eventTypes = frontend.methods
+			.filter((m: any) => !m.result)
+			.map((m: any) => `${snakeCaseToSentenceCase(m.name)}Event`);
+		yield `/**\n * A frontend UI event pushed from a ${sentenceName} backend, routed by dataset id.\n */\n`;
+		yield `export interface ${sentenceName}UiEvent {\n`;
+		yield `\t/** The dataset identifier the event targets. */\n`;
+		yield `\turi: string;\n\n`;
+		yield `\t/** The frontend event method. */\n`;
+		yield `\tmethod: ${sentenceName}FrontendEvent;\n\n`;
+		yield `\t/** Event-specific parameters. */\n`;
+		yield `\tparams: ${eventTypes.join(' | ')};\n`;
+		yield `}\n\n`;
+	}
+
+	// Value types (interfaces, unions, enums, *Params) for both contracts.
+	for (const source of contracts) {
+		yield* createTypescriptValueTypes(source, contracts);
+	}
+
+	// Frontend event interfaces and the FrontendEvent method enum.
+	if (frontend) {
+		const events: string[] = [];
+		for (const method of frontend.methods) {
+			if (method.result) {
+				continue;
+			}
+			const eventName = snakeCaseToSentenceCase(method.name);
+			events.push(`\t${eventName} = '${method.name}'`);
+
+			yield '/**\n';
+			yield formatComment(' * ', `Event: ${method.summary}`);
+			yield ' */\n';
+			yield `export interface ${eventName}Event {\n`;
+			for (const param of method.params) {
+				yield '\t/**\n';
+				yield formatComment('\t * ', `${param.description}`);
+				yield '\t */\n';
+				yield `\t${param.name}`;
+				if (isOptional(param)) {
+					yield '?';
+				}
+				yield ': ';
+				if (param.schema.type === 'string' && param.schema.enum) {
+					yield `${eventName}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield deriveType(contracts, TypescriptTypeMap, param.name, param.schema);
+				}
+				yield `;\n\n`;
+			}
+			yield '}\n\n';
+		}
+		if (events.length) {
+			yield `export enum ${sentenceName}FrontendEvent {\n`;
+			yield events.join(',\n');
+			yield '\n}\n\n';
+		}
+	}
+
+	// Backend request method enum.
+	if (backend) {
+		yield `export enum ${sentenceName}BackendRequest {\n`;
+		const requests = backend.methods
+			.filter((m: any) => m.result)
+			.map((m: any) => `\t${snakeCaseToSentenceCase(m.name)} = '${m.name}'`);
+		yield requests.join(',\n');
+		yield '\n}\n\n';
+	}
+}
+
+/**
  * Create a Typescript comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -1761,6 +1904,19 @@ async function createCommInterface() {
 				// Write the output file
 				console.log(`Writing to ${tsOutputFile}`);
 				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
+
+				// Create the shared extension-facing protocol types file, for comms that have
+				// extension-provided backends (today, just the Data Explorer).
+				if (protocolTypesComms.includes(name) && existsSync(protocolTypesOutputDir)) {
+					const protocolOutputFile = path.join(
+						protocolTypesOutputDir, `${snakeCaseToCamelCase(name)}Protocol.ts`);
+					let protocol = '';
+					for await (const chunk of createTypescriptProtocolTypes(name, frontend, backend)) {
+						protocol += chunk;
+					}
+					console.log(`Writing to ${protocolOutputFile}`);
+					writeFileSync(protocolOutputFile, protocol, { encoding: 'utf-8' });
+				}
 
 				// Create the Rust output file
 				if (existsSync(rustOutputDir)) {

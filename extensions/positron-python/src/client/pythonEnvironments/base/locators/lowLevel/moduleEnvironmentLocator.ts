@@ -83,6 +83,39 @@ function parsePythonVersion(output: string): string | undefined {
 export const moduleMetadataMap = new Map<string, ModuleMetadata>();
 
 /**
+ * Resolves when the most recent module discovery pass has populated
+ * {@link moduleMetadataMap}. Module discovery runs asynchronously (it shells out
+ * per environment), so a runtime can be created for a module-managed interpreter
+ * before its metadata lands in the map -- e.g. the eager onDidChangeInterpreters
+ * registration in PythonRuntimeManager races discovery. Awaiting this before
+ * reading the map ensures the interpreter is labelled Module rather than Unknown.
+ *
+ * Defaults to resolved so non-module setups (and code paths that run before any
+ * discovery) never block.
+ */
+let moduleDiscoveryReady: Promise<void> = Promise.resolve();
+
+/**
+ * Mark a module discovery pass as in-flight. Called by the discovery driver
+ * (NativeWithModulesApi.triggerRefresh) with the promise that resolves once the
+ * pass has finished populating {@link moduleMetadataMap}.
+ */
+export function setModuleDiscoveryInFlight(pass: Promise<unknown>): void {
+    moduleDiscoveryReady = pass.then(
+        () => undefined,
+        () => undefined,
+    );
+}
+
+/**
+ * Await the most recent module discovery pass. Resolves immediately if none has
+ * run (or is in flight). See {@link moduleDiscoveryReady}.
+ */
+export function whenModuleMetadataReady(): Promise<void> {
+    return moduleDiscoveryReady;
+}
+
+/**
  * Map from interpreter path to pending module runtime registration info.
  * This is used to track which environments need to be registered when runtimes are discovered.
  */

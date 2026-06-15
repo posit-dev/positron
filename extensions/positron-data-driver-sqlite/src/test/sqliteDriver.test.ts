@@ -33,9 +33,17 @@ suite('SQLite Driver Tests', () => {
 		return dbPath;
 	}
 
+	// A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
+	// handler would register a vscode command that collides with the activated extension's.
+	const dataExplorerHost = {
+		openTableView: async () => { },
+		openColumnView: async () => { },
+		closeTableView: () => { },
+	};
+
 	// Opens a SQLiteConnection (constructing then connecting in the worker).
 	async function connect(dbPath: string, readOnly = false): Promise<SQLiteConnection> {
-		const conn = new SQLiteConnection(dbPath, readOnly);
+		const conn = new SQLiteConnection(dbPath, readOnly, dataExplorerHost);
 		await conn.connect();
 		return conn;
 	}
@@ -180,9 +188,9 @@ suite('SQLite Driver Tests', () => {
 		assert.strictEqual(fields.find(f => f.name === 'name')!.dataType, 'TEXT');
 		assert.strictEqual(fields.find(f => f.name === 'price')!.dataType, 'REAL');
 
-		// Field nodes should be leaves.
+		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		assert.strictEqual(idField.getChildren, undefined);
-		assert.strictEqual(idField.preview, undefined);
+		assert.strictEqual(typeof idField.preview, 'function');
 
 		await conn.disconnect();
 	});

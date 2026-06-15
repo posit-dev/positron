@@ -16,7 +16,6 @@ import { Disposable, DisposableStore } from '../../../../../base/common/lifecycl
 import { IObservable, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { localize } from '../../../../../nls.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -177,11 +176,6 @@ export class ChatViewWelcomePart extends Disposable {
 			}
 			const title = dom.append(this.element, $('.chat-welcome-view-title'));
 			title.textContent = content.title;
-
-			// --- Start Positron ---
-			// Added a Superseded badge to the welcome chat view, with the same styling as the Preview badge in the Settings UI.
-			dom.append(this.element, $('.chat-welcome-view-preview-badge', undefined, localize('chatViewWelcomeSuperseded', "Superseded")));
-			// --- End Positron ---
 
 			const message = dom.append(this.element, $('.chat-welcome-view-message'));
 
