@@ -1711,6 +1711,21 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined
 		};
 		const plotClient = new PlotClientInstance(comm, this._configurationService, sizingPolicy ?? this._selectedSizingPolicy, { ...metadata, location: location });
+
+		// For non-Python plots, the intrinsic size is only known after querying
+		// the backend. R plots rendered through Quarto report an intrinsic size
+		// derived from the chunk's figure options (e.g. fig-width/fig-height).
+		// When such a size arrives and the plot is still using the default auto
+		// policy, prefer the intrinsic size, matching the Python/matplotlib
+		// behavior above.
+		if (plotClient.sizingPolicy.id === PlotSizingPolicyAuto.ID) {
+			plotClient.register(plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
+				if (intrinsicSize && plotClient.sizingPolicy.id === PlotSizingPolicyAuto.ID) {
+					plotClient.sizingPolicy = this._intrinsicSizingPolicy;
+				}
+			}));
+		}
+
 		let plotClients = this._plotClientsByComm.get(metadata.id);
 
 		if (!plotClients) {
