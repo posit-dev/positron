@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { tags } from '../_test.setup';
-import { test } from './_test.setup.js';
+import { test, expect } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
