@@ -4,10 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-code-cell-footer {
-	/* Layout */
+	/* Layout: execution metadata on its own row with the tag bar stacked beneath,
+	so a wrapped tag set no longer crowds (and vertically off-centers) the metadata.
+	justify-content centers a lone metadata row (the common, tagless footer) within
+	the 24px floor; it is a no-op once both rows are present and fill the height. */
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+	gap: 4px;
 	box-sizing: border-box;
 	padding: 3px 1rem;
 	/* Auto height with a 24px floor: the tag bar wraps large tag sets onto
@@ -59,6 +64,14 @@
 /* Override inherited cursor from .positron-notebook class for children spans */
 .positron-notebook-code-cell-footer span {
 	cursor: default;
+}
+
+/* Execution metadata row (status icon + timing text). A horizontal flex row
+inside the column-stacked footer; preserves the original icon-to-text spacing. */
+.code-cell-footer-metadata {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .code-cell-footer-icon {
@@ -114,15 +127,5 @@
 	top: 1px;
 	bottom: 1px;
 	width: 1px;
-	background-color: var(--vscode-widget-border);
-}
-
-/* Vertical separator between the execution metadata and the tag bar. A real flex
-item (not a ::after like the duration separator above) since it divides two flex
-children rather than two inline text spans. */
-.code-cell-footer-tags-separator {
-	flex-shrink: 0;
-	width: 1px;
-	height: 14px;
 	background-color: var(--vscode-widget-border);
 }

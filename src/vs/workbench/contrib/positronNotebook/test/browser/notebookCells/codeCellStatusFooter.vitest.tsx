@@ -131,20 +131,20 @@ describe('CodeCellStatusFooter', () => {
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
 	});
 
-	// The footer hosts the tag bar, so its collapse/divider layout depends on the
+	// The footer hosts the tag bar, so its collapse/stack layout depends on the
 	// cell's tag UI visibility as well as execution metadata: a visible tag UI
 	// (tags or an in-progress tag-add) keeps it open, hiding tags notebook-wide
-	// collapses it, and the divider only appears when execution metadata precedes
-	// the tag UI (otherwise it is an orphan with nothing before it).
-	const tagLayoutCases: { name: string; state: CellState; collapsed: boolean; separator: boolean }[] = [
-		{ name: 'execution metadata and tags', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] }, collapsed: false, separator: true },
-		{ name: 'execution metadata and a tag-add in progress', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, isAddingTag: true }, collapsed: false, separator: true },
-		{ name: 'tags only', state: { tags: ['wip'] }, collapsed: false, separator: false },
-		{ name: 'tags hidden notebook-wide', state: { tags: ['wip'], cellTagsHidden: true }, collapsed: true, separator: false },
-		{ name: 'a tag-add in progress', state: { isAddingTag: true }, collapsed: false, separator: false },
+	// collapses it, and the execution-metadata row appears above the tags only
+	// when there is execution metadata to show (otherwise the tags are alone).
+	const tagLayoutCases: { name: string; state: CellState; collapsed: boolean; metadata: boolean }[] = [
+		{ name: 'execution metadata and tags', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] }, collapsed: false, metadata: true },
+		{ name: 'execution metadata and a tag-add in progress', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, isAddingTag: true }, collapsed: false, metadata: true },
+		{ name: 'tags only', state: { tags: ['wip'] }, collapsed: false, metadata: false },
+		{ name: 'tags hidden notebook-wide', state: { tags: ['wip'], cellTagsHidden: true }, collapsed: true, metadata: false },
+		{ name: 'a tag-add in progress', state: { isAddingTag: true }, collapsed: false, metadata: false },
 	];
 
-	it.each(tagLayoutCases)('tag footer layout with $name', ({ state, collapsed, separator }) => {
+	it.each(tagLayoutCases)('tag footer layout with $name', ({ state, collapsed, metadata }) => {
 		renderFooter(state);
 		const footer = getFooter({ hidden: true });
 
@@ -153,10 +153,10 @@ describe('CodeCellStatusFooter', () => {
 		} else {
 			expect(footer).not.toHaveClass('collapsed');
 		}
-		if (separator) {
-			expect(screen.getByTestId('cell-footer-tags-separator')).toBeInTheDocument();
+		if (metadata) {
+			expect(screen.getByTestId('cell-footer-metadata')).toBeInTheDocument();
 		} else {
-			expect(screen.queryByTestId('cell-footer-tags-separator')).not.toBeInTheDocument();
+			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
 		}
 	});
 });
