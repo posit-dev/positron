@@ -32,7 +32,11 @@ test.describe('Assistant: Copilot sign-in surfaces suppressed', { tag: [tags.WIN
 
 	test('Signed-out user sees no Copilot AI sign-in entry in Accounts menu or title bar', async function ({ app, page }) {
 		await test.step('Accounts menu has no AI/Copilot sign-in entry', async () => {
-			const accountsButton = page.getByRole('button', { name: 'Accounts', exact: true });
+			// Accounts button lives in the activity bar; its aria-label gets a badge
+			// suffix when signed out (e.g. "Accounts - Sign in ..."), so scope to the
+			// activity bar and match the prefix rather than the exact name.
+			const accountsButton = page.locator('.activitybar')
+				.getByRole('button', { name: /^Accounts/ });
 			await expect(accountsButton).toBeVisible();
 			await accountsButton.click();
 
