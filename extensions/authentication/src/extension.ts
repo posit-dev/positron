@@ -211,13 +211,15 @@ async function registerAwsProvider(
 		{
 			resolve: async () => {
 				const resolved = await credentialProvider();
-				return JSON.stringify({
-					accessKeyId: resolved.accessKeyId,
-					secretAccessKey: resolved.secretAccessKey,
-					sessionToken: resolved.sessionToken,
-				});
+				return {
+					token: JSON.stringify({
+						accessKeyId: resolved.accessKeyId,
+						secretAccessKey: resolved.secretAccessKey,
+						sessionToken: resolved.sessionToken,
+					}),
+					expiration: resolved.expiration,
+				};
 			},
-			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);
 	context.subscriptions.push(

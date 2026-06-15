@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { coalesce } from '../../../../base/common/arrays.js';
-import { Event } from '../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { IReader, autorun, observableValue } from '../../../../base/common/observable.js';
 import { localize2 } from '../../../../nls.js';
@@ -290,10 +289,6 @@ export class SessionModelPicker extends Disposable {
 
 		this._delegate = {
 			currentModel: this._currentModel,
-			// --- Start Positron ---
-			onDidChangeModelList: Event.None,
-			canManageModels: () => false,
-			// --- End Positron ---
 			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
 				this._currentModel.set(model, undefined);
 				const session = this._sessionsManagementService.activeSession.get();

@@ -33,10 +33,6 @@ import { ChatToolPostExecuteConfirmationPart } from './chatToolPostExecuteConfir
 import { ChatToolProgressSubPart } from './chatToolProgressPart.js';
 import { ChatToolStreamingSubPart } from './chatToolStreamingSubPart.js';
 
-// --- Start Positron ---
-import { ChatToolMarkdownProgressPart } from './chatToolMarkdownProgressPart.js';
-// --- End Positron ---
-
 export class ChatToolInvocationPart extends Disposable implements IChatContentPart {
 	public readonly domNode: HTMLElement;
 
@@ -259,14 +255,6 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 				false,
 			);
 		}
-		// --- Start Positron ---
-		// Custom rendering for code block of executeCode tool
-		// This is after it is executed or canceled
-		// Before execution is handled by the first if-block in this method
-		if (this.toolInvocation.toolId === 'executeCode') {
-			return this.instantiationService.createInstance(ChatToolMarkdownProgressPart, this.toolInvocation, this.context, this.renderer, this.editorPool, this.currentWidthDelegate, this.codeBlockStartIndex);
-		}
-		// --- End Positron ---
 
 		return this.instantiationService.createInstance(ChatToolProgressSubPart, this.toolInvocation, this.context, this.renderer, this.announcedToolProgressKeys);
 	}

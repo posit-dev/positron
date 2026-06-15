@@ -68,19 +68,14 @@ test.describe('Diagnostics', {
 	test('Python - Notebook shows diagnostic for undefined variable', async function ({ app, hotKeys }) {
 		const { problems, notebooksPositron } = app.workbench;
 
-		await test.step('Create notebook and select Python kernel', async () => {
-			await notebooksPositron.newNotebook();
-			await notebooksPositron.kernel.select('Python');
-		});
+		// create a new notebook
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.select('Python');
 
-		await test.step('Add code with undefined variable', async () => {
-			await notebooksPositron.addCodeToCell(0, 'x = 1\nprint(xx)');
-			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(xx)']);
-		});
-
-		await test.step('Verify diagnostic appears', async () => {
-			await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
-		});
+		// add code with undefined variable and verify the diagnostic
+		await notebooksPositron.addCodeToCell(0, 'x = 1\nprint(xx)');
+		await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(xx)']);
+		await problems.expectWarningText('Could not find name `xx`');
 
 		await test.step('Fix the error', async () => {
 			await notebooksPositron.selectCellAtIndex(0, { editMode: true });
@@ -89,9 +84,7 @@ test.describe('Diagnostics', {
 			await notebooksPositron.expectCellContentAtIndexToBe(0, ['x = 1', 'print(x)']);
 		});
 
-		await test.step('Verify diagnostic is cleared', async () => {
-			await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
-		});
+		// verify the diagnostic is cleared
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 	});
-
 });

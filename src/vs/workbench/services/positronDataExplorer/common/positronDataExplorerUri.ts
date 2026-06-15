@@ -38,20 +38,22 @@ export class PositronDataExplorerUri {
 			return undefined;
 		}
 
-		// Parse the resource. Either it's a runtime comm id or a duckdb:$PATH identifier
+		// Parse the resource. Either it's a runtime comm id (a UUID) or a scheme-prefixed
+		// extension-backend identifier such as "duckdb:$PATH" (file backends) or
+		// "sqlite:$CONNECTION:$KIND:$NAME" (data connection drivers).
 		const match = resource.path.match(
-			/^positron-data-explorer-(?:([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})|(duckdb:.+))$/
+			/^positron-data-explorer-(?:([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})|([a-z][a-z0-9+.-]*:.+))$/
 		);
 
 		const uuid = match?.[1];
-		const duckdbPath = match?.[2];
+		const backendIdentifier = match?.[2];
 
 		if (typeof uuid === 'string') {
-			// UUID
+			// Runtime comm id.
 			return uuid;
-		} else if (typeof duckdbPath === 'string') {
-			// duckdb:path/to/file
-			return duckdbPath;
+		} else if (typeof backendIdentifier === 'string') {
+			// Extension-backend identifier (e.g. duckdb:... or sqlite:...).
+			return backendIdentifier;
 		} else {
 			return undefined;
 		}
