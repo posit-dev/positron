@@ -49,16 +49,25 @@ async function cdpCapture(
  * clip through CDP at the requested scale (defaults to 2x). Playwright's
  * page.screenshot() with clip captures CSS pixels and doesn't reliably
  * honor deviceScaleFactor, so we go through raw CDP.
+ *
+ * The clip height is clamped to the bottom of the workbench status bar
+ * rather than `window.innerHeight`. When the CDP viewport override is taller
+ * than the (OS-clamped) window the workbench actually laid out in, the region
+ * below the status bar renders as empty white space; the status bar's
+ * bounding box reflects where the workbench truly ends, so clamping to it
+ * trims that gap. For a correctly-sized window this is a no-op.
  */
 export async function captureFullWindow(
 	page: Page,
 	filename: string,
 	opts?: { scale?: number; shadow?: boolean },
 ): Promise<void> {
-	const { width, height } = await page.evaluate(() => ({
-		width: window.innerWidth,
-		height: window.innerHeight,
-	}));
+	const width = await page.evaluate(() => window.innerWidth);
+	const innerHeight = await page.evaluate(() => window.innerHeight);
+	const statusbarBox = await page.locator('.part.statusbar').boundingBox();
+	const height = statusbarBox
+		? Math.min(innerHeight, Math.ceil(statusbarBox.y + statusbarBox.height))
+		: innerHeight;
 	await cdpCapture(page, { x: 0, y: 0, width, height, scale: opts?.scale ?? DEFAULT_SCALE }, filename);
 	if (opts?.shadow !== false) {
 		await applyDropShadow(filename);

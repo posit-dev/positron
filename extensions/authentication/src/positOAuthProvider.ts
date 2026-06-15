@@ -148,6 +148,11 @@ export class PositOAuthProvider extends AuthProvider {
 
 	// --- AuthProvider overrides ---
 
+	override async isConfigured(): Promise<boolean> {
+		const refreshToken = await this.context.secrets.get('posit-ai.refresh_token');
+		return refreshToken !== undefined;
+	}
+
 	override async getSessions(
 		_scopes?: readonly string[],
 		_options?: vscode.AuthenticationProviderSessionOptions
