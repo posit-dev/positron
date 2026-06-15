@@ -13,9 +13,7 @@ test.use({
 test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings, assistant, python }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-
+	test.beforeAll(async function ({ settings, assistant, python }) {
 		// Enable ghost cell suggestions and configure Anthropic model
 		// Set automatic mode to false so only manual trigger (Cmd+Shift+G) generates suggestions
 		await settings.set({
