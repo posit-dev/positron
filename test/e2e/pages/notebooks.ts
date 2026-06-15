@@ -9,6 +9,7 @@ import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
+import { escapeRegExp } from '../utils/strings';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
@@ -257,8 +258,4 @@ export class Notebooks {
 		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.currentPage.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
-}
-
-function escapeRegExp(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
