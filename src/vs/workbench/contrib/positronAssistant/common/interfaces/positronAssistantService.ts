@@ -58,6 +58,12 @@ export interface IPositronProviderMetadata {
 	 * `extensions/positron-assistant/package.json`) toggles the provider.
 	 */
 	settingName: string;
+	/**
+	 * Maturity status of the provider. Drives how it's presented in the
+	 * configuration modal: stable providers (no status) are listed first, then
+	 * 'preview', then 'experimental'.
+	 */
+	status?: 'preview' | 'experimental';
 }
 
 // Equivalent in positron.d.ts API: LanguageModelSource
