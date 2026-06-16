@@ -20,28 +20,28 @@ test.describe('Positron Notebooks: Untitled naming', {
 }, () => {
 
 	test('Creating multiple untitled notebooks increments the name suffix', async function ({ app }) {
-		const { notebooks, notebooksPositron, editors } = app.workbench;
+		const { notebooksPositron, editors } = app.workbench;
 
 		// First untitled notebook is named Untitled-1.ipynb
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 
 		// Subsequent untitled notebooks increment the suffix instead of
 		// reusing Untitled-1.ipynb
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await editors.waitForActiveTab('Untitled-2.ipynb', true);
 
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await editors.waitForActiveTab('Untitled-3.ipynb', true);
 	});
 
 	test('Untitled names keep incrementing after a window reload restores a dirty notebook', async function ({ app, hotKeys }) {
-		const { notebooks, notebooksPositron, editors } = app.workbench;
+		const { notebooksPositron, editors } = app.workbench;
 
 		// Create a dirty untitled notebook then reload the window so it is
 		// restored from a working copy backup
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 
@@ -51,22 +51,22 @@ test.describe('Positron Notebooks: Untitled naming', {
 		await notebooksPositron.expectToBeVisible();
 
 		// A new untitled notebook must not reuse the restored notebook's name
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await editors.waitForActiveTab('Untitled-2.ipynb', true);
 	});
 
 	test('Closing an unsaved notebook releases its name for reuse', async function ({ app, hotKeys }) {
-		const { notebooks, notebooksPositron, editors } = app.workbench;
+		const { notebooksPositron, editors } = app.workbench;
 
 		// Create and discard an untitled notebook
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 		await hotKeys.closeAllEditors();
 
 		// The discarded name is reused (matches untitled text file behavior),
 		// and creating the next notebook must not error
-		await notebooks.createNewNotebook();
+		await notebooksPositron.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 		await editors.waitForActiveTab('Untitled-1.ipynb', true);
 	});
