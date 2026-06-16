@@ -81,23 +81,6 @@ test.describe('Assistant: Copilot sign-in surfaces suppressed', { tag: [tags.WIN
 		await expect(menu).toBeHidden();
 	});
 
-	test('Command palette does not list the Copilot "Learn How to Hide AI Features" command', async function ({ app }) {
-		const { hotKeys, quickInput } = app.workbench;
-
-		await hotKeys.openCommandPalette();
-		await quickInput.type(`>${HIDE_AI_COMMAND}`);
-		// Wait for the palette to return a result first, so the count below is meaningful.
-		await quickInput.waitForQuickInputElementText();
-
-		// With the f1 entry suppressed, the palette falls back to fuzzy "similar commands",
-		// so assert the exact command title isn't among them.
-		await expect(
-			quickInput.quickInputResult.filter({ hasText: HIDE_AI_COMMAND })
-		).toHaveCount(0);
-
-		await quickInput.closeQuickInput();
-	});
-
 	test('Command palette does not list the Copilot "Use AI Features with Copilot for free..." command', async function ({ app }) {
 		const { hotKeys, quickInput } = app.workbench;
 
@@ -110,6 +93,40 @@ test.describe('Assistant: Copilot sign-in surfaces suppressed', { tag: [tags.WIN
 		// so assert the exact command title isn't among them.
 		await expect(
 			quickInput.quickInputResult.filter({ hasText: USE_AI_FEATURES_COMMAND })
+		).toHaveCount(0);
+
+		await quickInput.closeQuickInput();
+	});
+});
+
+// "Learn How to Hide AI Features" is gated on AI features being enabled (its precondition is
+// Setup.hidden.negate()), but Positron defaults chat.disableAIFeatures to true, so the command
+// is already hidden by its own precondition. We flip AI features on for this check so the
+// precondition passes and the dropped f1 entry is the only thing keeping it out of the palette;
+// otherwise the assertion would pass trivially. The default is restored afterward.
+test.describe('Assistant: "Learn How to Hide AI Features" suppressed with AI features on', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+
+	test.beforeAll(async ({ settings }) => {
+		await settings.set({ 'chat.disableAIFeatures': false }, { reload: true });
+	});
+
+	test.afterAll(async ({ settings, app }) => {
+		await settings.remove(['chat.disableAIFeatures']);
+		await app.workbench.hotKeys.reloadWindow(true);
+	});
+
+	test('Command palette does not list the Copilot "Learn How to Hide AI Features" command', async function ({ app }) {
+		const { hotKeys, quickInput } = app.workbench;
+
+		await hotKeys.openCommandPalette();
+		await quickInput.type(`>${HIDE_AI_COMMAND}`);
+		// Wait for the palette to return a result first, so the count below is meaningful.
+		await quickInput.waitForQuickInputElementText();
+
+		// With the f1 entry suppressed, the palette falls back to fuzzy "similar commands",
+		// so assert the exact command title isn't among them.
+		await expect(
+			quickInput.quickInputResult.filter({ hasText: HIDE_AI_COMMAND })
 		).toHaveCount(0);
 
 		await quickInput.closeQuickInput();
