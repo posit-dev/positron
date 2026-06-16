@@ -16,6 +16,7 @@ import { RuntimeClientType } from '../../../../services/runtimeSession/common/ru
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
+import { IntrinsicSize, PlotUnit } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -157,6 +158,7 @@ describe('Positron - Plots Service', () => {
 			onDidClose: () => ({ dispose: () => { } }),
 			onDidRenderUpdate: () => ({ dispose: () => { } }),
 			onDidShowPlot: () => ({ dispose: () => { } }),
+			onDidSetIntrinsicSize: () => ({ dispose: () => { } }),
 			render: vi.fn(),
 			getIntrinsicSize: vi.fn(),
 			dispose: vi.fn(),
@@ -179,6 +181,45 @@ describe('Positron - Plots Service', () => {
 		await raceTimeout(didClosePlot, 100, () => expect.unreachable('onDidChangeSizingPolicy event did not fire'));
 
 		expect(sizingPolicyChanged, 'onDidChangeSizingPolicy event should fire').toBe(true);
+	});
+
+	it('sizing policy: prefers the intrinsic size when the backend reports one', async () => {
+		const session = await createSession();
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+
+		const plotInstance = plotsService.positronPlotInstances[0] as PlotClientInstance;
+
+		// The plot starts out using the default auto sizing policy.
+		expect(plotInstance.sizingPolicy.id).toBe('auto');
+
+		// Make the backend report a Quarto intrinsic size (e.g. from fig-width/fig-height).
+		// eslint-disable-next-line local/code-no-any-casts -- private field access for stub injection in test only
+		const comm = (plotInstance as any)._commProxy._comm;
+		comm.getIntrinsicSize = vi.fn().mockResolvedValue({
+			width: 10, height: 3, unit: PlotUnit.Inches, source: 'Quarto',
+		} satisfies IntrinsicSize);
+
+		// Querying the intrinsic size should upgrade the plot to the intrinsic policy.
+		await plotInstance.getIntrinsicSize();
+
+		expect(plotInstance.sizingPolicy.id).toBe('intrinsic');
+	});
+
+	it('sizing policy: keeps the auto policy when the backend reports no intrinsic size', async () => {
+		const session = await createSession();
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+
+		const plotInstance = plotsService.positronPlotInstances[0] as PlotClientInstance;
+		expect(plotInstance.sizingPolicy.id).toBe('auto');
+
+		// The backend reports no intrinsic size (e.g. a plain R plot without figure options).
+		// eslint-disable-next-line local/code-no-any-casts -- private field access for stub injection in test only
+		const comm = (plotInstance as any)._commProxy._comm;
+		comm.getIntrinsicSize = vi.fn().mockResolvedValue(undefined);
+
+		await plotInstance.getIntrinsicSize();
+
+		expect(plotInstance.sizingPolicy.id).toBe('auto');
 	});
 
 	it('selection: select plot', async () => {
@@ -229,6 +270,21 @@ describe('Positron - Plots Service', () => {
 		expect(removePlotCalled, 'onDidRemovePlot event should fire').toBe(true);
 		expect(plotsService.positronPlotInstances.length).toBe(0);
 		expect(plotsService.selectedPlotId).toBe(undefined);
+	});
+
+	it('removal: removing a single plot leaves the other plots intact', async () => {
+		const session = await createSession();
+
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot3');
+
+		expect(plotsService.positronPlotInstances.length).toBe(3);
+
+		// Removing one plot should remove only that plot, not its neighbor.
+		plotsService.removePlot('plot1');
+
+		expect(plotsService.positronPlotInstances.map(p => p.id)).toEqual(['plot2', 'plot3']);
 	});
 
 	it('selection: expect error removing plot when no plot selected', () => {
@@ -361,5 +417,22 @@ describe('Positron - Plots Service', () => {
 		// Verify that operations were queued and processed
 		// The second render should cancel the first, so we expect only 1 render call
 		expect(renderCallCount, 'Should have called render only once due to cancellation').toBe(1);
+	});
+
+	// Guard-only coverage for the plot output action buttons (issue #12497). The real
+	// clipboard write and auxiliary-window creation are exercised by the plots e2e suite;
+	// here we only pin the branching that decides whether those side effects run at all.
+	describe('plot actions: copy and open in new window', () => {
+		it('open in new window: throws when no plot is selected', () => {
+			expect(() => plotsService.openPlotInNewWindow()).toThrow('no plot selected');
+		});
+
+		it('copy view plot: rejects when no plot is selected', async () => {
+			await expect(plotsService.copyViewPlotToClipboard()).rejects.toThrow('Plot not found');
+		});
+
+		it('copy editor plot: rejects when the plot id is unknown', async () => {
+			await expect(plotsService.copyEditorPlotToClipboard('missing')).rejects.toThrow('Plot not found');
+		});
 	});
 });

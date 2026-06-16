@@ -48,6 +48,25 @@ export const showLanguageModelModalDialog = (
 	);
 };
 
+/**
+ * Sort rank for grouping providers in the modal: Posit AI first, then stable
+ * providers (no status), then preview, then experimental. Within a group,
+ * callers fall back to an alphabetical comparison.
+ */
+const providerSortRank = (provider: IPositronLanguageModelSource['provider']): number => {
+	if (provider.id === 'posit-ai') {
+		return 0;
+	}
+	switch (provider.status) {
+		case 'preview':
+			return 2;
+		case 'experimental':
+			return 3;
+		default:
+			return 1;
+	}
+};
+
 const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositronLanguageModelConfig => {
 	return {
 		...source.defaults,
@@ -72,19 +91,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
-			// Posit AI should always be first
-			if (a.provider.id === 'posit-ai') {
-				return -1;
-			}
-			if (b.provider.id === 'posit-ai') {
-				return 1;
-			}
-			// Echo and Error providers should always be last
-			if (a.provider.id === 'echo' || a.provider.id === 'error') {
-				return 1;
-			}
-			if (b.provider.id === 'echo' || b.provider.id === 'error') {
-				return -1;
+			// Posit AI is always first, then stable providers, then preview,
+			// then experimental. Within each group, sort alphabetically.
+			const rankDiff = providerSortRank(a.provider) - providerSortRank(b.provider);
+			if (rankDiff !== 0) {
+				return rankDiff;
 			}
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		});
@@ -478,6 +489,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							displayName={source.provider.displayName}
 							identifier={source.provider.id}
 							selected={source.provider.id === selectedProvider.provider.id}
+							status={source.provider.status}
 							onClick={() => onChangeProvider(source)}
 						/>;
 					})
