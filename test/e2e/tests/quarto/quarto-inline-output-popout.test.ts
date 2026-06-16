@@ -39,9 +39,11 @@ test.describe('Quarto - Inline Output: Popout', {
 		await editors.clickTab('simple_plot.qmd');
 		await inlineQuarto.runCellAndWaitForOutput({ cellLine: 12, outputLine: 25 });
 
-		// Save the plot
+		// Save the plot — hover directly on the (CSS-hidden) save button with
+		// force:true so the mouse lands at the button's position, triggering the
+		// :hover that reveals it; the subsequent click fires from the same spot.
 		await inlineQuarto.gotoLine(19);
-		await inlineQuarto.getInlineOutputAt(0).hover();
+		await inlineQuarto.saveButton.hover({ force: true });
 		await inlineQuarto.saveButton.click();
 		await quickInput.waitForQuickInputOpened();
 		await quickInput.type(savedPlotPath);
