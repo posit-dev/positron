@@ -12,13 +12,8 @@ test.use({
 
 test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () => {
 
-	// Blocked on ipywidgets rendering reliably in the Positron notebook editor: the
-	// interact() sliders render but the plot <img> inside the Output widget is not
-	// reachable through the editor's webview frames (same family as the skipped
-	// IntSlider test in notebooks-positron/notebook-ipywidgets-slider.test.ts).
-	test.skip('Python - Matplotlib Interact Test', {
-		tag: [tags.WEB, tags.WIN],
-		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13646' }
+	test('Python - Matplotlib Interact Test', {
+		tag: [tags.WEB, tags.WIN]
 	}, async function ({ app, hotKeys, python }) {
 		const { notebooksPositron, quickaccess } = app.workbench;
 
