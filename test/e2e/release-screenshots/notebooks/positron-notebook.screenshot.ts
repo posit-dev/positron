@@ -103,7 +103,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 	 * left having responded to "Tell me about this notebook", variables on right.
 	 */
 	test('Release Screenshot - positron-notebook.png', async ({ app, page, settings, python }) => {
-		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant } = app.workbench;
+		const { notebooksPositron, variables, hotKeys, layouts, plots, quickaccess, quickInput, editors, positAssistant, assistant } = app.workbench;
 
 		await settings.set({
 			'positron.assistant.notebook.ghostCellSuggestions.enabled': false,
@@ -146,7 +146,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
 		// Log in to the model provider and open Posit Assistant chat on the left.
-		await positAssistant.loginModelProvider('anthropic-api');
+		await assistant.loginModelProvider('anthropic-api');
 		await positAssistant.open();
 		await positAssistant.waitForReady();
 		await positAssistant.sendMessageAndWait('Tell me about this notebook', { timeout: 90_000, newConversation: true });
