@@ -5,16 +5,22 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import type { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
- * Subscribes to a runtime session state and returns its current RuntimeState.
- * Returns undefined when no session is attached so callers can render
- * pre-session fallbacks (e.g., "no kernel selected", "discovering interpreters").
+ * Returns the current RuntimeState for a session, for rendering status indicators.
+ * Restart is special-cased: the state stays `Restarting` for the whole restart so a
+ * transient `idle` mid-restart isn't surfaced. Returns undefined when no session is attached.
  */
 export function useSessionRuntimeState(session: ILanguageRuntimeSession | undefined): RuntimeState | undefined {
-	const [runtimeState, setRuntimeState] = useState<RuntimeState | undefined>(() => session?.getRuntimeState());
+	const services = usePositronReactServicesContext();
+	const [runtimeState, setRuntimeState] = useState<RuntimeState | undefined>(() =>
+		session
+			? services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
+			: undefined
+	);
 
 	useEffect(() => {
 		if (!session) {
@@ -22,15 +28,16 @@ export function useSessionRuntimeState(session: ILanguageRuntimeSession | undefi
 			return;
 		}
 		const disposables = new DisposableStore();
-
-		// Sync state in case it changed between render and effect.
-		setRuntimeState(session.getRuntimeState());
-		disposables.add(session.onDidChangeRuntimeState(state => {
-			setRuntimeState(state);
+		setRuntimeState(
+			services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
+		);
+		disposables.add(services.runtimeSessionService.onDidChangeDisplayRuntimeState(e => {
+			if (e.sessionId === session.sessionId) {
+				setRuntimeState(e.state);
+			}
 		}));
-
 		return () => disposables.dispose();
-	}, [session]);
+	}, [session, services]);
 
 	return runtimeState;
 }
