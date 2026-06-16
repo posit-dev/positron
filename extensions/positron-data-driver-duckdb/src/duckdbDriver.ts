@@ -41,7 +41,7 @@ export function createDuckDBDriver(
 		name: 'DuckDB',
 		description: vscode.l10n.t('Connect to a DuckDB database file'),
 		iconSvg,
-		supportedLanguageIds: [],
+		supportedLanguageIds: ['python', 'r'],
 		parameters: [
 			{
 				id: 'databasePath',
@@ -81,7 +81,11 @@ export function createDuckDBDriver(
 				readOnly,
 				inMemory,
 			}, dataExplorerHandler);
+
+			// Connect.
 			await connection.connect();
+
+			// Return the live connection.
 			return connection;
 		},
 	};

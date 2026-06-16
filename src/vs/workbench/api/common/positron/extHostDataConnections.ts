@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -144,6 +144,26 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		this._driverConnections.get(driverId)?.add(handle);
 
 		return handle;
+	}
+
+	/**
+	 * Calls the extension's driver.generateConnectionCode() and maps its variants into DTOs for the
+	 * main thread.
+	 * @param driverId The unique identifier of the driver to generate code with.
+	 * @param languageId One of the driver's supported language ids.
+	 * @param params User-supplied parameter values from the connection dialog.
+	 */
+	async $generateConnectionCode(driverId: string, languageId: string, params: Record<string, string | number | boolean>): Promise<IDataConnectionCodeVariantDTO[]> {
+		const driver = this._drivers.get(driverId);
+		if (!driver) {
+			throw new Error(`Data connection driver '${driverId}' not found`);
+		}
+		if (!driver.generateConnectionCode) {
+			throw new Error(`Data connection driver '${driverId}' does not support generating connection code`);
+		}
+
+		const variants = await driver.generateConnectionCode(languageId, params);
+		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
 	}
 
 	/**

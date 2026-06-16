@@ -15,8 +15,7 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 	database: 'testdb',
 	user: 'testuser',
 	password: 'testpass',
-	ssl: false,
-	readOnly: true
+	ssl: false
 };
 
 // A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real

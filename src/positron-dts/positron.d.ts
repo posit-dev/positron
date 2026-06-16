@@ -1913,6 +1913,29 @@ declare module 'positron' {
 	/**
 	 * A driver that provides data connections through the 'New Data Connection' dialog.
 	 */
+	/**
+	 * A named variant of generated connection code for a single language. A driver may offer
+	 * several variants per language (for example, Python `sqlite3` vs `SQLAlchemy`) so users can
+	 * pick the library they prefer.
+	 */
+	export interface ConnectionCodeVariant {
+		/**
+		 * A stable identifier for the variant (e.g. 'sqlite3', 'sqlalchemy'). Unique within the
+		 * variants returned for a given language.
+		 */
+		id: string;
+
+		/**
+		 * A user-facing label for the variant (e.g. 'sqlite3', 'SQLAlchemy').
+		 */
+		label: string;
+
+		/**
+		 * The generated connection code for this variant.
+		 */
+		code: string;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -1948,6 +1971,20 @@ declare module 'positron' {
 		 * Connects using the provided parameter values.
 		 */
 		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Generates one or more named code variants that connect to this data source in the given
+		 * language, using the provided parameter values. The language is one of the driver's
+		 * `supportedLanguageIds`; drivers that report no supported languages need not implement this
+		 * method. Variants are returned in preference order, so the first is treated as the default.
+		 *
+		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
+		 *   the driver's `supportedLanguageIds`.
+		 * @param parameters The current values of the connection parameters defined in `parameters`.
+		 * @returns The available code variants, or an empty array if code cannot be generated from
+		 *   the given parameters (for example, when a required parameter is missing).
+		 */
+		generateConnectionCode?(languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
 	}
 
 	/**
