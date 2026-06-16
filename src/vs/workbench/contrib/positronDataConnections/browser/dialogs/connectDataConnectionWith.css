@@ -3,18 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Wraps the connection summary band and the code grid in a vertical stack. */
-.connect-data-connection-with-content {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-/* Identifies which connection the code is for, between the title bar and the code grid. */
-.connect-data-connection-with-content .connection-summary {
-	font-size: 16px;
-}
-
 .connect-data-connection-with {
 	height: 360px;
 	display: grid;
@@ -61,7 +49,7 @@
 	padding: 4px;
 	overflow-y: auto;
 	border-radius: 5px;
-	border: 1px solid var(--vscode-positronVariables-border);
+	border: 1px solid var(--vscode-positronModalDialog-border);
 }
 
 .connect-data-connection-with .variant-list-item {
@@ -109,7 +97,7 @@
 	overflow: auto;
 	padding: 10px;
 	border-radius: 5px;
-	border: solid 1px var(--vscode-positronVariables-border);
+	border: solid 1px var(--vscode-positronModalDialog-border);
 }
 
 .connect-data-connection-with .code code {
