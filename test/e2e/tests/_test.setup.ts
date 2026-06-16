@@ -34,6 +34,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	managedCredentials: [undefined, { scope: 'worker', option: true }],
 
+	useLegacyNotebookEditor: [false, { scope: 'worker', option: true }],
+
 	enableDataConnections: [false, { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
@@ -102,7 +104,15 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
 	beforeApp: [
-		async ({ enableDataConnections, settingsFile }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				// These tests exercise the legacy (VS Code) notebook editor. The
+				// Positron notebook editor is now the default, so disable it before
+				// the app starts to avoid waiting for a window reload. Suites opt in
+				// with `test.use({ useLegacyNotebookEditor: true })`.
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+
 			if (enableDataConnections) {
 				// The Data Connections panel is a preview feature gated behind this
 				// setting, which requires a reload to take effect. Enable it before the
@@ -115,8 +125,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, managedCredentials, enableDataConnections, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, enableDataConnections });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections });
 
 		try {
 			await start();
@@ -532,6 +542,7 @@ export interface TestFixtures {
 export interface WorkerFixtures {
 	suiteId: string;
 	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
+	useLegacyNotebookEditor: boolean;
 	enableDataConnections: boolean;
 	envVars: string;
 	snapshots: boolean;

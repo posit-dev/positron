@@ -17,10 +17,17 @@ export interface AppFixtureOptions {
 	workerInfo: playwright.WorkerInfo;
 	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
 	/**
-	 * When true, suites opt into the Data Connections preview panel. The local
+	 * When true, suites opt into the legacy (VS Code) notebook editor. The local
 	 * (Electron/managed) apps apply this via the host `settingsFile` in `beforeApp`,
-	 * while the Docker-based apps (Jupyter, Workbench) read settings copied into the
-	 * container, so they must merge the override into those settings themselves.
+	 * but the Docker-based apps (Jupyter, Workbench) read settings copied into the
+	 * container, so they must merge the override in themselves.
+	 */
+	useLegacyNotebookEditor?: boolean;
+	/**
+	 * When true, suites opt into the Data Connections preview panel. As with
+	 * `useLegacyNotebookEditor`, the local apps apply this via the host `settingsFile`
+	 * in `beforeApp`, while the Docker-based apps merge the override into the settings
+	 * copied into the container.
 	 */
 	enableDataConnections?: boolean;
 }
