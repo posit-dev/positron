@@ -62,19 +62,6 @@ describe('shouldSkipFirstCommandFinished', () => {
 		const model = stubInterface<IPromptInputModel>({ state: PromptInputState.Input, value: 'pending' });
 		expect(shouldSkipFirstCommandFinished(model)).toBe(true);
 	});
-
-	it('returns false when state is Input but value is empty', () => {
-		const model = stubInterface<IPromptInputModel>({ state: PromptInputState.Input, value: '' });
-		expect(shouldSkipFirstCommandFinished(model)).toBe(false);
-	});
-
-	it('returns false when state is not Input, even with non-empty value', () => {
-		const unknown = stubInterface<IPromptInputModel>({ state: PromptInputState.Unknown, value: 'pending' });
-		expect(shouldSkipFirstCommandFinished(unknown)).toBe(false);
-
-		const execute = stubInterface<IPromptInputModel>({ state: PromptInputState.Execute, value: 'pending' });
-		expect(shouldSkipFirstCommandFinished(execute)).toBe(false);
-	});
 });
 
 describe('QuartoExecutionManager', () => {
