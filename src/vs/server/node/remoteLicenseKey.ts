@@ -7,8 +7,6 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
-import { activateWithManager, verifyLocalLicense } from './licenseManager.js';
-import { FileAccess } from '../../base/common/network.js';
 
 /**
  * The result of validating a license.
@@ -146,23 +144,16 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 		}
 	}
 
-	// Check for a .lic file next to the license-manager binary.
-	const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-	const localResult = await verifyLocalLicense(installPath);
-	if (localResult) {
-		console.log('Verified license from license-manager directory.');
-		return localResult;
-	}
-
-	// We need at least one license key to proceed.
-	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
+	// We need at least one signed license token to proceed. There is no fallback
+	// to a raw license file: if no signed token is provided, validation fails closed.
+	console.error('No license key provided. A signed license token is required to use Positron in a hosted environment. Provide one with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
 	return { valid: false };
 }
 
 /**
- * Validates a license file. For RSA license files, this activates (installs)
- * the license into the system before validation.
+ * Validates a license file. The file must contain a signed JSON license token;
+ * raw license files are not accepted.
  *
  * @param connectionToken The connection token.
  * @param licenseFile The path to the license file.
@@ -176,19 +167,12 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 	// Read the contents of the license file into a string.
 	try {
 		const contents = fs.readFileSync(licenseFile, 'utf8');
-		// Check if this looks like a JSON file (trimmed content starts with '{')
-		const trimmedContents = contents.trim();
-		if (trimmedContents.startsWith('{')) {
+		// Only signed JSON license tokens are accepted; raw license files are not.
+		if (contents.trim().startsWith('{')) {
 			return validateLicense(connectionToken, contents);
-		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
-			// This is an RSA license file, let the license manager handle it.
-			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-			return await activateWithManager(installPath, licenseFile);
-		} else {
-			// Unknown license format
-			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');
-			return { valid: false };
 		}
+		console.error('Unrecognized license file format. Expected a signed JSON license token.');
+		return { valid: false };
 	} catch (e) {
 		console.error('Error reading license file: ', licenseFile);
 		console.error(e);

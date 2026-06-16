@@ -7,7 +7,8 @@
 
 import * as crypto from 'crypto';
 import { describe, expect, it } from 'vitest';
-import { validateLicense } from '../../node/remoteLicenseKey.js';
+import { validateLicense, validateLicenseKey } from '../../node/remoteLicenseKey.js';
+import { ServerParsedArgs } from '../../node/serverEnvironmentService.js';
 
 describe('validateLicense', () => {
 	// Generate a 2048-bit test key pair once for the suite (sync, ~100ms).
@@ -123,5 +124,24 @@ describe('validateLicense', () => {
 		const result = await validateLicense(token, license, []);
 
 		expect(result.valid).toBe(false);
+	});
+});
+
+describe('validateLicenseKey', () => {
+	it('fails closed when no signed token is available (no raw-license fallback)', async () => {
+		// With no --license-key args and no env-provided token, validation must fail
+		// rather than fall back to reading a raw .lic from disk.
+		const prevKey = process.env.POSITRON_LICENSE_KEY;
+		const prevFile = process.env.POSITRON_LICENSE_KEY_FILE;
+		delete process.env.POSITRON_LICENSE_KEY;
+		delete process.env.POSITRON_LICENSE_KEY_FILE;
+		try {
+			const args: ServerParsedArgs = {};
+			const result = await validateLicenseKey('some-token', args);
+			expect(result.valid).toBe(false);
+		} finally {
+			if (prevKey !== undefined) { process.env.POSITRON_LICENSE_KEY = prevKey; }
+			if (prevFile !== undefined) { process.env.POSITRON_LICENSE_KEY_FILE = prevFile; }
+		}
 	});
 });
