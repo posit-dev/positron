@@ -20,7 +20,6 @@ export * from '../pages/variables';
 export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
 export * from '../pages/plots';
-export * from '../pages/notebooksBase';
 export * from '../pages/notebooksPositron';
 export * from '../pages/newFolderFlow';
 export * from '../pages/connections';
