@@ -18,6 +18,15 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
+ * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages
+ * treat backslash as an escape character in double-quoted strings, so Windows paths such as
+ * `C:\db.duckdb` must have their separators doubled.
+ */
+function escapeDoubleQuoted(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Creates the DuckDB DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
  * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
@@ -87,6 +96,71 @@ export function createDuckDBDriver(
 
 			// Return the live connection.
 			return connection;
+		},
+		async generateConnectionCode(languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+			// Extract parameters.
+			const inMemory = params.inMemory === true;
+			const databasePath = params.databasePath;
+			const readOnly = params.readOnly === true;
+
+			// An in-memory database needs no file. A file-backed database needs a path before we
+			// can generate valid connection code.
+			if (!inMemory && !isNonEmptyString(databasePath)) {
+				return [];
+			}
+
+			// Read-only mode only applies to a file-backed database; an in-memory database is
+			// always freshly created and writable.
+			const fileReadOnly = readOnly && !inMemory;
+			const escapedPath = isNonEmptyString(databasePath) ? escapeDoubleQuoted(databasePath) : '';
+
+			// Generate code variants for supported languages. Return an empty array for
+			// unsupported languages or when code cannot be generated.
+			switch (languageId) {
+				case 'python': {
+					// The duckdb.connect(...) call, shared by the duckdb and SQLAlchemy variants.
+					// An in-memory database uses the no-argument default.
+					const duckdbConnect = inMemory
+						? 'duckdb.connect()'
+						: `duckdb.connect("${escapedPath}"${fileReadOnly ? ', read_only=True' : ''})`;
+
+					// The SQLAlchemy (duckdb_engine) engine expression. The target is ':memory:'
+					// for an in-memory database or the file path otherwise.
+					const sqlalchemyTarget = inMemory ? ':memory:' : escapedPath;
+					const sqlalchemyEngine = fileReadOnly
+						? `sa.create_engine("duckdb:///${sqlalchemyTarget}", connect_args={"read_only": True})`
+						: `sa.create_engine("duckdb:///${sqlalchemyTarget}")`;
+
+					return [
+						{
+							id: 'duckdb',
+							label: 'duckdb',
+							code: `import duckdb\n\nconn = ${duckdbConnect}\n`,
+						},
+						{
+							id: 'sqlalchemy',
+							label: 'SQLAlchemy',
+							code: `import sqlalchemy as sa\n\nengine = ${sqlalchemyEngine}\n`,
+						},
+					];
+				}
+				case 'r': {
+					// The dbConnect expression for the DBI variant. An in-memory database uses
+					// duckdb's default dbdir; read-only applies only to a file-backed database.
+					const dbConnect = inMemory
+						? 'dbConnect(duckdb::duckdb())'
+						: `dbConnect(duckdb::duckdb(), dbdir = "${escapedPath}"${fileReadOnly ? ', read_only = TRUE' : ''})`;
+					return [
+						{
+							id: 'dbi',
+							label: 'DBI',
+							code: `library(DBI)\n\ncon <- ${dbConnect}\n`,
+						},
+					];
+				}
+				default:
+					return [];
+			}
 		},
 	};
 }

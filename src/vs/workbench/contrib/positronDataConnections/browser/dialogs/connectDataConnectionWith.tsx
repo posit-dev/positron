@@ -34,8 +34,11 @@ export interface ConnectDataConnectionWithOptions {
 	// The id of the language the connection code is written in (e.g. 'python', 'r', 'sql').
 	readonly languageId: string;
 
-	// The display name of the connection, shown in the dialog title.
+	// The display name of the connection, shown in the summary band below the title bar.
 	readonly connectionName: string;
+
+	// The display name of the data source / driver (e.g. 'SQLite', 'DuckDB'), shown in the summary band.
+	readonly driverName: string;
 
 	// The available connection code variants, in preference order (first is the default). Must be
 	// non-empty.
@@ -55,6 +58,7 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
 	renderer.render(
 		<ConnectDataConnectionWith
 			connectionName={options.connectionName}
+			driverName={options.driverName}
 			languageId={options.languageId}
 			renderer={renderer}
 			variants={options.variants}
@@ -69,6 +73,7 @@ interface ConnectDataConnectionWithProps {
 	readonly renderer: PositronModalDialogReactRenderer;
 	readonly languageId: string;
 	readonly connectionName: string;
+	readonly driverName: string;
 	readonly variants: IDataConnectionCodeVariant[];
 }
 
@@ -168,51 +173,56 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 	return (
 		<PositronDynamicModalDialog
 			content={
-				<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector })}>
-					{showVariantSelector &&
-						<div className='library-header'>{variantGroupLabel}</div>
-					}
-					<div className='code-header'>
-						<span className='code-title'>{localize('positron.connectDataConnectionWith.code', "Connection Code")}</span>
-						<div className='code-actions'>
-							<Button
-								className='button dialog-button small'
-								disabled={!selectedVariant.code}
-								onPressed={createScriptHandler}
-							>
-								{localize('positron.connectDataConnectionWith.createScript', "Create Script")}
-							</Button>
-							<Button
-								className='button dialog-button small'
-								disabled={!selectedVariant.code}
-								onPressed={copyHandler}
-							>
-								{localize('positron.connectDataConnectionWith.copy', "Copy")}
-							</Button>
-						</div>
+				<div className='connect-data-connection-with-content'>
+					<div className='connection-summary'>
+						{localize('positron.connectDataConnectionWith.summary', "Connect {0} · {1} with {2}", props.connectionName, props.driverName, languageName)}
 					</div>
-					{showVariantSelector &&
-						<div aria-label={variantGroupLabel} className='variant-list' role='listbox'>
-							{props.variants.map(variant =>
+					<div className={positronClassNames('connect-data-connection-with', { 'has-variants': showVariantSelector })}>
+						{showVariantSelector &&
+							<div className='library-header'>{variantGroupLabel}</div>
+						}
+						<div className='code-header'>
+							<span className='code-title'>{localize('positron.connectDataConnectionWith.code', "Connection Code")}</span>
+							<div className='code-actions'>
 								<Button
-									key={variant.id}
-									ariaSelected={variant.id === selectedVariant.id}
-									className={positronClassNames('variant-list-item', { 'selected': variant.id === selectedVariant.id })}
-									role='option'
-									onPressed={() => setSelectedVariantId(variant.id)}
+									className='button dialog-button small'
+									disabled={!selectedVariant.code}
+									onPressed={createScriptHandler}
 								>
-									{variant.label}
+									{localize('positron.connectDataConnectionWith.createScript', "Create Script")}
 								</Button>
-							)}
+								<Button
+									className='button dialog-button small'
+									disabled={!selectedVariant.code}
+									onPressed={copyHandler}
+								>
+									{localize('positron.connectDataConnectionWith.copy', "Copy")}
+								</Button>
+							</div>
 						</div>
-					}
-					<div className='code'>
-						<DataConnectionCodeEditor
-							key={selectedVariant.id}
-							ref={editorRef}
-							code={selectedVariant.code}
-							languageId={props.languageId}
-						></DataConnectionCodeEditor>
+						{showVariantSelector &&
+							<div aria-label={variantGroupLabel} className='variant-list' role='listbox'>
+								{props.variants.map(variant =>
+									<Button
+										key={variant.id}
+										ariaSelected={variant.id === selectedVariant.id}
+										className={positronClassNames('variant-list-item', { 'selected': variant.id === selectedVariant.id })}
+										role='option'
+										onPressed={() => setSelectedVariantId(variant.id)}
+									>
+										{variant.label}
+									</Button>
+								)}
+							</div>
+						}
+						<div className='code'>
+							<DataConnectionCodeEditor
+								key={selectedVariant.id}
+								ref={editorRef}
+								code={selectedVariant.code}
+								languageId={props.languageId}
+							></DataConnectionCodeEditor>
+						</div>
 					</div>
 				</div>
 			}
@@ -225,7 +235,7 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 				/>
 			}
 			renderer={props.renderer}
-			title={localize('positron.connectDataConnectionWith.title', "Connect to {0} with {1}", props.connectionName, languageName)}
+			title={localize('positron.connectDataConnectionWith.title', "Connect with {0}", languageName)}
 			width={CONNECT_DATA_CONNECTION_WITH_WIDTH}
 			onCancel={cancelHandler}
 		/>

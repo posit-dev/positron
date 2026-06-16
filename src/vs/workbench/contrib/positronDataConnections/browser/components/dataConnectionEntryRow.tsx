@@ -121,6 +121,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 			showConnectDataConnectionWith({
 				languageId,
 				connectionName: profile.connectionName,
+				driverName: driver.metadata.name,
 				variants,
 			});
 		};
