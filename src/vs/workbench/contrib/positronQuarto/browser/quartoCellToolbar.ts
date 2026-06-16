@@ -299,6 +299,20 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		});
 		container.appendChild(this._runAboveButton);
 
+		// Run Below button (disabled for the last cell)
+		this._runBelowButton = document.createElement('button');
+		this._runBelowButton.className = 'quarto-toolbar-btn quarto-toolbar-run-below';
+		this._runBelowButton.setAttribute('aria-label', localize('quarto.toolbar.runBelow.aria', 'Run this cell and all cells below'));
+		this._runBelowButton.setAttribute('tabindex', '0');
+		const runBelowIcon = document.createElement('span');
+		runBelowIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runBelow));
+		this._runBelowButton.appendChild(runBelowIcon);
+		this._runBelowButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this._onRunBelow();
+		});
+		container.appendChild(this._runBelowButton);
+
 		// More cell actions button (opens a context menu)
 		this._moreButton = document.createElement('button');
 		this._moreButton.className = 'quarto-toolbar-btn quarto-toolbar-more';
@@ -314,22 +328,8 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		});
 		container.appendChild(this._moreButton);
 
-		// Run Below button (disabled for the last cell)
-		this._runBelowButton = document.createElement('button');
-		this._runBelowButton.className = 'quarto-toolbar-btn quarto-toolbar-run-below';
-		this._runBelowButton.setAttribute('aria-label', localize('quarto.toolbar.runBelow.aria', 'Run this cell and all cells below'));
-		this._runBelowButton.setAttribute('tabindex', '0');
-		const runBelowIcon = document.createElement('span');
-		runBelowIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runBelow));
-		this._runBelowButton.appendChild(runBelowIcon);
-		this._runBelowButton.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this._onRunBelow();
-		});
-		container.appendChild(this._runBelowButton);
-
 		// Store button array for keyboard navigation
-		this._buttons = [this._runButton, this._runAboveButton, this._moreButton, this._runBelowButton];
+		this._buttons = [this._runButton, this._runAboveButton, this._runBelowButton, this._moreButton];
 
 		return container;
 	}
