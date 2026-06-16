@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { expect } from '@playwright/test';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -202,7 +201,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('Python - console accepts input after notebook cell execution', {tag: [tags.CONSOLE]}, async function ({ app, sessions }) {
+	test('Python - console accepts input after notebook cell execution', { tag: [tags.CONSOLE] }, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
@@ -215,20 +214,25 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.waitForReady('>>>');
 		await console.typeToConsole('x = 42', true);
 		await console.waitForReady('>>>');
-		await console.typeToConsole('print(x)', true);
-		await console.waitForConsoleContents('42');
+		await console.typeToConsole('print(f"value_is_{x}")', true);
+		await console.waitForConsoleContents('value_is_42');
 
 		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
-	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile }) {
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile, sessions }) {
 		const { notebooksPositron } = app.workbench;
+
+		await sessions.deleteDisconnectedSessions();
+		await sessions.start(['r']);
+
+		// open .qmd and open notebook
 		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
 
+		// ensure only 1 kernel selector dropdown exists for the notebook editor
 		const kernelButtons = app.code.driver.currentPage
 			.locator('.editor-group-container.active')
 			.getByRole('button', { name: 'Kernel Actions' });

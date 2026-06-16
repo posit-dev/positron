@@ -25,16 +25,30 @@ import { getWindow } from '../../../../base/browser/dom.js';
 export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	readonly allowEditorOverflow = false;
 
+	private static _nextId = 0;
+
+	/**
+	 * A stable id for this overlay widget, assigned once at construction.
+	 *
+	 * The editor keys overlay widgets by their `getId()` at `addOverlayWidget`
+	 * time, so the id must remain stable for the widget's lifetime. Deriving it
+	 * from the mutable `_cell.id` would break removal after `updateCell()`
+	 * reassigns the cell, leaving a ghost toolbar in the DOM.
+	 */
+	private readonly _id = `quarto-cell-toolbar-${QuartoCellToolbar._nextId++}`;
+
 	private readonly _domNode: HTMLElement;
 	private _runButton!: HTMLButtonElement;
 	private _runAboveButton!: HTMLButtonElement;
 	private _runBelowButton!: HTMLButtonElement;
+	private _moreButton!: HTMLButtonElement;
 	private _buttons!: HTMLButtonElement[];
 	private readonly _hoverDisposables = this._register(new DisposableStore());
 	private _executionState: CellExecutionState = CellExecutionState.Idle;
 	private _visible = true;
 	private _isMouseOverToolbar = false;
 	private _isCursorInCell = false;
+	private _isMenuOpen = false;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -46,6 +60,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		private readonly _onStop: () => void,
 		private readonly _onRunAbove: () => void,
 		private readonly _onRunBelow: () => void,
+		private readonly _onShowMore: (anchor: HTMLElement) => void,
 		private readonly _hoverService: IHoverService,
 		private readonly _keybindingService: IKeybindingService
 	) {
@@ -72,7 +87,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	}
 
 	getId(): string {
-		return `quarto-cell-toolbar-${this._cell.id}`;
+		return this._id;
 	}
 
 	getDomNode(): HTMLElement {
@@ -104,9 +119,13 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		const verticalOffset = (toolbarHeight - lineHeight) / 2;
 		const top = lineTop - scrollTop - verticalOffset;
 
-		// Calculate horizontal position: right edge of content area
+		// Calculate horizontal position. Anchor the toolbar's RIGHT edge a fixed
+		// distance inside the content area (clear of the minimap and vertical
+		// scrollbar). Using `right` keeps this gap consistent regardless of the
+		// toolbar's own width, which may not be measured yet on the first layout
+		// pass -- relying on offsetWidth there pushed the toolbar over the scrollbar.
 		const rightOffset = 14;
-		const left = layoutInfo.width - layoutInfo.minimap.minimapWidth - layoutInfo.verticalScrollbarWidth - (this._domNode.offsetWidth || 80) - rightOffset;
+		const right = layoutInfo.minimap.minimapWidth + layoutInfo.verticalScrollbarWidth + rightOffset;
 
 		// Check if the toolbar is within the visible viewport
 		const isInViewport = top >= -toolbarHeight && top <= layoutInfo.height;
@@ -114,7 +133,8 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		if (isInViewport) {
 			this._domNode.style.display = '';
 			this._domNode.style.top = `${top}px`;
-			this._domNode.style.left = `${left}px`;
+			this._domNode.style.left = 'auto';
+			this._domNode.style.right = `${right}px`;
 		} else {
 			this._domNode.style.display = 'none';
 		}
@@ -177,6 +197,13 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	}
 
 	/**
+	 * Get the "more cell actions" button, used as the anchor for the context menu.
+	 */
+	get moreButton(): HTMLElement {
+		return this._moreButton;
+	}
+
+	/**
 	 * Check if the mouse is currently over the toolbar.
 	 */
 	get isMouseOverToolbar(): boolean {
@@ -193,10 +220,20 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	}
 
 	/**
+	 * Set whether this toolbar's "more actions" menu is currently open. While the
+	 * menu is open the toolbar stays visible even though the mouse has moved off
+	 * it onto the menu (which would otherwise hide a hover-revealed toolbar).
+	 */
+	setMenuOpen(open: boolean): void {
+		this._isMenuOpen = open;
+		this._updateVisualVisibility();
+	}
+
+	/**
 	 * Update the visual visibility of the toolbar based on cursor and mouse state.
 	 */
 	private _updateVisualVisibility(): void {
-		const shouldBeVisible = this._isCursorInCell || this._isMouseOverToolbar;
+		const shouldBeVisible = this._isCursorInCell || this._isMouseOverToolbar || this._isMenuOpen;
 		if (shouldBeVisible) {
 			this._domNode.classList.add('visible');
 		} else {
@@ -223,27 +260,13 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		const container = document.createElement('div');
 		container.className = 'quarto-cell-toolbar';
 
-		// Run Above button (only shown if not first cell)
-		this._runAboveButton = document.createElement('button');
-		this._runAboveButton.className = 'quarto-toolbar-btn quarto-toolbar-run-above';
-		this._runAboveButton.setAttribute('aria-label', localize('quarto.toolbar.runAbove.aria', 'Run all cells above this cell'));
-		this._runAboveButton.setAttribute('tabindex', '0');
-		const runAboveIcon = document.createElement('span');
-		runAboveIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runAbove));
-		this._runAboveButton.appendChild(runAboveIcon);
-		this._runAboveButton.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this._onRunAbove();
-		});
-		container.appendChild(this._runAboveButton);
-
-		// Run/Stop button
+		// Run/Stop button (rendered first, styled distinctly in green)
 		this._runButton = document.createElement('button');
 		this._runButton.className = 'quarto-toolbar-btn quarto-toolbar-run';
 		this._runButton.setAttribute('aria-label', localize('quarto.toolbar.runCell.aria', 'Run this cell'));
 		this._runButton.setAttribute('tabindex', '0');
 		const runIcon = document.createElement('span');
-		runIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.play));
+		runIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.debugStart));
 		this._runButton.appendChild(runIcon);
 		this._runButton.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -257,7 +280,26 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		});
 		container.appendChild(this._runButton);
 
-		// Run Below button (only shown if not last cell)
+		// Separator between the run button and the remaining cell actions
+		const separator = document.createElement('div');
+		separator.className = 'quarto-toolbar-separator';
+		container.appendChild(separator);
+
+		// Run Above button (disabled for the first cell)
+		this._runAboveButton = document.createElement('button');
+		this._runAboveButton.className = 'quarto-toolbar-btn quarto-toolbar-run-above';
+		this._runAboveButton.setAttribute('aria-label', localize('quarto.toolbar.runAbove.aria', 'Run all cells above this cell'));
+		this._runAboveButton.setAttribute('tabindex', '0');
+		const runAboveIcon = document.createElement('span');
+		runAboveIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runAbove));
+		this._runAboveButton.appendChild(runAboveIcon);
+		this._runAboveButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this._onRunAbove();
+		});
+		container.appendChild(this._runAboveButton);
+
+		// Run Below button (disabled for the last cell)
 		this._runBelowButton = document.createElement('button');
 		this._runBelowButton.className = 'quarto-toolbar-btn quarto-toolbar-run-below';
 		this._runBelowButton.setAttribute('aria-label', localize('quarto.toolbar.runBelow.aria', 'Run this cell and all cells below'));
@@ -271,8 +313,23 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		});
 		container.appendChild(this._runBelowButton);
 
+		// More cell actions button (opens a context menu)
+		this._moreButton = document.createElement('button');
+		this._moreButton.className = 'quarto-toolbar-btn quarto-toolbar-more';
+		this._moreButton.setAttribute('aria-label', localize('quarto.toolbar.moreActions.aria', 'More cell actions'));
+		this._moreButton.setAttribute('aria-haspopup', 'menu');
+		this._moreButton.setAttribute('tabindex', '0');
+		const moreIcon = document.createElement('span');
+		moreIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.ellipsis));
+		this._moreButton.appendChild(moreIcon);
+		this._moreButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			this._onShowMore(this._moreButton);
+		});
+		container.appendChild(this._moreButton);
+
 		// Store button array for keyboard navigation
-		this._buttons = [this._runAboveButton, this._runButton, this._runBelowButton];
+		this._buttons = [this._runButton, this._runAboveButton, this._runBelowButton, this._moreButton];
 
 		return container;
 	}
@@ -297,7 +354,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 			this._runButton.classList.remove('running');
 			this._runButton.classList.add('queued');
 		} else {
-			icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.play));
+			icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.debugStart));
 			this._runButton.appendChild(icon);
 			this._runButton.setAttribute('aria-label', localize('quarto.toolbar.runCell.aria', 'Run this cell'));
 			this._runButton.classList.remove('running');
@@ -376,6 +433,12 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		const runBelowTooltip = localize('quarto.toolbar.runBelow.tooltip', 'Run Cell and Below');
 		this._hoverDisposables.add(
 			this._hoverService.setupManagedHover(hoverDelegate, this._runBelowButton, runBelowTooltip)
+		);
+
+		// More cell actions button tooltip
+		const moreTooltip = localize('quarto.toolbar.moreActions.tooltip', 'More Cell Actions');
+		this._hoverDisposables.add(
+			this._hoverService.setupManagedHover(hoverDelegate, this._moreButton, moreTooltip)
 		);
 	}
 

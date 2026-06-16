@@ -15,11 +15,12 @@ import { registerPositronConsoleActions } from '../../browser/positronConsoleAct
 // workbench services. Mirrors the upstream chatQueueActions keybinding test.
 registerPositronConsoleActions();
 
-// The three input-history navigation actions that carry default keybindings.
+// The input-history navigation actions that carry default keybindings.
 const NAV_COMMAND_IDS = [
 	'workbench.action.positronConsole.navigateInputHistoryDown',
 	'workbench.action.positronConsole.navigateInputHistoryUp',
 	'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	'workbench.action.positronConsole.engageHistoryInfixSearch',
 ];
 
 /**
@@ -51,6 +52,9 @@ describe('Console input-history navigation keybindings', () => {
 	it('binds Up/Down on macOS alongside the readline Ctrl+N / Ctrl+P bindings', () => {
 		expect(navBindingsForOS(OperatingSystem.Macintosh)).toMatchInlineSnapshot(`
 			{
+			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
+			    "ctrl+R",
+			  ],
 			  "workbench.action.positronConsole.navigateInputHistoryDown": [
 			    "DownArrow",
 			    "ctrl+N",
@@ -66,12 +70,16 @@ describe('Console input-history navigation keybindings', () => {
 		`);
 	});
 
-	// On Windows/Linux the readline bindings must NOT apply: raw Ctrl+N opens a
-	// new window and Ctrl+P opens the Command Palette. Only the arrows (and
-	// Ctrl+Up for prefix match) are bound here.
+	// On Windows/Linux the readline Ctrl+N / Ctrl+P bindings must NOT apply: raw
+	// Ctrl+N opens a new window and Ctrl+P opens the Command Palette. Only the
+	// arrows (plus Ctrl+Up for prefix match and Ctrl+R for reverse search, which
+	// are platform-independent) are bound here.
 	it('binds only the arrows on Linux/Windows, never Ctrl+N / Ctrl+P', () => {
 		expect(navBindingsForOS(OperatingSystem.Linux)).toMatchInlineSnapshot(`
 			{
+			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
+			    "ctrl+R",
+			  ],
 			  "workbench.action.positronConsole.navigateInputHistoryDown": [
 			    "DownArrow",
 			  ],
@@ -85,6 +93,9 @@ describe('Console input-history navigation keybindings', () => {
 		`);
 		expect(navBindingsForOS(OperatingSystem.Windows)).toMatchInlineSnapshot(`
 			{
+			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
+			    "ctrl+R",
+			  ],
 			  "workbench.action.positronConsole.navigateInputHistoryDown": [
 			    "DownArrow",
 			  ],

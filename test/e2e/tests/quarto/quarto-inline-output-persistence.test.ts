@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { test, tags } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,12 +13,6 @@ test.use({
 test.describe('Quarto - Inline Output: Persistence', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();

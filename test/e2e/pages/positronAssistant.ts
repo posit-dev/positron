@@ -246,11 +246,10 @@ export class Assistant {
 	}
 
 	async openPositronAssistantChat() {
-		await test.step('Verify Assistant is enabled and Open it.', async () => {
-			await this.verifyChatButtonVisible();
-			const addModelLinkIsVisible = await this.code.driver.currentPage.locator(CHAT_PANEL).isVisible();
-			if (!addModelLinkIsVisible) {
-				await this.code.driver.currentPage.locator(CHAT_BUTTON).click();
+		await test.step('Open Positron Assistant Chat.', async () => {
+			const chatPanelIsVisible = await this.code.driver.currentPage.locator(CHAT_PANEL).isVisible();
+			if (!chatPanelIsVisible) {
+				await this.quickaccess.runCommand('workbench.action.chat.open');
 			}
 		});
 	}
@@ -270,7 +269,7 @@ export class Assistant {
 	}
 
 	async runConfigureProviders() {
-		await this.clickConfigureProvidersButton();
+		await this.hotKeys.configureProviders();
 	}
 
 	async clickConfigureProvidersLink() {

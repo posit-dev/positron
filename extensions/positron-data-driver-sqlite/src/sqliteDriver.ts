@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { SQLiteConnection } from './sqliteConnection.js';
+import { SqliteDataExplorerRpcHandler } from './sqliteDataExplorerRpcHandler.js';
 
 /**
  * Type guard for a non-empty string.
@@ -19,9 +20,11 @@ function isNonEmptyString(value: unknown): value is string {
 /**
  * Creates the SQLite DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
+ * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
  */
 export function createSQLiteDriver(
-	context: vscode.ExtensionContext
+	context: vscode.ExtensionContext,
+	dataExplorerHandler: SqliteDataExplorerRpcHandler
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
@@ -54,18 +57,20 @@ export function createSQLiteDriver(
 				defaultValue: false,
 			},
 		],
-		connect(params: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			// Extract parameters.
 			const databasePath = params.databasePath;
 			const readOnly = params.readOnly as boolean ?? false;
 
 			// Validate parameters.
 			if (!isNonEmptyString(databasePath)) {
-				return Promise.reject(new Error(vscode.l10n.t('Database file path is required')));
+				throw new Error(vscode.l10n.t('Database file path is required'));
 			}
 
-			// Return a resolved promise with the new SQLite connection.
-			return Promise.resolve(new SQLiteConnection(databasePath, readOnly));
+			// Create the connection and open the database in the worker process.
+			const connection = new SQLiteConnection(databasePath, readOnly, dataExplorerHandler);
+			await connection.connect();
+			return connection;
 		},
 	};
 }

@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import {
 	ArraySelection,
@@ -68,7 +69,7 @@ import {
 	TableSchema,
 	TableSelectionKind,
 	TextSearchType
-} from './interfaces';
+} from 'positron-data-explorer-protocol';
 
 /**
  * Type guard to check if an ArraySelection is a DataSelectionRange (has first_index/last_index).
@@ -76,70 +77,195 @@ import {
 function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
 	return (spec as DataSelectionRange).first_index !== undefined;
 }
-import * as duckdb from '@duckdb/duckdb-wasm';
+import { ChildProcess, fork } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
-import Worker from 'web-worker';
-import { Table, Vector } from 'apache-arrow';
-import { pathToFileURL } from 'url';
+import { WorkerQueryRequest, WorkerQueryResponse } from './duckdbWorkerProtocol';
+import { createWorkerEnv } from './workerEnv.js';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
-class DuckDBInstance {
-	runningQuery: Promise<any> = Promise.resolve();
+/**
+ * A query result materialized in the DuckDB worker and reconstructed here from
+ * the column-oriented form that crosses the IPC boundary. Exposes the small set
+ * of shapes the rest of the extension relies on.
+ */
+class QueryResult {
+	private _rows: any[] | undefined;
 
-	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
+	constructor(
+		private readonly _columnNames: string[],
+		// One array of values per column, in column order.
+		private readonly _columns: any[][]
+	) { }
 
-	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
-		// Create the path to the DuckDB WASM bundle. Note that only the EH
-		// bundle for Node is used for now as we don't support Positron
-		// extensions running in a browser context yet.
-		const distPath = path.join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
-		const bundle = {
-			mainModule: path.join(distPath, 'duckdb-eh.wasm'),
-			mainWorker: path.join(distPath, 'duckdb-node-eh.worker.cjs')
-		};
-
-		// On Windows, we need to call pathToFileURL on mainWorker because the web-worker package
-		// does not support Windows paths that start with a drive letter.
-		if (process.platform === 'win32') {
-			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
-		}
-
-		const worker = new Worker(bundle.mainWorker);
-		const logger = new duckdb.VoidLogger();
-		const db = new duckdb.AsyncDuckDB(logger, worker);
-		await db.instantiate(bundle.mainModule);
-
-		const con = await db.connect();
-		await con.query(`LOAD icu;
-		SET TIMEZONE=\'UTC\';
-		`);
-		return new DuckDBInstance(db, con);
+	/** The number of columns in the result. */
+	get numCols(): number {
+		return this._columns.length;
 	}
 
-	async runQuery(query: string): Promise<Table<any>> {
-		await this.runningQuery;
-		try {
-			const startTime = Date.now();
-			this.runningQuery = this.con.query(query);
+	/** The number of rows in the (materialized) result. */
+	get numRows(): number {
+		return this._columns.length > 0 ? this._columns[0].length : 0;
+	}
 
-			const result = await this.runningQuery;
-			const elapsedMs = Date.now() - startTime;
-			if (DEBUG_LOG) {
-				console.log(`Took ${elapsedMs} ms to run:\n${query}`);
+	/** The names of the columns, in column order. */
+	get columnNames(): string[] {
+		return this._columnNames;
+	}
+
+	// Note: values are already coerced to plain JS in the worker (Date for
+	// temporal types, number for DECIMAL, bigint for integers, etc.), so values
+	// that aren't explicitly CAST to VARCHAR in SQL still render and serialize
+	// sanely. Integer types remain bigint; count/stat call sites wrap those in
+	// Number(...).
+
+	/** The result rows as plain objects keyed by column name. */
+	toArray(): any[] {
+		if (this._rows === undefined) {
+			const numRows = this.numRows;
+			const rows: any[] = new Array(numRows);
+			for (let r = 0; r < numRows; r++) {
+				const row: { [name: string]: any } = {};
+				for (let c = 0; c < this._columnNames.length; c++) {
+					row[this._columnNames[c]] = this._columns[c][r];
+				}
+				rows[r] = row;
 			}
-			return result;
-		} catch (error) {
-			if (DEBUG_LOG) {
-				console.log(`Failed to execute:\n${query}`);
+			this._rows = rows;
+		}
+		return this._rows;
+	}
+
+	/** The values for the column at the given index. */
+	columnAt(index: number): any[] {
+		return this._columns[index];
+	}
+
+	/** The values for the column with the given name. */
+	columnByName(name: string): any[] {
+		return this.columnAt(this._columnNames.indexOf(name));
+	}
+}
+
+/**
+ * Host-side proxy for DuckDB. The native database runs in a separate child
+ * process (`duckdbWorker.ts`); this class forks it, forwards queries over IPC,
+ * and reconstructs results. Isolating the native binding means a query that
+ * exhausts memory aborts only the child: a native abort cannot be caught
+ * in-process, so the child dying is the only thing that keeps the extension
+ * host alive. When the worker dies, in-flight queries reject with a clear
+ * error, `onDidCrash` fires, and the next query transparently respawns it.
+ */
+export class DuckDBInstance {
+	/** Resolved path to the bundled worker entry, emitted next to this module. */
+	private static readonly defaultWorkerPath = path.join(__dirname, 'duckdbWorker.js');
+
+	private _worker: ChildProcess | undefined;
+	private _nextId = 0;
+	private readonly _pending = new Map<number, { resolve: (result: QueryResult) => void; reject: (error: Error) => void }>();
+	private _disposed = false;
+
+	private readonly _onDidCrash = new vscode.EventEmitter<void>();
+	/** Fires when the worker process terminates unexpectedly (e.g. out of memory). */
+	readonly onDidCrash: vscode.Event<void> = this._onDidCrash.event;
+
+	private constructor(private readonly workerPath: string) { }
+
+	/**
+	 * Create a DuckDB instance. `workerPath` overrides the worker entry point and
+	 * exists only for tests (to exercise crash recovery with a stub worker).
+	 */
+	static async create(workerPath: string = DuckDBInstance.defaultWorkerPath): Promise<DuckDBInstance> {
+		const instance = new DuckDBInstance(workerPath);
+		instance.spawnWorker();
+		return instance;
+	}
+
+	private spawnWorker(): void {
+		// "advanced" serialization uses the V8 structured-clone algorithm, which
+		// preserves bigint and Date values returned by DuckDB.
+		const worker = fork(this.workerPath, [], {
+			serialization: 'advanced',
+			execArgv: [],
+			env: createWorkerEnv(),
+		});
+		worker.on('message', (message: unknown) => {
+			const response = message as WorkerQueryResponse;
+			const pending = this._pending.get(response.id);
+			if (!pending) {
+				return;
 			}
-			this.runningQuery = Promise.resolve();
-			return Promise.reject(error);
+			this._pending.delete(response.id);
+			if (response.kind === 'result') {
+				pending.resolve(new QueryResult(response.columnNames, response.columns));
+			} else {
+				pending.reject(new Error(response.error));
+			}
+		});
+		worker.on('exit', (code, signal) => this.onWorkerGone(`exited (code=${code}, signal=${signal})`));
+		worker.on('error', (error) => this.onWorkerGone(`failed to start: ${error.message}`));
+		this._worker = worker;
+	}
+
+	/**
+	 * Handle the worker process going away. Reject every in-flight query so
+	 * callers fail gracefully rather than hanging, and notify listeners. The
+	 * worker is respawned lazily on the next query.
+	 */
+	private onWorkerGone(detail: string): void {
+		if (this._worker === undefined) {
+			// Already handled (e.g. both 'error' and 'exit' fired), or disposed.
+			return;
+		}
+		this._worker = undefined;
+
+		const reason = new Error(`The DuckDB process terminated unexpectedly (${detail}). This usually means a query exhausted available memory.`);
+		for (const pending of this._pending.values()) {
+			pending.reject(reason);
+		}
+		this._pending.clear();
+
+		if (!this._disposed) {
+			this._onDidCrash.fire();
 		}
 	}
 
+	/** Closes the worker process and rejects any in-flight queries. */
+	close(): void {
+		this._disposed = true;
+		const worker = this._worker;
+		this._worker = undefined;
+		worker?.kill();
+		for (const pending of this._pending.values()) {
+			pending.reject(new Error('The DuckDB instance was disposed.'));
+		}
+		this._pending.clear();
+		this._onDidCrash.dispose();
+	}
+
+	runQuery(query: string): Promise<QueryResult> {
+		if (this._disposed) {
+			return Promise.reject(new Error('The DuckDB instance was disposed.'));
+		}
+		// Lazily (re)spawn the worker, e.g. after a crash.
+		if (this._worker === undefined) {
+			this.spawnWorker();
+		}
+
+		const id = this._nextId++;
+		const request: WorkerQueryRequest = { id, sql: query };
+		return new Promise<QueryResult>((resolve, reject) => {
+			this._pending.set(id, { resolve, reject });
+			if (DEBUG_LOG) {
+				console.log(`Running query ${id}:\n${query}`);
+			}
+			this._worker!.send(request);
+		});
+	}
 }
 
 type RpcResponse<Type> = Promise<Type | string>;
@@ -276,6 +402,39 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 function quoteIdentifier(fieldName: string) {
 	// Double any existing double quotes and wrap in double quotes
 	return '"' + fieldName.replace(/"/g, '""') + '"';
+}
+
+/**
+ * Escapes a string for use inside a single-quoted DuckDB SQL string literal,
+ * e.g. a file path passed to read_csv_auto or parquet_scan.
+ * @param value The raw string value (the caller supplies the surrounding quotes)
+ * @returns The value with single quotes doubled per SQL escaping convention
+ */
+function quoteLiteral(value: string) {
+	return value.replace(/'/g, '\'\'');
+}
+
+/**
+ * Decompresses a gzip- or zstd-compressed buffer. Used for Parquet files, whose
+ * reader cannot unwrap an outer compression container the way DuckDB's CSV/TSV
+ * readers can.
+ * @param data The compressed bytes
+ * @param compression The compression scheme
+ * @returns The decompressed bytes
+ */
+function decompress(data: Uint8Array, compression: 'gzip' | 'zstd'): Uint8Array {
+	if (compression === 'gzip') {
+		return zlib.gunzipSync(data);
+	}
+	// zstdDecompressSync was added to Node's zlib after the @types/node version
+	// pinned here, so reach for it through a narrowed type.
+	const zstd = (zlib as typeof zlib & {
+		zstdDecompressSync?: (buf: Uint8Array) => Buffer;
+	}).zstdDecompressSync;
+	if (typeof zstd !== 'function') {
+		throw new Error('Zstandard decompression is not supported by this runtime');
+	}
+	return zstd(data);
 }
 
 function anyValue(unquotedName: string) {
@@ -463,7 +622,7 @@ class ColumnProfileEvaluator {
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
 		ORDER BY freq DESC, value ASC
-		LIMIT ${params.limit};`) as Table<any>;
+		LIMIT ${params.limit};`);
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -546,7 +705,7 @@ class ColumnProfileEvaluator {
 				`${this.whereClause} AND ${predicate}` :
 				`WHERE ${predicate}`;
 			const result = await this.db.runQuery(`SELECT ${quoteIdentifier(field)}::VARCHAR AS value
-			FROM ${this.tableName} ${composedPred} LIMIT 1;`) as Table<any>;
+			FROM ${this.tableName} ${composedPred} LIMIT 1;`);
 
 			const fixedValue = result.toArray()[0].value;
 
@@ -689,9 +848,9 @@ class ColumnProfileEvaluator {
 		// Table with a single row containing all the computed statistics
 		const statsResult = await this.db.runQuery(statsQuery);
 
-		const stats = new Map<string, any>(statsResult.schema.names.map((value, index) => {
-			const child = statsResult.getChild(value)!;
-			return [value, child.get(0)] as [string, any];
+		const stats = new Map<string, any>(statsResult.columnNames.map((value) => {
+			const column = statsResult.columnByName(value);
+			return [value, column[0]] as [string, any];
 		}));
 
 		const results: Array<ColumnProfileResult> = [];
@@ -800,6 +959,7 @@ export class DuckDBTableView {
 		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
 	) {
@@ -825,17 +985,15 @@ export class DuckDBTableView {
 		await this._applyRowFilters();
 
 		// When the file changes, refuse to guess and send SchemaUpdate event
-		return vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.SchemaUpdate,
-				params: {}
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.SchemaUpdate,
+			params: {}
+		});
 	}
 
-	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance) {
-		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
+	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance, sendUiEvent: (event: DataExplorerUiEvent) => void) {
+		return new DuckDBTableView(uri, 'disconnected', [], db, sendUiEvent, false, errorMessage);
 	}
 
 	async getSchema(params: GetSchemaParams): RpcResponse<TableSchema> {
@@ -1129,8 +1287,8 @@ END`;
 			columns: []
 		};
 
-		const floatAdapter = (field: Vector<any>, i: number) => {
-			const value: string = field.get(i - lowerLimit);
+		const floatAdapter = (field: any[], i: number) => {
+			const value: string = field[i - lowerLimit];
 			switch (value) {
 				case 'NaN':
 					return SENTINEL_NAN;
@@ -1145,17 +1303,18 @@ END`;
 			}
 		};
 
-		const defaultAdapter = (field: Vector<any>, i: number) => {
+		const defaultAdapter = (field: any[], i: number) => {
 			const relIndex = i - lowerLimit;
-			return field.isValid(relIndex) ? field.get(relIndex) : SENTINEL_NULL;
+			const value = field[relIndex];
+			return value === null || value === undefined ? SENTINEL_NULL : value;
 		};
 
 		for (let i = 0; i < queryResult.numCols; i++) {
 			const column = params.columns[i];
 			const spec = column.spec;
-			const field = queryResult.getChildAt(i)!;
+			const field = queryResult.columnAt(i);
 
-			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
+			const fetchValues = (adapter: (field: any[], i: number) => ColumnValue) => {
 				if (isSelectionRange(spec)) {
 					// There may be fewer rows available than what was requested
 					const lastIndex = Math.min(
@@ -1485,13 +1644,11 @@ END`;
 			}
 		}
 
-		await vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
-				params: outParams
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.ReturnColumnProfiles,
+			params: outParams
+		});
 	}
 
 	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
@@ -1545,10 +1702,10 @@ END`;
 		const exportQueryOutput = async (query: string,
 			columns: Array<SchemaEntry>): Promise<ExportedData> => {
 			const result = await this.db.runQuery(query);
+			const names = result.columnNames;
 			const unboxed = [
 				columns.map(s => s.column_name),
-				// TODO: maybe this can be made more efficient
-				...result.toArray().map(row => result.schema.names.map(name => row[name]))
+				...result.toArray().map(row => names.map(name => row[name]))
 			];
 
 			let data;
@@ -1624,7 +1781,7 @@ END`;
 				const query = `SELECT ${selector} FROM ${this.tableName}${this._whereClause}${this._sortClause} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
 				return {
-					data: result.toArray()[0][result.schema.names[0]],
+					data: result.toArray()[0][result.columnNames[0]],
 					format: params.format
 				};
 			}
@@ -1757,17 +1914,27 @@ END`;
 }
 
 /**
- * Implementation of Data Explorer backend protocol using duckdb-wasm,
+ * Implementation of Data Explorer backend protocol using native DuckDB,
  * for serving requests coming in through the vscode command.
  */
 export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	private _tableIndex: number = 0;
 	private _watchers: vscode.Disposable[] = [];
+	private readonly _crashListener: vscode.Disposable;
 
-	constructor(private readonly db: DuckDBInstance) { }
+	constructor(
+		private readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
+	) {
+		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
+		// are gone with it. Drop the cached table views so the next request for a
+		// dataset re-imports it into the freshly respawned worker.
+		this._crashListener = this.db.onDidCrash(() => this._uriToTableView.clear());
+	}
 
 	dispose() {
+		this._crashListener.dispose();
 		vscode.Disposable.from(...this._watchers).dispose();
 	}
 
@@ -1786,18 +1953,32 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		let tableView: DuckDBTableView;
 		try {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db, this.sendUiEvent);
 
 			if (uri.scheme !== 'duckdb') {
-				// Watch file for changes.
-				const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(uri, '*'), true);
+				// Watch this dataset's file for changes. Scope the pattern to the
+				// file itself (parent directory as base, exact file name as glob)
+				// rather than the whole directory, so that changes to unrelated
+				// sibling files don't trigger a spurious re-import of this dataset.
+				const watchPattern = new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), path.basename(uri.path));
+				const watcher = vscode.workspace.createFileSystemWatcher(watchPattern, true);
 				watcher.onDidChange(async () => {
-					const newTableName = `positron_${this._tableIndex++}`;
+					try {
+						const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromUri(uri, newTableName);
+						await this.createTableFromUri(uri, newTableName);
 
-					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
-					await tableView.onFileUpdated(newTableName, newSchema);
+						const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+						await tableView.onFileUpdated(newTableName, newSchema);
+					} catch (error) {
+						// The file may have been changed-then-deleted, or otherwise
+						// become unreadable, between the change event firing and the
+						// re-import. This async handler must not throw: an unhandled
+						// rejection here would surface unpredictably (e.g. failing an
+						// unrelated test). Log and leave the existing table in place.
+						const errorMessage = error instanceof Error ? error.message : String(error);
+						console.error(`Failed to reload dataset after file change (${uri.toString()}): ${errorMessage}`);
+					}
 				});
 				// Stop watching deleted files.
 				watcher.onDidDelete(() => watcher.dispose());
@@ -1806,7 +1987,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
 				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db);
+			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db, this.sendUiEvent);
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
@@ -1821,15 +2002,20 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 */
 	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions) {
 		let fileExt = path.extname(uri.path);
-		const isGzipped = fileExt === '.gz';
-
-		if (isGzipped) {
-			fileExt = path.extname(uri.path.slice(0, -3));
+		// DuckDB transparently decompresses gzip/zstd-wrapped CSV/TSV by file
+		// extension, so we strip the compression extension to detect the inner
+		// format. Parquet is handled separately below (its reader can't unwrap an
+		// outer compression container).
+		const compressionExt = fileExt === '.gz' || fileExt === '.zst' ? fileExt : '';
+		const compression = fileExt === '.gz' ? 'gzip' : fileExt === '.zst' ? 'zstd' : undefined;
+		if (compression) {
+			fileExt = path.extname(uri.path.slice(0, -compressionExt.length));
 		}
+		const isParquet = fileExt === '.parquet' || fileExt === '.parq';
 
 		const getCsvImportQuery = (_filePath: string, options: Array<string>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
-			SELECT * FROM read_csv_auto('${_filePath}'${options.length ? ', ' : ''}${options.join(' ,')});`;
+			SELECT * FROM read_csv_auto('${quoteLiteral(_filePath)}'${options.length ? ', ' : ''}${options.join(' ,')});`;
 		};
 
 		const importDelimited = async (filePath: string) => {
@@ -1856,33 +2042,52 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			}
 		};
 
-		// Read the entire contents and register it as a temp file
-		// to avoid file handle caching in duckdb-wasm
-		let fileContents = await vscode.workspace.fs.readFile(uri);
-		if (isGzipped) {
-			fileContents = zlib.gunzipSync(fileContents);
+		// Resolve a filesystem path DuckDB can read directly. For local files we
+		// can usually hand DuckDB the real path; it reads .gz/.zst-compressed
+		// CSV/TSV transparently. We spill to a temporary file when either (a) the
+		// URI is not a local file (e.g. untitled or virtual documents), or (b) it
+		// is a compressed Parquet, whose outer container DuckDB's Parquet reader
+		// cannot unwrap, so we decompress it ourselves first.
+		let filePath: string;
+		let tempDir: string | undefined;
+		let spillContents: Uint8Array | undefined;
+		if (uri.scheme === 'file' && !(isParquet && compression)) {
+			filePath = uri.fsPath;
+		} else {
+			let fileContents = await vscode.workspace.fs.readFile(uri);
+			let tempName = path.basename(uri.path);
+			if (isParquet && compression) {
+				fileContents = decompress(fileContents, compression);
+				// Drop the compression extension now that the bytes are decompressed.
+				tempName = path.basename(uri.path, compressionExt);
+			}
+			// Spill into a private (mode 0700) per-import directory so the
+			// contents aren't readable by other users on shared hosts. os.tmpdir()
+			// honors TMPDIR (POSIX) and TMP/TEMP (Windows). Creating the directory
+			// before the try below guarantees the finally always cleans it up,
+			// even if the write or import fails.
+			tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'positron-duckdb-'));
+			filePath = path.join(tempDir, tempName);
+			spillContents = fileContents;
 		}
 
-		// For gzipped files, use the base name without the .gz extension
-		const virtualPath = isGzipped ?
-			path.basename(uri.path, '.gz') :
-			path.basename(uri.path);
-
-		// Use a tightly packed Uint8Array to avoid transfer issues
-		const fileBuffer = new Uint8Array(fileContents.buffer.slice(fileContents.byteOffset, fileContents.byteOffset + fileContents.byteLength));
-		await this.db.db.registerFileBuffer(virtualPath, fileBuffer);
 		try {
-			const baseExt = path.extname(virtualPath);
-			if (baseExt === '.parquet' || baseExt === '.parq') {
-				// Always create a view for Parquet files
+			if (spillContents !== undefined) {
+				await fs.promises.writeFile(filePath, spillContents);
+			}
+			if (isParquet) {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
-				SELECT * FROM parquet_scan('${virtualPath}');`;
+				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
 				await this.db.runQuery(query);
 			} else {
-				await importDelimited(virtualPath);
+				await importDelimited(filePath);
 			}
 		} finally {
-			await this.db.db.dropFile(virtualPath);
+			if (tempDir !== undefined) {
+				// Best-effort cleanup; a failure here (e.g. a lingering handle on
+				// Windows) must not mask the import result or error.
+				await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+			}
 		}
 	}
 
@@ -1989,9 +2194,11 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
  * @param context An ExtensionContext that contains the extension context.
  */
 export async function activate(context: vscode.ExtensionContext) {
-	// Register a simple command that runs a DuckDB-Wasm query
-	const db = await DuckDBInstance.create(context);
+	// Create the native DuckDB database and close it when the extension unloads.
+	const db = await DuckDBInstance.create();
+	context.subscriptions.push({ dispose: () => db.close() });
 
+	// Register a simple command that runs a DuckDB query
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-duckdb.runQuery',
 			async (query: string) => {
@@ -2004,14 +2211,17 @@ export async function activate(context: vscode.ExtensionContext) {
 			})
 	);
 
-	const dataExplorerHandler = new DataExplorerRpcHandler(db);
-	context.subscriptions.push(
-		dataExplorerHandler,
-		vscode.commands.registerCommand('positron-duckdb.dataExplorerRpc',
-			async (rpc: DataExplorerRpc): Promise<DataExplorerResponse> => {
-				return dataExplorerHandler.handleRequest(rpc);
-			})
-	);
+	// Register as a Data Explorer backend provider over the typed channel. The session lets the
+	// handler push async frontend events (schema updates, column profiles) back to the UI.
+	// Forward reference: the handler's closure captures `session`, which is only assigned once
+	// registerRpcHandler returns below, so this must be `let` despite the single assignment.
+	// eslint-disable-next-line prefer-const
+	let session: positron.DataExplorerRpcSession | undefined;
+	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event));
+	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
+		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc)
+	});
+	context.subscriptions.push(dataExplorerHandler, session);
 }
 
 export function deactivate() { }

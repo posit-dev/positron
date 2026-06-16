@@ -101,7 +101,7 @@
 				"group": "buildWatchers",
 				"close": false
 			},
-			"problemMatcher": "$esbuild-watch"
+			"problemMatcher": []
 		},
 		{
 			"label": "Positron - Build",
@@ -203,6 +203,18 @@
 		},
 		{
 			"type": "npm",
+			"script": "kill-watch-e2ed",
+			"label": "Kill E2E Tests - Build",
+			"group": "build",
+			"presentation": {
+				"reveal": "never",
+				"group": "buildKillers",
+				"close": true
+			},
+			"problemMatcher": "$tsc"
+		},
+		{
+			"type": "npm",
 			"script": "kill-watch-copilotd",
 			"label": "Kill Copilot - Build",
 			"group": "build",
@@ -211,7 +223,7 @@
 				"group": "buildKillers",
 				"close": true
 			},
-			"problemMatcher": "$esbuild"
+			"problemMatcher": []
 		},
 		{
 			"label": "Kill VS Code - Build",
@@ -478,7 +490,8 @@
 				"Kill Ext - Build",
 				"Kill Core - Transpile",
 				"Kill Core - Typecheck",
-				"Kill E2E Tests - Build"
+				"Kill E2E Tests - Build",
+				"Kill Copilot - Build"
 			],
 			"group": "build",
 			"problemMatcher": []
@@ -563,6 +576,34 @@
 				"Write-Output \"134 passed, 0 failed, 1 skipped, 135 total\"; Start-Sleep -Seconds 2; Write-Output \"[PASS] E2E Tests\"; Write-Output \"Watching for changes...\""
 			],
 			"isBackground": false
+		},
+		{
+			// One-shot build of the sibling Posit Assistant checkout so its dist/
+			// is current before "Positron (with Assistant)" launches. Terminating
+			// (not a watcher): run `npm run watch:positron` separately for live
+			// rebuilds during the session.
+			"label": "Build Posit Assistant",
+			"type": "shell",
+			"command": "npm run build:positron",
+			"options": {
+				"cwd": "${workspaceFolder}/../assistant"
+			},
+			"presentation": {
+				"reveal": "silent",
+				"close": true
+			},
+			"problemMatcher": []
+		},
+		{
+			// Prelaunch for "Positron (with Assistant)": run Positron's own
+			// dependency prep, then build the assistant. Both terminate before
+			// Positron launches.
+			"label": "Ensure Prelaunch Dependencies (with Assistant)",
+			"dependsOn": [
+				"Ensure Prelaunch Dependencies",
+				"Build Posit Assistant"
+			],
+			"dependsOrder": "sequence"
 		}
 	]
 }

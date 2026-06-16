@@ -27,6 +27,16 @@
 	justify-content: center;
 }
 
+/*
+ * The empty '1fr' gap between the left and right action groups. It stretches to
+ * the full height (overriding the grid's align-items: center, which would
+ * otherwise collapse this content-less element) so it can be a right-click
+ * target. It remains transparent and adds no visible space.
+ */
+.positron-dynamic-action-bar .action-bar-gap {
+	align-self: stretch;
+}
+
 .positron-dynamic-action-bar:not(.transparent-background) {
 	background-color: var(--vscode-positronActionBar-background);
 }

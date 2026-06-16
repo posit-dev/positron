@@ -362,6 +362,15 @@ declare module 'positron' {
 		data: Record<string, unknown>;
 
 		/**
+		 * Optional metadata about the output itself, keyed by MIME type. This is
+		 * distinct from {@link LanguageRuntimeMessage.metadata}, which describes
+		 * the message more generally. It corresponds to the `metadata` field of a
+		 * Jupyter `display_data`/`execute_result` message, e.g.
+		 * `{ 'image/png': { width: 640, height: 480 } }`.
+		 */
+		outputMetadata?: Record<string, unknown>;
+
+		/**
 		 * The optional identifier of the output. If specified, this output can be referenced
 		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 		 */
@@ -1246,6 +1255,14 @@ declare module 'positron' {
 
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
+
+		/**
+		 * The package's primary external URL (its homepage, falling back to its
+		 * repository, etc.). Runtimes should pick the single best link from
+		 * whatever metadata they have; the Packages pane validates it
+		 * (http/https only) and surfaces it via the row's external-link button.
+		 */
+		url?: string;
 	}
 
 	/**
@@ -2898,6 +2915,85 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A single Data Explorer RPC request. The `params` and the `result` of the corresponding
+	 * response use the Data Explorer backend protocol; an extension typically casts them to its own
+	 * copy of the generated protocol types.
+	 */
+	export interface DataExplorerRpcRequest {
+		/** The backend-request method name. */
+		method: string;
+		/** The dataset identifier the request targets. */
+		uri?: string;
+		/** Method-specific parameters. */
+		params: object;
+	}
+
+	/**
+	 * The response to a {@link DataExplorerRpcRequest}: a result payload or an error message.
+	 */
+	export interface DataExplorerRpcResponse {
+		result?: unknown;
+		error_message?: string;
+	}
+
+	/**
+	 * A frontend UI event pushed from a backend (e.g. async column profiles), routed by dataset id.
+	 */
+	export interface DataExplorerUiEvent {
+		/** The dataset identifier the event targets. */
+		uri: string;
+		/** The frontend-event method name. */
+		method: string;
+		/** Event-specific parameters. */
+		params: object;
+	}
+
+	/**
+	 * Services Data Explorer RPC requests for the datasets a provider owns.
+	 */
+	export interface DataExplorerRpcHandler {
+		/**
+		 * Handles a single Data Explorer RPC request.
+		 * @param request The request envelope.
+		 * @returns The response (a result or an error message).
+		 */
+		handleRpc(request: DataExplorerRpcRequest): Thenable<DataExplorerRpcResponse>;
+	}
+
+	/**
+	 * A registration handle for a Data Explorer RPC handler. Dispose to unregister.
+	 */
+	export interface DataExplorerRpcSession extends vscode.Disposable {
+		/**
+		 * Pushes a frontend UI event (e.g. async column profiles) to the Data Explorer.
+		 * @param event The UI event.
+		 */
+		sendUiEvent(event: DataExplorerUiEvent): void;
+	}
+
+	/**
+	 * Methods for providing Data Explorer backends from an extension. A provider registers an RPC
+	 * handler under a stable provider id, then opens datasets it owns in the Data Explorer.
+	 */
+	namespace dataExplorer {
+		/**
+		 * Registers a Data Explorer RPC handler under a provider id.
+		 *
+		 * @param providerId A stable identifier for the providing extension (e.g. 'positron-duckdb').
+		 * @param handler The handler that services RPC requests for this provider's datasets.
+		 * @returns A session for pushing UI events; dispose it to unregister the handler.
+		 */
+		export function registerRpcHandler(providerId: string, handler: DataExplorerRpcHandler): DataExplorerRpcSession;
+
+		/**
+		 * Opens (or focuses) a Data Explorer for a dataset served by a registered provider.
+		 *
+		 * @param options The provider id, the dataset identifier, and a human-readable display name.
+		 */
+		export function open(options: { providerId: string; datasetId: string; displayName: string }): Thenable<void>;
+	}
+
+	/**
 	 * Refers to methods related to the connections pane
 	 */
 	namespace connections {
@@ -3072,6 +3168,12 @@ declare module 'positron' {
 			 * Positron's Assistant Service automatically reads this from registered providers.
 			 */
 			settingName: string;
+			/**
+			 * Maturity status of the provider. Drives how it's presented in the
+			 * configuration modal: stable providers (no status) are listed first,
+			 * then 'preview', then 'experimental'.
+			 */
+			status?: 'preview' | 'experimental';
 		}
 
 		/**

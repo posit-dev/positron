@@ -87,9 +87,16 @@ export const MemoryUsageBar = (props: MemoryUsageBarProps) => {
 		);
 	}
 
-	const containerClass = className
-		? `memory-bar-container ${className}`
-		: 'memory-bar-container';
+	// In a low-memory state the bar is drawn with an error-colored border and
+	// non-kernel memory is recolored (handled in CSS via the `low-memory` class).
+	const classes = ['memory-bar-container'];
+	if (className) {
+		classes.push(className);
+	}
+	if (snapshot.lowMemory) {
+		classes.push('low-memory');
+	}
+	const containerClass = classes.join(' ');
 
 	return (
 		<div className={containerClass} style={style}>

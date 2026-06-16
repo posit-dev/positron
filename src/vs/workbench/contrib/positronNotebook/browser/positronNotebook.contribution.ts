@@ -148,7 +148,7 @@ class PositronNotebookContribution extends Disposable {
 
 	private registerEditor(): void {
 		this.registerNotebookEditor({
-			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support (Alpha)'),
+			detail: localize('positronNotebook.ipynb.detail', 'Native .ipynb Support'),
 			extension: '.ipynb',
 			globPattern: '*.ipynb',
 			viewType: IPYNB_VIEW_TYPE,
@@ -398,7 +398,7 @@ registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebook
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
-// Register the prompt that invites users to try the new notebook editor
+// Register the prompt that invites users to try the native notebook editor
 registerWorkbenchContribution2(PositronNotebookPromptContribution.ID, PositronNotebookPromptContribution, WorkbenchPhase.AfterRestored);
 
 
@@ -1202,7 +1202,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndInsertBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndInsertBelow',
@@ -1224,7 +1224,8 @@ registerAction2(class extends NotebookAction2 {
 		// Always insert a new cell below of the same type and focus it
 		notebook.addCell(cell.kind, cell.index + 1, true);
 	}
-});
+}
+registerAction2(ExecuteAndInsertBelowAction);
 
 // Copy cells command - C (Jupyter-style)
 export class CopyCellsAction extends NotebookAction2 {

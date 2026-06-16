@@ -21,7 +21,7 @@
 //   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
 //   --cleanup            Remove the intermediate tmp dir after processing (default: keep)
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -217,6 +217,79 @@ function hashFromPath(p) {
 	return m ? m[1] : null;
 }
 
+// Log mining. Mirrors e2e-process-project.js (Path A) so both paths surface the
+// same evidence; kept inline here per this file's no-cross-imports convention.
+// A screenshot or Playwright error CANNOT tell "fixture never provisioned" from
+// "fixture deleted mid-run"; the kernel/runner log lines (e.g. a resolved
+// getwd() path) often can.
+const LOG_ERROR_RE = /(no such file|file not found|cannot find|traceback|ioerror|[a-z]+error:|exception:|fatal|panic|unhandled|connection refused|permission denied|access denied|expired|failed to \w+)/i;
+// Benign lines that match LOG_ERROR_RE but carry no diagnostic value (e.g. the
+// file watcher logs an ENOENT for every optional config path it probes).
+const LOG_NOISE_RE = /(ignoring a path for watching|\.vscode[/\\](settings|mcp|tasks|launch)\.json|[/\\](policy|mcp)\.json)/i;
+
+/** Strip ANSI SGR escape sequences (ESC[..m) so log lines read cleanly in the prompt. */
+function stripAnsi(s) {
+	return s.replace(new RegExp('\\u001b\\[[0-9;]*m', 'g'), '');
+}
+
+/**
+ * Extract the logs zip and return the lines matching LOG_ERROR_RE, each tagged
+ * with its source log filename. Bounded, deduped, and noise-filtered so a single
+ * test can't dominate the prompt. Returns null when nothing matches (the trace
+ * already carries the Playwright-level error in that case).
+ */
+function grepLogs(logsZipPath) {
+	const PER_FILE = 20;
+	const MAX_LINES = 60;
+	const MAX_CHARS = 5000;
+	const dir = join(tmpWorkDir, `logsx-${randomBytes(4).toString('hex')}`);
+	try {
+		mkdirSync(dir, { recursive: true });
+		execFileSync('unzip', ['-o', logsZipPath, '-d', dir], { stdio: ['pipe', 'pipe', 'pipe'] });
+	} catch {
+		return null;
+	}
+
+	// Recursively collect *.log files.
+	const logFiles = [];
+	const stack = [dir];
+	while (stack.length) {
+		const d = stack.pop();
+		let entries;
+		try { entries = readdirSync(d, { withFileTypes: true }); } catch { continue; }
+		for (const ent of entries) {
+			const p = join(d, ent.name);
+			if (ent.isDirectory()) { stack.push(p); }
+			else if (ent.name.endsWith('.log')) { logFiles.push(p); }
+		}
+	}
+
+	const collected = [];
+	const seen = new Set(); // dedupe identical message bodies (e.g. repeated git ENOENT warnings)
+	for (const f of logFiles) {
+		const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
+		let content;
+		try { content = readFileSync(f, 'utf8'); } catch { continue; }
+		let perFile = 0;
+		for (const raw of content.split('\n')) {
+			const line = stripAnsi(raw).trim();
+			if (!LOG_ERROR_RE.test(line) || LOG_NOISE_RE.test(line)) { continue; }
+			const dedupeKey = line.replace(/^[\d\-T:.Z\s]+/, '').slice(0, 200);
+			if (seen.has(dedupeKey)) { continue; }
+			seen.add(dedupeKey);
+			collected.push(`[${rel}] ${line.slice(0, 300)}`);
+			if (++perFile >= PER_FILE) { break; }
+			if (collected.length >= MAX_LINES) { break; }
+		}
+		if (collected.length >= MAX_LINES) { break; }
+	}
+
+	if (collected.length === 0) { return null; }
+	let joined = collected.join('\n');
+	if (joined.length > MAX_CHARS) { joined = joined.slice(0, MAX_CHARS) + '\n[... log excerpt truncated ...]'; }
+	return joined;
+}
+
 // ---------------------------------------------------------------------------
 // Step 1: download and unpack the embedded report.zip
 // ---------------------------------------------------------------------------
@@ -309,6 +382,7 @@ for (const { test, detail, failedResults } of testDetailsList) {
 	const shortId = test.testId.slice(0, 12);
 	const attempts = [];
 	const logHashes = [];
+	let lastLogsAttPath = null; // S3 path of the most recent attempt's logs bundle, for grepping
 
 	for (let i = 0; i < failedResults.length; i++) {
 		const r = failedResults[i];
@@ -319,6 +393,9 @@ for (const { test, detail, failedResults } of testDetailsList) {
 		for (const lAtt of logsAtts) {
 			const hash = hashFromPath(lAtt.path);
 			if (hash) { logHashes.push({ resourceHash: hash, blob: blobName }); }
+		}
+		if (logsAtts.length && logsAtts[logsAtts.length - 1].path) {
+			lastLogsAttPath = logsAtts[logsAtts.length - 1].path;
 		}
 
 		let traceData = null;
@@ -387,6 +464,25 @@ for (const { test, detail, failedResults } of testDetailsList) {
 		});
 	}
 
+	// Mine the attached log bundle for error lines (download it from S3 first).
+	let logExcerpt = null;
+	if (lastLogsAttPath) {
+		const logsUrl = `${reportUrl}${lastLogsAttPath}`;
+		const localLogsZip = join(tmpWorkDir, `logs-${shortId}.zip`);
+		try {
+			await fetchToFile(logsUrl, localLogsZip);
+			logExcerpt = grepLogs(localLogsZip);
+		} catch (err) {
+			process.stderr.write(`  WARN: failed to process logs ${logsUrl}: ${err.message}\n`);
+		}
+	}
+
+	// Sibling tests in the same file (passed siblings are the key signal: they
+	// prove shared setup/fixtures ran). detail.tests holds every test in the file.
+	const siblingTests = (detail.tests || [])
+		.filter(x => x.title !== test.title && x.outcome !== 'skipped')
+		.map(x => ({ title: x.title, status: x.outcome === 'unexpected' ? 'failed' : 'passed' }));
+
 	const firstFailed = failedResults[0];
 	testDetails.push({
 		testId: test.testId,
@@ -396,6 +492,8 @@ for (const { test, detail, failedResults } of testDetailsList) {
 		blob: blobName,
 		attemptCount: failedResults.length,
 		attempts,
+		siblingTests,
+		logExcerpt,
 		logHashes,
 	});
 }

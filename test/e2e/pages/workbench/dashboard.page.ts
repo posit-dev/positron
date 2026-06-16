@@ -7,6 +7,7 @@ import { expect, BrowserContext } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 import { generateTOTP } from '../../utils/totp.js';
+import { isOktaLockedOut, otpRetryDelayMs } from '../../utils/otpRetry.js';
 
 export class DashboardPage {
 	get title() { return this.code.driver.currentPage.getByRole('link', { name: 'Workbench projects' }); }
@@ -84,7 +85,16 @@ export class DashboardPage {
 	async openWorkspaceFolder(folderToOpen: string): Promise<void> {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
-		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
+
+		// When the picker opens already pointed at the target folder, its path is prefilled
+		// in the input box and the list shows the folder's *contents* (no row matches the
+		// folder name), so selectQuickInputElementContaining would fail. In that case just
+		// confirm with OK; otherwise navigate to the folder first.
+		const input = this.code.driver.currentPage.locator('.quick-input-widget .quick-input-box input');
+		const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
+		if (!currentPath.endsWith(`/${folderToOpen}`)) {
+			await this.quickInput.selectQuickInputElementContaining(folderToOpen);
+		}
 		await this.quickInput.clickOkButton();
 	}
 
@@ -199,8 +209,10 @@ export class DashboardPage {
 		await verifyButton.click();
 
 		// Complete 2FA authentication. TOTPs roll every 30s and Okta rejects reused codes, so a
-		// parallel shard (e.g. Azure) consuming the same code seconds earlier can knock us out.
-		// Retry up to 3 times: wait past the TOTP window boundary between attempts, then re-fill.
+		// parallel shard (e.g. Azure) consuming the same code seconds earlier can knock us out, or
+		// rapid duplicate submissions can lock the account ("too many attempts"). Retry up to 3
+		// times, backing off with jitter between attempts so we de-align from the competing shard
+		// and land in a different TOTP window (and back off longer on lockout). See otpRetry.ts.
 		await oauthPage.waitForLoadState('networkidle', { timeout: 10000 });
 		const otpField = oauthPage.locator('input[type="text"], input[type="tel"], input[autocomplete="one-time-code"]').first();
 		const verifyOtpButton = oauthPage.locator('button:has-text("Verify"), input[value="Verify"]');
@@ -231,8 +243,10 @@ export class DashboardPage {
 					this.code.logger.log(`OTP not accepted after ${maxOtpAttempts} attempts; falling through to widget-state check`);
 					break;
 				}
-				this.code.logger.log('OTP rejected, waiting for next TOTP window before retry');
-				await oauthPage.waitForTimeout(20000);
+				const lockedOut = await isOktaLockedOut(oauthPage);
+				const delay = otpRetryDelayMs(lockedOut);
+				this.code.logger.log(`Databricks OTP not accepted (attempt ${attempt}/${maxOtpAttempts}, lockedOut=${lockedOut}); backing off ${delay}ms before retry`);
+				await oauthPage.waitForTimeout(delay);
 			}
 		}
 

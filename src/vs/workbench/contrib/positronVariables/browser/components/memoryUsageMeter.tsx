@@ -12,8 +12,9 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
-import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { formatCompactMemory, IMemoryUsageSnapshot, LowMemoryUnit } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -49,6 +50,12 @@ export const MEMORY_BAR_MAX_WIDTH = 100;
 export const MEMORY_BAR_MIN_WIDTH = 27;
 
 /**
+ * The extra width consumed by the low-memory warning icon (icon + gap) when
+ * the meter is in a low-memory state.
+ */
+export const MEMORY_METER_WARNING_WIDTH = 20;
+
+/**
  * The label shown while memory data is still being computed.
  */
 const memLabel = localize('positron.memoryUsage.memLabel', "Mem");
@@ -70,6 +77,12 @@ interface MemoryUsageMeterProps {
 	 */
 	barWidth?: number;
 	loading?: boolean;
+	/**
+	 * Whether to render the low-memory warning icon when the system is low on
+	 * memory. Defaults to true; the caller sets this to false at very narrow
+	 * widths so the size label can be kept when the icon no longer fits.
+	 */
+	showWarning?: boolean;
 }
 
 /**
@@ -80,7 +93,7 @@ interface MemoryUsageMeterProps {
  * When `loading` is true, renders an empty bar with a "Mem" label. Clicking
  * in this state shows a popup with a "Computing memory usage..." message.
  */
-export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMeterProps) => {
+export const MemoryUsageMeter = ({ snapshot, barWidth, loading, showWarning = true }: MemoryUsageMeterProps) => {
 	// Services.
 	const services = usePositronReactServicesContext();
 	const actionBarContext = usePositronActionBarContext();
@@ -88,9 +101,16 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 	// Ref for the meter element (used for popup anchoring).
 	const meterRef = useRef<HTMLDivElement>(undefined!);
 
+	// Ref for the low-memory warning icon (used as a distinct hover target).
+	const warningRef = useRef<HTMLDivElement>(null);
+
 	// Track mouse-inside state so we can show/hide the hover tooltip via the
 	// action bar's hover manager, consistent with other action bar widgets.
 	const [mouseInside, setMouseInside] = useState(false);
+
+	// Track whether the mouse is over the warning icon specifically, so its
+	// tooltip takes precedence over the meter's tooltip.
+	const [warningHover, setWarningHover] = useState(false);
 
 	// Compute the tooltip text based on the current state.
 	const tooltipText = (loading || !snapshot)
@@ -104,15 +124,46 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 			ByteSize.formatSize(snapshot.freeSystemMemory)
 		);
 
-	// Show/hide hover tooltip via the action bar hover manager.
+	// Compute the low-memory warning tooltip, reporting remaining memory in the
+	// unit of the threshold that triggered the warning.
+	const lowMemory = snapshot?.lowMemory;
+	const lowMemoryTooltip = lowMemory
+		? (lowMemory.unit === LowMemoryUnit.Percent
+			? localize('positron.memoryUsage.lowMemoryPercent', "Low memory ({0}% remaining)", Math.max(0, Math.round(lowMemory.remaining)))
+			: localize('positron.memoryUsage.lowMemoryMb', "Low memory ({0}MB remaining)", Math.max(0, Math.round(lowMemory.remaining))))
+		: undefined;
+
+	// Show/hide hover tooltip via the action bar hover manager. The warning
+	// icon's tooltip takes precedence when the mouse is over it.
 	useEffect(() => {
-		if (mouseInside) {
+		if (warningHover && warningRef.current && lowMemoryTooltip) {
+			actionBarContext.hoverManager?.showHover(warningRef.current, lowMemoryTooltip);
+		} else if (mouseInside) {
 			actionBarContext.hoverManager?.showHover(meterRef.current, tooltipText);
 		}
-	}, [mouseInside, actionBarContext.hoverManager, tooltipText]);
+	}, [warningHover, mouseInside, actionBarContext.hoverManager, tooltipText, lowMemoryTooltip]);
 
 	const onMouseEnter = () => setMouseInside(true);
 	const onMouseLeave = () => setMouseInside(false);
+
+	// The low-memory warning icon, rendered to the left of the bar when the
+	// system is low on memory. Hooks above run unconditionally; this element is
+	// shared between the loading and loaded render paths.
+	const warningIcon = (showWarning && lowMemoryTooltip) ? (
+		<div
+			ref={warningRef}
+			aria-label={lowMemoryTooltip}
+			className='memory-low-warning codicon codicon-warning'
+			role='img'
+			onMouseEnter={() => setWarningHover(true)}
+			onMouseLeave={() => setWarningHover(false)}
+		/>
+	) : null;
+
+	// When the meter is too narrow to show the warning icon, color the size
+	// label with the warning foreground so the low-memory state is still
+	// indicated.
+	const lowMemoryLabel = !!lowMemory && !showWarning;
 
 	// Loading state: draw an empty bar with a "Mem" label.
 	if (loading || !snapshot) {
@@ -159,9 +210,10 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 
 	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, extensionHostOverheadBytes } = snapshot;
 
-	// Positron's total footprint for the label.
+	// Positron's total footprint for the label. Use the compact formatter so the
+	// label fits in 3-4 characters and doesn't shift the action bar layout.
 	const positronTotalBytes = kernelTotalBytes + positronOverheadBytes + extensionHostOverheadBytes;
-	const sizeLabel = ByteSize.formatSize(positronTotalBytes);
+	const sizeLabel = formatCompactMemory(positronTotalBytes);
 
 	// Accessibility label.
 	const ariaLabel = localize(
@@ -207,10 +259,11 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading }: MemoryUsageMet
 			onMouseEnter={onMouseEnter}
 			onMouseLeave={onMouseLeave}
 		>
+			{warningIcon}
 			{barWidth !== undefined && (
 				<MemoryUsageBar snapshot={snapshot} style={{ width: barWidth }} />
 			)}
-			<span className='memory-size-label'>{sizeLabel}</span>
+			<span className={positronClassNames('memory-size-label', { 'low-memory': lowMemoryLabel })}>{sizeLabel}</span>
 			<div className='memory-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 		</div>
 	);

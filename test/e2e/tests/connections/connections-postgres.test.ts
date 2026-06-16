@@ -3,15 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 const viewLine = '.lines-content .view-line';
-const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
+const dbName = 'periodic';
 const user = process.env.E2E_POSTGRES_USER || 'testuser';
 const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
 

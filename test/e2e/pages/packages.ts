@@ -131,6 +131,28 @@ export class Packages {
 	}
 
 	/**
+	 * Asserts that a package row is absent from the currently filtered list.
+	 * Retries past the post-uninstall refresh delay (the package provider
+	 * re-emits its snapshot asynchronously — R uninstalls via pak can take
+	 * tens of seconds before the row disappears).
+	 * @param name The exact package name that should no longer appear.
+	 * @param timeout Max time to wait for the row to disappear.
+	 */
+	async expectPackageNotInList(name: string, timeout = 60_000): Promise<void> {
+		await this.clickPackagesButton();
+		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: name });
+		await expect(row).toHaveCount(0, { timeout });
+	}
+
+	/**
+	 * Locates the external-link button on a package row.
+	 * @param packageName The exact package name whose URL button to return.
+	 */
+	urlButton(packageName: string): Locator {
+		return this.packagesContainer.getByRole('button', { name: `Open website for ${packageName}` });
+	}
+
+	/**
 	 * Click the filter funnel to open the Filter/Sort options menu.
 	 * Asserts the top-level menu is visible.
 	 */
@@ -245,5 +267,30 @@ export class Packages {
 		// Wait for the "Installing packages..." toast to appear and then disappear
 		await this.toasts.waitForAppear('Installing packages...', { timeout: 10000 });
 		await this.toasts.waitForDisappear('Installing packages...', { timeout: 60000 });
+	}
+
+	/**
+	 * Uninstalls a package via the row's right-click context menu.
+	 * Right-clicks the package row to open the context menu and clicks "Uninstall
+	 * Package". The command normally shows a confirmation dialog, but under the
+	 * smoke test driver `DialogService.confirm()` auto-confirms without rendering
+	 * a dialog (see `skipDialogs()` in dialogService.ts), so there is nothing to
+	 * click here -- the uninstall proceeds directly.
+	 *
+	 * Returns once the action is dispatched; use {@link expectPackageNotInList} to
+	 * wait for the package to actually drop out of the list.
+	 * @param packageName The name of the package to uninstall (e.g., 'cowsay')
+	 */
+	async uninstallPackage(packageName: string): Promise<void> {
+		await this.clickPackagesButton();
+
+		// Right-click the package row to open its context menu, then click "Uninstall Package".
+		const row = this.packagesContainer.locator('.packages-list-item-name', { hasText: packageName });
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: row.first(),
+			menuItemLabel: 'Uninstall Package',
+			menuTriggerButton: 'right',
+			exact: true
+		});
 	}
 }

@@ -11,6 +11,7 @@ export const IS_RUNNING_ON_PWB =
 export const ANTHROPIC_API_VERSION = '2023-06-01';
 export const KEY_VALIDATION_TIMEOUT_MS = 5000;
 export const CREDENTIAL_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+export const EXPIRY_REFRESH_BUFFER_MS = 60 * 1000;
 
 export const ANTHROPIC_AUTH_PROVIDER_ID = 'anthropic-api';
 export const POSIT_AUTH_PROVIDER_ID = 'posit-ai';
@@ -20,3 +21,4 @@ export const OPENAI_AUTH_PROVIDER_ID = 'openai-api';
 export const CUSTOM_PROVIDER_AUTH_PROVIDER_ID = 'openai-compatible';
 export const GEMINI_AUTH_PROVIDER_ID = 'google';
 export const GOOGLE_CLOUD_AUTH_PROVIDER_ID = 'google-cloud';
+export const DEEPSEEK_AUTH_PROVIDER_ID = 'deepseek-api';

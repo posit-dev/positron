@@ -113,6 +113,7 @@ import { isAgentHostTarget } from '../agentSessions/agentSessions.js';
 const $ = dom.$;
 
 const COPILOT_USERNAME = 'GitHub Copilot';
+const WORKING_CAUGHT_UP_DEBOUNCE_MS = 50;
 
 export interface IChatListItemTemplate {
 	currentElement?: ChatTreeItem;
@@ -725,17 +726,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		} else {
 			ChatContextKeys.responseVote.bindTo(templateData.contextKeyService).set('');
 		}
-		// --- Start Positron ---
-		// Set current provider context key based the model used for the request
-		// Heuristic to determine if it is provided by Copilot, as model providers
-		// aren't guaranteed to be registered at this point for deterministic checks.
-		if (isResponseVM(element)) {
-			const provider = element.model.request?.modelId;
-			ChatContextKeys.responseFromCopilot
-				.bindTo(templateData.contextKeyService)
-				.set(provider?.includes('copilot') ?? false);
-		}
-		// --- End Positron ---
 
 		if (templateData.titleToolbar) {
 			templateData.titleToolbar.context = element;
@@ -1051,31 +1041,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const diff = this.diff(templateData.renderedParts ?? [], content, element);
 		this.renderChatContentDiff(diff, content, element, index, templateData);
 		this.finalizeCompletedResponseParts(element, templateData);
-
-		// --- Start Positron ---
-		// Positron-specific token usage rendering (gated on configs).
-		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
-		let experimentalTokenUsage = ['anthropic-api'];
-		const approximateTokenCount = this.configService.getValue<Array<string>>('positron.assistant.approximateTokenCount');
-		if (approximateTokenCount?.length > 0) {
-			experimentalTokenUsage = experimentalTokenUsage.concat(approximateTokenCount);
-		}
-
-		const tokenUsageElements = templateData.value.getElementsByClassName('token-usage');
-		if (element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
-			const tokenUsageText = localize('tokenUsage', "Tokens: ↑{0} ↓{1} ↩{2}", element.tokenUsage.tokens.inputTokens, element.tokenUsage.tokens.outputTokens, element.tokenUsage.tokens.cachedTokens);
-			if (tokenUsageElements.length > 0) {
-				tokenUsageElements[0].textContent = tokenUsageText;
-			} else {
-				templateData.value.appendChild(dom.$('.token-usage', undefined, tokenUsageText));
-			}
-		} else {
-			// Remove token usage elements if they exist and should not be shown
-			while (tokenUsageElements.length > 0) {
-				tokenUsageElements[0].remove();
-			}
-		}
-		// --- End Positron ---
 	}
 
 	private finalizeCompletedResponseParts(element: IChatResponseViewModel, templateData: IChatListItemTemplate): void {
@@ -1216,14 +1181,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		if (
 			!lastPart ||
 			lastPart.kind === 'references' ||
+			(lastPart.kind === 'markdownContent' && !moreContentAvailable && this.hasBeenCaughtUpLongEnough(element)) ||
 			((lastPart.kind === 'toolInvocation' || lastPart.kind === 'toolInvocationSerialized') && (IChatToolInvocation.isComplete(lastPart) || IChatToolInvocation.isEffectivelyHidden(lastPart))) ||
-			// --- Start Positron ---
-			// Show working progress if the last part is markdown content and the response is in progress.
-			// The early return above already guarantees element.isComplete is false at this point.
-			// This is especially helpful when running in Agent mode, when the executeCode code block is still being constructed.
-			// This causes the in progress indicator to show in any mode, while markdown text is being rendered and the response is not complete.
-			lastPart.kind === 'markdownContent' ||
-			// --- End Positron ---
 			((lastPart.kind === 'textEditGroup' || lastPart.kind === 'notebookEditGroup') && lastPart.done && !partsToRender.some(part => part.kind === 'toolInvocation' && !IChatToolInvocation.isComplete(part))) ||
 			(lastPart.kind === 'progressTask' && lastPart.deferred.isSettled) ||
 			lastPart.kind === 'mcpServersStarting' ||
@@ -1337,11 +1296,13 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		});
 	}
 
-	// --- Start Positron ---
-	// Upstream added `hasBeenCaughtUpLongEnough` but its caller didn't land cleanly in the
-	// 1.118.0 merge — removed here to keep noUnusedLocals happy. Re-add when the working
-	// progress confirmation flow is reconciled.
-	// --- End Positron ---
+	private hasBeenCaughtUpLongEnough(element: IChatResponseViewModel): boolean {
+		const lastRenderTime = element.renderData?.lastRenderTime;
+		if (typeof lastRenderTime !== 'number' || lastRenderTime === 0) {
+			return false;
+		}
+		return (Date.now() - lastRenderTime) >= WORKING_CAUGHT_UP_DEBOUNCE_MS;
+	}
 
 	private getChatFileChangesSummaryPart(element: IChatResponseViewModel): IChatChangesSummaryPart | undefined {
 		if (!this.shouldShowFileChangesSummary(element)) {
@@ -2325,23 +2286,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			return errorConfirmation;
 		} else {
 			const level = content.errorDetails.level ?? ChatErrorLevel.Error;
-			// --- Start Positron ---
-			// Enable command links in error messages with specific allowlist
-			// This allows error messages to include actionable links to settings, terminal, etc.
-			const errorMarkdown = new MarkdownString(content.errorDetails.message, {
-				isTrusted: {
-					enabledCommands: [
-						'workbench.action.openSettings',
-						'workbench.action.terminal.new',
-						'workbench.action.files.openFile'
-					]
-				}
-			});
-			/*
 			return this.instantiationService.createInstance(ChatErrorContentPart, level, new MarkdownString(content.errorDetails.message), content, this.chatContentMarkdownRenderer);
-			*/
-			return this.instantiationService.createInstance(ChatErrorContentPart, level, errorMarkdown, content, this.chatContentMarkdownRenderer);
-			// --- End Positron ---
 		}
 	}
 
