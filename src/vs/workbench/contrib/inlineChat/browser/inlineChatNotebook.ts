@@ -10,10 +10,6 @@ import { InlineChatController } from './inlineChatController.js';
 import { IInlineChatSessionService } from './inlineChatSessionService.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { CellUri } from '../../notebook/common/notebookCommon.js';
-// --- Start Positron ---
-// Imports to support inline chat in Positron notebooks.
-import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
-// --- End Positron ---
 
 export class InlineChatNotebookContribution {
 
@@ -22,9 +18,6 @@ export class InlineChatNotebookContribution {
 	constructor(
 		@IInlineChatSessionService sessionService: IInlineChatSessionService,
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
-		// --- Start Positron ---
-		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 	) {
 
 		this.#store.add(sessionService.onWillStartSession(newSessionEditor => {
@@ -52,20 +45,6 @@ export class InlineChatNotebookContribution {
 					}
 				}
 			}
-			// --- Start Positron ---
-			// To support inline chat in Positron notebooks:
-			// cancel existing chat sessions when a new one is started.
-			for (const positronInstance of positronNotebookService.listInstances(candidate.notebook)) {
-				if (positronInstance.hasCodeEditor(newSessionEditor)) {
-					for (const { currentEditor } of positronInstance.cells.get()) {
-						if (currentEditor && currentEditor !== newSessionEditor) {
-							InlineChatController.get(currentEditor)?.acceptSession();
-						}
-					}
-					break;
-				}
-			}
-			// --- End Positron ---
 		}));
 	}
 

@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { SQLiteConnection } from './sqliteConnection.js';
+import { SqliteDataExplorerRpcHandler } from './sqliteDataExplorerRpcHandler.js';
 
 /**
  * Type guard for a non-empty string.
@@ -19,9 +20,11 @@ function isNonEmptyString(value: unknown): value is string {
 /**
  * Creates the SQLite DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
+ * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
  */
 export function createSQLiteDriver(
-	context: vscode.ExtensionContext
+	context: vscode.ExtensionContext,
+	dataExplorerHandler: SqliteDataExplorerRpcHandler
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
@@ -65,7 +68,7 @@ export function createSQLiteDriver(
 			}
 
 			// Create the connection and open the database in the worker process.
-			const connection = new SQLiteConnection(databasePath, readOnly);
+			const connection = new SQLiteConnection(databasePath, readOnly, dataExplorerHandler);
 			await connection.connect();
 			return connection;
 		},

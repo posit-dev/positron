@@ -9,7 +9,7 @@
     "vscode": "^1.65.0"
   },
   "activationEvents": [
-    "onStartupFinished"
+    "onView:workbench.panel.positronDataConnections"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^9.1.0",
+    "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
     "@types/node": "14.x",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",

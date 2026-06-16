@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { tags, test } from '../_test.setup';
-import { expect } from '@playwright/test';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename

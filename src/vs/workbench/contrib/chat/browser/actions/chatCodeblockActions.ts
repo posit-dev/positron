@@ -277,14 +277,7 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: APPLY_IN_EDITOR_ID,
 				title: localize2('interactive.applyInEditor.label', "Apply in Editor"),
-				// --- Start Positron ---
-				// precondition: ChatContextKeys.enabled,
-
-				// Disable "Apply in Editor" action for non-Copilot providers unless overridden by config
-				precondition: ContextKeyExpr.and(
-					ChatContextKeys.enabled, applyInEditorEnablement
-				),
-				// --- End Positron ---
+				precondition: ChatContextKeys.enabled,
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.gitPullRequestGoToChanges,
@@ -293,37 +286,16 @@ export function registerChatCodeBlockActions() {
 					{
 						id: MenuId.ChatCodeBlock,
 						group: 'navigation',
-						// --- Start Positron ---
-						// when: ContextKeyExpr.and(
-						// 	...shellLangIds.map(e => ContextKeyExpr.notEquals(EditorContextKeys.languageId.key, e))
-						// ),
-
-						// Only show "Apply in Editor" action for non-shell languages if the provider is Copilot
 						when: ContextKeyExpr.and(
-							applyInEditorEnablement,
-							ContextKeyExpr.and(
-								...shellLangIds.map(e => ContextKeyExpr.notEquals(EditorContextKeys.languageId.key, e))
-							),
+							...shellLangIds.map(e => ContextKeyExpr.notEquals(EditorContextKeys.languageId.key, e))
 						),
-						// --- End Positron ---
 						order: 10
 					},
 					{
 						id: MenuId.ChatCodeBlock,
-						// --- Start Positron ---
-						// when: ContextKeyExpr.or(
-						// 	...shellLangIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e))
-						// )
-
-						// Only show "Apply in Editor" action for shell languages if the provider is Copilot
-						when: ContextKeyExpr.and(
-							applyInEditorEnablement,
-							ContextKeyExpr.or(
-								...shellLangIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e))
-							)
+						when: ContextKeyExpr.or(
+							...shellLangIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e))
 						)
-						// --- End Positron ---
-
 					},
 				],
 				keybinding: {
@@ -391,9 +363,7 @@ export function registerChatCodeBlockActions() {
 				menu: {
 					id: MenuId.ChatCodeBlock,
 					group: 'navigation',
-					// --- Start Positron ---
-					isHiddenByDefault: false,
-					// --- End Positron ---
+					isHiddenByDefault: true,
 					order: 40,
 				}
 			});
@@ -465,12 +435,6 @@ export function registerChatCodeBlockActions() {
 						ChatContextKeys.inChatSession,
 						ContextKeyExpr.or(...shellLangIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e)))
 					),
-				}],
-				// --- Start Positron ---
-				// In code blocks with non-shell languages, don't show this action at all.
-				// We already have a separate action for running code in the console.
-				// See: https://github.com/posit-dev/positron/issues/7751.
-				/*
 				},
 				{
 					id: MenuId.ChatCodeBlock,
@@ -481,8 +445,6 @@ export function registerChatCodeBlockActions() {
 						...shellLangIds.map(e => ContextKeyExpr.notEquals(EditorContextKeys.languageId.key, e))
 					)
 				}],
-				*/
-				// --- End Positron ---
 				keybinding: [{
 					primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Enter,
 					mac: {
@@ -800,12 +762,3 @@ export function registerChatCodeCompareBlockActions() {
 		}
 	});
 }
-// --- Start Positron ---
-// Enablement for "Apply in Editor" action: enabled for 'copilot' provider or if config is set
-// Used in multiple places, so extracted here
-const applyInEditorEnablement =
-	ContextKeyExpr.or(
-		ChatContextKeys.responseFromCopilot.isEqualTo(true),
-		ContextKeyExpr.has('config.positron.assistant.alwaysEnableApplyInEditorAction')
-	);
-// --- End Positron ---

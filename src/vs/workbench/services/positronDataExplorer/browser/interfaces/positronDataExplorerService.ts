@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../../base/common/event.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronDataExplorerInstance } from './positronDataExplorerInstance.js';
+import { IDataExplorerRpcTransport, IDataExplorerUiEventDto } from '../../common/dataExplorerRpcTransport.js';
 
 // Create the decorator for the Positron data explorer service (used in dependency injection).
 export const IPositronDataExplorerService = createDecorator<IPositronDataExplorerService>('positronDataExplorerService');
@@ -17,6 +19,19 @@ export const IPositronDataExplorerService = createDecorator<IPositronDataExplore
 export enum PositronDataExplorerLayout {
 	SummaryOnLeft = 'SummaryOnLeft',
 	SummaryOnRight = 'SummaryOnRight'
+}
+
+/**
+ * Identifies a dataset served by a backend-providing extension over the typed Data Explorer
+ * channel, used when asking Positron to open it.
+ */
+export interface OpenExtensionBackendPayload {
+	/** The provider id the extension registered its RPC handler under (e.g. 'positron-duckdb'). */
+	providerId: string;
+	/** Stable dataset identifier; used as the RPC `uri`, the client id, and the editor URI. */
+	datasetId: string;
+	/** Human-readable name shown for the dataset (e.g. the table name). */
+	displayName: string;
 }
 
 /**
@@ -72,6 +87,27 @@ export interface IPositronDataExplorerService {
 	 * @param uri The URI, usually a file in the workspace.
 	 */
 	openWithDuckDB(uri: URI): Promise<void>;
+
+	/**
+	 * Open a Data Explorer backed by a built-in extension over the typed channel (e.g. a data
+	 * connection driver previewing a table), without a backing file.
+	 * @param payload The provider id, dataset identifier, and display name.
+	 */
+	openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void>;
+
+	/**
+	 * Registers the transport core backends use to reach backend-providing extensions. Called by
+	 * the main-thread Data Explorer channel actor.
+	 * @param transport The transport.
+	 * @returns A disposable that clears the transport.
+	 */
+	registerRpcTransport(transport: IDataExplorerRpcTransport): IDisposable;
+
+	/**
+	 * Routes a frontend UI event from a backend-providing extension to the matching backend.
+	 * @param event The UI event.
+	 */
+	routeUiEvent(event: IDataExplorerUiEventDto): void;
 
 	/**
 	 * Event that fires when a new data explorer instance is registered.
