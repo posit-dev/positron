@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
@@ -16,6 +15,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../environment/browser/environmentService.js';
 import { IHostService } from '../../../host/browser/host.js';
 import { IRemoteAgentService } from '../../../remote/common/remoteAgentService.js';
@@ -38,18 +38,10 @@ const validEnv = JSON.stringify({ serviceUrl: 'https://env.example.com/gallery' 
 
 describe('WebExtensionGalleryManifestService', () => {
 
-	let store: DisposableStore;
-
-	beforeEach(() => {
-		store = new DisposableStore();
-	});
-
-	afterEach(() => {
-		store.dispose();
-	});
+	const disposables = ensureNoLeakedDisposables();
 
 	function createService(opts: { env?: string; gallerySource?: string; confirmReload?: boolean } = {}) {
-		const onDidChangeConfiguration = store.add(new Emitter<IConfigurationChangeEvent>());
+		const onDidChangeConfiguration = disposables.add(new Emitter<IConfigurationChangeEvent>());
 		const logService = new NullLogService();
 		const notificationService = stubInterface<INotificationService>({ notify: vi.fn(), info: vi.fn() });
 		const dialogService = stubInterface<IDialogService>({ confirm: vi.fn().mockResolvedValue({ confirmed: opts.confirmReload ?? false }) });
@@ -63,7 +55,7 @@ describe('WebExtensionGalleryManifestService', () => {
 		const productService = stubInterface<IProductService>({ extensionsGallery: productGallery, nameLong: 'Positron' });
 		const remoteAgentService = stubInterface<IRemoteAgentService>({ getConnection: () => null });
 
-		const service = store.add(new WebExtensionGalleryManifestService(
+		const service = disposables.add(new WebExtensionGalleryManifestService(
 			productService, remoteAgentService, configurationService, logService,
 			notificationService, dialogService, hostService, instantiationService, environmentService));
 
