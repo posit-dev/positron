@@ -21,7 +21,7 @@ Do these in order.
 
    Use any writable temp path for the output (e.g. the OS temp dir); just keep it consistent below. The script reads the working tree (committed + uncommitted + untracked) against the merge-base with the default branch -- no `gh`, no network. It prints a one-line summary ending in `skip=...`.
 
-2. **Handle the skip pre-filter.** If the script reports `skip=<reason>` (anything other than `skip=no`), it also wrote a `comment.md` next to the context file. Read that `comment.md` and present it verbatim (it is the same static "Not applicable" verdict CI would post). Then stop -- do not grade further.
+2. **Handle the skip pre-filter.** If the script reports `skip=<reason>` (anything other than `skip=no`), it also wrote a `comment.md` next to the context file. Read that `comment.md` and present it (it is the same static "Not applicable" verdict CI would post). Its footer is an HTML `<sub>...</sub>` line meant for GitHub; since this renders in Claude Code, present that footer line as plain markdown italic (drop the `<sub>` tag) so it doesn't show up as a literal tag. Then stop -- do not grade further.
 
 3. **Read the rubric.** Otherwise, `Read` the shared rubric at `.claude/skills/pr-test-checker/SKILL.md`. That file is the single source of truth for the taxonomy, cost guidance, deployment coverage, decision rule, investigation steps, verdict table, output template, and constraints. Follow it exactly.
 
@@ -29,10 +29,10 @@ Do these in order.
 
 5. **Grade.** Carry out the rubric's Investigation steps against the diff and the working tree, then produce the verdict in the rubric's exact Output-format template. Honor every Constraint (cite real files only, one verdict, keep it under ~80 lines, etc.).
 
-6. **Swap the footer for a local-preview note.** The rubric's output template ends with a CI footer that mentions `/recheck-tests`. That mechanism does not exist locally, so replace that final `<small>...</small>` footer line with:
+6. **Swap the footer for a local-preview note.** The rubric's output template ends with a CI footer (an HTML `<small>...</small>` line that mentions `/recheck-tests`). Neither applies locally, and this report renders in Claude Code -- not on GitHub -- where raw HTML like `<small>` shows up literally instead of rendering. So drop the `<small>` tag and use plain markdown italic. Replace that final footer line with:
 
    ```
-   <small>PETE local preview -- not posted to any PR. Graded from your working tree (HEAD vs the merge-base with the default branch). CI PETE grades on Opus; on a different model the verdict may differ. Open a PR to get the official PETE check.</small>
+   _PETE local preview -- not posted to any PR. Graded from your working tree (HEAD vs the merge-base with the default branch). CI PETE grades on Opus; on a different model the verdict may differ. Open a PR to get the official PETE check._
    ```
 
 7. **Present, don't post.** Output the rendered report to the user in this session. Do not create a PR comment or run any `gh` command.
