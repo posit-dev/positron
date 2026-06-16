@@ -426,7 +426,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Undo);
 		});
 
-		it('handleNotebookRedo claims redo and re-adds the cell when the notebook is empty and no focus key is set', async () => {
+		it('handleNotebookRedo re-adds the cells when the notebook is empty and no focus key is set', async () => {
 			// Symmetric to the undo case: add a cell into an empty notebook, undo
 			// to return to empty (staging a redo entry), then redo while still
 			// empty and unfocused. Exercises the emptyNotebook branch for redo.
