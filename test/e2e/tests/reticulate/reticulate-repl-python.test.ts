@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, tags } from './_test.setup';
 import { verifyReticulateFunctionality } from './helpers/verifyReticulateFunction.js';
 
 test.use({
@@ -17,19 +17,6 @@ test.use({
 test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB, tags.ARK, tags.SOFT_FAIL],
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
-		try {
-			await settings.set({
-				'positron.reticulate.enabled': true,
-				'kernelSupervisor.transport': 'tcp'
-			}, { reload: true });
-
-		} catch (e) {
-			await app.code.driver.takeScreenshot('reticulateSetup');
-			throw e;
-		}
-	});
-
 	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions, logger }) {
 		const { console } = app.workbench;
 

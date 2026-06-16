@@ -22,7 +22,7 @@ export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositron
 			if (enablePositronNotebooks) {
 				// Enable Positron notebooks before the app fixture starts
 				// to avoid waiting for a window reload
-				settingsFile.append({ 'positron.notebook.enabled': true });
+				await settingsFile.append({ 'positron.notebook.enabled': true });
 			}
 			if (ghostCellSettings) {
 				await settingsFile.append(ghostCellSettings);
