@@ -6,15 +6,26 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IEditorMouseEvent, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { Selection } from '../../../../editor/common/core/selection.js';
+import { ITextModel } from '../../../../editor/common/model.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QuartoOutputContribution } from './quartoOutputManager.js';
+import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from './quartoCellOperations.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument, usingQuartoCellToolbar } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { localize } from '../../../../nls.js';
 
 /**
  * Editor contribution that manages cell toolbars for Quarto documents.
@@ -37,7 +48,10 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -51,6 +65,15 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
 				this._logService.debug('[QuartoCellToolbarController] Context key changed');
+				this._onEditorModelChanged();
+			}
+		}));
+
+		// Listen for the "show cell toolbar" setting being toggled so toolbars
+		// appear/disappear live without requiring a reload.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY)) {
+				this._logService.debug('[QuartoCellToolbarController] Show cell toolbar setting changed');
 				this._onEditorModelChanged();
 			}
 		}));
@@ -82,6 +105,12 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		const enabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 		if (!enabled) {
+			return;
+		}
+
+		// Respect the user setting controlling whether the cell toolbar is shown.
+		if (!usingQuartoCellToolbar(this._configurationService)) {
+			this._logService.debug('[QuartoCellToolbarController] Cell toolbar disabled by setting');
 			return;
 		}
 
@@ -181,6 +210,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 				() => this._stopCell(toolbar.cell),
 				() => this._runCellsAboveFromToolbar(toolbar),
 				() => this._runCellAndBelowFromToolbar(toolbar),
+				() => this._showMoreActions(toolbar),
 				this._hoverService,
 				this._keybindingService
 			);
@@ -292,6 +322,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 					() => this._stopCell(toolbar.cell),
 					() => this._runCellsAboveFromToolbar(toolbar),
 					() => this._runCellAndBelowFromToolbar(toolbar),
+					() => this._showMoreActions(toolbar),
 					this._hoverService,
 					this._keybindingService
 				);
@@ -576,6 +607,241 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		const currentIndex = toolbar.cell.index;
 		const cellsToRun = cells.slice(currentIndex);
 		await this._executionManager.executeCells(model.uri, [...cellsToRun]);
+	}
+
+	/**
+	 * Build and show the "more cell actions" context menu, anchored to the
+	 * toolbar's more button. The cell list is read fresh from the document
+	 * model so indices and enablement reflect the current state.
+	 */
+	private _showMoreActions(toolbar: QuartoCellToolbar): void {
+		const resolved = this._resolveCellContext(toolbar.cell);
+		if (!resolved) {
+			return;
+		}
+		const { quartoModel, fresh: cell } = resolved;
+		const cells = quartoModel.cells;
+		const isFirst = cell.index === 0;
+		const isLast = cell.index === cells.length - 1;
+		const hasOutput = this._getOutputContribution()?.hasCopiableOutputForCellAtLine(cell.codeStartLine) ?? false;
+
+		// The `icon` values are codicon names (without the `codicon-` prefix);
+		// the custom context menu renders them as a leading icon.
+		const entries: CustomContextMenuEntry[] = [
+			new CustomContextMenuItem({
+				label: localize('quarto.cell.cut', "Cut Cell"),
+				onSelected: () => this._cutCell(cell),
+			}),
+			new CustomContextMenuItem({
+				icon: 'copy',
+				label: localize('quarto.cell.copyCode', "Copy Cell Code"),
+				onSelected: () => this._copyCellCode(cell),
+			}),
+			new CustomContextMenuItem({
+				icon: 'output',
+				label: localize('quarto.cell.copyOutput', "Copy Cell Output"),
+				disabled: !hasOutput,
+				onSelected: () => this._copyCellOutput(cell),
+			}),
+			new CustomContextMenuItem({
+				icon: 'trash',
+				label: localize('quarto.cell.delete', "Delete Cell"),
+				onSelected: () => this._deleteCell(cell),
+			}),
+			new CustomContextMenuSeparator(),
+			new CustomContextMenuItem({
+				icon: 'merge',
+				label: localize('quarto.cell.joinAbove', "Join with Cell Above"),
+				disabled: isFirst,
+				onSelected: () => this._joinWithAbove(cell),
+			}),
+			new CustomContextMenuItem({
+				label: localize('quarto.cell.joinBelow', "Join with Cell Below"),
+				disabled: isLast,
+				onSelected: () => this._joinWithBelow(cell),
+			}),
+			new CustomContextMenuSeparator(),
+			new CustomContextMenuItem({
+				icon: 'arrow-up',
+				label: localize('quarto.cell.insertAbove', "Insert Cell Above"),
+				onSelected: () => this._insertCellAbove(cell),
+			}),
+			new CustomContextMenuItem({
+				icon: 'arrow-down',
+				label: localize('quarto.cell.insertBelow', "Insert Cell Below"),
+				onSelected: () => this._insertCellBelow(cell),
+			}),
+		];
+
+		// Keep the toolbar pinned while the menu is open; otherwise moving the
+		// mouse onto the menu fires mouseleave and hides a hover-revealed toolbar.
+		toolbar.setMenuOpen(true);
+		showCustomContextMenu({
+			anchorElement: toolbar.moreButton,
+			popupPosition: 'auto',
+			popupAlignment: 'auto',
+			width: 'auto',
+			entries,
+			onClose: () => toolbar.setMenuOpen(false),
+		});
+	}
+
+	/**
+	 * Get the output contribution for the active editor, used for output-related
+	 * cell actions (copy output, output presence checks).
+	 */
+	private _getOutputContribution(): QuartoOutputContribution | null {
+		return this._editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+	}
+
+	/**
+	 * Resolve the active editor model, its Quarto document model, and the
+	 * freshest version of a cell (by ID, falling back to the passed-in cell).
+	 * Returns undefined when the editor has no model, letting callers bail with
+	 * a single guard instead of repeating the model/null-check boilerplate.
+	 */
+	private _resolveCellContext(cell: QuartoCodeCell): { model: ITextModel; quartoModel: IQuartoDocumentModel; fresh: QuartoCodeCell } | undefined {
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
+		}
+		const quartoModel = this._documentModelService.getModel(model);
+		return { model, quartoModel, fresh: quartoModel.getCellById(cell.id) ?? cell };
+	}
+
+	/**
+	 * Copy the code of a cell (without its fences) to the clipboard.
+	 */
+	private _copyCellCode(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		this._clipboardService.writeText(resolved.quartoModel.getCellCode(resolved.fresh));
+	}
+
+	/**
+	 * Copy a cell's output to the clipboard, reusing the output contribution.
+	 */
+	private _copyCellOutput(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		this._getOutputContribution()?.copyOutputForCellAtLine(resolved.fresh.codeStartLine);
+	}
+
+	/**
+	 * Cut a cell: copy the entire cell (including its fences) to the clipboard,
+	 * then delete the cell. This mirrors Delete, which also removes the fences,
+	 * so what lands on the clipboard matches what was removed.
+	 */
+	private async _cutCell(cell: QuartoCodeCell): Promise<void> {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		const { model, fresh } = resolved;
+
+		const lines: string[] = [];
+		for (let i = fresh.startLine; i <= fresh.endLine; i++) {
+			lines.push(model.getLineContent(i));
+		}
+
+		// Only delete the cell once the copy to the clipboard succeeds.
+		// Deleting after a failed write would discard the cell's content
+		// with no way to paste it back, causing unrecoverable data loss.
+		try {
+			await this._clipboardService.writeText(lines.join('\n'));
+		} catch (error) {
+			this._logService.error('[QuartoCellToolbarController] Failed to copy cell to clipboard during cut; cell not deleted', error);
+			this._notificationService.notify({
+				severity: Severity.Error,
+				message: localize('quarto.cell.cutFailed', "Failed to cut the cell because its contents could not be copied to the clipboard. The cell was not deleted."),
+			});
+			return;
+		}
+
+		this._deleteCell(fresh);
+	}
+
+	/**
+	 * Delete a cell (its fences and code) from the document.
+	 */
+	private _deleteCell(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		this._editor.executeEdits('quartoCellToolbar', computeDeleteCellEdit(resolved.model, resolved.fresh));
+	}
+
+	/**
+	 * Join a cell with the cell above it, merging both into a single chunk.
+	 */
+	private _joinWithAbove(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		const { model, quartoModel, fresh } = resolved;
+		const previous = quartoModel.getCellByIndex(fresh.index - 1);
+		if (!previous) {
+			return;
+		}
+		this._editor.executeEdits('quartoCellToolbar', computeJoinCellsEdit(model, previous, fresh));
+	}
+
+	/**
+	 * Join a cell with the cell below it, merging both into a single chunk.
+	 */
+	private _joinWithBelow(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		const { model, quartoModel, fresh } = resolved;
+		const next = quartoModel.getCellByIndex(fresh.index + 1);
+		if (!next) {
+			return;
+		}
+		this._editor.executeEdits('quartoCellToolbar', computeJoinCellsEdit(model, fresh, next));
+	}
+
+	/**
+	 * Insert a new, empty code cell directly above the given cell.
+	 */
+	private _insertCellAbove(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		// Insert just before the cell's opening fence.
+		this._insertNewCell(resolved.model, resolved.fresh.language, resolved.fresh.startLine);
+	}
+
+	/**
+	 * Insert a new, empty code cell directly below the given cell.
+	 */
+	private _insertCellBelow(cell: QuartoCodeCell): void {
+		const resolved = this._resolveCellContext(cell);
+		if (!resolved) {
+			return;
+		}
+		// Insert just after the cell's closing fence.
+		this._insertNewCell(resolved.model, resolved.fresh.language, resolved.fresh.endLine + 1);
+	}
+
+	/**
+	 * Insert a new, empty code cell at the start of the given line (1-based),
+	 * placing the cursor on the new cell's empty code line. The edit math lives
+	 * in `computeInsertCellEdit` so it can be unit-tested without an editor.
+	 */
+	private _insertNewCell(model: ITextModel, language: string, insertLine: number): void {
+		const { edits, cursorLine } = computeInsertCellEdit(model, language, insertLine);
+		this._editor.executeEdits('quartoCellToolbar', edits);
+		this._editor.setSelection(new Selection(cursorLine, 1, cursorLine, 1));
+		this._editor.focus();
 	}
 
 	override dispose(): void {
