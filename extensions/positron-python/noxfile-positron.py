@@ -7,11 +7,11 @@
 import nox
 
 
-@nox.session(venv_backend="uv")
-@nox.parametrize("pandas", ["1.*", "2.*"])
+@nox.session(venv_backend="uv", python="3.9")
+@nox.parametrize(["pandas", "numpy"], [("1.*", "1.*"), ("2.*", "2.*")])
 @nox.parametrize("torch", ["1.*"])
 @nox.parametrize("lightning", ["2.1.*"])
-def test_minimum_reqs(session, pandas, torch, lightning):
+def test_minimum_reqs(session, pandas, numpy, torch, lightning):
     session.run(
         "uv",
         "sync",
@@ -26,6 +26,7 @@ def test_minimum_reqs(session, pandas, torch, lightning):
     session.install("--force-reinstall", f"lightning=={lightning}")
 
     session.install("--force-reinstall", f"pandas=={pandas}")
+    session.install("--force-reinstall", f"numpy=={numpy}")
     session.install("--force-reinstall", f"torch=={torch}")
 
     if session.posargs:

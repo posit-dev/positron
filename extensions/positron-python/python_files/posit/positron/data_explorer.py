@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -1788,7 +1788,7 @@ class PandasView(DataExplorerTableView):
 
         # Nulls are possible in the mask, so we just fill them if any
         if mask.dtype != bool:
-            mask = mask.fillna(False).astype(bool)
+            mask = mask.fillna(value=False).astype(bool)
 
         # pandas 3.0 CoW returns read-only arrays; copy to allow in-place combination
         return mask.to_numpy().copy()
@@ -2086,6 +2086,7 @@ def _parse_iso8601_like(x, tz=None):
             if tz is not None:
                 if isinstance(tz, str):
                     import pytz
+
                     tz = pytz.timezone(tz)
                 # pytz uses .localize() for DST-aware localization;
                 # zoneinfo.ZoneInfo (pandas 3.0) uses .replace(tzinfo=tz)

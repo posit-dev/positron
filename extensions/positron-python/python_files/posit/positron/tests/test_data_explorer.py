@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -745,7 +745,13 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     # pandas 3.0 changed to_datetime resolution from ns to us
     _datetime_series = pd.to_datetime(
-        ["2024-01-01 00:00:00", "2024-01-02 12:34:45", None, "2024-01-04 00:00:00", "2024-01-05 00:00:00"]
+        [
+            "2024-01-01 00:00:00",
+            "2024-01-02 12:34:45",
+            None,
+            "2024-01-04 00:00:00",
+            "2024-01-05 00:00:00",
+        ]
     )
     _datetime_type_name = str(_datetime_series.dtype)
 
