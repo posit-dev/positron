@@ -26,10 +26,6 @@ test.use({
 	suiteId: __filename,
 });
 
-test.beforeAll(async ({ app }) => {
-	await app.workbench.assistant.loginModelProvider('anthropic-api');
-});
-
 test.afterEach(async ({ page, hotKeys, cleanup }) => {
 	await page.keyboard.press('Escape');
 	await clearAnnotations(page);
@@ -149,7 +145,8 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 		await quickInput.clickOkButton();
 		await editors.waitForActiveTab('explore-energy-data.ipynb', false);
 
-		// Open Posit Assistant chat on the left and ask about the notebook.
+		// Log in to the model provider and open Posit Assistant chat on the left.
+		await positAssistant.loginModelProvider('anthropic-api');
 		await positAssistant.open();
 		await positAssistant.waitForReady();
 		await positAssistant.sendMessageAndWait('Tell me about this notebook', { timeout: 90_000, newConversation: true });
