@@ -114,22 +114,6 @@ export function createSQLiteDriver(
 								? `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///file:${escapedPath}?mode=ro&uri=true")\n`
 								: `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///${escapedPath}")\n`,
 						},
-						{
-							id: 'pandas',
-							label: 'pandas',
-							// pandas reads through a DBAPI connection. The query lists the database's
-							// tables (sqlite_master always exists, so it runs without error) to guide
-							// the user toward their own query.
-							code: `import sqlite3\nimport pandas as pd\n\nconn = ${sqlite3Connect}\n# Lists the tables in the database. Replace with your own query.\ndf = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)\n`,
-						},
-						{
-							id: 'polars',
-							label: 'polars',
-							// polars reads via connectorx using a connection URI. The query lists the
-							// database's tables (sqlite_master always exists, so it runs without
-							// error) to guide the user toward their own query.
-							code: `import polars as pl\n\n# Lists the tables in the database. Replace with your own query.\ndf = pl.read_database_uri("SELECT name FROM sqlite_master WHERE type='table'", "sqlite://${escapedPath}")\n`,
-						},
 					];
 				}
 				case 'r': {
@@ -143,13 +127,6 @@ export function createSQLiteDriver(
 							id: 'dbi',
 							label: 'DBI',
 							code: `library(DBI)\n\ncon <- ${dbConnect}\n`,
-						},
-						{
-							id: 'dplyr',
-							label: 'dplyr',
-							// dplyr works over a DBI connection. dbListTables() always runs without
-							// error and lists the tables to guide the user toward their own table.
-							code: `library(DBI)\nlibrary(dplyr)\n\ncon <- ${dbConnect}\n# Lists the tables in the database. Replace with your own table.\ndbListTables(con)\n# data <- tbl(con, "table_name")\n`,
 						},
 					];
 				}

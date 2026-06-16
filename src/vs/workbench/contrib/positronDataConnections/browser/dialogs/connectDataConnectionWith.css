@@ -79,58 +79,16 @@
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.connect-data-connection-with .action-bar-button {
-	height: 32px;
-	display: flex;
-	cursor: pointer;
-	padding: 0 15px;
-	border-radius: 5px;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
-	color: var(--vscode-positronModalDialog-buttonForeground);
-	background: var(--vscode-positronModalDialog-buttonBackground);
-}
-
-/* Compact variant for the Edit/Copy buttons in the code header. */
-.connect-data-connection-with .action-bar-button.small {
+/*
+ * Compact variant for the Create Script/Copy buttons in the code header. The shared button treatment comes
+ * from `.positron-dynamic-modal-dialog-box .dialog-button` (positronDynamicModalDialog.css);
+ * this only overrides the size.
+ */
+.connect-data-connection-with .dialog-button.small {
 	height: 22px;
 	padding: 0 8px;
 	font-size: 11px;
 	border-radius: 4px;
-}
-
-.connect-data-connection-with .action-bar-button:hover {
-	background: var(--vscode-positronModalDialog-buttonHoverBackground);
-}
-
-.vs-dark .connect-data-connection-with .action-bar-button:not(.default) {
-	border: 1px solid var(--vscode-button-border);
-}
-
-.connect-data-connection-with .action-bar-button.default {
-	color: var(--vscode-positronModalDialog-defaultButtonForeground);
-	background: var(--vscode-positronModalDialog-defaultButtonBackground);
-}
-
-.connect-data-connection-with .action-bar-button.default:hover {
-	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
-}
-
-.connect-data-connection-with .action-bar-button:focus {
-	outline: none;
-}
-
-.connect-data-connection-with .action-bar-button:focus-visible {
-	outline-offset: 2px !important;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-
-.connect-data-connection-with .action-bar-button:disabled {
-	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
-	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
-	cursor: default;
 }
 
 /* Code preview (detail). */

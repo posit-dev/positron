@@ -12,15 +12,17 @@ import { PropsWithChildren, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import Severity from '../../../../../base/common/severity.js';
+import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
+import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../../../positronConnections/browser/components/simpleCodeEditor.js';
-import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { DataConnectionCodeEditor, DataConnectionCodeEditorWidget } from '../components/dataConnectionCodeEditor.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { IDataConnectionCodeVariant } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 
 // The width of the Connect Data Connection With dialog.
 const CONNECT_DATA_CONNECTION_WITH_WIDTH = 800;
@@ -78,14 +80,14 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 	// Get services.
 	const services = usePositronReactServicesContext();
 
-	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
+	const editorRef = useRef<DataConnectionCodeEditorWidget>(undefined!);
 
 	// The currently-selected variant. Defaults to the first (preferred) variant.
 	const [selectedVariantId, setSelectedVariantId] = useState(props.variants[0].id);
 	const selectedVariant = props.variants.find(variant => variant.id === selectedVariantId) ?? props.variants[0];
 
 	const copyHandler = async () => {
-		const code = editorRef.current?.getValue() || '';
+		const code = editorRef.current.getCode();
 		await services.clipboardService.writeText(code);
 		props.renderer.dispose();
 
@@ -100,21 +102,33 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 		setTimeout(() => handle.close(), 2000);
 	};
 
-	const editHandler = async () => {
-		const editor = editorRef.current;
+	const createScriptHandler = async () => {
+		// Acquire code before disposing of the renderer.
+		const code = editorRef.current.getCode();
 
-		if (!editor) {
-			return;
+		props.renderer.dispose();
+
+		try {
+			// Open a new untitled editor seeded with the connection code, typed to the connection's
+			// language so the user gets syntax highlighting and can save it as a script.
+			await services.editorService.openEditor({
+				resource: undefined,
+				contents: code,
+				languageId: props.languageId,
+				options: { pinned: true },
+			} satisfies IUntitledTextResourceEditorInput);
+		} catch (err) {
+			services.notificationService.error(localize(
+				'positron.connectDataConnectionWith.createScriptFailed',
+				"Failed to create the connection script: {0}",
+				toErrorMessage(err)
+			));
 		}
-
-		editor.focus();
-		editor.updateOptions({ readOnly: false, domReadOnly: false, cursorBlinking: 'blink' });
-		editor.setScrollTop(0);
 	};
 
 	const connectHandler = async () => {
 		// Acquire code before disposing of the renderer.
-		const code = editorRef.current?.getValue() ?? selectedVariant.code;
+		const code = editorRef.current.getCode();
 
 		props.renderer.dispose();
 
@@ -128,7 +142,11 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 				true, // focus the console
 			);
 		} catch (err) {
-			services.notificationService.error(err);
+			services.notificationService.error(localize(
+				'positron.connectDataConnectionWith.connectFailed',
+				"Failed to run the connection code: {0}",
+				toErrorMessage(err)
+			));
 		}
 	};
 
@@ -139,11 +157,9 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 	// Only show the variant selector when there is more than one variant to choose from.
 	const showVariantSelector = props.variants.length > 1;
 
-	// The label for the variant selector. Variants are R packages or Python libraries, so use the
-	// term each language community prefers.
-	const variantGroupLabel = props.languageId === 'r'
-		? localize('positron.connectDataConnectionWith.package', "Package")
-		: localize('positron.connectDataConnectionWith.library', "Library");
+	// The label for the variant selector. The variants are packages -- the install unit in both R
+	// and Python -- so "Package" is correct for every language.
+	const variantGroupLabel = localize('positron.connectDataConnectionWith.package', "Package");
 
 	// The user-visible name for the language (e.g. 'Python'), falling back to the id when no
 	// display name is registered.
@@ -160,14 +176,14 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 						<span className='code-title'>{localize('positron.connectDataConnectionWith.code', "Connection Code")}</span>
 						<div className='code-actions'>
 							<Button
-								className='button action-bar-button small'
+								className='button dialog-button small'
 								disabled={!selectedVariant.code}
-								onPressed={editHandler}
+								onPressed={createScriptHandler}
 							>
-								{localize('positron.connectDataConnectionWith.edit', "Edit")}
+								{localize('positron.connectDataConnectionWith.createScript', "Create Script")}
 							</Button>
 							<Button
-								className='button action-bar-button small'
+								className='button dialog-button small'
 								disabled={!selectedVariant.code}
 								onPressed={copyHandler}
 							>
@@ -191,16 +207,12 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 						</div>
 					}
 					<div className='code'>
-						<SimpleCodeEditor
+						<DataConnectionCodeEditor
+							key={selectedVariant.id}
 							ref={editorRef}
 							code={selectedVariant.code}
-							editorOptions={{
-								readOnly: true,
-								domReadOnly: true,
-								cursorBlinking: 'solid',
-							}}
-							language={props.languageId}
-						></SimpleCodeEditor>
+							languageId={props.languageId}
+						></DataConnectionCodeEditor>
 					</div>
 				</div>
 			}
