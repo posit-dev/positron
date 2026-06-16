@@ -41,6 +41,7 @@ test.describe('Quarto - Inline Output: Popout', {
 
 		// Save the plot
 		await inlineQuarto.gotoLine(19);
+		await inlineQuarto.getInlineOutputAt(0).hover();
 		await inlineQuarto.saveButton.click();
 		await quickInput.waitForQuickInputOpened();
 		await quickInput.type(savedPlotPath);
