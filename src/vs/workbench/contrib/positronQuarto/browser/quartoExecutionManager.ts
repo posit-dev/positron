@@ -875,18 +875,19 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	): Promise<number | undefined> {
 		const { cts } = tracker;
 
-		// Wait for the terminal to be idle before registering the commandFinished
-		// listener. Without this, runCommand's leading Ctrl+C (sent when the prompt
-		// is non-empty) fires commandFinished for the interrupted startup command
-		// rather than for our actual command -- producing garbage like "content> ^C"
-		// instead of real output. _executeTerminalWithoutShellIntegration already
-		// does this wait for the same reason.
-		await this._waitForTerminalIdle(terminal.onData, 500);
-
 		// Set up promise to wait for command completion
 		const commandFinishedPromise = new DeferredPromise<import('../../../../platform/terminal/common/capabilities/capabilities.js').ITerminalCommand | undefined>();
 
 		disposables.add(commandDetection.onCommandFinished(command => {
+			// runCommand sends Ctrl+C before our actual command when promptInputModel.value
+			// is non-empty (e.g. on a fresh Windows terminal where the buffer position is
+			// misread as having pending input). On Windows, that interrupt echoes as '^C'
+			// in the captured output. Skip those events so we only resolve on the real command.
+			const prematureOutput = command?.getOutput() ?? '';
+			if (prematureOutput.includes('^C')) {
+				this._logService.debug(`[QuartoExecutionManager] Ignoring Ctrl+C commandFinished (premature)`);
+				return;
+			}
 			this._logService.debug(`[QuartoExecutionManager] Terminal command finished`);
 			commandFinishedPromise.complete(command);
 		}));
