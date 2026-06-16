@@ -38,6 +38,7 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
+import { PromptInputState, IPromptInputModel } from '../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { parseCellExecutionOptions, QuartoCellExecutionOptions, DEFAULT_CELL_EXECUTION_OPTIONS } from '../common/quartoExecutionOptions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { getWindow } from '../../../../base/browser/dom.js';
@@ -86,6 +87,18 @@ interface ExecutionTracker {
 interface SerializedQueueState {
 	queuedCells: string[];
 	runningCell: string | undefined;
+}
+
+/**
+ * Returns true when runCommand is about to send Ctrl+C before the actual
+ * command -- specifically when the prompt model is already in Input state with
+ * non-empty value. When true, exactly one premature commandFinished event should
+ * be skipped before resolving the real command's completion promise.
+ *
+ * Exported for unit testing; mirrors the condition in terminalInstance.ts runCommand().
+ */
+export function shouldSkipFirstCommandFinished(promptModel: IPromptInputModel): boolean {
+	return promptModel.state === PromptInputState.Input && promptModel.value.length > 0;
 }
 
 /**
@@ -875,10 +888,22 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	): Promise<number | undefined> {
 		const { cts } = tracker;
 
+		// runCommand sends Ctrl+C before our command when the prompt model is in Input
+		// state with non-empty value (can happen on a fresh terminal if the buffer
+		// position is misread during startup). That interrupt fires commandFinished for
+		// the aborted command before the real command runs. Skip exactly one event when
+		// that will happen -- see shouldSkipFirstCommandFinished for the full rationale.
+		let skipNextCommandFinished = shouldSkipFirstCommandFinished(commandDetection.promptInputModel);
+
 		// Set up promise to wait for command completion
 		const commandFinishedPromise = new DeferredPromise<import('../../../../platform/terminal/common/capabilities/capabilities.js').ITerminalCommand | undefined>();
 
 		disposables.add(commandDetection.onCommandFinished(command => {
+			if (skipNextCommandFinished) {
+				skipNextCommandFinished = false;
+				this._logService.debug(`[QuartoExecutionManager] Skipping premature Ctrl+C commandFinished`);
+				return;
+			}
 			this._logService.debug(`[QuartoExecutionManager] Terminal command finished`);
 			commandFinishedPromise.complete(command);
 		}));

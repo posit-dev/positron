@@ -4,13 +4,34 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
+<<<<<<< long-live-r-test-explorer-e2e-test
 import { test, expect, tags } from '../_test.setup';
 import { copyFixtureFolder } from '../../infra/test-runner';
+=======
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'files.simpleDialog.enable': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
+>>>>>>> main
 
 test.use({
 	suiteId: __filename
 });
 
+<<<<<<< long-live-r-test-explorer-e2e-test
 test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPMENT, tags.ARK, tags.WEB, tags.WIN] }, () => {
 	// A toy R package fixture, incubated inside positron-r (beside the vscodereporter
 	// resources) to avoid cross-repo coordination with qa-example-content while the
@@ -27,6 +48,9 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 			'files.simpleDialog.enable': true
 		}, { reload: true, waitForReady: true });
 	});
+=======
+test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
+>>>>>>> main
 
 	test('Basic R Test Explorer Functionality', async function ({ app, openFolder }) {
 
