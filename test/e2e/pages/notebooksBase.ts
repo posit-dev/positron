@@ -18,9 +18,13 @@ const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 
 /*
- * Shared base for the notebook page objects. Holds functionality common to both
- * the Positron and VS Code notebook editors; extended by `PositronNotebooks` and
- * `VsCodeNotebooks`. Not registered as a page object itself.
+ * Base class for the single notebooks page object, `PositronNotebooks`. Holds
+ * editor-agnostic plumbing -- the shared dependencies and the webview frame locator
+ * -- plus a few generic notebook commands. It is not a page object itself and is not
+ * registered on the workbench, so `app.workbench.notebooksPositron` is the one and
+ * only notebooks POM. It is kept as a separate base (rather than folded in) so these
+ * constructor-set members are initialized before `PositronNotebooks`'s `this.code`-based
+ * field locators read them; see `useDefineForClassFields`.
  */
 export class NotebooksBase {
 	protected code: Code;

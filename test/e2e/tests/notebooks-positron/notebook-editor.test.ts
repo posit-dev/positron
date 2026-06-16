@@ -18,7 +18,7 @@ test.describe('Positron Notebooks: Open & Save', {
 }, () => {
 
 	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
-		const { notebooksVscode, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 
 		// Positron notebooks are enabled by default for notebooks-positron tests
 		// Verify that opening a notebook uses the Positron editor
@@ -29,8 +29,8 @@ test.describe('Positron Notebooks: Open & Save', {
 		await hotKeys.closeAllEditors();
 		await notebooksPositron.disablePositronNotebooks(settings);
 
-		await notebooksVscode.openNotebook(NOTEBOOK_PATH);
-		await notebooksVscode.expectToBeVisible();
+		await notebooksPositron.openVsCodeNotebook(NOTEBOOK_PATH);
+		await notebooksPositron.expectVsCodeEditorVisible();
 
 		// Switch back to Positron notebook editor and verify it works
 		await hotKeys.closeAllEditors();

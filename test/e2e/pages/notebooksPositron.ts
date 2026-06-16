@@ -261,6 +261,28 @@ export class PositronNotebooks extends NotebooksBase {
 	}
 
 	/**
+	 * Action: Open a notebook in the legacy VS Code editor.
+	 *
+	 * The Positron editor is the default, so this is only used by the editor-switching
+	 * test after it toggles `positron.notebook.enabled` off.
+	 * @param path - The path to the notebook to open.
+	 */
+	async openVsCodeNotebook(path: string): Promise<void> {
+		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+		await this.quickinput.selectQuickInputElement(0);
+		await this.expectVsCodeEditorVisible();
+	}
+
+	/**
+	 * Verify: the legacy VS Code notebook editor is visible.
+	 */
+	async expectVsCodeEditorVisible(timeout = 25000): Promise<void> {
+		await test.step('Verify VS Code notebook is visible', async () => {
+			await expect(this.code.driver.currentPage.locator('.notebook-editor').first()).toBeVisible({ timeout });
+		});
+	}
+
+	/**
 	 * Action: Create a new Positron notebook.
 	 * @param codeCells - Number of code cells to create
 	 * @param markdownCells - Number of markdown cells to create
