@@ -28,7 +28,7 @@ dependencies = [
     "pyarrow",
     "pymssql",
     "pyodbc",
-    "pytest",
+    "pytest<9.1.0",
     "pytest-asyncio",
     "pytest-mock",
     "pytest-rerunfailures",
