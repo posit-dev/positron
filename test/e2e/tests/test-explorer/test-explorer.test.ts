@@ -4,8 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
+import * as os from 'os';
 import { copyFixtureFolder } from '../../infra/test-runner';
 import { test as base, expect, tags } from '../_test.setup';
+
+// A toy R package fixture, incubated inside positron-r (beside the vscodereporter
+// resources) to avoid cross-repo coordination with qa-example-content while the
+// test explorer e2e stabilizes.
+const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
@@ -16,6 +22,15 @@ const test = base.extend<{}, {}>({
 			if (enableDataConnections) {
 				await settingsFile.append({ 'dataConnections.enabled': true });
 			}
+
+			// Stage the R package fixture on disk before the app launches, so
+			// Positron picks it up and it shows in the Open Folder picker.
+			// Copying it after launch (in beforeAll) was too late: the folder
+			// was not present when the workspace was first loaded.
+			const source = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
+			const destination = path.join(os.tmpdir(), 'vscsmoke', FIXTURE_NAME);
+			copyFixtureFolder(source, destination);
+
 			await settingsFile.append({ 'files.simpleDialog.enable': true });
 			await use();
 		},
@@ -28,21 +43,6 @@ test.use({
 });
 
 test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPMENT, tags.ARK, tags.WEB, tags.WIN] }, () => {
-	// A toy R package fixture, incubated inside positron-r (beside the vscodereporter
-	// resources) to avoid cross-repo coordination with qa-example-content while the
-	// test explorer e2e stabilizes.
-	const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
-
-	test.beforeAll(async function ({ app, settings }) {
-		const source = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
-		const destination = path.join(path.dirname(app.workspacePathOrFolder), FIXTURE_NAME);
-		copyFixtureFolder(source, destination);
-
-		// don't use native file picker
-		await settings.set({
-			'files.simpleDialog.enable': true
-		}, { reload: true, waitForReady: true });
-	});
 
 	test('Basic R Test Explorer Functionality', async function ({ app, openFolder }) {
 
