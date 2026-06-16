@@ -77,6 +77,10 @@ class ConfigurationMigrationRegistry implements IConfigurationMigrationRegistry 
 
 	registerConfigurationMigrations(configurationMigrations: ConfigurationMigration[]): void {
 		this.migrations.push(...configurationMigrations);
+		// --- Start Positron ---
+		// Fire the event so ConfigurationMigrationWorkbenchContribution processes dynamically registered migrations.
+		this._onDidRegisterConfigurationMigrations.fire(configurationMigrations);
+		// --- End Positron ---
 	}
 
 }

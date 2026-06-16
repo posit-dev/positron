@@ -3623,4 +3623,31 @@ declare module 'positron' {
 		 */
 		export function clearCellOutputs(notebookUri: string, cellIndices?: number[]): Thenable<void>;
 	}
+
+	/**
+	 * A specification for migrating one configuration key to another.
+	 * Used with {@link workspace.registerConfigurationMigrations}.
+	 */
+	export interface ConfigurationMigrationSpec {
+		/** The configuration key to migrate from. */
+		readonly key: string;
+		/** The configuration key to migrate to. */
+		readonly migrateTo: string;
+	}
+
+	export namespace workspace {
+
+		/**
+		 * Register configuration key migrations. Each migration copies a value from an old
+		 * configuration key to a new key and clears the old key.
+		 *
+		 * The calling extension must own the source keys (have contributed them via
+		 * `contributes.configuration`), unless the extension's publisher is listed in the
+		 * product's `trustedExtensionPublishers`.
+		 *
+		 * @param migrations Array of migration specifications.
+		 * @returns A {@link vscode.Disposable} (unregistering is not supported; dispose is a no-op).
+		 */
+		export function registerConfigurationMigrations(migrations: ReadonlyArray<ConfigurationMigrationSpec>): vscode.Disposable;
+	}
 }
