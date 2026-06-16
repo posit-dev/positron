@@ -1,5 +1,5 @@
 ---
-name: pete-local
+name: pete
 description: Run PETE's test-coverage analysis locally on the current branch / working tree, as a pre-PR preview of the verdict the CI PR Test Checker (PETE) will post. Uses the same rubric and file classification as CI. Use when asked to "run PETE locally", preview test coverage before opening a PR, or check whether the current branch has adequate tests.
 ---
 
