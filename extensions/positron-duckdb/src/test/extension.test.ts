@@ -312,13 +312,23 @@ function escapeXml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-interface XlsxSheet { name: string; rows: Array<Array<string | number>> }
+// A `null` cell is omitted entirely, so callers can build sparse rows (e.g. a
+// title cell that occupies a single column above a wider table).
+interface XlsxSheet { name: string; rows: Array<Array<string | number | null>> }
 
 /** Write a minimal multi-sheet .xlsx workbook to disk. */
 async function makeXlsx(filePath: string, sheets: XlsxSheet[]): Promise<void> {
 	const worksheetXml = (sheet: XlsxSheet): string => {
+		// Track the bounding box of populated cells so we can emit a <dimension>
+		// element, as real spreadsheet writers do.
+		let minCol = Infinity, maxCol = -Infinity, minRow = Infinity, maxRow = -Infinity;
 		const rows = sheet.rows.map((row, r) => {
 			const cells = row.map((value, c) => {
+				if (value === null) {
+					return '';
+				}
+				minCol = Math.min(minCol, c); maxCol = Math.max(maxCol, c);
+				minRow = Math.min(minRow, r); maxRow = Math.max(maxRow, r);
 				const ref = `${columnLetter(c)}${r + 1}`;
 				return typeof value === 'number'
 					? `<c r="${ref}"><v>${value}</v></c>`
@@ -326,9 +336,12 @@ async function makeXlsx(filePath: string, sheets: XlsxSheet[]): Promise<void> {
 			}).join('');
 			return `<row r="${r + 1}">${cells}</row>`;
 		}).join('');
+		const dimension = maxCol >= 0
+			? `<dimension ref="${columnLetter(minCol)}${minRow + 1}:${columnLetter(maxCol)}${maxRow + 1}"/>`
+			: '';
 		return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-			`<sheetData>${rows}</sheetData></worksheet>`;
+			`${dimension}<sheetData>${rows}</sheetData></worksheet>`;
 	};
 
 	const parts: Record<string, string> = {
@@ -755,6 +768,38 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				result.error_message.includes('"Nope"') && result.error_message.includes('Summary, People'),
 				`Error should name the sheet and list available sheets; got: ${result.error_message}`
 			);
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: recovers a sheet with a sparse title row via the declared dimension', async () => {
+		// A merged title cell occupying a single column above a blank row and the
+		// real table. DuckDB's auto-detection anchors on the one-cell title row and
+		// collapses to a single column with no data rows; recovery re-reads using
+		// the worksheet's declared <dimension> so the full grid comes through.
+		const tempPath = path.join(__dirname, `temp_titled_${randomUUID()}.xlsx`);
+		await makeXlsx(tempPath, [
+			{
+				name: 'Report',
+				rows: [
+					['Quarterly Sales Report', null, null],
+					[null, null, null],
+					['Region', 'Units', 'Revenue'],
+					['North', 10, 1000],
+					['South', 20, 2000]
+				]
+			}
+		]);
+		const uri = vscode.Uri.file(tempPath);
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const state = await getState(uri);
+			// All three columns are read (vs. the single collapsed column without
+			// recovery). With the default header=true, the title row is consumed as
+			// the header, leaving the table header and two data rows.
+			assert.strictEqual(state.table_shape.num_columns, 3);
+			assert.ok(state.table_shape.num_rows >= 3, `Expected the table body to be read; got ${state.table_shape.num_rows} rows`);
 		} finally {
 			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
 		}

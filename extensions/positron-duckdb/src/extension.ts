@@ -449,6 +449,66 @@ function decompress(data: Uint8Array, compression: 'gzip' | 'zstd'): Uint8Array 
 const EXCEL_EXTENSION_PATH = path.join(__dirname, '..', 'resources', 'excel.duckdb_extension');
 
 /**
+ * Read a single entry from a `.zip`/`.xlsx` archive as UTF-8 text. Resolves to
+ * `undefined` if the archive or entry cannot be read. When `maxBytes` is given,
+ * reading stops once that many bytes have been buffered -- enough for callers
+ * that only need an element near the head of an otherwise large part (e.g. a
+ * worksheet's `<dimension>`, which precedes the bulk `<sheetData>`).
+ * @param filePath Path to the archive on disk.
+ * @param entryName The exact archive-relative entry name to read.
+ * @param maxBytes Optional cap on how many bytes to buffer before stopping.
+ * @returns The entry's text, or undefined if it could not be read.
+ */
+function readZipEntryText(filePath: string, entryName: string, maxBytes?: number): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		yauzl.open(filePath, { lazyEntries: true }, (err, zipfile) => {
+			if (err || !zipfile) {
+				resolve(undefined);
+				return;
+			}
+			let settled = false;
+			const finish = (value: string | undefined) => {
+				if (!settled) {
+					settled = true;
+					resolve(value);
+				}
+				zipfile.close();
+			};
+			zipfile.on('entry', (entry) => {
+				if (entry.fileName !== entryName) {
+					zipfile.readEntry();
+					return;
+				}
+				zipfile.openReadStream(entry, (streamErr, stream) => {
+					if (streamErr || !stream) {
+						finish(undefined);
+						return;
+					}
+					const chunks: Buffer[] = [];
+					let total = 0;
+					const done = () => finish(Buffer.concat(chunks).toString('utf8'));
+					stream.on('data', (chunk: Buffer) => {
+						chunks.push(chunk);
+						total += chunk.length;
+						if (maxBytes !== undefined && total >= maxBytes) {
+							// Enough for the caller; stop early. 'close' resolves below.
+							stream.destroy();
+						}
+					});
+					stream.on('error', () => finish(undefined));
+					stream.on('end', done);
+					stream.on('close', done);
+				});
+			});
+			// Reached the end of the archive without finding the entry.
+			zipfile.on('end', () => finish(undefined));
+			zipfile.on('error', () => finish(undefined));
+			zipfile.readEntry();
+		});
+	});
+}
+
+/**
  * Read the worksheet names from an `.xlsx` workbook, in workbook order.
  *
  * An `.xlsx` file is a ZIP archive whose sheet names live in the small, stable
@@ -459,43 +519,113 @@ const EXCEL_EXTENSION_PATH = path.join(__dirname, '..', 'resources', 'excel.duck
  * @param filePath Path to the .xlsx file on disk.
  * @returns The sheet names, or undefined if they could not be read.
  */
-function readXlsxSheetNames(filePath: string): Promise<string[] | undefined> {
-	return new Promise((resolve) => {
-		yauzl.open(filePath, { lazyEntries: true }, (err, zipfile) => {
-			if (err || !zipfile) {
-				resolve(undefined);
-				return;
-			}
-			let settled = false;
-			const finish = (value: string[] | undefined) => {
-				if (!settled) {
-					settled = true;
-					resolve(value);
-				}
-				zipfile.close();
-			};
-			zipfile.on('entry', (entry) => {
-				if (entry.fileName !== 'xl/workbook.xml') {
-					zipfile.readEntry();
-					return;
-				}
-				zipfile.openReadStream(entry, (streamErr, stream) => {
-					if (streamErr || !stream) {
-						finish(undefined);
-						return;
-					}
-					const chunks: Buffer[] = [];
-					stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-					stream.on('error', () => finish(undefined));
-					stream.on('end', () => finish(parseSheetNames(Buffer.concat(chunks).toString('utf8'))));
-				});
-			});
-			// Reached the end of the archive without finding xl/workbook.xml.
-			zipfile.on('end', () => finish(undefined));
-			zipfile.on('error', () => finish(undefined));
-			zipfile.readEntry();
-		});
-	});
+async function readXlsxSheetNames(filePath: string): Promise<string[] | undefined> {
+	const workbookXml = await readZipEntryText(filePath, 'xl/workbook.xml');
+	return workbookXml === undefined ? undefined : parseSheetNames(workbookXml);
+}
+
+/**
+ * Read the declared used-cell range (the `ref` of a worksheet's `<dimension>`
+ * element) for a sheet in an `.xlsx` workbook, e.g. `"A2:W65"`.
+ *
+ * `<dimension>` is an *advisory* hint in the OOXML format -- writers may omit
+ * it or leave it stale -- so callers must treat it only as a recovery aid, never
+ * as the authoritative range. Resolves to `undefined` if it cannot be
+ * determined.
+ * @param filePath Path to the .xlsx file on disk.
+ * @param sheetName The worksheet to read; defaults to the first sheet in the
+ * workbook when omitted.
+ * @returns The dimension ref string, or undefined if it could not be read.
+ */
+async function readXlsxSheetDimension(filePath: string, sheetName?: string): Promise<string | undefined> {
+	const workbookXml = await readZipEntryText(filePath, 'xl/workbook.xml');
+	if (workbookXml === undefined) {
+		return undefined;
+	}
+
+	// Map each <sheet> to its relationship id, in workbook order. Attribute order
+	// is not guaranteed, so pull `name` and `r:id` out of each element separately.
+	const sheets: Array<{ name: string; rId: string }> = [];
+	const sheetRegex = /<sheet\b[^>]*?>/g;
+	let sheetMatch: RegExpExecArray | null;
+	while ((sheetMatch = sheetRegex.exec(workbookXml)) !== null) {
+		const tag = sheetMatch[0];
+		const name = /\bname="([^"]*)"/.exec(tag)?.[1];
+		const rId = /\br:id="([^"]*)"/.exec(tag)?.[1];
+		if (name !== undefined && rId !== undefined) {
+			sheets.push({ name: decodeXmlEntities(name), rId });
+		}
+	}
+	const target = sheetName !== undefined
+		? sheets.find(sheet => sheet.name === sheetName)
+		: sheets[0];
+	if (target === undefined) {
+		return undefined;
+	}
+
+	// Resolve the relationship id to the worksheet part path.
+	const relsXml = await readZipEntryText(filePath, 'xl/_rels/workbook.xml.rels');
+	if (relsXml === undefined) {
+		return undefined;
+	}
+	let worksheetEntry: string | undefined;
+	const relRegex = /<Relationship\b[^>]*?>/g;
+	let relMatch: RegExpExecArray | null;
+	while ((relMatch = relRegex.exec(relsXml)) !== null) {
+		const tag = relMatch[0];
+		if (/\bId="([^"]*)"/.exec(tag)?.[1] !== target.rId) {
+			continue;
+		}
+		const rawTarget = /\bTarget="([^"]*)"/.exec(tag)?.[1];
+		if (rawTarget !== undefined) {
+			const decoded = decodeXmlEntities(rawTarget);
+			// Targets are usually relative to xl/; an absolute target (leading
+			// slash) is rooted at the package.
+			worksheetEntry = decoded.startsWith('/')
+				? decoded.slice(1)
+				: decoded.startsWith('xl/') ? decoded : `xl/${decoded}`;
+		}
+		break;
+	}
+	if (worksheetEntry === undefined) {
+		return undefined;
+	}
+
+	// <dimension> precedes the bulk <sheetData>, so the head of the part is enough.
+	const head = await readZipEntryText(filePath, worksheetEntry, 64 * 1024);
+	if (head === undefined) {
+		return undefined;
+	}
+	return /<dimension\b[^>]*\bref="([^"]*)"/.exec(head)?.[1];
+}
+
+/**
+ * Parse an `.xlsx` cell-range reference (e.g. `"A2:W65"`, or a single cell
+ * `"A1"`) into its width and height in cells. Returns `undefined` for a ref that
+ * cannot be parsed.
+ * @param ref The range reference string.
+ * @returns The range's width and height, or undefined if unparseable.
+ */
+function parseXlsxRange(ref: string): { width: number; height: number } | undefined {
+	const match = /^([A-Za-z]+)(\d+)(?::([A-Za-z]+)(\d+))?$/.exec(ref.trim());
+	if (!match) {
+		return undefined;
+	}
+	const columnToIndex = (letters: string): number => {
+		let index = 0;
+		for (const ch of letters.toUpperCase()) {
+			index = index * 26 + (ch.charCodeAt(0) - 64);
+		}
+		return index;
+	};
+	const startCol = columnToIndex(match[1]);
+	const startRow = parseInt(match[2], 10);
+	const endCol = match[3] ? columnToIndex(match[3]) : startCol;
+	const endRow = match[4] ? parseInt(match[4], 10) : startRow;
+	return {
+		width: Math.abs(endCol - startCol) + 1,
+		height: Math.abs(endRow - startRow) + 1
+	};
 }
 
 /**
@@ -2298,21 +2428,86 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		// not block the import: fall back to reading the default (first) sheet.
 		const availableSheets = await readXlsxSheetNames(filePath);
 
-		const options: Array<string> = [];
 		const hasHeader = importOptions?.has_header_row ?? true;
-		options.push(`header=${hasHeader}`);
-		if (importOptions?.sheet_name) {
-			options.push(`sheet='${quoteLiteral(importOptions.sheet_name)}'`);
+		const sheetName = importOptions?.sheet_name;
+
+		// Build the import query. `extraOptions` lets the dimension-based recovery
+		// path below append a range / error tolerance without duplicating the
+		// header and sheet handling.
+		const buildQuery = (extraOptions: string[]) => {
+			const options = [`header=${hasHeader}`];
+			if (sheetName) {
+				options.push(`sheet='${quoteLiteral(sheetName)}'`);
+			}
+			options.push(...extraOptions);
+			return `CREATE OR REPLACE TABLE ${catalogName} AS
+			SELECT * FROM read_xlsx('${quoteLiteral(filePath)}', ${options.join(', ')});`;
+		};
+
+		// First attempt: let DuckDB auto-detect the used range from the cell data.
+		// This is correct for well-formed sheets and never trusts the workbook's
+		// advisory metadata.
+		let firstError: unknown;
+		try {
+			await this.db.runQuery(buildQuery([]));
+		} catch (error) {
+			firstError = error;
 		}
 
-		const query = `CREATE OR REPLACE TABLE ${catalogName} AS
-		SELECT * FROM read_xlsx('${quoteLiteral(filePath)}', ${options.join(', ')});`;
-		try {
-			await this.db.runQuery(query);
-		} catch (error) {
-			throw translateXlsxError(error, uri, importOptions?.sheet_name, availableSheets);
+		// DuckDB derives the used range by anchoring on the first non-empty row. A
+		// sheet with a sparse leading row -- e.g. a merged title cell spanning a
+		// single column above the real table -- collapses to one column, or the
+		// read fails outright on a type clash. When the read failed or the result
+		// looks degenerate (<= 1 column, or no rows) AND the sheet's declared
+		// <dimension> says the grid is genuinely larger, re-read with that explicit
+		// range so the full grid is captured. <dimension> is only an advisory hint,
+		// so we reach for it strictly as a recovery path, never on the happy path.
+		const shape = firstError === undefined
+			? await this._getTableShape(catalogName)
+			: undefined;
+		const looksDegenerate = shape === undefined || shape.numColumns <= 1 || shape.numRows === 0;
+
+		if (looksDegenerate) {
+			const dimensionRef = await readXlsxSheetDimension(filePath, sheetName);
+			const dimension = dimensionRef ? parseXlsxRange(dimensionRef) : undefined;
+			const dimensionImpliesMore = dimension !== undefined && (
+				shape === undefined ||
+				shape.numColumns < dimension.width ||
+				shape.numRows === 0
+			);
+			if (dimensionImpliesMore) {
+				try {
+					// ignore_errors nulls cells that don't match the inferred column
+					// type (common when header or footnote text shares a column with
+					// numeric data) rather than failing the whole import.
+					await this.db.runQuery(buildQuery([`range='${quoteLiteral(dimensionRef!)}'`, 'ignore_errors=true']));
+					return availableSheets;
+				} catch {
+					// Recovery failed; fall through to surface the original error if
+					// the first read also failed, otherwise keep the first result.
+				}
+			}
+		}
+
+		if (firstError !== undefined) {
+			throw translateXlsxError(firstError, uri, sheetName, availableSheets);
 		}
 		return availableSheets;
+	}
+
+	/**
+	 * Return the column and row counts of a table already present in the DuckDB
+	 * catalog. Used to detect a degenerate `.xlsx` read.
+	 * @param tableName The catalog table name.
+	 * @returns The table's column and row counts.
+	 */
+	private async _getTableShape(tableName: string): Promise<{ numColumns: number; numRows: number }> {
+		const describe = await this.db.runQuery(`DESCRIBE ${tableName};`);
+		const count = await this.db.runQuery(`SELECT COUNT(*) AS n FROM ${tableName};`);
+		return {
+			numColumns: describe.numRows,
+			numRows: Number(count.columnByName('n')[0])
+		};
 	}
 
 	/**
