@@ -394,8 +394,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 				const uri = PositronDataExplorerUri.backingUri(input.resource);
 				if (uri) {
-					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => uri.path.endsWith(ext)));
-					this._isXlsxContextKey.set(uri.path.endsWith('.xlsx'));
+					// Match extensions case-insensitively: the editor resolver routes
+					// files like REPORT.XLSX here, so the toolbar actions must too.
+					const path = uri.path.toLowerCase();
+					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => path.endsWith(ext)));
+					this._isXlsxContextKey.set(path.endsWith('.xlsx'));
 				} else {
 					this._isPlaintextContextKey.reset();
 					this._isXlsxContextKey.reset();

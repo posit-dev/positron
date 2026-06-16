@@ -711,6 +711,23 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		return vscode.Uri.file(tempPath);
 	};
 
+	test('xlsx: an uppercase .XLSX extension is recognized as a workbook', async () => {
+		// The editor resolver routes files case-insensitively, so the backend must
+		// detect uppercase/mixed-case extensions too (rather than misreading the
+		// workbook as a delimited text file).
+		const tempPath = path.join(__dirname, `temp_workbook_${randomUUID()}.XLSX`);
+		await makeXlsx(tempPath, [{ name: 'People', rows: [['id', 'label'], [1, 'alpha']] }]);
+		const uri = vscode.Uri.file(tempPath);
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.available_sheets, ['People']);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 1, num_columns: 2 });
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
 	test('xlsx: reads the first sheet by default and reports available sheets', async () => {
 		const uri = await writeWorkbook();
 		try {
