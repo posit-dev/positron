@@ -216,6 +216,21 @@ const apiTestSerializer: vscode.NotebookSerializer = {
 		assert.strictEqual(doc.isDirty, true);
 	});
 
+	// --- Start Positron ---
+	// https://github.com/posit-dev/positron/issues/13561
+	test('Opening multiple untitled notebooks concurrently assigns distinct names', async function () {
+		const makeData = () => new vscode.NotebookData([new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', 'python')]);
+		const docs = await Promise.all([
+			vscode.workspace.openNotebookDocument('jupyter-notebook', makeData()),
+			vscode.workspace.openNotebookDocument('jupyter-notebook', makeData()),
+			vscode.workspace.openNotebookDocument('jupyter-notebook', makeData()),
+		]);
+
+		const uris = new Set(docs.map(doc => doc.uri.toString()));
+		assert.strictEqual(uris.size, docs.length, `Expected ${docs.length} distinct untitled notebooks, got: ${[...uris].join(', ')}`);
+	});
+	// --- End Positron ---
+
 	test.skip('Cannot open notebook from cell-uri with vscode.open-command', async function () {
 
 		const document = await openRandomNotebookDocument();

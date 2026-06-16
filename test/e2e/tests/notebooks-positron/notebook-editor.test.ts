@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { expect } from '@playwright/test';
 
 const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
 

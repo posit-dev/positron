@@ -11,6 +11,8 @@ import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContain
 
 export { RunResult };
 
+const CONTAINER_NAME = 'test';
+
 /**
  * Workbench Positron session (Docker on port 8787)
  * Projects: e2e-workbench
@@ -49,12 +51,14 @@ export async function WorkbenchApp(
 		// session launch), copy the workspace in and open it the same way the other shards do.
 		if (managedCredentials === 'azure') {
 			await runDockerCommand(
-				`docker exec test bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
+				`docker exec ${CONTAINER_NAME} bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
 				'Copy qa-example-content into rstudio-ide-test home (Azure JIT user)'
 			);
 			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
 		}
-
+		// Give startup messaging a chance to appear before asserting it's gone,
+		// so we don't pass instantly when this check runs ahead of the UI.
+		await app.code.driver.currentPage.waitForTimeout(5000);
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 
@@ -94,8 +98,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	const WORKBENCH_USER_DATA_DIR = `${WORKBENCH_USER_SERVER_DIR}User/`;
 
 	// Create workspace and settings directories
-	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
-	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
 
 	const src = DEFAULT_WORKSPACE_PATH;
 	const dst = WORKBENCH_WORKSPACE_PATH;
@@ -110,8 +114,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 
 	await runDockerCommand(
 		[
-			`docker exec test mkdir -p "${dst}"`,
-			`${tarFromHost} | docker exec -i test tar -C "${dst}" -xpf -`
+			`docker exec ${CONTAINER_NAME} mkdir -p "${dst}"`,
+			`${tarFromHost} | docker exec -i ${CONTAINER_NAME} tar -C "${dst}" -xpf -`
 		].join(' && '),
 		'Copy workspace to container (excluding .git)'
 	);
@@ -119,18 +123,18 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 
 	// Copy settings to container
 	await copyUserSettingsToContainer(
-		'test',
+		CONTAINER_NAME,
 		'/home/user1/.positron-server/User/',
 		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
 		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
 	);
-	await copyKeyBindingsToContainer('test', '/home/user1/.positron-server/User/');
+	await copyKeyBindingsToContainer(CONTAINER_NAME, '/home/user1/.positron-server/User/');
 
 	// Fix permissions
-	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_SERVER_DIR}`, 'Set ownership of server directory');
-	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
-	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
-	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown -R user1:user1g ${WORKBENCH_USER_SERVER_DIR}`, 'Set ownership of server directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
 
 	return { workspacePath: WORKBENCH_WORKSPACE_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
 }

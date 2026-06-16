@@ -10,17 +10,22 @@ interface NotebooksPositronTestFixtures extends TestFixtures {
 
 interface NotebooksPositronWorkerFixtures extends WorkerFixtures {
 	enablePositronNotebooks: boolean;
+	ghostCellSettings: Record<string, unknown> | undefined;
 }
 
 export const test = base.extend<NotebooksPositronTestFixtures, NotebooksPositronWorkerFixtures>({
 	enablePositronNotebooks: [true, { scope: 'worker', option: true }],
+	ghostCellSettings: [undefined, { scope: 'worker', option: true }],
 
 	beforeApp: [
-		async ({ enablePositronNotebooks, settingsFile }, use) => {
+		async ({ enablePositronNotebooks, ghostCellSettings, settingsFile }, use) => {
 			if (enablePositronNotebooks) {
 				// Enable Positron notebooks before the app fixture starts
 				// to avoid waiting for a window reload
-				settingsFile.append({ 'positron.notebook.enabled': true });
+				await settingsFile.append({ 'positron.notebook.enabled': true });
+			}
+			if (ghostCellSettings) {
+				await settingsFile.append(ghostCellSettings);
 			}
 
 			await use();

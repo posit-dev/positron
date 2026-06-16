@@ -495,6 +495,41 @@ suite('OAuth', () => {
 			assert.deepStrictEqual(result, mockResponse);
 		});
 
+		// --- Start Positron ---
+		test('fetchDynamicRegistration should append additional redirect URIs to the request', async () => {
+			fetchStub.resolves({
+				ok: true,
+				json: async () => ({
+					client_id: 'generated-client-id',
+					client_name: 'Test Client'
+				})
+			} as Response);
+
+			const serverMetadata: IAuthorizationServerMetadata = {
+				issuer: 'https://auth.example.com',
+				registration_endpoint: 'https://auth.example.com/register',
+				response_types_supported: ['code']
+			};
+
+			await fetchDynamicRegistration(
+				serverMetadata,
+				'Test Client',
+				undefined,
+				['https://workbench.example.com/positron/callback']
+			);
+
+			const [, options] = fetchStub.firstCall.args;
+			const requestBody = JSON.parse(options.body as string);
+			assert.deepStrictEqual(requestBody.redirect_uris, [
+				'https://insiders.vscode.dev/redirect',
+				'https://vscode.dev/redirect',
+				'http://127.0.0.1/',
+				`http://127.0.0.1:${DEFAULT_AUTH_FLOW_PORT}/`,
+				'https://workbench.example.com/positron/callback'
+			]);
+		});
+		// --- End Positron ---
+
 		test('fetchDynamicRegistration should throw error on non-OK response', async () => {
 			fetchStub.resolves({
 				ok: false,

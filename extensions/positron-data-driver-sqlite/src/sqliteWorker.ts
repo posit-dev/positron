@@ -37,9 +37,41 @@ let initError: { message: string; code?: string } | undefined;
 // so a "file is not a database" error surfaces from the query handler below.
 try {
 	db = new Database(config.databasePath, { readonly: config.readOnly, fileMustExist: true });
+	registerRegexpFunctions(db);
 } catch (error) {
 	const err = error as NodeJS.ErrnoException;
 	initError = { message: err?.message ?? String(error), code: err?.code };
+}
+
+/**
+ * Registers regex helper functions used by Data Explorer row filters, since SQLite has no built-in
+ * regex support. `regexp` backs the `x REGEXP y` operator (case-sensitive); `regexpi` is the
+ * case-insensitive variant. Compiled patterns are cached so a filtered scan does not recompile per
+ * row, and an invalid pattern simply matches nothing rather than throwing.
+ */
+function registerRegexpFunctions(database: Database.Database): void {
+	const cache = new Map<string, RegExp | undefined>();
+	const compile = (pattern: string, flags: string): RegExp | undefined => {
+		const key = `${flags} ${pattern}`;
+		if (!cache.has(key)) {
+			try {
+				cache.set(key, new RegExp(pattern, flags));
+			} catch {
+				cache.set(key, undefined);
+			}
+		}
+		return cache.get(key);
+	};
+	const test = (pattern: unknown, value: unknown, flags: string): number => {
+		if (value === null || value === undefined || typeof pattern !== 'string') {
+			return 0;
+		}
+		const regex = compile(pattern, flags);
+		return regex && regex.test(String(value)) ? 1 : 0;
+	};
+	// The REGEXP operator invokes regexp(pattern, value) with the operands in that order.
+	database.function('regexp', (pattern: unknown, value: unknown) => test(pattern, value, ''));
+	database.function('regexpi', (pattern: unknown, value: unknown) => test(pattern, value, 'i'));
 }
 
 // better-sqlite3 is synchronous, so each message is handled to completion before

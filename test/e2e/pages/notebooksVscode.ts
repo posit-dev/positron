@@ -7,19 +7,16 @@ import { Notebooks } from './notebooks';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
-import test, { expect, Locator } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 
 /**
  * Notebooks functionality exclusive to VS Code notebooks.
  */
 export class VsCodeNotebooks extends Notebooks {
-	startChatButton: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
-
-		this.startChatButton = this.code.driver.currentPage.getByLabel(/Start Chat to Generate Code/).first();
 	}
 
 	/**
@@ -27,7 +24,7 @@ export class VsCodeNotebooks extends Notebooks {
 	 */
 	async expectToBeVisible(timeout = 25000): Promise<void> {
 		await test.step('Verify VS Code notebook is visible', async () => {
-			await expect(this.startChatButton).toBeVisible({ timeout });
+			await expect(this.code.driver.currentPage.locator('.notebook-editor').first()).toBeVisible({ timeout });
 		});
 	}
 }
