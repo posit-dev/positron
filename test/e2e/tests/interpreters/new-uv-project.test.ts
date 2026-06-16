@@ -46,6 +46,7 @@ test.describe('New uv Environment', {
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
 		await app.workbench.terminal.clickTerminalTab();
+		await app.workbench.terminal.createTerminal();
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
