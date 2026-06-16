@@ -286,10 +286,7 @@ export function registerChatCodeBlockActions() {
 
 				// Disable "Apply in Editor" action for non-Copilot providers unless overridden by config.
 				// Hide when AI features are disabled.
-				precondition: ContextKeyExpr.and(
-					ChatContextKeys.available,
-					applyInEditorEnablement,
-				),
+				precondition: ChatContextKeys.available,
 				// --- End Positron ---
 				f1: false,
 				category: CHAT_CATEGORY,
