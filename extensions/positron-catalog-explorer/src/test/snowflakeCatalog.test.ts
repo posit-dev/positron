@@ -6,8 +6,10 @@
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
+import * as path from 'path';
+import * as snowflake from 'snowflake-sdk';
 import { CatalogNode, CatalogProvider, CatalogProviderRegistry } from '../catalog';
-import { registerSnowflakeProvider } from '../catalogs/snowflake';
+import { configureSnowflakeLogging, registerSnowflakeProvider } from '../catalogs/snowflake';
 import { setExtensionUri } from '../resources';
 import { SnowflakeMock, TEST_ACCOUNT_NAME, RECENT_SNOWFLAKE_ACCOUNTS_KEY, STATE_KEY_SNOWFLAKE_CONNECTIONS } from './mocks/snowflakeMock';
 import * as credentials from '../credentials';
@@ -119,6 +121,24 @@ suite('Snowflake Catalog Provider Tests', () => {
 		sandbox.restore();
 	});
 
+
+	test('configureSnowflakeLogging points the SDK log file at the extension log directory', async () => {
+		// Stub directory creation and the SDK's configure() so we can assert on the
+		// log file path without touching disk or the real SDK logger.
+		const createDirStub = sandbox.stub(vscode.workspace.fs, 'createDirectory').resolves();
+		const configureStub = sandbox.stub(snowflake, 'configure');
+
+		await configureSnowflakeLogging(mockExtensionContext);
+
+		// The log directory is created and the SDK is pointed at a file inside it,
+		// rather than falling back to snowflake.log in the working directory.
+		assert.ok(createDirStub.calledOnceWithExactly(mockExtensionContext.logUri));
+		const options = configureStub.firstCall.args[0] as snowflake.ConfigureOptions;
+		assert.strictEqual(
+			options.logFilePath,
+			path.join(mockExtensionContext.logUri.fsPath, 'snowflake.log')
+		);
+	});
 
 	test('registerSnowflakeCatalog uses existing connection when specified', async () => {
 		// Create a mock provider that would normally be returned by registerSnowflakeCatalog

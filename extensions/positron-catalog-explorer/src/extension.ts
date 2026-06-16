@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,7 +13,7 @@ import { DefaultDatabricksCredentialProvider } from './credentials';
 import { registerDatabricksProvider } from './catalogs/databricks';
 import { registerMockProvider } from './catalogs/mock';
 import { registerDbfsProvider } from './fs/dbfs';
-import { registerSnowflakeProvider } from './catalogs/snowflake';
+import { configureSnowflakeLogging, registerSnowflakeProvider } from './catalogs/snowflake';
 import { setExtensionUri } from './resources';
 import { initializeLogging, traceInfo, traceWarn } from './logging';
 
@@ -28,6 +28,9 @@ async function initializeCatalogExplorer(context: vscode.ExtensionContext): Prom
 	const viewTestCatalog = config.get<boolean>('viewTestCatalog', false);
 
 	setExtensionUri(context);
+
+	await configureSnowflakeLogging(context);
+
 	const registry = new CatalogProviderRegistry();
 
 	if (viewTestCatalog) {
