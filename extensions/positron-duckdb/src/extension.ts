@@ -2246,13 +2246,28 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				const watcher = vscode.workspace.createFileSystemWatcher(watchPattern, true);
 				watcher.onDidChange(async () => {
 					try {
-						const newTableName = `positron_${this._tableIndex++}`;
+						const reload = async (importOptions?: DatasetImportOptions) => {
+							const newTableName = `positron_${this._tableIndex++}`;
+							const createResult = await this.createTableFromUri(uri, newTableName, importOptions);
+							const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+							tableView.importOptions = importOptions;
+							tableView.availableSheets = createResult.availableSheets;
+							await tableView.onFileUpdated(newTableName, newSchema);
+						};
 
-						const createResult = await this.createTableFromUri(uri, newTableName, tableView.importOptions);
-
-						const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
-						tableView.availableSheets = createResult.availableSheets;
-						await tableView.onFileUpdated(newTableName, newSchema);
+						try {
+							await reload(tableView.importOptions);
+						} catch (error) {
+							// A workbook edited on disk may have had its selected sheet
+							// renamed or removed, leaving a stale sheet_name that fails
+							// every reload and strands the explorer on old data. Recover
+							// by retrying once with the default (first) sheet so the
+							// explorer reconnects to on-disk truth.
+							if (tableView.importOptions?.sheet_name === undefined) {
+								throw error;
+							}
+							await reload({ ...tableView.importOptions, sheet_name: undefined });
+						}
 					} catch (error) {
 						// The file may have been changed-then-deleted, or otherwise
 						// become unreadable, between the change event firing and the
@@ -2285,7 +2300,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 * @returns Metadata about the imported table (e.g. the Excel sheet names).
 	 */
 	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions): Promise<CreateTableResult> {
-		let fileExt = path.extname(uri.path);
+		// Lower-case the extension for all format detection below. The editor
+		// resolver routes files case-insensitively (e.g. REPORT.XLSX opens here),
+		// so the backend must recognize uppercase/mixed-case extensions too.
+		let fileExt = path.extname(uri.path).toLowerCase();
 		// DuckDB transparently decompresses gzip/zstd-wrapped CSV/TSV by file
 		// extension, so we strip the compression extension to detect the inner
 		// format. Parquet is handled separately below (its reader can't unwrap an
@@ -2293,7 +2311,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		const compressionExt = fileExt === '.gz' || fileExt === '.zst' ? fileExt : '';
 		const compression = fileExt === '.gz' ? 'gzip' : fileExt === '.zst' ? 'zstd' : undefined;
 		if (compression) {
-			fileExt = path.extname(uri.path.slice(0, -compressionExt.length));
+			fileExt = path.extname(uri.path.slice(0, -compressionExt.length)).toLowerCase();
 		}
 		const isParquet = fileExt === '.parquet' || fileExt === '.parq';
 		const isXlsx = fileExt === '.xlsx';
@@ -2521,16 +2539,18 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			return { error_message: `No table view found for URI: ${uri}` };
 		}
 
-		// Store the import options on the table view
-		tableView.importOptions = params.options;
-
 		// Reimport the file with the new options
 		const newTableName = `positron_${this._tableIndex++}`;
 		const parsedUri = vscode.Uri.parse(uri);
 
 		try {
-			const createResult = await this.createTableFromUri(parsedUri, newTableName, tableView.importOptions);
+			const createResult = await this.createTableFromUri(parsedUri, newTableName, params.options);
 			const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+			// Only commit the new options once the reimport has succeeded. Storing
+			// them before validation would leave a bad selection (e.g. a sheet that
+			// doesn't exist) persisted on the table view, so the next file-change
+			// auto-reload would reuse it and fail again.
+			tableView.importOptions = params.options;
 			tableView.availableSheets = createResult.availableSheets;
 			await tableView.onFileUpdated(newTableName, newSchema);
 			return {};
