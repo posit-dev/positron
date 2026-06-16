@@ -394,7 +394,7 @@ describe('PositronNotebookInstance undo/redo', () => {
 			expect(setOpSpy).toHaveBeenCalledWith(NotebookOperationType.Redo);
 		});
 
-		it('handleNotebookUndo claims undo and restores the cell when the notebook is empty and no focus key is set (#10397)', async () => {
+		it('handleNotebookUndo restores previously deleted cells when the notebook is empty and no focus key is set (#10397)', async () => {
 			// Regression for #10397: after deleting the last cell the notebook is
 			// empty, so neither editorFocused nor cellEditorFocused can be set --
 			// yet Cmd+Z must still unwind the delete. shouldHandleUndoRedo's
