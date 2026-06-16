@@ -19,10 +19,10 @@ import { test as base, tags } from '../_test.setup';
 //
 // Reading the CI report:
 //   - If (1) fails but (4) passes  -> the running instance can't open an
-//     after-launch dir via the dialog; a fresh relaunch can.
-//   - If (2)/(3) pass              -> a reload/relaunch lets the picker see it.
+//     after-launch dir via the dialog; a fresh relaunch can
+//   - If (2)/(3) pass              -> a reload/relaunch lets the picker see it
 //   - If (5) passes but (1) fails  -> the dialog selects it but a reload is
-//     needed to actually load it.
+//     needed to actually load it
 
 const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
 const SOURCE = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
