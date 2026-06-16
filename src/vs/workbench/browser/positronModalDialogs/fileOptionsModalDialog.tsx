@@ -18,6 +18,9 @@ import { PlatformNativeDialogActionBar } from '../positronComponents/positronMod
 import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../positronComponents/positronModalDialog/components/contentArea.js';
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
+import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { DropdownEntry } from './components/dropdownEntry.js';
 
 /**
  * Shows the file options modal dialog.
@@ -55,16 +58,26 @@ interface FileOptionsDialogProps {
 export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 	// State hooks - initialize with current values from the instance.
 	const initialHasHeaderRow = props.dataExplorerInstance.fileHasHeaderRow;
+	const initialSheet = props.dataExplorerInstance.fileSelectedSheet;
 	const [hasHeaderRow, setHasHeaderRow] = useState(initialHasHeaderRow);
+	const [selectedSheet, setSelectedSheet] = useState(initialSheet);
+
+	// Excel workbooks expose a sheet picker; other sources (CSV/TSV) do not.
+	const availableSheets = props.dataExplorerInstance.fileAvailableSheets;
+	const showSheetPicker = availableSheets.length > 0;
 
 	// Track if settings have changed.
-	const settingsChanged = hasHeaderRow !== initialHasHeaderRow;
+	const settingsChanged =
+		hasHeaderRow !== initialHasHeaderRow || selectedSheet !== initialSheet;
 
 	// Handle applying the options.
 	const handleApply = async () => {
 		// Only apply if settings have changed.
 		if (settingsChanged) {
-			await props.dataExplorerInstance.toggleFileHasHeaderRow();
+			await props.dataExplorerInstance.applyFileOptions({
+				hasHeaderRow,
+				sheetName: selectedSheet
+			});
 		}
 		props.renderer.dispose();
 	};
@@ -89,13 +102,30 @@ export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 	// Render.
 	return (
 		<PositronModalDialog
-			height={200}
+			height={showSheetPicker ? 260 : 200}
 			renderer={props.renderer}
 			title={localize('positron.fileOptionsModalDialogTitle', "File Options")}
 			width={350}
 		>
 			<ContentArea>
 				<div className='file-options-content'>
+					{showSheetPicker &&
+						<div className='file-options-sheet'>
+							<label className='file-options-label' htmlFor='file-options-sheet-dropdown'>
+								{localize('positron.fileOptions.sheet', "Worksheet")}
+							</label>
+							<DropDownListBox
+								className='file-options-sheet-dropdown'
+								createItem={(item) => <DropdownEntry title={item.options.identifier} />}
+								entries={availableSheets.map(name =>
+									new DropDownListBoxItem<string, string>({ identifier: name, value: name })
+								)}
+								selectedIdentifier={selectedSheet}
+								title={selectedSheet ?? localize('positron.fileOptions.selectSheet', "Select a worksheet")}
+								onSelectionChanged={item => setSelectedSheet(item.options.value)}
+							/>
+						</div>
+					}
 					<Checkbox
 						initialChecked={initialHasHeaderRow}
 						label={localize('positron.fileOptions.hasHeaderRow', "First row contains column names")}

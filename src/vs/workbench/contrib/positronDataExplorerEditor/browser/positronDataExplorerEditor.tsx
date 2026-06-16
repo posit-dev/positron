@@ -564,7 +564,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	//#endregion Private Methods
 }
 
+// File extensions whose data explorer exposes file import options (the "File
+// Options" toolbar action). Despite the "plaintext" name, this includes Excel
+// workbooks, which expose a sheet selector in addition to the header-row option.
 const PLAINTEXT_EXTS = [
 	'.csv',
-	'.tsv'
+	'.tsv',
+	'.xlsx'
 ];
