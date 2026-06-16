@@ -236,5 +236,12 @@
 		".github/skills/.local": true,
 		".agents/skills/.local": true,
 		".claude/skills/.local": true,
+	},
+	// --- Container e2e testing ---
+	// Sets a stable test data path that can be bind-mounted into the arm-local docker container.
+	// Required for e2e-server tests run from the UI against the container.
+	// See dockerfiles/arm-local/README.md for setup instructions.
+	"playwright.env": {
+		"POSITRON_TEST_DATA_PATH": "/tmp/positron-e2e"
 	}
 }

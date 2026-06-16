@@ -4,7 +4,27 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({
+				'positron.quarto.inlineOutput.enabled': true,
+				'console.showNotebookConsoles': true,
+				'workbench.editor.enablePreview': false,
+			});
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,14 +33,6 @@ test.use({
 test.describe('Quarto - Inline Output: Statement Range', {
 	tag: [tags.QUARTO, tags.ARK, tags.CONSOLE]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true,
-			'console.showNotebookConsoles': true,
-			'workbench.editor.enablePreview': false,
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();

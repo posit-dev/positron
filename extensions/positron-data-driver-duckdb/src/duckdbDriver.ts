@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DuckDBConnection } from './duckdbConnection.js';
+import { DuckDBDataExplorerRpcHandler } from './duckdbDataExplorerRpcHandler.js';
 
 /**
  * Type guard for a non-empty string.
@@ -19,9 +20,11 @@ function isNonEmptyString(value: unknown): value is string {
 /**
  * Creates the DuckDB DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
+ * @param dataExplorerHandler Hosts table views for previewing tables/views in the Data Explorer.
  */
 export function createDuckDBDriver(
-	context: vscode.ExtensionContext
+	context: vscode.ExtensionContext,
+	dataExplorerHandler: DuckDBDataExplorerRpcHandler
 ): positron.DataConnectionDriver {
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'duckdb.svg');
@@ -77,7 +80,7 @@ export function createDuckDBDriver(
 				databasePath: isNonEmptyString(databasePath) ? databasePath : undefined,
 				readOnly,
 				inMemory,
-			});
+			}, dataExplorerHandler);
 			await connection.connect();
 			return connection;
 		},

@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { escapeRegExp } from '../utils/strings';
 
 const TERMINAL_WRAPPER = '#terminal .terminal-wrapper.active';
 
@@ -25,7 +26,7 @@ export class Terminal {
 	}
 
 	async waitForTerminalText(
-		terminalText: string,
+		terminalText: string | RegExp,
 		options: {
 			timeout?: number;
 			expectedCount?: number;
@@ -34,15 +35,22 @@ export class Terminal {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
+		let matcher: RegExp;
+		if (typeof terminalText === 'string') {
+			// treat input as literal string, match case-insensitively
+			matcher = new RegExp(escapeRegExp(terminalText), 'gi');
+		} else {
+			// force 'g' so all matches are counted, not just the first
+			const flags = terminalText.flags.includes('g') ? terminalText.flags : terminalText.flags + 'g';
+			matcher = new RegExp(terminalText, flags);
+		}
+
 		await expect(async () => {
 			// With GPU acceleration off, terminal renders as DOM and we can read text directly
 			const terminalWrapper = this.code.driver.currentPage.locator(TERMINAL_WRAPPER);
 			const text = await terminalWrapper.textContent() || '';
 
-			// clean up regex text
-			const safeTerminalText = terminalText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-			// allow case insensitive matches
-			const matches = text.match(new RegExp(safeTerminalText, 'gi'));
+			const matches = text.match(matcher);
 
 			expect(matches?.length).toBe(expectedCount);
 

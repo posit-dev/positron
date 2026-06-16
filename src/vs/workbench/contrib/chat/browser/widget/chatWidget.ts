@@ -87,17 +87,6 @@ import { IChatDebugService } from '../../common/chatDebugService.js';
 import { getChatSessionType } from '../../common/model/chatUri.js';
 import { ICustomizationHarnessService } from '../../common/customizationHarnessService.js';
 
-// --- Start Positron ---
-import './media/positronChat.css';
-import { ILanguageModelsService } from '../../common/languageModels.js';
-// eslint-disable-next-line no-duplicate-imports
-import { createCommandUri } from '../../../../../base/common/htmlContent.js';
-import { IPositronDocsService } from '../../../../services/positronDocs/browser/positronDocsService.js';
-import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
-import { showExtensionsWithIdsCommandId } from '../../../extensions/browser/extensionsActions.js';
-// --- End Positron ---
-
 const $ = dom.$;
 
 export interface IChatWidgetStyles extends IChatInputStyles {
@@ -284,8 +273,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private recentlyRestoredCheckpoint: boolean = false;
 
-	private settingChangeCounter = 0;
-
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
 
@@ -420,11 +407,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IPromptsService private readonly promptsService: IPromptsService,
 		@ICustomizationHarnessService private readonly customizationHarnessService: ICustomizationHarnessService,
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
-		// --- Start Positron ---
-		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
-		@IPositronDocsService private readonly docsService: IPositronDocsService,
-		@IExtensionService private readonly extensionService: IExtensionService,
-		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
@@ -471,18 +453,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.hasActiveRequest = ChatContextKeys.hasActiveRequest.bindTo(contextKeyService);
 
 		this._register(this.chatEntitlementService.onDidChangeAnonymous(() => this.renderWelcomeViewContentIfNeeded()));
-
-		// --- Start Positron ---
-		// Re-render the welcome view when Posit Assistant is installed or uninstalled
-		// so the "Install"/"Open" link reflects the current install state.
-		this._register(this.extensionService.onDidChangeExtensions(e => {
-			const touchesPositAssistant = (exts: readonly { identifier: ExtensionIdentifier }[]) =>
-				exts.some(ext => ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
-			if (touchesPositAssistant(e.added) || touchesPositAssistant(e.removed)) {
-				this.renderWelcomeViewContentIfNeeded();
-			}
-		}));
-		// --- End Positron ---
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('chat.tips.enabled')) {
@@ -548,24 +518,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this.chatSuggestNextWidget = this._register(this.instantiationService.createInstance(ChatSuggestNextWidget));
 
-		this._register(this.configurationService.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration(ChatConfiguration.EditRequests) || e.affectsConfiguration(ChatConfiguration.CheckpointsEnabled)) {
-				this.settingChangeCounter++;
-				this.onDidChangeItems();
-			} else if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
-				this.settingChangeCounter++;
-				this.onDidChangeItems();
-			}
-		}));
-
-		// --- Start Positron ---
-		// Refresh welcome message when current provider changes (e.g., after authentication or provider disabled)
-		// This handles the transition between "Set Up" and "Welcome" states
-		this._register(this.languageModelsService.onDidChangeCurrentProvider(() => {
-			this.renderWelcomeViewContentIfNeeded();
-		}));
-		// --- End Positron ---
-
 		this._register(autorun(r => {
 			const viewModel = viewModelObs.read(r);
 			const sessions = chatEditingService.editingSessionsObs.read(r);
@@ -590,13 +542,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this._editingSession.set(undefined, undefined);
 				this.renderChatEditingSessionState();
 			}));
-			r.store.add(this.onDidChangeParsedInput(() => {
-				this.renderChatEditingSessionState();
-			}));
 			r.store.add(this.inputEditor.onDidChangeModelContent(() => {
 				if (this.getInput() === '') {
 					this.refreshParsedInput();
-					this.renderChatEditingSessionState();
 				}
 			}));
 			this.renderChatEditingSessionState();
@@ -779,13 +727,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			dom.append(this.container, this.chatSuggestNextWidget.domNode);
 			this.createInput(this.container, { renderFollowups, renderStyle, renderInputToolbarBelowInput });
 		}
-
-		// --- Start Positron ---
-		// Don't show the input part if the assistant is disabled
-		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			dom.hide(this.inputPart.element);
-		}
-		// --- End Positron ---
 
 		this.renderWelcomeViewContentIfNeeded();
 		this.createList(this.listContainer, { editable: !isInlineChat(this) && !isQuickChat(this), ...this.viewOptions.rendererOptions, renderStyle });
@@ -1039,11 +980,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 
 			this.renderFollowups();
-
-			// --- Start Positron ---
-			// Update token usage display when items change
-			this.input.updateTokenUsageDisplay(this.viewModel);
-			// --- End Positron ---
 		}
 	}
 
@@ -1074,14 +1010,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 		}
 
-		// --- Start Positron ---
-		// Always show getting started for Positron
 		// Only show welcome getting started until setup is completed
-		// this.container.classList.toggle('chat-view-getting-started-disabled', this.chatEntitlementService.sentiment.completed);
+		this.container.classList.toggle('chat-view-getting-started-disabled', this.chatEntitlementService.sentiment.completed);
 
-		// Only show welcome getting started until extension is installed
-		// this.container.classList.toggle('chat-view-getting-started-disabled', this.chatEntitlementService.sentiment.installed);
-		// --- End Positron ---
 		this._onDidChangeEmptyState.fire();
 	}
 
@@ -1120,20 +1051,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				} else {
 					additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
 				}
-				// --- Start Positron ---
-				// Hide additional message
-				/*
 				if (!additionalMessage && !this._lockedAgent) {
-				*/
-				if (!additionalMessage && !this._lockedAgent && numItems) {
 					additionalMessage = this._getGenerateInstructionsMessage();
 				}
-
-				// Use Positron's welcome view content
-				// const welcomeContent = this.getWelcomeViewContent(additionalMessage);
-				const welcomeContent = numItems ? this.getWelcomeViewContent(additionalMessage) :
-					this.getPositronWelcomeViewContent(additionalMessage);
-				// --- End Positron ---
+				const welcomeContent = this.getWelcomeViewContent(additionalMessage);
 				if (!this.welcomePart.value || this.welcomePart.value.needsRerender(welcomeContent)) {
 					dom.clearNode(this.welcomeMessageContainer);
 
@@ -1294,47 +1215,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			additionalMessage,
 		};
 	}
-
-	// --- Start Positron ---
-	private static readonly POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
-
-	private isPositAssistantInstalled(): boolean {
-		return this.extensionService.extensions.some(ext =>
-			ExtensionIdentifier.equals(ext.identifier, ChatWidget.POSIT_ASSISTANT_EXTENSION_ID));
-	}
-
-	private getPositronWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
-		const welcomeTitle = localize('positronAssistant.welcomeTitle', "Positron Assistant");
-		const installed = this.isPositAssistantInstalled();
-		const actionLinkMessage = installed
-			? localize('positronAssistant.openLinkMessage', "Open Posit Assistant")
-			: localize('positronAssistant.installLinkMessage', "Install Posit Assistant");
-		const actionLinkUri = installed
-			? 'command:workbench.view.extension.posit-assistant'
-			: createCommandUri(showExtensionsWithIdsCommandId, [ChatWidget.POSIT_ASSISTANT_EXTENSION_ID]).toString();
-		const learnMoreLinkMessage = localize('positronAssistant.learnMoreLinkMessage', "our documentation");
-		// eslint-disable-next-line local/code-no-unexternalized-strings
-		let welcomeText = localize('positronAssistant.welcomeMessage', `Positron Assistant is being superseded by Posit Assistant, our new AI coding companion for data science.
-
-&nbsp;
-
-{action-link}
-
-&nbsp;
-
-See {learn-more-link} to learn more.
-`);
-		welcomeText = welcomeText.replace('{action-link}', `[${actionLinkMessage}](${actionLinkUri})`);
-		welcomeText = welcomeText.replace('{learn-more-link}', `[${learnMoreLinkMessage}](${this.docsService.getUrl('assistant.html')})`);
-
-		return {
-			title: welcomeTitle,
-			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
-			icon: Codicon.positronAssistant,
-			additionalMessage,
-		};
-	}
-	// --- End Positron ---
 
 	private async renderChatEditingSessionState() {
 		if (!this.input) {
@@ -1629,10 +1509,6 @@ See {learn-more-link} to learn more.
 					// Do it after a timeout because the container is not visible yet (it should be but offsetHeight returns 0 here)
 					if (this._visible) {
 						this.onDidChangeItems(true);
-						// --- Start Positron ---
-						// Update token usage display when widget becomes visible
-						this.input.updateTokenUsageDisplay(this.viewModel);
-						// --- End Positron ---
 					}
 				}, 0);
 
@@ -2096,12 +1972,6 @@ See {learn-more-link} to learn more.
 			this.chatTipService.getWelcomeTip(this.contextKeyService);
 		}));
 
-		// --- Start Positron ---
-		this._register(this.languageModelsService.onDidChangeLanguageModels(() => {
-			this.renderWelcomeViewContentIfNeeded();
-		}));
-		// --- End Positron ---
-
 		this._register(autorun(r => {
 			const toolSetIds = new Set<string>();
 			const toolIds = new Set<string>();
@@ -2361,12 +2231,7 @@ See {learn-more-link} to learn more.
 			this.viewModel.resetInputPlaceholder();
 		}
 		this.inputEditor?.updateOptions({ placeholder: undefined });
-		// --- Start Positron ---
-		// Always show progress message at bottom of response in all modes,
-		// matching the initial widget creation override in chatViewPane.ts and chatEditor.ts.
-		// this.listWidget?.updateRendererOptions({ restorable: true, editable: true, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
-		this.listWidget?.updateRendererOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: true });
-		// --- End Positron ---
+		this.listWidget?.updateRendererOptions({ restorable: true, editable: true, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
 		if (this.visible) {
 			this.listWidget?.rerender();
 		}
@@ -2964,17 +2829,6 @@ See {learn-more-link} to learn more.
 		this.agentInInput.set(!!currentAgent);
 	}
 
-	// --- Start Positron ---
-	// This is required so we can add our own items to menus such as `MenuId.ChatInput` from an
-	// extension, since the chat widget object is passed as a context argument to commands.
-	// TODO: Include additional useful properties in the serialisation as required.
-	toJSON(): string {
-		return JSON.stringify({
-			_location: this._location,
-			_visible: this._visible
-		});
-	}
-	// --- End Positron ---
 	private async _switchToAgentByName(agentName: string): Promise<void> {
 		const currentAgent = this.input.currentModeObs.get();
 

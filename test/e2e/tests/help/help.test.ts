@@ -3,19 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			// Enable reduced motion so we don't have to wait for animations of expanding
+			// and collapsing the panel.
+			await settingsFile.append({ 'workbench.reduceMotion': 'on' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		// Enable reduced motion so we don't have to wait for animations of expanding
-		// and collapsing the panel.
-		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
-	});
 
 	test('Python - Verify Help landing page', { tag: [tags.WIN] }, async function ({ app }) {
 

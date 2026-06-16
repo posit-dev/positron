@@ -667,8 +667,11 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             // User may choose to have an empty string stored, so variable `interpreterState.path` may be
             // an empty string, in which case we should update.
             // Having the value `undefined` means user cancelled the quickpick, so we update nothing in that case.
-            await this.pythonPathUpdaterService.updatePythonPath(interpreterState.path, configTarget, 'ui', wkspace);
             // --- Start Positron ---
+            await this.pythonPathUpdaterService.updatePythonPath(interpreterState.path, configTarget, 'ui', wkspace, {
+                startSession: true,
+                source: 'quickpick',
+            });
             // Ensure that the corresponding runtime is selected in the console, and focus the console.
             this.pythonRuntimeManager
                 .selectLanguageRuntimeFromPath(interpreterState.path)

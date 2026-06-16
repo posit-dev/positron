@@ -7,10 +7,21 @@ import * as positron from 'positron';
 import { IDuckDBQueryClient } from './duckdbWorkerClient.js';
 
 /**
+ * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
+ * DuckDBConnection, which owns the worker client and the dataset registration.
+ */
+export interface IDuckDBPreviewHost {
+	/** Opens the given table or view in the Data Explorer. */
+	previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	/** Opens a single column of the given table or view in the Data Explorer. */
+	previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+}
+
+/**
  * Creates the root "Schemas" group node. Lists every non-system schema in the current database
  * (catalog) as a child schema node.
  */
-export function createSchemasGroupNode(client: IDuckDBQueryClient): positron.DataConnectionNode {
+export function createSchemasGroupNode(client: IDuckDBQueryClient, host: IDuckDBPreviewHost): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
@@ -21,7 +32,7 @@ export function createSchemasGroupNode(client: IDuckDBQueryClient): positron.Dat
 				`AND schema_name NOT IN ('information_schema', 'pg_catalog') ` +
 				`ORDER BY schema_name`
 			);
-			return rows.map(row => createSchemaNode(client, String(row.schema_name)));
+			return rows.map(row => createSchemaNode(client, host, String(row.schema_name)));
 		},
 	};
 }
@@ -32,6 +43,7 @@ export function createSchemasGroupNode(client: IDuckDBQueryClient): positron.Dat
  */
 export function createSchemaNode(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
@@ -39,8 +51,8 @@ export function createSchemaNode(
 		kind: positron.DataConnectionNodeKind.Schema,
 		async getChildren() {
 			return [
-				createTablesGroupNode(client, schemaName),
-				createViewsGroupNode(client, schemaName),
+				createTablesGroupNode(client, host, schemaName),
+				createViewsGroupNode(client, host, schemaName),
 			];
 		},
 	};
@@ -51,6 +63,7 @@ export function createSchemaNode(
  */
 function createTablesGroupNode(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
@@ -63,7 +76,7 @@ function createTablesGroupNode(
 				`AND table_type = 'BASE TABLE' ORDER BY table_name`,
 				{ schema: schemaName }
 			);
-			return rows.map(row => createTableNode(client, schemaName, String(row.table_name)));
+			return rows.map(row => createTableNode(client, host, schemaName, String(row.table_name)));
 		},
 	};
 }
@@ -73,6 +86,7 @@ function createTablesGroupNode(
  */
 function createViewsGroupNode(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string
 ): positron.DataConnectionNode {
 	return {
@@ -85,7 +99,7 @@ function createViewsGroupNode(
 				`AND table_type = 'VIEW' ORDER BY table_name`,
 				{ schema: schemaName }
 			);
-			return rows.map(row => createViewNode(client, schemaName, String(row.table_name)));
+			return rows.map(row => createViewNode(client, host, schemaName, String(row.table_name)));
 		},
 	};
 }
@@ -95,6 +109,7 @@ function createViewsGroupNode(
  */
 function createTableNode(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string,
 	tableName: string
 ): positron.DataConnectionNode {
@@ -102,11 +117,10 @@ function createTableNode(
 		name: tableName,
 		kind: positron.DataConnectionNodeKind.Table,
 		getChildren() {
-			return getFieldNodes(client, schemaName, tableName);
+			return getFieldNodes(client, host, schemaName, tableName, 'table');
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(schemaName, tableName, 'table');
 		},
 	};
 }
@@ -116,6 +130,7 @@ function createTableNode(
  */
 function createViewNode(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string,
 	viewName: string
 ): positron.DataConnectionNode {
@@ -123,23 +138,24 @@ function createViewNode(
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
 		getChildren() {
-			return getFieldNodes(client, schemaName, viewName);
+			return getFieldNodes(client, host, schemaName, viewName, 'view');
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(schemaName, viewName, 'view');
 		},
 	};
 }
 
 /**
  * Queries information_schema.columns to get column metadata for a table or view.
- * Returns leaf field nodes with dataType set.
+ * Returns leaf field nodes with dataType set; each can be previewed as a single-column Data Explorer.
  */
 async function getFieldNodes(
 	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
 	schemaName: string,
-	relationName: string
+	relationName: string,
+	kind: 'table' | 'view'
 ): Promise<positron.DataConnectionNode[]> {
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
@@ -147,9 +163,15 @@ async function getFieldNodes(
 		`AND table_name = $relation ORDER BY ordinal_position`,
 		{ schema: schemaName, relation: relationName }
 	);
-	return rows.map(row => ({
-		name: String(row.column_name),
-		kind: positron.DataConnectionNodeKind.Field,
-		dataType: String(row.data_type),
-	}));
+	return rows.map(row => {
+		const columnName = String(row.column_name);
+		return {
+			name: columnName,
+			kind: positron.DataConnectionNodeKind.Field,
+			dataType: String(row.data_type),
+			preview() {
+				return host.previewColumn(schemaName, relationName, kind, columnName);
+			},
+		};
+	});
 }

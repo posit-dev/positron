@@ -3,8 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test as base, tags, expect } from '../_test.setup';
 import { SessionRuntimes } from '../../pages/sessions.js';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'packages.enabled': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,12 +29,6 @@ test.use({
 test.describe('Packages Pane', {
 	tag: [tags.PACKAGES_PANE, tags.WEB]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'packages.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.packages.clearFilter();
@@ -88,6 +98,19 @@ test.describe('Packages Pane', {
 
 				await packages.clickHelpButton('numpy');
 				await packages.expectHelpPaneToContainText('NumPy', 1);
+			});
+	});
+
+	test.describe('URL button', () => {
+		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
+			async function ({ app, python: _python }) {
+				const { packages } = app.workbench;
+
+				// numpy publishes a `Project-URL: Homepage` in its wheel metadata,
+				// so the kernel surfaces a `url` and the row renders the link button.
+				await packages.verifyPackagesList();
+				await packages.searchPackages('numpy');
+				await expect(packages.urlButton('numpy')).toBeVisible();
 			});
 	});
 });

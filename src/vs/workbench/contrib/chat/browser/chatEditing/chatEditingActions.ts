@@ -296,14 +296,8 @@ export async function discardAllEditsWithConfirmation(accessor: ServicesAccessor
 		const confirmation = await dialogService.confirm({
 			title: localize('chat.editing.discardAll.confirmation.title', "Undo all edits?"),
 			message: entries.length === 1
-				// --- Start Positron ---
-				/*
 				? localize('chat.editing.discardAll.confirmation.oneFile', "This will undo changes made in {0}. Do you want to proceed?", basename(entries[0].modifiedURI))
 				: localize('chat.editing.discardAll.confirmation.manyFiles', "This will undo changes made in {0} files. Do you want to proceed?", entries.length),
-				*/
-				? localize('chat.editing.discardAll.confirmation.oneFile', "This will undo changes made by {0} in {1}. Do you want to proceed?", 'Assistant Edits', basename(entries[0].modifiedURI))
-				: localize('chat.editing.discardAll.confirmation.manyFiles', "This will undo changes made by {0} in {1} files. Do you want to proceed?", 'Assistant Edits', entries.length),
-			// --- End Positron ---
 			primaryButton: localize('chat.editing.discardAll.confirmation.primaryButton', "Yes"),
 			type: 'info'
 		});

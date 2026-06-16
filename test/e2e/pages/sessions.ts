@@ -269,6 +269,14 @@ export class Sessions {
 			}
 
 			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
+
+			// Deleted sessions stay attached (hidden) in the DOM until the runtime
+			// finishes shutting down, and getSessionCount() counts attached nodes.
+			// Wait for the deleted instances to fully detach so the next test's
+			// session-reuse check doesn't race them. A session intentionally left
+			// behind on server/workbench (see delete() workaround) stays visible,
+			// so it does not block this wait.
+			await expect(this.sessions.filter({ visible: false })).toHaveCount(0, { timeout: 15000 });
 		});
 	}
 
@@ -552,9 +560,6 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			// Give startup messaging a chance to appear before asserting it's gone,
-			// so we don't pass instantly when this check runs ahead of the UI.
-			await this.page.waitForTimeout(5000);
 			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
@@ -1022,6 +1027,15 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Action: Open the "Start New Session" quickpick showing all available
+	 * runtimes (the full interpreter list). Leaves the quickpick open so the
+	 * caller can interact with or capture it.
+	 */
+	async openStartNewSessionQuickPick(): Promise<void> {
+		await this.quickPick.openSessionQuickPickMenu(true);
 	}
 
 	/**
