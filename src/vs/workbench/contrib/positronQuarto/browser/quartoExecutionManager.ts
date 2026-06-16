@@ -875,17 +875,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	): Promise<number | undefined> {
 		const { cts } = tracker;
 
+		// runCommand sends Ctrl+C before our command when promptInputModel.value is
+		// non-empty (can happen on a fresh terminal if the buffer position is misread
+		// during startup). That interrupt fires commandFinished for the aborted command
+		// before the real command runs. Capture this ahead of time and skip exactly
+		// one event if needed -- avoiding an unbounded content-based check that would
+		// incorrectly route cells whose output legitimately contains "^C".
+		let skipNextCommandFinished = commandDetection.promptInputModel.value.length > 0;
+
 		// Set up promise to wait for command completion
 		const commandFinishedPromise = new DeferredPromise<import('../../../../platform/terminal/common/capabilities/capabilities.js').ITerminalCommand | undefined>();
 
 		disposables.add(commandDetection.onCommandFinished(command => {
-			// runCommand sends Ctrl+C before our actual command when promptInputModel.value
-			// is non-empty (e.g. on a fresh Windows terminal where the buffer position is
-			// misread as having pending input). On Windows, that interrupt echoes as '^C'
-			// in the captured output. Skip those events so we only resolve on the real command.
-			const prematureOutput = command?.getOutput() ?? '';
-			if (prematureOutput.includes('^C')) {
-				this._logService.debug(`[QuartoExecutionManager] Ignoring Ctrl+C commandFinished (premature)`);
+			if (skipNextCommandFinished) {
+				skipNextCommandFinished = false;
+				this._logService.debug(`[QuartoExecutionManager] Skipping premature Ctrl+C commandFinished`);
 				return;
 			}
 			this._logService.debug(`[QuartoExecutionManager] Terminal command finished`);
