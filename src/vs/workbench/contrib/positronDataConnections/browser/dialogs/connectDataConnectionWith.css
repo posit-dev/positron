@@ -91,11 +91,15 @@
 	border-radius: 4px;
 }
 
-/* Code preview (detail). */
+/*
+ * Code preview (detail). Only left padding here: the editor fills the top, right, and bottom edges
+ * so its vertical scrollbar spans the full height and sits flush against the border. Vertical
+ * breathing room for the code comes from the editor's own padding option, not this container.
+ */
 .connect-data-connection-with .code {
 	grid-area: code;
 	overflow: auto;
-	padding: 10px;
+	padding: 0 0 0 10px;
 	border-radius: 5px;
 	border: solid 1px var(--vscode-positronModalDialog-border);
 }

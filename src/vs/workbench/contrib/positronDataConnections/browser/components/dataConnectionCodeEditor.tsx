@@ -76,6 +76,11 @@ export const DataConnectionCodeEditor = (props: DataConnectionCodeEditorProps) =
 				// The data connection code editor is always editable.
 				readOnly: false,
 				domReadOnly: false,
+				// Vertical breathing room lives inside the editor (rather than as container padding)
+				// so the vertical scrollbar can span the full height of the code box.
+				padding: { top: 10, bottom: 10 },
+				// A slightly thinner vertical scrollbar than the 14px default.
+				scrollbar: { verticalScrollbarSize: 10 },
 			},
 			getSimpleCodeEditorWidgetOptions()
 		));
