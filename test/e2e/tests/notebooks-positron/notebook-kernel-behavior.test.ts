@@ -201,7 +201,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE] }, async function ({ app, page, sessions, runCommand }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
 		const { notebooksPositron } = app.workbench;
 
 		// start standalone sessions that should survive the notebook closing
