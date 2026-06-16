@@ -53,7 +53,9 @@ suite('Python Path Settings Updater', () => {
             interpreterPathService.setup((i) => i.inspect(undefined)).returns(() => ({}));
 
             interpreterPathService
-                .setup((i) => i.update(undefined, ConfigurationTarget.Global, pythonPath))
+                // --- Start Positron ---
+                .setup((i) => i.update(undefined, ConfigurationTarget.Global, pythonPath, undefined))
+                // --- End Positron ---
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
             const updater = updaterServiceFactory.getGlobalPythonPathConfigurationService();
@@ -87,7 +89,9 @@ suite('Python Path Settings Updater', () => {
             const pythonPath = `xWorkspaceFolderPythonPath${new Date().getMilliseconds()}`;
             interpreterPathService.setup((i) => i.inspect(workspaceFolder)).returns(() => ({}));
             interpreterPathService
-                .setup((i) => i.update(workspaceFolder, ConfigurationTarget.WorkspaceFolder, pythonPath))
+                // --- Start Positron ---
+                .setup((i) => i.update(workspaceFolder, ConfigurationTarget.WorkspaceFolder, pythonPath, undefined))
+                // --- End Positron ---
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 
@@ -121,7 +125,9 @@ suite('Python Path Settings Updater', () => {
 
             interpreterPathService.setup((i) => i.inspect(workspaceFolder)).returns(() => ({}));
             interpreterPathService
-                .setup((i) => i.update(workspaceFolder, ConfigurationTarget.Workspace, pythonPath))
+                // --- Start Positron ---
+                .setup((i) => i.update(workspaceFolder, ConfigurationTarget.Workspace, pythonPath, undefined))
+                // --- End Positron ---
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 

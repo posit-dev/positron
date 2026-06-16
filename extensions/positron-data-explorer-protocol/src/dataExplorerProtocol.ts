@@ -1,72 +1,62 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+//
+// AUTO-GENERATED from data_explorer.json; do not edit.
+//
+// Shared protocol types for extensions that provide a DataExplorer backend. Generated from the
+// same OpenRPC contract as positronDataExplorerComm.ts, minus the comm class and its imports.
+//
+
 /**
- * Descriptor for backend method invocation in via extension command.
+ * Descriptor for a DataExplorer backend RPC request dispatched to a provider.
  */
 export interface DataExplorerRpc {
-	/**
-	 * Resource locator. Must be specified for all methods except for
-	 * OpenDataset (which is invoked with the uri as a parameter before
-	 * other methods can be invoked).
-	 */
+	/** The backend request method. */
 	method: DataExplorerBackendRequest;
+
+	/** The dataset identifier the request targets (absent for dataset-less bootstrap calls). */
 	uri?: string;
+
+	/** Method-specific parameters. */
 	params: OpenDatasetParams |
 	GetSchemaParams |
 	SearchSchemaParams |
 	GetDataValuesParams |
 	GetRowLabelsParams |
-	GetColumnProfilesParams |
-	SetRowFiltersParams |
+	ExportDataSelectionParams |
+	ConvertToCodeParams |
 	SetColumnFiltersParams |
+	SetRowFiltersParams |
 	SetSortColumnsParams |
 	GetColumnProfilesParams |
-	ExportDataSelectionParams |
 	SetDatasetImportOptionsParams |
 	{};
 }
 
-export interface DataExplorerUiEvent {
-	/**
-	 * Unique resource identifier for routing method calls.
-	 */
-	uri: string;
-
-	/**
-	 * Method name, as defined
-	 */
-	method: DataExplorerFrontendEvent;
-
-	/**
-	 * Data for event
-	 */
-	params: ReturnColumnProfilesEvent | DataUpdateEvent | SchemaUpdateEvent;
-}
-
 /**
- * Opaque backend response containing corresponding RPC result
- * or an error message in the case of failure.
+ * Opaque DataExplorer backend response: an RPC result or an error message.
  */
 export interface DataExplorerResponse {
 	result?: any;
+
 	error_message?: string;
 }
 
-// AUTO-GENERATED from data_explorer.json; do not edit. Copy from
-// positronDataExplorerComm.ts instead.
-
 /**
- * Result of setting import options
+ * A frontend UI event pushed from a DataExplorer backend, routed by dataset id.
  */
-export interface SetDatasetImportOptionsResult {
-	/**
-	 * An error message if setting the options failed
-	 */
-	error_message?: string;
+export interface DataExplorerUiEvent {
+	/** The dataset identifier the event targets. */
+	uri: string;
 
+	/** The frontend event method. */
+	method: DataExplorerFrontendEvent;
+
+	/** Event-specific parameters. */
+	params: SchemaUpdateEvent | DataUpdateEvent | ReturnColumnProfilesEvent;
 }
 
 /**
@@ -143,6 +133,17 @@ export interface FilterResult {
 	 * Flag indicating if there were errors in evaluation
 	 */
 	had_errors?: boolean;
+
+}
+
+/**
+ * Result of setting import options
+ */
+export interface SetDatasetImportOptionsResult {
+	/**
+	 * An error message if setting the options failed
+	 */
+	error_message?: string;
 
 }
 
@@ -1221,7 +1222,6 @@ export enum SearchSchemaSortOrder {
  * Possible values for ColumnDisplayType
  */
 export enum ColumnDisplayType {
-	Number = 'number',
 	Boolean = 'boolean',
 	String = 'string',
 	Date = 'date',
@@ -1483,16 +1483,6 @@ export interface SetSortColumnsParams {
 }
 
 /**
- * Parameters for the SetDatasetImportOptions method.
- */
-export interface SetDatasetImportOptionsParams {
-	/**
-	 * Import options to apply
-	 */
-	options: DatasetImportOptions;
-}
-
-/**
  * Parameters for the GetColumnProfiles method.
  */
 export interface GetColumnProfilesParams {
@@ -1510,6 +1500,16 @@ export interface GetColumnProfilesParams {
 	 * Formatting options for returning data values as strings
 	 */
 	format_options: FormatOptions;
+}
+
+/**
+ * Parameters for the SetDatasetImportOptions method.
+ */
+export interface SetDatasetImportOptionsParams {
+	/**
+	 * Import options to apply
+	 */
+	options: DatasetImportOptions;
 }
 
 /**
@@ -1585,5 +1585,7 @@ export enum DataExplorerBackendRequest {
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
 	SetDatasetImportOptions = 'set_dataset_import_options',
+	OpenDataExplorer = 'open_data_explorer',
 	GetState = 'get_state'
 }
+

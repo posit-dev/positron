@@ -112,26 +112,32 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                 this.context.environmentVariableCollection.clear();
                 await this.handleMicroVenv(resource);
                 if (!this.registeredOnce) {
+                    // --- Start Positron ---
+                    // Payload is now InterpreterChangeEvent. Env-collection refreshes on both
+                    // storage-update and user-intent fires, so we ignore startSession.
                     this.interpreterService.onDidChangeInterpreter(
-                        async (r) => {
-                            await this.handleMicroVenv(r);
+                        async (e) => {
+                            await this.handleMicroVenv(e.resource);
                         },
                         this,
                         this.disposables,
                     );
+                    // --- End Positron ---
                     this.registeredOnce = true;
                 }
                 await registerPythonStartup(this.context);
                 return;
             }
             if (!this.registeredOnce) {
+                // --- Start Positron ---
                 this.interpreterService.onDidChangeInterpreter(
-                    async (r) => {
-                        await this._applyCollection(r).ignoreErrors();
+                    async (e) => {
+                        await this._applyCollection(e.resource).ignoreErrors();
                     },
                     this,
                     this.disposables,
                 );
+                // --- End Positron ---
                 this.shellIntegrationDetectionService.onDidChangeStatus(
                     async () => {
                         traceInfo("Shell integration status changed, can confirm it's working.");

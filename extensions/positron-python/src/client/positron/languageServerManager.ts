@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 // eslint-disable-next-line import/no-unresolved
@@ -105,7 +105,13 @@ class LanguageServerManager implements vscode.Disposable {
             configTarget = vscode.ConfigurationTarget.WorkspaceFolder;
         }
 
-        await this._pythonPathUpdaterService.updatePythonPath(pythonPath, configTarget, 'ui', folderUri);
+        // Storage-only: Pyright needs the path written but the session is already running.
+        // 'load' means programmatic (not a user interpreter selection), so it avoids tracking
+        // this as a user-selected environment.
+        await this._pythonPathUpdaterService.updatePythonPath(pythonPath, configTarget, 'load', folderUri, {
+            startSession: false,
+            source: 'positron-ls-manager',
+        });
     }
 
     /**

@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable local/code-no-unexternalized-strings -- test file; strings need not be externalized */
+
 import * as assert from 'assert';
 import * as path from 'path';
 import * as zlib from 'zlib';
@@ -44,12 +46,14 @@ import {
 	ColumnHistogramParamsMethod,
 	GetColumnProfilesParams,
 	ColumnHistogram,
-	ColumnSummaryStats
-} from '../interfaces';
+	ColumnSummaryStats,
+	DataExplorerUiEvent,
+	ReturnColumnProfilesEvent
+} from 'positron-data-explorer-protocol';
 import { randomBytes, randomUUID } from 'crypto';
 import * as os from 'os';
 import * as fs from 'fs';
-import { DuckDBInstance } from '../extension';
+import { DataExplorerRpcHandler, DuckDBInstance } from '../extension';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -65,49 +69,59 @@ const columnProfileCallbacks = new Map<string, (value: any) => void>();
 // The file-watcher tests use these to observe reloads triggered by on-disk
 // file changes (see waitForSchemaUpdate).
 const schemaUpdateListeners = new Set<(uri: string) => void>();
-let globalCommandRegistered = false;
 
-// Not sure why it is not possible to use Mocha's 'before' for this
-async function activateExtension() {
-	// Ensure the extension is activated
-	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+// A test-owned DuckDB instance + RPC handler. The handler is the unit under test; the tests drive
+// it directly (rather than through the typed Data Explorer channel, which needs the core/main-thread
+// side) and capture its UI events via the injected sink below.
+let testDb: DuckDBInstance | undefined;
+let testHandler: DataExplorerRpcHandler | undefined;
 
-	// Register the global command handler once
-	if (!globalCommandRegistered) {
-		vscode.commands.registerCommand(
-			'positron-data-explorer.sendUiEvent',
-			(event: any) => {
-				if (event.method === 'return_column_profiles' && event.params.callback_id) {
-					const callback = columnProfileCallbacks.get(event.params.callback_id);
-					if (callback) {
-						callback(event.params);
-						columnProfileCallbacks.delete(event.params.callback_id);
-					}
-				} else if (event.method === 'schema_update') {
-					for (const listener of schemaUpdateListeners) {
-						listener(event.uri);
-					}
-				}
-			}
-		);
-		globalCommandRegistered = true;
+// The handler's UI-event sink: routes column profiles / schema updates to the test registries above.
+function routeUiEvent(event: DataExplorerUiEvent) {
+	if (event.method === 'return_column_profiles') {
+		const params = event.params as ReturnColumnProfilesEvent;
+		if (!params.callback_id) {
+			return;
+		}
+		const callback = columnProfileCallbacks.get(params.callback_id);
+		if (callback) {
+			callback(params);
+			columnProfileCallbacks.delete(params.callback_id);
+		}
+	} else if (event.method === 'schema_update') {
+		for (const listener of schemaUpdateListeners) {
+			listener(event.uri);
+		}
 	}
 }
 
+async function ensureTestHandler(): Promise<DataExplorerRpcHandler> {
+	if (!testHandler) {
+		testDb = await DuckDBInstance.create();
+		testHandler = new DataExplorerRpcHandler(testDb, routeUiEvent);
+	}
+	return testHandler;
+}
+
+// Not sure why it is not possible to use Mocha's 'before' for this
+async function activateExtension() {
+	// Ensure the extension is activated (registers commands like positron-duckdb.runQuery).
+	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+	await ensureTestHandler();
+}
+
 async function runQuery<Type>(query: string): Promise<Array<Type>> {
-	await activateExtension();
+	await ensureTestHandler();
 	// Uncomment to debug queries being sent
 	// console.log(query);
-	return vscode.commands.executeCommand('positron-duckdb.runQuery', query);
+	return (await testDb!.runQuery(query)).toArray();
 }
 
 async function dxExec(rpc: DataExplorerRpc): Promise<any> {
-	await activateExtension();
-	const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-		'positron-duckdb.dataExplorerRpc', rpc
-	);
+	const handler = await ensureTestHandler();
+	const resp: DataExplorerResponse = await handler.handleRequest(rpc);
 	if (!resp) {
-		return Promise.reject(new Error('dataExplorerRpc command returned undefined'));
+		return Promise.reject(new Error('handleRequest returned undefined'));
 	}
 	if (resp.error_message) {
 		return Promise.reject(new Error(resp.error_message));
@@ -3165,14 +3179,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Now test that a direct RPC call works (simulating the scenario after extension host restart)
 		// when the table view might not exist in the handler's map
 		const directRpcCall = async () => {
-			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-				'positron-duckdb.dataExplorerRpc',
-				{
-					method: DataExplorerBackendRequest.GetState,
-					uri: uri.toString(),
-					params: {}
-				}
-			);
+			const resp: DataExplorerResponse = await (await ensureTestHandler()).handleRequest({
+				method: DataExplorerBackendRequest.GetState,
+				uri: uri.toString(),
+				params: {}
+			});
 
 			if (resp.error_message) {
 				throw new Error(resp.error_message);
@@ -3189,23 +3200,20 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Test getColumnProfiles which was the original failing operation
 		const profileRpcCall = async () => {
-			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-				'positron-duckdb.dataExplorerRpc',
-				{
-					method: DataExplorerBackendRequest.GetColumnProfiles,
-					uri: uri.toString(),
-					params: {
-						callback_id: randomUUID(),
+			const resp: DataExplorerResponse = await (await ensureTestHandler()).handleRequest({
+				method: DataExplorerBackendRequest.GetColumnProfiles,
+				uri: uri.toString(),
+				params: {
+					callback_id: randomUUID(),
+					profiles: [{
+						column_index: 0,
 						profiles: [{
-							column_index: 0,
-							profiles: [{
-								profile_type: ColumnProfileType.NullCount
-							}]
-						}],
-						format_options: DEFAULT_FORMAT_OPTIONS
-					}
+							profile_type: ColumnProfileType.NullCount
+						}]
+					}],
+					format_options: DEFAULT_FORMAT_OPTIONS
 				}
-			);
+			});
 
 			if (resp.error_message) {
 				throw new Error(resp.error_message);

@@ -13,7 +13,6 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
-import './contrib/help/NotebookHelpAction.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
@@ -193,6 +192,7 @@ class PositronNotebookContribution extends Disposable {
 			info.globPattern,
 			editorInfo,
 			{
+				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						(resource.scheme === Schemas.untitled ||
@@ -270,6 +270,7 @@ class PositronNotebookContribution extends Disposable {
 			// This does not seem to be an issue for file schemes (registered above).
 			cellEditorInfo,
 			{
+				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
 					return extname(resource) === info.extension &&
 						resource.scheme === Schemas.vscodeNotebookCell;
@@ -1201,7 +1202,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndInsertBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndInsertBelow',
@@ -1223,7 +1224,8 @@ registerAction2(class extends NotebookAction2 {
 		// Always insert a new cell below of the same type and focus it
 		notebook.addCell(cell.kind, cell.index + 1, true);
 	}
-});
+}
+registerAction2(ExecuteAndInsertBelowAction);
 
 // Copy cells command - C (Jupyter-style)
 export class CopyCellsAction extends NotebookAction2 {

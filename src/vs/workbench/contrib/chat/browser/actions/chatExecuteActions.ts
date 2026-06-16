@@ -545,10 +545,6 @@ export class OpenSessionTargetPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						ChatContextKeys.chatSessionIsEmpty,
-						// --- Start Positron ---
-						// Only show session target picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
 						IsSessionsWindowContext),
 					group: 'navigation',
 				},
@@ -560,10 +556,6 @@ export class OpenSessionTargetPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						IsSessionsWindowContext.negate(),
-						// --- Start Positron ---
-						// Only show session target picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
 						ChatContextKeys.chatSessionIsEmpty),
 					group: 'navigation',
 				},
@@ -593,21 +585,6 @@ export class OpenDelegationPickerAction extends Action2 {
 			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.chatSessionIsEmpty.negate(), ChatContextKeys.currentlyEditingInput.negate(), ChatContextKeys.currentlyEditing.negate()),
 			menu: [
 				{
-					id: MenuId.ChatInput,
-					order: 0.5,
-					when: ContextKeyExpr.and(
-						ChatContextKeys.enabled,
-						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
-						ChatContextKeys.inQuickChat.negate(),
-						ChatContextKeys.chatSessionIsEmpty.negate(),
-						// --- Start Positron ---
-						// Only show delegation picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
-						IsSessionsWindowContext),
-					group: 'navigation',
-				},
-				{
 					id: MenuId.ChatInputSecondary,
 					order: 0.5,
 					when: ContextKeyExpr.and(
@@ -615,12 +592,7 @@ export class OpenDelegationPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						ChatContextKeys.chatSessionSupportsDelegation,
-						ChatContextKeys.chatSessionIsEmpty.negate(),
-						// --- Start Positron ---
-						// Only show delegation picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
-						IsSessionsWindowContext.negate()
+						ChatContextKeys.chatSessionIsEmpty.negate()
 					),
 					group: 'navigation',
 				},

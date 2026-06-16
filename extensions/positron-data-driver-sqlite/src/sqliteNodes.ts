@@ -7,15 +7,26 @@ import * as positron from 'positron';
 import { ISqliteQueryClient } from './sqliteWorkerClient.js';
 
 /**
+ * The capability a table/view node needs to open itself in the Data Explorer. Implemented by
+ * SQLiteConnection, which owns the worker client and the dataset registration.
+ */
+export interface ISqlitePreviewHost {
+	/** Opens the given table or view in the Data Explorer. */
+	previewObject(name: string, kind: 'table' | 'view'): Promise<void>;
+	/** Opens a single column of the given table or view in the Data Explorer. */
+	previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+}
+
+/**
  * Builds the top-level children: three category group nodes (Tables, Views, Indexes).
  * Each group defers its schema query until it is itself expanded.
  */
-export function createRootNodes(client: ISqliteQueryClient): positron.DataConnectionNode[] {
+export function createRootNodes(client: ISqliteQueryClient, host: ISqlitePreviewHost): positron.DataConnectionNode[] {
 	return [
 		createGroupNode('Tables', positron.DataConnectionNodeKind.GroupTables,
-			async () => (await listObjects(client, 'table')).map(name => createTableNode(client, name))),
+			async () => (await listObjects(client, 'table')).map(name => createTableNode(client, host, name))),
 		createGroupNode('Views', positron.DataConnectionNodeKind.GroupViews,
-			async () => (await listObjects(client, 'view')).map(name => createViewNode(client, name))),
+			async () => (await listObjects(client, 'view')).map(name => createViewNode(client, host, name))),
 		createGroupNode('Indexes', positron.DataConnectionNodeKind.GroupIndexes,
 			async () => (await listObjects(client, 'index')).map(name => createIndexNode(client, name))),
 	];
@@ -56,17 +67,17 @@ async function listObjects(client: ISqliteQueryClient, type: 'table' | 'view' | 
  */
 export function createTableNode(
 	client: ISqliteQueryClient,
+	host: ISqlitePreviewHost,
 	tableName: string
 ): positron.DataConnectionNode {
 	return {
 		name: tableName,
 		kind: positron.DataConnectionNodeKind.Table,
 		getChildren() {
-			return getFieldNodes(client, tableName);
+			return getFieldNodes(client, host, tableName, 'table');
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(tableName, 'table');
 		},
 	};
 }
@@ -76,17 +87,17 @@ export function createTableNode(
  */
 export function createViewNode(
 	client: ISqliteQueryClient,
+	host: ISqlitePreviewHost,
 	viewName: string
 ): positron.DataConnectionNode {
 	return {
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
 		getChildren() {
-			return getFieldNodes(client, viewName);
+			return getFieldNodes(client, host, viewName, 'view');
 		},
 		preview() {
-			// TODO: Wire up to Data Explorer when the preview UI is available.
-			return Promise.resolve();
+			return host.previewObject(viewName, 'view');
 		},
 	};
 }
@@ -120,23 +131,31 @@ export function createTriggerNode(triggerName: string): positron.DataConnectionN
 
 /**
  * Queries PRAGMA table_info to get column metadata for a table or view.
- * Returns leaf field nodes with dataType set.
+ * Returns leaf field nodes with dataType set; each can be previewed as a single-column Data Explorer.
  */
 async function getFieldNodes(
 	client: ISqliteQueryClient,
-	tableName: string
+	host: ISqlitePreviewHost,
+	tableName: string,
+	kind: 'table' | 'view'
 ): Promise<positron.DataConnectionNode[]> {
 	// PRAGMA statements don't support parameter binding, so we escape
 	// the table name by double-quoting with embedded quotes escaped.
 	const safeTableName = tableName.replace(/"/g, '""');
 	const rows = await client.runQuery(`PRAGMA table_info("${safeTableName}")`);
 
-	return rows.map(row => ({
-		name: String(row.name),
-		kind: positron.DataConnectionNodeKind.Field,
-		// SQLite allows empty type affinity; default to BLOB.
-		dataType: row.type ? String(row.type) : 'BLOB',
-	}));
+	return rows.map(row => {
+		const columnName = String(row.name);
+		return {
+			name: columnName,
+			kind: positron.DataConnectionNodeKind.Field,
+			// SQLite allows empty type affinity; default to BLOB.
+			dataType: row.type ? String(row.type) : 'BLOB',
+			preview() {
+				return host.previewColumn(tableName, kind, columnName);
+			},
+		};
+	});
 }
 
 /**

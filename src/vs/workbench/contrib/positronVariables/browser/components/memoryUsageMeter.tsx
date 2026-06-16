@@ -14,7 +14,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
-import { IMemoryUsageSnapshot, LowMemoryUnit } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { formatCompactMemory, IMemoryUsageSnapshot, LowMemoryUnit } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -210,9 +210,10 @@ export const MemoryUsageMeter = ({ snapshot, barWidth, loading, showWarning = tr
 
 	const { totalSystemMemory, kernelTotalBytes, positronOverheadBytes, extensionHostOverheadBytes } = snapshot;
 
-	// Positron's total footprint for the label.
+	// Positron's total footprint for the label. Use the compact formatter so the
+	// label fits in 3-4 characters and doesn't shift the action bar layout.
 	const positronTotalBytes = kernelTotalBytes + positronOverheadBytes + extensionHostOverheadBytes;
-	const sizeLabel = ByteSize.formatSize(positronTotalBytes);
+	const sizeLabel = formatCompactMemory(positronTotalBytes);
 
 	// Accessibility label.
 	const ariaLabel = localize(

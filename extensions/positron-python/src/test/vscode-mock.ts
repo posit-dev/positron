@@ -194,6 +194,7 @@ mockedPositron.LanguageRuntimeStreamName = positronMocks.LanguageRuntimeStreamNa
 mockedPositron.RuntimeOnlineState = positronMocks.RuntimeOnlineState;
 mockedPositron.RuntimeState = positronMocks.RuntimeState;
 mockedPositron.LanguageRuntimeArchitecture = positronMocks.LanguageRuntimeArchitecture;
+mockedPositron.RuntimeExitReason = positronMocks.RuntimeExitReason;
 // --- End Positron ---
 
 // Mock TestController for vscode.tests namespace

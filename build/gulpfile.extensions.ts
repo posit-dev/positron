@@ -55,6 +55,9 @@ function onExtensionCompilationEnd(): void {
 // });
 const compilations = [
 	// --- Start Positron ---
+	// Shared, generated Data Explorer protocol types consumed by the data driver extensions.
+	// Compiled here so the data driver extensions can resolve its out/ (.js + .d.ts).
+	'extensions/positron-data-explorer-protocol/tsconfig.json',
 	'extensions/authentication/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/next-edit-suggestions/tsconfig.json',
@@ -308,7 +311,19 @@ const tasks = compilations.map(function (tsconfigFile) {
 const transpileExtensionsTask = task.define('transpile-extensions', task.parallel(...tasks.map(t => t.transpileTask)));
 gulp.task(transpileExtensionsTask);
 
-export const compileExtensionsTask = task.define('compile-extensions', task.parallel(...tasks.map(t => t.compileTask)));
+// --- Start Positron ---
+// positron-data-explorer-protocol must compile before extensions that depend on its out/ directory.
+// Running all compile tasks in parallel causes a race: the clean step deletes out/, and extensions
+// that import from positron-data-explorer-protocol fail if they start compiling before it rebuilds.
+const dataExplorerProtocolIndex = compilations.indexOf('extensions/positron-data-explorer-protocol/tsconfig.json');
+const compileExtensionsImpl = dataExplorerProtocolIndex >= 0
+	? task.series(
+		tasks[dataExplorerProtocolIndex].compileTask,
+		task.parallel(...tasks.filter((_, i) => i !== dataExplorerProtocolIndex).map(t => t.compileTask))
+	)
+	: task.parallel(...tasks.map(t => t.compileTask));
+export const compileExtensionsTask = task.define('compile-extensions', compileExtensionsImpl);
+// --- End Positron ---
 gulp.task(compileExtensionsTask);
 
 export const watchExtensionsTask = task.define('watch-extensions', task.parallel(...tasks.map(t => t.watchTask)));
