@@ -35,6 +35,7 @@ import httpProxy from 'http-proxy';
 // eslint-disable-next-line no-duplicate-imports
 import { existsSync } from 'fs';
 import { kProxyRegex, VSCODE_STATIC_PREFIX, WORKBENCH_DEPLOYMENT_PREFIX, HAS_STATIC_ROUTE } from './pwbConstants.js';
+import { shouldUseSessionLessStaticRoute } from './positronStaticRoute.js';
 // --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
@@ -196,9 +197,8 @@ export class WebClientServer {
 	}
 
 	// --- Start Positron ---
-	// Daily builds don't match Workbench's nginx-served install, so they use session-scoped URLs.
 	private get _useSessionLessStaticRoute(): boolean {
-		return isWorkbench && HAS_STATIC_ROUTE && this._productService.quality !== 'dailies';
+		return shouldUseSessionLessStaticRoute(isWorkbench, HAS_STATIC_ROUTE, this._productService.quality);
 	}
 	// --- End Positron ---
 
