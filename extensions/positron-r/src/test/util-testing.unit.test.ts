@@ -7,8 +7,6 @@ import * as assert from 'assert';
 import { escapeLabelForRDesc } from '../testing/util-testing';
 
 suite('escapeLabelForRDesc', () => {
-	// Labels arrive LF-normalized from the parser; the escaper turns a multi-line
-	// description's newline into the `\n` escape so the R command stays one line (#10133).
 	const cases: Record<string, [input: string, expected: string]> = {
 		'leaves a plain label untouched': ['plain label', 'plain label'],
 		'escapes single quotes': ['it\'s fine', 'it\\\'s fine'],
