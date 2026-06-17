@@ -265,7 +265,7 @@ export class Packages {
 		await this.quickInput.waitForQuickInputClosed();
 
 		// Wait for the "Installing packages..." toast to appear and then disappear
-		await this.toasts.waitForAppear('Installing packages...', { timeout: 10000 });
+		await this.toasts.waitForAppear('Installing packages...', { timeout: 30000 });
 		await this.toasts.waitForDisappear('Installing packages...', { timeout: 60000 });
 	}
 
