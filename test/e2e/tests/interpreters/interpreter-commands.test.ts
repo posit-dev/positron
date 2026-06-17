@@ -57,11 +57,10 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 	test('Python - Verify Interrupt Interpreter command works', async function ({ app, runCommand, sessions }) {
 		const { console } = app.workbench;
 
-		const pySession = await sessions.start('python');
+		await sessions.start('python');
 		await console.executeCode('Python', 'import time; time.sleep(5)', { waitForReady: false });
 		await runCommand('workbench.action.languageRuntime.interrupt');
 		await console.waitForConsoleContents('KeyboardInterrupt');
-		await sessions.delete(pySession.id);
 	});
 
 	test('Python - Verify Clear Saved Interpreter command works', { tag: [tags.WIN] }, async function ({ app, page, runCommand, sessions }) {
