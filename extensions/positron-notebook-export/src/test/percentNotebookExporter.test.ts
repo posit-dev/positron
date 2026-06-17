@@ -98,4 +98,16 @@ print("Hello, world!")
 // Content
 `);
 	});
+
+	// No special treatment for cell delimiters inside code cells, for now.
+	// Notebooks containing this case will not round-trip, however this
+	// matches `jupytext` behavior, which is the current standard.
+	test('cell delimiter in code cell', () => {
+		const actual = notebookToPercentScript(mockNotebook([
+			mockCell('# %%', 'python', 'code'),
+		]), { commentPrefix: '#' });
+		assert.strictEqual(actual, `# %%
+# %%
+`);
+	});
 });

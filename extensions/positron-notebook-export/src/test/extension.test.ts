@@ -7,6 +7,7 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { NotebookExporter } from '../positron-notebook-export.js';
 import { activateExtension, openAndShowWorkspaceNotebook } from './util.js';
+import { NotebookExportCommand } from '../notebookExportCommand.js';
 
 function makeTestExporter() {
 	return {
@@ -40,7 +41,7 @@ suite('Positron Notebook Export', () => {
 		const notebook = await openAndShowWorkspaceNotebook('test-notebook.ipynb');
 		const showQuickPickStub = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
 
-		await vscode.commands.executeCommand('notebook.export', notebook.uri);
+		await vscode.commands.executeCommand(NotebookExportCommand.ID, notebook.uri);
 
 		sinon.assert.calledOnceWithExactly(showQuickPickStub, []);
 	});
@@ -56,7 +57,7 @@ suite('Positron Notebook Export', () => {
 		disposables.push(api.registerNotebookExporter(makeTestPythonExporter()));
 		const showQuickPickStub = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
 
-		await vscode.commands.executeCommand('notebook.export', notebook.uri);
+		await vscode.commands.executeCommand(NotebookExportCommand.ID, notebook.uri);
 
 		sinon.assert.calledOnceWithExactly(showQuickPickStub, [
 			sinon.match((item: vscode.QuickPickItem) => item.label === exporter.label),
@@ -74,7 +75,7 @@ suite('Positron Notebook Export', () => {
 			return item;
 		});
 
-		await vscode.commands.executeCommand('notebook.export', notebook.uri);
+		await vscode.commands.executeCommand(NotebookExportCommand.ID, notebook.uri);
 
 		// eslint-disable-next-line local/code-no-any-casts
 		sinon.assert.calledOnceWithExactly(showQuickPickStub, [{
@@ -94,7 +95,7 @@ suite('Positron Notebook Export', () => {
 		const registration = api.registerNotebookExporter(exporter);
 		const showQuickPickStub = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
 
-		await vscode.commands.executeCommand('notebook.export', notebook.uri);
+		await vscode.commands.executeCommand(NotebookExportCommand.ID, notebook.uri);
 
 		// Double-check that it shows before we dispose it.
 		sinon.assert.calledOnceWithExactly(showQuickPickStub, [
@@ -105,7 +106,7 @@ suite('Positron Notebook Export', () => {
 		showQuickPickStub.resetHistory();
 		registration.dispose();
 
-		await vscode.commands.executeCommand('notebook.export', notebook.uri);
+		await vscode.commands.executeCommand(NotebookExportCommand.ID, notebook.uri);
 
 		sinon.assert.calledOnceWithExactly(showQuickPickStub, []);
 	});

@@ -15,15 +15,15 @@
   "contributes": {
     "commands": [
       {
-        "command": "notebook.export",
-        "title": "%command.notebook.export.title%",
+        "command": "positronNotebook.export",
+        "title": "%command.positronNotebook.export.title%",
         "category": "%category.notebook%"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "notebook.export",
+          "command": "positronNotebook.export",
           "group": "share",
           "when": "resourceExtname == .ipynb"
         }

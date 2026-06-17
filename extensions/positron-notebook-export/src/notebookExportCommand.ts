@@ -14,7 +14,10 @@ import { getNotebookLanguage } from './util/notebook.js';
  * See {@link NotebookExportExtension} for more details about how this feature works.
  */
 export class NotebookExportCommand extends NotebookCommand {
-	static ID = 'notebook.export';
+	// Using `positronNotebook` prefix (matching other Positron notebook commands)
+	// even though this command is compatible with Code OSS notebooks,
+	// to gaurd against a conflict if upstream eventually use `notebook.export`.
+	static ID = 'positronNotebook.export';
 
 	constructor(
 		private readonly _api: NotebookExportExtension,
