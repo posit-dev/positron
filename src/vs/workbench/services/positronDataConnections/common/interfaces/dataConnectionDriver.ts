@@ -70,6 +70,15 @@ export type IDataConnectionParameter = IDataConnectionParameterBase & (
 );
 
 /**
+ * Type guard for a parameter that holds a secret value (e.g. a password). Secret parameters carry
+ * `secret: true`; non-secret parameters either omit the field or set it to `false`.
+ * @param parameter The parameter to test.
+ */
+export function isSecretParameter(parameter: IDataConnectionParameter): boolean {
+	return parameter.type === 'password' || (parameter.type === 'string' && parameter.secret === true);
+}
+
+/**
  * Service-level driver metadata. Same shape as IDataConnectionDriverMetadataDTO but with the
  * richer discriminated parameter type so consumers get narrowed `parameter.type`.
  */

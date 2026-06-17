@@ -26,4 +26,5 @@
 
 .positron-dynamic-modal-dialog-box .title-bar.large .title-bar-title {
 	font-size: 16px;
+	color: var(--vscode-descriptionForeground);
 }

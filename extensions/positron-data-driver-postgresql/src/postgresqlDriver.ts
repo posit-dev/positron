@@ -143,7 +143,8 @@ export function createPostgreSQLDriver(
 
 			switch (languageId) {
 				case 'python': {
-					const args = [
+					// The psycopg2 connect arguments.
+					const psycopg2Args = [
 						`host="${escapeDoubleQuoted(host)}"`,
 						`port=${port}`,
 						`dbname="${escapeDoubleQuoted(database)}"`,
@@ -151,13 +152,34 @@ export function createPostgreSQLDriver(
 						`password="${escapeDoubleQuoted(password)}"`,
 					];
 					if (ssl) {
-						args.push(`sslmode="require"`);
+						psycopg2Args.push(`sslmode="require"`);
 					}
+
+					// The SQLAlchemy URL arguments. We build the engine from sa.URL.create(...)
+					// rather than a URL string so the credentials are escaped by SQLAlchemy
+					// instead of requiring manual percent-encoding of special characters.
+					const sqlalchemyArgs = [
+						`"postgresql+psycopg2"`,
+						`host="${escapeDoubleQuoted(host)}"`,
+						`port=${port}`,
+						`database="${escapeDoubleQuoted(database)}"`,
+						`username="${escapeDoubleQuoted(user)}"`,
+						`password="${escapeDoubleQuoted(password)}"`,
+					];
+					if (ssl) {
+						sqlalchemyArgs.push(`query={"sslmode": "require"}`);
+					}
+
 					return [
 						{
 							id: 'psycopg2',
 							label: 'psycopg2',
-							code: `import psycopg2\n\nconn = psycopg2.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+							code: `import psycopg2\n\nconn = psycopg2.connect(\n${psycopg2Args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+						},
+						{
+							id: 'sqlalchemy',
+							label: 'SQLAlchemy',
+							code: `import sqlalchemy as sa\n\nengine = sa.create_engine(sa.URL.create(\n${sqlalchemyArgs.map(arg => `\t${arg},`).join('\n')}\n))\n`,
 						},
 					];
 				}

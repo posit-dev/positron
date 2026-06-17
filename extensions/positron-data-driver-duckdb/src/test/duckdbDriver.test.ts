@@ -71,7 +71,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('connect and disconnect', async () => {
 		const dbPath = await createTestDb('basic.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		assert.strictEqual(await conn.isConnected(), true);
 		await conn.disconnect();
@@ -80,7 +80,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('disconnect is idempotent', async () => {
 		const dbPath = await createTestDb('idempotent.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		await conn.disconnect();
 		await conn.disconnect();
@@ -89,25 +89,16 @@ suite('DuckDB Driver Tests', () => {
 
 	test('connect to non-existent file in read-only mode throws', async () => {
 		await assert.rejects(
-			() => connect({ databasePath: path.join(tmpDir, 'nonexistent.duckdb'), readOnly: true, inMemory: false }),
+			() => connect({ databasePath: path.join(tmpDir, 'nonexistent.duckdb'), readOnly: true }),
 			/Failed to open DuckDB database/
 		);
-	});
-
-	test('in-memory database connects and is read-write', async () => {
-		const conn = await connect({ readOnly: false, inMemory: true });
-
-		assert.strictEqual(await conn.isConnected(), true);
-		assert.strictEqual(await conn.isReadOnly(), false);
-
-		await conn.disconnect();
 	});
 
 	// --- Empty database ---
 
 	test('empty database has no tables or views', async () => {
 		const dbPath = await createTestDb('empty.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
@@ -127,7 +118,7 @@ suite('DuckDB Driver Tests', () => {
 			CREATE VIEW user_orders AS
 				SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id;
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 
@@ -155,7 +146,7 @@ suite('DuckDB Driver Tests', () => {
 				created_at TIMESTAMP
 			);
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
@@ -188,7 +179,7 @@ suite('DuckDB Driver Tests', () => {
 			CREATE TABLE people (id INTEGER, name VARCHAR);
 			CREATE VIEW people_view AS SELECT id, name FROM people;
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const views = await (await getGroup(schema, 'Views')).getChildren!();
@@ -205,7 +196,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('read-only mode allows reads', async () => {
 		const dbPath = await createTestDb('readonly.duckdb', 'CREATE TABLE data (val VARCHAR);');
-		const conn = await connect({ databasePath: dbPath, readOnly: true, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: true });
 
 		assert.strictEqual(await conn.isReadOnly(), true);
 		const schema = await getSchemaNode(conn);
@@ -219,7 +210,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('getChildren after disconnect throws', async () => {
 		const dbPath = await createTestDb('disconnected.duckdb', 'CREATE TABLE t (x INTEGER);');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 		await conn.disconnect();
 
 		await assert.rejects(
@@ -232,7 +223,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('preview does not throw', async () => {
 		const dbPath = await createTestDb('preview.duckdb', 'CREATE TABLE t (x INTEGER);');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();

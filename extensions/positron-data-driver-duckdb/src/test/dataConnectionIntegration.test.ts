@@ -83,7 +83,7 @@ suite('Data Connection Integration', () => {
 			const duckdb = drivers.find(d => d.id === 'positron-data-driver-duckdb')!;
 
 			// Test the parameters length.
-			assert.strictEqual(duckdb.parameters.length, 3);
+			assert.strictEqual(duckdb.parameters.length, 2);
 
 			// Check the path parameter.
 			const pathParam = duckdb.parameters.find(p => p.id === 'databasePath');
@@ -94,11 +94,6 @@ suite('Data Connection Integration', () => {
 			const readOnlyParam = duckdb.parameters.find(p => p.id === 'readOnly');
 			assert.ok(readOnlyParam);
 			assert.strictEqual(readOnlyParam.type, 'boolean');
-
-			// Check the in-memory parameter.
-			const inMemoryParam = duckdb.parameters.find(p => p.id === 'inMemory');
-			assert.ok(inMemoryParam);
-			assert.strictEqual(inMemoryParam.type, 'boolean');
 		});
 	});
 
@@ -112,7 +107,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that connection worked.
@@ -132,29 +126,12 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: true,
-				inMemory: false,
 			});
 
 			// Test that connection worked.
 			assert.ok(conn);
 			assert.strictEqual(await conn.isConnected(), true);
 			assert.strictEqual(await conn.isReadOnly(), true);
-
-			// Disconnect.
-			await conn.disconnect();
-		});
-
-		test('connect to an in-memory database', async () => {
-			// Connect to an in-memory DB (no file path).
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
-				readOnly: false,
-				inMemory: true,
-			});
-
-			// Test that connection worked and is read-write.
-			assert.ok(conn);
-			assert.strictEqual(await conn.isConnected(), true);
-			assert.strictEqual(await conn.isReadOnly(), false);
 
 			// Disconnect.
 			await conn.disconnect();
@@ -172,7 +149,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Browse to the main schema.
@@ -201,7 +177,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: true,
-				inMemory: false,
 			});
 
 			// Browse to the products table.
@@ -242,7 +217,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that the connection is connected.
@@ -263,7 +237,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 
 			// Test that the test DB is not read only.
@@ -294,7 +267,6 @@ suite('Data Connection Integration', () => {
 			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
 				databasePath: dbPath,
 				readOnly: false,
-				inMemory: false,
 			});
 			assert.strictEqual(await conn.isConnected(), true);
 

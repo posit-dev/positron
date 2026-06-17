@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import Severity from '../../../../../base/common/severity.js';
 import { toErrorMessage } from '../../../../../base/common/errorMessage.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
+import { showIncludeSecretsConfirmation } from './includeSecretsConfirmation.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -21,8 +22,8 @@ import { PositronModalDialogReactRenderer } from '../../../../../base/browser/po
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DataConnectionCodeEditor, DataConnectionCodeEditorWidget } from '../components/dataConnectionCodeEditor.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
-import { IDataConnectionCodeVariant } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { IDataConnectionCodeVariant, IDataConnectionDriver, isSecretParameter } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 // The width of the Connect Data Connection With dialog.
 const CONNECT_DATA_CONNECTION_WITH_WIDTH = 800;
@@ -37,11 +38,16 @@ export interface ConnectDataConnectionWithOptions {
 	// The display name of the connection, shown in the dialog title.
 	readonly connectionName: string;
 
-	// The display name of the data source / driver (e.g. 'SQLite', 'DuckDB'), shown in the dialog title.
-	readonly driverName: string;
+	// The driver for this connection. Used for the title (driver name) and to detect whether the
+	// connection has any secret parameters (which surfaces the Include Secrets action).
+	readonly driver: IDataConnectionDriver;
 
-	// The available connection code variants, in preference order (first is the default). Must be
-	// non-empty.
+	// Regenerates the connection code variants with secret values (e.g. passwords) embedded. Invoked
+	// only after the user confirms the Include Secrets action; pulls secrets from secret storage.
+	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
+
+	// The available connection code variants, in preference order (first is the default). Generated
+	// with secret values omitted (the default, secret-free preview). Must be non-empty.
 	readonly variants: IDataConnectionCodeVariant[];
 }
 
@@ -58,7 +64,8 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
 	renderer.render(
 		<ConnectDataConnectionWith
 			connectionName={options.connectionName}
-			driverName={options.driverName}
+			driver={options.driver}
+			generateSecretVariants={options.generateSecretVariants}
 			languageId={options.languageId}
 			renderer={renderer}
 			variants={options.variants}
@@ -73,7 +80,8 @@ interface ConnectDataConnectionWithProps {
 	readonly renderer: PositronModalDialogReactRenderer;
 	readonly languageId: string;
 	readonly connectionName: string;
-	readonly driverName: string;
+	readonly driver: IDataConnectionDriver;
+	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
 }
 
@@ -87,9 +95,39 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 
 	const editorRef = useRef<DataConnectionCodeEditorWidget>(undefined!);
 
-	// The currently-selected variant. Defaults to the first (preferred) variant.
+	// Whether the driver has any secret parameters (e.g. a password) whose values we keep out of the
+	// generated code unless the user opts in.
+	const hasSecrets = props.driver.metadata.parameters.some(isSecretParameter);
+
+	// Whether secret parameter values have been embedded in the generated code. Starts false; set
+	// once the user confirms the Include Secrets action. One-way: the dialog reopens secret-free.
+	const [includeSecrets, setIncludeSecrets] = useState(false);
+
+	// The connection code variants to display. Initialized with the secret-free variants generated
+	// by the caller; replaced with secret-bearing variants once the user includes secrets.
+	const [variants, setVariants] = useState(props.variants);
+
+	// The currently-selected variant. Defaults to the first (preferred) variant. Variant ids are
+	// stable across regeneration, so the selection survives including secrets.
 	const [selectedVariantId, setSelectedVariantId] = useState(props.variants[0].id);
-	const selectedVariant = props.variants.find(variant => variant.id === selectedVariantId) ?? props.variants[0];
+	const selectedVariant = variants.find(variant => variant.id === selectedVariantId) ?? variants[0];
+
+	const includeSecretsHandler = async () => {
+		// Warn before embedding secrets: the generated code can leak credentials into console
+		// history, the clipboard, or a saved script.
+		const confirmed = await showIncludeSecretsConfirmation();
+		if (!confirmed) {
+			return;
+		}
+
+		// Regenerate the variants with secrets embedded. Keep the secret-free preview if generation
+		// yields nothing, but still mark secrets as included so the action isn't offered again.
+		const secretVariants = await props.generateSecretVariants();
+		if (secretVariants.length > 0) {
+			setVariants(secretVariants);
+		}
+		setIncludeSecrets(true);
+	};
 
 	const copyHandler = async () => {
 		const code = editorRef.current.getCode();
@@ -160,7 +198,7 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 	};
 
 	// Only show the variant selector when there is more than one variant to choose from.
-	const showVariantSelector = props.variants.length > 1;
+	const showVariantSelector = variants.length > 1;
 
 	// The label for the variant selector. The variants are packages -- the install unit in both R
 	// and Python -- so "Package" is correct for every language.
@@ -180,6 +218,15 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 					<div className='code-header'>
 						<span className='code-title'>{localize('positron.connectDataConnectionWith.code', "Connection Code")}</span>
 						<div className='code-actions'>
+							{hasSecrets &&
+								<Button
+									className='button dialog-button small'
+									disabled={includeSecrets}
+									onPressed={includeSecretsHandler}
+								>
+									{localize('positron.connectDataConnectionWith.includeSecrets', "Include Secrets")}
+								</Button>
+							}
 							<Button
 								className='button dialog-button small'
 								disabled={!selectedVariant.code}
@@ -198,7 +245,7 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 					</div>
 					{showVariantSelector &&
 						<div aria-label={variantGroupLabel} className='variant-list' role='listbox'>
-							{props.variants.map(variant =>
+							{variants.map(variant =>
 								<Button
 									key={variant.id}
 									ariaSelected={variant.id === selectedVariant.id}
@@ -213,7 +260,10 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 					}
 					<div className='code'>
 						<DataConnectionCodeEditor
-							key={selectedVariant.id}
+							// The editor seeds its content once on mount, so key on the code itself to
+							// remount whenever the displayed code changes -- switching variants or
+							// toggling secret values both alter the code.
+							key={selectedVariant.code}
 							ref={editorRef}
 							code={selectedVariant.code}
 							languageId={props.languageId}
@@ -230,7 +280,7 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 				/>
 			}
 			renderer={props.renderer}
-			title={localize('positron.connectDataConnectionWith.summary', "Connect {0} · {1} with {2}", props.connectionName, props.driverName, languageName)}
+			title={localize('positron.connectDataConnectionWith.summary', "Connect {0} · {1} with {2}", props.connectionName, props.driver.metadata.name, languageName)}
 			titleBarSize='large'
 			width={CONNECT_DATA_CONNECTION_WITH_WIDTH}
 			onCancel={cancelHandler}

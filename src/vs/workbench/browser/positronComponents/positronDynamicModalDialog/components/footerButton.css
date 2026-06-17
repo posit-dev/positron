@@ -6,9 +6,10 @@
 /*
  * Footer button sizing. The shared visual treatment (colors, borders, hover/focus/disabled states)
  * lives on `.positron-dynamic-modal-dialog-box .dialog-button` in positronDynamicModalDialog.css;
- * FooterButton applies both classes, so this file only carries the fixed footer button dimensions.
+ * FooterButton applies both classes, so this file only carries the footer button dimensions.
  */
 .positron-dynamic-modal-dialog-box .footer-button {
-	width: 80px;
 	height: 32px;
+	min-width: 80px;
+	padding: 0 12px;
 }

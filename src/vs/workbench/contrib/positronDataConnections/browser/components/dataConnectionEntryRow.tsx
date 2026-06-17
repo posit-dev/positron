@@ -108,6 +108,9 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 		// Generates the connection code variants for the given language and, if any are available,
 		// opens the Connect dialog to preview and run them.
 		const connectWith = async (languageId: string) => {
+			// The in-memory profile's parameterValues never contains secret values (those live in
+			// secret storage), so this is the default, secret-free preview. Secret values are only
+			// pulled in if the user explicitly opts in via the dialog's Include Secrets action.
 			const variants = await driver.generateConnectionCode(languageId, profile.parameterValues);
 			if (variants.length === 0) {
 				notificationService.error(localize(
@@ -121,7 +124,16 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 			showConnectDataConnectionWith({
 				languageId,
 				connectionName: profile.connectionName,
-				driverName: driver.metadata.name,
+				driver,
+				// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
+				// Invoked only after the user confirms the Include Secrets action in the dialog.
+				generateSecretVariants: async () => {
+					const profileWithSecrets = await positronDataConnectionsService.getProfileWithSecrets(profile.id);
+					if (!profileWithSecrets) {
+						return [];
+					}
+					return driver.generateConnectionCode(languageId, profileWithSecrets.parameterValues);
+				},
 				variants,
 			});
 		};
