@@ -45,6 +45,7 @@ describe('CodeCellStatusFooter', () => {
 			isAddingTag: observableValue<boolean>('isAddingTag', state.isAddingTag ?? false),
 			tagUIVisible: observableValue<boolean>('tagUIVisible', tagUIVisible),
 			isInViewport: () => true,
+			container: document.createElement('div'),
 		});
 
 		return rtl.render(<CodeCellStatusFooter cell={cell} hasError={hasError} />);

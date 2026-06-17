@@ -7,7 +7,7 @@
 import './CodeCellStatusFooter.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -51,23 +51,49 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	 * This forces the component to re-render and update the displayed relative time.
 	 */
 	const [, setTick] = useState(0);
-	const containerRef = useRef<HTMLDivElement>(null);
 
+	// Refresh immediately when any part of the cell enters the viewport.
+	// We observe the whole cell container (not just the footer) so that tall
+	// cells where only the output is visible and the footer is scrolled above
+	// the viewport also trigger a refresh.
 	useEffect(() => {
-		// Only set up interval if we have a completion time to display
 		if (lastRunEndTime === undefined) {
 			return;
 		}
 
-		const targetWindow = DOM.getWindow(containerRef.current);
+		const cellContainer = cell.container;
+		if (!cellContainer) {
+			return;
+		}
+
+		// Use the cell's window in multi-window Electron contexts.
+		const targetWindow = DOM.getWindow(cellContainer);
+
+		// We track the current intersection state so the interval can
+		// use it to trigger a refresh when any part of the cell is visible.
+		let cellIsVisible = false;
+		const observer = new targetWindow.IntersectionObserver(
+			([entry]) => {
+				cellIsVisible = entry.isIntersecting;
+				if (entry.isIntersecting) {
+					setTick(tick => tick + 1);
+				}
+			},
+			{ threshold: 0 }
+		);
+		observer.observe(cellContainer);
+
+		// Keep refreshing every minute while any part of the cell is visible.
 		const intervalId = targetWindow.setInterval(() => {
-			// Only update if cell is visible to avoid unnecessary re-renders
-			if (cell.isInViewport()) {
+			if (cellIsVisible) {
 				setTick(tick => tick + 1);
 			}
 		}, 60000);
 
-		return () => targetWindow.clearInterval(intervalId);
+		return () => {
+			observer.disconnect();
+			targetWindow.clearInterval(intervalId);
+		};
 	}, [cell, lastRunEndTime]);
 
 	// Derive state conditions
@@ -197,7 +223,6 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	return (
 		<div
-			ref={containerRef}
 			aria-hidden={isCollapsed || undefined}
 			aria-label={isCollapsed ? undefined : getAriaLabel()}
 			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
