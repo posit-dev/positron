@@ -119,6 +119,12 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		this._outputScrolling.set(true, undefined);
 	}
 
+	toggleOutputScroll(): void {
+		const effective = this._outputScrolling.get()
+			?? this.instance.notebookOptions.getLayoutConfiguration().outputScrolling;
+		this._outputScrolling.set(!effective, undefined);
+	}
+
 	resetOutputScrolling(): void {
 		this._outputScrolling.set(undefined, undefined);
 	}

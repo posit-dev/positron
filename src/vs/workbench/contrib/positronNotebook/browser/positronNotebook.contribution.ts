@@ -797,6 +797,30 @@ export class ToggleOutputAction extends NotebookAction2 {
 }
 registerAction2(ToggleOutputAction);
 
+// Shift+O: Toggle cell output scrolling in command mode (Jupyter-style)
+export class ToggleOutputScrollAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutputScroll',
+			title: localize2('positronNotebook.cell.toggleOutputScroll', "Toggle Cell Output Scrolling"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyO
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputScroll();
+		}
+	}
+}
+registerAction2(ToggleOutputScrollAction);
+
 // Cmd+A / Ctrl+A: Select all cells in command mode (Jupyter-style)
 export class SelectAllCellsAction extends NotebookAction2 {
 	constructor() {
@@ -2192,7 +2216,7 @@ export class RunAllCellsAction extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		return notebook.runAllCells();
 	}
-});
+}
 
 // Stop All Cells - cancels execution of every running cell.
 registerAction2(class extends NotebookAction2 {
@@ -2232,7 +2256,7 @@ registerAction2(class extends NotebookAction2 {
 		// routes to cancelNotebookCells instead of executeNotebookCells.
 		return notebook.runAllCells();
 	}
-}
+});
 registerAction2(RunAllCellsAction);
 
 // Clear All Outputs - Clears outputs from all cells

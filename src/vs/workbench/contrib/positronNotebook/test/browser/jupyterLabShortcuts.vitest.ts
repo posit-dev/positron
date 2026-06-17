@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../../platform/instantiation/common/i
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../browser/ContextKeysManager.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import {
@@ -30,6 +30,7 @@ import {
 	SelectAllCellsAction,
 	ToggleLineNumbersAction,
 	ToggleOutputAction,
+	ToggleOutputScrollAction,
 } from '../../browser/positronNotebook.contribution.js';
 import { CellSelectionType, getSelectedCells, SelectionState, SelectionStateMachine } from '../../browser/selectionMachine.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
@@ -96,7 +97,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Cmd+Enter scoped to notebook editor focused', () => {
 			const action = new ExecuteOrToggleEditorAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.CtrlCmd | KeyCode.Enter);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 
 		it('calls run() on active code cell', () => {
@@ -140,7 +141,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Shift+Enter scoped to notebook editor focused', () => {
 			const action = new ExecuteAndSelectBelowAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.Enter);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 
 		it('runs cell and moves selection down', async () => {
@@ -185,7 +186,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Alt+Enter scoped to notebook editor focused', () => {
 			const action = new ExecuteAndInsertBelowAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.Enter);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 
 		it('runs cell and inserts a new cell below', async () => {
@@ -251,7 +252,8 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Escape scoped to cell editor focused', () => {
 			const action = new ExitEditModeAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyCode.Escape);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED);
+			// `when` is a composite ContextKeyExpr.and(...), so check it includes the cell-editor key.
+			expect(action.desc.keybinding?.when?.keys()).toContain(NotebookContextKeys.cellEditorFocused.key);
 		});
 
 		it('calls exitEditor when in editing state for code cell', () => {
@@ -281,7 +283,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 			const action = new MoveCellUpAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
 			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 	});
 
@@ -290,7 +292,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 			const action = new MoveCellDownAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
 			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_EDITOR_FOCUSED);
+			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 	});
 
@@ -440,6 +442,37 @@ describe('Positron Notebook keyboard shortcuts', () => {
 				expect(cell.outputIsCollapsed.get()).toBe(true);
 				cell.toggleOutputCollapse();
 				expect(cell.outputIsCollapsed.get()).toBe(false);
+			}
+		});
+	});
+
+	describe('Shift+O (Toggle Cell Output Scrolling)', () => {
+		it('declares Shift+O scoped to command mode', () => {
+			const action = new ToggleOutputScrollAction();
+			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.KeyO);
+			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+		});
+
+		it('toggles output scrolling on a code cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[['print("hello")', 'python', CellKind.Code]],
+				ctx,
+			);
+			const cells = notebook.cells.get();
+			notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			const cell = cells[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			if (cell.isCodeCell()) {
+				// Starts as undefined (follows the global notebook.outputScrolling setting).
+				expect(cell.outputScrolling.get()).toBe(undefined);
+				// First toggle resolves the effective state and sets the explicit opposite.
+				cell.toggleOutputScroll();
+				const first = cell.outputScrolling.get();
+				expect(typeof first).toBe('boolean');
+				// Subsequent toggles flip the explicit value.
+				cell.toggleOutputScroll();
+				expect(cell.outputScrolling.get()).toBe(!first);
 			}
 		});
 	});
