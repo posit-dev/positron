@@ -39,7 +39,6 @@ import { getSelectedCells } from './selectionMachine.js';
 import { startScrollRestorationLoop } from './scrollRestorationLoop.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import type { NotebookDisplayOptions, NotebookLayoutConfiguration } from '../../notebook/browser/notebookOptions.js';
-import { useEnvironment } from './EnvironmentProvider.js';
 import { useScrollBeyondLastLinePadding } from './useScrollBeyondLastLinePadding.js';
 
 export function PositronNotebookComponent() {
@@ -144,10 +143,8 @@ export function PositronNotebookComponent() {
 		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
 	}, [notebookInstance]);
 
-	const environment = useEnvironment();
 	const scrollBeyondLastLinePadding = useScrollBeyondLastLinePadding(
 		services.configurationService,
-		environment.size,
 	);
 
 	return (

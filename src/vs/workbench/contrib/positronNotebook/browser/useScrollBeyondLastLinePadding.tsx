@@ -4,21 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { IObservable } from '../../../../base/common/observable.js';
-import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { useEnvironment } from './EnvironmentProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 
 /**
- * Returns the paddingBottom value (in pixels) needed to implement scroll-beyond-last-line
- * in the notebook cells container, matching VS Code's native notebook behavior.
+ * Returns the paddingBlockEnd value (in pixels) needed to implement scroll-beyond-last-line
+ * in the notebook cells container, matching VS Code's native notebook behavior. We rely on
+ * padding to change the scrollable area because scrolling is handled by the browser in the
+ * Positron Notebook Editor.
  *
  * Returns undefined when the setting is disabled so CSS controls the default bottom padding.
  */
 export function useScrollBeyondLastLinePadding(
 	configurationService: IConfigurationService,
-	size: IObservable<ISize>,
 ): number | undefined {
+	const { size } = useEnvironment();
 	const { height } = useObservedValue(size);
 
 	const [enabled, setEnabled] = React.useState(
