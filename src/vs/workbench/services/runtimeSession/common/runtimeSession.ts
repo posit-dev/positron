@@ -872,7 +872,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Keep the foreground session display info in sync
 		this.foregroundSessionDisplayInfo = this._foregroundSession
-			? new RuntimeSessionDisplayInfo(this._foregroundSession, this.getDisplayRuntimeState(this._foregroundSession.sessionId))
+			? this._createRuntimeSessionDisplayInfo(this._foregroundSession)
 			: undefined;
 
 		// Fire the onDidChangeForegroundSession event.
@@ -904,6 +904,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return this._restartingSessionIds.has(sessionId)
 			? RuntimeState.Restarting
 			: active.state;
+	}
+
+	private _createRuntimeSessionDisplayInfo(session: ILanguageRuntimeSession): RuntimeSessionDisplayInfo {
+		return new RuntimeSessionDisplayInfo(session, this.getDisplayRuntimeState(session.sessionId));
 	}
 
 	/**
@@ -1189,7 +1193,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Keep the foreground session display info in sync
 		if (this._foregroundSession?.sessionId === session.sessionId) {
-			this.foregroundSessionDisplayInfo = new RuntimeSessionDisplayInfo(this._foregroundSession, this.getDisplayRuntimeState(this._foregroundSession.sessionId));
+			this.foregroundSessionDisplayInfo = this._createRuntimeSessionDisplayInfo(this._foregroundSession);
 		}
 
 		// Log the end of the session name update
