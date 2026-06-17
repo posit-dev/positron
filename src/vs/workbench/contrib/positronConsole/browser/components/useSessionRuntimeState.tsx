@@ -3,41 +3,43 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { useMemo } from 'react';
+import { Event } from '../../../../../base/common/event.js';
+import { useEventState } from '../../../../../base/browser/ui/react/useEventState.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import type { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
- * Returns the current RuntimeState for a session, for rendering status indicators.
- * Restart is special-cased: the state stays `Restarting` for the whole restart so a
- * transient `idle` mid-restart isn't surfaced. Returns undefined when no session is attached.
+ * Returns the current display friendly RuntimeState for a session.
+ * Restart is special-cased: the state stays `Restarting` for the
+ * whole restart so a transient `idle` mid-restart isn't surfaced.
+ * Returns undefined when no session is attached.
  */
 export function useSessionRuntimeState(session: ILanguageRuntimeSession | undefined): RuntimeState | undefined {
 	const services = usePositronReactServicesContext();
-	const [runtimeState, setRuntimeState] = useState<RuntimeState | undefined>(() =>
-		session
-			? services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
-			: undefined
+
+	// Create a new memoized event that filters out state change events for
+	// other sessions, so we only re-render when our session's state changes.
+	// This avoids unnecessary re-renders when this event fires for other sessions.
+	const onDidChangeDisplayRuntimeStateEventForSession = useMemo(
+		() => session
+			? Event.map(
+				Event.filter(
+					services.runtimeSessionService.onDidChangeDisplayRuntimeState,
+					e => e.sessionId === session.sessionId
+				),
+				e => e.state
+			)
+			: undefined,
+		[services.runtimeSessionService, session]
 	);
 
-	useEffect(() => {
-		if (!session) {
-			setRuntimeState(undefined);
-			return;
-		}
-		const disposables = new DisposableStore();
-		setRuntimeState(
-			services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
-		);
-		disposables.add(services.runtimeSessionService.onDidChangeDisplayRuntimeState(e => {
-			if (e.sessionId === session.sessionId) {
-				setRuntimeState(e.state);
-			}
-		}));
-		return () => disposables.dispose();
-	}, [session, services]);
-
-	return runtimeState;
+	// Listen to this event and return the new state whenever it fires. If no session, return undefined.
+	return useEventState(
+		onDidChangeDisplayRuntimeStateEventForSession,
+		() => session
+			? services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
+			: undefined,
+	);
 }
