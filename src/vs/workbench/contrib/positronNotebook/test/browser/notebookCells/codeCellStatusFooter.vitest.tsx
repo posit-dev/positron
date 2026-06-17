@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
@@ -30,6 +30,23 @@ describe('CodeCellStatusFooter', () => {
 	// render through the provider tree rather than the prop-only renderer.
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	let intersectionCallback: IntersectionObserverCallback | null = null;
+
+	beforeEach(() => {
+		intersectionCallback = null;
+		vi.stubGlobal('IntersectionObserver', class {
+			constructor(cb: IntersectionObserverCallback) {
+				intersectionCallback = cb;
+			}
+			observe() { }
+			disconnect() { }
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
 
 	function renderFooter(state: CellState = {}, hasError = false) {
 		// Mirrors the real cell's tagUIVisible derivation (tags or an in-progress
@@ -158,6 +175,30 @@ describe('CodeCellStatusFooter', () => {
 			expect(screen.getByTestId('cell-footer-metadata')).toBeInTheDocument();
 		} else {
 			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+		}
+	});
+
+	it('refreshes relative time when cell enters viewport', async () => {
+		vi.useFakeTimers();
+		try {
+			const startTime = Date.now();
+			renderFooter({
+				lastExecutionDuration: 500,
+				lastRunEndTime: startTime - 60_000,
+				lastRunSuccess: true,
+			});
+
+			expect(screen.getByText('1 min ago')).toBeInTheDocument();
+			vi.advanceTimersByTime(60_000);
+			await act(async () => {
+				intersectionCallback!(
+					[stubInterface<IntersectionObserverEntry>({ isIntersecting: true })],
+					stubInterface<IntersectionObserver>()
+				);
+			});
+			expect(screen.getByText('2 mins ago')).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
 		}
 	});
 });
