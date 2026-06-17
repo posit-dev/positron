@@ -150,7 +150,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-	private readonly _lineNumberWidthDisposables = this._register(new DisposableStore());
+	private readonly _lineNumberWidthDisposable = this._register(new MutableDisposable());
 
 	/**
 	 * Cached font information for the notebook editor.
@@ -466,9 +466,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(autorun(reader => {
 			this.cells.read(reader);
 			const textModel = this._textModel.read(reader);
-			this._lineNumberWidthDisposables.clear();
+			this._lineNumberWidthDisposable.clear();
 			if (textModel) {
-				this._lineNumberWidthDisposables.add(textModel.onDidChangeContent(() => this._recomputeLineNumberWidth()));
+				this._lineNumberWidthDisposable.value = textModel.onDidChangeContent(() => this._recomputeLineNumberWidth());
 			}
 			this._recomputeLineNumberWidth();
 		}));
