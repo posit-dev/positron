@@ -274,6 +274,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				name: node.name,
 				kind: node.kind,
 				dataType: node.dataType,
+				isPrimaryKey: node.isPrimaryKey,
 				hasGetChildren: !!node.getChildren,
 				hasPreview: !!node.preview,
 			};

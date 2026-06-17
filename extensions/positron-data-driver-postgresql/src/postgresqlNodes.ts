@@ -146,6 +146,11 @@ function createColumnsGroupNode(
 		name: 'Columns',
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		async getChildren() {
+			// Primary-key columns (tables only; views have no primary key).
+			const primaryKeyColumns = kind === 'table'
+				? await getPrimaryKeyColumns(client, schemaName, relationName)
+				: new Set<string>();
+
 			const result = await client.query(
 				`SELECT column_name, data_type, udt_name, is_nullable, character_maximum_length, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
 				[schemaName, relationName]
@@ -156,6 +161,7 @@ function createColumnsGroupNode(
 					name: columnName,
 					kind: positron.DataConnectionNodeKind.Field,
 					dataType: formatDataType(row),
+					isPrimaryKey: primaryKeyColumns.has(columnName),
 					preview() {
 						return host.previewColumn(schemaName, relationName, kind, columnName);
 					},
@@ -163,6 +169,20 @@ function createColumnsGroupNode(
 			});
 		},
 	};
+}
+
+/**
+ * Returns the set of column names that make up a table's primary key.
+ */
+async function getPrimaryKeyColumns(client: Client, schemaName: string, tableName: string): Promise<Set<string>> {
+	const result = await client.query(
+		`SELECT kcu.column_name FROM information_schema.table_constraints tc ` +
+		`JOIN information_schema.key_column_usage kcu ` +
+		`ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema ` +
+		`WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1 AND tc.table_name = $2`,
+		[schemaName, tableName]
+	);
+	return new Set(result.rows.map(row => row.column_name));
 }
 
 /**

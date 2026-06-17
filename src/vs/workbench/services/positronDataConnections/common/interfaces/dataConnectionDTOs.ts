@@ -55,6 +55,7 @@ export interface IDataConnectionNodeDTO {
 	name: string;
 	kind: string; // DataConnectionNodeKind value
 	dataType?: string;
+	isPrimaryKey?: boolean;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
 }

@@ -2002,8 +2002,6 @@ declare module 'positron' {
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
-		GroupTriggers = 'group-triggers',
-		Trigger = 'trigger',
 		Index = 'index',
 	}
 
@@ -2022,6 +2020,12 @@ declare module 'positron' {
 		 * Data type information, for field nodes.
 		 */
 		dataType?: string;
+
+		/**
+		 * For field nodes under a table, whether the column is part of the table's primary key.
+		 * Columns under views are not part of a primary key, so this is left unset for them.
+		 */
+		isPrimaryKey?: boolean;
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).

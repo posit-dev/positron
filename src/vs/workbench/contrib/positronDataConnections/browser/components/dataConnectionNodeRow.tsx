@@ -46,10 +46,6 @@ const kindIcon = (kind: string): string => {
 			return 'symbol-field';
 		case 'group-indexes':
 			return 'key';
-		case 'group-triggers':
-			return 'zap';
-		case 'trigger':
-			return 'zap';
 		case 'index':
 			return 'key';
 		default:
@@ -129,6 +125,13 @@ export const DataConnectionNodeRow = ({ dto, handle }: DataConnectionNodeRowProp
 		>
 			<div className={`codicon codicon-${kindIcon(dto.kind)} data-connection-node-icon`} />
 			<div className='data-connection-node-text'>{dto.name}</div>
+			{dto.isPrimaryKey && (
+				<div
+					aria-label={localize('positron.dataConnections.primaryKey', "Primary key")}
+					className='codicon codicon-key data-connection-node-pk'
+					title={localize('positron.dataConnections.primaryKey', "Primary key")}
+				/>
+			)}
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>
 			)}
