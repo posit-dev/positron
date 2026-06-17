@@ -77,6 +77,24 @@ function copyRepo(source: string, destination: string): void {
 }
 
 /**
+ * Recursively copies a fixture folder to a destination, creating the destination
+ * if it doesn't exist. Unlike `copyFixtureFile`, the source is a caller-supplied
+ * absolute path, so the fixture can live anywhere in the repo (not just under
+ * `test/e2e/fixtures/`).
+ *
+ * @param source - Absolute path to the folder to copy.
+ * @param destination - Absolute path the folder's contents should be copied into.
+ */
+export function copyFixtureFolder(source: string, destination: string): void {
+	fs.mkdirSync(destination, { recursive: true });
+	if (process.platform === 'win32') {
+		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
+	} else {
+		cp.execSync(`cp -R "${source}/." "${destination}"`);
+	}
+}
+
+/**
  * Copies a fixture file to a specified destination folder.
  * If `replaceCtrl` is true, it replaces 'cmd' with 'ctrl' in the file content for compatibility with non-macOS platforms.
  *

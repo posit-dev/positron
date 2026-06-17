@@ -13,6 +13,7 @@ import './contrib/outline/positronNotebookOutline.contribution.js';
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
+import './contrib/cellTags/actions.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
@@ -54,7 +55,7 @@ import { bindContextKey } from '../../../../platform/observable/common/platformO
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookEditorOptions } from './positronNotebookEditorTypes.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookActionId, PositronNotebookCellActionBarLeftGroup, PositronNotebookCellActionGroup, PositronNotebookCellOutputActionGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
@@ -88,17 +89,6 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
 	CONTEXT_REPLACE_INPUT_FOCUSED.toNegated(),
 );
-
-const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
-
-// Group IDs used to organize cell actions in menus and context menus
-enum PositronNotebookCellActionGroup {
-	Clipboard = '0_clipboard',
-	CellType = '1_celltype',
-	Insert = '2_insert',
-	Order = '3_order',
-	Execution = '4_execution',
-}
 
 /**
  * Infer the notebook view type from a resource's file extension.

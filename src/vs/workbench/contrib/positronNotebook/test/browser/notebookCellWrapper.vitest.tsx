@@ -226,3 +226,52 @@ describe('NotebookCellWrapper CellProvider', () => {
 	});
 
 });
+
+describe('NotebookCellWrapper tag placement', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function renderWrapper(notebook: TestPositronNotebookInstance) {
+		const cell = notebook.cells.get()[0];
+		const environmentBundle = {
+			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
+			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
+		};
+		rtl.render(
+			<NotebookInstanceProvider instance={notebook}>
+				<EnvironentProvider environmentBundle={environmentBundle}>
+					<NotebookCellWrapper cell={cell}>{null}</NotebookCellWrapper>
+				</EnvironentProvider>
+			</NotebookInstanceProvider>
+		);
+	}
+
+	/** A single tagged cell of the given kind/language (tags seeded in metadata). */
+	function taggedNotebook(language: string, cellKind: CellKind) {
+		return createTestPositronNotebookInstance([{
+			source: 'content',
+			mime: undefined,
+			language,
+			cellKind,
+			outputs: [],
+			metadata: { metadata: { tags: ['tagged'] } },
+			internalMetadata: {},
+		}], ctx);
+	}
+
+	it('places a tagged markdown cell tag bar standalone', () => {
+		// Markdown / raw cells have no footer, so the wrapper renders the bar
+		// itself with the standalone modifier.
+		renderWrapper(taggedNotebook('markdown', CellKind.Markup));
+
+		expect(screen.getByTestId('cell-tags-bar')).toHaveClass('standalone');
+	});
+
+	it('does not place a standalone tag bar on a code cell', () => {
+		// Code cells render their tags inside CodeCellStatusFooter (not part of the
+		// wrapper), so the wrapper's standalone placement is skipped.
+		renderWrapper(taggedNotebook('python', CellKind.Code));
+
+		expect(screen.queryByTestId('cell-tags-bar')).not.toBeInTheDocument();
+	});
+});
