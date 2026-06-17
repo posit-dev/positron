@@ -10,7 +10,7 @@ import split2 from 'split2';
 import { LOGGER } from '../extension';
 import { checkInstalled, getLocale } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
-import { ItemType, TestingTools, encodeNodeId } from './util-testing';
+import { ItemType, TestingTools, encodeNodeId, escapeLabelForRDesc } from './util-testing';
 import { TestResult } from './reporter';
 import { parseTestsFromFile } from './parser';
 import { RSessionManager } from '../session-manager';
@@ -93,7 +93,7 @@ export async function runThatTest(
 	testPath = testPath.replace(/\\/g, '/');
 
 	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
-	const escapedLabel = test?.label.replace(/(['"`])/g, '\\$1');
+	const escapedLabel = test?.label === undefined ? undefined : escapeLabelForRDesc(test.label);
 	const descInsert = isSingleTest ? ` desc = '${escapedLabel || '<all tests>'}', ` : '';
 	const devtoolsCall =
 		`devtools::load_all('${testReporterPath}');` +
