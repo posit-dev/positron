@@ -80,6 +80,10 @@ class AcceptToolConfirmation extends ToolConfirmationAction {
 			title: localize2('chat.accept', "Accept"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			keybinding: {
 				when: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasToolConfirmation),
 				primary: KeyMod.CtrlCmd | KeyCode.Enter,
@@ -101,6 +105,10 @@ class SkipToolConfirmation extends ToolConfirmationAction {
 			title: localize2('chat.skip', "Skip"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			keybinding: {
 				when: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasToolConfirmation),
 				primary: KeyMod.CtrlCmd | KeyCode.Enter | KeyMod.Alt,
@@ -125,7 +133,13 @@ export class ConfigureToolsAction extends Action2 {
 			icon: Codicon.settings,
 			f1: false,
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			menu: [{
 				when: ContextKeyExpr.and(
 					ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
