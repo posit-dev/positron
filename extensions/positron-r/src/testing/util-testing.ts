@@ -37,15 +37,14 @@ export function encodeNodeId(
  * Escape a test label for use as the `desc` argument when running a single test
  * via R. The label is embedded in an R single-quoted string literal, which is
  * itself inside a double-quoted shell `-e` argument, so embedded quotes and
- * backticks must be escaped. Raw newlines from a multi-line test description are
- * escaped to `\r` / `\n` (preserving the exact line ending, never collapsing
- * CRLF to LF) so the shell command stays on one line and R reconstructs the
- * identical string. A raw newline truncates the command on Windows (#10133).
+ * backticks must be escaped. A multi-line description's newline is escaped to
+ * `\n` so the shell command stays on one line and R reconstructs the newline. The
+ * label is already LF-normalized when parsed (see parser.ts), matching what R
+ * stores; a raw newline would otherwise truncate the command on Windows (#10133).
  */
 export function escapeLabelForRDesc(label: string): string {
 	return label
 		.replace(/(['"`])/g, '\\$1')
-		.replace(/\r/g, '\\r')
 		.replace(/\n/g, '\\n');
 }
 
