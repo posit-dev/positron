@@ -37,7 +37,6 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.APPLICATION,
-			// Hidden from the settings UI; users can still set it in settings.json.
 			included: true,
 		},
 	},
