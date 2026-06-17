@@ -40,11 +40,15 @@ const actorColumns = [
 ];
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
-test.describe('Data Connections - Postgres Tree', {
+test.describe('Data Connections - Postgres', {
 	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
-	test('Can configure a Postgres data connection', async function ({ app }) {
+	// Configuring the connection is a one-time, stateful action (re-running the new-connection flow
+	// would add a duplicate profile), and the app is worker-scoped, so the connection persists across
+	// every test in the suite. Create it and expand the tree to a known baseline once here. Per-test
+	// state that must not leak between tests (an open Data Explorer tab) is reset in afterEach.
+	test.beforeAll(async function ({ app }) {
 		const { dataConnections } = app.workbench;
 
 		await dataConnections.openDataConnectionsView();
@@ -61,7 +65,6 @@ test.describe('Data Connections - Postgres Tree', {
 		});
 
 		await dataConnections.save();
-
 		await dataConnections.expectConnectionInTree(connectionName);
 
 		await test.step('Expand the tree down to tables and views', async () => {
@@ -71,6 +74,17 @@ test.describe('Data Connections - Postgres Tree', {
 			await dataConnections.expandNode('Tables');
 			await dataConnections.expandNode('Views');
 		});
+	});
+
+	// Each preview test opens a Data Explorer tab. Close it so the next test starts from a clean
+	// editor state rather than depending on what the previous test left open. The connection and its
+	// expanded tree remain in the worker-scoped app.
+	test.afterEach(async function ({ app }) {
+		await app.workbench.hotKeys.closeAllEditors();
+	});
+
+	test('Displays tables, views, columns, and indexes in the tree', async function ({ app }) {
+		const { dataConnections } = app.workbench;
 
 		await test.step('Verify all tables and views are visible', async () => {
 			for (const table of tables) {
@@ -94,5 +108,28 @@ test.describe('Data Connections - Postgres Tree', {
 				await dataConnections.expectNodeVisible(index);
 			}
 		});
+	});
+
+	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+		const { dataConnections, dataExplorer } = app.workbench;
+
+		await dataConnections.doubleClickNode('actor');
+
+		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.expectColumnHeadersToBe(actorColumns.map(({ name }) => name));
+	});
+
+	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+		const { dataConnections, dataExplorer } = app.workbench;
+
+		await test.step('Expand the actor table columns', async () => {
+			await dataConnections.expandNode('actor');
+			await dataConnections.expandNode('Columns');
+		});
+
+		await dataConnections.doubleClickNode('first_name');
+
+		await dataExplorer.waitForIdle();
+		await dataExplorer.grid.expectColumnHeadersToBe(['first_name']);
 	});
 });

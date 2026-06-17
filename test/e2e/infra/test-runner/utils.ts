@@ -68,6 +68,9 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 }
 
 function copyRepo(source: string, destination: string): void {
+	// Clear any stale copy first: git pack files are read-only, so cp -R
+	// (and xcopy) cannot overwrite them on a rerun, causing "Permission denied".
+	rimraf.sync(destination);
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
 	} else {
