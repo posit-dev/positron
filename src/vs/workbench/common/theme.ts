@@ -2060,6 +2060,14 @@ export const POSITRON_NOTEBOOK_ACTION_BAR_BACKGROUND = registerColor('positronNo
 // Positron notebook cell action bar border and separator color.
 export const POSITRON_NOTEBOOK_ACTION_BAR_BORDER = registerColor('positronNotebook.actionBarBorder', editorWidgetBorder, localize('positronNotebook.actionBarBorder', "Positron notebook cell action bar border and separator color."));
 
+// Positron notebook cell tag pill border color. Defaults to the cell border so the
+// pills stay visible in themes where the widget border is transparent.
+export const POSITRON_NOTEBOOK_CELL_TAG_BORDER = registerColor('positronNotebook.cellTagBorder', POSITRON_NOTEBOOK_CELL_BORDER, localize('positronNotebook.cellTagBorder', "Positron notebook cell tag pill border color."));
+
+// Positron notebook cell tag hover accent color (text, border, and background wash
+// of the add-tag affordance on hover).
+export const POSITRON_NOTEBOOK_CELL_TAG_HOVER_FOREGROUND = registerColor('positronNotebook.cellTagHoverForeground', textLinkForeground, localize('positronNotebook.cellTagHoverForeground', "Positron notebook cell tag hover accent color."));
+
 // *************************************************************************************************
 // *************************************************************************************************
 // *************************************************************************************************
