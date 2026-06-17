@@ -136,6 +136,10 @@ export function registerChatCodeBlockActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.copy,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatCodeBlock,
 					group: 'navigation',
@@ -277,7 +281,13 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: APPLY_IN_EDITOR_ID,
 				title: localize2('interactive.applyInEditor.label', "Apply in Editor"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// precondition: ChatContextKeys.enabled,
+
+				// Disable "Apply in Editor" action for non-Copilot providers unless overridden by config.
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.gitPullRequestGoToChanges,
@@ -320,7 +330,10 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: 'workbench.action.chat.insertCodeBlock',
 				title: localize2('interactive.insertCodeBlock.label', "Insert At Cursor"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 				icon: Codicon.insert,
@@ -356,7 +369,10 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: 'workbench.action.chat.insertIntoNewFile',
 				title: localize2('interactive.insertIntoNewFile.label', "Insert into New File"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 				icon: Codicon.newFile,
@@ -424,7 +440,10 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: 'workbench.action.chat.runInTerminal',
 				title: localize2('interactive.runInTerminal.label', "Insert into Terminal"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 				icon: Codicon.terminal,
@@ -545,7 +564,10 @@ export function registerChatCodeBlockActions() {
 					weight: KeybindingWeight.WorkbenchContrib,
 					when: ChatContextKeys.inChatSession,
 				},
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 			});
@@ -567,7 +589,10 @@ export function registerChatCodeBlockActions() {
 					weight: KeybindingWeight.WorkbenchContrib,
 					when: ChatContextKeys.inChatSession,
 				},
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 			});
@@ -635,7 +660,15 @@ export function registerChatCodeCompareBlockActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.gitPullRequestGoToChanges,
-				precondition: ContextKeyExpr.and(EditorContextKeys.hasChanges, ChatContextKeys.editApplied.negate(), EditorContextKeys.readOnly.negate()),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					EditorContextKeys.hasChanges,
+					ChatContextKeys.editApplied.negate(),
+					EditorContextKeys.readOnly.negate(),
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatCompareBlock,
 					group: 'navigation',
@@ -689,7 +722,15 @@ export function registerChatCodeCompareBlockActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.trash,
-				precondition: ContextKeyExpr.and(EditorContextKeys.hasChanges, ChatContextKeys.editApplied.negate(), EditorContextKeys.readOnly.negate()),
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					EditorContextKeys.hasChanges,
+					ChatContextKeys.editApplied.negate(),
+					EditorContextKeys.readOnly.negate(),
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatCompareBlock,
 					group: 'navigation',
@@ -715,6 +756,10 @@ export function registerChatCodeCompareBlockActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.diffSingle,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				toggled: {
 					condition: EditorContextKeys.diffEditorInlineMode,
 					icon: Codicon.diff,
@@ -740,6 +785,10 @@ export function registerChatCodeCompareBlockActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.goToFile,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatCompareBlock,
 					group: 'navigation',

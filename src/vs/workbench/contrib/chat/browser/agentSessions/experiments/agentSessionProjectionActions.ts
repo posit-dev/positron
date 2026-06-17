@@ -30,11 +30,14 @@ export class EnterAgentSessionProjectionAction extends Action2 {
 			title: localize2('enterAgentSessionProjection', "Enter Agent Session Projection"),
 			category: CHAT_CATEGORY,
 			f1: false,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.has(`config.${ChatConfiguration.AgentSessionProjectionEnabled}`),
-				inAgentSessionProjection.negate()
+				inAgentSessionProjection.negate(),
 			),
+			// --- End Positron ---
 		});
 	}
 
@@ -70,10 +73,13 @@ export class ExitAgentSessionProjectionAction extends Action2 {
 			title: localize2('exitAgentSessionProjection', "Exit Agent Session Projection"),
 			category: CHAT_CATEGORY,
 			f1: true,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
-				inAgentSessionProjection
+				ChatContextKeys.available,
+				inAgentSessionProjection,
 			),
+			// --- End Positron ---
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyCode.Escape,
