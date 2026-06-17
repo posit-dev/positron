@@ -26,10 +26,10 @@ describe('validateLicense', () => {
 		timestamp: string,
 		privKey: crypto.KeyLike = testPrivKey,
 	): string {
+		// Only connection_token + timestamp are signed; issuer/licensee are carried
+		// in the JSON for display but are not part of the signed payload.
 		const signer = crypto.createSign('sha256');
 		signer.update(connectionToken);
-		signer.update(issuer);
-		signer.update(licensee);
 		signer.update(timestamp);
 		const signature = signer.sign(privKey).toString('base64');
 		return JSON.stringify({ connection_token: connectionToken, issuer, licensee, timestamp, signature });

@@ -116,6 +116,7 @@ jobs:
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
           positron-license: ${{ secrets.POSITRON_LICENSE }}
+          server-tarball: /tmp/artifacts/positron-server-linux-x64-branch.tar.gz
 
       - name: Setup test dependencies and compile tests
         uses: ./.github/actions/setup-e2e-test-dependencies

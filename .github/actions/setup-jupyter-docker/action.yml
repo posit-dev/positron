@@ -12,6 +12,10 @@ inputs:
     description: 'Positron license file content'
     required: false
     default: ''
+  server-tarball:
+    description: 'Host path to a pre-built positron-server tarball to install instead of downloading a published release'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -60,10 +64,23 @@ runs:
         docker exec jupyter-test chmod +x /opt/install-jupyter-positron.sh
         docker exec jupyter-test chmod +x /opt/positronDownload.sh
 
+    - name: Stage branch server tarball
+      shell: bash
+      if: inputs.server-tarball != ''
+      run: |
+        # Copy the branch-built server tarball into the container so the install
+        # script installs it instead of downloading a published positron-builds release.
+        docker cp "${{ inputs.server-tarball }}" jupyter-test:/opt/positron-server-branch.tar.gz
+        echo "Staged branch server tarball at /opt/positron-server-branch.tar.gz"
+
     - name: Install Jupyter with Positron in container
       shell: bash
       run: |
-        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
+        TARBALL_ENV=""
+        if [ -n "${{ inputs.server-tarball }}" ]; then
+          TARBALL_ENV="-e POSITRON_SERVER_TARBALL=/opt/positron-server-branch.tar.gz"
+        fi
+        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 ${TARBALL_ENV} jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
 
     - name: Setup Positron license
       shell: bash
