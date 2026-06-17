@@ -466,7 +466,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			// immediately if we have never rendered before; otherwise, throttle
 			// (debounce) the render.
 			this._currentRender = deferred;
-			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500, preview);
+			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500);
 		}
 
 		return deferred.promise;
@@ -478,7 +478,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param request The render request to schedule
 	 * @param delay The delay, in milliseconds
 	 */
-	private scheduleRender(request: DeferredRender, delay: number, preview = false) {
+	private scheduleRender(request: DeferredRender, delay: number) {
 
 		// If there is a render throttle timer, clear it
 		if (this._renderThrottleTimer) {
@@ -500,7 +500,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					this.sizingPolicy = new PlotSizingPolicyCustom(rendered.size, true);
 				}
 				this._stateEmitter.fire(PlotClientState.Rendered);
-				if (!preview) {
+				if (!request.preview) {
 					this._lastRender = rendered;
 					this._lastRenderTimeMs = rendered.renderTimeMs;
 					this._completeRenderEmitter.fire(rendered);
@@ -520,7 +520,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			const queued = this._queuedRender;
 			this._queuedRender = undefined;
 			this._currentRender = queued;
-			this.scheduleRender(queued, 0, queued.preview);
+			this.scheduleRender(queued, 0);
 		}
 	}
 

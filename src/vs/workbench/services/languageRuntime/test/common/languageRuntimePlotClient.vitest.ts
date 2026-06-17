@@ -13,7 +13,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { IPositronPlotMetadata, PlotClientInstance } from '../../common/languageRuntimePlotClient.js';
 import { PositronPlotCommProxy } from '../../common/positronPlotCommProxy.js';
 import { IPositronPlotSizingPolicy } from '../../../positronPlots/common/sizingPolicy.js';
-import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent } from '../../common/positronPlotComm.js';
+import { PlotRenderFormat, PlotResult, PlotSize, ShowEvent, UpdateEvent, IntrinsicSize } from '../../common/positronPlotComm.js';
 import { DeferredRender, IRenderedPlot } from '../../common/positronPlotRenderQueue.js';
 
 describe('Positron - PlotClientInstance', () => {
@@ -34,10 +34,12 @@ describe('Positron - PlotClientInstance', () => {
 	}
 
 	function createPlotClient(metadata: Partial<IPositronPlotMetadata>): PlotClientInstance {
+		const intrinsicSizeEmitter = disposables.add(new Emitter<IntrinsicSize | undefined>());
 		const commProxy = stubInterface<PositronPlotCommProxy>({
 			onDidClose: closeEmitter.event,
 			onDidRenderUpdate: renderUpdateEmitter.event,
 			onDidShowPlot: showPlotEmitter.event,
+			onDidSetIntrinsicSize: intrinsicSizeEmitter.event,
 			render: renderSpy,
 		});
 		const fullMetadata: IPositronPlotMetadata = {
