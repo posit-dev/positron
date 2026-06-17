@@ -68,6 +68,10 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 }
 
 function copyRepo(source: string, destination: string): void {
+	// Start clean: git pack files are read-only (0444), so copying over a
+	// previous copy fails with "Permission denied".
+	rimraf.sync(destination);
+	fs.mkdirSync(destination, { recursive: true });
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
 	} else {
