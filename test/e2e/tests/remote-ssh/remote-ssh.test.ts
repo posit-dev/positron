@@ -79,7 +79,14 @@ test.describe('Remote SSH', {
 
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
-			const pythonSession = await sshWorkbench.sessions.start('python');
+			// Select Python 3.10.12 (uv: root) specifically - disambiguator filters the picker
+			// to avoid picking a different 3.10.12 interpreter
+			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
+				language: 'Python',
+				version: '3.10.12',
+				disambiguator: 'uv: root',
+			});
+			const pythonSession = await sshWorkbench.sessions.getMetadata(pythonSessionId);
 			await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
 			await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
 
