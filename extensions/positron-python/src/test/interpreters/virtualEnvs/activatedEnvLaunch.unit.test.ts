@@ -246,6 +246,10 @@ suite('Activated Env Launch', async () => {
                         TypeMoq.It.isValue(condaPrefix),
                         TypeMoq.It.isValue(ConfigurationTarget.Global),
                         TypeMoq.It.isValue('load'),
+                        // --- Start Positron ---
+                        TypeMoq.It.isValue(undefined),
+                        TypeMoq.It.isValue({ startSession: false, source: 'load' }),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => Promise.resolve())
