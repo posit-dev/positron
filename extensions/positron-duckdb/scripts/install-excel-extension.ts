@@ -32,11 +32,14 @@ const VERSION_FILE = path.join(RESOURCES_DIR, 'EXCEL_VERSION');
 
 /**
  * Resolve the DuckDB extension platform name (e.g. `osx_arm64`) for the build
- * target. Respects `npm_config_arch` so cross-builds (e.g. building x64 on an
- * arm64 host) fetch the right artifact.
+ * target. Respects the build's target arch so cross-builds (e.g. building x64
+ * on an arm64 host) fetch the right artifact. npm normalizes the `NPM_CONFIG_ARCH`
+ * env var to the lowercase `npm_config_arch` config when it runs lifecycle
+ * scripts, but we also read the raw env var so a direct invocation (outside an
+ * npm lifecycle) still honors it.
  */
 function duckdbPlatform(): string {
-	const targetArch = process.env['npm_config_arch'] || arch();
+	const targetArch = process.env['npm_config_arch'] || process.env['NPM_CONFIG_ARCH'] || arch();
 	switch (platform()) {
 		case 'darwin':
 			return targetArch === 'arm64' ? 'osx_arm64' : 'osx_amd64';
@@ -135,7 +138,29 @@ async function main(): Promise<void> {
 	console.log(`Installed DuckDB excel extension ${tag} (${extensionBytes.length} bytes).`);
 }
 
+/**
+ * Whether we are running in CI. Azure Pipelines (this repo's CI) sets `TF_BUILD`;
+ * most other CI systems set `CI`.
+ */
+function isCI(): boolean {
+	return !!(process.env['CI'] || process.env['TF_BUILD'] || process.env['BUILD_BUILDID']);
+}
+
 main().catch((error) => {
 	console.error('Failed to install the DuckDB excel extension:', error);
-	process.exit(1);
+	if (isCI()) {
+		// Fail the build hard: a release that "builds" but silently lacks Excel
+		// support is worse than a build failure. Better to find out here.
+		process.exit(1);
+	}
+	// On a developer machine, soft-fail: a transient download problem (offline,
+	// proxy, CDN hiccup) should not block `npm install` for the whole repo. The
+	// runtime degrades gracefully when the extension is absent -- only .xlsx
+	// support is unavailable, with a clear error -- and re-running install will
+	// fetch it once the network recovers.
+	console.warn(
+		'Continuing without the DuckDB excel extension. Excel (.xlsx) support in ' +
+		'the data explorer will be unavailable until this download succeeds; ' +
+		're-run `npm install` (or `npm run install-excel-extension`) to retry.'
+	);
 });
