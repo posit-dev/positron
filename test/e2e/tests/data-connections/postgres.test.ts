@@ -122,10 +122,8 @@ test.describe('Data Connections - Postgres', {
 	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
-		await test.step('Expand the actor table columns', async () => {
-			await dataConnections.expandNode('actor');
-			await dataConnections.expandNode('Columns');
-		});
+		await dataConnections.expandNode('actor');
+		await dataConnections.expandNode('Columns');
 
 		await dataConnections.doubleClickNode('first_name');
 
