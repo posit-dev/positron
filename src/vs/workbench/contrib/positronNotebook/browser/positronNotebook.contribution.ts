@@ -61,6 +61,7 @@ import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { Action2, registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
+import { ExecuteSelectionInCellAction } from './ExecuteSelectionInCellAction.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
@@ -2233,6 +2234,7 @@ registerNotebookWidget({
 //#endregion Notebook Header Actions
 
 // Register actions
+registerAction2(ExecuteSelectionInCellAction);
 registerAction2(ExecuteSelectionInConsoleAction);
 registerAction2(UpdateNotebookWorkingDirectoryAction);
 

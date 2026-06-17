@@ -24,6 +24,7 @@ import { INotebookKernel } from '../../../notebook/common/notebookKernelService.
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { createTestNotebookEditor } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { IRuntimeNotebookKernelService } from '../../common/interfaces/runtimeNotebookKernelService.js';
+import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../positronNotebook/common/positronNotebookCommon.js';
@@ -352,6 +353,35 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 
 			await timeout(50);
 			expect(runtimeSessionService.activeSessions.length).toBe(0);
+		});
+	});
+
+	describe('executeCodeInCell', () => {
+		it('delegates to the selected kernel', async () => {
+			// Select the kernel for the notebook.
+			notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+			// Stub the kernel's executeCodeInCell to observe the delegation.
+			const executeCodeInCellSpy = vi.spyOn(kernel as RuntimeNotebookKernel, 'executeCodeInCell')
+				.mockResolvedValue(undefined);
+
+			const cell = notebookDocument.cells[0];
+			await runtimeNotebookKernelService.executeCodeInCell(notebookDocument.uri, cell.handle, '1 + 1');
+
+			expect(executeCodeInCellSpy).toHaveBeenCalledOnce();
+			expect(executeCodeInCellSpy).toHaveBeenCalledWith(notebookDocument.uri, cell.handle, '1 + 1');
+		});
+
+		it('throws when no kernel is selected for the notebook', async () => {
+			await expect(
+				runtimeNotebookKernelService.executeCodeInCell(notebookDocument.uri, notebookDocument.cells[0].handle, '1 + 1')
+			).rejects.toThrow(/selected kernel/);
+		});
+
+		it('throws when the notebook has no text model', async () => {
+			await expect(
+				runtimeNotebookKernelService.executeCodeInCell(URI.parse('file:///unknown.ipynb'), 0, '1 + 1')
+			).rejects.toThrow(/text model/);
 		});
 	});
 });
