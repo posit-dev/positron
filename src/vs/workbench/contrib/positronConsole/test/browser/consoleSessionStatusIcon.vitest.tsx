@@ -19,23 +19,32 @@ describe('ConsoleSessionStatusIcon', () => {
 	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
 	let displayState: RuntimeState | undefined;
 
+	const sessionsById = new Map<string, ILanguageRuntimeSession>();
+
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IRuntimeSessionService, {
 			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
 			getDisplayRuntimeState: () => displayState,
+			getSession: (sessionId: string) => sessionsById.get(sessionId),
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function makeInstance(sessionId: string | undefined): IPositronConsoleInstance {
+	function makeInstance(sessionId: string | undefined, { attached = true } = {}): IPositronConsoleInstance {
 		const session = sessionId
 			? stubInterface<ILanguageRuntimeSession>({
 				sessionId,
 				getRuntimeState: () => RuntimeState.Idle,
 			})
 			: undefined;
-		return stubInterface<IPositronConsoleInstance>({ attachedRuntimeSession: session });
+		if (sessionId && session) {
+			sessionsById.set(sessionId, session);
+		}
+		return stubInterface<IPositronConsoleInstance>({
+			sessionId: sessionId ?? 'none',
+			attachedRuntimeSession: attached ? session : undefined,
+		});
 	}
 
 	function setDisplayState(sessionId: string, state: RuntimeState) {
@@ -66,6 +75,15 @@ describe('ConsoleSessionStatusIcon', () => {
 		displayState = RuntimeState.Idle;
 		rtl.render(<ConsoleSessionStatusIcon positronConsoleInstance={makeInstance('s1')} />);
 		setDisplayState('s1', RuntimeState.Busy);
+		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
+	});
+
+	it('stays active during a restart even after the console detaches its runtime', () => {
+		// On restart the kernel exits and the console detaches, so
+		// attachedRuntimeSession is undefined. The service still reports the
+		// session as Restarting, so the icon must read by sessionId and stay active.
+		displayState = RuntimeState.Restarting;
+		rtl.render(<ConsoleSessionStatusIcon positronConsoleInstance={makeInstance('s1', { attached: false })} />);
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 });
