@@ -13,6 +13,10 @@ Unlike general-purpose AI assistants, Posit Assistant is specifically designed f
 - **Code generation and refactoring** - Get help writing new analysis code, refactoring existing notebooks, or exploring alternative data analysis approaches.
 - **Smart quick actions** - Use AI-powered actions to explain code blocks, fix errors, or suggest improvements to your analysis.
 
+<div align="center">
+<img src="./notebook-ai-context-abstract.svg" alt="Positron Notebook Editor" width="400">
+</div>
+
 ## Getting Started
 
 The AI assistant can see your notebook's code, outputs, and variable states, making it uniquely powerful for interactive data science workflows.

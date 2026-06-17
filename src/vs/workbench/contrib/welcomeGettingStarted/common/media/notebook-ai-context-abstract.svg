@@ -1,0 +1,90 @@
+<svg width="520" height="260" viewBox="0 0 520 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Background -->
+<rect width="520" height="260" fill="white"/>
+<!-- Main frame -->
+<rect x="25" y="25" width="470" height="210" rx="5" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Title bar -->
+<path d="M28 25H492C493.657 25 495 26.3431 495 28V45H25V28C25 26.3431 26.3431 25 28 25Z" fill="#F4F4F4" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Tab -->
+<rect x="32" y="30" width="80" height="12" rx="2" fill="white" stroke="#C0C0C0"/>
+<rect x="38" y="34" width="40" height="4" rx="2" fill="#447099"/>
+<!-- Left: Notebook with code cell and output -->
+<rect x="25" y="45" width="260" height="190" fill="white"/>
+<!-- Notebook toolbar -->
+<rect x="25" y="45" width="260" height="16" fill="#F4F4F4"/>
+<line x1="25" y1="61" x2="285" y2="61" stroke="#C0C0C0"/>
+<rect x="32" y="49" width="16" height="8" rx="2" fill="#C0C0C0"/>
+<rect x="52" y="49" width="16" height="8" rx="2" fill="#C0C0C0"/>
+<!-- Code cell -->
+<rect x="36" y="68" width="238" height="42" rx="3" fill="#F8F8F8" stroke="#E0E0E0"/>
+<rect x="31" y="68" width="3" height="42" rx="1" fill="#447099"/>
+<rect x="41" y="73" width="12" height="6" rx="2" fill="#DEDEDE"/>
+<!-- Code lines -->
+<rect x="58" y="73" width="90" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="58" y="81" width="140" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="58" y="89" width="70" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="58" y="97" width="110" height="4" rx="2" fill="#7C7C7C"/>
+<!-- Output (chart) -->
+<rect x="36" y="114" width="238" height="55" rx="3" fill="white" stroke="#E0E0E0"/>
+<!-- Mini bar chart in output -->
+<rect x="55" y="150" width="12" height="14" fill="#447099" opacity="0.6"/>
+<rect x="73" y="140" width="12" height="24" fill="#447099" opacity="0.7"/>
+<rect x="91" y="132" width="12" height="32" fill="#447099" opacity="0.8"/>
+<rect x="109" y="125" width="12" height="39" fill="#447099" opacity="0.9"/>
+<rect x="127" y="136" width="12" height="28" fill="#447099" opacity="0.75"/>
+<rect x="145" y="145" width="12" height="19" fill="#447099" opacity="0.65"/>
+<!-- Chart axis -->
+<line x1="48" y1="164" x2="165" y2="164" stroke="#C0C0C0" stroke-width="1"/>
+<line x1="48" y1="120" x2="48" y2="164" stroke="#C0C0C0" stroke-width="1"/>
+<!-- Context arrows flowing from code+output to assistant -->
+<path d="M274 90 C290 90 290 120 300 120" stroke="#447099" stroke-width="1.5" stroke-dasharray="4 2" fill="none" marker-end="url(#arrow)"/>
+<path d="M274 140 C290 140 290 140 300 140" stroke="#447099" stroke-width="1.5" stroke-dasharray="4 2" fill="none" marker-end="url(#arrow)"/>
+<!-- Markdown cell below -->
+<rect x="36" y="175" width="238" height="14" rx="3" fill="white" stroke="#E0E0E0"/>
+<rect x="44" y="179" width="160" height="4" rx="2" fill="#3E4246"/>
+<!-- Variable badge flowing to assistant -->
+<rect x="36" y="195" width="238" height="34" rx="3" fill="#F8F8F8" stroke="#E0E0E0"/>
+<rect x="31" y="195" width="3" height="34" rx="1" fill="#C0C0C0"/>
+<rect x="44" y="200" width="12" height="6" rx="2" fill="#DEDEDE"/>
+<rect x="58" y="200" width="100" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="58" y="208" width="140" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="58" y="216" width="80" height="4" rx="2" fill="#7C7C7C"/>
+<path d="M274 210 C290 210 290 175 300 175" stroke="#447099" stroke-width="1.5" stroke-dasharray="4 2" fill="none" marker-end="url(#arrow)"/>
+<!-- Separator -->
+<line x1="285" y1="45" x2="285" y2="235" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Right: Assistant panel -->
+<rect x="285" y="45" width="210" height="16" fill="#F4F4F4"/>
+<line x1="285" y1="61" x2="495" y2="61" stroke="#C0C0C0"/>
+<!-- Assistant header with sparkle icon -->
+<path d="M298 47 L299.2 51 L303 52 L299.2 53 L298 57 L296.8 53 L293 52 L296.8 51 Z" fill="#447099"/>
+<path d="M305 49 L305.6 50.5 L307 51 L305.6 51.5 L305 53 L304.4 51.5 L303 51 L304.4 50.5 Z" fill="#447099" opacity="0.6"/>
+<rect x="311" y="50" width="60" height="5" rx="2" fill="#3E4246"/>
+<!-- Assistant message bubble -->
+<rect x="295" y="68" width="180" height="70" rx="4" fill="#EDF4F9" stroke="#D0DFE8"/>
+<!-- Assistant text lines -->
+<rect x="303" y="76" width="155" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="84" width="140" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="92" width="160" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="100" width="120" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="108" width="145" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="116" width="90" height="4" rx="2" fill="#3E4246"/>
+<rect x="303" y="124" width="130" height="4" rx="2" fill="#3E4246"/>
+<!-- Code suggestion block from assistant -->
+<rect x="295" y="144" width="180" height="40" rx="4" fill="#F8F8F8" stroke="#E0E0E0"/>
+<rect x="303" y="150" width="80" height="4" rx="2" fill="#447099"/>
+<rect x="303" y="158" width="120" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="303" y="166" width="95" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="303" y="174" width="60" height="4" rx="2" fill="#7C7C7C"/>
+<!-- User input area at bottom -->
+<rect x="295" y="195" width="180" height="30" rx="4" fill="white" stroke="#C0C0C0"/>
+<rect x="303" y="207" width="100" height="4" rx="2" fill="#C0C0C0"/>
+<!-- Send button -->
+<rect x="455" y="202" width="14" height="14" rx="3" fill="#447099"/>
+<path d="M459 206 L465 209 L459 212" fill="white"/>
+<!-- Arrow marker definition -->
+<defs>
+<marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+<path d="M0 0 L6 3 L0 6 Z" fill="#447099"/>
+</marker>
+</defs>
+</svg>

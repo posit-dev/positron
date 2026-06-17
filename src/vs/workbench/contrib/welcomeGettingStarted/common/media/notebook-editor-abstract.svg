@@ -1,0 +1,93 @@
+<svg width="520" height="260" viewBox="0 0 520 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Background -->
+<rect width="520" height="260" fill="white"/>
+<!-- Main editor frame -->
+<rect x="25" y="25" width="470" height="210" rx="5" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Title bar -->
+<path d="M28 25H492C493.657 25 495 26.3431 495 28V45H25V28C25 26.3431 26.3431 25 28 25Z" fill="#F4F4F4" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Tab in title bar -->
+<rect x="32" y="30" width="80" height="12" rx="2" fill="white" stroke="#C0C0C0"/>
+<rect x="38" y="34" width="40" height="4" rx="2" fill="#447099"/>
+<!-- Notebook toolbar -->
+<rect x="25" y="45" width="320" height="18" fill="#F4F4F4"/>
+<line x1="25" y1="63" x2="345" y2="63" stroke="#C0C0C0"/>
+<!-- Toolbar buttons -->
+<rect x="32" y="49" width="20" height="10" rx="3" fill="#C0C0C0"/>
+<rect x="56" y="49" width="20" height="10" rx="3" fill="#C0C0C0"/>
+<rect x="80" y="49" width="20" height="10" rx="3" fill="#C0C0C0"/>
+<!-- Kernel selector in toolbar -->
+<rect x="270" y="49" width="65" height="10" rx="3" fill="#447099"/>
+<!-- Separator between notebook and variables -->
+<line x1="345" y1="45" x2="345" y2="235" stroke="#C0C0C0" stroke-width="2"/>
+<!-- Code cell 1 -->
+<rect x="36" y="70" width="298" height="45" rx="3" fill="#F8F8F8" stroke="#E0E0E0"/>
+<!-- Cell execution indicator -->
+<rect x="31" y="70" width="3" height="45" rx="1" fill="#447099"/>
+<!-- Cell number -->
+<rect x="41" y="76" width="14" height="7" rx="2" fill="#DEDEDE"/>
+<!-- Code lines in cell 1 -->
+<rect x="60" y="76" width="100" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="60" y="84" width="150" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="60" y="92" width="80" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="60" y="100" width="120" height="4" rx="2" fill="#7C7C7C"/>
+<!-- Output area for cell 1 -->
+<rect x="36" y="119" width="298" height="30" rx="3" fill="white" stroke="#E0E0E0"/>
+<!-- Output text lines -->
+<rect x="44" y="126" width="180" height="4" rx="2" fill="#3E4246"/>
+<rect x="44" y="134" width="140" height="4" rx="2" fill="#3E4246"/>
+<!-- Code cell 2 -->
+<rect x="36" y="155" width="298" height="40" rx="3" fill="#F8F8F8" stroke="#E0E0E0"/>
+<rect x="31" y="155" width="3" height="40" rx="1" fill="#C0C0C0"/>
+<!-- Cell number -->
+<rect x="41" y="161" width="14" height="7" rx="2" fill="#DEDEDE"/>
+<!-- Code lines in cell 2 -->
+<rect x="60" y="161" width="130" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="60" y="169" width="170" height="4" rx="2" fill="#7C7C7C"/>
+<rect x="60" y="177" width="95" height="4" rx="2" fill="#7C7C7C"/>
+<!-- Markdown cell -->
+<rect x="36" y="201" width="298" height="18" rx="3" fill="white" stroke="#E0E0E0"/>
+<rect x="44" y="207" width="200" height="5" rx="2" fill="#3E4246"/>
+<!-- Variables pane header -->
+<rect x="345" y="45" width="150" height="16" fill="#F4F4F4"/>
+<line x1="345" y1="61" x2="495" y2="61" stroke="#C0C0C0"/>
+<rect x="352" y="49" width="50" height="6" rx="3" fill="#3E4246"/>
+<!-- Variables table header -->
+<rect x="352" y="65" width="30" height="5" rx="2" fill="#7C7C7C"/>
+<rect x="395" y="65" width="25" height="5" rx="2" fill="#7C7C7C"/>
+<rect x="435" y="65" width="40" height="5" rx="2" fill="#7C7C7C"/>
+<line x1="345" y1="74" x2="495" y2="74" stroke="#E0E0E0"/>
+<!-- Variable rows -->
+<rect x="352" y="79" width="28" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="79" width="18" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="79" width="45" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="88" x2="495" y2="88" stroke="#F0F0F0"/>
+<rect x="352" y="92" width="22" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="92" width="22" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="92" width="35" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="101" x2="495" y2="101" stroke="#F0F0F0"/>
+<rect x="352" y="105" width="35" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="105" width="15" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="105" width="50" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="114" x2="495" y2="114" stroke="#F0F0F0"/>
+<rect x="352" y="118" width="18" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="118" width="20" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="118" width="30" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="127" x2="495" y2="127" stroke="#F0F0F0"/>
+<rect x="352" y="131" width="25" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="131" width="24" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="131" width="42" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="140" x2="495" y2="140" stroke="#F0F0F0"/>
+<rect x="352" y="144" width="30" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="144" width="18" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="144" width="38" height="5" rx="2" fill="#C0C0C0"/>
+<line x1="345" y1="153" x2="495" y2="153" stroke="#F0F0F0"/>
+<!-- DataFrame row (highlighted) -->
+<rect x="346" y="156" width="148" height="14" rx="0" fill="#EDF4F9"/>
+<rect x="352" y="159" width="32" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="159" width="35" height="5" rx="2" fill="#447099"/>
+<rect x="435" y="159" width="48" height="5" rx="2" fill="#447099"/>
+<line x1="345" y1="174" x2="495" y2="174" stroke="#F0F0F0"/>
+<rect x="352" y="178" width="20" height="5" rx="2" fill="#447099"/>
+<rect x="395" y="178" width="16" height="5" rx="2" fill="#C0C0C0"/>
+<rect x="435" y="178" width="28" height="5" rx="2" fill="#C0C0C0"/>
+</svg>
