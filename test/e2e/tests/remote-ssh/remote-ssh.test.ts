@@ -79,11 +79,10 @@ test.describe('Remote SSH', {
 
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
-			// Select Python 3.10.12 (uv: root) specifically - disambiguator filters the picker
-			// to avoid picking a different 3.10.12 interpreter
+			// disambiguator narrows the picker to (uv: root) when multiple interpreters
+			// share the same version string; version still comes from POSITRON_PY_VER_SEL
 			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
 				language: 'Python',
-				version: '3.10.12',
 				disambiguator: 'uv: root',
 			});
 			const pythonSession = await sshWorkbench.sessions.getMetadata(pythonSessionId);
