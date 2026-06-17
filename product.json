@@ -241,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.9",
+			"version": "2.8.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
