@@ -16,7 +16,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IRuntimeNotebookKernelService } from '../../runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
-import { SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
+import { PositronNotebookCellActionGroup, SELECT_KERNEL_ID_POSITRON } from '../common/positronNotebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import { getActiveCell } from './selectionMachine.js';
@@ -79,8 +79,7 @@ export class ExecuteSelectionInCellAction extends NotebookAction2 {
 			},
 			menu: [{
 				id: MenuId.PositronNotebookCellContext,
-				// PositronNotebookCellActionGroup.Execution in positronNotebook.contribution.ts
-				group: '4_execution',
+				group: PositronNotebookCellActionGroup.Execution,
 				order: 30,
 				when: ContextKeyExpr.and(
 					NotebookContextKeys.cellEditorFocused,
