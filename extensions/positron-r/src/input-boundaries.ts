@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RequestType } from 'vscode-languageclient/node';
+import * as positron from 'positron';
+import * as vscode from 'vscode';
+import { LanguageClient, RequestType } from 'vscode-languageclient/node';
 
 export interface InputBoundariesParams {
 	text: string;
@@ -30,4 +32,24 @@ export interface InputBoundariesResponse {
 
 export namespace InputBoundariesRequest {
 	export const type = new RequestType<InputBoundariesParams, InputBoundariesResponse, any>('positron/inputBoundaries');
+}
+
+/**
+ * Provides R input boundaries through the Ark LSP.
+ */
+export class RInputBoundaryProvider implements positron.InputBoundaryProvider {
+	constructor(
+		private readonly _client: LanguageClient,
+	) { }
+
+	async provideInputBoundaries(
+		document: vscode.TextDocument,
+		range: vscode.Range,
+		token: vscode.CancellationToken
+	): Promise<positron.InputBoundary[]> {
+		const text = document.getText(range);
+		const response = await this._client.sendRequest(InputBoundariesRequest.type, { text }, token);
+
+		return response.boundaries;
+	}
 }

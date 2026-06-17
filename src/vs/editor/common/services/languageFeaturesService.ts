@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../platform/instanti
 // --- Start Positron ---
 // This import is on its own line to avoid unnecessary merge conflicts.
 // eslint-disable-next-line no-duplicate-imports
-import { StatementRangeProvider, HelpTopicProvider } from '../languages.js';
+import { StatementRangeProvider, InputBoundaryProvider, HelpTopicProvider } from '../languages.js';
 // --- End Positron ---
 
 export class LanguageFeaturesService implements ILanguageFeaturesService {
@@ -53,6 +53,7 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
 
 	// --- Start Positron ---
 	readonly statementRangeProvider = new LanguageFeatureRegistry<StatementRangeProvider>(this._score.bind(this));
+	readonly inputBoundaryProvider = new LanguageFeatureRegistry<InputBoundaryProvider>(this._score.bind(this));
 	readonly helpTopicProvider = new LanguageFeatureRegistry<HelpTopicProvider>(this._score.bind(this));
 	// --- End Positron ---
 

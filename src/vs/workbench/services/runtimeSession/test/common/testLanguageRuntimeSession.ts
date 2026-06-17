@@ -161,10 +161,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	async callMethod(_method: string, ..._args: unknown[]): Promise<unknown> {
-		throw new Error('Not implemented.');
-	}
-
 	getDynState(): Promise<ILanguageRuntimeSessionState> {
 		return Promise.resolve(this.dynState);
 	}

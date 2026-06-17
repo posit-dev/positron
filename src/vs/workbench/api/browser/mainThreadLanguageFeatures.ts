@@ -906,6 +906,14 @@ export class MainThreadLanguageFeatures extends Disposable implements MainThread
 		}));
 	}
 
+	$registerInputBoundaryProvider(handle: number, selector: IDocumentFilterDto[]): void {
+		this._registrations.set(handle, this._languageFeaturesService.inputBoundaryProvider.register(selector, {
+			provideInputBoundaries: (model, range, token) => {
+				return this._proxy.$provideInputBoundaries(handle, model.uri, range, token);
+			}
+		}));
+	}
+
 	$registerHelpTopicProvider(handle: number, selector: IDocumentFilterDto[]): void {
 		this._registrations.set(handle, this._languageFeaturesService.helpTopicProvider.register(selector, {
 			provideHelpTopic: (model, position, token) => {

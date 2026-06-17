@@ -260,19 +260,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	async callMethod(method: string, ...args: any[]): Promise<any> {
-		if (method === 'inputBoundaries') {
-			// Quarto asks for R input boundaries through the LSP so it can split
-			// expressions without paying for a completeness check per line.
-			const text = typeof args[0] === 'string' ? args[0] : '';
-			const lsp = await this.waitLsp();
-			if (!lsp) {
-				throw new Error(`Cannot call method '${method}'; LSP not running`);
-			}
-
-			return lsp.inputBoundaries(text);
-		}
-
+	callMethod(method: string, ...args: any[]): Thenable<any> {
 		if (this._kernel) {
 			return this._kernel.callMethod(method, ...args);
 		} else {

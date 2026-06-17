@@ -15,6 +15,10 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import type { IInputBoundary } from '../../../../editor/common/languages.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
@@ -103,10 +107,6 @@ interface RInputBoundary {
 	};
 }
 
-interface RInputBoundariesResponse {
-	boundaries: RInputBoundary[];
-}
-
 /**
  * Implementation of the Quarto execution manager.
  * Manages code execution queue and output collection for Quarto documents.
@@ -157,6 +157,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
+		@IModelService private readonly _modelService: IModelService,
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 	) {
 		super();
 
@@ -1552,13 +1555,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Split R code into complete expressions using the runtime's boundary RPC.
+	 * Split R code into complete expressions using the R input boundary provider.
 	 *
-	 * Falls back to the older line-by-line completeness probe if the runtime
-	 * does not expose input boundaries.
+	 * Falls back to the older line-by-line completeness probe if no provider
+	 * exposes input boundaries.
 	 */
 	private async _getRCodeFragments(session: ILanguageRuntimeSession, code: string): Promise<string[]> {
-		const boundaryFragments = await this._getRCodeFragmentsFromBoundaries(session, code);
+		const boundaryFragments = await this._getRCodeFragmentsFromInputBoundaryProvider(code);
 		if (boundaryFragments) {
 			return boundaryFragments;
 		}
@@ -1567,31 +1570,45 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Ask the runtime for all input boundaries in one request and split the
-	 * code accordingly.
+	 * Ask a language provider for all input boundaries in one request and split
+	 * the code accordingly.
 	 */
-	private async _getRCodeFragmentsFromBoundaries(session: ILanguageRuntimeSession, code: string): Promise<string[] | undefined> {
-		if (!session.callMethod) {
-			return undefined;
-		}
+	private async _getRCodeFragmentsFromInputBoundaryProvider(code: string): Promise<string[] | undefined> {
+		const model = this._modelService.createModel(
+			code,
+			this._languageService.createById('r'),
+			URI.from({ scheme: 'inmemory', path: `/quarto-input-boundaries/${generateUuid()}.R` })
+		);
 
-		let response: unknown;
 		try {
-			response = await session.callMethod('inputBoundaries', code);
-		} catch (error) {
-			this._logService.debug('[QuartoExecutionManager] Failed to query R input boundaries; falling back to line-by-line completeness checks', error);
-			return undefined;
+			const providers = this._languageFeaturesService.inputBoundaryProvider.ordered(model);
+			if (providers.length === 0) {
+				return undefined;
+			}
+
+			const range = model.getFullModelRange();
+			for (const provider of providers) {
+				let boundaries: IInputBoundary[] | undefined | null;
+				try {
+					boundaries = await provider.provideInputBoundaries(model, range, CancellationToken.None);
+				} catch (error) {
+					this._logService.debug('[QuartoExecutionManager] Failed to query R input boundaries; falling back to line-by-line completeness checks', error);
+					continue;
+				}
+
+				const fragments = this._getRCodeFragmentsFromBoundaries(code, boundaries);
+				if (fragments) {
+					return fragments;
+				}
+			}
+		} finally {
+			model.dispose();
 		}
 
-		return this._getRCodeFragmentsFromBoundaryResponse(code, response);
+		return undefined;
 	}
 
-	private _getRCodeFragmentsFromBoundaryResponse(code: string, response: unknown): string[] | undefined {
-		if (!response || typeof response !== 'object') {
-			return undefined;
-		}
-
-		const boundaries = (response as Partial<RInputBoundariesResponse>).boundaries;
+	private _getRCodeFragmentsFromBoundaries(code: string, boundaries: unknown): string[] | undefined {
 		if (!Array.isArray(boundaries)) {
 			return undefined;
 		}

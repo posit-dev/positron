@@ -6,13 +6,18 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../common/quartoExecutionTypes.js';
 import { Range } from '../../../../../editor/common/core/range.js';
+import type { IInputBoundary } from '../../../../../editor/common/languages.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { IModelService } from '../../../../../editor/common/services/model.js';
+import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
+import { createModelServices } from '../../../../../editor/test/common/testTextModel.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
@@ -67,6 +72,9 @@ describe('QuartoExecutionManager', () => {
 	let mockEditorService: MockEditorService;
 	let mockConsoleService: RecordingConsoleService;
 	let mockRuntimeSessionService: MockRuntimeSessionService;
+	let modelService: IModelService;
+	let languageService: ILanguageService;
+	let languageFeaturesService: ILanguageFeaturesService;
 
 	beforeEach(() => {
 		// Create mock session
@@ -87,6 +95,12 @@ describe('QuartoExecutionManager', () => {
 		mockConsoleService = new RecordingConsoleService();
 		mockRuntimeSessionService = new MockRuntimeSessionService();
 		const mockTerminalService = new MockTerminalService();
+		const modelDisposables = ctx.disposables.add(new DisposableStore());
+		const modelInstantiationService = createModelServices(modelDisposables);
+		modelService = modelInstantiationService.get(IModelService);
+		languageService = modelInstantiationService.get(ILanguageService);
+		languageFeaturesService = modelInstantiationService.get(ILanguageFeaturesService);
+		modelDisposables.add(languageService.registerLanguage({ id: 'r' }));
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
@@ -99,6 +113,9 @@ describe('QuartoExecutionManager', () => {
 			asConsoleService(mockConsoleService),
 			asRuntimeSessionService(mockRuntimeSessionService),
 			asTerminalService(mockTerminalService),
+			modelService,
+			languageService,
+			languageFeaturesService,
 		);
 		ctx.disposables.add(executionManager);
 	});
@@ -173,7 +190,71 @@ describe('QuartoExecutionManager', () => {
 	});
 
 	describe('Output Handling', () => {
-		it('queries input boundaries once and keeps each R result', async () => {
+		async function executeRCellWithBoundaries(
+			testId: string,
+			codeLines: string[],
+			boundaries: IInputBoundary[],
+			expectedFragments: string[]
+		): Promise<{ requestedCode: string | undefined; providerCalls: number; executedCode: string[] }> {
+			const documentUri = URI.file(`/${testId}.qmd`);
+			const cell: QuartoCodeCell = {
+				id: testId,
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: codeLines.length + 2,
+				codeStartLine: 2,
+				codeEndLine: codeLines.length + 1,
+				label: undefined,
+				options: '',
+				contentHash: testId,
+			};
+			const documentLines = [
+				'```{r}',
+				...codeLines,
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let requestedCode: string | undefined;
+			let providerCalls = 0;
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register('r', {
+				provideInputBoundaries(model, range, _token) {
+					providerCalls++;
+					requestedCode = model.getValueInRange(range);
+					return boundaries;
+				}
+			}));
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete');
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < expectedFragments.length; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			expect(completenessSpy).not.toHaveBeenCalled();
+			return {
+				requestedCode,
+				providerCalls,
+				executedCode: executeSpy.mock.calls.map(call => call[0]),
+			};
+		}
+
+		it('queries input boundaries once through the R provider and keeps each R result', async () => {
 			const documentUri = URI.file('/test-r-expressions.qmd');
 			const cell: QuartoCodeCell = {
 				id: 'test-r-expressions',
@@ -203,19 +284,20 @@ describe('QuartoExecutionManager', () => {
 				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
 			};
 
-			let requestedMethod: string | undefined;
 			let requestedCode: string | undefined;
-			const callMethodSpy = vi.spyOn(mockSession, 'callMethod').mockImplementation(async (method, ...args) => {
-				requestedMethod = method;
-				requestedCode = typeof args[0] === 'string' ? args[0] : undefined;
-				return {
-					boundaries: [
+			let providerCalls = 0;
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register('r', {
+				provideInputBoundaries(model, range, _token) {
+					providerCalls++;
+					requestedCode = model.getValueInRange(range);
+					return [
 						{ range: { start: 0, end: 3 }, kind: 'complete' },
 						{ range: { start: 3, end: 4 }, kind: 'complete' },
 						{ range: { start: 4, end: 5 }, kind: 'complete' },
-					],
-				};
-			});
+					];
+				}
+			}));
+			const callMethodSpy = vi.spyOn(mockSession, 'callMethod');
 			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete');
 			const executeSpy = vi.spyOn(mockSession, 'execute');
 			const outputsReceived: ICellOutput[] = [];
@@ -258,9 +340,9 @@ describe('QuartoExecutionManager', () => {
 
 			await executionPromise;
 
-			expect(callMethodSpy).toHaveBeenCalledTimes(1);
-			expect(requestedMethod).toBe('inputBoundaries');
+			expect(providerCalls).toBe(1);
 			expect(requestedCode).toBe('values <- list(\n  1\n)\nvalues[[1]]\n2');
+			expect(callMethodSpy).not.toHaveBeenCalled();
 			expect(completenessSpy).not.toHaveBeenCalled();
 			expect(executeSpy.mock.calls.map(call => call[0])).toEqual([
 				'values <- list(\n  1\n)',
@@ -268,6 +350,55 @@ describe('QuartoExecutionManager', () => {
 				'2',
 			]);
 			expect(outputsReceived.map(output => output.items[0].data)).toEqual(['1', '2']);
+		});
+
+		it('executes an incomplete R section as one fragment from input boundaries', async () => {
+			const codeLines = [
+				'if (TRUE) {',
+				'  1',
+			];
+			const expectedFragments = [
+				'if (TRUE) {\n  1',
+			];
+
+			const result = await executeRCellWithBoundaries(
+				'test-r-incomplete',
+				codeLines,
+				[
+					{ range: { start: 0, end: 2 }, kind: 'incomplete' },
+				],
+				expectedFragments
+			);
+
+			expect(result.providerCalls).toBe(1);
+			expect(result.requestedCode).toBe('if (TRUE) {\n  1');
+			expect(result.executedCode).toEqual(expectedFragments);
+		});
+
+		it('keeps a trailing R parse-error section as its own fragment from input boundaries', async () => {
+			const codeLines = [
+				'1',
+				')',
+				'2',
+			];
+			const expectedFragments = [
+				'1',
+				')\n2',
+			];
+
+			const result = await executeRCellWithBoundaries(
+				'test-r-invalid',
+				codeLines,
+				[
+					{ range: { start: 0, end: 1 }, kind: 'complete' },
+					{ range: { start: 1, end: 3 }, kind: 'invalid', data: { message: 'unexpected )' } },
+				],
+				expectedFragments
+			);
+
+			expect(result.providerCalls).toBe(1);
+			expect(result.requestedCode).toBe('1\n)\n2');
+			expect(result.executedCode).toEqual(expectedFragments);
 		});
 
 		it('filters out text/plain when text/html is present (DataFrame case)', async () => {
@@ -584,6 +715,9 @@ describe('QuartoExecutionManager', () => {
 				new TestPositronConsoleService(),
 				asRuntimeSessionService(new MockRuntimeSessionService()),
 				asTerminalService(new MockTerminalService()),
+				modelService,
+				languageService,
+				languageFeaturesService,
 			);
 			ctx.disposables.add(executionManagerWithMock);
 
@@ -679,6 +813,9 @@ describe('QuartoExecutionManager', () => {
 				new TestPositronConsoleService(),
 				asRuntimeSessionService(new MockRuntimeSessionService()),
 				asTerminalService(new MockTerminalService()),
+				modelService,
+				languageService,
+				languageFeaturesService,
 			);
 			ctx.disposables.add(localExecutionManager);
 

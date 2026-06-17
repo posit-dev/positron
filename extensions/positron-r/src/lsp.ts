@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
-import { InputBoundariesRequest, InputBoundariesResponse } from './input-boundaries';
+import { RInputBoundaryProvider } from './input-boundaries';
 import { LOGGER } from './extension';
 import { RErrorHandler } from './error-handler';
 
@@ -380,14 +380,6 @@ export class ArkLsp implements vscode.Disposable {
 		}
 	}
 
-	async inputBoundaries(text: string): Promise<InputBoundariesResponse> {
-		if (!this.client) {
-			throw new Error('Cannot get input boundaries; LSP client has not been started');
-		}
-
-		return await this.client.sendRequest(InputBoundariesRequest.type, { text });
-	}
-
 	/**
 	 * Registers additional Positron-specific LSP methods. These programmatic
 	 * language features are not part of the LSP specification, and are
@@ -416,6 +408,10 @@ export class ArkLsp implements vscode.Disposable {
 		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,
 			new RStatementRangeProvider(client));
 		this.activationDisposables.push(rangeDisposable);
+
+		const inputBoundaryDisposable = positron.languages.registerInputBoundaryProvider(selector,
+			new RInputBoundaryProvider(client));
+		this.activationDisposables.push(inputBoundaryDisposable);
 
 		const helpDisposable = positron.languages.registerHelpTopicProvider(selector,
 			new RHelpTopicProvider(client));
