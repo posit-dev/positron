@@ -63,7 +63,8 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	// Untagged Windows due to https://github.com/posit-dev/positron/issues/14346
+	test('R - Install, search, and uninstall package',
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
