@@ -338,6 +338,11 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
 def test_mpl_pre_render_only_after_render_settings_known(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
+    # Simulate the start of a session: no render settings are known yet. (The
+    # plots service is shared across tests, so reset explicitly rather than relying
+    # on test ordering.)
+    plots_service._current_render_settings = None  # noqa: SLF001
+
     # The first plot of a session has no known frontend render settings, so its
     # comm_open must NOT carry a pre-render: an intrinsic-size pre-render would be
     # displayed and then immediately replaced by a render at the actual pane size,
