@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -737,24 +737,34 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
+    # pandas 3.0 changed plain string lists from object (inferred as "string") to StringDtype ("str")
+    _str_list_series = pd.Series(["foo", "bar", None, "bar", "None"])
+    _str_list_type_name = (
+        "string" if _str_list_series.dtype == object else str(_str_list_series.dtype)
+    )
+
+    # pandas 3.0 changed to_datetime resolution from ns to us
+    _datetime_series = pd.to_datetime(
+        [
+            "2024-01-01 00:00:00",
+            "2024-01-02 12:34:45",
+            None,
+            "2024-01-04 00:00:00",
+            "2024-01-05 00:00:00",
+        ]
+    )
+    _datetime_type_name = str(_datetime_series.dtype)
+
     cases = [
         ([1, 2, 3, 4, 5], "int64", "integer", None),
         ([True, False, True, None, True], "bool", "boolean", None),
-        (["foo", "bar", None, "bar", "None"], "string", "string", None),
+        (["foo", "bar", None, "bar", "None"], _str_list_type_name, "string", None),
         (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16), "float16", "floating", None),
         (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32), "float32", "floating", None),
         ([0, 1.2, -4.5, 6, np.nan], "float64", "floating", None),
         (
-            pd.to_datetime(
-                [
-                    "2024-01-01 00:00:00",
-                    "2024-01-02 12:34:45",
-                    None,
-                    "2024-01-04 00:00:00",
-                    "2024-01-05 00:00:00",
-                ]
-            ),
-            "datetime64[ns]",
+            _datetime_series,
+            _datetime_type_name,
             "datetime",
             None,
         ),
@@ -899,14 +909,22 @@ def test_pandas_get_schema_inference_limit(dxf: DataExplorerFixture):
     arr = np.array([None] * PANDAS_INFER_DTYPE_SIZE_LIMIT + ["string"])
     test_df = pd.DataFrame({"c0": arr})
 
+    # pandas 3.0 infers StringDtype ("str") at creation time rather than using object dtype,
+    # so the inference limit no longer applies; the type is known without inspecting values
+    _c0_dtype = str(test_df["c0"].dtype)
+    if _c0_dtype == "object":
+        _expected_type, _expected_display = "empty", "unknown"
+    else:
+        _expected_type, _expected_display = _c0_dtype, "string"
+
     assert dxf.get_schema_for(test_df) == _wrap_json(
         ColumnSchema,
         [
             {
                 "column_name": "c0",
                 "column_index": 0,
-                "type_name": "empty",
-                "type_display": "unknown",
+                "type_name": _expected_type,
+                "type_display": _expected_display,
             }
         ],
     )
@@ -1183,6 +1201,9 @@ def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
+    # pandas 3.0 StringDtype iterates None as float('nan') rather than None
+    _str_null = _VALUE_NAN if pd.Series(["a", None]).dtype != object else _VALUE_NONE
+
     # Select column range
     result = dxf.get_data_values(
         "simple",
@@ -1195,7 +1216,7 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
     expected_columns = [
         ["1", "2", "3", "4", "5"],
         ["True", "False", "True", _VALUE_NONE, "True"],
-        ["foo", "bar", _VALUE_NONE, "bar", "None"],
+        ["foo", "bar", _str_null, "bar", "None"],
         ["0.00", "1.20", "-4.50", "6.00", _VALUE_NAN],
         [
             "2024-01-01 00:00:00",
@@ -1386,11 +1407,13 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
     assert result["columns"] == expected_columns
 
     schema = dxf.get_schema("test_df")
+    # date_range resolution changed from ns to us in pandas 3.0
+    _datetimetz_type_name = str(pd.date_range("2000-01-01", periods=5, tz="US/Eastern").dtype)
     ex_schema = [
         {
             "column_name": "datetime_tz",
             "column_index": 0,
-            "type_name": "datetime64[ns, US/Eastern]",
+            "type_name": _datetimetz_type_name,
             "type_display": "datetime",
             "timezone": "US/Eastern",
         },

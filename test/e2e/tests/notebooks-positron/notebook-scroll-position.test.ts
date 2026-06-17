@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { expect } from '@playwright/test';
 
 // Use the pokemon notebook because it has mixed markdown and code cells,
 // which have different rendering times that could affect scroll restoration.

@@ -3,8 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags, expect } from '../_test.setup';
+import { test as base, tags, expect } from '../_test.setup';
 import { SessionRuntimes } from '../../pages/sessions.js';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+			if (enableDataConnections) {
+				await settingsFile.append({ 'dataConnections.enabled': true });
+			}
+			await settingsFile.append({ 'packages.enabled': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,12 +29,6 @@ test.use({
 test.describe('Packages Pane', {
 	tag: [tags.PACKAGES_PANE, tags.WEB]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'packages.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.packages.clearFilter();
@@ -53,7 +63,10 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	test.skip('R - Install, search, and uninstall package', {
+		tag: [tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14346' }
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags, expect } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,12 +13,6 @@ test.use({
 test.describe('Quarto - Inline Output: Cell Toolbar', {
 	tag: [tags.QUARTO]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
@@ -62,5 +56,35 @@ test.describe('Quarto - Inline Output: Cell Toolbar', {
 
 		// There should be exactly one visible toolbar (the second cell's).
 		await inlineQuarto.expectSingleVisibleToolbar();
+	});
+
+	test('Python - More cell actions menu can delete a cell', async function ({ python, app, openFile }) {
+		const { editors, inlineQuarto } = app.workbench;
+
+		// Open a Quarto file with three code cells.
+		await openFile(join('workspaces', 'quarto_inline_output', 'copy_output_test.qmd'));
+		await editors.waitForActiveTab('copy_output_test.qmd');
+		await inlineQuarto.expectKernelStatusVisible();
+
+		// One toolbar is created per code cell (three cells in the fixture).
+		await expect(inlineQuarto.cellToolbar).toHaveCount(3, { timeout: 10000 });
+
+		// Reveal the first cell's toolbar by placing the cursor inside it.
+		await inlineQuarto.gotoLine(11);
+		await expect(inlineQuarto.visibleCellToolbar).toHaveCount(1, { timeout: 10000 });
+
+		await test.step('Open the more actions menu and verify items', async () => {
+			await inlineQuarto.openMoreActionsMenu();
+			await expect(inlineQuarto.moreActionItem('Cut Cell')).toBeVisible();
+			await expect(inlineQuarto.moreActionItem('Copy Cell Code')).toBeVisible();
+			await expect(inlineQuarto.moreActionItem('Delete Cell')).toBeVisible();
+			await expect(inlineQuarto.moreActionItem('Insert Cell Below')).toBeVisible();
+		});
+
+		await test.step('Delete the first cell', async () => {
+			await inlineQuarto.clickMoreAction('Delete Cell');
+			// Deleting a cell removes its toolbar, leaving two.
+			await expect(inlineQuarto.cellToolbar).toHaveCount(2, { timeout: 10000 });
+		});
 	});
 });

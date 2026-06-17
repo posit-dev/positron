@@ -244,8 +244,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Connect the show plot emitter event
 		this.onDidShowPlot = this._didShowPlotEmitter.event;
 
-		// Connect the intrinsic size emitter event
+		// Connect the intrinsic size emitter event, forwarding the comm proxy's
+		// event so consumers of the plot client are notified when the backend
+		// reports the plot's intrinsic size.
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
+		this._register(this._commProxy.onDidSetIntrinsicSize((size) => {
+			this._didSetIntrinsicSizeEmitter.fire(size);
+		}));
 
 		// Connect the sizing policy emitter event
 		this.onDidChangeSizingPolicy = this._sizingPolicyEmitter.event;

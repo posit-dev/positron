@@ -165,6 +165,6 @@ function renderRow(visible: VisibleNode<DataConnectionNode>): ReactNode {
 		case 'entry':
 			return <DataConnectionEntryRow entry={data.entry} />;
 		case 'dto':
-			return <DataConnectionNodeRow dto={data.dto} />;
+			return <DataConnectionNodeRow dto={data.dto} handle={data.handle} />;
 	}
 }
