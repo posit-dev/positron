@@ -9,8 +9,7 @@ import { test, tags, expect } from '../_test.setup';
 import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
-	suiteId: __filename,
-	useLegacyNotebookEditor: true
+	suiteId: __filename
 });
 
 test.describe('New Folder Flow: Jupyter Project', {
@@ -37,13 +36,20 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyNotebookEditorVisible(app);
+		// Workaround for https://github.com/posit-dev/positron/issues/14163: the Positron
+		// notebook editor does not auto-bind the project runtime as the kernel for the
+		// notebook auto-opened by the New Folder Flow, so the kernel badge stays on
+		// "No Kernel Selected". Select it manually so the rest of the flow stays under test.
+		// Remove this once #14163 is fixed and the kernel binds automatically.
+		await app.workbench.notebooksPositron.kernel.select('Python');
 		await verifyNotebookAndConsolePythonVersion(app);
 		await verifyPyprojectTomlNotCreated(app);
 	});
 });
 
 async function verifyNotebookEditorVisible(app: Application) {
-	const notebookEditorTab = app.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true });
+	// .first() works around the duplicate editor tab from #14163.
+	const notebookEditorTab = app.code.driver.currentPage.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true }).first();
 	await expect(notebookEditorTab).toBeVisible();
 }
 
@@ -58,10 +64,10 @@ async function verifyNotebookAndConsolePythonVersion(app: Application) {
 	// Fail the test if we can't extract the version
 	expect(pythonVersion, 'Python version should be present in session selector').toBeTruthy();
 
-	// After the runtime starts up the kernel status should be replaced with the kernel name.
-	// The kernel name should contain the Python version from the session selector
-	// Only look within an 'a' tag with class 'kernel-label' to avoid false positives
-	const kernelLabel = app.code.driver.currentPage.locator('a.kernel-label');
-	await expect(kernelLabel).toContainText(`Python ${pythonVersion}`);
-	await expect(kernelLabel).toContainText('python-notebook-runtime');
+	// After the runtime starts up the kernel status badge should show the kernel name.
+	// The kernel name should contain the Python version from the session selector.
+	// Scope to the Positron notebook editor's "Kernel Actions" status badge to avoid false positives.
+	const kernelBadge = app.workbench.notebooksPositron.kernel.statusBadge;
+	await expect(kernelBadge).toContainText(`Python ${pythonVersion}`);
+	await expect(kernelBadge).toContainText('python-notebook-runtime');
 }
