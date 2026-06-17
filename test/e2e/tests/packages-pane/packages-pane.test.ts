@@ -63,8 +63,10 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	// Untagged Windows due to https://github.com/posit-dev/positron/issues/14346
-	test('R - Install, search, and uninstall package',
+	test.skip('R - Install, search, and uninstall package', {
+		tag: [tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14346' }
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
