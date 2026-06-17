@@ -23,15 +23,19 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		copyFixtureFolder(source, destination);
 	});
 
-	test('Basic R Test Explorer Functionality', async function ({ app, openFolder }) {
+	test.beforeEach(async function ({ app, openFolder }) {
 		const { testExplorer, sessions } = app.workbench;
-
-		// Open the test fixture folder
 		await openFolder(FIXTURE_NAME);
-
-		// Open the test explorer, start R session, and run tests
 		await testExplorer.openTestExplorer();
+		// Tests share one app instance; reset to a known state.
+		await testExplorer.collapseAllTests();
+		await testExplorer.clearAllTestResults();
 		await sessions.start('r');
+	});
+
+	test('Basic R Test Explorer Functionality', async function ({ app }) {
+		const { testExplorer } = app.workbench;
+
 		await testExplorer.expectTestItems(['test-test-that.R', 'test-describe-it.R']);
 		await testExplorer.runAllTests();
 
@@ -52,5 +56,17 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 
 		await testExplorer.expectTestStatus('test_that number 1 passes', 'Passed');
 		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
+	});
+
+	// https://github.com/posit-dev/positron/issues/10133
+	test('Test with multi-line description can be run by itself', async function ({ app }) {
+		const { testExplorer } = app.workbench;
+		const MULTI_LINE_LABEL = 'test_that with a multi-line description passes';
+
+		await testExplorer.expectTestItems(['test-multi-line-desc.R']);
+		await testExplorer.expandAllTests();
+
+		await testExplorer.runTest(MULTI_LINE_LABEL);
+		await testExplorer.expectTestStatus(MULTI_LINE_LABEL, 'Passed', 60000);
 	});
 });
