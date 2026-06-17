@@ -8,6 +8,8 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Explorer } from './explorer';
 
+const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
+
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
  */
@@ -18,6 +20,9 @@ export class TestExplorer extends Explorer {
 	}
 
 	async openTestExplorer(): Promise<void> {
+		// The view container's activity-bar icon appears once test discovery has
+		// populated it; wait for that before focusing, or the command no-ops.
+		await this.code.driver.currentPage.locator(TEST_EXPLORER_ICON).waitFor({ state: 'visible' });
 		await this.quickaccess.runCommand('workbench.view.testing.focus');
 	}
 
