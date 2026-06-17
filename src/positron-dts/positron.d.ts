@@ -3641,9 +3641,12 @@ declare module 'positron' {
 		 * Register configuration key migrations. Each migration copies a value from an old
 		 * configuration key to a new key and clears the old key.
 		 *
-		 * The calling extension must own the source keys (have contributed them via
-		 * `contributes.configuration`), unless the extension's publisher is listed in the
-		 * product's `trustedExtensionPublishers`.
+		 * Ownership of the source keys is required and determined in order:
+		 * 1. The key is still registered and its `source` matches the calling extension.
+		 * 2. The key has no registered extension owner (e.g. removed from the manifest after
+		 *    renaming) and the key starts with `{extensionId}.` — namespace ownership.
+		 *
+		 * Ownership checks are bypassed entirely for extensions published by `posit`.
 		 *
 		 * @param migrations Array of migration specifications.
 		 * @returns A {@link vscode.Disposable} (unregistering is not supported; dispose is a no-op).

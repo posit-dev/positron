@@ -18,7 +18,6 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 // --- Start Positron ---
 import { ILogService, NullLogService } from '../../../../platform/log/common/log.js';
-import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 // --- End Positron ---
 
@@ -67,7 +66,6 @@ suite('MainThreadConfiguration', function () {
 		});
 		// --- Start Positron ---
 		instantiationService.stub(ILogService, new NullLogService());
-		instantiationService.stub(IProductService, <Partial<IProductService>>{ trustedExtensionPublishers: [] });
 		// --- End Positron ---
 	});
 
@@ -305,14 +303,33 @@ suite('MainThreadConfiguration', function () {
 			assert.ok(registerSpy.notCalled, 'registerConfigurationMigrations should not be called');
 		});
 
-		test('trusted publisher bypasses ownership check', function () {
-			instantiationService.stub(IProductService, <Partial<IProductService>>{ trustedExtensionPublishers: ['trusted'] });
+		test('posit publisher bypasses ownership check', function () {
 			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
 
-			testObject.$registerConfigurationMigrations('trusted.extension', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
+			testObject.$registerConfigurationMigrations('posit.extension', [{ key: OWNED_KEY, migrateTo: 'extHostConfigMigration.newKey' }]);
 
-			assert.ok(registerSpy.calledOnce, 'trusted publisher should be able to migrate unowned key');
-			assert.ok(warnSpy.notCalled, 'no warning should be logged for trusted publisher');
+			assert.ok(registerSpy.calledOnce, 'posit publisher should be able to migrate unowned key');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for posit publisher');
+		});
+
+		test('unregistered key is accepted when it matches extension namespace', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+			const droppedKey = `${OWNER_EXT}.droppedKey`; // never registered; simulates rename-and-remove
+
+			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: droppedKey, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(registerSpy.calledOnce, 'migration for unregistered key in extension namespace should be accepted');
+			assert.ok(warnSpy.notCalled, 'no warning should be logged for namespace-owned key');
+		});
+
+		test('unregistered key outside extension namespace is rejected', function () {
+			const testObject = instantiationService.createInstance(MainThreadConfiguration, SingleProxyRPCProtocol(proxy));
+			const foreignKey = 'other.publisher.droppedKey'; // unregistered and wrong namespace
+
+			testObject.$registerConfigurationMigrations(OWNER_EXT, [{ key: foreignKey, migrateTo: 'extHostConfigMigration.newKey' }]);
+
+			assert.ok(warnSpy.calledOnce, 'warn should be called for unregistered key outside extension namespace');
+			assert.ok(registerSpy.notCalled, 'migration should not be registered');
 		});
 	});
 	// --- End Positron ---

@@ -14,7 +14,6 @@ import { ConfigurationTarget, IConfigurationService, IConfigurationOverrides } f
 import { IEnvironmentService } from '../../../platform/environment/common/environment.js';
 // --- Start Positron ---
 import { ILogService } from '../../../platform/log/common/log.js';
-import { IProductService } from '../../../platform/product/common/productService.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry, ConfigurationKeyValuePairs } from '../../common/configuration.js';
 // --- End Positron ---
 
@@ -30,7 +29,6 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 		// --- Start Positron ---
 		@ILogService private readonly _logService: ILogService,
-		@IProductService private readonly _productService: IProductService,
 		// --- End Positron ---
 	) {
 		const proxy = extHostContext.getProxy(ExtHostContext.ExtHostConfiguration);
@@ -55,14 +53,18 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		const configurationProperties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
 		const normalizedExtensionId = extensionId.toLowerCase();
 		const publisher = normalizedExtensionId.split('.')[0];
-		const isTrusted = (this._productService.trustedExtensionPublishers ?? []).includes(publisher);
+		const isTrusted = publisher === 'posit';
 
 		const approved = migrations.filter(migration => {
 			const source = configurationProperties[migration.key]?.source;
 			const sourceId = (source && typeof source !== 'string')
 				? source.id.toLowerCase()
 				: undefined;
-			const isOwner = sourceId === normalizedExtensionId;
+			const isRegisteredOwner = sourceId === normalizedExtensionId;
+			// When the key has no extension owner (unregistered after a rename, or never attributed),
+			// accept ownership if the key falls within the extension's namespace.
+			const isNamespaceOwner = sourceId === undefined && migration.key.toLowerCase().startsWith(normalizedExtensionId + '.');
+			const isOwner = isRegisteredOwner || isNamespaceOwner;
 			if (!isOwner && !isTrusted) {
 				this._logService.warn(`Extension '${extensionId}' attempted to register a configuration migration for '${migration.key}' but does not own it.`);
 				return false;
