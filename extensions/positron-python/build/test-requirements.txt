@@ -7,7 +7,10 @@ pylint
 pycodestyle
 pydocstyle
 prospector
-pytest
+# pytest-black (below) is unmaintained and still declares the legacy
+# pytest_collect_file(file_path, path, parent) hook, which pytest 9 removed.
+# Cap pytest until pytest-black is dropped (see pytest-ruff alternative).
+pytest<9
 flask
 fastapi
 uvicorn
