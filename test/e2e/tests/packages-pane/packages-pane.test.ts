@@ -63,7 +63,10 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	test.skip('R - Install, search, and uninstall package', {
+		tag: [tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14346' }
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
