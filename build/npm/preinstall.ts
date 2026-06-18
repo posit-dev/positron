@@ -80,14 +80,7 @@ if (process.arch !== os.arch()) {
 function hasSupportedVisualStudioVersion() {
 	// Translated over from
 	// https://source.chromium.org/chromium/chromium/src/+/master:build/vs_toolchain.py;l=140-175
-	// --- Start Positron ---
-	// Visual Studio 2026 installs under a folder named for its major version
-	// ("18") instead of the year, so it is detected here by that folder name
-	// (the loop below checks "<ProgramFiles>/Microsoft Visual Studio/<version>/<edition>").
-	// node-gyp's own VS detection is taught about VS 2026 separately; see
-	// scripts/patch-bundled-node-gyp-vs2026.js (applied in the Windows e2e CI).
-	const supportedVersions = ['18', '2022', '2019'];
-	// --- End Positron ---
+	const supportedVersions = ['2022', '2019'];
 
 	const availableVersions = [];
 	for (const version of supportedVersions) {
