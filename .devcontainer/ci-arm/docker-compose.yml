@@ -22,7 +22,6 @@ services:
       - positron-node-modules:${POSITRON_WORKSPACE_PATH}/node_modules
       - positron-e2e-node-modules:${POSITRON_WORKSPACE_PATH}/test/e2e/node_modules
       - positron-build:${POSITRON_WORKSPACE_PATH}/.build
-      - positron-out:${POSITRON_WORKSPACE_PATH}/out
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,5 +54,4 @@ volumes:
   positron-node-modules:
   positron-e2e-node-modules:
   positron-build:
-  positron-out:
   postgres-data:

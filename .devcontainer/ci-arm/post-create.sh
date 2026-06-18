@@ -37,7 +37,7 @@ npm run gulp node
 
 echo "==> [8/8] license"
 LICENSE_DEST="/positron-license/pdol/target/debug/pdol_rsa"   # confirmed in Task 0 spike
-LICENSE_SRC="${WORKSPACE_FOLDER:-/workspaces/positron}/.devcontainer/ci-arm/license.txt"
+LICENSE_SRC="$(cd "$(dirname "$0")" && pwd)/license.txt"
 if [ -f "$LICENSE_SRC" ]; then
   # Local path: PEM key file dropped in the (bind-mounted) workspace; gitignored.
   mkdir -p "$(dirname "$LICENSE_DEST")"
