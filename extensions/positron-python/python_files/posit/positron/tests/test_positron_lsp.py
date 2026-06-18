@@ -5,9 +5,13 @@
 
 """Tests for the Positron Language Server (positron_lsp.py)."""
 
+import asyncio
 import os
+import socket
+import threading
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -1707,3 +1711,165 @@ class TestGetDocumentLine:
         )
         ctx = _get_document_line(server, params)
         assert ctx.line == ""
+
+
+class TestServerLifecycle:
+    """Tests for the LSP server thread lifecycle.
+
+    These start the server on a real loopback socket and assert that the
+    background thread tears down cleanly. A leaked thread means serve_forever()
+    was abandoned, which is what produced the "coroutine ignored GeneratorExit"
+    RuntimeError on the console (https://github.com/posit-dev/positron/issues/14367).
+    """
+
+    @staticmethod
+    def _start() -> Tuple[PositronLanguageServer, Mock]:
+        server = create_server()
+        server.shell = Mock()
+        server.shell.user_ns = {}
+        server.shell.magics_manager.lsmagic.return_value = {"cell": {}, "line": {}}
+        comm = Mock()
+        server.start(lsp_host="127.0.0.1", shell=server.shell, comm=comm)
+        return server, comm
+
+    @staticmethod
+    def _wait_for_port(comm: Mock, timeout: float = 5.0) -> int:
+        """Read the port from the server_started message sent over the comm."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            for call in comm.send.call_args_list:
+                message = call.args[0]
+                if message.get("msg_type") == "server_started":
+                    return message["content"]["port"]
+            time.sleep(0.01)
+        raise AssertionError("LSP server never sent server_started")
+
+    @staticmethod
+    def _connect(port: int) -> socket.socket:
+        """Open a client connection to the server."""
+        return socket.create_connection(("127.0.0.1", port))
+
+    @staticmethod
+    def _join(thread: Optional[threading.Thread]) -> None:
+        assert thread is not None
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    def test_client_disconnect_stops_thread(self) -> None:
+        server, comm = self._start()
+        client = self._connect(self._wait_for_port(comm))
+        client.close()
+
+        # The thread must wind down on its own once the client disconnects.
+        self._join(server._server_thread)  # noqa: SLF001
+
+    def test_stop_stops_thread_with_no_connection(self) -> None:
+        # stop() while listening but with no client cancels serve_forever() with
+        # no connection task to drain -- a distinct path from the cases below.
+        server, comm = self._start()
+        self._wait_for_port(comm)
+        server.stop()
+        self._join(server._server_thread)  # noqa: SLF001
+
+    def test_stop_stops_thread_with_active_connection(self) -> None:
+        server, comm = self._start()
+        client = self._connect(self._wait_for_port(comm))
+        try:
+            server.stop()
+            self._join(server._server_thread)  # noqa: SLF001
+        finally:
+            client.close()
+
+    def test_connection_during_stop_does_not_touch_protocol_writer(self) -> None:
+        # A connection accepted once a stop is requested must close out without
+        # overwriting the shared protocol writer, which a newer generation may
+        # already own.
+        server, comm = self._start()
+        port = self._wait_for_port(comm)
+        assert server._stop_event is not None  # noqa: SLF001
+        server._stop_event.set()  # noqa: SLF001
+
+        with patch.object(server.protocol, "set_writer") as set_writer:
+            client = self._connect(port)
+            try:
+                # The handler sees the stop event and closes us out (EOF) instead
+                # of serving, without claiming the protocol writer.
+                client.settimeout(5)
+                assert client.recv(1) == b""
+                set_writer.assert_not_called()
+            finally:
+                client.close()
+
+        server.stop()
+        self._join(server._server_thread)  # noqa: SLF001
+
+    def test_restart_listens_on_a_new_port(self) -> None:
+        server, comm = self._start()
+        first_port = self._wait_for_port(comm)
+        first_thread = server._server_thread  # noqa: SLF001
+
+        client = self._connect(first_port)
+        shell = server.shell
+        assert shell is not None
+        try:
+            # Restarting while a client is connected must not leak the old thread.
+            comm.send.reset_mock()
+            server.start(lsp_host="127.0.0.1", shell=shell, comm=comm)
+            second_port = self._wait_for_port(comm)
+        finally:
+            client.close()
+
+        assert second_port != first_port
+        self._join(first_thread)
+        server.stop()
+        self._join(server._server_thread)  # noqa: SLF001
+
+    def test_shutdown_does_not_stop_a_newer_generation(self) -> None:
+        # A dropped old thread can finish its teardown after a restart. Its
+        # shutdown must set only its own (passed-in) stop event, not the current
+        # generation's, or it would tear down the freshly started server.
+        server = create_server()
+        old_event = threading.Event()
+        current_event = threading.Event()
+        server._stop_event = current_event  # noqa: SLF001
+
+        server._shutdown_server(old_event)  # noqa: SLF001
+
+        assert old_event.is_set()
+        assert not current_event.is_set()
+
+    def test_stop_during_startup_does_not_serve(self) -> None:
+        server = create_server()
+        server.shell = Mock()
+        server.shell.user_ns = {}
+        server.shell.magics_manager.lsmagic.return_value = {"cell": {}, "line": {}}
+        comm = Mock()
+
+        real_start_server = asyncio.start_server
+
+        async def slow_start_server(*args: Any, **kwargs: Any) -> asyncio.Server:
+            # Widen the window between start_tcp() creating the stop event and
+            # start_server() publishing the loop, so stop() lands mid-startup.
+            await asyncio.sleep(0.3)
+            return await real_start_server(*args, **kwargs)
+
+        with patch("asyncio.start_server", slow_start_server):
+            server.start(lsp_host="127.0.0.1", shell=server.shell, comm=comm)
+
+            # Wait until the thread has created its stop event, then stop before
+            # the loop is published.
+            deadline = time.monotonic() + 5
+            while server._stop_event is None and time.monotonic() < deadline:  # noqa: SLF001
+                time.sleep(0.01)
+            server.stop()
+
+            self._join(server._server_thread)  # noqa: SLF001
+
+        # A stop during startup must bail out before announcing the server.
+        assert not any(
+            call.args[0].get("msg_type") == "server_started" for call in comm.send.call_args_list
+        )
+
+    def test_stop_before_start_is_a_noop(self) -> None:
+        # stop() on a server that was never started must not raise.
+        create_server().stop()
