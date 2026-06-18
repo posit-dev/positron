@@ -33,8 +33,22 @@ export class Help {
 		return innerInnerFrame;
 	}
 
-	async getHelpFrame(nth: number): Promise<FrameLocator> {
-		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).nth(nth).contentFrame();
+	/**
+	 * Returns the FrameLocator for the Positron Help pane's content iframe.
+	 *
+	 * The Help webview is always the LAST `.webview` iframe in the DOM (Help is
+	 * opened after any other webviews -- editors, notebooks, plots). Selecting it
+	 * with `.last()` instead of a positional index avoids a race: while a transient
+	 * extra webview exists, the help content sits at a shifting index, so a fixed
+	 * `.nth(n)` polls the wrong frame for ~14s (~7 assertion retries) until that
+	 * webview is torn down. `.last()` resolves the help frame as soon as it renders.
+	 *
+	 * @param _nth Deprecated and ignored. Previously the positional index of the
+	 *   help webview; callers no longer need it. Retained so existing call sites
+	 *   keep compiling.
+	 */
+	async getHelpFrame(_nth?: number): Promise<FrameLocator> {
+		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).last().contentFrame();
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);
 		return innerInnerFrame;

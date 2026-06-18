@@ -86,10 +86,7 @@ test.describe('F1 Help', {
 
 		// Wait for editor content to be fully rendered before interacting
 		await app.workbench.editor.waitForEditorContents(fileName, (content) => content.includes('pd.DataFrame'));
-
-		await expect(async () => {
-			await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
-		}).toPass({ timeout: 30000 });
+		await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
 
 		await page.keyboard.press('F1');
 
