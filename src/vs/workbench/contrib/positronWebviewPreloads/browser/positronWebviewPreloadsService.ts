@@ -212,6 +212,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				? undefined
 				: dirname(instance.uri);
 
+			// TODO: Overlay webviews (display AND raw HTML) are not disposed when
+			// outputs are cleared, cells are deleted, or output types change. A
+			// follow-up PR should add model-change reconciliation for all webview
+			// types. This is also a virtualization prerequisite: when cells are
+			// virtualized, the service will need to hold webviews across
+			// component mount/unmount cycles.
+
 			// Check if this HTML contains an iframe pointing to a PDF file.
 			// If so, route through the PDF server for proper rendering.
 			const pdfIframeInfo = extractPdfIframeInfo(rawHtml);
@@ -221,6 +228,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 					return { preloadMessageType: 'display', webview: existingWebview };
 				}
 
+				// Untitled notebooks have no base URI, so notebookDir is empty and a
+				// relative PDF src cannot be resolved (it will 404). Only absolute
+				// PDF paths render for unsaved notebooks.
 				const notebookDir = rawHtmlBaseUri?.fsPath ?? '';
 				const webviewPromise = this._createPdfNotebookWebview(instance, outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri)
 					.catch(err => {
@@ -311,7 +321,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		outputId: string,
 		pdfInfo: { src: string; width?: string; height?: string },
 		notebookDir: string,
-		baseUri: import('../../../../base/common/uri.js').URI | undefined,
+		baseUri: URI | undefined,
 	): Promise<INotebookOutputWebview> {
 		// Track this output ID for cache cleanup when notebook is disposed.
 		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
@@ -325,6 +335,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			: path.join(notebookDir, pdfInfo.src);
 
 		// Call the pdf-server extension command to register the PDF and get a viewer URL.
+		// Tradeoff: the IDE theme is baked into the viewer URL here and the webview is
+		// cached per output, so switching the IDE theme leaves already-rendered PDFs
+		// stale until recompute. A full fix would subscribe to onDidChangeActiveColorTheme
+		// and refresh; left as a follow-up.
 		let result: { viewerUrl: string; pdfId: string } | undefined;
 		try {
 			result = await this._commandService.executeCommand<{ viewerUrl: string; pdfId: string }>(
@@ -378,23 +392,27 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		const webview = await this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html, baseUri);
 
 		// Tie disposables to the notebook's lifecycle, not the service singleton.
+		// The store is created in attachNotebookInstance, so its absence here is a
+		// programming error rather than an expected state.
 		const disposables = this._notebookToDisposablesMap.get(instance.getId());
-		if (disposables) {
-			disposables.add(webview.webview.onMessage((event) => {
-				const msg = event.message;
-				if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
-					this._editorService.openEditor({
-						resource: URI.file(msg.path),
-						options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
-					});
-				}
-			}));
-
-			// Unregister the PDF from the HTTP server when the notebook is disposed.
-			disposables.add(toDisposable(() => {
-				this._commandService.executeCommand('positron.pdfServer.unregisterPdf', result.pdfId);
-			}));
+		if (!disposables) {
+			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
 		}
+
+		disposables.add(webview.webview.onMessage((event) => {
+			const msg = event.message;
+			if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
+				this._editorService.openEditor({
+					resource: URI.file(msg.path),
+					options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
+				});
+			}
+		}));
+
+		// Unregister the PDF from the HTTP server when the notebook is disposed.
+		disposables.add(toDisposable(() => {
+			this._commandService.executeCommand('positron.pdfServer.unregisterPdf', result.pdfId);
+		}));
 
 		return webview;
 	}
@@ -561,8 +579,11 @@ export function extractPdfIframeInfo(html: string): { src: string; width?: strin
 		return undefined;
 	}
 	const src = iframeMatch[1];
-	const widthMatch = html.match(/<iframe[^>]*\swidth=["'](\d+)["'][^>]*/i);
-	const heightMatch = html.match(/<iframe[^>]*\sheight=["'](\d+)["'][^>]*/i);
+	// Scan width/height against the matched iframe tag only, so attributes from a
+	// different (non-PDF) iframe elsewhere in the HTML are not mixed in.
+	const iframeTag = iframeMatch[0];
+	const widthMatch = iframeTag.match(/\swidth=["'](\d+)["']/i);
+	const heightMatch = iframeTag.match(/\sheight=["'](\d+)["']/i);
 	return {
 		src,
 		width: widthMatch?.[1],

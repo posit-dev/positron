@@ -139,14 +139,17 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 	let commandService: ICommandService;
 	let editorService: IEditorService;
 	let lastWebviewMessageEmitter: Emitter<{ message: unknown }>;
+	let renderedHtml: string[];
 	const notebookInstance = stubNotebookInstance('nb-pdf');
 
 	beforeEach(() => {
 		lastWebviewMessageEmitter = disposables.add(new Emitter<{ message: unknown }>());
+		renderedHtml = [];
 
 		const outputWebviewService: IPositronNotebookOutputWebviewService = {
 			_serviceBrand: undefined,
-			createRawHtmlOutputWebview(id: string, _html: string, _baseUri?: URI): Promise<INotebookOutputWebview> {
+			createRawHtmlOutputWebview(id: string, html: string, _baseUri?: URI): Promise<INotebookOutputWebview> {
+				renderedHtml.push(html);
 				const onDidRender = disposables.add(new Emitter<void>());
 				return Promise.resolve({
 					id,
@@ -270,6 +273,25 @@ describe('PositronWebviewPreloadService - PDF notebook rendering', () => {
 
 		expect(commandService.executeCommand).toHaveBeenCalledWith('positron.pdfServer.unregisterPdf', 'pdf-123');
 	});
+
+	it('renders a fallback message when getViewerUrl fails', async () => {
+		// Simulate the pdf-server extension being unavailable or the command failing.
+		(commandService.executeCommand as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('command failed'));
+
+		const result = service.addNotebookOutput({
+			instance: notebookInstance,
+			outputId: 'pdf-out-fallback',
+			outputs: [{ mime: 'text/html', data: VSBuffer.fromString('<iframe src="report.pdf">') }],
+			rawHtml: '<iframe src="report.pdf" width="800" height="600"></iframe>',
+		});
+
+		const webview = await (result as Extract<NotebookPreloadOutputResults, { preloadMessageType: 'display' }>).webview;
+
+		expect(webview.id).toBe('pdf-out-fallback');
+		// The fallback webview HTML path is taken: a plain "Unable to render PDF"
+		// message rather than the iframe viewer.
+		expect(renderedHtml).toEqual(['<p>Unable to render PDF: report.pdf</p>']);
+	});
 });
 
 describe('extractPdfIframeInfo', () => {
@@ -304,5 +326,13 @@ describe('extractPdfIframeInfo', () => {
 	it('is case-insensitive on the .pdf extension', () => {
 		const html = '<iframe src="REPORT.PDF" width="800" height="600"></iframe>';
 		expect(extractPdfIframeInfo(html)).toEqual({ src: 'REPORT.PDF', width: '800', height: '600' });
+	});
+
+	it('reads width/height from the PDF iframe, not a sibling iframe', () => {
+		// A non-PDF iframe precedes the PDF one with different dimensions; the
+		// returned size must come from the matched PDF tag, not the sibling.
+		const html = '<iframe src="map.html" width="100" height="200"></iframe>'
+			+ '<iframe src="report.pdf" width="800" height="600"></iframe>';
+		expect(extractPdfIframeInfo(html)).toEqual({ src: 'report.pdf', width: '800', height: '600' });
 	});
 });
