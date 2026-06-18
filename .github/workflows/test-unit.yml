@@ -34,7 +34,10 @@ jobs:
   unit-tests:
     name: unit
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 40
+    # Tests themselves take ~8m; the rest is uncached, network-bound installs
+    # (apt + cold-npm on a cache miss). 40m left no headroom and runs were
+    # getting cancelled at the cap. 60m matches test-ext-host.yml.
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
