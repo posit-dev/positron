@@ -7,7 +7,7 @@ import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
 });
 
 
@@ -15,87 +15,73 @@ test.describe('F1 Help', {
 	tag: [tags.WEB, tags.WIN, tags.HELP]
 }, () => {
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	// Teardown only. Each test sets its own layout precondition at the start
+	// (stacked for console/editor help, notebook for notebook help) so the
+	// suite does not depend on test execution order.
+	test.afterEach(async function ({ app, hotKeys }) {
+		await hotKeys.closeAllEditors();
+		await hotKeys.closeSecondarySidebar();
 		await app.workbench.console.clearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('R - Verify basic F1 console help functionality', async function ({ app, page, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
-		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+	test('R - Verify basic F1 console help functionality', async function ({ app, page, r, openFile, runCommand }) {
+		const { variables, console, layouts } = app.workbench;
 
-		await app.workbench.variables.clickSessionLink();
-		await app.workbench.variables.waitForVariableRow('df2');
+		await layouts.enterLayout('stacked');
+		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+		await runCommand('r.sourceCurrentFile');
 
-		await app.workbench.console.pasteCodeToConsole('colnames(df2)');
-		await app.workbench.console.doubleClickConsoleText('colnames');
-		await page.keyboard.press('F1');
+		await variables.clickSessionLink();
+		await variables.waitForVariableRow('df2');
 
-		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 30000 });
-		}).toPass({ timeout: 30000 });
-
-	});
-
-	test('R - Verify basic F1 editor help functionality', async function ({ app, page, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
-
-		await app.code.driver.currentPage.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
-		await page.keyboard.press('F1');
-
-		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 30000 });
-		}).toPass({ timeout: 30000 });
-
-	});
-
-	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r }) {
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
-
-		await app.workbench.layouts.enterLayout('notebook');
-
-		// workaround: select the R kernel so the language server backs F1 help
-		await app.workbench.notebooksPositron.kernel.select('R');
-
-		await app.code.driver.currentPage.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
+		await console.pasteCodeToConsole('colnames(df2)');
+		await console.doubleClickConsoleText('colnames');
 
 		await expect(async () => {
 			await page.keyboard.press('F1');
-
-			// Note that we are getting help frame 1 instead of 0 because the notebook structure matches the same locators as help
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
-
-			await expect(helpFrame.locator('h2').first()).toContainText('Options Settings', { timeout: 2000 });
+			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
-
-		await app.workbench.layouts.enterLayout('stacked');
 
 	});
 
-	test('Python - Verify basic F1 console help functionality', async function ({ app, page, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
-
-		await app.workbench.variables.clickSessionLink();
-		await app.workbench.variables.waitForVariableRow('df');
-
-		await app.workbench.console.pasteCodeToConsole('list(df.columns)');
-		await app.workbench.console.doubleClickConsoleText('list');
-		await page.keyboard.press('F1');
+	test('R - Verify basic F1 editor help functionality', async function ({ app, page, r, openFile }) {
+		await app.workbench.layouts.enterLayout('stacked');
+		await openFile(join('workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
+		await page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
 
 		await expect(async () => {
+			await page.keyboard.press('F1');
 			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 30000 });
+			await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 2000 });
+		}).toPass({ timeout: 30000 });
+
+	});
+
+	test('Python - Verify basic F1 console help functionality', async function ({ app, page, python, openFile, runCommand }) {
+		const { variables, console, layouts } = app.workbench;
+
+		await layouts.enterLayout('stacked');
+		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
+		await runCommand('python.execInConsole');
+
+		await variables.clickSessionLink();
+		await variables.waitForVariableRow('df');
+
+		await console.pasteCodeToConsole('list(df.columns)');
+		await console.doubleClickConsoleText('list');
+
+		await expect(async () => {
+			await page.keyboard.press('F1');
+			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
 
 	});
 
 	test('Python - Verify basic F1 editor help functionality', async function ({ app, page, python }) {
 		const fileName = 'generate-data-frames.py';
+		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', fileName));
 
 		// Wait for editor content to be fully rendered before interacting
@@ -114,13 +100,36 @@ test.describe('F1 Help', {
 
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python }) {
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+	// Notebook help tests run last: switching from the notebook layout back to a
+	// stacked layout leaves the Help webview in a state where a following console/
+	// editor help test cannot resolve its help frame. Grouping the notebook tests
+	// at the end avoids that transition.
+	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r, openDataFile }) {
+		const { layouts } = app.workbench;
+
+		await openDataFile(join('workspaces', 'large_r_notebook', 'spotify.ipynb'));
+		await layouts.enterLayout('notebook');
+
+		await page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
+
+		await expect(async () => {
+			await page.keyboard.press('F1');
+
+			// Note that we are getting help frame 1 instead of 0 because the notebook structure matches the same locators as help
+			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			await expect(helpFrame.locator('h2').first()).toContainText('Options Settings', { timeout: 2000 });
+		}).toPass({ timeout: 30000 });
+	});
+
+	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python, openDataFile }) {
+		const { notebooksPositron, layouts } = app.workbench;
+
+		await openDataFile(join('workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		await layouts.enterLayout('notebook');
 
 		// Position the mouse over the notebook for scrolling
-		await app.workbench.notebooksPositron.cell.first().hover();
-
-		const target = app.code.driver.currentPage.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first();
+		await notebooksPositron.cell.first().hover();
+		const target = page.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first();
 
 		// Scroll the notebook until the target line is rendered in the DOM.
 		// The cell may be taller than the viewport, so Monaco only renders visible lines.
@@ -137,15 +146,11 @@ test.describe('F1 Help', {
 		await target.dblclick();
 
 		await expect(async () => {
-
 			await page.keyboard.press('F1');
-
 			// Note that we are getting help frame 1 instead of 0 because the notbook structure matches the same locators as help
 			const helpFrame = await app.workbench.help.getHelpFrame(1);
-
 			await expect(helpFrame.locator('body').first()).toContainText('warnings.filterwarnings', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
-
 	});
 
 });
