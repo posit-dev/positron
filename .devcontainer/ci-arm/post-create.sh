@@ -52,4 +52,7 @@ else
   echo "WARNING: no license (add .devcontainer/ci-arm/license.txt); build will be unlicensed"
 fi
 
+echo "==> recording build state"
+"$(dirname "$0")/mark-build-state.sh"
+
 echo "==> post-create complete"

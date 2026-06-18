@@ -73,6 +73,9 @@ touching the repo's shared `.vscode/`).
 | **F5 → Debug e2e-electron (connections)** | run Playwright under the debugger; breakpoints in TS |
 | **Run Task → Start Positron server** | serves Positron at http://localhost:8080/?tkn=dev-token |
 | **Run Task → Show Playwright report** | serves the report at http://localhost:9323 |
+| **Run Task → Check build status (doctor)** | reports whether the build is current and what (if anything) to rebuild |
+| **Run Task → Reinstall deps (npm ci)** | after a pull/branch-switch changed `package-lock.json` |
+| **Run Task → Full rebuild (post-create)** | re-run the whole cold build (idempotent) |
 
 ## The build, and your inner loop
 
@@ -82,6 +85,13 @@ the **incremental** loop: start **Watch (incremental build)** once, then edit �
 recompiles changed files in seconds → run/debug. Editing and debugging do *not* re-trigger the
 cold build. You only pay more when dependencies change (`npm ci` again), native modules change,
 or you start from a fresh machine/wiped volumes.
+
+**How do you know when you need to rebuild?** You don't have to guess — a **build doctor** runs
+automatically on every container start (and is available as the **Check build status (doctor)**
+task for mid-session checks, e.g. after a `git pull`). It compares your `package-lock.json`
+against the last successful install and checks for compiled output / Electron / a completed cold
+build, then tells you exactly which task to run (`Reinstall deps`, `Watch`, `Full rebuild`).
+A clean checkout with watch running needs nothing.
 
 ## Updating the image tag
 

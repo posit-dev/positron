@@ -17,11 +17,14 @@ done
 # Persist DISPLAY for interactive shells
 grep -q 'export DISPLAY=:10' ~/.bashrc 2>/dev/null || echo 'export DISPLAY=:10' >> ~/.bashrc
 
-# Confirm postgres reachable (service name 'postgres' on the compose network)
+# Confirm postgres reachable. The CI image lacks pg_isready, so fall back to a TCP check.
 if command -v pg_isready >/dev/null 2>&1; then
-  if pg_isready -h postgres -U "${E2E_POSTGRES_USER:-testuser}" -d postgres; then
-    echo "postgres reachable"
-  else
-    echo "WARNING: postgres not reachable"
-  fi
+  pg_isready -h postgres -U "${E2E_POSTGRES_USER:-testuser}" -d postgres && echo "postgres reachable" || echo "WARNING: postgres not reachable"
+elif timeout 5 bash -c 'echo > /dev/tcp/postgres/5432' 2>/dev/null; then
+  echo "postgres reachable (tcp)"
+else
+  echo "WARNING: postgres not reachable"
 fi
+
+# Report whether the build is current and what (if anything) needs rebuilding.
+"$(dirname "$0")/build-doctor.sh" || true
