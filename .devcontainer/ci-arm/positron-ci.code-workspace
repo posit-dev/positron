@@ -1,0 +1,41 @@
+{
+	"folders": [{ "path": "../.." }],
+	"settings": {},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Start Positron server",
+				"type": "shell",
+				"command": "./scripts/e2e-start-server.sh 8080 dev-token \"$HOME/.positron-e2e-test\" 0.0.0.0",
+				"problemMatcher": []
+			},
+			{
+				"label": "Run e2e-electron (connections)",
+				"type": "shell",
+				"command": "npx playwright test --project e2e-electron --workers 2 --grep @:connections",
+				"problemMatcher": []
+			},
+			{
+				"label": "Show Playwright report",
+				"type": "shell",
+				"command": "npx playwright show-report --host 0.0.0.0",
+				"problemMatcher": []
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Debug e2e-electron (connections)",
+				"type": "node",
+				"request": "launch",
+				"program": "${workspaceFolder}/node_modules/.bin/playwright",
+				"args": ["test", "--project", "e2e-electron", "--grep", "@:connections"],
+				"cwd": "${workspaceFolder}",
+				"console": "integratedTerminal"
+			}
+		]
+	}
+}
