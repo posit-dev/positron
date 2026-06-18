@@ -141,27 +141,18 @@ jobs:
           node-version-file: .nvmrc
 
       # The windows-latest runner image now ships Visual Studio 2026 (internal
-      # version 18.x). node-gyp 11.x (bundled with npm 10.x on Node 22) has no
-      # mapping for VS version 18, so native module builds (e.g. tree-sitter)
-      # fail with: find VS unknown version "undefined" found at "...\18\...".
-      # node-gyp 12.1.0 adds VS 2026 (v18) support. We install it globally and
-      # point npm at it via npm_config_node_gyp instead of upgrading npm itself
-      # to 11.6.x: npm 11 validates the lock file more strictly and rejects our
-      # npm-10-generated package-lock.json ("Missing: ... from lock file"), which
-      # breaks `npm ci`. Pinning node-gyp to ^12.1.0 keeps Node 22.22.1 support
-      # (engines ^20.17.0 || >=22.9.0); node-gyp 13 requires Node ^22.22.2.
-      # Refs: https://github.com/nodejs/node-gyp/issues/3282
-      #       https://github.com/nodejs/node/issues/60861
-      - name: Install node-gyp 12 for Visual Studio 2026 support
-        shell: bash
-        run: |
-          npm install -g node-gyp@^12.1.0
-          NODE_GYP_JS="$(npm root -g)/node-gyp/bin/node-gyp.js"
-          echo "Using node-gyp at: $NODE_GYP_JS"
-          node "$NODE_GYP_JS" --version
-          # Persist to all later steps so every native build (build/, root,
-          # extensions, e2e) uses node-gyp 12 while npm stays at 10.9.2.
-          echo "npm_config_node_gyp=$NODE_GYP_JS" >> "$GITHUB_ENV"
+      # version 18.x), which node-gyp 11.x (bundled with npm 10.x on Node 22)
+      # cannot detect, so native module builds (e.g. tree-sitter via
+      # node-gyp-build) fail with: find VS unknown version "undefined".
+      # node-gyp-build invokes npm's bundled node-gyp via PATH and ignores both
+      # npm_config_node_gyp and a globally-installed node-gyp, and upgrading npm
+      # itself to 11.6.x (which bundles node-gyp 12) makes `npm ci` reject our
+      # npm-10-generated lock file. So we patch the bundled node-gyp in place,
+      # replicating node-gyp 12.1.0's VS 2026 fix. The patch is idempotent and a
+      # no-op once the bundled node-gyp is >= 12.1.0.
+      # See scripts/patch-bundled-node-gyp-vs2026.js for the full rationale.
+      - name: Patch bundled node-gyp for Visual Studio 2026 support
+        run: node scripts/patch-bundled-node-gyp-vs2026.js
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
