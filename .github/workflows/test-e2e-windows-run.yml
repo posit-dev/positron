@@ -140,8 +140,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Upgrade node-gyp
-        run: npm install -g node-gyp@latest
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
         shell: bash
@@ -179,6 +177,7 @@ jobs:
           #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
           #   both hit OR both miss      → filter='' (install all or skip via parent condition)
           POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+          npm_config_msvs_version: "2022"
         with:
           timeout_minutes: 90
           max_attempts: 3
