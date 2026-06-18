@@ -85,7 +85,7 @@ test.describe('F1 Help', {
 	// stacked layout leaves the Help webview in a state where a following console/
 	// editor help test cannot resolve its help frame. Grouping the notebook tests
 	// at the end avoids that transition.
-	test('R - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, r, openDataFile }) {
+	test('R - Verify basic F1 notebook help functionality', { tag: tags.POSITRON_NOTEBOOKS }, async function ({ app, page, r, openDataFile }) {
 		const { layouts } = app.workbench;
 
 		await openDataFile(join('workspaces', 'large_r_notebook', 'spotify.ipynb'));
@@ -93,9 +93,8 @@ test.describe('F1 Help', {
 
 		await page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 
-		// F1 must be retried inside toPass: a single press in a notebook cell may not
-		// register until the cell editor has focus on the token, so re-press until the
-		// help topic appears. (getHelpFrame resolves the help webview via .last().)
+		// Pressing F1 in a notebook cell may not register until the cell editor has
+		// focus on the token, so re-press until the help topic appears.
 		await expect(async () => {
 			await page.keyboard.press('F1');
 			const helpFrame = await app.workbench.help.getHelpFrame();
@@ -103,7 +102,7 @@ test.describe('F1 Help', {
 		}).toPass({ timeout: 30000 });
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', { tag: tags.NOTEBOOKS }, async function ({ app, page, python, openDataFile }) {
+	test('Python - Verify basic F1 notebook help functionality', { tag: tags.POSITRON_NOTEBOOKS }, async function ({ app, page, python, openDataFile }) {
 		const { notebooksPositron, layouts } = app.workbench;
 
 		await openDataFile(join('workspaces', 'large_py_notebook', 'spotify.ipynb'));
@@ -127,9 +126,8 @@ test.describe('F1 Help', {
 
 		await target.dblclick();
 
-		// F1 must be retried inside toPass: a single press in a notebook cell may not
-		// register until the cell editor has focus on the token, so re-press until the
-		// help topic appears. (getHelpFrame resolves the help webview via .last().)
+		// Pressing F1 in a notebook cell may not register until the cell editor has
+		// focus on the token, so re-press until the help topic appears.
 		await expect(async () => {
 			await page.keyboard.press('F1');
 			const helpFrame = await app.workbench.help.getHelpFrame();

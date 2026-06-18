@@ -14,7 +14,7 @@ test.afterEach(async function ({ hotKeys }) {
 });
 
 test.describe('Variables Pane - Notebook', {
-	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test('R - Verify Variables pane basic function for notebook', {
 		tag: [tags.ARK]
