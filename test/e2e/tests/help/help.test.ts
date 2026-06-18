@@ -44,7 +44,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
 		}).toPass();
 
@@ -54,7 +54,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
 		}).toPass();
 
