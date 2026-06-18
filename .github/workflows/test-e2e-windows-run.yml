@@ -144,15 +144,24 @@ jobs:
       # version 18.x). node-gyp 11.x (bundled with npm 10.x on Node 22) has no
       # mapping for VS version 18, so native module builds (e.g. tree-sitter)
       # fail with: find VS unknown version "undefined" found at "...\18\...".
-      # node-gyp 12.1.0 adds VS 2026 (v18) support and is bundled in npm >= 11.6.3.
-      # Node 22.22.1 satisfies both npm 11 and node-gyp 12 engine ranges.
+      # node-gyp 12.1.0 adds VS 2026 (v18) support. We install it globally and
+      # point npm at it via npm_config_node_gyp instead of upgrading npm itself
+      # to 11.6.x: npm 11 validates the lock file more strictly and rejects our
+      # npm-10-generated package-lock.json ("Missing: ... from lock file"), which
+      # breaks `npm ci`. Pinning node-gyp to ^12.1.0 keeps Node 22.22.1 support
+      # (engines ^20.17.0 || >=22.9.0); node-gyp 13 requires Node ^22.22.2.
       # Refs: https://github.com/nodejs/node-gyp/issues/3282
       #       https://github.com/nodejs/node/issues/60861
-      - name: Upgrade npm for Visual Studio 2026 support
-        shell: pwsh
+      - name: Install node-gyp 12 for Visual Studio 2026 support
+        shell: bash
         run: |
-          npm install -g npm@11.6.4
-          Write-Host "npm version: $(npm --version)"
+          npm install -g node-gyp@^12.1.0
+          NODE_GYP_JS="$(npm root -g)/node-gyp/bin/node-gyp.js"
+          echo "Using node-gyp at: $NODE_GYP_JS"
+          node "$NODE_GYP_JS" --version
+          # Persist to all later steps so every native build (build/, root,
+          # extensions, e2e) uses node-gyp 12 while npm stays at 10.9.2.
+          echo "npm_config_node_gyp=$NODE_GYP_JS" >> "$GITHUB_ENV"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
