@@ -1,6 +1,54 @@
 {
 	"version": "2.0.0",
 	"tasks": [
+		// ───────── CI arm dev container (see .devcontainer/ci-arm/) ─────────
+		{
+			"label": "CI arm: Watch (incremental build)",
+			"detail": "Run once; recompiles changed files on save (seconds). Inner-loop build.",
+			"type": "shell",
+			"command": "npm run watch",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Run e2e-electron (connections)",
+			"type": "shell",
+			"command": "npx playwright test --project e2e-electron --workers 2 --grep @:connections",
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Start Positron server",
+			"detail": "Serves Positron at http://localhost:8080/?tkn=dev-token",
+			"type": "shell",
+			"command": "./scripts/e2e-start-server.sh 8080 dev-token \"$HOME/.positron-e2e-test\" 0.0.0.0",
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Show Playwright report",
+			"type": "shell",
+			"command": "npx playwright show-report --host 0.0.0.0",
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Check build status (doctor)",
+			"type": "shell",
+			"command": "./.devcontainer/ci-arm/build-doctor.sh",
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Reinstall deps (npm ci)",
+			"detail": "After a pull/branch-switch changed package-lock.json.",
+			"type": "shell",
+			"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
+			"problemMatcher": []
+		},
+		{
+			"label": "CI arm: Full rebuild (post-create)",
+			"type": "shell",
+			"command": "./.devcontainer/ci-arm/post-create.sh",
+			"problemMatcher": []
+		},
+		// ────────────────────────────────────────────────────────────────────
 		{
 			"type": "npm",
 			"script": "watch-client-transpiled",

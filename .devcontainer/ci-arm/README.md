@@ -55,8 +55,8 @@ Open your Positron checkout (a regular clone **or a git worktree** both work), t
 
 - The workspace is a **bind mount** of your checkout, so your edits live on your host disk and
   you keep normal file navigation (Finder, host tools).
-- `node_modules`, `test/e2e/node_modules`, `.build`, and `out` live on fast Docker volumes
-  (native Linux speed, no clobbering a host-side native build, host tree stays clean).
+- `node_modules`, `test/e2e/node_modules`, and `.build` live on fast Docker volumes (native
+  Linux speed, host tree stays clean). `out/` stays on the bind mount (the compile recreates it).
 - **Worktrees just work.** A host-side `initializeCommand` auto-detects your checkout path and
   the repo's git dir and mounts both, so git is fully functional inside the container. No setup.
   (The checkout must be a full clone — a *shallow* clone can't build, since the compile needs
@@ -64,9 +64,10 @@ Open your Positron checkout (a regular clone **or a git worktree** both work), t
 - First open runs `post-create.sh` — the full build (`npm ci`, compile, Electron, Playwright,
   license). `post-start.sh` then starts Xvfb and checks the DB.
 
-To get the task/debug buttons below, open the workspace file
-`.devcontainer/ci-arm/positron-ci.code-workspace` (it scopes the CI tasks/launch without
-touching the repo's shared `.vscode/`).
+The tasks and debug config below are registered in the repo's `.vscode/`, all prefixed
+**`CI arm:`**. Run a task with `Cmd-Shift-P → Tasks: Run Task` and type "CI arm" to filter.
+The debug config appears in the **Run and Debug** panel's dropdown as **CI arm: Debug
+e2e-electron**.
 
 ## Run / debug / test
 
