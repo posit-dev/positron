@@ -56,9 +56,7 @@ test.describe('Variables Pane - Notebook', {
 		// Reload window
 		await hotKeys.reloadWindow(true);
 
-		// After reload a console session is foregrounded in the Variables pane, so
-		// the notebook's variables sit in a background instance. Re-activate the
-		// notebook by clicking its tab so its session's variables show again.
+		// After reload a console session is foregrounded; click the notebook tab to surface its variables.
 		await app.workbench.editors.clickTab('Untitled-1.ipynb');
 
 		// Ensure the variable is still present
@@ -70,11 +68,8 @@ test.describe('Variables Pane - Notebook', {
 
 		await notebooksPositron.newNotebook();
 
-		// fast: true inserts the code atomically so Monaco's auto-closing brackets
-		// and auto-indent don't corrupt this bracket/quote-heavy multi-line code as
-		// it types; pressSequentially intermittently produced invalid syntax and the
-		// cell errored instead of printing its output. Assert cell 0's output before
-		// running cell 1 so its layout is stable before the next cell is added.
+		// fast: true avoids Monaco auto-closing brackets corrupting this multi-line
+		// code (pressSequentially produced SyntaxErrors); check cell 0 before cell 1.
 		await notebooksPositron.addCodeToCell(0, variableCode, { run: true, fast: true });
 		await notebooksPositron.expectOutputAtIndex(0, ['Hello from first cell']);
 

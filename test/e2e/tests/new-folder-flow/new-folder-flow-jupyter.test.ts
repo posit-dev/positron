@@ -51,9 +51,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 async function verifyNotebookEditorVisible(app: Application) {
 	const { notebooksPositron } = app.workbench;
 
-	// New Folder Flow opens duplicate notebook tabs (#14163), so matching the tab
-	// by name hits a strict-mode violation. Assert the notebook editor itself is
-	// visible instead.
+	// Assert the editor, not the tab: New Folder Flow opens duplicate tabs (#14163).
 	await notebooksPositron.expectToBeVisible();
 }
 
@@ -61,10 +59,7 @@ async function verifyNotebookKernelPythonVersion(app: Application) {
 	const { sessions, notebooksPositron } = app.workbench;
 
 	await sessions.expectSessionPickerToBe(/Untitled-1\.ipynb/);
-	// Assert the kernel resolved to a concrete Python version, not just a generic
-	// "Python" label, so a stuck/unresolved kernel would fail here. The legacy
-	// test also checked the project folder name in the kernel label, but the
-	// #14163 workaround above rebinds the kernel to the global Python (not the
-	// project runtime), so the folder name is intentionally not asserted.
+	// Concrete version, not just "Python". Folder name not checked: the #14163
+	// workaround rebinds the kernel to the global Python, not the project runtime.
 	await notebooksPositron.kernel.expectBadgeToContain(/Python \d+\.\d+\.\d+/);
 }

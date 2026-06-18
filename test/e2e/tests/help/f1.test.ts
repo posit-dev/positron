@@ -14,13 +14,11 @@ test.describe('F1 Help', {
 	tag: [tags.WEB, tags.WIN, tags.HELP]
 }, () => {
 
-	// Teardown only. Each test sets its own layout precondition at the start
+	// Teardown only; each test sets its own layout precondition at the start.
 	test.afterEach(async function ({ app, hotKeys }) {
 		await hotKeys.closeAllEditors();
 		await hotKeys.closeSecondarySidebar();
-		// Notebook tests end in the notebook layout, which can hide the console
-		// panel; only clear the console when its button is visible so teardown
-		// never fails on the hidden panel.
+		// Notebook layout can hide the console panel; only clear when visible.
 		if (await app.workbench.console.clearButton.isVisible()) {
 			await app.workbench.console.clearButton.click();
 		}
@@ -86,10 +84,8 @@ test.describe('F1 Help', {
 		await expect(helpFrame.locator('h1').first()).toContainText('pandas.DataFrame', { timeout: 30000 });
 	});
 
-	// Notebook help tests run last: switching from the notebook layout back to a
-	// stacked layout leaves the Help webview in a state where a following console/
-	// editor help test cannot resolve its help frame. Grouping the notebook tests
-	// at the end avoids that transition.
+	// Notebook tests run last: the notebook->stacked transition leaves the Help
+	// webview unresolvable for a following console/editor test.
 	test('R - Verify basic F1 notebook help functionality', { tag: tags.POSITRON_NOTEBOOKS }, async function ({ app, page, r, openDataFile }) {
 		const { layouts } = app.workbench;
 
@@ -98,8 +94,7 @@ test.describe('F1 Help', {
 
 		await page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 
-		// Pressing F1 in a notebook cell may not register until the cell editor has
-		// focus on the token, so re-press until the help topic appears.
+		// F1 in a notebook cell may not register until the editor has token focus; retry.
 		await expect(async () => {
 			await page.keyboard.press('F1');
 			const helpFrame = await app.workbench.help.getHelpFrame();
@@ -131,8 +126,7 @@ test.describe('F1 Help', {
 
 		await target.dblclick();
 
-		// Pressing F1 in a notebook cell may not register until the cell editor has
-		// focus on the token, so re-press until the help topic appears.
+		// F1 in a notebook cell may not register until the editor has token focus; retry.
 		await expect(async () => {
 			await page.keyboard.press('F1');
 			const helpFrame = await app.workbench.help.getHelpFrame();

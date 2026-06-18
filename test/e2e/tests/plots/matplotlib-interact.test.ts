@@ -27,22 +27,18 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS
 		await notebooksPositron.expectNoActiveSpinners(30000);
 		await hotKeys.toggleBottomPanel();
 
-		// The interact() output renders in an overlay webview that is only claimed
-		// once the cell output is scrolled into view; otherwise the frame is empty.
+		// Scroll the output into view to claim its overlay webview, else the frame is empty.
 		await notebooksPositron.cellOutput(0).scrollIntoViewIfNeeded();
 
 		const plotImage = notebooksPositron.frameLocator.locator('.widget-output img');
 		const radiusReadout = notebooksPositron.widgetReadout.first();
 		const radiusSlider = notebooksPositron.widgetSlider.first();
 
-		// The circle figure is not drawn until a slider is moved (interact defers the
-		// first render), so the plot image is absent initially.
+		// interact() defers the first render: the plot is absent until a slider moves.
 		await expect(radiusReadout).toHaveText('1.00');
 		await expect(plotImage).toHaveCount(0);
 
-		// Move the radius slider and verify both the readout and the rendered plot
-		// update. The keypress is retried until the value changes because a single
-		// press can land before the slider handle has focus.
+		// Retry the keypress until the value changes (a single press can precede focus).
 		await radiusSlider.click();
 		await expect(async () => {
 			await radiusSlider.press('ArrowRight');
