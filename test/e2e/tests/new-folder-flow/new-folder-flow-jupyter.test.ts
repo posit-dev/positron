@@ -5,7 +5,7 @@
 
 import { Application } from '../../infra/index.js';
 import { FolderTemplate } from '../../pages/newFolderFlow.js';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({

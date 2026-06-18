@@ -1737,7 +1737,7 @@ class KernelBase {
 	protected activeStatus: Locator;
 	protected idleStatus: Locator;
 	protected disconnectedStatus: Locator;
-	quickinput: any;
+	protected quickinput!: QuickInput;
 
 	constructor(
 		statusBadge: Locator,
@@ -1888,13 +1888,14 @@ export class Kernel extends KernelBase {
 		private notebooks: PositronNotebooks,
 		contextMenu: ContextMenu,
 		private hotKeys: HotKeys,
-		private quickinput: QuickInput
+		quickinput: QuickInput
 	) {
 		super(
 			code.driver.currentPage.getByRole('button', { name: 'Kernel Actions' }),
 			notebooks.editorActionBar,
 			contextMenu
 		);
+		this.quickinput = quickinput;
 	}
 
 	// #region ACTIONS
