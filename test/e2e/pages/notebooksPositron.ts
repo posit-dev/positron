@@ -1981,6 +1981,29 @@ export class Kernel extends KernelBase {
 	// #region ACTIONS
 
 	/**
+	 * Action: Change the kernel for the current notebook.
+	 */
+	async change(
+		kernelGroup: 'Python' | 'R',
+		{ version }: { version?: string } = {}
+	): Promise<void> {
+		const desiredKernel = version ?? (kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!);
+		await test.step('Change kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Change Kernel/
+			});
+			// select the kernel
+			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			await this.quickinput.waitForQuickInputClosed();
+		});
+	}
+
+	/**
 	 * Action: Open the notebook session scratchpad in console.
 	 */
 	async openNotebookConsole(): Promise<void> {

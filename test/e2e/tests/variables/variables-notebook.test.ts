@@ -6,8 +6,7 @@
 import { test, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename,
-	useLegacyNotebookEditor: true
+	suiteId: __filename
 });
 
 test.afterEach(async function ({ hotKeys }) {
@@ -15,46 +14,40 @@ test.afterEach(async function ({ hotKeys }) {
 });
 
 test.describe('Variables Pane - Notebook', {
-	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test('R - Verify Variables pane basic function for notebook', {
 		tag: [tags.ARK]
-	}, async function ({ app, hotKeys }) {
-		const { notebooks, variables } = app.workbench;
+	}, async function ({ app, hotKeys, r }) {
+		const { notebooksPositron, variables } = app.workbench;
 
 		// Create a variable via a notebook
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('R');
-		await notebooks.addCodeToCellAtIndex(0, 'y <- c(2, 3, 4, 5)');
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'y <- c(2, 3, 4, 5)', { run: true });
 
 		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
 		await variables.expectVariableToBe('y', '2 3 4 5');
 	});
 
-	test('Python - Verify Variables pane basic function for notebook', async function ({ app }) {
-		const { notebooks, variables, hotKeys } = app.workbench;
+	test('Python - Verify Variables pane basic function for notebook', async function ({ app, python }) {
+		const { notebooksPositron, variables, hotKeys } = app.workbench;
 
 		// Create a variable via a notebook
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('Python');
-		await notebooks.addCodeToCellAtIndex(0, 'y = [2, 3, 4, 5]');
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'y = [2, 3, 4, 5]', { run: true });
 
 		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
 		await variables.expectVariableToBe('y', '[2, 3, 4, 5]');
 	});
 
-	test('Python - Verify Variables available after reload', async function ({ app, hotKeys }) {
-		const { notebooks, variables } = app.workbench;
+	test('Python - Verify Variables available after reload', async function ({ app, hotKeys, python }) {
+		const { notebooksPositron, variables } = app.workbench;
 
 		// Create a variable via a notebook
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('Python');
-		await notebooks.addCodeToCellAtIndex(0, 'dict = [{"a":1,"b":2},{"a":3,"b":4}]');
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'dict = [{"a":1,"b":2},{"a":3,"b":4}]', { run: true });
 
 		// Verify the var in the variable pane
 		await hotKeys.fullSizeSecondarySidebar();
@@ -63,37 +56,35 @@ test.describe('Variables Pane - Notebook', {
 		// Reload window
 		await hotKeys.reloadWindow(true);
 
+		// After reload a console session is foregrounded; click the notebook tab to surface its variables.
+		await app.workbench.editors.clickTab('Untitled-1.ipynb');
+
 		// Ensure the variable is still present
-		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
+		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, 30000);
 	});
 
-	test('Python - Verify variables persist across cells', async function ({ app }) {
-		const { notebooks } = app.workbench;
+	test('Python - Verify variables persist across cells', async function ({ app, python }) {
+		const { notebooksPositron } = app.workbench;
 
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('Python');
+		await notebooksPositron.newNotebook();
 
-		await notebooks.addCodeToCellAtIndex(0, variableCode);
-		await notebooks.executeCodeInCell();
-		await notebooks.insertNotebookCell('code');
+		// fast: true avoids Monaco auto-closing brackets corrupting this multi-line
+		// code (pressSequentially produced SyntaxErrors); check cell 0 before cell 1.
+		await notebooksPositron.addCodeToCell(0, variableCode, { run: true, fast: true });
+		await notebooksPositron.expectOutputAtIndex(0, ['Hello from first cell']);
 
-		await notebooks.addCodeToCellAtIndex(1, useVariableCode);
-		await notebooks.executeCodeInCell();
-		await notebooks.assertCellOutput('Hello from first cell', 0);
-		await notebooks.assertCellOutput('Sum of numbers: 15');
-		await notebooks.assertCellOutput('Modified numbers: [1, 2, 3, 4, 5, 6]');
+		await notebooksPositron.addCodeToCell(1, useVariableCode, { run: true, fast: true });
+		await notebooksPositron.expectOutputAtIndex(1, ['Sum of numbers: 15', 'Modified numbers: [1, 2, 3, 4, 5, 6]']);
 	});
 
 	test('Python - Verify Variables pane stays on notebook session after opening Data Explorer', {
 		tag: [tags.DATA_EXPLORER]
-	}, async function ({ app, hotKeys }) {
-		const { notebooks, variables, editors } = app.workbench;
+	}, async function ({ app, hotKeys, python }) {
+		const { notebooksPositron, variables, editors } = app.workbench;
 
 		// Create a dataframe in a notebook
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('Python');
-		await notebooks.addCodeToCellAtIndex(0, 'import pandas as pd\ndf = pd.DataFrame({"a": [1, 2, 3]})');
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.addCodeToCell(0, 'import pandas as pd\ndf = pd.DataFrame({"a": [1, 2, 3]})', { run: true, waitForSpinner: true });
 
 		// Verify we're on the notebook session
 		await hotKeys.fullSizeSecondarySidebar();
