@@ -27,20 +27,30 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () =
 		await notebooksPositron.expectNoActiveSpinners(30000);
 		await hotKeys.toggleBottomPanel();
 
-		// interact with the sliders and verify the plot updates
-		const plotLocator = notebooksPositron.frameLocator.locator('.widget-output');
-		const plotImageLocator = plotLocator.locator('img');
+		// The interact() output renders in an overlay webview that is only claimed
+		// once the cell output is scrolled into view; otherwise the frame is empty.
+		await notebooksPositron.cell.nth(0).getByTestId('cell-output').scrollIntoViewIfNeeded();
 
-		const imgSrcBefore = await plotImageLocator.getAttribute('src');
+		const plotImage = notebooksPositron.frameLocator.locator('.widget-output img');
+		const radiusReadout = notebooksPositron.frameLocator.locator('.widget-slider .widget-readout').first();
+		const radiusSlider = notebooksPositron.widgetSlider.first();
 
-		const sliders = await notebooksPositron.frameLocator.locator('.slider-container .slider').all();
-		for (const slider of sliders) {
-			await slider.hover();
-			await slider.click();
-		}
+		// The circle figure is not drawn until a slider is moved (interact defers the
+		// first render), so the plot image is absent initially.
+		await expect(radiusReadout).toHaveText('1.00');
+		await expect(plotImage).toHaveCount(0);
 
-		const imgSrcAfter = await plotImageLocator.getAttribute('src');
-		expect(imgSrcBefore).not.toBe(imgSrcAfter);
+		// Move the radius slider and verify both the readout and the rendered plot
+		// update. The keypress is retried until the value changes because a single
+		// press can land before the slider handle has focus.
+		await radiusSlider.click();
+		await expect(async () => {
+			await radiusSlider.press('ArrowRight');
+			await expect(radiusReadout).not.toHaveText('1.00');
+			await expect(plotImage).toBeVisible();
+		}).toPass({ timeout: 30000 });
+
+		expect(await plotImage.getAttribute('src')).toMatch(/^data:image\/png/);
 	});
 
 });
