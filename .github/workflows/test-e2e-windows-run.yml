@@ -140,18 +140,19 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Patch node-gyp to support VS 2026
+      # The windows-latest runner image now ships Visual Studio 2026 (internal
+      # version 18.x). node-gyp 11.x (bundled with npm 10.x on Node 22) has no
+      # mapping for VS version 18, so native module builds (e.g. tree-sitter)
+      # fail with: find VS unknown version "undefined" found at "...\18\...".
+      # node-gyp 12.1.0 adds VS 2026 (v18) support and is bundled in npm >= 11.6.3.
+      # Node 22.22.1 satisfies both npm 11 and node-gyp 12 engine ranges.
+      # Refs: https://github.com/nodejs/node-gyp/issues/3282
+      #       https://github.com/nodejs/node/issues/60861
+      - name: Upgrade npm for Visual Studio 2026 support
         shell: pwsh
         run: |
-          $f = "$(Split-Path (Get-Command node).Source)\node_modules\npm\node_modules\node-gyp\lib\find-visualstudio.js"
-          $content = Get-Content $f
-          $content = $content -replace "findNewVS\(\[2019, 2022\]\)", "findNewVS([2019, 2022, 2026])"
-          $content = $content -replace "findVSFromSpecifiedLocation\(\[2019, 2022\]\)", "findVSFromSpecifiedLocation([2019, 2022, 2026])"
-          $content = $content -replace "findNe­wVSUsingSetupModule\(\[2019, 2022\]\)", "findNewVSUsingSetupModule([2019, 2022, 2026])"
-          $content = $content -replace "(versionMajor === 17\) \{)", "`$1`n    if (ret.versionMajor === 18) { ret.versionYear = 2026; return ret }"
-          Set-Content $f $content
-          Write-Host "Patched:"
-          Select-String "2026" $f
+          npm install -g npm@11.6.4
+          Write-Host "npm version: $(npm --version)"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
@@ -177,8 +178,6 @@ jobs:
         uses: nick-fields/retry@v4
         env:
           npm_config_arch: x64
-          VCINSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\'
-          VSCMD_VER: '18.0'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
