@@ -320,7 +320,11 @@ describe('PositronNotebookInstance', () => {
 				ctx,
 			);
 			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(2);
-			notebook.cells.get()[1].model.textModel!.setValue(linesOf(100));
+			// Edit in place via applyEdits (as production does) so the cell's
+			// shared text buffer reflects the new line count. setValue would
+			// replace the model's buffer and leave the cell's buffer stale.
+			const textModel = notebook.cells.get()[1].model.textModel!;
+			textModel.applyEdits([{ range: textModel.getFullModelRange(), text: linesOf(100) }]);
 			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(3);
 		});
 	});
