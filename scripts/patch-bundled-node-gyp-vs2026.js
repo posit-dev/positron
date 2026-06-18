@@ -46,7 +46,10 @@ if (!fs.existsSync(target)) {
 	process.exit(1);
 }
 
-const original = fs.readFileSync(target, 'utf8');
+// Normalize to LF so multi-line anchors match regardless of how the bundled
+// node-gyp was checked out (Node's Windows distribution ships it with CRLF).
+// Line endings don't affect how node executes the file, so writing LF is safe.
+const original = fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n');
 
 if (original.includes('ret.versionMajor === 18')) {
 	console.log(`[patch-node-gyp] Bundled node-gyp already supports VS 2026 (v18); nothing to do.`);
