@@ -163,16 +163,19 @@ jobs:
       # per-extension copies such as copilot's 10.x). Rather than patch each one,
       # install the VS 2022 C++ build tools (v143 toolset): node-gyp filters out
       # the unrecognized VS 2026 and falls back to VS 2022, and preinstall.ts's
-      # toolchain check is satisfied too. Gated on the same condition as the
-      # install step below, since the toolchain is only needed when native
-      # modules are actually (re)built (i.e. on an npm cache miss).
+      # toolchain check is satisfied too. The Spectre-mitigated runtime libs are
+      # added explicitly because our native modules (e.g. @vscode/native-watchdog,
+      # @vscode/deviceid) build with Spectre mitigation required (MSB8040).
+      # Gated on the same condition as the install step below, since the
+      # toolchain is only needed when native modules are actually (re)built
+      # (i.e. on an npm cache miss).
       - name: Install Visual Studio 2022 C++ build tools
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
             steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         shell: pwsh
         run: |
-          choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--includeRecommended"
+          choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
