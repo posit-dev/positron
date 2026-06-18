@@ -44,8 +44,8 @@ test.describe('Sessions: State', {
 		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
 		const rSessionId = await sessions.startAndSkipMetadata({ language: 'R', waitForReady: false });
 
-		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.expectStatusToBe(rSessionId, 'active');
+		// R starts fast enough that its transient 'active' state can't be reliably
+		// observed on startup; active is covered by the restart and execution checks.
 		await sessions.expectStatusToBe(rSessionId, 'idle');
 		await sessions.expectStatusToBe(pySessionId, 'idle');
 
