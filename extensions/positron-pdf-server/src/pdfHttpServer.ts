@@ -69,13 +69,33 @@ export class PdfHttpServer {
 	}
 
 	/**
+	 * Replace the first occurrence of an anchor in viewer.html, warning if the
+	 * anchor is absent.
+	 *
+	 * The notebook viewer is assembled by string/regex surgery on pdf.js's
+	 * stock viewer.html. These anchors (the `<title>`, `</head>`, and the
+	 * `#secondaryOpenFile` button) are coupled to the bundled pdf.js version
+	 * (see pdfjs-dist in package.json). A pdf.js upgrade that renames or removes
+	 * one of them would make String.replace a silent no-op; logging here surfaces
+	 * the breakage instead of shipping a viewer that is missing its injections.
+	 */
+	private replaceAnchor(html: string, anchor: string | RegExp, replacement: string): string {
+		const found = typeof anchor === 'string' ? html.includes(anchor) : anchor.test(html);
+		if (!found) {
+			console.warn(`PDF viewer injection anchor not found (pdf.js version mismatch?): ${anchor}`);
+			return html;
+		}
+		return html.replace(anchor, replacement);
+	}
+
+	/**
 	 * Read viewer.html from disk and inject the keyboard forwarder script.
 	 */
 	private async readBaseViewerHtml(): Promise<string> {
 		const viewerPath = path.join(this.extensionPath!, 'pdfjs-dist', 'web', 'viewer.html');
 		let html = await fs.promises.readFile(viewerPath, 'utf-8');
 		const scriptTag = '<script src="/keyboard-forwarder.js"></script>';
-		html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
+		html = this.replaceAnchor(html, '<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${scriptTag}`);
 		return html;
 	}
 
@@ -131,7 +151,7 @@ export class PdfHttpServer {
 						PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
 					});
 				</script>`;
-				html = html.replace('<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}`);
+				html = this.replaceAnchor(html, '<title>PDF.js viewer</title>', `<title>PDF.js viewer</title>\n${themeScript}`);
 
 				// Inject CSS for the "Open With..." button icon (reuses the Open button's icon).
 				const openWithCss = `<style>
@@ -140,11 +160,12 @@ export class PdfHttpServer {
 						mask-image: url("images/toolbarButton-openFile.svg");
 					}
 				</style>`;
-				html = html.replace('</head>', `${openWithCss}\n</head>`);
+				html = this.replaceAnchor(html, '</head>', `${openWithCss}\n</head>`);
 
 				// Inject "Open With..." button after the "Open" button in secondary toolbar.
 				const openWithButton = '\n\t\t\t\t\t\t<button id="notebookOpenWith" class="toolbarButton labeled" type="button" tabindex="0" title="Open With...">\n\t\t\t\t\t\t\t<span>Open With...</span>\n\t\t\t\t\t\t</button>';
-				html = html.replace(
+				html = this.replaceAnchor(
+					html,
 					/(<button id="secondaryOpenFile"[^]*?<\/button>)/,
 					`$1\n${openWithButton}`
 				);
@@ -160,7 +181,7 @@ export class PdfHttpServer {
 						}
 					});
 				</script>`;
-				html = html.replace('</head>', `${openWithScript}\n</head>`);
+				html = this.replaceAnchor(html, '</head>', `${openWithScript}\n</head>`);
 
 				res.type('text/html');
 				return res.send(html);
