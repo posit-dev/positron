@@ -85,3 +85,6 @@ dist
 .github/skills/.local/
 .sbom-tmp/
 .sbom-tmp/
+
+# ci-arm dev container local secrets
+.devcontainer/ci-arm/.env
