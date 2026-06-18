@@ -36,13 +36,19 @@ echo "==> [7/8] gulp node"
 npm run gulp node
 
 echo "==> [8/8] license"
-if [ -n "${POSITRON_DEV_LICENSE:-}" ]; then
-  LICENSE_DEST="/positron-license/pdol/target/debug/pdol_rsa"   # confirmed in Task 0 spike
+LICENSE_DEST="/positron-license/pdol/target/debug/pdol_rsa"   # confirmed in Task 0 spike
+if [ -n "${POSITRON_DEV_LICENSE_B64:-}" ]; then
+  # Local path: single-line base64 from .env (a .env file can't hold a multi-line PEM).
   mkdir -p "$(dirname "$LICENSE_DEST")"
-  printf "%s" "$POSITRON_DEV_LICENSE" > "$LICENSE_DEST"
-  echo "license written to $LICENSE_DEST"
+  printf '%s' "$POSITRON_DEV_LICENSE_B64" | base64 -d > "$LICENSE_DEST"
+  echo "license written to $LICENSE_DEST ($(wc -c < "$LICENSE_DEST") bytes, from base64)"
+elif [ -n "${POSITRON_DEV_LICENSE:-}" ]; then
+  # CI path: raw multi-line PEM injected as a real env var (e.g. GitHub secret).
+  mkdir -p "$(dirname "$LICENSE_DEST")"
+  printf '%s' "$POSITRON_DEV_LICENSE" > "$LICENSE_DEST"
+  echo "license written to $LICENSE_DEST (raw)"
 else
-  echo "WARNING: POSITRON_DEV_LICENSE not set; build will be unlicensed"
+  echo "WARNING: no license provided (set POSITRON_DEV_LICENSE_B64); build will be unlicensed"
 fi
 
 echo "==> post-create complete"
