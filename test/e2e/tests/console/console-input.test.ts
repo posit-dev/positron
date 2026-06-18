@@ -25,6 +25,9 @@ test.describe('Console Input', {
 		await app.workbench.console.sendEnterKey();
 		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
+		// https://github.com/posit-dev/positron/issues/11758: focus must remain in the console while input() waits
+		await expect(app.workbench.console.activeConsole.locator('.activity-prompt .native-edit-context')).toBeFocused();
+
 		await app.workbench.console.typeToConsole('John Doe');
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
@@ -40,6 +43,9 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.pasteCodeToConsole(inputCode);
 		await app.workbench.console.sendEnterKey();
 		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
+
+		// https://github.com/posit-dev/positron/issues/11758: focus must remain in the console while readline() waits
+		await expect(app.workbench.console.activeConsole.locator('.activity-prompt .native-edit-context')).toBeFocused();
 
 		// slight wait before starting to type
 		await app.code.wait(200);
