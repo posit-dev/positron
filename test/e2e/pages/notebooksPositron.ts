@@ -1880,7 +1880,7 @@ export class Kernel extends KernelBase {
 	 */
 	async change(
 		kernelGroup: 'Python' | 'R',
-		{ version }: { version?: string; waitForReady?: boolean } = {}
+		{ version }: { version?: string } = {}
 	): Promise<void> {
 		const desiredKernel = version ?? (kernelGroup === 'Python'
 			? process.env.POSITRON_PY_VER_SEL!
