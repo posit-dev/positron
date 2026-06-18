@@ -140,6 +140,13 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Patch node-gyp to support VS 2026
+        shell: pwsh
+        run: |
+          $f = "$(Split-Path (Get-Command node).Source)\node_modules\npm\node_modules\node-gyp\lib\find-visualstudio.js"
+          (Get-Content $f) -replace "if \(ret\.versionMajor === 17\) \{", "if (ret.versionMajor === 18) { ret.versionYear = 2026; return ret`n    }`n    if (ret.versionMajor === 17) {" | Set-Content $f
+          Write-Host "Patched $f"
+
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
         shell: bash
@@ -165,6 +172,7 @@ jobs:
         env:
           npm_config_arch: x64
           VCINSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\'
+          VSCMD_VER: '18.0'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
