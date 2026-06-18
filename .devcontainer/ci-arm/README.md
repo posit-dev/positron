@@ -33,7 +33,7 @@ cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
 | `E2E_POSTGRES_USER`, `E2E_POSTGRES_PASSWORD` | 1Password → *Positron > E2E Postgres DB Connection info* |
 | license | The dev license PEM (1Password → IDE/Workbench vault) — saved as a **file**, not in `.env`; see below |
 | `POSITRON_CI_IMAGE_TAG` | Defaults to the current CI tag (`127`); override to pin a specific CI run |
-| `POSITRON_CI_IMAGE_ARCH` | `arm64` (default). `amd64` is not yet usable — no amd64 image is published |
+| `POSITRON_CI_IMAGE_ARCH` | `arm64` (default, validated). `amd64` images exist (CI uses them) but this config isn't validated on amd64 yet |
 
 **The license is a multi-line PEM key** (`-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----`),
 so it goes in a **file, not `.env`**. Save the whole block to:
@@ -50,14 +50,19 @@ secrets never get committed.
 
 ## Open it
 
-Open your Positron checkout, then **Dev Containers: Reopen in Container** and pick
-**"Positron CI (arm e2e-electron)"**.
+Open your Positron checkout (a regular clone **or a git worktree** both work), then
+**Dev Containers: Reopen in Container** and pick **"Positron CI (arm e2e-electron)"**.
 
-- The workspace is a **bind mount** of your checkout, so your edits live on your host disk.
-- `node_modules`, `test/e2e/node_modules`, and `.build` are kept on fast Docker volumes
-  (they build at native Linux speed and don't pollute your host tree).
+- The workspace is a **bind mount** of your checkout, so your edits live on your host disk and
+  you keep normal file navigation (Finder, host tools).
+- `node_modules`, `test/e2e/node_modules`, `.build`, and `out` live on fast Docker volumes
+  (native Linux speed, no clobbering a host-side native build, host tree stays clean).
+- **Worktrees just work.** A host-side `initializeCommand` auto-detects your checkout path and
+  the repo's git dir and mounts both, so git is fully functional inside the container. No setup.
+  (The checkout must be a full clone — a *shallow* clone can't build, since the compile needs
+  git history.)
 - First open runs `post-create.sh` — the full build (`npm ci`, compile, Electron, Playwright,
-  license). This is slow the first time. `post-start.sh` then starts Xvfb and checks the DB.
+  license). `post-start.sh` then starts Xvfb and checks the DB.
 
 To get the task/debug buttons below, open the workspace file
 `.devcontainer/ci-arm/positron-ci.code-workspace` (it scopes the CI tasks/launch without
@@ -79,8 +84,9 @@ touching the repo's shared `.vscode/`).
 
 ## The build, and your inner loop
 
-First open runs a **full cold build** (`npm ci` + compile + Electron + Playwright) — 20–40 min,
-once per machine; it persists on Docker volumes across restarts/rebuilds. After that you work in
+First open runs a **full cold build** (`npm ci` + compile + Electron + Playwright) — about
+**10 min** on Apple Silicon (`npm ci` is the long pole at ~6 min; compile is ~3 min), once per
+machine; it persists on Docker volumes across restarts/rebuilds. After that you work in
 the **incremental** loop: start **Watch (incremental build)** once, then edit → save → it
 recompiles changed files in seconds → run/debug. Editing and debugging do *not* re-trigger the
 cold build. You only pay more when dependencies change (`npm ci` again), native modules change,
@@ -101,9 +107,10 @@ trigger a rebuild.
 
 ## Limitations
 
-- **arm64 only.** The image suffix and Electron build are arch-parameterized, but no amd64
-  image is published yet, so Windows/Intel-Mac aren't usable until one is.
+- **arm64 only (validated).** The image suffix and Electron build are arch-parameterized and
+  amd64 images exist (CI runs on them), but this config hasn't been validated on amd64/Windows.
 - **No desktop-app/VNC view.** Use the browser server (`:8080`) for interactive Positron;
   headless Xvfb backs the e2e runs.
-- **First build is slow.** Compiling Positron in `post-create` takes a while; subsequent opens
-  reuse the volumes.
+- **One instance.** Designed for a single dev/debug container at a time.
+- **First build is ~10 min** (one-time, then incremental). A prebuilt image could make first
+  open near-instant later — see the design doc.

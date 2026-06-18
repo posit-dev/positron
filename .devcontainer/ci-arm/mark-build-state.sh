@@ -2,7 +2,7 @@
 # Record the state of a successful build so build-doctor.sh can detect drift later.
 # Stored under .build/ so it persists with the build and is wiped on a full rebuild.
 set -euo pipefail
-WS="${WORKSPACE_FOLDER:-/workspaces/positron}"
+WS="${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 STATE="$WS/.build/.ci-arm-state"
 mkdir -p "$STATE"
 sha() { [ -f "$1" ] && sha256sum "$1" | awk '{print $1}' || echo "missing"; }

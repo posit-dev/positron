@@ -2,7 +2,7 @@
 # Report whether the build is current and print actionable guidance. Read-only — changes nothing.
 # Run automatically on container start (post-start.sh) and available as a manual task.
 set -uo pipefail
-WS="${WORKSPACE_FOLDER:-/workspaces/positron}"
+WS="${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 STATE="$WS/.build/.ci-arm-state"
 issues=0
 note() { echo "  ⚠ $1"; issues=$((issues + 1)); }

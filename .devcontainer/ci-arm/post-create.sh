@@ -4,7 +4,7 @@
 # (the source is already the editor-attached workspace).
 set -euo pipefail
 
-cd "${WORKSPACE_FOLDER:-/workspaces/positron}"
+cd "${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
 echo "==> [1/8] root npm ci"
 [ -d node_modules ] && [ -n "$(ls -A node_modules 2>/dev/null)" ] || npm ci --fetch-timeout 120000

@@ -2,7 +2,10 @@
 	"name": "Positron CI (arm e2e-electron)",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "test",
-	"workspaceFolder": "/workspaces/positron",
+	// Source is bind-mounted at its own host path (see docker-compose.yml + initialize.sh),
+	// so the workspace inside the container is that same host path.
+	"workspaceFolder": "${localWorkspaceFolder}",
+	"initializeCommand": "./.devcontainer/ci-arm/initialize.sh",
 	"runServices": ["postgres"],
 	"remoteUser": "root",
 	"overrideCommand": false,
