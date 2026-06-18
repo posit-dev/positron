@@ -1566,7 +1566,9 @@ export class MoveCellUpAction extends NotebookAction2 {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow,
-				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow]
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.UpArrow]
 			}
 		});
 	}
@@ -1594,7 +1596,9 @@ export class MoveCellDownAction extends NotebookAction2 {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow,
-				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow]
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.DownArrow]
 			}
 		});
 	}

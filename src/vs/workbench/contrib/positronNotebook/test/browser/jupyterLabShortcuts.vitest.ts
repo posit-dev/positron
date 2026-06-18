@@ -282,7 +282,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Alt+Up primary and Ctrl+Shift+Up secondary', () => {
 			const action = new MoveCellUpAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.UpArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow]);
+			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.UpArrow]);
 			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 	});
@@ -291,7 +291,7 @@ describe('Positron Notebook keyboard shortcuts', () => {
 		it('declares Alt+Down primary and Ctrl+Shift+Down secondary', () => {
 			const action = new MoveCellDownAction();
 			expect(action.desc.keybinding?.primary).toBe(KeyMod.Alt | KeyCode.DownArrow);
-			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow]);
+			expect(action.desc.keybinding?.secondary).toEqual([KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.DownArrow]);
 			expect(action.desc.keybinding?.when).toBe(NotebookContextKeys.editorFocused);
 		});
 	});
