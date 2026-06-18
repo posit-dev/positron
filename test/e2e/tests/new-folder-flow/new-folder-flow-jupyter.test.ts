@@ -62,6 +62,9 @@ async function verifyNotebookKernelPythonVersion(app: Application) {
 
 	await sessions.expectSessionPickerToBe(/Untitled-1\.ipynb/);
 	// Assert the kernel resolved to a concrete Python version, not just a generic
-	// "Python" label, so a stuck/unresolved kernel would fail here.
+	// "Python" label, so a stuck/unresolved kernel would fail here. The legacy
+	// test also checked the project folder name in the kernel label, but the
+	// #14163 workaround above rebinds the kernel to the global Python (not the
+	// project runtime), so the folder name is intentionally not asserted.
 	await notebooksPositron.kernel.expectBadgeToContain(/Python \d+\.\d+\.\d+/);
 }

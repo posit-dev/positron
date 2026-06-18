@@ -18,7 +18,12 @@ test.describe('F1 Help', {
 	test.afterEach(async function ({ app, hotKeys }) {
 		await hotKeys.closeAllEditors();
 		await hotKeys.closeSecondarySidebar();
-		await app.workbench.console.clearButton.click();
+		// Notebook tests end in the notebook layout, which can hide the console
+		// panel; only clear the console when its button is visible so teardown
+		// never fails on the hidden panel.
+		if (await app.workbench.console.clearButton.isVisible()) {
+			await app.workbench.console.clearButton.click();
+		}
 	});
 
 	test('R - Verify basic F1 console help functionality', async function ({ app, page, r, openFile, runCommand }) {
