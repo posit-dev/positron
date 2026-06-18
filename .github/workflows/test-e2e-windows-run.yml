@@ -144,8 +144,14 @@ jobs:
         shell: pwsh
         run: |
           $f = "$(Split-Path (Get-Command node).Source)\node_modules\npm\node_modules\node-gyp\lib\find-visualstudio.js"
-          (Get-Content $f) -replace "if \(ret\.versionMajor === 17\) \{", "if (ret.versionMajor === 18) { ret.versionYear = 2026; return ret`n    }`n    if (ret.versionMajor === 17) {" | Set-Content $f
-          Write-Host "Patched $f"
+          $content = Get-Content $f
+          $content = $content -replace "findNewVS\(\[2019, 2022\]\)", "findNewVS([2019, 2022, 2026])"
+          $content = $content -replace "findVSFromSpecifiedLocation\(\[2019, 2022\]\)", "findVSFromSpecifiedLocation([2019, 2022, 2026])"
+          $content = $content -replace "findNe­wVSUsingSetupModule\(\[2019, 2022\]\)", "findNewVSUsingSetupModule([2019, 2022, 2026])"
+          $content = $content -replace "(versionMajor === 17\) \{)", "`$1`n    if (ret.versionMajor === 18) { ret.versionYear = 2026; return ret }"
+          Set-Content $f $content
+          Write-Host "Patched:"
+          Select-String "2026" $f
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
