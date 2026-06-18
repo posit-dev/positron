@@ -140,15 +140,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Upgrade bundled node-gyp (fix ERR_CHILD_PROCESS_STDIO_MAXBUFFER with VS 2026)
-        shell: pwsh
-        run: |
-          $NodeDir = Split-Path (Get-Command node).Source
-          $NpmDir = Join-Path $NodeDir "node_modules\npm"
-          # Replace npm's bundled node-gyp in-place
-          npm install --prefix $NpmDir node-gyp@^12
-          node (Join-Path $NpmDir "node_modules\node-gyp\bin\node-gyp.js") --version
-
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
         shell: bash
@@ -173,6 +164,8 @@ jobs:
         uses: nick-fields/retry@v4
         env:
           npm_config_arch: x64
+          VCINSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\'
+          npm_config_msvs_version: "2022"
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
