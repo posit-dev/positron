@@ -165,7 +165,6 @@ jobs:
         env:
           npm_config_arch: x64
           VCINSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\'
-          npm_config_msvs_version: "2022"
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
