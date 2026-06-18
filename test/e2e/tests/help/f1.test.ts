@@ -10,14 +10,11 @@ test.use({
 	suiteId: __filename,
 });
 
-
 test.describe('F1 Help', {
 	tag: [tags.WEB, tags.WIN, tags.HELP]
 }, () => {
 
 	// Teardown only. Each test sets its own layout precondition at the start
-	// (stacked for console/editor help, notebook for notebook help) so the
-	// suite does not depend on test execution order.
 	test.afterEach(async function ({ app, hotKeys }) {
 		await hotKeys.closeAllEditors();
 		await hotKeys.closeSecondarySidebar();
@@ -37,12 +34,9 @@ test.describe('F1 Help', {
 		await console.pasteCodeToConsole('colnames(df2)');
 		await console.doubleClickConsoleText('colnames');
 
-		await expect(async () => {
-			await page.keyboard.press('F1');
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 2000 });
-		}).toPass({ timeout: 30000 });
-
+		await page.keyboard.press('F1');
+		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
 	test('R - Verify basic F1 editor help functionality', async function ({ app, page, r, openFile }) {
@@ -50,12 +44,9 @@ test.describe('F1 Help', {
 		await openFile(join('workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
 		await page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
 
-		await expect(async () => {
-			await page.keyboard.press('F1');
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 2000 });
-		}).toPass({ timeout: 30000 });
-
+		await page.keyboard.press('F1');
+		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
 	test('Python - Verify basic F1 console help functionality', async function ({ app, page, python, openFile, runCommand }) {
@@ -71,12 +62,9 @@ test.describe('F1 Help', {
 		await console.pasteCodeToConsole('list(df.columns)');
 		await console.doubleClickConsoleText('list');
 
-		await expect(async () => {
-			await page.keyboard.press('F1');
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 2000 });
-		}).toPass({ timeout: 30000 });
-
+		await page.keyboard.press('F1');
+		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 30000 });
 	});
 
 	test('Python - Verify basic F1 editor help functionality', async function ({ app, page, python }) {
@@ -89,12 +77,8 @@ test.describe('F1 Help', {
 		await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
 
 		await page.keyboard.press('F1');
-
-		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
-			await expect(helpFrame.locator('h1').first()).toContainText('pandas.DataFrame', { timeout: 30000 });
-		}).toPass({ timeout: 30000 });
-
+		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		await expect(helpFrame.locator('h1').first()).toContainText('pandas.DataFrame', { timeout: 30000 });
 	});
 
 	// Notebook help tests run last: switching from the notebook layout back to a
@@ -109,11 +93,12 @@ test.describe('F1 Help', {
 
 		await page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 
+		// F1 must be retried inside toPass: a single press in a notebook cell may not
+		// register until the cell editor has focus on the token, so re-press until the
+		// help topic appears. (getHelpFrame resolves the help webview via .last().)
 		await expect(async () => {
 			await page.keyboard.press('F1');
-
-			// Note that we are getting help frame 1 instead of 0 because the notebook structure matches the same locators as help
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('h2').first()).toContainText('Options Settings', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
 	});
@@ -142,10 +127,12 @@ test.describe('F1 Help', {
 
 		await target.dblclick();
 
+		// F1 must be retried inside toPass: a single press in a notebook cell may not
+		// register until the cell editor has focus on the token, so re-press until the
+		// help topic appears. (getHelpFrame resolves the help webview via .last().)
 		await expect(async () => {
 			await page.keyboard.press('F1');
-			// Note that we are getting help frame 1 instead of 0 because the notbook structure matches the same locators as help
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body').first()).toContainText('warnings.filterwarnings', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
 	});
