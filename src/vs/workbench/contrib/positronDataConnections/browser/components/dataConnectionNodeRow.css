@@ -28,13 +28,6 @@
 	transform: translateY(-0.5px);
 }
 
-.data-connection-node-pk {
-	flex: 0 0 auto;
-	font-size: 13px;
-	margin: 0 4px;
-	color: var(--vscode-icon-foreground);
-}
-
 .data-connection-node-type {
 	flex: 0 0 auto;
 	color: var(--vscode-descriptionForeground);

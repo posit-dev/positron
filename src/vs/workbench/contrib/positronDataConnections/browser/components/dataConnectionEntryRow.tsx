@@ -45,7 +45,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 	const { profile } = entry;
 
 	/**
-	 * Reports a driver accesserror to the user.
+	 * Reports a driver access error to the user.
 	 */
 	const reportDriverAccessError = () => {
 		notificationService.error(positronDataConnectionsService.driverManager.driversLoaded
@@ -208,7 +208,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 	// Render.
 	return (
 		<div className='data-connection-entry-row'>
-			<div className='codicon codicon-database data-connection-entry-icon' />
+			<div className='codicon codicon-positron-db-database data-connection-entry-icon' />
 			<div className='data-connection-entry-text'>
 				{profile.connectionName}
 				{' · '}
