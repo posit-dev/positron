@@ -42,8 +42,11 @@ so it goes in a **file, not `.env`**. Save the whole block to:
 .devcontainer/ci-arm/license.txt
 ```
 
-`post-create.sh` installs it into the image at the path the build expects. (CI instead injects the
-raw multi-line `POSITRON_DEV_LICENSE` env var — the build handles both.)
+`post-create.sh` installs it as the `pdol_rsa` signing key the build expects. (CI instead injects
+the raw multi-line `POSITRON_DEV_LICENSE` env var — the build handles both.) Note there are two
+license paths: the **e2e-electron** tests use this signing key directly, while the **browser
+server** needs a *generated* key — the "Start Positron server" task issues one with `pdol`
+automatically, so you don't have to.
 
 Both `.devcontainer/ci-arm/.env` and `.devcontainer/ci-arm/license.txt` are gitignored — your
 secrets never get committed.

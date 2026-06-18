@@ -18,9 +18,9 @@
 		},
 		{
 			"label": "CI arm: Start Positron server",
-			"detail": "Serves Positron at http://localhost:8080/?tkn=dev-token",
+			"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
 			"type": "shell",
-			"command": "./scripts/e2e-start-server.sh 8080 dev-token \"$HOME/.positron-e2e-test\" 0.0.0.0",
+			"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
 			"problemMatcher": []
 		},
 		{
