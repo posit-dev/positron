@@ -22,9 +22,10 @@
  * npm (which validates our npm-10-generated lock file too strictly and breaks
  * `npm ci`) is to patch the bundled node-gyp in place.
  *
- * This replicates the two changes node-gyp 12.1.0 made to add VS 2026 support:
+ * This replicates the three changes node-gyp 12.1.0 made to add VS 2026 support:
  *   1. map versionMajor 18 -> versionYear 2026 in getVersionInfo()
  *   2. add 2026 to the supported-years arrays ([2019, 2022] -> [2019, 2022, 2026])
+ *   3. map versionYear 2026 -> toolset 'v145' in getToolset()
  *
  * The script is idempotent and a no-op once the bundled node-gyp is >= 12.1.0,
  * so it can be removed when the runner's bundled npm ships node-gyp with native
@@ -79,17 +80,41 @@ if (yearsCount === 0) {
 }
 patched = patched.split(yearsBefore).join(yearsAfter);
 
+// 3) Map versionYear 2026 -> toolset 'v145' in getToolset(). Without this the
+// VS 2026 install is found but reported as "missing any VC++ toolset", because
+// getToolset() only maps 2017/2019/2022 and returns null for any other year.
+const toolsetAnchor = [
+	'} else if (versionYear === 2022) {',
+	'      return \'v143\'',
+	'    }'
+].join('\n');
+const toolsetCount = patched.split(toolsetAnchor).length - 1;
+if (toolsetCount !== 1) {
+	console.error(`[patch-node-gyp] Expected exactly one getToolset v143 anchor, found ${toolsetCount}; node-gyp layout changed.`);
+	process.exit(1);
+}
+const toolsetBlock = [
+	'} else if (versionYear === 2022) {',
+	'      return \'v143\'',
+	'    } else if (versionYear === 2026) {',
+	'      return \'v145\'',
+	'    }'
+].join('\n');
+patched = patched.replace(toolsetAnchor, toolsetBlock);
+
 fs.writeFileSync(target, patched);
 
 // Verify the changes actually landed (guard against silent no-ops).
 const verify = fs.readFileSync(target, 'utf8');
 const okMapping = verify.includes('ret.versionYear = 2026');
 const okYears = (verify.split(yearsAfter).length - 1) === yearsCount;
-if (!okMapping || !okYears) {
-	console.error(`[patch-node-gyp] Verification failed (mapping=${okMapping}, years=${okYears}).`);
+const okToolset = verify.includes('return \'v145\'');
+if (!okMapping || !okYears || !okToolset) {
+	console.error(`[patch-node-gyp] Verification failed (mapping=${okMapping}, years=${okYears}, toolset=${okToolset}).`);
 	process.exit(1);
 }
 
 console.log(`[patch-node-gyp] Patched ${target}`);
-console.log(`[patch-node-gyp]   - mapped VS v18 -> 2026`);
+console.log(`[patch-node-gyp]   - mapped VS v18 -> year 2026`);
 console.log(`[patch-node-gyp]   - added 2026 to ${yearsCount} supported-years array(s)`);
+console.log(`[patch-node-gyp]   - mapped year 2026 -> toolset v145`);
