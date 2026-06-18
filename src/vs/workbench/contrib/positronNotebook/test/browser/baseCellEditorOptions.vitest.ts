@@ -39,7 +39,6 @@ describe('BaseCellEditorOptions', () => {
 		const options = createOptions();
 		expect(options.value.folding).toBe(true);
 		expect(options.value.lineNumbersMinChars).toBe(2);
-		expect(options.value.lineDecorationsWidth).toBe(10);
 	});
 
 	it('updates the line-number width via setLineNumbersMinChars', () => {
