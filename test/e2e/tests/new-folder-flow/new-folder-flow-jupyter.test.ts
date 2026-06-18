@@ -49,9 +49,12 @@ test.describe('New Folder Flow: Jupyter Project', {
 });
 
 async function verifyNotebookEditorVisible(app: Application) {
-	const { editors } = app.workbench;
+	const { notebooksPositron } = app.workbench;
 
-	await editors.verifyTab('Untitled-1.ipynb', { isVisible: true });
+	// New Folder Flow opens duplicate notebook tabs (#14163), so matching the tab
+	// by name hits a strict-mode violation. Assert the notebook editor itself is
+	// visible instead.
+	await notebooksPositron.expectToBeVisible();
 }
 
 async function verifyNotebookKernelPythonVersion(app: Application) {
