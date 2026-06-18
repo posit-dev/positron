@@ -1,0 +1,37 @@
+{
+	"name": "Positron CI (arm e2e-electron)",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "test",
+	"workspaceFolder": "/workspaces/positron",
+	"runServices": ["postgres"],
+	"remoteUser": "root",
+	"overrideCommand": false,
+	"forwardPorts": [8080, 9323],
+	"portsAttributes": {
+		"8080": { "label": "Positron server", "onAutoForward": "notify" },
+		"9323": { "label": "Playwright report", "onAutoForward": "silent" }
+	},
+	"containerEnv": {
+		"DISPLAY": ":10",
+		"POSITRON_PY_VER_SEL": "3.10.12",
+		"POSITRON_R_VER_SEL": "4.5.2",
+		"POSITRON_PY_ALT_VER_SEL": "3.13.0",
+		"POSITRON_R_ALT_VER_SEL": "4.4.2",
+		"POSITRON_HIDDEN_PY": "3.12.10 (Conda)",
+		"POSITRON_HIDDEN_R": "4.4.1",
+		"PWTEST_BLOB_DO_NOT_REMOVE": "1"
+	},
+	"postCreateCommand": "./.devcontainer/ci-arm/post-create.sh",
+	"postStartCommand": "./.devcontainer/ci-arm/post-start.sh",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-playwright.playwright",
+				"dbaeumer.vscode-eslint",
+				"ms-vscode.vscode-selfhost-test-provider",
+				"EditorConfig.EditorConfig",
+				"GitHub.vscode-pull-request-github"
+			]
+		}
+	}
+}
