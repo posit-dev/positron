@@ -8,13 +8,7 @@ import { SessionRuntimes } from '../../pages/sessions.js';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
-			if (useLegacyNotebookEditor) {
-				await settingsFile.append({ 'positron.notebook.enabled': false });
-			}
-			if (enableDataConnections) {
-				await settingsFile.append({ 'dataConnections.enabled': true });
-			}
+		async ({ settingsFile }, use) => {
 			await settingsFile.append({ 'packages.enabled': true });
 			await use();
 		},

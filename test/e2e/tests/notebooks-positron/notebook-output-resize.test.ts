@@ -7,20 +7,20 @@ import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// Enable output scrolling explicitly - the default differs in dev vs release
+	// builds. Applied before launch to avoid a window reload.
+	extraSettings: { 'notebook.output.scrolling': true }
 });
 
 test.describe('Positron Notebooks: Output Resize', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test('Drag sash resizes scrollable cell output', async function ({ app, settings }) {
+	test('Drag sash resizes scrollable cell output', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		await test.step('Setup: Create notebook with scrollable output', async () => {
-			// Enable output scrolling explicitly - the default differs in dev vs release builds.
-			await settings.set({ 'notebook.output.scrolling': true }, { reload: 'web' });
-
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1);
 			await notebooksPositron.kernel.select('Python');
