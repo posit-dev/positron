@@ -97,7 +97,6 @@ test.describe('Data Explorer - Python Pandas', {
 		// open a notebook and execute a cell to create a DataFrame
 		const pythonNotebook = 'pandas-update-dataframe.ipynb';
 		await notebooksPositron.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
-		await notebooksPositron.kernel.select('Python');
 		await notebooksPositron.runCodeAtIndex(0);
 
 		// open the DataFrame in data explorer and verify data

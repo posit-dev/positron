@@ -18,12 +18,11 @@ test.describe('Variables Pane - Notebook', {
 }, () => {
 	test('R - Verify Variables pane basic function for notebook', {
 		tag: [tags.ARK]
-	}, async function ({ app, hotKeys }) {
+	}, async function ({ app, hotKeys, r }) {
 		const { notebooksPositron, variables } = app.workbench;
 
 		// Create a variable via a notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('R');
 		await notebooksPositron.addCodeToCell(0, 'y <- c(2, 3, 4, 5)', { run: true });
 
 		// Verify the var in the variable pane
@@ -31,12 +30,11 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('y', '2 3 4 5');
 	});
 
-	test('Python - Verify Variables pane basic function for notebook', async function ({ app }) {
+	test('Python - Verify Variables pane basic function for notebook', async function ({ app, python }) {
 		const { notebooksPositron, variables, hotKeys } = app.workbench;
 
 		// Create a variable via a notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
 		await notebooksPositron.addCodeToCell(0, 'y = [2, 3, 4, 5]', { run: true });
 
 		// Verify the var in the variable pane
@@ -44,12 +42,11 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('y', '[2, 3, 4, 5]');
 	});
 
-	test('Python - Verify Variables available after reload', async function ({ app, hotKeys }) {
+	test('Python - Verify Variables available after reload', async function ({ app, hotKeys, python }) {
 		const { notebooksPositron, variables } = app.workbench;
 
 		// Create a variable via a notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
 		await notebooksPositron.addCodeToCell(0, 'dict = [{"a":1,"b":2},{"a":3,"b":4}]', { run: true });
 
 		// Verify the var in the variable pane
@@ -63,12 +60,10 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 	});
 
-	test('Python - Verify variables persist across cells', async function ({ app }) {
+	test('Python - Verify variables persist across cells', async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
 
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
-
 		await notebooksPositron.addCodeToCell(0, variableCode, { run: true });
 		await notebooksPositron.addCodeToCell(1, useVariableCode, { run: true });
 
@@ -78,14 +73,11 @@ test.describe('Variables Pane - Notebook', {
 
 	test('Python - Verify Variables pane stays on notebook session after opening Data Explorer', {
 		tag: [tags.DATA_EXPLORER]
-	}, async function ({ app, hotKeys }) {
+	}, async function ({ app, hotKeys, python }) {
 		const { notebooksPositron, variables, editors } = app.workbench;
 
 		// Create a dataframe in a notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
-		// Wait for the cell to finish executing (pandas import takes a moment) before
-		// asserting on the Variables pane, matching the legacy executeCodeInCell() wait.
 		await notebooksPositron.addCodeToCell(0, 'import pandas as pd\ndf = pd.DataFrame({"a": [1, 2, 3]})', { run: true, waitForSpinner: true });
 
 		// Verify we're on the notebook session
