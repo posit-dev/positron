@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -36,7 +37,7 @@ import {
 } from '../common/quartoExecutionTypes.js';
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { DeferredPromise, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
+import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -628,16 +629,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					throw new Error('Could not get code in range');
 				}
 
-				// R only returns the final implicit result from a multi-expression
-				// request. Execute complete expressions separately so each result
-				// is appended to the cell's inline output.
-				const codeFragments = cellLanguage === 'r'
-					? await this._getRCodeFragments(session, code)
-					: [code];
-				const errorBehavior = options.error
-					? RuntimeErrorBehavior.Stop
-					: RuntimeErrorBehavior.Continue;
-
 				// Set up timeout
 				const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;
 				let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -662,6 +653,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					});
 					disposables.add(cancellationListener);
 				});
+				cancellationPromise.catch(() => undefined);
+
+				// R only returns the final implicit result from a multi-expression
+				// request. Execute complete expressions separately so each result
+				// is appended to the cell's inline output.
+				const codeFragments = cellLanguage === 'r'
+					? await this._getRCodeFragments(session, code, cts.token)
+					: [code];
+				const errorBehavior = options.error
+					? RuntimeErrorBehavior.Stop
+					: RuntimeErrorBehavior.Continue;
 
 				for (let index = 0; index < codeFragments.length; index++) {
 					const fragment = codeFragments[index];
@@ -742,7 +744,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 				return hadError;
 			},
-			{ trackRunningCell: true, persistQueueState: true }
+			{ trackRunningCell: true, persistQueueState: true },
+			token
 		);
 	}
 
@@ -843,7 +846,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				}
 
 				return hadError;
-			}
+			},
+			undefined,
+			token
 		);
 	}
 
@@ -911,7 +916,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
 					return false;
 				}
-			}
+			},
+			undefined,
+			token
 		);
 	}
 
@@ -1465,13 +1472,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		codeRange: Range,
 		executionIdSuffix: string,
 		executeFn: (tracker: ExecutionTracker) => Promise<boolean>,
-		options?: { trackRunningCell?: boolean; persistQueueState?: boolean }
+		options?: { trackRunningCell?: boolean; persistQueueState?: boolean },
+		parentToken?: CancellationToken
 	): Promise<boolean> {
 		let hadError = false;
 
 		const idPart = executionIdSuffix ? `-${executionIdSuffix}` : '';
 		const executionId = `${QUARTO_EXEC_PREFIX}${idPart}-${generateUuid()}`;
-		const cts = new CancellationTokenSource();
+		const cts = new CancellationTokenSource(parentToken);
 		const deferred = new DeferredPromise<void>();
 		const disposables = new DisposableStore();
 
@@ -1560,20 +1568,24 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Falls back to the older line-by-line completeness probe if no provider
 	 * exposes input boundaries.
 	 */
-	private async _getRCodeFragments(session: ILanguageRuntimeSession, code: string): Promise<string[]> {
-		const boundaryFragments = await this._getRCodeFragmentsFromInputBoundaryProvider(code);
+	private async _getRCodeFragments(session: ILanguageRuntimeSession, code: string, token: CancellationToken): Promise<string[]> {
+		const boundaryFragments = await this._getRCodeFragmentsFromInputBoundaryProvider(code, token);
 		if (boundaryFragments) {
 			return boundaryFragments;
 		}
 
-		return this._getRCodeFragmentsByCompleteness(session, code);
+		if (token.isCancellationRequested) {
+			throw new CancellationError();
+		}
+
+		return this._getRCodeFragmentsByCompleteness(session, code, token);
 	}
 
 	/**
 	 * Ask a language provider for all input boundaries in one request and split
 	 * the code accordingly.
 	 */
-	private async _getRCodeFragmentsFromInputBoundaryProvider(code: string): Promise<string[] | undefined> {
+	private async _getRCodeFragmentsFromInputBoundaryProvider(code: string, token: CancellationToken): Promise<string[] | undefined> {
 		const model = this._modelService.createModel(
 			code,
 			this._languageService.createById('r'),
@@ -1590,8 +1602,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			for (const provider of providers) {
 				let boundaries: IInputBoundary[] | undefined | null;
 				try {
-					boundaries = await provider.provideInputBoundaries(model, range, CancellationToken.None);
+					boundaries = await raceCancellationError(Promise.resolve(provider.provideInputBoundaries(model, range, token)), token);
 				} catch (error) {
+					if (isCancellationError(error)) {
+						throw error;
+					}
 					this._logService.debug('[QuartoExecutionManager] Failed to query R input boundaries; falling back to line-by-line completeness checks', error);
 					continue;
 				}
@@ -1600,6 +1615,8 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				if (fragments) {
 					return fragments;
 				}
+				this._logService.debug('[QuartoExecutionManager] Ignoring malformed R input boundaries; falling back to line-by-line completeness checks');
+				return undefined;
 			}
 		} finally {
 			model.dispose();
@@ -1616,10 +1633,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const lines = code.split('\n');
 		const fragments: string[] = [];
 		let sawValidBoundary = false;
+		let nextStart = 0;
 
 		for (const boundary of boundaries) {
 			if (!boundary || typeof boundary !== 'object') {
-				continue;
+				return undefined;
 			}
 
 			const kind = (boundary as RInputBoundary).kind;
@@ -1628,15 +1646,27 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				kind !== 'incomplete' &&
 				kind !== 'invalid'
 			) {
-				continue;
+				return undefined;
 			}
 
 			const range = (boundary as RInputBoundary).range;
-			if (!range || typeof range.start !== 'number' || typeof range.end !== 'number') {
-				continue;
+			if (!range ||
+				!Number.isInteger(range.start) ||
+				!Number.isInteger(range.end) ||
+				range.start !== nextStart ||
+				range.start < 0 ||
+				range.end < range.start ||
+				range.end > lines.length
+			) {
+				return undefined;
+			}
+
+			if (kind !== 'whitespace' && range.start === range.end) {
+				return undefined;
 			}
 
 			sawValidBoundary = true;
+			nextStart = range.end;
 			if (kind === 'whitespace') {
 				continue;
 			}
@@ -1651,13 +1681,17 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			return undefined;
 		}
 
+		if (nextStart !== lines.length) {
+			return undefined;
+		}
+
 		return fragments.length > 0 ? fragments : [code];
 	}
 
 	/**
 	 * Legacy fallback for runtimes that do not expose input boundaries.
 	 */
-	private async _getRCodeFragmentsByCompleteness(session: ILanguageRuntimeSession, code: string): Promise<string[]> {
+	private async _getRCodeFragmentsByCompleteness(session: ILanguageRuntimeSession, code: string, token: CancellationToken): Promise<string[]> {
 		const fragments: string[] = [];
 		const pendingLines: string[] = [];
 
@@ -1666,8 +1700,11 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			const pendingCode = pendingLines.join('\n');
 			let status: RuntimeCodeFragmentStatus;
 			try {
-				status = await session.isCodeFragmentComplete(pendingCode);
-			} catch {
+				status = await raceCancellationError(Promise.resolve(session.isCodeFragmentComplete(pendingCode)), token);
+			} catch (error) {
+				if (isCancellationError(error)) {
+					throw error;
+				}
 				return [code];
 			}
 

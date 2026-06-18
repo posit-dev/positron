@@ -18,7 +18,7 @@ import { ILanguageService } from '../../../../../editor/common/languages/languag
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageFeaturesService } from '../../../../../editor/common/services/languageFeatures.js';
 import { createModelServices } from '../../../../../editor/test/common/testTextModel.js';
-import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
@@ -190,6 +190,8 @@ describe('QuartoExecutionManager', () => {
 	});
 
 	describe('Output Handling', () => {
+		const quartoInputBoundarySelector = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*.{r,R}' };
+
 		async function executeRCellWithBoundaries(
 			testId: string,
 			codeLines: string[],
@@ -223,7 +225,7 @@ describe('QuartoExecutionManager', () => {
 
 			let requestedCode: string | undefined;
 			let providerCalls = 0;
-			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register('r', {
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
 				provideInputBoundaries(model, range, _token) {
 					providerCalls++;
 					requestedCode = model.getValueInRange(range);
@@ -251,6 +253,67 @@ describe('QuartoExecutionManager', () => {
 				requestedCode,
 				providerCalls,
 				executedCode: executeSpy.mock.calls.map(call => call[0]),
+			};
+		}
+
+		async function executeRCellWithFallbackBoundaries(
+			testId: string,
+			boundaries: unknown
+		): Promise<{ providerCalls: number; executedCode: string[]; completenessCalls: number }> {
+			const documentUri = URI.file(`/${testId}.qmd`);
+			const cell: QuartoCodeCell = {
+				id: testId,
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: testId,
+			};
+			const documentLines = [
+				'```{r}',
+				'1',
+				'2',
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let providerCalls = 0;
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
+				provideInputBoundaries() {
+					providerCalls++;
+					return boundaries as IInputBoundary[];
+				}
+			}));
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete')
+				.mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < 2; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			return {
+				providerCalls,
+				executedCode: executeSpy.mock.calls.map(call => call[0]),
+				completenessCalls: completenessSpy.mock.calls.length,
 			};
 		}
 
@@ -286,7 +349,7 @@ describe('QuartoExecutionManager', () => {
 
 			let requestedCode: string | undefined;
 			let providerCalls = 0;
-			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register('r', {
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
 				provideInputBoundaries(model, range, _token) {
 					providerCalls++;
 					requestedCode = model.getValueInRange(range);
@@ -350,6 +413,224 @@ describe('QuartoExecutionManager', () => {
 				'2',
 			]);
 			expect(outputsReceived.map(output => output.items[0].data)).toEqual(['1', '2']);
+		});
+
+		it('does not match notebook-cell-only providers for Quarto input boundary models', async () => {
+			const documentUri = URI.file('/test-r-boundary-selector-fallback.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-r-boundary-selector-fallback',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'r-boundary-selector-fallback',
+			};
+			const documentLines = [
+				'```{r}',
+				'1',
+				'2',
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let providerCalls = 0;
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register({ language: 'r', scheme: 'vscode-notebook-cell' }, {
+				provideInputBoundaries() {
+					providerCalls++;
+					return [
+						{ range: { start: 0, end: 2 }, kind: 'complete' },
+					];
+				}
+			}));
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete')
+				.mockResolvedValue(RuntimeCodeFragmentStatus.Complete);
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < 2; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			expect(providerCalls).toBe(0);
+			expect(completenessSpy).toHaveBeenCalled();
+			expect(executeSpy.mock.calls.map(call => call[0])).toEqual(['1', '2']);
+		});
+
+		it('cancels a pending R input boundary provider request without executing code', async () => {
+			const documentUri = URI.file('/test-r-boundary-cancel.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-r-boundary-cancel',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 3,
+				codeStartLine: 2,
+				codeEndLine: 2,
+				label: undefined,
+				options: '',
+				contentHash: 'r-boundary-cancel',
+			};
+			const documentLines = [
+				'```{r}',
+				'1',
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let providerToken: CancellationToken | undefined;
+			let providerStartedResolve!: () => void;
+			const providerStarted = new Promise<void>(resolve => {
+				providerStartedResolve = resolve;
+			});
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
+				provideInputBoundaries(_model, _range, token) {
+					providerToken = token;
+					providerStartedResolve();
+					return new Promise<IInputBoundary[]>(() => { });
+				}
+			}));
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			await providerStarted;
+			await executionManager.cancelExecution(documentUri, cell.id);
+			await executionPromise;
+
+			expect(providerToken?.isCancellationRequested).toBe(true);
+			expect(executeSpy).not.toHaveBeenCalled();
+			expect(executionManager.getExecutionState(cell.id)).toBe(CellExecutionState.Idle);
+		});
+
+		it('prefers the Quarto input boundary provider over a broad in-memory R provider', async () => {
+			const documentUri = URI.file('/test-r-boundary-selector-conflict.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-r-boundary-selector-conflict',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'r-boundary-selector-conflict',
+			};
+			const documentLines = [
+				'```{r}',
+				'1',
+				'2',
+				'```',
+			];
+			const mockModel = new MockQuartoDocumentModel([cell], documentLines, 'r');
+			mockDocumentModelService.setMockModel(mockModel);
+			mockEditorService.getValueInRangeCallback = (range: unknown) => {
+				const r = range as { startLineNumber: number; endLineNumber: number };
+				return documentLines.slice(r.startLineNumber - 1, r.endLineNumber).join('\n');
+			};
+
+			let broadProviderCalls = 0;
+			let quartoProviderCalls = 0;
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register({ language: 'r', scheme: 'inmemory' }, {
+				provideInputBoundaries() {
+					broadProviderCalls++;
+					return [
+						{ range: { start: 0, end: 2 }, kind: 'complete' },
+					];
+				}
+			}));
+			ctx.disposables.add(languageFeaturesService.inputBoundaryProvider.register(quartoInputBoundarySelector, {
+				provideInputBoundaries() {
+					quartoProviderCalls++;
+					return [
+						{ range: { start: 0, end: 1 }, kind: 'complete' },
+						{ range: { start: 1, end: 2 }, kind: 'complete' },
+					];
+				}
+			}));
+			const completenessSpy = vi.spyOn(mockSession, 'isCodeFragmentComplete');
+			const executeSpy = vi.spyOn(mockSession, 'execute');
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			for (let i = 0; i < 2; i++) {
+				const executionId = await mockKernelManager.waitForExecution();
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+				mockSession.setRuntimeState(RuntimeState.Ready);
+			}
+
+			await executionPromise;
+
+			expect(broadProviderCalls).toBe(0);
+			expect(quartoProviderCalls).toBe(1);
+			expect(completenessSpy).not.toHaveBeenCalled();
+			expect(executeSpy.mock.calls.map(call => call[0])).toEqual(['1', '2']);
+		});
+
+		it.each([
+			{
+				name: 'out-of-bounds range',
+				boundaries: [{ range: { start: 0, end: 3 }, kind: 'complete' }],
+			},
+			{
+				name: 'non-array response',
+				boundaries: { range: { start: 0, end: 2 }, kind: 'complete' },
+			},
+			{
+				name: 'invalid kind',
+				boundaries: [{ range: { start: 0, end: 2 }, kind: 'unknown' }],
+			},
+			{
+				name: 'gap or partial coverage',
+				boundaries: [{ range: { start: 0, end: 1 }, kind: 'complete' }],
+			},
+			{
+				name: 'overlap or out-of-order range',
+				boundaries: [
+					{ range: { start: 0, end: 2 }, kind: 'complete' },
+					{ range: { start: 1, end: 2 }, kind: 'complete' },
+				],
+			},
+			{
+				name: 'empty non-whitespace range',
+				boundaries: [
+					{ range: { start: 0, end: 0 }, kind: 'complete' },
+					{ range: { start: 0, end: 2 }, kind: 'complete' },
+				],
+			},
+		])('falls back to completeness checks for malformed input boundaries: $name', async ({ name, boundaries }) => {
+			const result = await executeRCellWithFallbackBoundaries(
+				`test-r-malformed-boundaries-${name.replace(/\W/g, '-')}`,
+				boundaries
+			);
+
+			expect(result.providerCalls).toBe(1);
+			expect(result.completenessCalls).toBeGreaterThan(0);
+			expect(result.executedCode).toEqual(['1', '2']);
 		});
 
 		it('executes an incomplete R section as one fragment from input boundaries', async () => {
@@ -889,7 +1170,7 @@ describe('QuartoExecutionManager', () => {
 
 			expect(executeSpy).toHaveBeenCalledOnce();
 			// session.execute(code, id, mode, errorBehavior, _attribution, executionMetadata)
-			return executeSpy.mock.calls[0][5] as Record<string, unknown> | undefined;
+			return (executeSpy.mock.calls[0] as unknown[])[5] as Record<string, unknown> | undefined;
 		}
 
 		it('passes fig-width and fig-height from chunk options to session.execute', async () => {
@@ -1260,7 +1541,7 @@ function asTerminalService(mock: MockTerminalService): ITerminalService {
 		// Cast: the mock's return type is loose; production expects an
 		// ITerminalInstance. None of the cell-metadata tests hit shell
 		// languages, so this branch is never exercised in this file.
-		getActiveOrCreateInstance: mock.getActiveOrCreateInstance.bind(mock) as ITerminalService['getActiveOrCreateInstance'],
+		getActiveOrCreateInstance: mock.getActiveOrCreateInstance.bind(mock) as unknown as ITerminalService['getActiveOrCreateInstance'],
 	});
 }
 
