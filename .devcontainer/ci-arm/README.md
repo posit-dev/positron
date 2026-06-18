@@ -67,11 +67,21 @@ touching the repo's shared `.vscode/`).
 
 | How | What it does |
 |---|---|
+| **Run Task → Watch (incremental build)** | `npm run watch` — run once; recompiles changed files on save (seconds). This is your inner-loop build. |
 | **Run Task → Run e2e-electron (connections)** | `npx playwright test --project e2e-electron --grep @:connections` |
 | **Test Explorer** (Playwright extension) | run any single test from the gutter — the CI-repro loop |
 | **F5 → Debug e2e-electron (connections)** | run Playwright under the debugger; breakpoints in TS |
 | **Run Task → Start Positron server** | serves Positron at http://localhost:8080/?tkn=dev-token |
 | **Run Task → Show Playwright report** | serves the report at http://localhost:9323 |
+
+## The build, and your inner loop
+
+First open runs a **full cold build** (`npm ci` + compile + Electron + Playwright) — 20–40 min,
+once per machine; it persists on Docker volumes across restarts/rebuilds. After that you work in
+the **incremental** loop: start **Watch (incremental build)** once, then edit → save → it
+recompiles changed files in seconds → run/debug. Editing and debugging do *not* re-trigger the
+cold build. You only pay more when dependencies change (`npm ci` again), native modules change,
+or you start from a fresh machine/wiped volumes.
 
 ## Updating the image tag
 

@@ -5,6 +5,14 @@
 		"version": "2.0.0",
 		"tasks": [
 			{
+				"label": "Watch (incremental build)",
+				"detail": "Run once; recompiles changed files on save. This is the inner-loop build.",
+				"type": "shell",
+				"command": "npm run watch",
+				"isBackground": true,
+				"problemMatcher": []
+			},
+			{
 				"label": "Start Positron server",
 				"type": "shell",
 				"command": "./scripts/e2e-start-server.sh 8080 dev-token \"$HOME/.positron-e2e-test\" 0.0.0.0",
