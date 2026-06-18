@@ -138,6 +138,11 @@ const extensions = [
 		workspaceFolder: path.join(os.tmpdir(), `positron-zed-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
+	{
+		label: 'positron-pdf-server',
+		workspaceFolder: path.join(os.tmpdir(), `positron-pdf-server-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
 	// --- End Positron ---
 	{
 		label: 'microsoft-authentication',
