@@ -30,6 +30,13 @@
 			"problemMatcher": []
 		},
 		{
+			"label": "CI arm: Launch Positron (Electron via VNC)",
+			"detail": "Runs the desktop app on the headless display + x11vnc. Forward 5900, then VNC to localhost:5900.",
+			"type": "shell",
+			"command": "./.devcontainer/ci-arm/launch-electron.sh",
+			"problemMatcher": []
+		},
+		{
 			"label": "CI arm: Check build status (doctor)",
 			"type": "shell",
 			"command": "./.devcontainer/ci-arm/build-doctor.sh",

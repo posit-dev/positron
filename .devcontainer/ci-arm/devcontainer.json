@@ -9,10 +9,11 @@
 	"runServices": ["postgres"],
 	"remoteUser": "root",
 	"overrideCommand": false,
-	"forwardPorts": [8080, 9323],
+	"forwardPorts": [8080, 9323, 5900],
 	"portsAttributes": {
 		"8080": { "label": "Positron server", "onAutoForward": "notify" },
-		"9323": { "label": "Playwright report", "onAutoForward": "silent" }
+		"9323": { "label": "Playwright report", "onAutoForward": "silent" },
+		"5900": { "label": "VNC (Electron desktop)", "onAutoForward": "silent" }
 	},
 	"containerEnv": {
 		"DISPLAY": ":10",

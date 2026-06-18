@@ -80,7 +80,8 @@ e2e-electron**.
 | **Run Task → Run e2e-electron (connections)** | `npx playwright test --project e2e-electron --grep @:connections` |
 | **Test Explorer** (Playwright extension) | run any single test from the gutter — the CI-repro loop |
 | **F5 → Debug e2e-electron (connections)** | run Playwright under the debugger; breakpoints in TS |
-| **Run Task → Start Positron server** | serves Positron at http://localhost:8080/?tkn=dev-token |
+| **Run Task → Start Positron server** | serves Positron at http://localhost:8080/?tkn=dev-token (licensed automatically) |
+| **Run Task → Launch Positron (Electron via VNC)** | runs the desktop app; view at `vnc://localhost:5900` (macOS: Finder → Cmd+K) |
 | **Run Task → Show Playwright report** | serves the report at http://localhost:9323 |
 | **Run Task → Check build status (doctor)** | reports whether the build is current and what (if anything) to rebuild |
 | **Run Task → Reinstall deps (npm ci)** | after a pull/branch-switch changed `package-lock.json` |
@@ -113,8 +114,11 @@ trigger a rebuild.
 
 - **arm64 only (validated).** The image suffix and Electron build are arch-parameterized and
   amd64 images exist (CI runs on them), but this config hasn't been validated on amd64/Windows.
-- **No desktop-app/VNC view.** Use the browser server (`:8080`) for interactive Positron;
-  headless Xvfb backs the e2e runs.
+- **Desktop app is via VNC.** The "Launch Positron (Electron via VNC)" task runs the desktop
+  app on the headless display and exposes it on `:5900`; connect a VNC viewer
+  (`vnc://localhost:5900`). The browser server (`:8080`) is the lighter option for poking around.
+  No noVNC (browser-based VNC) in the image yet — macOS has a built-in viewer, but Windows users
+  would need a VNC client.
 - **One instance.** Designed for a single dev/debug container at a time.
 - **First build is ~10 min** (one-time, then incremental). A prebuilt image could make first
   open near-instant later — see the design doc.
