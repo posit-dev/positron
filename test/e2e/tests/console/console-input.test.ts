@@ -66,6 +66,83 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
+	test('Python - Clicking output while scrolled up focuses input without yanking the viewport', async function ({ app, page, python }) {
+		// Regression test for https://github.com/posit-dev/positron/issues/11772 and
+		// https://github.com/posit-dev/positron/issues/13991: clicking the console while
+		// scrolled up should focus the input without scrolling the viewport to the bottom,
+		// and typing should then scroll the input back into view.
+		const { console } = app.workbench;
+		const activeConsole = console.activeConsole;
+		const editContext = activeConsole.locator('.console-input .native-edit-context');
+
+		await test.step('Generate enough output to make the console scrollable', async () => {
+			await console.clearInput();
+			await console.pasteCodeToConsole('for i in range(200): print(f"scrollA {i}")', true);
+			await console.waitForConsoleContents('scrollA 199');
+		});
+
+		const scrollTopBefore = await test.step('Scroll up to view history', async () => {
+			// Use the mouse wheel to scroll up, which engages scroll lock immediately.
+			const box = await activeConsole.boundingBox();
+			await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+			await page.mouse.wheel(0, -10000);
+			await expect.poll(() => activeConsole.evaluate(el => el.scrollTop)).toBeLessThan(5);
+			return activeConsole.evaluate(el => el.scrollTop);
+		});
+
+		await test.step('Click the output and verify the input is focused without scrolling', async () => {
+			await activeConsole.click({ position: { x: 10, y: 10 } });
+			await expect(editContext).toBeFocused();
+			// The viewport must not have jumped to the bottom (#11772).
+			await expect.poll(() => activeConsole.evaluate(el => el.scrollTop)).toBeLessThanOrEqual(scrollTopBefore + 2);
+		});
+
+		await test.step('Type and verify the input scrolls back into view', async () => {
+			await page.keyboard.type('1 + 1');
+			await expect.poll(() => activeConsole.evaluate(
+				el => el.scrollHeight - el.clientHeight - el.scrollTop
+			)).toBeLessThan(5);
+		});
+	});
+
+	test('Python - Clicking back into a scrolled-up console refocuses the input and buffers typing', async function ({ app, page, python }) {
+		// Regression test for the prior "skip focus when scrolled up" approach, which left the
+		// input unfocused when clicking a scrolled-up console (#11772). Clicking back in should
+		// refocus the input without yanking the viewport, and typing should buffer correctly.
+		const { console } = app.workbench;
+		const activeConsole = console.activeConsole;
+		const editContext = activeConsole.locator('.console-input .native-edit-context');
+		const consoleInput = activeConsole.locator('.console-input');
+
+		await test.step('Generate output and scroll up to view history', async () => {
+			await console.clearInput();
+			await console.pasteCodeToConsole('for i in range(200): print(f"scrollB {i}")', true);
+			await console.waitForConsoleContents('scrollB 199');
+			const box = await activeConsole.boundingBox();
+			await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+			await page.mouse.wheel(0, -10000);
+			await expect.poll(() => activeConsole.evaluate(el => el.scrollTop)).toBeLessThan(5);
+		});
+
+		await test.step('Move focus out of the console input', async () => {
+			await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+			await expect(editContext).not.toBeFocused();
+		});
+
+		const scrollTopBefore = await activeConsole.evaluate(el => el.scrollTop);
+
+		await test.step('Click back into the console and verify the input refocuses without scrolling', async () => {
+			await activeConsole.click({ position: { x: 10, y: 10 } });
+			await expect(editContext).toBeFocused();
+			await expect.poll(() => activeConsole.evaluate(el => el.scrollTop)).toBeLessThanOrEqual(scrollTopBefore + 2);
+		});
+
+		await test.step('Verify typing buffers correctly', async () => {
+			await page.keyboard.type('x = 42');
+			await expect(consoleInput).toContainText('x = 42');
+		});
+	});
+
 	test("R - Verify ESC dismisses autocomplete without deleting typed text", {
 		tag: [tags.ARK]
 	}, async function ({ app, page, r }) {
