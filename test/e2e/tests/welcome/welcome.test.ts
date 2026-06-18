@@ -61,9 +61,6 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('Python Notebook');
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			// Verify the Positron notebook editor's kernel badge shows the Python runtime.
-			// Match the legacy assertion (label text only), not execution status, since the
-			// notebook is created from the Welcome page without running a cell.
 			await notebooksPositron.kernel.expectBadgeToContain(availableRuntimes['python'].name);
 		});
 

@@ -42,12 +42,8 @@ export class Help {
 	 * extra webview exists, the help content sits at a shifting index, so a fixed
 	 * `.nth(n)` polls the wrong frame for ~14s (~7 assertion retries) until that
 	 * webview is torn down. `.last()` resolves the help frame as soon as it renders.
-	 *
-	 * @param _nth Deprecated and ignored. Previously the positional index of the
-	 *   help webview; callers no longer need it. Retained so existing call sites
-	 *   keep compiling.
 	 */
-	async getHelpFrame(_nth?: number): Promise<FrameLocator> {
+	async getHelpFrame(): Promise<FrameLocator> {
 		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).last().contentFrame();
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);

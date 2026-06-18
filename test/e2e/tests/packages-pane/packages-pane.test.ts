@@ -85,7 +85,7 @@ test.describe('Packages Pane', {
 
 			// Base is always attached
 			await packages.clickHelpButton('base');
-			await packages.expectHelpPaneToContainText('The R Base Package', 0);
+			await packages.expectHelpPaneToContainText('The R Base Package');
 		});
 
 		test('Python - Opens package help in Help pane', { tag: [tags.WEB] },
@@ -97,7 +97,7 @@ test.describe('Packages Pane', {
 				await packages.clickRefreshPackagesButton();
 
 				await packages.clickHelpButton('numpy');
-				await packages.expectHelpPaneToContainText('NumPy', 1);
+				await packages.expectHelpPaneToContainText('NumPy');
 			});
 	});
 

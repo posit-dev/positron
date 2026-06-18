@@ -35,7 +35,7 @@ test.describe('F1 Help', {
 		await console.doubleClickConsoleText('colnames');
 
 		await page.keyboard.press('F1');
-		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		const helpFrame = await app.workbench.help.getHelpFrame();
 		await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
@@ -45,7 +45,7 @@ test.describe('F1 Help', {
 		await page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
 
 		await page.keyboard.press('F1');
-		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		const helpFrame = await app.workbench.help.getHelpFrame();
 		await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
@@ -63,7 +63,7 @@ test.describe('F1 Help', {
 		await console.doubleClickConsoleText('list');
 
 		await page.keyboard.press('F1');
-		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		const helpFrame = await app.workbench.help.getHelpFrame();
 		await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 30000 });
 	});
 
@@ -77,7 +77,7 @@ test.describe('F1 Help', {
 		await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
 
 		await page.keyboard.press('F1');
-		const helpFrame = await app.workbench.help.getHelpFrame(0);
+		const helpFrame = await app.workbench.help.getHelpFrame();
 		await expect(helpFrame.locator('h1').first()).toContainText('pandas.DataFrame', { timeout: 30000 });
 	});
 
