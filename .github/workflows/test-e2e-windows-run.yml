@@ -140,6 +140,15 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Upgrade bundled node-gyp (fix ERR_CHILD_PROCESS_STDIO_MAXBUFFER with VS 2026)
+        shell: pwsh
+        run: |
+          $NodeDir = Split-Path (Get-Command node).Source
+          $NpmDir = Join-Path $NodeDir "node_modules\npm"
+          # Replace npm's bundled node-gyp in-place
+          npm install --prefix $NpmDir node-gyp@^12
+          node (Join-Path $NpmDir "node_modules\node-gyp\bin\node-gyp.js") --version
+
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
         shell: bash
@@ -177,7 +186,6 @@ jobs:
           #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
           #   both hit OR both miss      → filter='' (install all or skip via parent condition)
           POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
-          npm_config_msvs_version: "2022"
         with:
           timeout_minutes: 90
           max_attempts: 3
