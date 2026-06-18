@@ -140,6 +140,8 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Upgrade node-gyp
+        run: npm install -g node-gyp@latest
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
         shell: bash
