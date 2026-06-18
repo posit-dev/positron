@@ -1338,7 +1338,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 
 				// Editor change event
 				if (changed) {
-					this._onDidActiveEditorChange.fire({ editor });
+					this._onDidActiveEditorChange.fire({ editor, isExplicit: options?.isExplicit });
 				}
 
 				// Indicate error as an event but do not bubble them up

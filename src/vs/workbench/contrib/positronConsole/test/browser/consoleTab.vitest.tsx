@@ -5,9 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { act, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';

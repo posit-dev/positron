@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';

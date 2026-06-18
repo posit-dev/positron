@@ -5,12 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-// React.
-import React from 'react';
 
 // Testing libraries.
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 
 // Other dependencies.
 import { isMacintosh } from '../../../../../base/common/platform.js';

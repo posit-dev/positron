@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { URI } from '../../../../../../base/common/uri.js';

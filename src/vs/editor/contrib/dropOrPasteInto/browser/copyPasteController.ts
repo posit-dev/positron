@@ -188,7 +188,6 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			return;
 		}
 
-
 		const defaultPastePayload = {
 			multicursorText: e.dataToCopy.multicursorText ?? null,
 			pasteOnNewLine: e.dataToCopy.isFromEmptySelection,

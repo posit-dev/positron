@@ -574,15 +574,16 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 								id: 'positron-help-copy-selection'
 							});
 						} else {
-							// Emulate the key event.
-							this.emulateKeyEvent('keydown', { ...message });
+							// Emulate the key event. The reconstructed KeyboardEvent is synthetic,
+							// so it is not a trusted event.
+							this.emulateKeyEvent('keydown', { ...message, isTrusted: false });
 						}
 						break;
 					}
 
 					// positron-help-keyup message.
 					case 'positron-help-keyup':
-						this.emulateKeyEvent('keyup', { ...message });
+						this.emulateKeyEvent('keyup', { ...message, isTrusted: false });
 						break;
 
 					// positron-help-copy-selection message.

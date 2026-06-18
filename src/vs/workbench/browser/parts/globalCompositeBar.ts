@@ -484,10 +484,12 @@ export class AccountsActivityActionViewItem extends AbstractGlobalActivityAction
 			}
 		}
 
+		// --- Start PWB: show an explicit "not signed in" entry when providers exist but no accounts are available ---
 		if (providers.length && !menus.length) {
 			const noAccountsAvailableAction = disposables.add(new Action('noAccountsAvailable', localize('noAccounts', "You are not signed in to any accounts"), undefined, false));
 			menus.push(noAccountsAvailableAction);
 		}
+		// --- End PWB ---
 
 		if (menus.length && otherCommands.length) {
 			menus.push(new Separator());

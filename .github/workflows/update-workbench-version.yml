@@ -9,12 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       install_file: dependencies/common/install-code-server
-      config_file: src/cpp/server/extras/scripts/configure-vs-code
+      news_file: .github/NEWS.md
 
     steps:
+      - name: Check out vscode-server
+        uses: actions/checkout@v4
+
       - name: Set version and branch
         run: |
           echo "VERSION=${{ github.event.client_payload.version }}" >> $GITHUB_ENV
+          echo "CODE_OSS_VERSION=${{ github.event.client_payload.code_oss_version }}" >> $GITHUB_ENV
           echo "BRANCH=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
           echo "TOKEN=${{ github.event.client_payload.github_pat }}" >> $GITHUB_ENV
 
@@ -24,14 +28,20 @@ jobs:
           cd rstudio-pro
           git checkout ${{ env.BRANCH }}
 
-      - name: Update PWB Code Server version in both files
+      - name: Update PWB Code Server version
         run: |
           cd rstudio-pro
 
           sed -i.bak "s/^VSCODE_VERSION=.*/VSCODE_VERSION=${VERSION}/" "$install_file"
-          sed -i.bak "s/VSCODE_VERSION=\${new_version:-[0-9][0-9]*\.[0-9][0-9]*-b[0-9]*}/VSCODE_VERSION=\${new_version:-${VERSION}}/" "$config_file"
 
-          rm $install_file.bak $config_file.bak
+          rm $install_file.bak
+
+      - name: Update release notes
+        run: |
+          ./.github/scripts/update-news.sh \
+            "rstudio-pro/${news_file}" \
+            "${VERSION}" \
+            "${CODE_OSS_VERSION}"
 
       - name: Git management
         run: |
@@ -47,7 +57,7 @@ jobs:
           title: "Automation PR: Update PWB Code Server version to ${{ env.VERSION }} on branch ${{ env.BRANCH }}"
           body: |
             This PR was automatically generated from https://github.com/rstudio/vscode-server branch `${{ env.BRANCH }}`.
-            Updated PWB Code Server version to `${{ env.VERSION }}` in two locations.
+            Updated PWB Code Server version to `${{ env.VERSION }}` in `${{ env.install_file }}`, and recorded the PWB Code Server (`${{ env.VERSION }}`) and Code OSS (`${{ env.CODE_OSS_VERSION }}`) versions in `${{ env.news_file }}`.
 
             @:vscode
           branch: update-pwb-code-server-${{ env.VERSION }}

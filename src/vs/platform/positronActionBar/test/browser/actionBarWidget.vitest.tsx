@@ -15,7 +15,7 @@ import { createTestContainer } from '../../../../test/vitest/positronTestContain
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 
 describe('ActionBarWidget', () => {
 	// Minimal ICommandService stub: fires onWillExecuteCommand and resolves the

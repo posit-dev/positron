@@ -24,7 +24,7 @@ export interface NativeParsedArgs {
 		};
 	};
 	'serve-web'?: INativeCliOptions;
-	'agent-host'?: INativeCliOptions;
+	'agent'?: INativeCliOptions;
 	chat?: {
 		_: string[];
 		'add-file'?: string[];
@@ -90,8 +90,6 @@ export interface NativeParsedArgs {
 	'inspect-brk-extensions'?: string;
 	debugId?: string;
 	debugRenderer?: boolean; // whether we expect a debugger (js-debug) to attach to the renderer, incl webviews+webworker
-	'inspect-search'?: string;
-	'inspect-brk-search'?: string;
 	'inspect-ptyhost'?: string;
 	'inspect-brk-ptyhost'?: string;
 	'inspect-agenthost'?: string;
@@ -112,7 +110,6 @@ export interface NativeParsedArgs {
 	'locate-extension'?: string[]; // undefined or array of 1 or more
 	'enable-proposed-api'?: string[]; // undefined or array of 1 or more
 	'open-url'?: boolean;
-	'open-chat-session'?: string;
 	'skip-release-notes'?: boolean;
 	'skip-welcome'?: boolean;
 	'disable-telemetry'?: boolean;

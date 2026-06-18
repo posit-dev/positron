@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { assertDefined } from '../../../../../base/common/types.js';

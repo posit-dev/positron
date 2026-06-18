@@ -55,7 +55,7 @@
 
 /** Styles for each row in the list element **/
 .action-widget .monaco-list .monaco-list-row {
-	padding: 0 12px 0 8px;
+	padding: 0 12px 0 6px;
 	white-space: nowrap;
 	cursor: pointer;
 	touch-action: none;
@@ -89,6 +89,7 @@
 	-webkit-user-select: none;
 	user-select: none;
 	border-radius: 0;
+	pointer-events: none;
 }
 
 .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator:hover,
@@ -144,6 +145,14 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	margin-top: 0;
 }
 
+/* Separators with text labels (titled section headers) */
+.action-widget .monaco-list-row.separator > span:not(:empty) {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding-left: 10px;
+}
+
 .action-widget .monaco-list .group-header,
 .action-widget .monaco-list .option-disabled,
 .action-widget .monaco-list .option-disabled:before,
@@ -192,7 +201,7 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 .action-widget .monaco-list-row.action .detail {
 	order: 99;
 	width: 100%;
-	padding-left: 20px;
+	padding-left: 18px;
 	font-size: 11px;
 	line-height: 14px;
 	color: var(--vscode-descriptionForeground);
@@ -270,6 +279,15 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	font-size: 12px;
 }
 
+.action-widget .monaco-list .monaco-list-row .description a {
+	color: var(--vscode-textLink-foreground);
+}
+
+.action-widget .monaco-list .monaco-list-row .description a:hover,
+.action-widget .monaco-list .monaco-list-row .description a:active {
+	color: var(--vscode-textLink-activeForeground);
+}
+
 .action-widget .monaco-list-row.action .group-title {
 	color: var(--vscode-descriptionForeground);
 	margin-left: 0.5em;
@@ -283,8 +301,7 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	&:has(.detail:not([style*="display: none"])) {
 		flex-wrap: wrap;
 		align-content: center;
-		padding-top: 6px;
-		padding-right: 2px;
+		padding-right: 6px;
 
 		.title {
 			line-height: 14px;
@@ -399,6 +416,21 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.action-widget .action-list-filter-label {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	flex-shrink: 0;
+	margin-right: 2px;
+}
+
+/* Footer text */
+.action-widget .action-list-footer {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	padding: 4px 10px 2px 10px;
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
 /* Anchor for the absolutely-positioned submenu panel */
 .action-widget .actionList {
 	position: relative;
@@ -431,6 +463,7 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 	z-index: 50;
 	width: max-content;
+	outline: none;
 }
 
 .action-list-submenu-hover-header {
@@ -439,6 +472,8 @@ body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-ro
 	font-size: 12px;
 	max-width: 300px;
 	word-wrap: break-word;
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .action-list-submenu-hover-header a {

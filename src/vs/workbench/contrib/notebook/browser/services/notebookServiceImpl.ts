@@ -17,7 +17,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import * as glob from '../../../../../base/common/glob.js';
 import { Iterable } from '../../../../../base/common/iterator.js';
 import { Lazy } from '../../../../../base/common/lazy.js';
-import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { basename, isEqual } from '../../../../../base/common/resources.js';
@@ -41,7 +41,7 @@ import { INotebookEditorModelResolverService } from '../../common/notebookEditor
 import { NotebookOutputRendererInfo, NotebookStaticPreloadInfo } from '../../common/notebookOutputRenderer.js';
 import { NotebookEditorDescriptor, NotebookProviderInfo } from '../../common/notebookProvider.js';
 import { INotebookSerializer, INotebookService, SimpleNotebookProviderInfo } from '../../common/notebookService.js';
-import { DiffEditorInputFactoryFunction, EditorInputFactoryFunction, EditorInputFactoryObject, IEditorResolverService, IEditorType, RegisteredEditorInfo, RegisteredEditorPriority, UntitledEditorInputFactoryFunction, type MergeEditorInputFactoryFunction } from '../../../../services/editor/common/editorResolverService.js';
+import { DiffEditorInputFactoryFunction, EditorInputFactoryFunction, EditorInputFactoryObject, IEditorResolverService, IEditorType, RegisteredEditorPriority, RegisteredEditorRegistrationInfo, UntitledEditorInputFactoryFunction, type MergeEditorInputFactoryFunction } from '../../../../services/editor/common/editorResolverService.js';
 import { IExtensionService, isProposedApiEnabled } from '../../../../services/extensions/common/extensions.js';
 import { IExtensionPointUser } from '../../../../services/extensions/common/extensionsRegistry.js';
 import { InstallRecommendedExtensionAction } from '../../../extensions/browser/extensionsActions.js';
@@ -184,35 +184,12 @@ export class NotebookProviderInfoStore extends Disposable {
 
 		for (const selector of notebookProviderInfo.selectors) {
 			const globPattern = (selector as INotebookExclusiveDocumentFilter).include || selector as glob.IRelativePattern | string;
-			const notebookEditorInfo: RegisteredEditorInfo = {
+			const notebookEditorInfo: RegisteredEditorRegistrationInfo = {
 				id: notebookProviderInfo.id,
 				label: notebookProviderInfo.displayName,
 				detail: notebookProviderInfo.providerDisplayName,
 				priority: notebookProviderInfo.priority,
 			};
-			// --- Start Positron ---
-			// Use an editor info object so we can mutate `priority`
-			const notebookCellEditorInfo: RegisteredEditorInfo = { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive };
-
-			// For notebooks supported by the Positron notebook editor, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
-			if (notebookProviderInfo.id === IPYNB_VIEW_TYPE) {
-				const updatePriorities = () => {
-					const usingPositron = usingPositronNotebooks(this._configurationService);
-					notebookEditorInfo.priority = usingPositron
-						? RegisteredEditorPriority.option
-						: notebookProviderInfo.priority;
-					notebookCellEditorInfo.priority = usingPositron
-						? RegisteredEditorPriority.option
-						: RegisteredEditorPriority.exclusive;
-				};
-				updatePriorities();
-				disposables.add(this._configurationService.onDidChangeConfiguration(e => {
-					if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-						updatePriorities();
-					}
-				}));
-			}
-			// --- End Positron ---
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
 				canSupportResource: (resource: URI) => {
@@ -372,28 +349,56 @@ export class NotebookProviderInfoStore extends Disposable {
 				}
 			}));
 
-			// Register the notebook editor
-			disposables.add(this._editorResolverService.registerEditor(
-				globPattern,
-				notebookEditorInfo,
-				notebookEditorOptions,
-				notebookFactoryObject,
-			));
-			// Then register the schema handler as exclusive for that notebook
-			disposables.add(this._editorResolverService.registerEditor(
-				`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
-				// --- Start Positron ---
-				// { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
-				//
-				// The cell handler is specifically for opening and focusing a cell by URI
-				// e.g. vscode.window.showTextDocument(cell.document).
-				// The editor resolver service expects a single handler with 'exclusive' priority.
-				// We dynamically adjust the priority based on whether Positron notebooks are enabled, see block above.
-				notebookCellEditorInfo,
-				// --- End Positron ---
-				notebookEditorOptions,
-				notebookCellFactoryObject
-			));
+			// --- Start Positron ---
+			// Upstream registers the notebook editor and then the cell-scheme handler
+			// (vscodeNotebookCell:) as `exclusive`. Positron lowers both priorities to
+			// `option` for ipynb notebooks when Positron notebooks are enabled so that the
+			// Positron notebook editor takes precedence.
+			//
+			// `registerEditor` snapshots the priority at registration time, so we cannot
+			// mutate the info object after the fact. Instead we re-register both editors
+			// whenever the Positron notebook setting changes.
+			const cellGlobPattern = `${Schemas.vscodeNotebookCell}:/**/${globPattern} `;
+			const registerNotebookEditors = (editorPriority: RegisteredEditorPriority, cellPriority: RegisteredEditorPriority): IDisposable => {
+				const store = new DisposableStore();
+				// Register the notebook editor
+				store.add(this._editorResolverService.registerEditor(
+					globPattern,
+					{ ...notebookEditorInfo, priority: editorPriority },
+					notebookEditorOptions,
+					notebookFactoryObject,
+				));
+				// Then register the schema handler for that notebook's cells
+				store.add(this._editorResolverService.registerEditor(
+					cellGlobPattern,
+					{ ...notebookEditorInfo, priority: cellPriority },
+					notebookEditorOptions,
+					notebookCellFactoryObject
+				));
+				return store;
+			};
+
+			// For notebooks supported by the Positron notebook editor, update the notebook/cell
+			// editor priorities based on whether Positron notebooks are enabled.
+			if (notebookProviderInfo.id === IPYNB_VIEW_TYPE) {
+				const registrations = disposables.add(new MutableDisposable<IDisposable>());
+				const updateRegistrations = () => {
+					const usingPositron = usingPositronNotebooks(this._configurationService);
+					registrations.value = registerNotebookEditors(
+						usingPositron ? RegisteredEditorPriority.option : notebookProviderInfo.priority,
+						usingPositron ? RegisteredEditorPriority.option : RegisteredEditorPriority.exclusive,
+					);
+				};
+				updateRegistrations();
+				disposables.add(this._configurationService.onDidChangeConfiguration(e => {
+					if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+						updateRegistrations();
+					}
+				}));
+			} else {
+				disposables.add(registerNotebookEditors(notebookProviderInfo.priority, RegisteredEditorPriority.exclusive));
+			}
+			// --- End Positron ---
 		}
 
 		return disposables;

@@ -14,17 +14,15 @@ import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 // --- Start Positron ---
 // Add IUpdate, DisablementReason for Positron's update workflow.
-import { IUpdateService, State as UpdateState, StateType, IUpdate, DisablementReason } from '../../../../platform/update/common/update.js';
+import { IUpdateService, State as UpdateState, StateType, IUpdate } from '../../../../platform/update/common/update.js';
 // --- End Positron ---
 import { INotificationService, NotificationPriority, Severity } from '../../../../platform/notification/common/notification.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../../services/environment/browser/environmentService.js';
 import { ReleaseNotesManager } from './releaseNotesEditor.js';
 // --- Start Positron ---
-// isMacintosh / isWindows are used by Positron's update notification flow;
-// toAction is used to build notification action buttons.
+// isMacintosh / isWindows are used by Positron's update notification flow.
 import { isMacintosh, isWeb, isWindows } from '../../../../base/common/platform.js';
-import { toAction } from '../../../../base/common/actions.js';
 // --- End Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { RawContextKey, IContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -218,7 +216,7 @@ export class ProductContribution implements IWorkbenchContribution {
 				&& channel === 'releases'
 			) {
 				showReleaseNotesInEditor(instantiationService, productService.positronVersion, false)
-				// --- End Positron ---
+					// --- End Positron ---
 					.then(undefined, () => {
 						notificationService.prompt(
 							severity.Info,
@@ -254,21 +252,18 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 	constructor(
 		// --- Start Positron ---
-		// Positron's customizations call this.notificationService / this.openerService /
-		// this.configurationService / this.storageService inside methods that upstream removed
-		// or moved. Keep them injected as private fields until those flows are reconciled.
+		// Positron's customizations call this.notificationService / this.configurationService /
+		// this.storageService inside methods that upstream removed or moved. Keep them injected
+		// as private fields until those flows are reconciled.
 		@IStorageService private readonly storageService: IStorageService,
 		// --- End Positron ---
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IDialogService private readonly dialogService: IDialogService,
 		@IUpdateService private readonly updateService: IUpdateService,
 		@IActivityService private readonly activityService: IActivityService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IProductService private readonly productService: IProductService,
-		@IHostService private readonly hostService: IHostService,
 		// --- Start Positron ---
 		@INotificationService private readonly notificationService: INotificationService,
-		@IOpenerService private readonly openerService: IOpenerService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		// --- End Positron ---
 	) {
@@ -304,25 +299,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		this.updateStateContextKey.set(state.type);
 
 		switch (state.type) {
-			case StateType.Disabled:
-				if (state.reason === DisablementReason.RunningAsAdmin) {
-					this.notificationService.notify({
-						severity: Severity.Info,
-						message: nls.localize('update service disabled', "Updates are disabled because you are running the user-scope installation of {0} as Administrator.", this.productService.nameLong),
-						actions: {
-							primary: [
-								toAction({
-									id: '',
-									label: nls.localize('learn more', "Learn More"),
-									run: () => this.openerService.open('https://aka.ms/vscode-windows-setup')
-								})
-							]
-						},
-						neverShowAgain: { id: 'no-updates-running-as-admin', }
-					});
-				}
-				break;
-
 			// --- Start Positron ---
 			case StateType.CheckingForUpdates:
 				// Track whether this is a manual check so we can show notifications appropriately
@@ -335,18 +311,18 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			// --- End Positron ---
 
 
+			// --- Start Positron ---
 			case StateType.Idle:
-				if (this.state.type === StateType.CheckingForUpdates && this.state.explicit && !state.error && await this.hostService.hadLastFocus()) {
+				if (this.state.type === StateType.CheckingForUpdates && this.state.explicit && !state.error) {
 					this.onUpdateNotAvailable();
 				}
-				// --- Start Positron ---
 				// Only reset explicit check flag if we actually returned to idle (no update available)
 				// Keep it true if we're in an update flow (downloading, ready, etc.)
 				if (this.state.type === StateType.CheckingForUpdates) {
 					this.explicitCheck = false;
 				}
-				// --- End Positron ---
 				break;
+			// --- End Positron ---
 
 			// --- Start Positron ---
 			case StateType.AvailableForDownload:
@@ -420,11 +396,16 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		this.state = state;
 	}
 
+	// --- Start Positron ---
 	private onUpdateNotAvailable(): void {
-		this.dialogService.info(nls.localize('noUpdatesAvailable', "There are currently no updates available."));
+		// Surface the result of an explicit "Check for Updates" when no update is available.
+		this.notificationService.notify({
+			severity: Severity.Info,
+			message: nls.localize('noUpdatesAvailable', "There are currently no updates available."),
+			priority: NotificationPriority.OPTIONAL,
+		});
 	}
 
-	// --- Start Positron ---
 	private onUpdateDownloading(): void {
 		// Show notification when downloading starts (macOS auto-update flow)
 		this.notificationService.notify({

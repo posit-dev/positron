@@ -7,10 +7,7 @@ import electron, { Display, Rectangle } from 'electron';
 import { Color } from '../../../base/common/color.js';
 import { Event } from '../../../base/common/event.js';
 import { join } from '../../../base/common/path.js';
-// --- Start Positron ---
-// removed unused import
 import { IProcessEnvironment, isLinux, isMacintosh, isWindows } from '../../../base/common/platform.js';
-// --- End Positron ---
 import { URI } from '../../../base/common/uri.js';
 import { IAuxiliaryWindow } from '../../auxiliaryWindow/electron-main/auxiliaryWindow.js';
 import { IConfigurationService } from '../../configuration/common/configuration.js';
@@ -47,7 +44,7 @@ export interface IWindowsMainService {
 	openExtensionDevelopmentHostWindow(extensionDevelopmentPath: string[], openConfig: IOpenConfiguration): Promise<ICodeWindow[]>;
 	openExistingWindow(window: ICodeWindow, openConfig: IOpenConfiguration): void;
 
-	openAgentsWindow(openConfig: IOpenConfiguration): Promise<ICodeWindow[]>;
+	openAgentsWindow(openConfig: IOpenConfiguration, folderUri?: URI, initialQuery?: string, sessionResource?: URI, preferredSessionType?: { providerId?: string; sessionTypeId: string }): Promise<ICodeWindow[]>;
 
 	sendToFocused(channel: string, ...args: unknown[]): void;
 	sendToOpeningWindow(channel: string, ...args: unknown[]): void;
@@ -184,8 +181,10 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 	// --- Start Positron ---
 	if (isLinux) {
 		options.icon = join(environmentMainService.appRoot, 'resources/linux/positron.png'); // always on Linux
-	} else if (isWindows && !environmentMainService.isBuilt) {
-		options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png'); // only when running out of sources on Windows
+	} else if (isWindows) {
+		if (!environmentMainService.isBuilt) {
+			options.icon = join(environmentMainService.appRoot, 'resources/win32/positron_150x150.png'); // only when running out of sources on Windows
+		}
 	}
 
 	// Use dev icon when running from source to distinguish from production builds

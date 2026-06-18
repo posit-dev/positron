@@ -22,6 +22,7 @@ import {
 	POSITRON_NOTEBOOK_COMMAND_MODE,
 } from '../../browser/positronNotebook.contribution.js';
 import { IPositronNotebookService } from '../../browser/positronNotebookService.js';
+import { singleKeybinding } from './keybindingTestUtils.js';
 import {
 	CellSelectionType,
 	getActiveCell,
@@ -567,8 +568,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		it('CopyCellsAction declares C scoped to command mode and calls copyCells()', () => {
 			const action = new CopyCellsAction();
 			expect(action.desc.id).toBe('positronNotebook.copyCells');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyC);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyC);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 
 			const notebook = createLabelledTestNotebook(2, ctx);
 			notebook.selectionStateMachine.selectCell(notebook.cells.get()[0], CellSelectionType.Normal);
@@ -583,8 +584,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		it('CutCellsAction declares X scoped to command mode and calls cutCells()', () => {
 			const action = new CutCellsAction();
 			expect(action.desc.id).toBe('positronNotebook.cutCells');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyX);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyX);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 
 			const notebook = createLabelledTestNotebook(2, ctx);
 			notebook.selectionStateMachine.selectCell(notebook.cells.get()[0], CellSelectionType.Normal);
@@ -599,8 +600,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		it('PasteCellsAction declares V scoped to command mode and calls pasteCells()', () => {
 			const action = new PasteCellsAction();
 			expect(action.desc.id).toBe('positronNotebook.pasteCells');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyV);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyV);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 
 			const notebook = createLabelledTestNotebook(2, ctx);
 			const cells = notebook.cells.get();
@@ -617,8 +618,8 @@ describe('PositronNotebookInstance.copy/cut/paste*', () => {
 		it('PasteCellsAboveAction declares Shift+V scoped to command mode and calls pasteCellsAbove()', () => {
 			const action = new PasteCellsAboveAction();
 			expect(action.desc.id).toBe('positronNotebook.pasteCellsAbove');
-			expect(action.desc.keybinding?.primary).toBe(KeyMod.Shift | KeyCode.KeyV);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyMod.Shift | KeyCode.KeyV);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 
 			const notebook = createLabelledTestNotebook(2, ctx);
 			const cells = notebook.cells.get();

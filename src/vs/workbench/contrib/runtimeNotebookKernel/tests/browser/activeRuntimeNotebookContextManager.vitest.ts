@@ -52,12 +52,12 @@ class MockRuntimeSession extends mock<ILanguageRuntimeSession>() {
 	private _onDidChangeRuntimeState = this._disposables.add(new Emitter<RuntimeState>());
 	private _onDidCompleteStartup = this._disposables.add(new Emitter<ILanguageRuntimeInfo>());
 	private _onDidEndSession = this._disposables.add(new Emitter<ILanguageRuntimeExit>());
-	metadata: IRuntimeSessionMetadata;
-	dynState: ILanguageRuntimeSessionState = stubInterface<ILanguageRuntimeSessionState>({ currentWorkingDirectory: '' });
-	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
-	onDidCompleteStartup = this._onDidCompleteStartup.event;
-	onDidEndSession = this._onDidEndSession.event;
-	onDidReceiveRuntimeClientEvent = Event.None;
+	override metadata: IRuntimeSessionMetadata;
+	override dynState: ILanguageRuntimeSessionState = stubInterface<ILanguageRuntimeSessionState>({ currentWorkingDirectory: '' });
+	override onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
+	override onDidCompleteStartup = this._onDidCompleteStartup.event;
+	override onDidEndSession = this._onDidEndSession.event;
+	override onDidReceiveRuntimeClientEvent = Event.None;
 
 	constructor(notebookUri: URI | undefined, sessionMode: LanguageRuntimeSessionMode) {
 		super();
@@ -68,14 +68,14 @@ class MockRuntimeSession extends mock<ILanguageRuntimeSession>() {
 		});
 	}
 
-	get runtimeInfo() { return this._runtimeInfo; }
+	override get runtimeInfo() { return this._runtimeInfo; }
 	enableDebuggingSupport() { this._runtimeInfo.supported_features!.push(DebuggerRuntimeSupportedFeature); }
 
 	setState(state: RuntimeState) {
 		this._onDidChangeRuntimeState.fire(state);
 	}
 
-	async start() {
+	override async start() {
 		this.setState(RuntimeState.Ready);
 		this._onDidCompleteStartup.fire(this._runtimeInfo);
 		return this._runtimeInfo;
@@ -99,22 +99,22 @@ class MockRuntimeSession extends mock<ILanguageRuntimeSession>() {
 class MockRuntimeSessionService extends mock<IRuntimeSessionService>() {
 	private _sessions: Map<string, ILanguageRuntimeSession> = new Map();
 	private _onDidStartRuntime = new Emitter<ILanguageRuntimeSession>();
-	onDidStartRuntime = this._onDidStartRuntime.event;
-	onDidUpdateNotebookSessionUri = Event.None;
+	override onDidStartRuntime = this._onDidStartRuntime.event;
+	override onDidUpdateNotebookSessionUri = Event.None;
 
-	get activeSessions() { return Array.from(this._sessions.values()); }
+	override get activeSessions() { return Array.from(this._sessions.values()); }
 
 	startSession(session: ILanguageRuntimeSession) {
 		this._sessions.set(session.metadata.sessionId, session);
 		this._onDidStartRuntime.fire(session);
 	}
 
-	getNotebookSessionForNotebookUri(notebookUri: URI) {
+	override getNotebookSessionForNotebookUri(notebookUri: URI) {
 		return this.activeSessions.filter(isNotebookLanguageRuntimeSession).find(session => isEqual(session.metadata.notebookUri, notebookUri));
 	}
 
 	// eslint-disable-next-line local/code-must-use-super-dispose
-	override dispose() { this._onDidStartRuntime.dispose(); }
+	dispose() { this._onDidStartRuntime.dispose(); }
 }
 
 describe('ActiveRuntimeNotebookContextManager', () => {

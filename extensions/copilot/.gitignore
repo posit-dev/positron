@@ -33,6 +33,10 @@ coverage/
 # Base cache database (GC mode)
 test/simulation/cache/_base.sqlite
 
+# --- Start PWB: Don't track Copilot simulation cache (test fixtures; avoids storing LFS objects the fork doesn't need) ---
+test/simulation/cache/
+# --- End PWB ---
+
 test/aml/out
 
 # Ignore files in huksy (else we always end up with files when creating worktrees)
@@ -41,7 +45,7 @@ test/aml/out
 # claude
 .claude/settings.local.json
 
-# VS Code extension debug profile (agent-browser automation)
+# VS Code extension debug profile (@playwright/cli automation)
 .vscode-ext-debug/
 
 # playwright

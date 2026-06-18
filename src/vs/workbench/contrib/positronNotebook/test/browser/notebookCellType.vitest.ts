@@ -24,6 +24,7 @@ import {
 } from '../../browser/positronNotebook.contribution.js';
 import { createTestPositronNotebookInstance } from './testPositronNotebookInstance.js';
 import { CellSelectionType } from '../../browser/selectionMachine.js';
+import { singleKeybinding } from './keybindingTestUtils.js';
 
 // View-layer output re-render across cell-kind changes is covered by the
 // notebook-cell-output e2e; this file covers the model-level changeCellType.
@@ -203,8 +204,8 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		it('ChangeToCodeAction declares Y scoped to command mode', () => {
 			const action = new ChangeToCodeAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.changeToCode');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyY);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyY);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('ChangeToCodeAction.runNotebookAction passes undefined language when no kernel is attached', () => {
@@ -222,15 +223,15 @@ describe('PositronNotebookInstance.changeCellType', () => {
 		it('ChangeToMarkdownAction declares M scoped to command mode', () => {
 			const action = new ChangeToMarkdownAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.changeToMarkdown');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyM);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyM);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('ChangeToRawAction declares R scoped to command mode', () => {
 			const action = new ChangeToRawAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.changeToRaw');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.KeyR);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.KeyR);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 	});
 });

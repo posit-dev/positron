@@ -3477,7 +3477,7 @@ export namespace ChatAgentRequest {
 			acceptedConfirmationData: request.acceptedConfirmationData,
 			rejectedConfirmationData: request.rejectedConfirmationData,
 			location2,
-			toolInvocationToken: Object.freeze<IToolInvocationContext>({ sessionResource: request.sessionResource }) as never,
+			toolInvocationToken: Object.freeze<IToolInvocationContext>({ sessionResource: request.sessionResource, workingDirectory: URI.revive(request.workingDirectory) }) as never,
 			tools,
 			model,
 			modelConfiguration,
@@ -4267,6 +4267,7 @@ export namespace ChatSessionItem {
 			},
 			changes: sessionContent.changes instanceof Array ? sessionContent.changes : undefined,
 			metadata: sessionContent.metadata,
+			legacyResource: sessionContent.legacyResource,
 		};
 	}
 }

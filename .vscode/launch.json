@@ -393,6 +393,7 @@
 				"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
 				"VSCODE_SKIP_PRELAUNCH": "1",
 				"VSCODE_DEV_DEBUG_OBSERVABLES": "1",
+				// "VSCODE_DEV_DISABLE_DISPOSABLE_TRACKING": "1",
 			},
 			"cleanUp": "wholeBrowser",
 			"killBehavior": "polite",
@@ -405,7 +406,7 @@
 				"--disable-extension=vscode.vscode-api-tests",
 				"--agents"
 			],
-			"userDataDir": "${userHome}/.vscode-oss-agents-dev",
+			"userDataDir": "${userHome}/.vscode-oss-dev",
 			"webRoot": "${workspaceFolder}",
 			"cascadeTerminateToConfigurations": [
 				"Attach to Extension Host"

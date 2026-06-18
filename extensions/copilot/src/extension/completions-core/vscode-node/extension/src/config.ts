@@ -20,6 +20,7 @@ import {
 import { CopilotConfigPrefix } from '../../lib/src/constants';
 import { Logger } from '../../lib/src/logger';
 import { transformEvent } from '../../lib/src/util/event';
+import { Schemas } from '../../../../../util/vs/base/common/network';
 
 const logger = new Logger('extensionConfig');
 
@@ -169,6 +170,9 @@ function isPositronCompletionEnabledForLanguage(languageId: string): boolean {
 // --- End Positron ---
 
 export function isCompletionEnabledForDocument(accessor: ServicesAccessor, document: vscode.TextDocument): boolean {
+	if (document.uri.scheme === Schemas.vscodeChatInput) {
+		return vscode.workspace.getConfiguration(CopilotConfigPrefix).get<boolean>('completions.chat.enabled', false);
+	}
 	// --- Start Positron ---
 	if (!isPositronCompletionEnabledForLanguage(document.languageId)) {
 		return false;

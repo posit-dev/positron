@@ -367,7 +367,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 			return extUriBiasedIgnorePathCase.ignorePathCasing(key);
 		});
 		// const tst = TernarySearchTree.forUris<IExtensionDescription>(key => true);
-		// --- Start Positron ---
+		// --- Start PWB: Defend against missing extension paths ---
 		// Skip extensions whose location can't be resolved (e.g. directory was
 		// removed after a version swap). A single missing path used to reject
 		// the whole index and prevent the extension host from ever becoming
@@ -383,7 +383,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 				this._logService.warn(`Skipping extension '${ext.identifier.value}' in path index; cannot resolve ${ext.extensionLocation.toString()}: ${err}`);
 			}
 		}));
-		// --- End Positron ---
+		// --- End PWB ---
 		return tst;
 	}
 
@@ -1024,7 +1024,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		// eslint-disable-next-line local/code-no-any-casts
 		extensionsDelta.toAdd.forEach((extension) => (<any>extension).extensionLocation = URI.revive(extension.extensionLocation));
 
-		// --- Start Positron ---
+		// --- Start PWB: Defend against missing extension paths ---
 		// Defend against the preamble throwing. If we let an error escape here,
 		// `_startExtensionHost()` is never called, `_readyToRunExtensions` is
 		// never opened, and every subsequent `$activate*` RPC hangs forever --
@@ -1047,7 +1047,7 @@ export abstract class AbstractExtHostExtensionService extends Disposable impleme
 		}
 
 		return this._startExtensionHost();
-		// --- End Positron ---
+		// --- End PWB ---
 	}
 
 	public $activateByEvent(activationEvent: string, activationKind: ActivationKind): Promise<void> {

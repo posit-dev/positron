@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';

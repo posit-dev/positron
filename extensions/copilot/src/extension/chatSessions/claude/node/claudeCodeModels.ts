@@ -8,14 +8,16 @@ import type * as vscode from 'vscode';
 import { IEndpointProvider } from '../../../../platform/endpoint/common/endpointProvider';
 import { ILogService } from '../../../../platform/log/common/logService';
 import { IChatEndpoint } from '../../../../platform/networking/common/networking';
+import { formatPricingLabel, formatTokenCount, getModelCapabilitiesDescription } from '../../../conversation/common/languageModelAccess';
 import { createServiceIdentifier } from '../../../../util/common/services';
 import { Emitter } from '../../../../util/vs/base/common/event';
 import { Disposable } from '../../../../util/vs/base/common/lifecycle';
 import type { ParsedClaudeModelId } from '../common/claudeModelId';
 import { tryParseClaudeModelId } from './claudeModelId';
-import { EffortLevel } from '@anthropic-ai/claude-agent-sdk';
+import type { EffortLevel } from '@anthropic-ai/claude-agent-sdk';
 
 export const CLAUDE_REASONING_EFFORT_PROPERTY = 'reasoningEffort';
+export const CLAUDE_CONTEXT_SIZE_PROPERTY = 'contextSize';
 
 export interface IClaudeCodeModels {
 	readonly _serviceBrand: undefined;
@@ -87,6 +89,7 @@ export class ClaudeCodeModels extends Disposable implements IClaudeCodeModels {
 		const endpoints = await this._getEndpoints();
 		return endpoints.map(endpoint => {
 			const multiplier = endpoint.multiplier === undefined ? undefined : `${endpoint.multiplier}x`;
+			const tooltip: string | undefined = getModelCapabilitiesDescription(endpoint);
 			return {
 				id: endpoint.model,
 				name: endpoint.name,
@@ -94,8 +97,16 @@ export class ClaudeCodeModels extends Disposable implements IClaudeCodeModels {
 				version: endpoint.version,
 				maxInputTokens: endpoint.modelMaxPromptTokens,
 				maxOutputTokens: endpoint.maxOutputTokens,
-				multiplier,
+				pricing: multiplier ?? (endpoint.tokenPricing ? formatPricingLabel(endpoint.tokenPricing) : undefined),
+				inputCost: endpoint.tokenPricing?.default.inputPrice,
+				outputCost: endpoint.tokenPricing?.default.outputPrice,
+				cacheCost: endpoint.tokenPricing?.default.cacheReadTokenPrice,
+				longContextInputCost: endpoint.tokenPricing?.longContext?.inputPrice,
+				longContextOutputCost: endpoint.tokenPricing?.longContext?.outputPrice,
+				longContextCacheCost: endpoint.tokenPricing?.longContext?.cacheReadTokenPrice,
 				multiplierNumeric: endpoint.multiplier,
+				priceCategory: endpoint.priceCategory,
+				tooltip,
 				isUserSelectable: true,
 				configurationSchema: buildConfigurationSchema(endpoint),
 				capabilities: {
@@ -110,16 +121,7 @@ export class ClaudeCodeModels extends Disposable implements IClaudeCodeModels {
 
 	public async resolveReasoningEffort(requestedModel: ParsedClaudeModelId | string | undefined, requestedReasoningEffort: string | undefined): Promise<EffortLevel | undefined> {
 		const endpoint = await this.resolveEndpoint(requestedModel, undefined);
-		if (!endpoint || !endpoint.supportsReasoningEffort || endpoint.supportsReasoningEffort.length === 0) {
-			return undefined;
-		}
-		if (requestedReasoningEffort && isEffortLevel(requestedReasoningEffort) && endpoint.supportsReasoningEffort.includes(requestedReasoningEffort)) {
-			return requestedReasoningEffort;
-		}
-		if (endpoint.supportsReasoningEffort.length === 1 && isEffortLevel(endpoint.supportsReasoningEffort[0])) {
-			return endpoint.supportsReasoningEffort[0];
-		}
-		return undefined;
+		return pickReasoningEffort(endpoint, requestedReasoningEffort);
 	}
 
 	public async resolveEndpoint(requestedModel: ParsedClaudeModelId | string | undefined, fallbackModelId: ParsedClaudeModelId | undefined): Promise<IChatEndpoint | undefined> {
@@ -196,34 +198,74 @@ export function isEffortLevel(value: string): value is EffortLevel {
 	return SUPPORTED_EFFORT_LEVELS.includes(value as EffortLevel);
 }
 
+/**
+ * Picks the reasoning effort to use for an endpoint given a requested level.
+ */
+export function pickReasoningEffort(endpoint: IChatEndpoint | undefined, requestedReasoningEffort: string | undefined): EffortLevel | undefined {
+	if (!endpoint || !endpoint.supportsReasoningEffort || endpoint.supportsReasoningEffort.length === 0) {
+		return undefined;
+	}
+	if (requestedReasoningEffort && isEffortLevel(requestedReasoningEffort) && endpoint.supportsReasoningEffort.includes(requestedReasoningEffort)) {
+		return requestedReasoningEffort;
+	}
+	if (endpoint.supportsReasoningEffort.length === 1 && isEffortLevel(endpoint.supportsReasoningEffort[0])) {
+		return endpoint.supportsReasoningEffort[0];
+	}
+	return undefined;
+}
+
 function buildConfigurationSchema(endpoint: IChatEndpoint): vscode.LanguageModelConfigurationSchema | undefined {
+	const properties: Record<string, NonNullable<vscode.LanguageModelConfigurationSchema['properties']>[string]> = {};
+
+	// Thinking effort
 	const effortLevels = endpoint.supportsReasoningEffort?.filter(
 		(level): level is typeof SUPPORTED_EFFORT_LEVELS[number] =>
 			(SUPPORTED_EFFORT_LEVELS as readonly string[]).includes(level)
 	);
-	if (!effortLevels) {
-		return;
+	if (effortLevels && effortLevels.length > 0) {
+		const defaultEffort = effortLevels.includes('high') ? 'high' : undefined;
+		properties[CLAUDE_REASONING_EFFORT_PROPERTY] = {
+			type: 'string',
+			title: l10n.t('Thinking Effort'),
+			enum: effortLevels,
+			enumItemLabels: effortLevels.map(level => level.charAt(0).toUpperCase() + level.slice(1)),
+			enumDescriptions: effortLevels.map(level => {
+				switch (level) {
+					case 'low': return l10n.t('Faster responses with less reasoning');
+					case 'medium': return l10n.t('Balanced reasoning and speed');
+					case 'high': return l10n.t('Greater reasoning depth but slower');
+				}
+			}),
+			default: defaultEffort,
+			group: 'navigation',
+		};
 	}
 
-	const defaultEffort = effortLevels.includes('high') ? 'high' : undefined;
+	// Context size — only when CAPI provides a default context max, indicating
+	// a meaningful distinction between default and long context tiers.
+	const pricing = endpoint.tokenPricing;
+	const defaultContextMax = pricing?.default.contextMax;
+	const fullMax = endpoint.modelMaxPromptTokens;
+	if (defaultContextMax && defaultContextMax < fullMax) {
+		const hasLongContextSurcharge = !!pricing?.longContext;
+		properties[CLAUDE_CONTEXT_SIZE_PROPERTY] = {
+			type: 'number',
+			title: l10n.t('Context Size'),
+			enum: [defaultContextMax, fullMax],
+			enumItemLabels: [formatTokenCount(defaultContextMax), formatTokenCount(fullMax)],
+			enumDescriptions: [
+				l10n.t('Default'),
+				hasLongContextSurcharge
+					? l10n.t('Longer sessions')
+					: l10n.t('Longer sessions without compaction'),
+			],
+			default: defaultContextMax,
+			group: 'tokens',
+		};
+	}
 
-	return {
-		properties: {
-			[CLAUDE_REASONING_EFFORT_PROPERTY]: {
-				type: 'string',
-				title: l10n.t('Thinking Effort'),
-				enum: effortLevels,
-				enumItemLabels: effortLevels.map(level => level.charAt(0).toUpperCase() + level.slice(1)),
-				enumDescriptions: effortLevels.map(level => {
-					switch (level) {
-						case 'low': return l10n.t('Faster responses with less reasoning');
-						case 'medium': return l10n.t('Balanced reasoning and speed');
-						case 'high': return l10n.t('Greater reasoning depth but slower');
-					}
-				}),
-				default: defaultEffort,
-				group: 'navigation',
-			}
-		}
-	};
+	if (Object.keys(properties).length === 0) {
+		return undefined;
+	}
+	return { properties };
 }
