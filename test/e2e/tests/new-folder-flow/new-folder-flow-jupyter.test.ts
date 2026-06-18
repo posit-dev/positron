@@ -43,7 +43,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await notebooksPositron.kernel.change('Python');
 		await notebooksPositron.kernel.expectStatusToBe('idle');
 
-		await verifyNotebookAndConsolePythonVersion(app);
+		await verifyNotebookKernelPythonVersion(app);
 		await verifyPyprojectTomlNotCreated(app);
 	});
 });
@@ -54,9 +54,11 @@ async function verifyNotebookEditorVisible(app: Application) {
 	await editors.verifyTab('Untitled-1.ipynb', { isVisible: true });
 }
 
-async function verifyNotebookAndConsolePythonVersion(app: Application) {
+async function verifyNotebookKernelPythonVersion(app: Application) {
 	const { sessions, notebooksPositron } = app.workbench;
 
 	await sessions.expectSessionPickerToBe(/Untitled-1\.ipynb/);
-	await notebooksPositron.kernel.expectBadgeToContain(/Python/);
+	// Assert the kernel resolved to a concrete Python version, not just a generic
+	// "Python" label, so a stuck/unresolved kernel would fail here.
+	await notebooksPositron.kernel.expectBadgeToContain(/Python \d+\.\d+\.\d+/);
 }
