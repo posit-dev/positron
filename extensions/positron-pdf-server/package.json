@@ -12,8 +12,8 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:positron.pdfServer.openInViewer",
-		"onCommand:positron.pdfServer.getViewerUrl"
+		"onCommand:positron.pdfServer.getViewerUrl",
+		"onCommand:positron.pdfServer.unregisterPdf"
 	],
 	"capabilities": {
 		"virtualWorkspaces": true,
@@ -22,16 +22,6 @@
 		}
 	},
 	"contributes": {
-		"commands": [
-			{
-				"command": "positron.pdfServer.openInViewer",
-				"title": "Open PDF in Viewer"
-			},
-			{
-				"command": "positron.pdfServer.getViewerUrl",
-				"title": "Get PDF Viewer URL"
-			}
-		],
 		"customEditors": [
 			{
 				"viewType": "positronPdfServer.previewEditor",

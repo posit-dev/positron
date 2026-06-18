@@ -46,16 +46,6 @@ export function activate(context: vscode.ExtensionContext): void {
 			)
 		);
 
-		// Register a command to open a PDF in the viewer.
-		context.subscriptions.push(
-			vscode.commands.registerCommand('positron.pdfServer.openInViewer', (uriOrPath: vscode.Uri | string) => {
-				const uri = typeof uriOrPath === 'string'
-					? vscode.Uri.file(uriOrPath)
-					: uriOrPath;
-				vscode.commands.executeCommand('vscode.openWith', uri, PdfServerProvider.viewType);
-			})
-		);
-
 		// Used by the notebook output system to render PDFs inline.
 		context.subscriptions.push(
 			vscode.commands.registerCommand('positron.pdfServer.getViewerUrl', async (fsPath: string): Promise<{ viewerUrl: string; pdfId: string }> => {
