@@ -29,10 +29,10 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS
 
 		// The interact() output renders in an overlay webview that is only claimed
 		// once the cell output is scrolled into view; otherwise the frame is empty.
-		await notebooksPositron.cell.nth(0).getByTestId('cell-output').scrollIntoViewIfNeeded();
+		await notebooksPositron.cellOutput(0).scrollIntoViewIfNeeded();
 
 		const plotImage = notebooksPositron.frameLocator.locator('.widget-output img');
-		const radiusReadout = notebooksPositron.frameLocator.locator('.widget-slider .widget-readout').first();
+		const radiusReadout = notebooksPositron.widgetReadout.first();
 		const radiusSlider = notebooksPositron.widgetSlider.first();
 
 		// The circle figure is not drawn until a slider is moved (interact defers the

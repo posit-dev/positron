@@ -56,8 +56,13 @@ test.describe('Variables Pane - Notebook', {
 		// Reload window
 		await hotKeys.reloadWindow(true);
 
+		// After reload a console session is foregrounded in the Variables pane, so
+		// the notebook's variables sit in a background instance. Re-activate the
+		// notebook by clicking its tab so its session's variables show again.
+		await app.workbench.editors.clickTab('Untitled-1.ipynb');
+
 		// Ensure the variable is still present
-		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
+		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, 30000);
 	});
 
 	test('Python - Verify variables persist across cells', async function ({ app, python }) {

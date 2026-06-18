@@ -1737,7 +1737,6 @@ class KernelBase {
 	protected activeStatus: Locator;
 	protected idleStatus: Locator;
 	protected disconnectedStatus: Locator;
-	protected quickinput!: QuickInput;
 
 	constructor(
 		statusBadge: Locator,
@@ -1784,29 +1783,6 @@ class KernelBase {
 				menuItemLabel: /Shutdown Kernel/
 			});
 			await this.expectStatusToBe('disconnected', 15000);
-		});
-	}
-
-	/**
-	 * Action: Change the kernel for the current notebook.
-	 */
-	async change(
-		kernelGroup: 'Python' | 'R',
-		{ version }: { version?: string; waitForReady?: boolean } = {}
-	): Promise<void> {
-		const desiredKernel = version ?? (kernelGroup === 'Python'
-			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!);
-		await test.step('Change kernel', async () => {
-			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.statusBadge,
-				menuItemLabel: /Change Kernel/
-			});
-			// select the kernel
-			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-			await this.quickinput.type(desiredKernel);
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
-			await this.quickinput.waitForQuickInputClosed();
 		});
 	}
 
@@ -1888,17 +1864,39 @@ export class Kernel extends KernelBase {
 		private notebooks: PositronNotebooks,
 		contextMenu: ContextMenu,
 		private hotKeys: HotKeys,
-		quickinput: QuickInput
+		private quickinput: QuickInput
 	) {
 		super(
 			code.driver.currentPage.getByRole('button', { name: 'Kernel Actions' }),
 			notebooks.editorActionBar,
 			contextMenu
 		);
-		this.quickinput = quickinput;
 	}
 
 	// #region ACTIONS
+
+	/**
+	 * Action: Change the kernel for the current notebook.
+	 */
+	async change(
+		kernelGroup: 'Python' | 'R',
+		{ version }: { version?: string; waitForReady?: boolean } = {}
+	): Promise<void> {
+		const desiredKernel = version ?? (kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!);
+		await test.step('Change kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Change Kernel/
+			});
+			// select the kernel
+			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.type(desiredKernel);
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			await this.quickinput.waitForQuickInputClosed();
+		});
+	}
 
 	/**
 	 * Action: Open the notebook session scratchpad in console.

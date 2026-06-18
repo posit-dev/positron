@@ -51,7 +51,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 async function verifyNotebookEditorVisible(app: Application) {
 	const { editors } = app.workbench;
 
-	editors.verifyTab('Untitled-1.ipynb', { isVisible: true });
+	await editors.verifyTab('Untitled-1.ipynb', { isVisible: true });
 }
 
 async function verifyNotebookAndConsolePythonVersion(app: Application) {
