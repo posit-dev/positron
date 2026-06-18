@@ -31,22 +31,22 @@ cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
 | Variable | Where to get it |
 |---|---|
 | `E2E_POSTGRES_USER`, `E2E_POSTGRES_PASSWORD` | 1Password → *Positron > E2E Postgres DB Connection info* |
-| `POSITRON_DEV_LICENSE_B64` | The dev license PEM (1Password → IDE/Workbench vault), **base64-encoded** to one line — see below |
+| license | The dev license PEM (1Password → IDE/Workbench vault) — saved as a **file**, not in `.env`; see below |
 | `POSITRON_CI_IMAGE_TAG` | Defaults to the current CI tag (`127`); override to pin a specific CI run |
 | `POSITRON_CI_IMAGE_ARCH` | `arm64` (default). `amd64` is not yet usable — no amd64 image is published |
 
-**The license is a multi-line PEM key**, which a `.env` file can't store directly, so encode it
-to a single base64 line. Save your `-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----`
-block to a file, then:
+**The license is a multi-line PEM key** (`-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----`),
+so it goes in a **file, not `.env`**. Save the whole block to:
 
-```bash
-base64 -i /path/to/your-license.pem | tr -d '\n' | pbcopy   # now paste into POSITRON_DEV_LICENSE_B64=
+```
+.devcontainer/ci-arm/license.txt
 ```
 
-`post-create.sh` decodes it back to the real PEM inside the container. (CI sets the raw multi-line
-`POSITRON_DEV_LICENSE` instead — the build handles both.)
+`post-create.sh` installs it into the image at the path the build expects. (CI instead injects the
+raw multi-line `POSITRON_DEV_LICENSE` env var — the build handles both.)
 
-`.devcontainer/ci-arm/.env` is gitignored — your secrets never get committed.
+Both `.devcontainer/ci-arm/.env` and `.devcontainer/ci-arm/license.txt` are gitignored — your
+secrets never get committed.
 
 ## Open it
 

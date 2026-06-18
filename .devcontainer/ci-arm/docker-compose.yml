@@ -10,7 +10,6 @@ services:
       - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
       - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
       - POSITRON_DEV_LICENSE=${POSITRON_DEV_LICENSE:-}
-      - POSITRON_DEV_LICENSE_B64=${POSITRON_DEV_LICENSE_B64:-}
       - POSITRON_CI_IMAGE_ARCH=${POSITRON_CI_IMAGE_ARCH:-arm64}
     # Workspace = bind mount of the host positron checkout (so "Reopen in Container" finds
     # .devcontainer/), with named-volume overlays on the heavy, platform-specific dirs so they

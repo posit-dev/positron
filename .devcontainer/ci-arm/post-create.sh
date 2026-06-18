@@ -37,18 +37,19 @@ npm run gulp node
 
 echo "==> [8/8] license"
 LICENSE_DEST="/positron-license/pdol/target/debug/pdol_rsa"   # confirmed in Task 0 spike
-if [ -n "${POSITRON_DEV_LICENSE_B64:-}" ]; then
-  # Local path: single-line base64 from .env (a .env file can't hold a multi-line PEM).
+LICENSE_SRC="${WORKSPACE_FOLDER:-/workspaces/positron}/.devcontainer/ci-arm/license.txt"
+if [ -f "$LICENSE_SRC" ]; then
+  # Local path: PEM key file dropped in the (bind-mounted) workspace; gitignored.
   mkdir -p "$(dirname "$LICENSE_DEST")"
-  printf '%s' "$POSITRON_DEV_LICENSE_B64" | base64 -d > "$LICENSE_DEST"
-  echo "license written to $LICENSE_DEST ($(wc -c < "$LICENSE_DEST") bytes, from base64)"
+  cp "$LICENSE_SRC" "$LICENSE_DEST"
+  echo "license installed from $LICENSE_SRC ($(wc -c < "$LICENSE_DEST") bytes)"
 elif [ -n "${POSITRON_DEV_LICENSE:-}" ]; then
   # CI path: raw multi-line PEM injected as a real env var (e.g. GitHub secret).
   mkdir -p "$(dirname "$LICENSE_DEST")"
   printf '%s' "$POSITRON_DEV_LICENSE" > "$LICENSE_DEST"
-  echo "license written to $LICENSE_DEST (raw)"
+  echo "license written to $LICENSE_DEST (from POSITRON_DEV_LICENSE env)"
 else
-  echo "WARNING: no license provided (set POSITRON_DEV_LICENSE_B64); build will be unlicensed"
+  echo "WARNING: no license (add .devcontainer/ci-arm/license.txt); build will be unlicensed"
 fi
 
 echo "==> post-create complete"

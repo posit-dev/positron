@@ -88,3 +88,4 @@ dist
 
 # ci-arm dev container local secrets
 .devcontainer/ci-arm/.env
+.devcontainer/ci-arm/license.txt
