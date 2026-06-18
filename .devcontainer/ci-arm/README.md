@@ -114,3 +114,14 @@ trigger a rebuild.
 - **One instance.** Designed for a single dev/debug container at a time.
 - **First build is ~10 min** (one-time, then incremental). A prebuilt image could make first
   open near-instant later — see the design doc.
+
+## Gotchas (because the source is bind-mounted)
+
+- **`npm ci` may leave files staged in your worktree.** Positron's postinstall runs
+  `git add --renormalize` (line-ending normalization). Because your checkout is bind-mounted,
+  that stages files in your real git index. It's harmless — clear it with
+  `git restore --staged .`. (You'd hit the same thing building natively.)
+- **`out/` lives on your host disk, not a volume** (the compile deletes and recreates `out/`,
+  which can't be done to a mount point). If you *also* build Positron natively on the same
+  checkout, both builds share `out/` and will clobber each other — just recompile after
+  switching between native and container.
