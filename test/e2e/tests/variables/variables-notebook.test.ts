@@ -69,8 +69,11 @@ test.describe('Variables Pane - Notebook', {
 		const { notebooksPositron } = app.workbench;
 
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.addCodeToCell(0, variableCode, { run: true });
-		await notebooksPositron.addCodeToCell(1, useVariableCode, { run: true });
+		// waitForSpinner so each cell finishes executing (and its output renders)
+		// before asserting; otherwise the notebook layout is still settling when
+		// expectOutputAtIndex scrolls to cell 0, which flakes scrollIntoViewIfNeeded.
+		await notebooksPositron.addCodeToCell(0, variableCode, { run: true, waitForSpinner: true });
+		await notebooksPositron.addCodeToCell(1, useVariableCode, { run: true, waitForSpinner: true });
 
 		await notebooksPositron.expectOutputAtIndex(0, ['Hello from first cell']);
 		await notebooksPositron.expectOutputAtIndex(1, ['Sum of numbers: 15', 'Modified numbers: [1, 2, 3, 4, 5, 6]']);
