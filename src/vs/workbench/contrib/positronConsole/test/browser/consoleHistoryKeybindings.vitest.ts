@@ -23,16 +23,25 @@ const NAV_COMMAND_IDS = [
 	'workbench.action.positronConsole.engageHistoryInfixSearch',
 ];
 
+// The editor commands the console rebinds for its input (Home / End / Ctrl+U).
+// These reuse existing editor command ids via registerKeybindingRule rather than
+// dedicated console actions, so they are checked separately from the nav actions.
+const EDITOR_COMMAND_IDS = [
+	'cursorLineStart',
+	'cursorLineEnd',
+	'deleteAllLeft',
+];
+
 /**
- * Resolve, for a given OS, the set of dispatch chords bound to each history-nav
- * command. `getDefaultKeybindingsForOS` re-applies the mac/linux/win platform
+ * Resolve, for a given OS, the set of dispatch chords bound to each of the given
+ * commands. `getDefaultKeybindingsForOS` re-applies the mac/linux/win platform
  * overrides from the raw rules, so this works regardless of the host the test
  * runs on. Returns a `{ commandId: sortedDispatchChords }` map.
  */
-function navBindingsForOS(os: OperatingSystem): Record<string, string[]> {
+function bindingsForOS(commandIds: string[], os: OperatingSystem): Record<string, string[]> {
 	const result: Record<string, string[]> = {};
 	for (const item of KeybindingsRegistry.getDefaultKeybindingsForOS(os)) {
-		if (!item.command || !NAV_COMMAND_IDS.includes(item.command) || !item.keybinding) {
+		if (!item.command || !commandIds.includes(item.command) || !item.keybinding) {
 			continue;
 		}
 		const resolved = USLayoutResolvedKeybinding.resolveKeybinding(item.keybinding, os)[0];
@@ -45,12 +54,12 @@ function navBindingsForOS(os: OperatingSystem): Record<string, string[]> {
 	return result;
 }
 
-describe('Console input-history navigation keybindings', () => {
+describe('Console input keybindings', () => {
 	// On macOS the arrow keys MUST stay bound alongside the readline Ctrl+N /
 	// Ctrl+P bindings. This snapshot is the regression guard for that:
 	// Ctrl+N / Ctrl+P appear in addition to, never instead of, Up/Down.
 	it('binds Up/Down on macOS alongside the readline Ctrl+N / Ctrl+P bindings', () => {
-		expect(navBindingsForOS(OperatingSystem.Macintosh)).toMatchInlineSnapshot(`
+		expect(bindingsForOS(NAV_COMMAND_IDS, OperatingSystem.Macintosh)).toMatchInlineSnapshot(`
 			{
 			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
 			    "ctrl+R",
@@ -75,7 +84,7 @@ describe('Console input-history navigation keybindings', () => {
 	// arrows (plus Ctrl+Up for prefix match and Ctrl+R for reverse search, which
 	// are platform-independent) are bound here.
 	it('binds only the arrows on Linux/Windows, never Ctrl+N / Ctrl+P', () => {
-		expect(navBindingsForOS(OperatingSystem.Linux)).toMatchInlineSnapshot(`
+		expect(bindingsForOS(NAV_COMMAND_IDS, OperatingSystem.Linux)).toMatchInlineSnapshot(`
 			{
 			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
 			    "ctrl+R",
@@ -91,7 +100,7 @@ describe('Console input-history navigation keybindings', () => {
 			  ],
 			}
 		`);
-		expect(navBindingsForOS(OperatingSystem.Windows)).toMatchInlineSnapshot(`
+		expect(bindingsForOS(NAV_COMMAND_IDS, OperatingSystem.Windows)).toMatchInlineSnapshot(`
 			{
 			  "workbench.action.positronConsole.engageHistoryInfixSearch": [
 			    "ctrl+R",
@@ -104,6 +113,52 @@ describe('Console input-history navigation keybindings', () => {
 			  ],
 			  "workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch": [
 			    "ctrl+UpArrow",
+			  ],
+			}
+		`);
+	});
+
+	// Home / End / Ctrl+U rebind existing editor commands for the console input.
+	// Home and End are platform-independent; Ctrl+U uses the same WinCtrl-on-mac
+	// split as Ctrl+R so it resolves to raw Ctrl+U on every platform (the bug class
+	// from PR 2 / PR 3 where a single `primary` resolves to meta+U on Win/Linux).
+	it('binds Home / End / Ctrl+U to the console editor commands on every platform', () => {
+		expect(bindingsForOS(EDITOR_COMMAND_IDS, OperatingSystem.Macintosh)).toMatchInlineSnapshot(`
+			{
+			  "cursorLineEnd": [
+			    "End",
+			  ],
+			  "cursorLineStart": [
+			    "Home",
+			  ],
+			  "deleteAllLeft": [
+			    "ctrl+U",
+			  ],
+			}
+		`);
+		expect(bindingsForOS(EDITOR_COMMAND_IDS, OperatingSystem.Linux)).toMatchInlineSnapshot(`
+			{
+			  "cursorLineEnd": [
+			    "End",
+			  ],
+			  "cursorLineStart": [
+			    "Home",
+			  ],
+			  "deleteAllLeft": [
+			    "ctrl+U",
+			  ],
+			}
+		`);
+		expect(bindingsForOS(EDITOR_COMMAND_IDS, OperatingSystem.Windows)).toMatchInlineSnapshot(`
+			{
+			  "cursorLineEnd": [
+			    "End",
+			  ],
+			  "cursorLineStart": [
+			    "Home",
+			  ],
+			  "deleteAllLeft": [
+			    "ctrl+U",
 			  ],
 			}
 		`);
