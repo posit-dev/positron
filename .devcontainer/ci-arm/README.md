@@ -74,6 +74,11 @@ e2e-electron**.
 
 ## Run / debug / test
 
+> **Test project flavors:** `e2e-electron` self-launches the desktop app (the main CI-repro
+> path). `e2e-chromium` self-starts a web server and runs in a browser — works out of the box
+> (post-start symlinks the license issuer so the self-started server is licensed). `e2e-server`
+> connects to an *external* server, so start **CI arm: Start Positron server** first, then run it.
+
 | How | What it does |
 |---|---|
 | **Run Task → Watch (incremental build)** | `npm run watch` — run once; recompiles changed files on save (seconds). This is your inner-loop build. |
