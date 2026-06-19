@@ -218,8 +218,11 @@ trigger a rebuild.
   also build natively on the same checkout, the two builds share `out/` and clobber each other;
   recompile after switching.
 - **One dev container per checkout** at a time.
-- **Only four ports are forwarded** (8080/9323/6080/5900). Positron opens many internal loopback
-  ports; we ignore auto-forwarding so the Ports panel stays clean. Need another? Forward it manually
-  from the **Ports** panel.
+- **The Ports panel fills up** (often 30–40 entries). Positron opens many internal loopback ports
+  (extension hosts, language servers, Jupyter kernels) that VS Code auto-forwards. They're harmless
+  `127.0.0.1` entries — only the four labeled ones (8080/9323/6080/5900) matter. To declutter, run
+  **Remote: Close Unused Ports** from the Command Palette (clears the stale/dead ones); bind it to a
+  key (Keyboard Shortcuts → "Close Unused Ports") if you do it often. We tried suppressing the
+  auto-forwarding via settings — it doesn't stick in a connected container, so this is the cleanup.
 - **After editing test-infra files** (`test/e2e/infra/…`), run **Developer: Reload Window** so the
   Playwright extension picks them up (it caches transpiles in a worker).
