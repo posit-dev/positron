@@ -17,6 +17,22 @@ THIN="────────────────────────�
 actions=()
 sha() { [ -f "$1" ] && sha256sum "$1" | awk '{print $1}' || echo "missing"; }
 tcp() { (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null; }
+human_dur() { # seconds -> compact "3d 4h" / "2h 5m" / "12m" / "9s"
+  local s=$1
+  if   [ "$s" -ge 86400 ]; then echo "$((s / 86400))d $(((s % 86400) / 3600))h"
+  elif [ "$s" -ge 3600 ];  then echo "$((s / 3600))h $(((s % 3600) / 60))m"
+  elif [ "$s" -ge 60 ];    then echo "$((s / 60))m"
+  else echo "${s}s"; fi
+}
+
+now=$(date +%s)
+if [ -f "$STATE/complete" ]; then
+  last_build="$(human_dur $(( now - $(stat -c %Y "$STATE/complete" 2>/dev/null || echo "$now") ))) ago"
+else
+  last_build="never"
+fi
+up_secs=$(ps -o etimes= -p 1 2>/dev/null | tr -dc '0-9')
+up_str=$([ -n "$up_secs" ] && human_dur "$up_secs" || echo "?")
 
 printf '%s\n %s🩺  Positron CI Doctor%s\n%s\n\n' "$RULE" "$BOLD" "$RST" "$RULE"
 
@@ -29,10 +45,11 @@ build_ok=1
 [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Full rebuild (post-create)'."); }
 
 if [ "$build_ok" -eq 1 ]; then
-  printf '%s✓%s %sBuild%s      current — incremental watch is all you need\n\n' "$G" "$RST" "$BOLD" "$RST"
+  printf '%s✓%s %sBuild%s      current — incremental watch is all you need\n' "$G" "$RST" "$BOLD" "$RST"
 else
-  printf '%s⚠%s %sBuild%s      needs attention (see below)\n\n' "$Y" "$RST" "$BOLD" "$RST"
+  printf '%s⚠%s %sBuild%s      needs attention (see below)\n' "$Y" "$RST" "$BOLD" "$RST"
 fi
+printf '             %slast full build %s · container up %s%s\n\n' "$DIM" "$last_build" "$up_str" "$RST"
 
 # --- Core services (post-start brings these up; down = a problem) ---------------------------------
 printf '%sCore services%s\n' "$BOLD" "$RST"
@@ -52,10 +69,12 @@ echo
 
 # --- On demand (you start these; "stopped" is normal) --------------------------------------------
 printf '%sOn demand%s\n' "$BOLD" "$RST"
+opt_running=0
 opt() { # opt <label> <port> <running:0/1> [url]
   if [ "$3" -eq 0 ]; then
     printf '  %s●%s %-18s%-7s %srunning%s\n' "$G" "$RST" "$1" "$2" "$G" "$RST"
     [ -n "${4:-}" ] && printf '       %s%s%s\n' "$DIM" "$4" "$RST"
+    opt_running=$((opt_running + 1))
   else
     printf '  %s○%s %-18s%-7s %sstopped%s\n' "$DIM" "$RST" "$1" "$2" "$DIM" "$RST"
   fi
@@ -64,6 +83,7 @@ tcp 127.0.0.1 8080; opt "Positron server" ":8080" "$?" "http://localhost:8080/?t
 pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
 opt "Desktop app" "(VNC)" "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
 tcp 127.0.0.1 9323; opt "Playwright report" ":9323" "$?" "http://localhost:9323"
+[ "$opt_running" -gt 0 ] && printf '  %s↳ stop these with the "Positron CI: Stop services" task%s\n' "$DIM" "$RST"
 echo
 
 # --- Footer --------------------------------------------------------------------------------------

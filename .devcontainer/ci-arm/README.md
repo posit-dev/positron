@@ -74,9 +74,9 @@ Worth knowing about the setup:
 
 ## How to
 
-The four common actions (**Positron server**, **Desktop**, **Report**, **Doctor**) are **status-bar
-buttons** at the bottom of the window: one click, no Command Palette. Everything else is in
-`Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
+The common actions (**Positron server**, **Desktop**, **Report**, **Stop**, **Doctor**) are
+**status-bar buttons** at the bottom of the window: one click, no Command Palette. Everything else is
+in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
 debugger lives in the **Run and Debug** panel.
 
 ### Edit and re-run
@@ -133,6 +133,12 @@ You can run the **server and the desktop at the same time**. They're independent
 user-data-dirs, processes, and ports): the server shows only in your browser (`:8080`), the desktop
 only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing the other.
 
+**Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
+task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
+**Positron CI: Stop services**) — it stops the server, desktop, and report in one go and leaves the
+core services (Xvfb, VNC, postgres) up. The **Doctor** shows what's currently running, and prints a
+stop hint when anything is.
+
 ### Reproduce a CI failure
 
 1. Check out the failing branch in the container terminal.
@@ -165,6 +171,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Launch Electron (VNC)** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
 | **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
+| **Positron CI: Stop services** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
 | **Positron CI: Doctor (health check)** | build status + what's up (Xvfb/VNC/postgres, and the server/desktop/report) |
 | **Positron CI: Reinstall deps (npm ci)** | after deps change; refreshes the doctor's state |
 | **Positron CI: Full rebuild (post-create)** | re-runs the whole cold build (idempotent) |
