@@ -33,24 +33,27 @@ opt_running=0
 # A heading + its rows form a "card". Rows share one left edge (text starts at column 4) across all
 # sections. Names lead; tool/port/detail are dimmed so the eye scans the glyph + name first.
 
+# All rows share one name column (NAMEW) so the value column lines up across every section.
+NAMEW=12
+
 # Core service row: csvc <name> <tool> <port> <up:0/1>.  ✓ = up, ⚠ = down.
 csvc() {
   if [ "$4" -eq 0 ]; then
-    printf '  %s✓%s %-10s%s%-12s%s%s\n' "$G" "$RST" "$1" "$DIM" "$2" "$3" "$RST"
+    printf '  %s✓%s %-*s%s%-12s%s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "$3" "$RST"
   else
-    printf '  %s⚠%s %-10s%s%-12s%s%s\n' "$Y" "$RST" "$1" "$DIM" "$2" "$3" "$RST"
+    printf '  %s⚠%s %-*s%s%-12s%s%s\n' "$Y" "$RST" "$NAMEW" "$1" "$DIM" "$2" "$3" "$RST"
     actions+=("$1 is down ($2 $3).")
   fi
 }
 
-# On-demand row: odsvc <name> <port|VNC> <running:0/1> [url].  ● green + running / ○ dim + stopped.
+# On-demand row: odsvc <name> <port|VNC> <running:0/1> [url].  Running = green ● + its URL inline;
+# stopped = dim ○ with no URL. The glyph + presence of a link conveys state (no "running" text).
 odsvc() {
   if [ "$3" -eq 0 ]; then
-    printf '  %s●%s %-19s%s%-7s%s %srunning%s\n' "$G" "$RST" "$1" "$DIM" "$2" "$RST" "$G" "$RST"
-    [ -n "${4:-}" ] && printf '    %s↳ %s%s\n' "$DIM" "$4" "$RST"
+    printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "${4:-}" "$RST"
     opt_running=$((opt_running + 1))
   else
-    printf '  %s○ %-19s%-7s stopped%s\n' "$DIM" "$1" "$2" "$RST"
+    printf '  %s○ %-*s%s%s\n' "$DIM" "$NAMEW" "$1" "$2" "$RST"
   fi
 }
 
@@ -104,10 +107,10 @@ render() {
 
   # --- On-Demand Services ---
   printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
-  tcp 127.0.0.1 8080; odsvc "Positron server" ":8080" "$?" "http://localhost:8080/?tkn=dev-token"
+  tcp 127.0.0.1 8080; odsvc "Server"  ":8080" "$?" "http://localhost:8080/?tkn=dev-token"
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
-  odsvc "Desktop app" "VNC" "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
-  tcp 127.0.0.1 9323; odsvc "Playwright report" ":9323" "$?" "http://localhost:9323"
+  odsvc "Desktop" "VNC"   "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
+  tcp 127.0.0.1 9323; odsvc "Report"  ":9323" "$?" "http://localhost:9323"
   printf '\n'
 
   # --- Footer ---
