@@ -38,13 +38,13 @@ opt_running=0
 # All rows share one name column (NAMEW) so the value column lines up across every section.
 NAMEW=12
 
-# Core service row: csvc <name> <tool> <port> <up:0/1>.  ✓ = up, ⚠ = down.
+# Core service row: csvc <name> <tool> <port> <up:0/1> <fix>.  ✓ = up, ⚠ = down (footer shows fix).
 csvc() {
   if [ "$4" -eq 0 ]; then
     printf '  %s✓%s %-*s%s%-12s%s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "$3" "$RST"
   else
     printf '  %s⚠%s %-*s%s%-12s%s%s\n' "$Y" "$RST" "$NAMEW" "$1" "$DIM" "$2" "$3" "$RST"
-    actions+=("$1 is down ($2 $3).")
+    actions+=("$1 ($2 $3) is down → $5")
   fi
 }
 
@@ -106,10 +106,11 @@ render() {
 
   # --- Core Services ---
   printf '%sCore Services%s\n' "$BOLD" "$RST"
-  pgrep -x Xvfb >/dev/null 2>&1; csvc "Display"  "Xvfb"        ":10"   "$?"
-  tcp 127.0.0.1 5900;            csvc "VNC"       "x11vnc"      ":5900" "$?"
-  tcp 127.0.0.1 6080;            csvc "noVNC"     "websockify"  ":6080" "$?"
-  tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?"
+  local vncfix="run the 'Positron CI: VNC' task to restart the display + VNC stack"
+  pgrep -x Xvfb >/dev/null 2>&1; csvc "Display"  "Xvfb"        ":10"   "$?" "$vncfix"
+  tcp 127.0.0.1 5900;            csvc "VNC"       "x11vnc"      ":5900" "$?" "$vncfix"
+  tcp 127.0.0.1 6080;            csvc "noVNC"     "websockify"  ":6080" "$?" "$vncfix"
+  tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running — Dev Containers: Rebuild Container"
   printf '\n'
 
   # --- On-Demand Services ---
