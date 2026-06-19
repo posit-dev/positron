@@ -34,11 +34,11 @@ jobs:
     # job used to install at runtime. See posit-dev/positron-ci-images.
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
-      # --ulimit nofile: the Electron test harness dynamically imports many
-      # modules; the container's default open-file limit (~1024) can exhaust
-      # the FD table mid-run ("Failed to fetch dynamically imported module").
-      # The host runner's default was high enough; raise it here.
-      options: --user 0:0 --init --ulimit nofile=65536:65536
+      # --shm-size: Chromium/Electron exhausts the container's default 64MB
+      # /dev/shm under load (e.g. the web integration tests), which can surface
+      # as "Failed to fetch dynamically imported module". Size it up to match
+      # what the bare runner provided (verified against the CI image).
+      options: --user 0:0 --init --shm-size=2g
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
