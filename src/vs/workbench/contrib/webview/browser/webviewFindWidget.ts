@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../base/common/event.js';
+import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../platform/contextview/browser/contextView.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -54,6 +55,16 @@ export class WebviewFindWidget extends SimpleFindWidget {
 		this._register(_delegate.onDidStopFind(() => {
 			this.updateButtons(false);
 		}));
+
+		this.onkeydown(this.getFindInputDomNode(), e => {
+			if (e.browserEvent.isComposing || e.keyCode !== KeyCode.Enter || e.altKey || e.ctrlKey || e.metaKey) {
+				return;
+			}
+
+			e.preventDefault();
+			e.stopPropagation();
+			this.find(e.shiftKey);
+		});
 	}
 
 	public find(previous: boolean) {
