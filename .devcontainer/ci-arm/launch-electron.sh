@@ -10,9 +10,17 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 export DISPLAY="${DISPLAY:-:10}"
 
+cd "$ROOT"
+# The desktop app needs the compiled main entry. If post-create is still building, fail friendly.
+if [ ! -f "$ROOT/out/main.js" ]; then
+  echo "Positron isn't built yet — out/main.js is missing (the cold build / post-create may still be running)."
+  echo "Click the 'Doctor' button (or run 'Positron CI: Check build status'), wait until it reports the"
+  echo "build is current, then try again."
+  exit 1
+fi
+
 # Ensure the display is viewable (window manager + VNC + noVNC), and print the connect URL.
 "$HERE/start-vnc.sh"
-cd "$ROOT"
 # code.sh launches the Electron app and returns (it runs detached).
 ./scripts/code.sh --no-sandbox || true
 echo ""

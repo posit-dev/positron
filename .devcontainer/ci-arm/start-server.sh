@@ -10,6 +10,13 @@ TOKEN="${1:-dev-token}"
 PORT="${2:-8080}"
 PDOL=/positron-license/pdol/target/debug/pdol
 
+# The server needs the compiled server entry. If post-create is still building, fail friendly.
+if [ ! -f "$ROOT/out/server-main.js" ]; then
+  echo "Positron isn't built yet — out/server-main.js is missing (the cold build / post-create may"
+  echo "still be running). Wait until the 'Doctor' reports the build is current, then try again."
+  exit 1
+fi
+
 if [ -x "$PDOL" ]; then
   POSITRON_LICENSE_KEY="$("$PDOL" --connection-token "$TOKEN")"
   export POSITRON_LICENSE_KEY
