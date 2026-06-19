@@ -58,7 +58,7 @@ Open your Positron checkout (a regular clone or a git worktree), then:
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright),
 about 10 minutes once per machine. It persists on Docker volumes, so later opens are fast.
-`post-start.sh` then starts Xvfb, VNC, and the build doctor.
+`post-start.sh` then starts Xvfb, VNC, and runs the doctor.
 
 Worth knowing about the setup:
 
@@ -136,22 +136,24 @@ only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing
 ### Reproduce a CI failure
 
 1. Check out the failing branch in the container terminal.
-2. If `package-lock.json` changed, the build doctor flags it on start → **Positron CI: Reinstall
+2. If `package-lock.json` changed, the doctor flags it on start → **Positron CI: Reinstall
    deps (npm ci)**.
 3. Run the same project and grep CI used (e.g. `--project e2e-electron --grep <name of test>`).
    Watch via VNC or read the trace, and debug with breakpoints. Same image, same DB, same env as CI.
 
 ### When do I need to rebuild?
 
-You don't have to guess. The **build doctor** runs on every container start, and on demand via
-**Positron CI: Check build status (doctor)**. It compares `package-lock.json` against the last
-install and checks for compiled output, Electron, and a completed build, then names the task to run:
+You don't have to guess. The **doctor** runs on every container start, and on demand via
+**Positron CI: Doctor (health check)**. It compares `package-lock.json` against the last install and
+checks for compiled output, Electron, and a completed build, then names the task to run:
 
 - deps changed → **Positron CI: Reinstall deps (npm ci)**
 - no compiled output → start the watcher (`npm run watch`)
 - build incomplete → **Positron CI: Full rebuild (post-create)**
 
-A clean checkout with the watcher running needs nothing.
+A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
+overview — which **services** are up (Xvfb, VNC, postgres) and what's currently **running** (server,
+desktop, report) — so it doubles as a "is everything OK?" check.
 
 ## Reference
 
@@ -163,7 +165,7 @@ A clean checkout with the watcher running needs nothing.
 | **Positron CI: Launch Electron (VNC)** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
 | **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
-| **Positron CI: Check build status (doctor)** | reports whether the build is current |
+| **Positron CI: Doctor (health check)** | build status + what's up (Xvfb/VNC/postgres, and the server/desktop/report) |
 | **Positron CI: Reinstall deps (npm ci)** | after deps change; refreshes the doctor's state |
 | **Positron CI: Full rebuild (post-create)** | re-runs the whole cold build (idempotent) |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
