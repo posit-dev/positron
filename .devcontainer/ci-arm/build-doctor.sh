@@ -149,7 +149,7 @@ if [ "${1:-}" = "--watch" ]; then
   while true; do
     cur_sig="$(sig)"; nowt=$(date +%s)
     if [ "$cur_sig" != "$last_sig" ] || [ $((nowt - last_draw)) -ge "$HEARTBEAT" ]; then
-      printf '\e[H\e[2J'  # home + clear
+      printf '\e[H\e[2J\e[3J'  # home + clear screen + clear scrollback (no piled-up history)
       render
       printf '\n%s(auto-updates • any key refresh • q quit)%s\n' "$DIM" "$RST"
       last_sig="$cur_sig"; last_draw="$nowt"
