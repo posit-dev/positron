@@ -95,6 +95,14 @@
 				"command": "./.devcontainer/ci-arm/post-create.sh",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Get QA content",
+				"detail": "Fetch/refresh qa-example-content (the files the e2e tests open) to /tmp/vscsmoke for manual repro. Re-run to cycle it to the latest.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
 			}
 		]
 	},

@@ -5,6 +5,8 @@
 set -uo pipefail
 WS="${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 STATE="$WS/.build/.ci-arm-state"
+QA_TMP="${TMPDIR:-/tmp}"; QA_TMP="${QA_TMP%/}"
+QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/qa-example-content"  # what the e2e tests open
 
 # Color only when writing to a terminal (post-start runs this against a non-TTY log).
 if [ -t 1 ]; then
@@ -72,7 +74,13 @@ render() {
   else
     printf '%s⚠%s %sBuild%s      needs attention (see below)\n' "$Y" "$RST" "$BOLD" "$RST"
   fi
-  printf '             %slast full build %s · container up %s%s\n\n' "$DIM" "$last_build" "$up_str" "$RST"
+  printf '             %slast full build %s · container up %s%s\n' "$DIM" "$last_build" "$up_str" "$RST"
+  if [ -d "$QA_DEST" ]; then
+    printf '             %sqa content present · fetched %s ago · %s%s\n\n' "$DIM" \
+      "$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))" "$QA_DEST" "$RST"
+  else
+    printf '             %sqa content not fetched — run the "Positron CI: Get QA content" task%s\n\n' "$DIM" "$RST"
+  fi
 
   # Core services
   printf '%sCore services%s\n' "$BOLD" "$RST"
@@ -113,6 +121,7 @@ sig() {
   tcp 127.0.0.1 8080 && s+=S || s+=s
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1 && s+=D || s+=d
   tcp 127.0.0.1 9323 && s+=R || s+=r
+  [ -d "$QA_DEST" ] && s+=Q || s+=q
   printf '%s' "$s"
 }
 

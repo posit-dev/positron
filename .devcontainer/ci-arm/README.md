@@ -109,6 +109,16 @@ The everyday cycle. The key point: editing recompiles in seconds, never the ~10-
 | `e2e-chromium` | self-starts a web server, runs headed in Chromium (watch via VNC) | no — works out of the box |
 | `e2e-server` | connects to an **external** server | yes — run **Positron CI: Start server** first |
 
+### Test files (qa-example-content)
+
+Many tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content) —
+notebooks, data files, sample projects. The framework clones it for you on the first test run, to
+`/tmp/vscsmoke/qa-example-content` (cached at `/tmp/qa-example-content-cache`). To grab it *without*
+running a test first — handy for manually reproducing what a test does — run **Positron CI: Get QA
+content**; re-run it any time to refresh to the latest (it doesn't auto-update). The Doctor shows
+whether it's present and how long ago it was fetched. Note: test teardown git-resets that copy, so
+don't keep edits there.
+
 ### Debug
 
 - **Run and Debug** panel (`Cmd-Shift-D`) → **Positron CI: Debug (electron)** → green ▶ (or
@@ -183,6 +193,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
+| **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) to `/tmp/vscsmoke` for manual repro |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
 
 ### Logs
