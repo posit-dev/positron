@@ -105,13 +105,15 @@ render() {
 if [ "${1:-}" = "--watch" ]; then
   # Live panel only makes sense interactively; without a TTY just render once.
   if [ ! -t 0 ] || [ ! -t 1 ]; then render; exit 0; fi
+  REFRESH=300  # gentle heartbeat (5 min); press a key for an instant refresh
+  rlabel=$([ "$REFRESH" -ge 60 ] && echo "$((REFRESH / 60))m" || echo "${REFRESH}s")
   trap 'printf "\e[?25h\n"; exit 0' INT TERM
   printf '\e[?25l'  # hide cursor to cut flicker
   while true; do
     printf '\e[H\e[2J'  # home + clear
     render
-    printf '\n%s(auto-refresh 2s · any key = refresh · q = quit)%s\n' "$DIM" "$RST"
-    if read -rsn1 -t 2 key; then
+    printf '\n%s(auto-refresh %s · any key = refresh now · q = quit)%s\n' "$DIM" "$rlabel" "$RST"
+    if read -rsn1 -t "$REFRESH" key; then
       [ "$key" = "q" ] && break
     fi
   done

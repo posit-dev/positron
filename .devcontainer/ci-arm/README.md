@@ -81,9 +81,9 @@ debugger lives in the **Run and Debug** panel.
 
 A note on terminals: the quick actions (Server, Desktop, Stop, VNC) share **one rolling terminal** —
 each click clears it and shows that action's receipt (the clickable URL), so nothing piles up. The
-**Doctor** opens a **live dashboard** in its own terminal that auto-refreshes every couple seconds —
-so after you click Server or Stop, it reflects the change on its own (any key refreshes now, `q`
-quits). Keep it open in a split and it's your at-a-glance status board.
+**Doctor** opens a **live dashboard** in its own terminal. It auto-refreshes every few minutes as a
+heartbeat, and **any key** refreshes it instantly — so after you click Server or Stop, tap a key to
+see the change (`q` quits). Keep it open in a split and it's your at-a-glance status board.
 
 ### Edit and re-run
 
@@ -178,7 +178,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
 | **Positron CI: Stop services** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
-| **Positron CI: Doctor (health check)** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); auto-refreshes, any key refreshes, `q` quits |
+| **Positron CI: Doctor (health check)** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); auto-refreshes every few min, any key refreshes now, `q` quits |
 | **Positron CI: Reinstall deps (npm ci)** | after deps change; refreshes the doctor's state |
 | **Positron CI: Full rebuild (post-create)** | re-runs the whole cold build (idempotent) |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
