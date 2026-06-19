@@ -183,7 +183,8 @@ checks for compiled output, Electron, and a completed build, then names the task
 - no compiled output → start the watcher (`npm run watch`)
 - build incomplete → **Positron CI: Rebuild**
 
-A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
+(While a build is actually running, the Build card shows **⟳ Building…** instead of these nags, so it
+won't tell you to rebuild mid-rebuild.) A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
 overview — which **services** are up (Xvfb, VNC, postgres) and what's currently **running** (server,
 desktop, report) — so it doubles as a "is everything OK?" check.
 

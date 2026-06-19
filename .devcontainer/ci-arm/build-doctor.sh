@@ -79,19 +79,23 @@ render() {
   printf '%sPositron CI Doctor%s\n\n' "$BOLD" "$RST"
 
   # --- Build ---
-  build_ok=1
-  [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
-  [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
-  [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
-  [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
-  [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
-
   printf '%sBuild%s\n' "$BOLD" "$RST"
-  # Built — ✓ when the build is current, ⚠ when it needs attention (footer lists why). White value.
-  if [ "$build_ok" -eq 1 ]; then
-    printf '  %s✓%s %-*s%s\n' "$G" "$RST" "$NAMEW" "Built" "$last_build"
+  if pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1; then
+    # A cold build / Rebuild is actively running — show that instead of nagging to rebuild.
+    printf '  %s⟳%s %-*sin progress… (watch the build terminal)\n' "$Y" "$RST" "$NAMEW" "Building"
   else
-    printf '  %s⚠%s %-*s%s\n' "$Y" "$RST" "$NAMEW" "Built" "$last_build"
+    build_ok=1
+    [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
+    [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
+    [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
+    [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
+    [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
+    # Built — ✓ when current, ⚠ when it needs attention (footer lists why).
+    if [ "$build_ok" -eq 1 ]; then
+      printf '  %s✓%s %-*s%s\n' "$G" "$RST" "$NAMEW" "Built" "$last_build"
+    else
+      printf '  %s⚠%s %-*s%s\n' "$Y" "$RST" "$NAMEW" "Built" "$last_build"
+    fi
   fi
   # Uptime — informational, dim (no status to report).
   printf '    %s%-*s%s%s\n' "$DIM" "$NAMEW" "Uptime" "$up_str" "$RST"
@@ -153,6 +157,7 @@ sig() {
   [ -d "$QA_DEST" ] && s+=Q || s+=q
   [ -f "$SERVER_ERR" ] && s+=E || s+=e
   [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
+  pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && s+=B || s+=b
   printf '%s' "$s"
 }
 
