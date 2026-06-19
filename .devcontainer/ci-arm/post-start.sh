@@ -17,6 +17,16 @@ done
 # Persist DISPLAY for interactive shells
 grep -q 'export DISPLAY=:10' ~/.bashrc 2>/dev/null || echo 'export DISPLAY=:10' >> ~/.bashrc
 
+# Web tests that self-start a server (e.g. e2e-chromium) run scripts/code-server.js, which finds
+# the license issuer at <repo-parent>/positron-license. The CI image ships it at /positron-license
+# (CI moves it next to the repo); we symlink it where code-server.js expects so the self-started
+# server gets licensed instead of hanging.
+WS="$(cd "$(dirname "$0")/../.." && pwd)"
+LICENSE_SIBLING="$(dirname "$WS")/positron-license"
+if [ ! -e "$LICENSE_SIBLING" ] && [ -d /positron-license ]; then
+  ln -s /positron-license "$LICENSE_SIBLING" && echo "linked $LICENSE_SIBLING -> /positron-license"
+fi
+
 # Confirm postgres reachable. The CI image lacks pg_isready, so fall back to a TCP check.
 if command -v pg_isready >/dev/null 2>&1; then
   pg_isready -h postgres -U "${E2E_POSTGRES_USER:-testuser}" -d postgres && echo "postgres reachable" || echo "WARNING: postgres not reachable"
