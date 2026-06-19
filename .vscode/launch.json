@@ -2,7 +2,7 @@
 	"version": "0.1.0",
 	"configurations": [
 		{
-			"name": "CI arm: Debug e2e-electron (connections)",
+			"name": "Positron CI: Debug (electron)",
 			"type": "node",
 			"request": "launch",
 			"program": "${workspaceFolder}/node_modules/.bin/playwright",

@@ -1,68 +1,57 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		// ───────── CI arm dev container (see .devcontainer/ci-arm/) ─────────
+		// ───────── Positron CI dev container (see .devcontainer/ci-arm/) ─────────
 		{
-			"label": "CI arm: Watch (incremental build)",
-			"detail": "Run once; recompiles changed files on save (seconds). Inner-loop build.",
-			"type": "shell",
-			"command": "npm run watch",
-			"isBackground": true,
-			"problemMatcher": []
-		},
-		{
-			"label": "CI arm: Run e2e-electron (connections)",
-			"type": "shell",
-			"command": "npx playwright test --project e2e-electron --workers 2 --grep @:connections",
-			"problemMatcher": []
-		},
-		{
-			"label": "CI arm: Start Positron server",
+			"label": "Positron CI: Start server",
 			"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
 			"type": "shell",
 			"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
 			"problemMatcher": []
 		},
 		{
-			"label": "CI arm: Show Playwright report",
-			"type": "shell",
-			"command": "npx playwright show-report --host 0.0.0.0",
-			"problemMatcher": []
-		},
-		{
-			"label": "CI arm: VNC (ensure running + how to connect)",
-			"detail": "Starts the desktop/VNC if needed; prints vnc://localhost:5900 (password positron).",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/start-vnc.sh",
-			"problemMatcher": []
-		},
-		{
-			"label": "CI arm: Launch Positron (Electron via VNC)",
-			"detail": "Runs the desktop app on the headless display + x11vnc. Forward 5900, then VNC to localhost:5900.",
+			"label": "Positron CI: Launch Electron (VNC)",
+			"detail": "Runs the desktop app on the headless display; view at vnc://localhost:5900 (password positron).",
 			"type": "shell",
 			"command": "./.devcontainer/ci-arm/launch-electron.sh",
 			"problemMatcher": []
 		},
 		{
-			"label": "CI arm: Check build status (doctor)",
+			"label": "Positron CI: Show VNC connection",
+			"detail": "Ensures the desktop/VNC is up; prints vnc://localhost:5900 (password positron).",
+			"type": "shell",
+			"command": "./.devcontainer/ci-arm/start-vnc.sh",
+			"problemMatcher": []
+		},
+		{
+			"label": "Positron CI: Show Playwright report",
+			"detail": "Serves the last run's trace/report at http://localhost:9323",
+			"type": "shell",
+			"command": "npx playwright show-report --host 0.0.0.0",
+			"problemMatcher": []
+		},
+		{
+			"label": "Positron CI: Check build status (doctor)",
+			"detail": "Reports whether the build is current and what (if anything) needs rebuilding.",
 			"type": "shell",
 			"command": "./.devcontainer/ci-arm/build-doctor.sh",
 			"problemMatcher": []
 		},
 		{
-			"label": "CI arm: Reinstall deps (npm ci)",
+			"label": "Positron CI: Reinstall deps (npm ci)",
 			"detail": "After a pull/branch-switch changed package-lock.json.",
 			"type": "shell",
 			"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
 			"problemMatcher": []
 		},
 		{
-			"label": "CI arm: Full rebuild (post-create)",
+			"label": "Positron CI: Full rebuild (post-create)",
+			"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
 			"type": "shell",
 			"command": "./.devcontainer/ci-arm/post-create.sh",
 			"problemMatcher": []
 		},
-		// ────────────────────────────────────────────────────────────────────
+		// ──────────────────────────────────────────────────────────────────────────
 		{
 			"type": "npm",
 			"script": "watch-client-transpiled",

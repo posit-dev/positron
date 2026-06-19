@@ -1,5 +1,5 @@
 {
-	"name": "Positron CI (arm e2e-electron)",
+	"name": "Positron CI (ubuntu24-arm64)",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "test",
 	// Source is bind-mounted at its own host path (see docker-compose.yml + initialize.sh),
