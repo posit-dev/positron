@@ -54,7 +54,14 @@ suite('McpStdioStateHandler', () => {
 	});
 
 	if (!isWindows) {
-		test('sigterm after grace', async () => {
+		// --- Start Positron ---
+		// Skipped: flaky on Linux. The test depends on a tight 100ms
+		// shutdown-grace window and fails intermittently upstream on bare
+		// Linux CI as well (microsoft/vscode#253370; #255289 "fails on OSS
+		// Linux build"). It surfaced in our containerized unit-test job.
+		// Re-enable if the upstream timing is hardened.
+		test.skip('sigterm after grace', async () => {
+			// --- End Positron ---
 			const { handler, output } = run(`
 			setInterval(() => {}, 1000);
 			process.stdin.on('end', () => process.stdout.write('stdin ended\\n'));
