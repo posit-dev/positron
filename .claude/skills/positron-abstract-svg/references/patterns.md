@@ -1,6 +1,6 @@
 # Positron SVG Component Patterns
 
-Copy-pasteable SVG snippets for every major UI component. All assume a 520×260 canvas unless noted. Adjust x/y/width/height to fit your layout.
+Copy-pasteable SVG snippets for every major UI component. All assume a 520x260 canvas unless noted. Adjust x/y/width/height to fit your layout.
 
 ---
 
@@ -14,7 +14,7 @@ When creating a new abstract image, **ask the user for a screenshot of the actua
 
 You can also search the Positron codebase for the codicon name used in code (e.g., `Codicon.notebookExecute`) and look it up in `references/codicons.md`.
 
-For file-type icons in the tab bar (e.g., `.ipynb`, `.R`, `.py`), Positron uses the **Seti UI** icon theme: https://github.com/jesseweed/seti-ui — fetch the relevant SVG from there if needed.
+For file-type icons in the tab bar (e.g., `.ipynb`, `.R`, `.py`), Positron uses the **Seti UI** icon theme: https://github.com/jesseweed/seti-ui. Locally it ships only as a font (`extensions/theme-seti/icons/seti.woff`), so there is no per-file SVG to extract from the repo -- fetch the source SVG from that repo's `icons/` folder (an external network call) or hand-draw a simple file glyph. NOTE: the existing walkthrough SVGs use plain text tab labels, not file-type glyphs, so this seti-icon approach is currently untested -- verify it in a preview and keep the glyph simple.
 
 ---
 
@@ -33,7 +33,7 @@ Full-width tab bar with one active file tab and close button. The blue underline
 <text x="12" y="18"
       font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       font-size="10" fill="#333333">analysis.ipynb</text>
-<!-- Close × (two crossing lines) -->
+<!-- Close x (two crossing lines) -->
 <line x1="131" y1="9" x2="141" y2="19" stroke="#8A8A8A" stroke-width="1.2"/>
 <line x1="141" y1="9" x2="131" y2="19" stroke="#8A8A8A" stroke-width="1.2"/>
 <!-- Tab right border -->
@@ -44,7 +44,7 @@ Full-width tab bar with one active file tab and close button. The blue underline
 
 ## Notebook Toolbar
 
-Full-width toolbar with all standard notebook actions. The Python dropdown is the focal point — blue border, green session dot.
+Full-width toolbar with all standard notebook actions. The Python dropdown is the focal point -- blue border, green session dot.
 
 ```svg
 <!-- Toolbar background -->
@@ -83,7 +83,7 @@ Full-width toolbar with all standard notebook actions. The Python dropdown is th
         d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/>
 </g>
 
-<!-- Python session dropdown (FOCAL POINT — blue border, green dot) -->
+<!-- Python session dropdown (FOCAL POINT -- blue border, green dot) -->
 <rect x="415" y="34" width="92" height="22" rx="4" fill="#FFFFFF" stroke="#447099" stroke-width="1.5"/>
 <circle cx="425" cy="45" r="4" fill="#3DAA6E"/>
 <text x="433" y="49" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -96,7 +96,7 @@ Full-width toolbar with all standard notebook actions. The Python dropdown is th
 
 ---
 
-## Code Cell — Active (blue border, with combined output)
+## Code Cell -- Active (blue border, with combined output)
 
 The active cell has a blue border. Code area is gray; output area is white. Both share a single outer rect. Draw the action bar **after** this element.
 
@@ -130,7 +130,7 @@ The active cell has a blue border. Code area is gray; output area is white. Both
 
 ---
 
-## Code Cell — Inactive (gray border)
+## Code Cell -- Inactive (gray border)
 
 ```svg
 <rect x="12" y="184" width="496" height="42" rx="4"
@@ -175,7 +175,7 @@ A compact 6-bar chart for small output areas (~38px tall). Adjust bar heights an
 <line x1="19" y1="159" x2="105" y2="159" stroke="#DDDDDD" stroke-width="0.8"/>
 ```
 
-For a **large output area** (~110px), use wider bars (width=12) and taller heights. Add x-axis tick labels as 10×3 gray rects below the baseline.
+For a **large output area** (~110px), use wider bars (width=12) and taller heights. Add x-axis tick labels as 10x3 gray rects below the baseline.
 
 ---
 
@@ -197,7 +197,7 @@ See `references/codicons.md` for the full ready-to-use snippet.
 
 Key rules:
 - Position bar rect: `x=CELL_X`, `y=CELL_TOP - 10`, `height=16`, `rx=3`
-- **Draw the action bar AFTER the cell rect** — SVG renders in document order, so later = on top
+- **Draw the action bar AFTER the cell rect** -- SVG renders in document order, so later = on top
 - Always include a vertical separator (`stroke="#D0D0D0"`) after the execute icon
 
 ---

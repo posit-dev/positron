@@ -1,6 +1,8 @@
 # Positron Codicon SVG Paths
 
-All paths use a 16×16 coordinate space. Use `transform="translate(x, y)"` to position and `scale(n)` to resize.
+These are the **curated icon paths used across the existing Positron walkthrough SVGs** -- a frozen, internally-consistent set. Use them as-is so new images match the canonical look. All paths use a 16x16 coordinate space. Use `transform="translate(x, y)"` to position and `scale(n)` to resize.
+
+> Need an icon that isn't here? Grab it from `node_modules/@vscode/codicons/src/icons/<name>.svg` and copy its `d=`. Be aware upstream codicons have been redesigned over time, so a freshly pulled icon may have slightly different geometry than this set -- simplify it to match the flat style of the icons below rather than mixing visual eras.
 
 ## Toolbar-scale usage (full 16px)
 
@@ -13,7 +15,7 @@ All paths use a 16×16 coordinate space. Use `transform="translate(x, y)"` to po
 ## Action-bar-scale usage (~11px, centered in a 16px-tall bar at y=BAR_TOP)
 
 ```svg
-<!-- scale(0.7) → 11.2px icon; to center in 16px bar: translate y = BAR_TOP + 2.4 -->
+<!-- scale(0.7) -> 11.2px icon; to center in 16px bar: translate y = BAR_TOP + 2.4 -->
 <g transform="translate(X, BAR_TOP_PLUS_2) scale(0.7)" fill="#5A5A5A">
   <path d="..."/>
 </g>
@@ -23,7 +25,7 @@ All paths use a 16×16 coordinate space. Use `transform="translate(x, y)"` to po
 
 ## Run All (notebook-execute-all)
 
-Two overlapping play triangles — use both paths together.
+Two overlapping play triangles -- use both paths together.
 
 ```svg
 <g transform="translate(X, Y)" fill="#5A5A5A">
@@ -33,7 +35,7 @@ Two overlapping play triangles — use both paths together.
 </g>
 ```
 
-## Notebook Execute (single play — notebook-execute)
+## Notebook Execute (single play -- notebook-execute)
 
 Single play triangle, used in cell action bars.
 
@@ -47,7 +49,7 @@ Single play triangle, used in cell action bars.
 <path d="M10 12.6l.7.7 1.6-1.6 1.6 1.6.8-.7L13 11l1.7-1.6-.8-.8-1.6 1.7-1.6-1.7-.7.8 1.6 1.6-1.6 1.6zM1 4h14V3H1v1zm0 3h14V6H1v1zm8 2.5V9H1v1h8v-.5zM9 13v-1H1v1h8z"/>
 ```
 
-## Add (plus — used for + Code and + Markdown buttons)
+## Add (plus -- used for + Code and + Markdown buttons)
 
 Scale to 0.6875 when rendering at toolbar size alongside text labels.
 
@@ -80,7 +82,7 @@ Scale to 0.625 when rendering small.
 
 ## Debug Alt Small (debug-alt-small)
 
-Two paths — use both together.
+Two paths -- use both together.
 
 ```svg
 <g transform="translate(X, Y)" fill="#5A5A5A">
@@ -110,7 +112,7 @@ Two paths — use both together.
 
 ---
 
-## Cell Action Bar — Full Example
+## Cell Action Bar -- Full Example
 
 The action bar floats at the top-left of its parent cell. Draw it **after** the cell rect in SVG document order so it renders on top.
 
