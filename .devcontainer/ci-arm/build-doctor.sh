@@ -113,6 +113,15 @@ render() {
   tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running — Dev Containers: Rebuild Container"
   printf '\n'
 
+  # --- Watch the display ---
+  # noVNC is the browser window into the headless display, so show its URL whenever noVNC is up:
+  # you can watch the desktop OR any headed e2e test (e2e-electron/e2e-chromium) without launching
+  # anything first. (When noVNC is down, Core Services above flags it with the fix.)
+  if tcp 127.0.0.1 6080; then
+    printf '%sWatch the display%s %s(desktop, or any headed test)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+    printf '  %s↳ http://localhost:6080/vnc.html?autoconnect=true&password=positron%s\n\n' "$DIM" "$RST"
+  fi
+
   # --- On-Demand Services ---
   printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
   tcp 127.0.0.1 8080; odsvc "Server"  ":8080" "$?" "$SERVER_ERR" "http://localhost:8080/?tkn=dev-token"

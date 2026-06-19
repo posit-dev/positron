@@ -112,6 +112,11 @@ The everyday cycle. The key point: editing recompiles in seconds, never the ~10-
 | `e2e-chromium` | self-starts a web server, runs headed in Chromium (watch via VNC) | no — works out of the box |
 | `e2e-server` | connects to an **external** server | yes — run **Positron CI: Start server** first |
 
+**Watching a headed run:** any test that runs headed (e.g. `e2e-electron`, `e2e-chromium`) renders
+on the headless display — open the **Watch the display** link in the Doctor
+(`http://localhost:6080/vnc.html?…`) to see it live. You don't need to launch the Desktop first; the
+link is always there while noVNC is up.
+
 ### Test files (qa-example-content)
 
 Many tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content) —
