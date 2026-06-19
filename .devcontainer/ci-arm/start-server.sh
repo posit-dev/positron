@@ -21,7 +21,7 @@ fail() { echo "$1" >"$ERR"; echo "$1"; exit 1; }
 if [ ! -f "$ROOT/out/server-main.js" ]; then
   echo "Positron isn't built yet — out/server-main.js is missing (the cold build / post-create may"
   echo "still be running). Wait until the 'Doctor' reports the build is current, then try again."
-  fail "not built — out/server-main.js missing (run a full build)"
+  fail "not built — run 'Positron CI: Rebuild'"
 fi
 
 if [ -x "$PDOL" ]; then

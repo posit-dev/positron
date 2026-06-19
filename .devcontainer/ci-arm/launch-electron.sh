@@ -16,7 +16,7 @@ if [ ! -f "$ROOT/out/main.js" ]; then
   echo "Positron isn't built yet — out/main.js is missing (the cold build / post-create may still be running)."
   echo "Click the 'Doctor' button (or run 'Positron CI: Doctor'), wait until it reports the"
   echo "build is current, then try again."
-  fail "not built — out/main.js missing (run a full build)"
+  fail "not built — run 'Positron CI: Rebuild'"
 fi
 
 # Ensure the display is viewable (window manager + VNC + noVNC).
