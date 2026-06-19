@@ -69,7 +69,7 @@
 				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvfb/VNC/postgres up.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/stop-services.sh",
-				"presentation": { "panel": "shared", "reveal": "always", "focus": false, "clear": true },
+				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
 				"problemMatcher": []
 			},
 			{

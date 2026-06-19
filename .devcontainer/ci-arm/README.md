@@ -79,8 +79,9 @@ The common actions (**Positron server**, **Desktop (Electron)**, **Report**, **S
 in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
 debugger lives in the **Run and Debug** panel.
 
-A note on terminals: the quick actions (Server, Desktop, Stop, VNC) share **one rolling terminal** —
-each click clears it and shows that action's receipt (the clickable URL), so nothing piles up. The
+A note on terminals: the quick actions (Server, Desktop, VNC) share **one rolling terminal** — each
+click clears it and shows that action's receipt (the clickable URL), so nothing piles up. **Stop**
+runs silently with no terminal — just refresh the Doctor to confirm everything's stopped. The
 **Doctor** opens a **live dashboard** in its own terminal. It auto-refreshes every few minutes as a
 heartbeat, and **any key** refreshes it instantly — so after you click Server or Stop, tap a key to
 see the change (`q` quits). Keep it open in a split and it's your at-a-glance status board.
@@ -142,8 +143,8 @@ only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing
 **Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
 task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
 **Positron CI: Stop services**) — it stops the server, desktop, and report in one go and leaves the
-core services (Xvfb, VNC, postgres) up. The **Doctor** shows what's currently running, and prints a
-stop hint when anything is.
+core services (Xvfb, VNC, postgres) up. It runs silently (no terminal); refresh the **Doctor** to
+confirm — it shows what's running and prints a stop hint when anything is.
 
 ### Reproduce a CI failure
 
