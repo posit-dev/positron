@@ -1,7 +1,8 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		// ───────── Positron CI dev container (see .devcontainer/ci-arm/) ─────────
+		// --- Start Positron ---
+		// CI dev container tasks (see .devcontainer/ci-arm/)
 		{
 			"label": "Positron CI: Start server",
 			"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
@@ -51,7 +52,7 @@
 			"command": "./.devcontainer/ci-arm/post-create.sh",
 			"problemMatcher": []
 		},
-		// ──────────────────────────────────────────────────────────────────────────
+		// --- End Positron ---
 		{
 			"type": "npm",
 			"script": "watch-client-transpiled",

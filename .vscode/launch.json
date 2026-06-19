@@ -1,6 +1,7 @@
 {
 	"version": "0.1.0",
 	"configurations": [
+		// --- Start Positron ---
 		{
 			"name": "Positron CI: Debug (electron)",
 			"type": "node",
@@ -10,6 +11,7 @@
 			"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal"
 		},
+		// --- End Positron ---
 		{
 			"type": "node",
 			"request": "launch",
