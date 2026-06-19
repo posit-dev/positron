@@ -6,7 +6,7 @@
 	// It carries the CI tasks, the debug config, and the status-bar buttons — so they appear only in
 	// this workspace, and the repo's shared .vscode/ files stay untouched for everyone else.
 	//
-	// See .devcontainer/ci-arm/README.md (setup) and DEVELOPING.md (day-to-day flow).
+	// See .devcontainer/ci-arm/README.md for setup and the day-to-day workflow.
 	"folders": [
 		{ "path": "." }
 	],
