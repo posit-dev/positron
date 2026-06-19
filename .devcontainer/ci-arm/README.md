@@ -81,10 +81,11 @@ debugger lives in the **Run and Debug** panel.
 
 A note on terminals: the quick actions (Server, Desktop, VNC) share **one rolling terminal** — each
 click clears it and shows that action's receipt (the clickable URL), so nothing piles up. **Stop**
-runs silently with no terminal — just refresh the Doctor to confirm everything's stopped. The
-**Doctor** opens a **live dashboard** in its own terminal. It auto-refreshes every few minutes as a
-heartbeat, and **any key** refreshes it instantly — so after you click Server or Stop, tap a key to
-see the change (`q` quits). Keep it open in a split and it's your at-a-glance status board.
+runs silently with no terminal — the Doctor reflects it within a few seconds. The **Doctor** opens a
+**live dashboard** in its own terminal that **updates on its own when something changes** (within a
+few seconds — so clicking Server or Stop shows up there without you doing anything), stays still when
+nothing's happening, and any key forces a refresh (`q` quits). Keep it open in a split and it's your
+at-a-glance status board.
 
 ### Edit and re-run
 
@@ -143,8 +144,8 @@ only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing
 **Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
 task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
 **Positron CI: Stop services**) — it stops the server, desktop, and report in one go and leaves the
-core services (Xvfb, VNC, postgres) up. It runs silently (no terminal); refresh the **Doctor** to
-confirm — it shows what's running and prints a stop hint when anything is.
+core services (Xvfb, VNC, postgres) up. It runs silently (no terminal); the **Doctor** reflects it
+within a few seconds and shows what's running (with a stop hint when anything is).
 
 ### Reproduce a CI failure
 
@@ -179,7 +180,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
 | **Positron CI: Stop services** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
-| **Positron CI: Doctor (health check)** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); auto-refreshes every few min, any key refreshes now, `q` quits |
+| **Positron CI: Doctor (health check)** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps (npm ci)** | after deps change; refreshes the doctor's state |
 | **Positron CI: Full rebuild (post-create)** | re-runs the whole cold build (idempotent) |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |

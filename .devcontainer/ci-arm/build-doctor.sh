@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Health check: build status + what's up. Read-only — changes nothing.
 #   build-doctor.sh            one-shot (used by post-start.sh on container start)
-#   build-doctor.sh --watch    live panel: auto-refresh ~2s, any key = refresh now, q = quit
+#   build-doctor.sh --watch    live panel: redraws when state changes, any key = refresh, q = quit
 set -uo pipefail
 WS="${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 STATE="$WS/.build/.ci-arm-state"
@@ -57,7 +57,7 @@ render() {
   up_secs=$(ps -o etimes= -p 1 2>/dev/null | tr -dc '0-9')
   up_str=$([ -n "$up_secs" ] && human_dur "$up_secs" || echo "?")
 
-  printf '%s\n %s🩺  Positron CI Doctor%s\n%s\n\n' "$RULE" "$BOLD" "$RST" "$RULE"
+  printf '%s\n %sPositron CI Doctor%s\n%s\n\n' "$RULE" "$BOLD" "$RST" "$RULE"
 
   # Build
   build_ok=1
@@ -102,19 +102,40 @@ render() {
   printf '%s\n' "$RULE"
 }
 
+# Compact signature of the *runtime* state (services + on-demand). When this changes, --watch
+# redraws — so an action shows up within a poll. Build state is coarse and rides the heartbeat.
+sig() {
+  local s=""
+  pgrep -x Xvfb >/dev/null 2>&1 && s+=X || s+=x
+  tcp 127.0.0.1 5900 && s+=V || s+=v
+  tcp 127.0.0.1 6080 && s+=N || s+=n
+  tcp postgres 5432  && s+=P || s+=p
+  tcp 127.0.0.1 8080 && s+=S || s+=s
+  pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1 && s+=D || s+=d
+  tcp 127.0.0.1 9323 && s+=R || s+=r
+  printf '%s' "$s"
+}
+
 if [ "${1:-}" = "--watch" ]; then
   # Live panel only makes sense interactively; without a TTY just render once.
   if [ ! -t 0 ] || [ ! -t 1 ]; then render; exit 0; fi
-  REFRESH=300  # gentle heartbeat (5 min); press a key for an instant refresh
-  rlabel=$([ "$REFRESH" -ge 60 ] && echo "$((REFRESH / 60))m" || echo "${REFRESH}s")
+  POLL=3         # how often to check for changes (seconds)
+  HEARTBEAT=300  # force a redraw at least this often, to refresh the timestamps
   trap 'printf "\e[?25h\n"; exit 0' INT TERM
   printf '\e[?25l'  # hide cursor to cut flicker
+  last_sig="__init__"; last_draw=0
   while true; do
-    printf '\e[H\e[2J'  # home + clear
-    render
-    printf '\n%s(auto-refresh %s · any key = refresh now · q = quit)%s\n' "$DIM" "$rlabel" "$RST"
-    if read -rsn1 -t "$REFRESH" key; then
+    cur_sig="$(sig)"; nowt=$(date +%s)
+    # Redraw only when state changed (responsive, no idle flicker) or on the heartbeat.
+    if [ "$cur_sig" != "$last_sig" ] || [ $((nowt - last_draw)) -ge "$HEARTBEAT" ]; then
+      printf '\e[H\e[2J'  # home + clear
+      render
+      printf '\n%s(updates on change · any key = refresh · q = quit)%s\n' "$DIM" "$RST"
+      last_sig="$cur_sig"; last_draw="$nowt"
+    fi
+    if read -rsn1 -t "$POLL" key; then
       [ "$key" = "q" ] && break
+      last_sig="__force__"  # any key → redraw next tick
     fi
   done
   printf '\e[?25h'  # restore cursor
