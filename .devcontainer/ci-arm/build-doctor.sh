@@ -8,14 +8,14 @@ STATE="$WS/.build/.ci-arm-state"
 QA_TMP="${TMPDIR:-/tmp}"; QA_TMP="${QA_TMP%/}"
 QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/qa-example-content"  # what the e2e tests open
 
-# Color only when writing to a terminal (post-start runs this against a non-TTY log).
+# Color only when writing to a terminal (post-start runs this against a non-TTY log). Named ANSI
+# attributes so it stays readable in both dark and light themes.
 if [ -t 1 ]; then
   G=$'\e[32m'; Y=$'\e[33m'; DIM=$'\e[2m'; BOLD=$'\e[1m'; RST=$'\e[0m'
 else
   G=; Y=; DIM=; BOLD=; RST=
 fi
-RULE="══════════════════════════════════════════════"
-THIN="──────────────────────────────────────────────"
+DIV="────────────────────────────────────────────"
 
 sha() { [ -f "$1" ] && sha256sum "$1" | awk '{print $1}' || echo "missing"; }
 tcp() { (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null; }
@@ -29,27 +29,35 @@ human_dur() { # seconds -> compact "3d 4h" / "2h 5m" / "12m" / "9s"
 
 actions=()
 opt_running=0
-svc() { # svc <label> <tool> <port> <up:0/1>
+
+# A heading + its rows form a "card". Rows share one left edge (text starts at column 4) across all
+# sections. Names lead; tool/port/detail are dimmed so the eye scans the glyph + name first.
+
+# Core service row: csvc <name> <tool> <port> <up:0/1>.  ✓ = up, ⚠ = down.
+csvc() {
   if [ "$4" -eq 0 ]; then
     printf '  %s✓%s %-10s%s%-12s%s%s\n' "$G" "$RST" "$1" "$DIM" "$2" "$3" "$RST"
   else
-    printf '  %s⚠%s %-10s%s%-12s%s %sDOWN%s\n' "$Y" "$RST" "$1" "$DIM" "$2" "$3" "$Y" "$RST"
-    actions+=("$1 service is down ($2 $3).")
+    printf '  %s⚠%s %-10s%s%-12s%s%s\n' "$Y" "$RST" "$1" "$DIM" "$2" "$3" "$RST"
+    actions+=("$1 is down ($2 $3).")
   fi
 }
-opt() { # opt <label> <port> <running:0/1> [url]
+
+# On-demand row: odsvc <name> <port|VNC> <running:0/1> [url].  ● green + running / ○ dim + stopped.
+odsvc() {
   if [ "$3" -eq 0 ]; then
-    printf '  %s●%s %-18s%-7s %srunning%s\n' "$G" "$RST" "$1" "$2" "$G" "$RST"
-    [ -n "${4:-}" ] && printf '       %s%s%s\n' "$DIM" "$4" "$RST"
+    printf '  %s●%s %-19s%s%-7s%s %srunning%s\n' "$G" "$RST" "$1" "$DIM" "$2" "$RST" "$G" "$RST"
+    [ -n "${4:-}" ] && printf '    %s↳ %s%s\n' "$DIM" "$4" "$RST"
     opt_running=$((opt_running + 1))
   else
-    printf '  %s○%s %-18s%-7s %sstopped%s\n' "$DIM" "$RST" "$1" "$2" "$DIM" "$RST"
+    printf '  %s○ %-19s%-7s stopped%s\n' "$DIM" "$1" "$2" "$RST"
   fi
 }
 
 render() {
   actions=(); opt_running=0
-  local now last_build up_secs up_str build_ok
+  local now last_build up_secs up_str build_ok qa_age
+
   now=$(date +%s)
   if [ -f "$STATE/complete" ]; then
     last_build="$(human_dur $(( now - $(stat -c %Y "$STATE/complete" 2>/dev/null || echo "$now") ))) ago"
@@ -59,9 +67,9 @@ render() {
   up_secs=$(ps -o etimes= -p 1 2>/dev/null | tr -dc '0-9')
   up_str=$([ -n "$up_secs" ] && human_dur "$up_secs" || echo "?")
 
-  printf '%s\n %sPositron CI Doctor%s\n%s\n\n' "$RULE" "$BOLD" "$RST" "$RULE"
+  printf '%sPositron CI Doctor%s\n\n' "$BOLD" "$RST"
 
-  # Build
+  # --- Build ---
   build_ok=1
   [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
   [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
@@ -71,51 +79,48 @@ render() {
 
   printf '%sBuild%s\n' "$BOLD" "$RST"
   if [ "$build_ok" -eq 1 ]; then
-    printf '  %s✓%s %-12scurrent — incremental watch is all you need\n' "$G" "$RST" "Compiled"
+    printf '  %s✓%s Up to date\n' "$G" "$RST"
   else
-    printf '  %s⚠%s %-12sneeds attention (see below)\n' "$Y" "$RST" "Compiled"
+    printf '  %s⚠%s Needs attention\n' "$Y" "$RST"
   fi
   printf '    %s%-12s%s%s\n' "$DIM" "Built" "$last_build" "$RST"
   printf '    %s%-12s%s%s\n' "$DIM" "Uptime" "$up_str" "$RST"
   if [ -d "$QA_DEST" ]; then
-    printf '    %s%-12spresent · fetched %s ago%s\n' "$DIM" "QA content" \
-      "$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))" "$RST"
+    qa_age="$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))"
+    printf '    %s%-12spresent · updated %s ago%s\n' "$DIM" "QA content" "$qa_age" "$RST"
     printf '    %s%-12s%s%s\n' "$DIM" "" "$QA_DEST" "$RST"
   else
     printf '    %s%-12snot fetched — run "Positron CI: Get QA content"%s\n' "$DIM" "QA content" "$RST"
   fi
-  echo
+  printf '\n'
 
-  # Core services
-  printf '%sCore services%s\n' "$BOLD" "$RST"
-  pgrep -x Xvfb >/dev/null 2>&1; svc "Display"  "Xvfb"        ":10"   "$?"
-  tcp 127.0.0.1 5900;            svc "VNC"       "x11vnc"      ":5900" "$?"
-  tcp 127.0.0.1 6080;            svc "noVNC"     "websockify"  ":6080" "$?"
-  tcp postgres 5432;             svc "Postgres"  "postgres"    ":5432" "$?"
-  echo
+  # --- Core Services ---
+  printf '%sCore Services%s\n' "$BOLD" "$RST"
+  pgrep -x Xvfb >/dev/null 2>&1; csvc "Display"  "Xvfb"        ":10"   "$?"
+  tcp 127.0.0.1 5900;            csvc "VNC"       "x11vnc"      ":5900" "$?"
+  tcp 127.0.0.1 6080;            csvc "noVNC"     "websockify"  ":6080" "$?"
+  tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?"
+  printf '\n'
 
-  # On demand
-  printf '%sOn demand%s\n' "$BOLD" "$RST"
-  tcp 127.0.0.1 8080; opt "Positron server" ":8080" "$?" "http://localhost:8080/?tkn=dev-token"
+  # --- On-Demand Services ---
+  printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
+  tcp 127.0.0.1 8080; odsvc "Positron server" ":8080" "$?" "http://localhost:8080/?tkn=dev-token"
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
-  opt "Desktop app" "(VNC)" "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
-  tcp 127.0.0.1 9323; opt "Playwright report" ":9323" "$?" "http://localhost:9323"
-  [ "$opt_running" -gt 0 ] && printf '  %s↳ stop these with the "Positron CI: Stop" task%s\n' "$DIM" "$RST"
-  echo
+  odsvc "Desktop app" "VNC" "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
+  tcp 127.0.0.1 9323; odsvc "Playwright report" ":9323" "$?" "http://localhost:9323"
+  printf '\n'
 
-  # Footer
-  printf '%s\n' "$THIN"
+  # --- Footer ---
+  printf '%s%s%s\n\n' "$DIM" "$DIV" "$RST"
   if [ "${#actions[@]}" -eq 0 ]; then
-    printf ' %s✓ Ready for development.%s\n' "$G" "$RST"
+    printf '%s✓ Ready for development%s\n' "$G" "$RST"
   else
-    printf ' %s⚠ %d item(s) need attention:%s\n' "$Y" "${#actions[@]}" "$RST"
-    for a in "${actions[@]}"; do printf '   • %s\n' "$a"; done
+    printf '%s⚠ %d item(s) need attention%s\n' "$Y" "${#actions[@]}" "$RST"
+    for a in "${actions[@]}"; do printf '  %s• %s%s\n' "$DIM" "$a" "$RST"; done
   fi
-  printf '%s\n' "$RULE"
 }
 
-# Compact signature of the *runtime* state (services + on-demand). When this changes, --watch
-# redraws — so an action shows up within a poll. Build state is coarse and rides the heartbeat.
+# Compact runtime signature (services + on-demand + qa). --watch redraws when it changes.
 sig() {
   local s=""
   pgrep -x Xvfb >/dev/null 2>&1 && s+=X || s+=x
@@ -139,11 +144,10 @@ if [ "${1:-}" = "--watch" ]; then
   last_sig="__init__"; last_draw=0
   while true; do
     cur_sig="$(sig)"; nowt=$(date +%s)
-    # Redraw only when state changed (responsive, no idle flicker) or on the heartbeat.
     if [ "$cur_sig" != "$last_sig" ] || [ $((nowt - last_draw)) -ge "$HEARTBEAT" ]; then
       printf '\e[H\e[2J'  # home + clear
       render
-      printf '\n%s(updates on change · any key = refresh · q = quit)%s\n' "$DIM" "$RST"
+      printf '\n%s(auto-updates • any key refresh • q quit)%s\n' "$DIM" "$RST"
       last_sig="$cur_sig"; last_draw="$nowt"
     fi
     if read -rsn1 -t "$POLL" key; then
