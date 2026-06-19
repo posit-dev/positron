@@ -19,7 +19,18 @@
 			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
 			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
 			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" }
-		]
+		],
+		// Positron opens dozens of internal loopback ports. Turn auto-forwarding off so the Ports
+		// panel shows only the four we forward explicitly (declared in devcontainer.json's
+		// forwardPorts). These live here (not devcontainer.json) because the Dev Containers server
+		// cache makes devcontainer.json settings stale across rebuilds; workspace settings reload fresh.
+		"remote.autoForwardPorts": false,
+		"remote.portsAttributes": {
+			"8080": { "label": "Positron server", "onAutoForward": "notify" },
+			"9323": { "label": "Playwright report", "onAutoForward": "silent" },
+			"6080": { "label": "Desktop (noVNC, browser)", "onAutoForward": "silent" },
+			"5900": { "label": "VNC (native viewer)", "onAutoForward": "silent" }
+		}
 	},
 	"extensions": {
 		// The task-buttons extension is recommended (not force-installed) — opening this workspace
