@@ -3,8 +3,10 @@
 Day-to-day workflow once you're in the **Positron CI (ubuntu24-arm64)** container. (First-time
 setup — secrets, license, opening the container — is in [README.md](README.md).)
 
-All tasks below are in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type
-"Positron CI" to filter). The debugger is in the **Run and Debug** panel.
+The common actions (**Positron server**, **Desktop**, **Report**, **Doctor**) are **status-bar
+buttons** along the bottom of the window — one click, no Command Palette. Everything else is in
+`Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
+debugger is in the **Run and Debug** panel.
 
 ## The inner loop
 

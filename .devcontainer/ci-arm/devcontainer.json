@@ -35,8 +35,19 @@
 				"dbaeumer.vscode-eslint",
 				"ms-vscode.vscode-selfhost-test-provider",
 				"EditorConfig.EditorConfig",
-				"GitHub.vscode-pull-request-github"
-			]
+				"GitHub.vscode-pull-request-github",
+				"spencerwmiles.vscode-task-buttons"
+			],
+			"settings": {
+				// Status-bar buttons (spencerwmiles.vscode-task-buttons) for the common actions,
+				// so you don't have to go through the Command Palette. Each runs the like-named task.
+				"VsCodeTaskButtons.tasks": [
+					{ "label": "$(server) Positron server", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
+					{ "label": "$(vm) Desktop", "task": "Positron CI: Launch Electron (VNC)", "tooltip": "Launch the Electron app; view in browser via noVNC" },
+					{ "label": "$(graph) Report", "task": "Positron CI: Show Playwright report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+					{ "label": "$(pulse) Doctor", "task": "Positron CI: Check build status (doctor)", "tooltip": "Is the build current? What needs rebuilding?" }
+				]
+			}
 		}
 	}
 }
