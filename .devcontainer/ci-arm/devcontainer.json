@@ -10,9 +10,16 @@
 	"remoteUser": "root",
 	"overrideCommand": false,
 	"forwardPorts": [8080, 9323, 6080, 5900],
-	// Port labels and auto-forward suppression live in positron-ci.code-workspace (workspace
-	// settings reload fresh; devcontainer.json customizations get cached stale by the Dev Containers
-	// server volume, so settings put here don't reliably reach VS Code on a rebuild).
+	"portsAttributes": {
+		"8080": { "label": "Positron server", "onAutoForward": "notify" },
+		"9323": { "label": "Playwright report", "onAutoForward": "silent" },
+		"6080": { "label": "Desktop (noVNC, browser)", "onAutoForward": "silent" },
+		"5900": { "label": "VNC (native viewer)", "onAutoForward": "silent" }
+	},
+	// Note: VS Code also auto-forwards Positron's many internal loopback ports (extension hosts,
+	// language servers, Jupyter kernels). They're harmless and only clutter the Ports panel;
+	// remote.autoForwardPorts / restoreForwardedPorts did not reliably suppress them in this
+	// connected-container setup, so we don't fight it. The four above are the ones you use.
 	"containerEnv": {
 		"DISPLAY": ":10",
 		"POSITRON_PY_VER_SEL": "3.10.12",
