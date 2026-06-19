@@ -19,9 +19,23 @@ fi
 # Ensure the display is viewable (window manager + VNC + noVNC).
 "$HERE/start-vnc.sh" >/dev/null
 
+# Use an isolated user-data-dir and clear any prior instance/lock first. Otherwise a leftover or
+# stuck instance triggers Electron's "another instance is running" lock and the new window paints
+# blank/white. This makes re-clicking Launch a clean restart.
+USER_DATA=/tmp/positron-dev-data
+pkill -9 -f "user-data-dir=$USER_DATA" 2>/dev/null || true
+rm -f "$USER_DATA/SingletonLock" 2>/dev/null || true
+sleep 1
+
 # code.sh runs Electron in the foreground (streams logs, never returns). Launch it detached with
-# its logs sent to a file so they don't bury the URL; setsid keeps it alive after this task ends.
-setsid ./scripts/code.sh --no-sandbox >/tmp/positron-electron.log 2>&1 </dev/null &
+# logs to a file so they don't bury the URL; setsid keeps it alive after this task ends. The
+# software-GL flags (same set the e2e runner uses) let it render under Xvfb (no GPU).
+setsid ./scripts/code.sh --no-sandbox --user-data-dir="$USER_DATA" \
+  --disable-dev-shm-usage \
+  --use-gl=swiftshader \
+  --enable-unsafe-swiftshader \
+  --disable-gpu-compositing \
+  >/tmp/positron-electron.log 2>&1 </dev/null &
 sleep 3
 
 echo ""
