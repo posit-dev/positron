@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# Launch the Positron Electron (desktop) app on the headless Xvfb display and expose it over VNC.
-#
-# To see it from your Mac: make sure port 5900 is forwarded (it's in devcontainer.json), then
-# connect a VNC viewer to localhost:5900 — on macOS, Finder → Cmd+K → vnc://localhost:5900
-# (built-in Screen Sharing, no install needed). VNC password: "positron"
-# (macOS Screen Sharing requires a password, so we set one rather than running open).
+# Launch the Positron Electron (desktop) app on the headless display and expose it for viewing.
+# Prints a clickable noVNC URL (http://localhost:6080/...) to open the desktop in a browser; a
+# native VNC viewer at vnc://localhost:5900 (password "positron") also works.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -19,10 +16,17 @@ if [ ! -f "$ROOT/out/main.js" ]; then
   exit 1
 fi
 
-# Ensure the display is viewable (window manager + VNC + noVNC), and print the connect URL.
-"$HERE/start-vnc.sh"
-# code.sh launches the Electron app and returns (it runs detached).
-./scripts/code.sh --no-sandbox || true
+# Ensure the display is viewable (window manager + VNC + noVNC).
+"$HERE/start-vnc.sh" >/dev/null
+
+# code.sh runs Electron in the foreground (streams logs, never returns). Launch it detached with
+# its logs sent to a file so they don't bury the URL; setsid keeps it alive after this task ends.
+setsid ./scripts/code.sh --no-sandbox >/tmp/positron-electron.log 2>&1 </dev/null &
+sleep 3
+
 echo ""
-echo "Positron desktop launched. View it (Cmd-click):"
+echo "Positron Electron is starting (logs: /tmp/positron-electron.log)."
+echo "Open the desktop in your browser — Cmd-click (the window appears in ~15s as it boots):"
+echo ""
 echo "    http://localhost:6080/vnc.html?autoconnect=true&password=positron"
+echo ""
