@@ -14,7 +14,7 @@
 		// Status-bar buttons (spencerwmiles.vscode-task-buttons) for the common actions, so you
 		// don't have to go through the Command Palette. Each runs the like-named task below.
 		"VsCodeTaskButtons.tasks": [
-			{ "label": "$(server) Positron server", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
+			{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
 			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
 			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
 			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
