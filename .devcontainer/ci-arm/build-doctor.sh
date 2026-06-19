@@ -81,19 +81,20 @@ render() {
   [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
 
   printf '%sBuild%s\n' "$BOLD" "$RST"
+  # Built — ✓ when the build is current, ⚠ when it needs attention (footer lists why). White value.
   if [ "$build_ok" -eq 1 ]; then
-    printf '  %s✓%s Up to date\n' "$G" "$RST"
+    printf '  %s✓%s %-*s%s\n' "$G" "$RST" "$NAMEW" "Built" "$last_build"
   else
-    printf '  %s⚠%s Needs attention\n' "$Y" "$RST"
+    printf '  %s⚠%s %-*s%s\n' "$Y" "$RST" "$NAMEW" "Built" "$last_build"
   fi
-  printf '    %s%-12s%s%s\n' "$DIM" "Built" "$last_build" "$RST"
-  printf '    %s%-12s%s%s\n' "$DIM" "Uptime" "$up_str" "$RST"
+  # Uptime — informational, dim (no status to report).
+  printf '    %s%-*s%s%s\n' "$DIM" "$NAMEW" "Uptime" "$up_str" "$RST"
+  # QA content — ✓ + age + path inline when present; dim hint when not.
   if [ -d "$QA_DEST" ]; then
     qa_age="$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))"
-    printf '    %s%-12spresent · updated %s ago%s\n' "$DIM" "QA content" "$qa_age" "$RST"
-    printf '    %s%-12s%s%s\n' "$DIM" "" "$QA_DEST" "$RST"
+    printf '  %s✓%s %-*supdated %s ago%s · %s%s\n' "$G" "$RST" "$NAMEW" "QA content" "$qa_age" "$DIM" "$QA_DEST" "$RST"
   else
-    printf '    %s%-12snot fetched — run "Positron CI: Get QA content"%s\n' "$DIM" "QA content" "$RST"
+    printf '    %s%-*snot present — run "Positron CI: Get QA content"%s\n' "$DIM" "$NAMEW" "QA content" "$RST"
   fi
   printf '\n'
 
