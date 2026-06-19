@@ -42,7 +42,14 @@
 				"ms-vscode.vscode-selfhost-test-provider",
 				"EditorConfig.EditorConfig",
 				"GitHub.vscode-pull-request-github"
-			]
+			],
+			"settings": {
+				// Positron opens dozens of internal loopback ports. Turn auto-forwarding off so the
+				// Ports panel shows only the four declared in forwardPorts above. (otherPortsAttributes
+				// alone didn't suppress detection; this is the hard switch.) forwardPorts is explicit,
+				// so those four still forward. Forward anything else manually if you ever need it.
+				"remote.autoForwardPorts": false
+			}
 		}
 	}
 }
