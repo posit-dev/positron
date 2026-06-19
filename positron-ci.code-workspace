@@ -37,7 +37,7 @@
 				"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
-				"presentation": { "panel": "shared", "reveal": "always", "focus": false, "clear": true },
+				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
 				"problemMatcher": []
 			},
 			{
@@ -45,7 +45,7 @@
 				"detail": "Launch the Electron desktop app on the headless display; view via noVNC (or vnc://localhost:5900, password positron).",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/launch-electron.sh",
-				"presentation": { "panel": "shared", "reveal": "always", "focus": false, "clear": true },
+				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
 				"problemMatcher": []
 			},
 			{
@@ -78,6 +78,7 @@
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/build-doctor.sh --watch",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"runOptions": { "runOn": "folderOpen" },
 				"problemMatcher": []
 			},
 			{

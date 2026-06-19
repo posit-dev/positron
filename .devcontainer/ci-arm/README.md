@@ -79,13 +79,14 @@ The common actions (**Server (Web)**, **Desktop (Electron)**, **Report**, **Stop
 in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
 debugger lives in the **Run and Debug** panel.
 
-A note on terminals: the quick actions (Server, Desktop, VNC) share **one rolling terminal** — each
-click clears it and shows that action's receipt (the clickable URL), so nothing piles up. **Stop**
-runs silently with no terminal — the Doctor reflects it within a few seconds. The **Doctor** opens a
-**live dashboard** in its own terminal that **updates on its own when something changes** (within a
-few seconds — so clicking Server or Stop shows up there without you doing anything), stays still when
-nothing's happening, and any key forces a refresh (`q` quits). Keep it open in a split and it's your
-at-a-glance status board.
+A note on terminals: **Server**, **Desktop**, and **Stop** run silently — no terminal pops up and
+your view stays on the Doctor. The **Doctor** is a **live dashboard** that **updates on its own when
+something changes** (within a few seconds — so clicking Server/Desktop/Stop shows up there without
+you doing anything), stays still when nothing's happening, and any key forces a refresh (`q` quits).
+It **opens automatically when you open this workspace** (you may get a one-time "allow automatic
+tasks?" prompt — say yes), and you can re-open it any time with the **Doctor** button. Keep it in a
+split and it's your at-a-glance status board: the server/desktop URLs appear there when they're up.
+(**VNC** and **Report** still open their own terminal, since their whole point is to show you a URL.)
 
 ### Edit and re-run
 
@@ -128,15 +129,15 @@ don't keep edits there.
 ### Run Positron itself
 
 Two ways to run Positron, a **browser server** and the **desktop app**, plus VNC for watching
-anything headed. Both print a **clickable URL once they're actually up**, and both do a **clean
-restart** if you click again.
+anything headed. Both run silently (no terminal) and do a **clean restart** if you click again — the
+**Doctor dashboard shows each one's clickable URL** a few seconds after it comes up.
 
-- **Browser:** **Positron CI: Start server** issues a license, waits for the port, then prints
-  `http://localhost:8080/?tkn=dev-token`. Cmd-click it. Runs detached (logs at
+- **Browser:** **Positron CI: Start server** issues a license and serves Positron at
+  `http://localhost:8080/?tkn=dev-token` (shown in the Doctor when up). Runs detached (logs at
   `/tmp/positron-server.log`). This is a headless web server, so it does *not* appear in VNC; it's
   browser-only.
-- **Desktop app:** **Positron CI: Desktop** renders on the headless display, then
-  prints the noVNC URL below. Runs detached (logs at `/tmp/positron-electron.log`).
+- **Desktop app:** **Positron CI: Desktop** renders on the headless display; watch it via the noVNC
+  URL (in the Doctor, or below). Runs detached (logs at `/tmp/positron-electron.log`).
 - **Watch in your browser (VNC):** Cmd-click
   `http://localhost:6080/vnc.html?autoconnect=true&password=positron`. It opens noVNC in a tab and
   auto-connects, with no app or password prompt. The desktop app and any headed
