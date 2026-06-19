@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Start the Positron web server (browser-accessible), licensed.
+# Start the Positron web server (browser-accessible), licensed, and print a clickable URL.
+#
+# Like the Desktop launcher, this detaches the server (logs to a file) and prints the URL only once
+# the port is actually accepting connections — so it's click-and-go and re-running restarts cleanly.
 #
 # Server/hosted mode needs a POSITRON_LICENSE_KEY (distinct from the pdol_rsa signing key the
 # e2e-electron tests use). We issue one with the pdol binary baked into the CI image — the same
@@ -9,6 +12,8 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TOKEN="${1:-dev-token}"
 PORT="${2:-8080}"
 PDOL=/positron-license/pdol/target/debug/pdol
+USER_DATA="$HOME/.positron-e2e-test"
+LOG=/tmp/positron-server.log
 
 # The server needs the compiled server entry. If post-create is still building, fail friendly.
 if [ ! -f "$ROOT/out/server-main.js" ]; then
@@ -25,6 +30,33 @@ else
   echo "WARNING: license issuer not found at $PDOL — the server will be unlicensed."
 fi
 
+# Clear any server we previously started on this port so re-running is a clean restart (otherwise
+# the new one can't bind the port). The "--port $PORT" match targets our server only, not the
+# dev-container's own remote server (which runs on a different port).
+pkill -9 -f "out/server-main.js.*--port $PORT" 2>/dev/null || true
+sleep 1
+
 cd "$ROOT"
-echo "Server will be at http://localhost:${PORT}/?tkn=${TOKEN}"
-exec ./scripts/e2e-start-server.sh "$PORT" "$TOKEN" "$HOME/.positron-e2e-test" 0.0.0.0
+# e2e-start-server.sh runs the server in the foreground (streams logs, never returns). Detach it
+# with logs to a file so they don't bury the URL; setsid keeps it alive after this task ends.
+setsid ./scripts/e2e-start-server.sh "$PORT" "$TOKEN" "$USER_DATA" 0.0.0.0 \
+  >"$LOG" 2>&1 </dev/null &
+
+# Wait until the server is actually accepting connections, then print the clickable URL at the end.
+URL="http://localhost:${PORT}/?tkn=${TOKEN}"
+echo "Positron server is starting (logs: $LOG)..."
+for _ in $(seq 1 60); do
+  if (exec 3<>"/dev/tcp/localhost/$PORT") 2>/dev/null; then
+    exec 3>&- 3<&-
+    echo ""
+    echo "Positron server is up — Cmd-click to open it in your browser:"
+    echo ""
+    echo "    $URL"
+    echo ""
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Server didn't come up within 60s — check the log: $LOG"
+exit 1
