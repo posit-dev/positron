@@ -1,58 +1,6 @@
 {
 	"version": "2.0.0",
 	"tasks": [
-		// --- Start Positron ---
-		// CI dev container tasks (see .devcontainer/ci-arm/)
-		{
-			"label": "Positron CI: Start server",
-			"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Launch Electron (VNC)",
-			"detail": "Runs the desktop app on the headless display; view at vnc://localhost:5900 (password positron).",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/launch-electron.sh",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Show VNC connection",
-			"detail": "Ensures the desktop/VNC is up; prints vnc://localhost:5900 (password positron).",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/start-vnc.sh",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Show Playwright report",
-			"detail": "Serves the last run's trace/report at http://localhost:9323",
-			"type": "shell",
-			"command": "npx playwright show-report --host 0.0.0.0",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Check build status (doctor)",
-			"detail": "Reports whether the build is current and what (if anything) needs rebuilding.",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/build-doctor.sh",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Reinstall deps (npm ci)",
-			"detail": "After a pull/branch-switch changed package-lock.json.",
-			"type": "shell",
-			"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
-			"problemMatcher": []
-		},
-		{
-			"label": "Positron CI: Full rebuild (post-create)",
-			"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
-			"type": "shell",
-			"command": "./.devcontainer/ci-arm/post-create.sh",
-			"problemMatcher": []
-		},
-		// --- End Positron ---
 		{
 			"type": "npm",
 			"script": "watch-client-transpiled",

@@ -1,17 +1,6 @@
 {
 	"version": "0.1.0",
 	"configurations": [
-		// --- Start Positron ---
-		{
-			"name": "Positron CI: Debug (electron)",
-			"type": "node",
-			"request": "launch",
-			"program": "${workspaceFolder}/node_modules/.bin/playwright",
-			"args": ["test", "--project", "e2e-electron", "--grep", "@:connections"],
-			"cwd": "${workspaceFolder}",
-			"console": "integratedTerminal"
-		},
-		// --- End Positron ---
 		{
 			"type": "node",
 			"request": "launch",
