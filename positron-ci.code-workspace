@@ -15,10 +15,10 @@
 		// don't have to go through the Command Palette. Each runs the like-named task below.
 		"VsCodeTaskButtons.tasks": [
 			{ "label": "$(server) Positron server", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
-			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Launch Electron (VNC)", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
-			{ "label": "$(beaker) Report", "task": "Positron CI: Show Playwright report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
-			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop services", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
-			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor (health check)", "tooltip": "Build current? Services up? What's running?" }
+			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
+			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
+			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" }
 		]
 	},
 	"extensions": {
@@ -41,15 +41,15 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Launch Electron (VNC)",
-				"detail": "Runs the desktop app on the headless display; view at vnc://localhost:5900 (password positron).",
+				"label": "Positron CI: Desktop",
+				"detail": "Launch the Electron desktop app on the headless display; view via noVNC (or vnc://localhost:5900, password positron).",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/launch-electron.sh",
 				"presentation": { "panel": "shared", "reveal": "always", "focus": false, "clear": true },
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Show VNC connection",
+				"label": "Positron CI: VNC",
 				"detail": "Ensures the desktop/VNC is up; prints vnc://localhost:5900 (password positron).",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/start-vnc.sh",
@@ -57,7 +57,7 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Show Playwright report",
+				"label": "Positron CI: Report",
 				"detail": "Serves the last run's trace/report at http://localhost:9323",
 				"type": "shell",
 				"command": "npx playwright show-report --host 0.0.0.0",
@@ -65,7 +65,7 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Stop services",
+				"label": "Positron CI: Stop",
 				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvfb/VNC/postgres up.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/stop-services.sh",
@@ -73,7 +73,7 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Doctor (health check)",
+				"label": "Positron CI: Doctor",
 				"detail": "Live dashboard: build status + services + what's running. Auto-refreshes; any key refreshes, q quits.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/build-doctor.sh --watch",
@@ -81,7 +81,7 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Reinstall deps (npm ci)",
+				"label": "Positron CI: Reinstall deps",
 				"detail": "After a pull/branch-switch changed package-lock.json.",
 				"type": "shell",
 				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
@@ -89,7 +89,7 @@
 				"problemMatcher": []
 			},
 			{
-				"label": "Positron CI: Full rebuild (post-create)",
+				"label": "Positron CI: Rebuild",
 				"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/post-create.sh",

@@ -61,11 +61,11 @@ render() {
 
   # Build
   build_ok=1
-  [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Full rebuild (post-create)'."); }
-  [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Full rebuild (post-create)'."); }
-  [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Full rebuild (post-create)'."); }
-  [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Reinstall deps (npm ci)'."); }
-  [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Full rebuild (post-create)'."); }
+  [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
+  [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
+  [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
+  [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
+  [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
 
   if [ "$build_ok" -eq 1 ]; then
     printf '%s✓%s %sBuild%s      current — incremental watch is all you need\n' "$G" "$RST" "$BOLD" "$RST"
@@ -88,7 +88,7 @@ render() {
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
   opt "Desktop app" "(VNC)" "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
   tcp 127.0.0.1 9323; opt "Playwright report" ":9323" "$?" "http://localhost:9323"
-  [ "$opt_running" -gt 0 ] && printf '  %s↳ stop these with the "Positron CI: Stop services" task%s\n' "$DIM" "$RST"
+  [ "$opt_running" -gt 0 ] && printf '  %s↳ stop these with the "Positron CI: Stop" task%s\n' "$DIM" "$RST"
   echo
 
   # Footer

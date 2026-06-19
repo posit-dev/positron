@@ -125,15 +125,15 @@ restart** if you click again.
   `http://localhost:8080/?tkn=dev-token`. Cmd-click it. Runs detached (logs at
   `/tmp/positron-server.log`). This is a headless web server, so it does *not* appear in VNC; it's
   browser-only.
-- **Desktop app:** **Positron CI: Launch Electron (VNC)** renders on the headless display, then
+- **Desktop app:** **Positron CI: Desktop** renders on the headless display, then
   prints the noVNC URL below. Runs detached (logs at `/tmp/positron-electron.log`).
 - **Watch in your browser (VNC):** Cmd-click
   `http://localhost:6080/vnc.html?autoconnect=true&password=positron`. It opens noVNC in a tab and
   auto-connects, with no app or password prompt. The desktop app and any headed
   `e2e-chromium`/`e2e-firefox` browser appear here (fluxbox window manager, so windows are movable).
-  **Positron CI: Show VNC connection** re-prints the URL. Prefer a native viewer? Use
+  **Positron CI: VNC** re-prints the URL. Prefer a native viewer? Use
   `vnc://localhost:5900`, password `positron`.
-- **Inspect a finished run:** **Positron CI: Show Playwright report** → `http://localhost:9323`.
+- **Inspect a finished run:** **Positron CI: Report** → `http://localhost:9323`.
   The trace viewer gives a frame-by-frame timeline with screenshots and DOM snapshots, usually more
   useful than watching a fast run live.
 
@@ -143,7 +143,7 @@ only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing
 
 **Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
 task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
-**Positron CI: Stop services**) — it stops the server, desktop, and report in one go and leaves the
+**Positron CI: Stop**) — it stops the server, desktop, and report in one go and leaves the
 core services (Xvfb, VNC, postgres) up. It runs silently (no terminal); the **Doctor** reflects it
 within a few seconds and shows what's running (with a stop hint when anything is).
 
@@ -158,12 +158,12 @@ within a few seconds and shows what's running (with a stop hint when anything is
 ### When do I need to rebuild?
 
 You don't have to guess. The **doctor** runs on every container start, and on demand via
-**Positron CI: Doctor (health check)**. It compares `package-lock.json` against the last install and
+**Positron CI: Doctor**. It compares `package-lock.json` against the last install and
 checks for compiled output, Electron, and a completed build, then names the task to run:
 
-- deps changed → **Positron CI: Reinstall deps (npm ci)**
+- deps changed → **Positron CI: Reinstall deps**
 - no compiled output → start the watcher (`npm run watch`)
-- build incomplete → **Positron CI: Full rebuild (post-create)**
+- build incomplete → **Positron CI: Rebuild**
 
 A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
 overview — which **services** are up (Xvfb, VNC, postgres) and what's currently **running** (server,
@@ -176,13 +176,13 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | Task | What it does |
 |---|---|
 | **Positron CI: Start server** | licenses and serves Positron at `:8080` (detached, clean restart, prints the URL when up) |
-| **Positron CI: Launch Electron (VNC)** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
-| **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
-| **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
-| **Positron CI: Stop services** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
-| **Positron CI: Doctor (health check)** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
-| **Positron CI: Reinstall deps (npm ci)** | after deps change; refreshes the doctor's state |
-| **Positron CI: Full rebuild (post-create)** | re-runs the whole cold build (idempotent) |
+| **Positron CI: Desktop** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
+| **Positron CI: VNC** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
+| **Positron CI: Report** | serves the last run's trace/report at `:9323` |
+| **Positron CI: Stop** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
+| **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
+| **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
+| **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
 
 ### Logs
