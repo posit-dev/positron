@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the Positron e2e server in the browser, licensed.
+# Start the Positron web server (browser-accessible), licensed.
 #
 # Server/hosted mode needs a POSITRON_LICENSE_KEY (distinct from the pdol_rsa signing key the
 # e2e-electron tests use). We issue one with the pdol binary baked into the CI image — the same
