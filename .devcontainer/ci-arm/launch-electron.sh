@@ -10,7 +10,11 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 export DISPLAY="${DISPLAY:-:10}"
 
-# Ensure the display is viewable over VNC (no-op if post-start already did it).
+# Ensure the display is viewable (window manager + VNC + noVNC), and print the connect URL.
 "$HERE/start-vnc.sh"
 cd "$ROOT"
-exec ./scripts/code.sh --no-sandbox
+# code.sh launches the Electron app and returns (it runs detached).
+./scripts/code.sh --no-sandbox || true
+echo ""
+echo "Positron desktop launched. View it (Cmd-click):"
+echo "    http://localhost:6080/vnc.html?autoconnect=true&password=positron"

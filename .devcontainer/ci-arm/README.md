@@ -73,7 +73,7 @@ When CI bumps the image, update `POSITRON_CI_IMAGE_TAG` (default, or in `.env`).
 ## Limitations & gotchas
 
 - **arm64 validated only.** Arch is parameterized and amd64 images exist, but amd64/Windows is
-  unvalidated. No noVNC in the image, so Windows users would need a VNC client.
+  unvalidated.
 - **One instance** at a time.
 - **First build ~10 min** (one-time, then incremental). A prebuilt image could make first open
   near-instant later — see the design doc.

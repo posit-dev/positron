@@ -43,12 +43,13 @@ All tasks below are in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron C
 - **Browser (smoothest):** **Positron CI: Start server** → open
   `http://localhost:8080/?tkn=dev-token`. Licensed automatically.
 - **Desktop Electron app:** **Positron CI: Launch Electron (VNC)** — it renders on the headless
-  display; view it over VNC.
-- **VNC is always on** (started by `post-start`). Connect any time: `vnc://localhost:5900`,
-  password **`positron`** — macOS: Finder → `Cmd+K` → `vnc://localhost:5900` (built-in Screen
-  Sharing). Headed `e2e-chromium`/`e2e-firefox` browsers and the Electron app all show up on that
-  desktop (fluxbox window manager, so windows are movable). Use **Positron CI: Show VNC connection**
-  to re-print the details.
+  display and prints a **clickable browser URL**.
+- **The desktop is always viewable in your browser** (started by `post-start`): **Cmd-click**
+  `http://localhost:6080/vnc.html?autoconnect=true&password=positron` — it opens noVNC in a tab and
+  auto-connects, no app or password prompt. The Electron app and any headed `e2e-chromium`/
+  `e2e-firefox` browser show up there (fluxbox window manager, so windows are movable).
+  **Positron CI: Show VNC connection** re-prints the URL. (Prefer a native viewer? `vnc://localhost:5900`,
+  password `positron`.)
 - **Inspect a finished test run:** **Positron CI: Show Playwright report** →
   `http://localhost:9323` — the trace viewer gives a frame-by-frame timeline with screenshots and
   DOM snapshots. Usually more useful than watching a fast run live.
