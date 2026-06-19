@@ -14,12 +14,14 @@ PORT="${2:-8080}"
 PDOL=/positron-license/pdol/target/debug/pdol
 USER_DATA="$HOME/.positron-e2e-test"
 LOG=/tmp/positron-server.log
+ERR=/tmp/positron-server.err  # the Doctor reads this to flag a failed start; cleared on success
+fail() { echo "$1" >"$ERR"; echo "$1"; exit 1; }
 
 # The server needs the compiled server entry. If post-create is still building, fail friendly.
 if [ ! -f "$ROOT/out/server-main.js" ]; then
   echo "Positron isn't built yet — out/server-main.js is missing (the cold build / post-create may"
   echo "still be running). Wait until the 'Doctor' reports the build is current, then try again."
-  exit 1
+  fail "not built — out/server-main.js missing (run a full build)"
 fi
 
 if [ -x "$PDOL" ]; then
@@ -48,6 +50,7 @@ echo "Positron server is starting (logs: $LOG)..."
 for _ in $(seq 1 60); do
   if (exec 3<>"/dev/tcp/localhost/$PORT") 2>/dev/null; then
     exec 3>&- 3<&-
+    rm -f "$ERR"
     echo ""
     echo "Positron server is up — Cmd-click to open it in your browser:"
     echo ""
@@ -58,5 +61,4 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
-echo "Server didn't come up within 60s — check the log: $LOG"
-exit 1
+fail "didn't come up in 60s — check /tmp/positron-server.log"

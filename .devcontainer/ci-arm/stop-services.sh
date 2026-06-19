@@ -24,5 +24,9 @@ echo "Stopping on-demand Positron processes…"
 stop "Positron server (:8080)"   "out/server-main.js.*--port 8080"
 stop "Desktop app (Electron)"    "user-data-dir=/tmp/positron-dev-data"
 stop "Playwright report (:9323)" "playwright.*show-report"
+
+# Clear any "failed to start" markers — stopping resets intent (the Doctor shows them otherwise).
+rm -f /tmp/positron-server.err /tmp/positron-electron.err
+
 echo "Core services (Xvfb, VNC, postgres) left running. Run the Doctor to confirm."
 exit 0

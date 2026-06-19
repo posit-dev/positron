@@ -86,7 +86,9 @@ you doing anything), stays still when nothing's happening, and any key forces a 
 It **opens automatically when you open this workspace** (you may get a one-time "allow automatic
 tasks?" prompt — say yes), and you can re-open it any time with the **Doctor** button. Keep it in a
 split and it's your at-a-glance status board: the server/desktop URLs appear there when they're up.
-(**VNC** and **Report** still open their own terminal, since their whole point is to show you a URL.)
+If a start **fails** (e.g. the build isn't ready), the Doctor shows a red **✗ … failed: reason** for
+that service instead of leaving it silently stopped — so windowless doesn't hide errors. (**VNC**
+and **Report** still open their own terminal, since their whole point is to show you a URL.)
 
 ### Edit and re-run
 

@@ -8,12 +8,15 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 export DISPLAY="${DISPLAY:-:10}"
 
 cd "$ROOT"
+ERR=/tmp/positron-electron.err  # the Doctor reads this to flag a failed launch; cleared on success
+fail() { echo "$1" >"$ERR"; echo "$1"; exit 1; }
+
 # The desktop app needs the compiled main entry. If post-create is still building, fail friendly.
 if [ ! -f "$ROOT/out/main.js" ]; then
   echo "Positron isn't built yet — out/main.js is missing (the cold build / post-create may still be running)."
   echo "Click the 'Doctor' button (or run 'Positron CI: Doctor'), wait until it reports the"
   echo "build is current, then try again."
-  exit 1
+  fail "not built — out/main.js missing (run a full build)"
 fi
 
 # Ensure the display is viewable (window manager + VNC + noVNC).
@@ -37,6 +40,12 @@ setsid ./scripts/code.sh --no-sandbox --user-data-dir="$USER_DATA" \
   --disable-gpu-compositing \
   >/tmp/positron-electron.log 2>&1 </dev/null &
 sleep 3
+
+# If Electron died on launch (e.g. a render/runtime error), flag it for the Doctor; else clear.
+if ! pgrep -f "user-data-dir=$USER_DATA" >/dev/null 2>&1; then
+  fail "exited on launch — check /tmp/positron-electron.log"
+fi
+rm -f "$ERR"
 
 echo ""
 echo "Positron Electron is starting (logs: /tmp/positron-electron.log)."

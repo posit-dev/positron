@@ -11,11 +11,13 @@ QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/qa-example-content"  # wha
 # Color only when writing to a terminal (post-start runs this against a non-TTY log). Named ANSI
 # attributes so it stays readable in both dark and light themes.
 if [ -t 1 ]; then
-  G=$'\e[32m'; Y=$'\e[33m'; DIM=$'\e[2m'; BOLD=$'\e[1m'; RST=$'\e[0m'
+  G=$'\e[32m'; Y=$'\e[33m'; RED=$'\e[31m'; DIM=$'\e[2m'; BOLD=$'\e[1m'; RST=$'\e[0m'
 else
-  G=; Y=; DIM=; BOLD=; RST=
+  G=; Y=; RED=; DIM=; BOLD=; RST=
 fi
 DIV="────────────────────────────────────────────"
+SERVER_ERR=/tmp/positron-server.err     # written by start-server.sh on a failed start
+DESKTOP_ERR=/tmp/positron-electron.err  # written by launch-electron.sh on a failed launch
 
 sha() { [ -f "$1" ] && sha256sum "$1" | awk '{print $1}' || echo "missing"; }
 tcp() { (exec 3<>"/dev/tcp/$1/$2") 2>/dev/null; }
@@ -46,12 +48,16 @@ csvc() {
   fi
 }
 
-# On-demand row: odsvc <name> <port|VNC> <running:0/1> [url].  Running = green ● + its URL inline;
-# stopped = dim ○ with no URL. The glyph + presence of a link conveys state (no "running" text).
+# On-demand row: odsvc <name> <port|VNC> <running:0/1> <errfile> [url].
+#   running = green ● + URL inline;  failed-to-start (errfile exists) = red ✗ + reason;  else dim ○.
 odsvc() {
   if [ "$3" -eq 0 ]; then
-    printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "${4:-}" "$RST"
+    printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "${5:-}" "$RST"
     opt_running=$((opt_running + 1))
+  elif [ -n "${4:-}" ] && [ -f "$4" ]; then
+    local why; why="$(head -1 "$4" 2>/dev/null)"
+    printf '  %s✗%s %-*s%sfailed: %s%s\n' "$RED" "$RST" "$NAMEW" "$1" "$RED" "$why" "$RST"
+    actions+=("$1 failed to start: $why")
   else
     printf '  %s○ %-*s%s%s\n' "$DIM" "$NAMEW" "$1" "$2" "$RST"
   fi
@@ -108,10 +114,10 @@ render() {
 
   # --- On-Demand Services ---
   printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
-  tcp 127.0.0.1 8080; odsvc "Server"  ":8080" "$?" "http://localhost:8080/?tkn=dev-token"
+  tcp 127.0.0.1 8080; odsvc "Server"  ":8080" "$?" "$SERVER_ERR" "http://localhost:8080/?tkn=dev-token"
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
-  odsvc "Desktop" "VNC"   "$?" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
-  tcp 127.0.0.1 9323; odsvc "Report"  ":9323" "$?" "http://localhost:9323"
+  odsvc "Desktop" "VNC"   "$?" "$DESKTOP_ERR" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
+  tcp 127.0.0.1 9323; odsvc "Report"  ":9323" "$?" "" "http://localhost:9323"
   printf '\n'
 
   # --- Footer ---
@@ -135,6 +141,8 @@ sig() {
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1 && s+=D || s+=d
   tcp 127.0.0.1 9323 && s+=R || s+=r
   [ -d "$QA_DEST" ] && s+=Q || s+=q
+  [ -f "$SERVER_ERR" ] && s+=E || s+=e
+  [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
   printf '%s' "$s"
 }
 
