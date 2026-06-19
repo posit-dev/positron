@@ -69,18 +69,22 @@ render() {
   [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
   [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
 
+  printf '%sBuild%s\n' "$BOLD" "$RST"
   if [ "$build_ok" -eq 1 ]; then
-    printf '%s✓%s %sBuild%s      current — incremental watch is all you need\n' "$G" "$RST" "$BOLD" "$RST"
+    printf '  %s✓%s %-12scurrent — incremental watch is all you need\n' "$G" "$RST" "Compiled"
   else
-    printf '%s⚠%s %sBuild%s      needs attention (see below)\n' "$Y" "$RST" "$BOLD" "$RST"
+    printf '  %s⚠%s %-12sneeds attention (see below)\n' "$Y" "$RST" "Compiled"
   fi
-  printf '             %slast full build %s · container up %s%s\n' "$DIM" "$last_build" "$up_str" "$RST"
+  printf '    %s%-12s%s%s\n' "$DIM" "Built" "$last_build" "$RST"
+  printf '    %s%-12s%s%s\n' "$DIM" "Uptime" "$up_str" "$RST"
   if [ -d "$QA_DEST" ]; then
-    printf '             %sqa content present · fetched %s ago · %s%s\n\n' "$DIM" \
-      "$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))" "$QA_DEST" "$RST"
+    printf '    %s%-12spresent · fetched %s ago%s\n' "$DIM" "QA content" \
+      "$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))" "$RST"
+    printf '    %s%-12s%s%s\n' "$DIM" "" "$QA_DEST" "$RST"
   else
-    printf '             %sqa content not fetched — run the "Positron CI: Get QA content" task%s\n\n' "$DIM" "$RST"
+    printf '    %s%-12snot fetched — run "Positron CI: Get QA content"%s\n' "$DIM" "QA content" "$RST"
   fi
+  echo
 
   # Core services
   printf '%sCore services%s\n' "$BOLD" "$RST"
