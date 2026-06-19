@@ -49,8 +49,9 @@ test.describe('Assistant: Copilot setup on-ramp suppressed', { tag: [tags.WIN, t
 		// Wait for the palette to return a result first, so the count below is meaningful.
 		await quickInput.waitForQuickInputElementText();
 
-		// With the f1 entry suppressed, the palette falls back to fuzzy "similar commands",
-		// so assert the exact command title isn't among them.
+		// In the default state AI features are off, so this command's precondition gates
+		// it out of the palette (it only reappears once AI is enabled). The palette then
+		// falls back to fuzzy "similar commands", so assert the exact title isn't among them.
 		await expect(
 			quickInput.quickInputResult.filter({ hasText: USE_AI_FEATURES_COMMAND })
 		).toHaveCount(0);

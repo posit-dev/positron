@@ -250,16 +250,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					id: CHAT_SETUP_ACTION_ID,
 					title: ChatSetupTriggerAction.CHAT_SETUP_ACTION_LABEL,
 					category: CHAT_CATEGORY,
-					// --- Start Positron ---
-					// Don't surface "Use AI Features with Copilot for free..." in the
-					// command palette: it reads as GitHub Copilot and opens the upstream
-					// Copilot chat-setup sign-in dialog. The command stays registered so
-					// the programmatic callers (chat status dashboard, anonymous
-					// rate-limited part, title-bar status widget) still work; only the F1
-					// palette entry is dropped. See issue #13955.
-					/*
 					f1: true,
-					*/
+					// --- Start Positron ---
 					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ContextKeyExpr.or(
@@ -895,34 +887,23 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 					id: ChatSetupHideAction.ID,
 					title: ChatSetupHideAction.TITLE,
 					// --- Start Positron ---
-					// Don't show the "Learn How to Hide AI Features" action: it sounds general but only points
-					// at the Copilot `chat.disableAIFeatures` setting, so it's misleading in Positron. Drop the
-					// F1 palette entry and the Chat title-bar menu so it isn't reachable. See issue #13955.
-					/*
-					f1: true,
-					*/
+					// Keep this Copilot affordance out of the command palette regardless of
+					// the `chat.disableAIFeatures` setting (f1: false instead of upstream's true).
+					// The command only applies to Copilot affordances but sounds general, so better
+					// to hide it from the palette altogether to avoid confusion. See issue #13955.
+					f1: false,
 					// --- End Positron ---
 					category: CHAT_CATEGORY,
-					// --- Start Positron ---
-					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ChatContextKeys.Setup.hidden.negate(),
 						ChatContextKeys.Setup.disabledInWorkspace.negate(),
-						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 					),
-					// Suppress the "Learn How to Hide AI Features" action: it sounds
-					// general but only points at the Copilot `chat.disableAIFeatures`
-					// setting, so it's misleading in Positron. Drop the F1 palette entry
-					// and the Chat title-bar menu so it isn't reachable. See issue #13955.
-					/*
 					menu: {
 						id: MenuId.ChatTitleBarMenu,
 						group: 'z_hide',
 						order: 1,
 						when: ChatContextKeys.Setup.completed.negate()
 					}
-					*/
-					// --- End Positron ---
 				});
 			}
 
