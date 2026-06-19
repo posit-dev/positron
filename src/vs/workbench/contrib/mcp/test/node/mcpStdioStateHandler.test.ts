@@ -82,7 +82,13 @@ suite('McpStdioStateHandler', () => {
 		});
 	}
 
-	test('sigkill after grace', async () => {
+	// --- Start Positron ---
+	// Skipped: same Linux flakiness as 'sigterm after grace' above. The
+	// non-Windows assertion depends on the child's SIGTERM output being
+	// captured within the shutdown-grace window, which is intermittent on
+	// Linux (microsoft/vscode#253370; #255289). Re-enable if upstream hardens.
+	test.skip('sigkill after grace', async () => {
+		// --- End Positron ---
 		const { handler, output } = run(`
 			setInterval(() => {}, 1000);
 			process.stdin.on('end', () => process.stdout.write('stdin ended\\n'));
