@@ -36,5 +36,9 @@ else
   echo "WARNING: postgres not reachable"
 fi
 
+# Make the headless display viewable over VNC right away (window manager + x11vnc), so you can
+# connect any time without launching anything first.
+"$(dirname "$0")/start-vnc.sh" || true
+
 # Report whether the build is current and what (if anything) needs rebuilding.
 "$(dirname "$0")/build-doctor.sh" || true
