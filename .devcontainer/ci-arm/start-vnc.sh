@@ -7,21 +7,30 @@ set -euo pipefail
 export DISPLAY="${DISPLAY:-:10}"
 VNC_PASSWORD="positron"
 
-# Display server (post-start usually starts it; ensure it here too).
+# Display server (post-start usually starts it; ensure it here too). Always wait until it's actually
+# responsive before starting x11vnc — otherwise x11vnc loses the race at boot and exits unbound.
 if ! pgrep -x Xvfb >/dev/null 2>&1; then
   /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 >/tmp/Xvfb.out 2>&1 &
-  for _ in $(seq 1 10); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
 fi
+for _ in $(seq 1 15); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
 
 # Window manager so windows are movable and the desktop is usable (right-click for a menu).
 if command -v fluxbox >/dev/null 2>&1 && ! pgrep -x fluxbox >/dev/null 2>&1; then
   fluxbox >/tmp/fluxbox.log 2>&1 &
 fi
 
-# VNC server for native viewers. macOS Screen Sharing requires a password, so we set one.
-if ! pgrep -x x11vnc >/dev/null 2>&1; then
+# VNC server for native viewers. macOS Screen Sharing requires a password, so we set one. Verify it
+# actually binds :5900 (not just that a process exists) and retry — at boot it can exit before
+# binding, which is why VNC sometimes shows down right after the container starts.
+vnc_up() { (exec 3<>/dev/tcp/127.0.0.1/5900) 2>/dev/null; }
+if ! vnc_up; then
   x11vnc -storepasswd "$VNC_PASSWORD" /tmp/.vncpw >/dev/null 2>&1
-  x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 -bg -quiet >/tmp/x11vnc.log 2>&1
+  for _ in 1 2 3; do
+    pkill -x x11vnc 2>/dev/null || true
+    x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 -bg -quiet >/tmp/x11vnc.log 2>&1 || true
+    for _ in $(seq 1 5); do vnc_up && break; sleep 1; done
+    vnc_up && break
+  done
 fi
 
 # Browser-based VNC (noVNC) so the desktop opens from a clickable http URL. Install on first use
