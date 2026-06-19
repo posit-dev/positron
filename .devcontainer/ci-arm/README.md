@@ -74,7 +74,11 @@ When CI bumps the image, update `POSITRON_CI_IMAGE_TAG` (default, or in `.env`).
 
 - **arm64 validated only.** Arch is parameterized and amd64 images exist, but amd64/Windows is
   unvalidated.
-- **One instance** at a time.
+- **One dev container per checkout** at a time. (Inside it you *can* run the browser server and the
+  desktop app at once — they're independent; the server is browser-only, the desktop shows in VNC.)
+- **Logs** for the server/desktop are at `/tmp/positron-server.log` and `/tmp/positron-electron.log`.
+  A blank/white VNC window means a stuck Electron instance — the Launch task auto-clears it now, so
+  just re-launch. (See DEVELOPING.md → Logs & troubleshooting.)
 - **First build ~10 min** (one-time, then incremental). A prebuilt image could make first open
   near-instant later — see the design doc.
 - **`npm ci` may leave files staged in your worktree** — Positron's postinstall runs

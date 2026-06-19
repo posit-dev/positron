@@ -42,19 +42,40 @@ debugger is in the **Run and Debug** panel.
 
 ## Explore / play with Positron
 
-- **Browser (smoothest):** **Positron CI: Start server** → open
-  `http://localhost:8080/?tkn=dev-token`. Licensed automatically.
-- **Desktop Electron app:** **Positron CI: Launch Electron (VNC)** — it renders on the headless
-  display and prints a **clickable browser URL**.
-- **The desktop is always viewable in your browser** (started by `post-start`): **Cmd-click**
-  `http://localhost:6080/vnc.html?autoconnect=true&password=positron` — it opens noVNC in a tab and
-  auto-connects, no app or password prompt. The Electron app and any headed `e2e-chromium`/
-  `e2e-firefox` browser show up there (fluxbox window manager, so windows are movable).
-  **Positron CI: Show VNC connection** re-prints the URL. (Prefer a native viewer? `vnc://localhost:5900`,
-  password `positron`.)
+Two ways to run Positron itself — a **browser server** and the **desktop app** — plus VNC for
+watching anything headed. Both the server and desktop print a **clickable URL once they're actually
+up** and do a **clean restart** if you click again, so they're click-and-go.
+
+- **Browser (smoothest):** **Positron CI: Start server**. Issues a license, waits for the port, then
+  prints `http://localhost:8080/?tkn=dev-token` — Cmd-click it. Runs detached (survives the task;
+  logs at `/tmp/positron-server.log`). This is a **headless web server** — it does *not* appear in
+  VNC; it's browser-only.
+- **Desktop Electron app:** **Positron CI: Launch Electron (VNC)**. Renders on the headless display,
+  then prints the noVNC URL (below). Runs detached (logs at `/tmp/positron-electron.log`).
+- **Watch the desktop / headed browsers in your browser** (VNC is started by `post-start`):
+  **Cmd-click** `http://localhost:6080/vnc.html?autoconnect=true&password=positron` — it opens noVNC
+  in a tab and auto-connects, no app or password prompt. The Electron app and any headed
+  `e2e-chromium`/`e2e-firefox` browser show up there (fluxbox window manager, so windows are
+  movable). **Positron CI: Show VNC connection** re-prints the URL. (Prefer a native viewer?
+  `vnc://localhost:5900`, password `positron`.)
 - **Inspect a finished test run:** **Positron CI: Show Playwright report** →
   `http://localhost:9323` — the trace viewer gives a frame-by-frame timeline with screenshots and
   DOM snapshots. Usually more useful than watching a fast run live.
+
+**Server and desktop together:** you can run both at once — they're independent (separate
+user-data-dirs, separate processes, different ports). The **server shows only in your browser**
+(`:8080`); the **desktop shows only in VNC** (`:6080`). Re-clicking either does a clean restart and
+never disturbs the other.
+
+## Logs & troubleshooting
+
+- **Logs:** server → `/tmp/positron-server.log`, desktop → `/tmp/positron-electron.log`.
+- **Blank/white window in VNC?** That was Electron's single-instance lock left by a stuck prior
+  launch. The Launch task now clears the lock and uses an isolated `--user-data-dir` on every click,
+  so just click **Desktop** again. If it persists, the build may not be ready (run **Doctor**) or
+  check the desktop log.
+- **Server won't start / port in use?** The task kills the prior server on `:8080` before starting;
+  if it still fails, check `/tmp/positron-server.log`.
 
 ## Reproduce a CI failure
 
@@ -80,8 +101,8 @@ A clean checkout with the watcher running needs nothing.
 
 | Task | What it does |
 |---|---|
-| **Positron CI: Start server** | issues a license key and serves Positron at `:8080` |
-| **Positron CI: Launch Electron (VNC)** | runs the desktop app on the headless display (view via VNC) |
+| **Positron CI: Start server** | licenses + serves Positron at `:8080` (detached, clean restart, prints URL when up) |
+| **Positron CI: Launch Electron (VNC)** | runs the desktop app on the headless display, view via VNC (detached, clean restart) |
 | **Positron CI: Show VNC connection** | ensures VNC is up; prints `vnc://localhost:5900` / password |
 | **Positron CI: Show Playwright report** | serves the last run's trace/report at `:9323` |
 | **Positron CI: Check build status (doctor)** | reports whether the build is current |
