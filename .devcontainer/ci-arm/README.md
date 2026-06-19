@@ -218,5 +218,8 @@ trigger a rebuild.
   also build natively on the same checkout, the two builds share `out/` and clobber each other;
   recompile after switching.
 - **One dev container per checkout** at a time.
+- **Only four ports are forwarded** (8080/9323/6080/5900). Positron opens many internal loopback
+  ports; we ignore auto-forwarding so the Ports panel stays clean. Need another? Forward it manually
+  from the **Ports** panel.
 - **After editing test-infra files** (`test/e2e/infra/…`), run **Developer: Reload Window** so the
   Playwright extension picks them up (it caches transpiles in a worker).

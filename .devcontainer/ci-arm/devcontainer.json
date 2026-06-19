@@ -16,6 +16,9 @@
 		"6080": { "label": "Desktop (noVNC, browser)", "onAutoForward": "silent" },
 		"5900": { "label": "VNC (native viewer)", "onAutoForward": "silent" }
 	},
+	// Positron opens lots of internal loopback ports (server, extension hosts, language servers,
+	// Jupyter kernels). Don't auto-forward them — keep the Ports panel to just the four above.
+	"otherPortsAttributes": { "onAutoForward": "ignore" },
 	"containerEnv": {
 		"DISPLAY": ":10",
 		"POSITRON_PY_VER_SEL": "3.10.12",
