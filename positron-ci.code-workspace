@@ -36,6 +36,7 @@
 				"detail": "Issues a license key (pdol) and serves Positron at http://localhost:8080/?tkn=dev-token",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/start-server.sh dev-token 8080",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -43,6 +44,7 @@
 				"detail": "Runs the desktop app on the headless display; view at vnc://localhost:5900 (password positron).",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/launch-electron.sh",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -50,6 +52,7 @@
 				"detail": "Ensures the desktop/VNC is up; prints vnc://localhost:5900 (password positron).",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/start-vnc.sh",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -57,6 +60,7 @@
 				"detail": "Serves the last run's trace/report at http://localhost:9323",
 				"type": "shell",
 				"command": "npx playwright show-report --host 0.0.0.0",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -64,6 +68,7 @@
 				"detail": "Reports whether the build is current and what (if anything) needs rebuilding.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/build-doctor.sh",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -71,6 +76,7 @@
 				"detail": "After a pull/branch-switch changed package-lock.json.",
 				"type": "shell",
 				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			},
 			{
@@ -78,6 +84,7 @@
 				"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/post-create.sh",
+				"presentation": { "panel": "dedicated", "group": "positron-ci" },
 				"problemMatcher": []
 			}
 		]

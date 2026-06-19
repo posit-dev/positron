@@ -16,8 +16,7 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
    ```bash
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
-3. **Dev Containers extension**, using **VS Code** as the client (the extension may not run in
-   Positron).
+3. **Dev Containers extension**, using **VS Code** as the client
 
 ## Setup
 
@@ -50,7 +49,7 @@ Both `.env` and `license.txt` are gitignored.
 
 ### 3. Open the workspace in the container
 
-Open your Positron checkout (a regular clone **or a git worktree**), then:
+Open your Positron checkout (a regular clone or a git worktree), then:
 
 1. **File → Open Workspace from File…** → `positron-ci.code-workspace`
 2. **Dev Containers: Reopen in Container** → **Positron CI (ubuntu24-arm64)**
@@ -80,13 +79,15 @@ buttons** at the bottom of the window: one click, no Command Palette. Everything
 `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
 debugger lives in the **Run and Debug** panel.
 
-### The inner loop
+### Edit and re-run
+
+The everyday cycle. The key point: editing recompiles in seconds, never the ~10-min cold build.
 
 1. Start the build watcher **once**: `npm run watch` in the terminal (or the native **Positron -
    Build** task). It recompiles changed files on save, in seconds.
 2. Edit code in VS Code. It's native editing against your host checkout.
-3. Re-run or re-debug. Editing never triggers the ~10-min cold build; only `npm ci`-level changes
-   do (see [When do I need to rebuild?](#when-do-i-need-to-rebuild)).
+3. Re-run or re-debug. Only `npm ci`-level changes need a rebuild (see
+   [When do I need to rebuild?](#when-do-i-need-to-rebuild)).
 
 ### Run tests
 
