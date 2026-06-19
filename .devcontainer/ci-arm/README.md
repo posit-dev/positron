@@ -74,7 +74,7 @@ Worth knowing about the setup:
 
 ## How to
 
-The common actions (**Positron server**, **Desktop**, **Report**, **Stop**, **Doctor**) are
+The common actions (**Positron server**, **Desktop (Electron)**, **Report**, **Stop**, **Doctor**) are
 **status-bar buttons** at the bottom of the window: one click, no Command Palette. Everything else is
 in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
 debugger lives in the **Run and Debug** panel.

@@ -15,8 +15,8 @@
 		// don't have to go through the Command Palette. Each runs the like-named task below.
 		"VsCodeTaskButtons.tasks": [
 			{ "label": "$(server) Positron server", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
-			{ "label": "$(vm) Desktop", "task": "Positron CI: Launch Electron (VNC)", "tooltip": "Launch the Electron app; view in browser via noVNC" },
-			{ "label": "$(graph) Report", "task": "Positron CI: Show Playwright report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Launch Electron (VNC)", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
+			{ "label": "$(beaker) Report", "task": "Positron CI: Show Playwright report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
 			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop services", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
 			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor (health check)", "tooltip": "Build current? Services up? What's running?" }
 		]
