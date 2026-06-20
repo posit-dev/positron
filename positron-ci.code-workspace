@@ -106,7 +106,7 @@
 				"problemMatcher": []
 			},
 			{
-				// Prelaunch step for the "Positron CI: Debug app" compound. Same as the repo's
+				// Prelaunch step for the "Positron CI: Debug (Electron)" compound. Same as the repo's
 				// "Ensure Prelaunch Dependencies" task (node build/lib/preLaunch.ts), but defined here
 				// under a unique name so the workspace-level launch compound can resolve it — a
 				// workspace launch config can't reference a folder-level (.vscode/tasks.json) task.
@@ -131,11 +131,11 @@
 				// any debuggable target". We add the same flags the e2e runner and launch-electron.sh
 				// use. Kept here (not the repo's .vscode/) so the shared launch.json stays untouched.
 				// Like the original, this carries --inspect-brk=5875 and is meant to run via the
-				// "Positron CI: Debug app" compound below, which attaches to (and releases) the main
+				// "Positron CI: Debug (Electron)" compound below, which attaches to (and releases) the main
 				// process — do not run it on its own or the main process will pause at startup.
 				"type": "chrome",
 				"request": "launch",
-				"name": "Positron CI: Launch app",
+				"name": "Positron CI: Launch (Electron)",
 				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh",
 				"port": 9222,
 				"timeout": 0,
@@ -167,7 +167,7 @@
 				"browserLaunchLocation": "workspace",
 				// Hidden from the Debug dropdown: it's only the launch member of the compound below.
 				// Run alone it hangs (--inspect-brk pauses the main process with nothing to attach).
-				// Use "Positron CI: Debug app" instead. (Repo hides its "Launch Positron Internal" too.)
+				// Use "Positron CI: Debug (Electron)" instead. (Repo hides its "Launch Positron Internal" too.)
 				"presentation": { "hidden": true }
 			},
 			{
@@ -177,11 +177,11 @@
 				// (resolved by chromium.sh) headed on Xvfb — view it in noVNC — pointed at that URL,
 				// with the same root/headless flags Electron needs. Breakpoints in workbench src bind
 				// via source maps. The repo's "Positron Server (Web, Chrome)" is the un-containerized
-				// equivalent. For most src debugging the Electron "Debug app" is simpler; use this for
+				// equivalent. For most src debugging "Positron CI: Debug (Electron)" is simpler; use this for
 				// web-only / e2e-chromium behavior.
 				"type": "chrome",
 				"request": "launch",
-				"name": "Positron CI: Debug app (web)",
+				"name": "Positron CI: Debug (Web)",
 				"url": "http://localhost:8080/?tkn=dev-token",
 				"preLaunchTask": "Positron CI: Start server",
 				"runtimeExecutable": "${workspaceFolder}/.devcontainer/ci-arm/chromium.sh",
@@ -204,10 +204,10 @@
 				// above. The "Attach to ..." members and the prelaunch task are the repo's own
 				// (.vscode/launch.json + tasks.json); referenced by name so they resolve against the
 				// workspace folder. Pick this from the Debug dropdown to set breakpoints in src.
-				"name": "Positron CI: Debug app",
+				"name": "Positron CI: Debug (Electron)",
 				"stopAll": true,
 				"configurations": [
-					"Positron CI: Launch app",
+					"Positron CI: Launch (Electron)",
 					"Attach to Main Process",
 					"Attach to Extension Host",
 					"Attach to Shared Process",
