@@ -169,6 +169,33 @@
 				// Run alone it hangs (--inspect-brk pauses the main process with nothing to attach).
 				// Use "Positron CI: Debug app" instead. (Repo hides its "Launch Positron Internal" too.)
 				"presentation": { "hidden": true }
+			},
+			{
+				// Web/browser debugging: debug the workbench frontend running in Chromium against the
+				// Positron *server* (vs the Electron desktop app above). The "Start server" prelaunch
+				// brings up the licensed server on :8080; this then launches Playwright's Chromium
+				// (resolved by chromium.sh) headed on Xvfb — view it in noVNC — pointed at that URL,
+				// with the same root/headless flags Electron needs. Breakpoints in workbench src bind
+				// via source maps. The repo's "Positron Server (Web, Chrome)" is the un-containerized
+				// equivalent. For most src debugging the Electron "Debug app" is simpler; use this for
+				// web-only / e2e-chromium behavior.
+				"type": "chrome",
+				"request": "launch",
+				"name": "Positron CI: Debug app (web)",
+				"url": "http://localhost:8080/?tkn=dev-token",
+				"preLaunchTask": "Positron CI: Start server",
+				"runtimeExecutable": "${workspaceFolder}/.devcontainer/ci-arm/chromium.sh",
+				"runtimeArgs": [
+					"--no-sandbox",
+					"--disable-dev-shm-usage",
+					"--use-gl=swiftshader",
+					"--enable-unsafe-swiftshader",
+					"--disable-gpu-compositing"
+				],
+				"perScriptSourcemaps": "yes",
+				"outFiles": [],
+				"webRoot": "${workspaceFolder}",
+				"browserLaunchLocation": "workspace"
 			}
 		],
 		"compounds": [
