@@ -216,9 +216,11 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Report** | serves the last run's trace/report at `:9323` |
 | **Positron CI: Stop** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/noVNC/postgres up) |
 | **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/noVNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
-| **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
+| **Positron CI: Reinstall deps** | after the root `package-lock.json` changes; records only the root hash |
+| **Positron CI: Reinstall e2e deps** | after `test/e2e/package-lock.json` changes; records only the e2e hash |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
+| **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug →* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source — desktop app / browser build (see Debug above) |
 
 ### Logs
@@ -230,6 +232,19 @@ Server → `/tmp/positron-server.log` · Desktop → `/tmp/positron-electron.log
 When CI bumps the image, update `POSITRON_CI_IMAGE_TAG` (the default in `docker-compose.yml`, or in
 your `.env`). A tag change needs **Dev Containers: Rebuild Container**; a changed `.env` alone won't
 trigger a rebuild.
+
+### Start over (reset)
+
+To force a fresh cold build - e.g. to verify the whole flow end to end - close the container
+(**Dev Containers: Reopen Folder Locally**), then run on the host:
+
+```bash
+./.devcontainer/ci-arm/reset.sh        # shows what it'll remove and prompts; add -y to skip
+```
+
+It removes this project's dev container, its data volumes (root + e2e `node_modules`, `.build`,
+`postgres-data`) and the compiled `out/`, scoped to this checkout's Compose project. Your source,
+`.env`, and `license.txt` are left alone. Then **Reopen in Container** for the clean build.
 
 ### Gotchas
 
