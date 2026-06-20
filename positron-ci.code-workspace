@@ -104,6 +104,19 @@
 				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
 				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
 				"problemMatcher": []
+			},
+			{
+				// Prelaunch step for the "Positron CI: Debug app" compound. Same as the repo's
+				// "Ensure Prelaunch Dependencies" task (node build/lib/preLaunch.ts), but defined here
+				// under a unique name so the workspace-level launch compound can resolve it — a
+				// workspace launch config can't reference a folder-level (.vscode/tasks.json) task.
+				"label": "Positron CI: Prelaunch deps",
+				"detail": "Bootstraps Positron's build deps before debugging (repo's preLaunch.ts). No-op once built.",
+				"type": "shell",
+				"command": "npm run prelaunch",
+				"options": { "env": { "VSCODE_DEV": "1" } },
+				"presentation": { "reveal": "silent", "close": true },
+				"problemMatcher": []
 			}
 		]
 	},
@@ -111,13 +124,69 @@
 		"version": "0.2.0",
 		"configurations": [
 			{
-				"name": "Positron CI: Debug (electron)",
-				"type": "node",
+				// Container-aware clone of the repo's "Launch Positron Internal" (.vscode/launch.json).
+				// The stock config can't launch Electron in this headless container: it runs as root
+				// with no --no-sandbox (Chromium aborts) and no software GL (nothing renders under
+				// Xvfb), so no renderer ever appears on :9222 and the debugger reports "Could not find
+				// any debuggable target". We add the same flags the e2e runner and launch-electron.sh
+				// use. Kept here (not the repo's .vscode/) so the shared launch.json stays untouched.
+				// Like the original, this carries --inspect-brk=5875 and is meant to run via the
+				// "Positron CI: Debug app" compound below, which attaches to (and releases) the main
+				// process — do not run it on its own or the main process will pause at startup.
+				"type": "chrome",
 				"request": "launch",
-				"program": "${workspaceFolder}/node_modules/.bin/playwright",
-				"args": ["test", "--project", "e2e-electron", "--grep", "@:connections"],
-				"cwd": "${workspaceFolder}",
-				"console": "integratedTerminal"
+				"name": "Positron CI: Launch app",
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh",
+				"port": 9222,
+				"timeout": 0,
+				"env": {
+					"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
+					"VSCODE_SKIP_PRELAUNCH": "1",
+					"VSCODE_DEV_DEBUG_OBSERVABLES": "1"
+				},
+				"cleanUp": "wholeBrowser",
+				"killBehavior": "polite",
+				"runtimeArgs": [
+					"--inspect-brk=5875",
+					"--no-cached-data",
+					"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
+					"--disable-features=CalculateNativeWinOcclusion",
+					"--disable-extension=vscode.vscode-api-tests",
+					// --- ci-arm: launch Electron headless, as root, under Xvfb with no GPU ---
+					"--no-sandbox",
+					"--disable-dev-shm-usage",
+					"--use-gl=swiftshader",
+					"--enable-unsafe-swiftshader",
+					"--disable-gpu-compositing"
+				],
+				"userDataDir": "${userHome}/.vscode-oss-dev",
+				"webRoot": "${workspaceFolder}",
+				"cascadeTerminateToConfigurations": ["Attach to Extension Host"],
+				"pauseForSourceMap": false,
+				"outFiles": ["${workspaceFolder}/out/**/*.js"],
+				"browserLaunchLocation": "workspace",
+				// Hidden from the Debug dropdown: it's only the launch member of the compound below.
+				// Run alone it hangs (--inspect-brk pauses the main process with nothing to attach).
+				// Use "Positron CI: Debug app" instead. (Repo hides its "Launch Positron Internal" too.)
+				"presentation": { "hidden": true }
+			}
+		],
+		"compounds": [
+			{
+				// Mirrors the repo's "Positron" compound, but launches via the container-aware config
+				// above. The "Attach to ..." members and the prelaunch task are the repo's own
+				// (.vscode/launch.json + tasks.json); referenced by name so they resolve against the
+				// workspace folder. Pick this from the Debug dropdown to set breakpoints in src.
+				"name": "Positron CI: Debug app",
+				"stopAll": true,
+				"configurations": [
+					"Positron CI: Launch app",
+					"Attach to Main Process",
+					"Attach to Extension Host",
+					"Attach to Shared Process",
+					"Attach to Agent Host Process"
+				],
+				"preLaunchTask": "Positron CI: Prelaunch deps"
 			}
 		]
 	}
