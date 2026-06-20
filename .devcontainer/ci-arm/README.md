@@ -178,7 +178,7 @@ only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing
 **Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
 task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
 **Positron CI: Stop**) — it stops the server, desktop, and report in one go and leaves the
-core services (Xvfb, VNC, postgres) up. It runs silently (no terminal); the **Doctor** reflects it
+core services (Xvfb, VNC, noVNC, postgres) up. It runs silently (no terminal); the **Doctor** reflects it
 within a few seconds and shows what's running (with a stop hint when anything is).
 
 ### Reproduce a CI failure
@@ -201,7 +201,7 @@ checks for compiled output, Electron, and a completed build, then names the task
 
 (While a build is actually running, the Build card shows **⟳ Building…** instead of these nags, so it
 won't tell you to rebuild mid-rebuild.) A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
-overview — which **services** are up (Xvfb, VNC, postgres) and what's currently **running** (server,
+overview — which **services** are up (Xvfb, VNC, noVNC, postgres) and what's currently **running** (server,
 desktop, report) — so it doubles as a "is everything OK?" check.
 
 ## Reference
@@ -214,8 +214,8 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Desktop** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
 | **Positron CI: VNC** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Report** | serves the last run's trace/report at `:9323` |
-| **Positron CI: Stop** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up) |
-| **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
+| **Positron CI: Stop** | stops the on-demand server/desktop/report (leaves Xvfb/VNC/noVNC/postgres up) |
+| **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/noVNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |

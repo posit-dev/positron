@@ -49,7 +49,8 @@ URL="http://localhost:${PORT}/?tkn=${TOKEN}"
 echo "Positron server is starting (logs: $LOG)..."
 for _ in $(seq 1 60); do
   if (exec 3<>"/dev/tcp/localhost/$PORT") 2>/dev/null; then
-    exec 3>&- 3<&-
+    # The subshell above opens and closes FD 3 itself; we only use its exit code. (No FD to close
+    # in this shell - `exec 3>&- 3<&-` here printed "bash: 3: Bad file descriptor" on every start.)
     rm -f "$ERR"
     echo ""
     echo "Positron server is up — Cmd-click to open it in your browser:"

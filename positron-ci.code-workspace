@@ -17,8 +17,9 @@
 			{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
 			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
 			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
-			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/postgres up)" },
-			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" }
+			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/noVNC/postgres up)" },
+			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
+			{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
 		]
 	},
 	"extensions": {
@@ -66,7 +67,7 @@
 			},
 			{
 				"label": "Positron CI: Stop",
-				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvfb/VNC/postgres up.",
+				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvfb/VNC/noVNC/postgres up.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/stop-services.sh",
 				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
@@ -83,9 +84,17 @@
 			},
 			{
 				"label": "Positron CI: Reinstall deps",
-				"detail": "After a pull/branch-switch changed package-lock.json.",
+				"detail": "After a pull/branch-switch changed the root package-lock.json.",
 				"type": "shell",
-				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh",
+				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh root",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Reinstall e2e deps",
+				"detail": "After a pull/branch-switch changed test/e2e/package-lock.json (the Doctor flags e2e-deps drift separately from root deps).",
+				"type": "shell",
+				"command": "npm --prefix test/e2e ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh e2e",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			},
@@ -116,6 +125,18 @@
 				"command": "npm run prelaunch",
 				"options": { "env": { "VSCODE_DEV": "1" } },
 				"presentation": { "reveal": "silent", "close": true },
+				"problemMatcher": []
+			},
+			{
+				// Incremental compiler for the edit-debug loop. Start it once per session; on save it
+				// recompiles src -> out so a running debug session picks up your changes after a window
+				// reload. Long-running (no exit), so it's isBackground and shown in its own panel.
+				"label": "Positron CI: Watch (src)",
+				"detail": "Recompile src -> out on save (npm run watch). Leave running; reload the Positron window after 'Finished compilation' to pick up edits.",
+				"type": "shell",
+				"command": "npm run watch",
+				"isBackground": true,
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			}
 		]

@@ -6,7 +6,7 @@
 # to the working path the tests use. Paths follow the same defaults, so this and the tests agree:
 #   cache:        $TMPDIR/qa-example-content-cache
 #   working copy: ${POSITRON_TEST_DATA_PATH:-$TMPDIR/vscsmoke}/qa-example-content
-set -uo pipefail
+set -euo pipefail
 REPO="https://github.com/posit-dev/qa-example-content.git"
 BRANCH="${QA_REPO:-main}"
 TMP="${TMPDIR:-/tmp}"; TMP="${TMP%/}"
@@ -25,6 +25,7 @@ if [ -d "$CACHE/.git" ]; then
 else
   rm -rf "$CACHE"
   if ! git clone --depth=1 --branch "$BRANCH" "$REPO" "$CACHE" -q; then
+    # allow-any-unicode-next-line
     echo "  ✗ clone failed (offline, or branch '$BRANCH' not found)"
     exit 1
   fi

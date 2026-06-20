@@ -42,11 +42,13 @@ if [ -f "$LICENSE_SRC" ]; then
   # Local path: PEM key file dropped in the (bind-mounted) workspace; gitignored.
   mkdir -p "$(dirname "$LICENSE_DEST")"
   cp "$LICENSE_SRC" "$LICENSE_DEST"
+  chmod 600 "$LICENSE_DEST"  # private key - not world-readable, even in this privileged container
   echo "license installed from $LICENSE_SRC ($(wc -c < "$LICENSE_DEST") bytes)"
 elif [ -n "${POSITRON_DEV_LICENSE:-}" ]; then
   # CI path: raw multi-line PEM injected as a real env var (e.g. GitHub secret).
   mkdir -p "$(dirname "$LICENSE_DEST")"
   printf '%s' "$POSITRON_DEV_LICENSE" > "$LICENSE_DEST"
+  chmod 600 "$LICENSE_DEST"  # private key - not world-readable, even in this privileged container
   echo "license written to $LICENSE_DEST (from POSITRON_DEV_LICENSE env)"
 else
   echo "WARNING: no license (add .devcontainer/ci-arm/license.txt); build will be unlicensed"

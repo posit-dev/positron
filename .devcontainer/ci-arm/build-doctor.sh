@@ -137,7 +137,7 @@ render() {
   pgrep -x Xvfb >/dev/null 2>&1; csvc "Display"  "Xvfb"        ":10"   "$?" "$vncfix"
   tcp 127.0.0.1 5900;            csvc "VNC"       "x11vnc"      ":5900" "$?" "$vncfix"
   tcp 127.0.0.1 6080; novnc_up=$?; csvc "noVNC"   "websockify"  ":6080" "$novnc_up" "$vncfix"
-  tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running — Dev Containers: Rebuild Container"
+  tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running - Dev Containers: Rebuild Container"
   printf '\n'
 
   # --- Live View ---
