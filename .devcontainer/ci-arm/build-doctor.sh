@@ -35,8 +35,10 @@ opt_running=0
 # A heading + its rows form a "card". Rows share one left edge (text starts at column 4) across all
 # sections. Names lead; tool/port/detail are dimmed so the eye scans the glyph + name first.
 
-# All rows share one name column (NAMEW) so the value column lines up across every section.
+# Build + Core Services share one name column (NAMEW) so their value columns line up. On-Demand
+# uses its own wider column (ODNAMEW) because its names are descriptive ("Desktop (Electron)").
 NAMEW=12
+ODNAMEW=20  # longest name is "Desktop (Electron)" (18) — leave a 2-space gap before the value
 
 # Core service row: csvc <name> <tool> <port> <up:0/1> <fix>.  ✓ = up, ⚠ = down (footer shows fix).
 csvc() {
@@ -52,14 +54,14 @@ csvc() {
 #   running = green ● + URL inline;  failed-to-start (errfile exists) = red ✗ + reason;  else dim ○.
 odsvc() {
   if [ "$3" -eq 0 ]; then
-    printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$NAMEW" "$1" "$DIM" "$2" "${5:-}" "$RST"
+    printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$ODNAMEW" "$1" "$DIM" "$2" "${5:-}" "$RST"
     opt_running=$((opt_running + 1))
   elif [ -n "${4:-}" ] && [ -f "$4" ]; then
     local why; why="$(head -1 "$4" 2>/dev/null)"
-    printf '  %s✗%s %-*s%sfailed: %s%s\n' "$RED" "$RST" "$NAMEW" "$1" "$RED" "$why" "$RST"
+    printf '  %s✗%s %-*s%sfailed: %s%s\n' "$RED" "$RST" "$ODNAMEW" "$1" "$RED" "$why" "$RST"
     actions+=("$1 failed to start: $why")
   else
-    printf '  %s○ %-*s%s%s\n' "$DIM" "$NAMEW" "$1" "$2" "$RST"
+    printf '  %s○ %-*s%s%s\n' "$DIM" "$ODNAMEW" "$1" "$2" "$RST"
   fi
 }
 
@@ -78,11 +80,17 @@ render() {
 
   printf '%sPositron CI Doctor%s\n\n' "$BOLD" "$RST"
 
-  # --- Build ---
-  printf '%sBuild%s\n' "$BOLD" "$RST"
+  # --- Environment ---
+  # One umbrella over what's provisioned: the Build, the Container, and the QA fixture data.
+  # Build carries health glyphs (✓ current / ⚠ needs attention / ⟳ building) because it can
+  # actually break; Container and QA content use presence glyphs (● there / ○ absent) — the
+  # container is always up since we're running inside it, and QA content is just cloned-or-not.
+  # The footer lists the "why" whenever the build needs attention.
+  printf '%sEnvironment%s\n' "$BOLD" "$RST"
+
   if pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1; then
     # A cold build / Rebuild is actively running — show that instead of nagging to rebuild.
-    printf '  %s⟳%s %-*sin progress… (watch the build terminal)\n' "$Y" "$RST" "$NAMEW" "Building"
+    printf '  %s⟳%s %-*s%sbuilding… (watch the build terminal)%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
   else
     build_ok=1
     [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
@@ -90,21 +98,23 @@ render() {
     [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
     [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
     [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
-    # Built — ✓ when current, ⚠ when it needs attention (footer lists why).
     if [ "$build_ok" -eq 1 ]; then
-      printf '  %s✓%s %-*s%s\n' "$G" "$RST" "$NAMEW" "Built" "$last_build"
+      printf '  %s✓%s %-*s%scurrent · %s%s\n' "$G" "$RST" "$NAMEW" "Build" "$DIM" "$last_build" "$RST"
     else
-      printf '  %s⚠%s %-*s%s\n' "$Y" "$RST" "$NAMEW" "Built" "$last_build"
+      printf '  %s⚠%s %-*s%sneeds attention%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
     fi
   fi
-  # Uptime — informational, dim (no status to report).
-  printf '    %s%-*s%s%s\n' "$DIM" "$NAMEW" "Uptime" "$up_str" "$RST"
-  # QA content — ✓ + age + path inline when present; dim hint when not.
+
+  # Container — always up (we're inside it); this is just its uptime.
+  printf '  %s●%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
+
+  # QA content — optional fixture data the e2e tests open. ● cloned / ○ absent; absence isn't an
+  # error, so it never lands in the footer. The path comes from the 'Get QA content' task.
   if [ -d "$QA_DEST" ]; then
     qa_age="$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))"
-    printf '  %s✓%s %-*supdated %s ago%s · %s%s\n' "$G" "$RST" "$NAMEW" "QA content" "$qa_age" "$DIM" "$QA_DEST" "$RST"
+    printf '  %s●%s %-*s%sfetched %s ago%s\n' "$G" "$RST" "$NAMEW" "QA content" "$DIM" "$qa_age" "$RST"
   else
-    printf '    %s%-*snot present — run "Positron CI: Get QA content"%s\n' "$DIM" "$NAMEW" "QA content" "$RST"
+    printf '  %s○ %-*snot present — run "Positron CI: Get QA content"%s\n' "$DIM" "$NAMEW" "QA content" "$RST"
   fi
   printf '\n'
 
@@ -117,21 +127,23 @@ render() {
   tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running — Dev Containers: Rebuild Container"
   printf '\n'
 
-  # --- Watch the display ---
+  # --- Live View ---
   # noVNC is the browser window into the headless display, so show its URL whenever noVNC is up:
   # you can watch the desktop OR any headed e2e test (e2e-electron/e2e-chromium) without launching
   # anything first. (When noVNC is down, Core Services above flags it with the fix.)
   if tcp 127.0.0.1 6080; then
-    printf '%sWatch the display%s %s(desktop, or any headed test)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+    printf '%sLive View%s %s(desktop or headed tests)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
     printf '  %s↳ http://localhost:6080/vnc.html?autoconnect=true&password=positron%s\n\n' "$DIM" "$RST"
   fi
 
   # --- On-Demand Services ---
   printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
-  tcp 127.0.0.1 8080; odsvc "Server"  ":8080" "$?" "$SERVER_ERR" "http://localhost:8080/?tkn=dev-token"
+  tcp 127.0.0.1 8080; odsvc "Server (Web)"  ":8080" "$?" "$SERVER_ERR" "http://localhost:8080/?tkn=dev-token"
+  # Desktop intentionally has no inline URL: you view it via the "Watch the display" link above
+  # (which already names the desktop). This row is just status — running / idle / failed.
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
-  odsvc "Desktop" "VNC"   "$?" "$DESKTOP_ERR" "http://localhost:6080/vnc.html?autoconnect=true&password=positron"
-  tcp 127.0.0.1 9323; odsvc "Report"  ":9323" "$?" "" "http://localhost:9323"
+  odsvc "Desktop (Electron)" "VNC"   "$?" "$DESKTOP_ERR" ""
+  tcp 127.0.0.1 9323; odsvc "Playwright Report"  ":9323" "$?" "" "http://localhost:9323"
   printf '\n'
 
   # --- Footer ---
@@ -154,10 +166,15 @@ sig() {
   tcp 127.0.0.1 8080 && s+=S || s+=s
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1 && s+=D || s+=d
   tcp 127.0.0.1 9323 && s+=R || s+=r
-  [ -d "$QA_DEST" ] && s+=Q || s+=q
+  # Fold in the mtime, not just presence: a re-fetch refreshes in place (same dir), so a
+  # presence-only bit wouldn't change and the panel wouldn't redraw to show the new age.
+  [ -d "$QA_DEST" ] && s+="Q$(stat -c %Y "$QA_DEST" 2>/dev/null)" || s+=q
   [ -f "$SERVER_ERR" ] && s+=E || s+=e
   [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
   pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && s+=B || s+=b
+  # Build-marker mtime: Reinstall deps / Rebuild rewrite it (mark-build-state.sh), so the Build
+  # card redraws when they finish — Reinstall never runs post-create.sh, so the B bit alone misses it.
+  [ -f "$STATE/complete" ] && s+="C$(stat -c %Y "$STATE/complete" 2>/dev/null)" || s+=c
   printf '%s' "$s"
 }
 
@@ -174,7 +191,8 @@ if [ "${1:-}" = "--watch" ]; then
     if [ "$cur_sig" != "$last_sig" ] || [ $((nowt - last_draw)) -ge "$HEARTBEAT" ]; then
       printf '\e[H\e[2J\e[3J'  # home + clear screen + clear scrollback (no piled-up history)
       render
-      printf '\n%s(auto-updates • any key refresh • q quit)%s\n' "$DIM" "$RST"
+      printf '\n%sauto-updates • any key refreshes • q quits%s\n' "$DIM" "$RST"
+      printf "%sall tasks: Command Palette → 'Tasks: Run Task'%s\n" "$DIM" "$RST"
       last_sig="$cur_sig"; last_draw="$nowt"
     fi
     if read -rsn1 -t "$POLL" key; then

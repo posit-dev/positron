@@ -36,7 +36,14 @@ rm -rf "$DEST"
 mkdir -p "$DEST"
 cp -R "$CACHE/." "$DEST"
 
+# Convenience symlink in $HOME so it's easy to find from Positron's "Open Folder" dialog,
+# which defaults to the home dir. The real copy stays at $DEST (the test path) so manual
+# repro matches what the e2e tests open.
+LINK="$HOME/qa-example-content"
+ln -sfn "$DEST" "$LINK"
+
 commit="$(git -C "$DEST" rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "  ✓ ready at $DEST  (branch $BRANCH @ $commit)"
+echo "  ✓ linked at $LINK  (open this from Positron's Open Folder dialog)"
 echo ""
-echo "Browse it for manual repro — e.g. $DEST/workspaces"
+echo "Browse it for manual repro — e.g. $LINK/workspaces"

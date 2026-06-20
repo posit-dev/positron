@@ -123,7 +123,9 @@ Many tests open files from [qa-example-content](https://github.com/posit-dev/qa-
 notebooks, data files, sample projects. The framework clones it for you on the first test run, to
 `/tmp/vscsmoke/qa-example-content` (cached at `/tmp/qa-example-content-cache`). To grab it *without*
 running a test first — handy for manually reproducing what a test does — run **Positron CI: Get QA
-content**; re-run it any time to refresh to the latest (it doesn't auto-update). The Doctor shows
+content**. That also symlinks it to `~/qa-example-content`, so it shows up right where Positron's
+"Open Folder" dialog starts (the real copy stays at the `/tmp/vscsmoke` test path). Re-run it any
+time to refresh to the latest (it doesn't auto-update). The Doctor shows
 whether it's present and how long ago it was fetched. Note: test teardown git-resets that copy, so
 don't keep edits there.
 
@@ -202,7 +204,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Doctor** | live dashboard — build status + what's up (Xvfb/VNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
-| **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) to `/tmp/vscsmoke` for manual repro |
+| **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
 | *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
 
 ### Logs
