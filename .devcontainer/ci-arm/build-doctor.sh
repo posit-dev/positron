@@ -15,6 +15,7 @@ if [ -t 1 ]; then
 else
   G=; Y=; RED=; DIM=; BOLD=; RST=
 fi
+# allow-any-unicode-next-line
 DIV="────────────────────────────────────────────"
 SERVER_ERR=/tmp/positron-server.err     # written by start-server.sh on a failed start
 DESKTOP_ERR=/tmp/positron-electron.err  # written by launch-electron.sh on a failed launch
@@ -51,6 +52,7 @@ csvc() {
 }
 
 # On-demand row: odsvc <name> <port|VNC> <running:0/1> <errfile> [url].
+# allow-any-unicode-next-line
 #   running = green ● + URL inline;  failed-to-start (errfile exists) = red ✗ + reason;  else dim ○.
 odsvc() {
   if [ "$3" -eq 0 ]; then
@@ -58,16 +60,22 @@ odsvc() {
     opt_running=$((opt_running + 1))
   elif [ -n "${4:-}" ] && [ -f "$4" ]; then
     local why; why="$(head -1 "$4" 2>/dev/null)"
+    # allow-any-unicode-next-line
     printf '  %s✗%s %-*s%sfailed: %s%s\n' "$RED" "$RST" "$ODNAMEW" "$1" "$RED" "$why" "$RST"
     actions+=("$1 failed to start: $why")
   else
+    # allow-any-unicode-next-line
     printf '  %s○ %-*s%s%s\n' "$DIM" "$ODNAMEW" "$1" "$2" "$RST"
   fi
 }
 
 render() {
   actions=(); opt_running=0
-  local now last_build up_secs up_str build_ok qa_age
+  local now last_build up_secs up_str build_ok qa_age novnc_up
+  # Build-running state: --watch passes it in (derived from sig's B bit) so we don't re-probe the
+  # process table every frame; standalone (one-shot) calls leave it empty and compute it here.
+  local building="${1:-}"
+  [ -z "$building" ] && { pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && building=1 || building=0; }
 
   now=$(date +%s)
   if [ -f "$STATE/complete" ]; then
@@ -82,14 +90,17 @@ render() {
 
   # --- Environment ---
   # One umbrella over what's provisioned: the Build, the Container, and the QA fixture data.
+  # allow-any-unicode-next-line
   # Build carries health glyphs (✓ current / ⚠ needs attention / ⟳ building) because it can
+  # allow-any-unicode-next-line
   # actually break; Container and QA content use presence glyphs (● there / ○ absent) — the
   # container is always up since we're running inside it, and QA content is just cloned-or-not.
   # The footer lists the "why" whenever the build needs attention.
   printf '%sEnvironment%s\n' "$BOLD" "$RST"
 
-  if pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1; then
+  if [ "$building" = 1 ]; then
     # A cold build / Rebuild is actively running — show that instead of nagging to rebuild.
+    # allow-any-unicode-next-line
     printf '  %s⟳%s %-*s%sbuilding… (watch the build terminal)%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
   else
     build_ok=1
@@ -108,12 +119,14 @@ render() {
   # Container — always up (we're inside it); this is just its uptime.
   printf '  %s●%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
 
+  # allow-any-unicode-next-line
   # QA content — optional fixture data the e2e tests open. ● cloned / ○ absent; absence isn't an
   # error, so it never lands in the footer. The path comes from the 'Get QA content' task.
   if [ -d "$QA_DEST" ]; then
     qa_age="$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))"
     printf '  %s●%s %-*s%sfetched %s ago%s\n' "$G" "$RST" "$NAMEW" "QA content" "$DIM" "$qa_age" "$RST"
   else
+    # allow-any-unicode-next-line
     printf '  %s○ %-*snot present — run "Positron CI: Get QA content"%s\n' "$DIM" "$NAMEW" "QA content" "$RST"
   fi
   printf '\n'
@@ -123,7 +136,7 @@ render() {
   local vncfix="run the 'Positron CI: VNC' task to restart the display + VNC stack"
   pgrep -x Xvfb >/dev/null 2>&1; csvc "Display"  "Xvfb"        ":10"   "$?" "$vncfix"
   tcp 127.0.0.1 5900;            csvc "VNC"       "x11vnc"      ":5900" "$?" "$vncfix"
-  tcp 127.0.0.1 6080;            csvc "noVNC"     "websockify"  ":6080" "$?" "$vncfix"
+  tcp 127.0.0.1 6080; novnc_up=$?; csvc "noVNC"   "websockify"  ":6080" "$novnc_up" "$vncfix"
   tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running — Dev Containers: Rebuild Container"
   printf '\n'
 
@@ -131,15 +144,16 @@ render() {
   # noVNC is the browser window into the headless display, so show its URL whenever noVNC is up:
   # you can watch the desktop OR any headed e2e test (e2e-electron/e2e-chromium) without launching
   # anything first. (When noVNC is down, Core Services above flags it with the fix.)
-  if tcp 127.0.0.1 6080; then
+  if [ "$novnc_up" -eq 0 ]; then
     printf '%sLive View%s %s(desktop or headed tests)%s\n' "$BOLD" "$RST" "$DIM" "$RST"
+    # allow-any-unicode-next-line
     printf '  %s↳ http://localhost:6080/vnc.html?autoconnect=true&password=positron%s\n\n' "$DIM" "$RST"
   fi
 
   # --- On-Demand Services ---
   printf '%sOn-Demand Services%s\n' "$BOLD" "$RST"
   tcp 127.0.0.1 8080; odsvc "Server (Web)"  ":8080" "$?" "$SERVER_ERR" "http://localhost:8080/?tkn=dev-token"
-  # Desktop intentionally has no inline URL: you view it via the "Watch the display" link above
+  # Desktop intentionally has no inline URL: you view it via the "Live View" link above
   # (which already names the desktop). This row is just status — running / idle / failed.
   pgrep -f "user-data-dir=/tmp/positron-dev-data" >/dev/null 2>&1
   odsvc "Desktop (Electron)" "VNC"   "$?" "$DESKTOP_ERR" ""
@@ -190,7 +204,9 @@ if [ "${1:-}" = "--watch" ]; then
     cur_sig="$(sig)"; nowt=$(date +%s)
     if [ "$cur_sig" != "$last_sig" ] || [ $((nowt - last_draw)) -ge "$HEARTBEAT" ]; then
       printf '\e[H\e[2J\e[3J'  # home + clear screen + clear scrollback (no piled-up history)
-      render
+      # Reuse sig's build-running bit (B) so render() doesn't re-probe the process table.
+      case "$cur_sig" in *B*) building=1 ;; *) building=0 ;; esac
+      render "$building"
       printf '\n%sauto-updates • any key refreshes • q quits%s\n' "$DIM" "$RST"
       printf "%sall tasks: Command Palette → 'Tasks: Run Task'%s\n" "$DIM" "$RST"
       last_sig="$cur_sig"; last_draw="$nowt"
