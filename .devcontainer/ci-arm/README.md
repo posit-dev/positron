@@ -131,9 +131,23 @@ don't keep edits there.
 
 ### Debug
 
-- **Run and Debug** panel (`Cmd-Shift-D`) → **Positron CI: Debug (electron)** → green ▶ (or
-  `fn-F5`).
-- To watch the app the test drives, open VNC (below); the Electron window shows up there.
+Two profiles for debugging **Positron's own source** — open the **Run and Debug** panel
+(`Cmd-Shift-D`), pick one, and hit ▶ (or `fn-F5`). Set breakpoints in `src/` as usual; they bind via
+source maps. Both launch Positron on the headless display, so watch it in VNC (below).
+
+- **Positron CI: Debug (Electron)** — the desktop app. Launches Positron and attaches to all of its
+  processes (main, renderer, extension host, …), so breakpoints anywhere in `src/` bind.
+- **Positron CI: Debug (Web)** — the browser build. Brings up the licensed server (`:8080`) and
+  debugs the workbench frontend in Chromium (viewable in VNC). Use it for web-only behavior or
+  `e2e-chromium` scenarios; for most source, Electron is simpler.
+
+**Editing while you debug:** the cold build compiles `src/` → `out/` once; live edits only take
+effect if the incremental compiler is running. Run **`npm run watch`** in a terminal, wait for its
+first pass, then reload the Positron window (`Cmd-R`) or restart the debug session to pick up your
+changes.
+
+**e2e tests** are debugged straight from the test files — click the Playwright run/debug icons in the
+editor gutter (or Test Explorer), not a launch profile.
 
 ### Run Positron itself
 
@@ -205,7 +219,7 @@ desktop, report) — so it doubles as a "is everything OK?" check.
 | **Positron CI: Reinstall deps** | after deps change; refreshes the doctor's state |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
-| *Run and Debug →* **Positron CI: Debug (electron)** | runs e2e-electron under the debugger |
+| *Run and Debug →* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source — desktop app / browser build (see Debug above) |
 
 ### Logs
 
