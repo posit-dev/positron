@@ -10,13 +10,15 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 ## Prerequisites
 
 1. **Docker Desktop**, with enough resources: **8+ CPU, 16 GB RAM**, and a few GB of free disk
-   (image + `node_modules` + build). Settings → Resources → Advanced; turn on **VirtioFS** for the
+   (image + `node_modules` + build). `Settings → Resources → Advanced`; turn on **VirtioFS** for the
    best bind-mount performance.
 2. **GHCR login** (the images are private):
    ```bash
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
-3. **Dev Containers extension**, using **VS Code** as the client
+3. Install the following extensions:
+   * **Dev Containers extension**, using **VS Code** as the client
+	 * **Task Buttons**, optional but highly recommended so you don't have to dig through Task menus
 
 ## Setup
 
@@ -49,11 +51,9 @@ Both `.env` and `license.txt` are gitignored.
 
 ### 3. Open the workspace in the container
 
-Open your Positron checkout (a regular clone or a git worktree), then:
+From a regular clone or a git worktree of Positron, run **Dev Containers: Open Workspace in
+Container…** → pick `positron-ci.code-workspace` → choose **Positron CI (ubuntu24-arm64)**.
 
-1. **File → Open Workspace from File…** → `positron-ci.code-workspace`
-2. **Dev Containers: Reopen in Container** → **Positron CI (ubuntu24-arm64)**
-3. Install the recommended **Task Buttons** extension when prompted; it draws the status-bar buttons for the common tasks (or manually: `code --install-extension spencerwmiles.vscode-task-buttons`).
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright),
 about 10 minutes once per machine. It persists on Docker volumes, so later opens are fast.
