@@ -64,8 +64,15 @@ Worth knowing about the setup:
 
 - Your checkout is a **bind mount**, so edits live on your host disk and file navigation works
   normally.
-- `node_modules`, `test/e2e/node_modules`, and `.build` live on fast Docker volumes; `out/` is on
-  the bind mount (the compile recreates it).
+- The heavy container-built dirs live on **Docker volumes** instead of the bind mount — native
+  volume I/O is much faster than macOS bind mounts, and it keeps Linux-built binaries out of your
+  host checkout. Four volumes (shown by `reset.sh` / `docker volume ls`, prefixed with the Compose
+  project, e.g. `ci-arm_`):
+  - `positron-node-modules` — root `node_modules` (the big one)
+  - `positron-e2e-node-modules` — `test/e2e/node_modules` (separate npm project; small)
+  - `positron-build` — `.build/` (the built Electron + artifacts)
+  - `postgres-data` — the postgres sidecar's database files
+  `out/` is the exception: it stays on the bind mount (the compile recreates it).
 - **Worktrees just work.** A host-side `initializeCommand` auto-detects your checkout and git dir
   and mounts both. It must be a **full clone**, though: a shallow clone can't build, because the
   compile needs git history.
