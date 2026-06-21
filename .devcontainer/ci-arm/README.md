@@ -80,19 +80,15 @@ Worth knowing about the setup:
 
 If you install the button tasks extension, the most common actions are at the bottom of the window: one click, no Command Palette. Everything else is in `Cmd-Shift-P → Tasks: Run Task`, prefixed `Positron CI:` (type "Positron CI" to filter). The debugger lives in the **Run and Debug** panel also prefxied with `Positron: CI`.
 
-**Start the Doctor and keep it open** (click the **Doctor** button, or run the task) in a split.
+**Start the Doctor and keep it open** (click the **Doctor** button, or run the task).
 It's a live dashboard (build status, services, URLs) that refreshes itself within a few seconds
-whenever something changes; `q` quits. It's set to open on workspace load, but if it doesn't, just
-start it. Because **Server**, **Desktop**, and **Stop** run silently (no terminal), the Doctor is
-where you watch them come up, and where a failed start shows a red **✗ failed: reason** instead of
-vanishing quietly. **VNC** and **Report** open a terminal, since their job is to print a URL.
+whenever something changes; `q` quits.
 
 ### Edit and re-run
 
 The everyday cycle. The key point: editing recompiles in seconds, never the ~10-min cold build.
 
-1. Start the build watcher **once**: `npm run watch` in the terminal (or the native **Positron -
-   Build** task). It recompiles changed files on save, in seconds.
+1. Start the build watcher **once**: `npm run watch` or `Watch` task button. It recompiles changed files on save, in seconds.
 2. Edit code in VS Code. It's native editing against your host checkout.
 3. Re-run or re-debug. Only `npm ci`-level changes need a rebuild (see
    [When do I need to rebuild?](#when-do-i-need-to-rebuild)).
@@ -116,15 +112,12 @@ link is always there while noVNC is up.
 
 ### Test files (qa-example-content)
 
-Many tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content) —
-notebooks, data files, sample projects. The framework clones it for you on the first test run, to
-`/tmp/vscsmoke/qa-example-content` (cached at `/tmp/qa-example-content-cache`). To grab it *without*
-running a test first — handy for manually reproducing what a test does — run **Positron CI: Get QA
-content**. That also symlinks it to `~/qa-example-content`, so it shows up right where Positron's
-"Open Folder" dialog starts (the real copy stays at the `/tmp/vscsmoke` test path). Re-run it any
-time to refresh to the latest (it doesn't auto-update). The Doctor shows
-whether it's present and how long ago it was fetched. Note: test teardown git-resets that copy, so
-don't keep edits there.
+Tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content)
+(notebooks, data, sample projects); the framework clones it on first run. To grab it up front for
+manual repro, run **Positron CI: Get QA content**. The real copy lands at the test path
+(`/tmp/vscsmoke/qa-example-content`) and is symlinked to `~/qa-example-content` for easy opening;
+re-run any time to refresh. The Doctor shows when it was last fetched. Test teardown git-resets the
+copy, so don't keep edits there.
 
 ### Debug
 
@@ -195,11 +188,6 @@ checks for compiled output, Electron, and a completed build, then names the task
 - deps changed → **Positron CI: Reinstall deps**
 - no compiled output → start the watcher (`npm run watch`)
 - build incomplete → **Positron CI: Rebuild**
-
-(While a build is actually running, the Build card shows **⟳ Building…** instead of these nags, so it
-won't tell you to rebuild mid-rebuild.) A clean checkout with the watcher running needs nothing. The same doctor also reports a quick health
-overview — which **services** are up (Xvfb, VNC, noVNC, postgres) and what's currently **running** (server,
-desktop, report) — so it doubles as a "is everything OK?" check.
 
 ## Reference
 
