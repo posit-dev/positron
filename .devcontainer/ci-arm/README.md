@@ -53,7 +53,7 @@ Open your Positron checkout (a regular clone or a git worktree), then:
 
 1. **File → Open Workspace from File…** → `positron-ci.code-workspace`
 2. **Dev Containers: Reopen in Container** → **Positron CI (ubuntu24-arm64)**
-3. When prompted, install the recommended Task Buttons extension by clicking Install. This extension adds the status bar buttons for quick access to common tasks. Alternatively, you can install it manually with: `code --install-extension spencerwmiles.vscode-task-buttons`. Using the buttons is a convenient shortcut that saves you from navigating multiple menus to find the right tasks
+3. Install the recommended **Task Buttons** extension when prompted; it draws the status-bar buttons for the common tasks (or manually: `code --install-extension spencerwmiles.vscode-task-buttons`).
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright),
 about 10 minutes once per machine. It persists on Docker volumes, so later opens are fast.
@@ -105,10 +105,8 @@ The everyday cycle. The key point: editing recompiles in seconds, never the ~10-
 | `e2e-chromium` | self-starts a web server, runs headed in Chromium (watch via VNC) | no — works out of the box |
 | `e2e-server` | connects to an **external** server | yes — run **Positron CI: Start server** first |
 
-**Watching a headed run:** any test that runs headed (e.g. `e2e-electron`, `e2e-chromium`) renders
-on the headless display — open the **Watch the display** link in the Doctor
-(`http://localhost:6080/vnc.html?…`) to see it live. You don't need to launch the Desktop first; the
-link is always there while noVNC is up.
+**Watching a headed run:** `e2e-electron`/`e2e-chromium` render on the headless display. Open the
+noVNC link in the Doctor to watch live; no need to launch the Desktop first.
 
 ### Test files (qa-example-content)
 
@@ -131,63 +129,27 @@ source maps. Both launch Positron on the headless display, so watch it in VNC (b
   debugs the workbench frontend in Chromium (viewable in VNC). Use it for web-only behavior or
   `e2e-chromium` scenarios; for most source, Electron is simpler.
 
-**Editing while you debug:** the cold build compiles `src/` → `out/` once; live edits only take
-effect if the incremental compiler is running. Run **`npm run watch`** in a terminal, wait for its
-first pass, then reload the Positron window (`Cmd-R`) or restart the debug session to pick up your
-changes.
-
 **e2e tests** are debugged straight from the test files — click the Playwright run/debug icons in the
 editor gutter (or Test Explorer), not a launch profile.
 
 ### Run Positron itself
 
-Two ways to run Positron, a **browser server** and the **desktop app**, plus VNC for watching
-anything headed. Both run silently (no terminal) and do a **clean restart** if you click again — the
-**Doctor dashboard shows each one's clickable URL** a few seconds after it comes up.
+- **Browser server:** **Positron CI: Start server** serves a licensed Positron at
+  `http://localhost:8080/?tkn=dev-token` (browser only, not VNC).
+- **Desktop app:** **Positron CI: Desktop** renders on the headless display; watch it via VNC.
 
-- **Browser:** **Positron CI: Start server** issues a license and serves Positron at
-  `http://localhost:8080/?tkn=dev-token` (shown in the Doctor when up). Runs detached (logs at
-  `/tmp/positron-server.log`). This is a headless web server, so it does *not* appear in VNC; it's
-  browser-only.
-- **Desktop app:** **Positron CI: Desktop** renders on the headless display; watch it via the noVNC
-  URL (in the Doctor, or below). Runs detached (logs at `/tmp/positron-electron.log`).
-- **Watch in your browser (VNC):** Cmd-click
-  `http://localhost:6080/vnc.html?autoconnect=true&password=positron`. It opens noVNC in a tab and
-  auto-connects, with no app or password prompt. The desktop app and any headed
-  `e2e-chromium`/`e2e-firefox` browser appear here (fluxbox window manager, so windows are movable).
-  **Positron CI: VNC** re-prints the URL. Prefer a native viewer? Use
-  `vnc://localhost:5900`, password `positron`.
-- **Inspect a finished run:** **Positron CI: Report** → `http://localhost:9323`.
-  The trace viewer gives a frame-by-frame timeline with screenshots and DOM snapshots, usually more
-  useful than watching a fast run live.
-
-You can run the **server and the desktop at the same time**. They're independent (separate
-user-data-dirs, processes, and ports): the server shows only in your browser (`:8080`), the desktop
-only in VNC (`:6080`). Re-clicking either restarts it cleanly without disturbing the other.
-
-**Stopping things.** The server and desktop run *detached* (that's what keeps them alive after the
-task finishes), so there's no terminal to Ctrl-C. To clean up, use the **Stop** button (or
-**Positron CI: Stop**) — it stops the server, desktop, and report in one go and leaves the
-core services (Xvfb, VNC, noVNC, postgres) up. It runs silently (no terminal); the **Doctor** reflects it
-within a few seconds and shows what's running (with a stop hint when anything is).
-
-### Reproduce a CI failure
-
-1. Check out the failing branch in the container terminal.
-2. If `package-lock.json` changed, the doctor flags it on start → **Positron CI: Reinstall
-   deps (npm ci)**.
-3. Run the same project and grep CI used (e.g. `--project e2e-electron --grep <name of test>`).
-   Watch via VNC or read the trace, and debug with breakpoints. Same image, same DB, same env as CI.
+Both run detached (logs in `/tmp/positron-server.log` and `/tmp/positron-electron.log`) and restart
+cleanly if you re-click; their URLs show in the Doctor a few seconds after they come up. **Stop**
+shuts down the server, desktop, and report together and leaves the core services up.
 
 ### When do I need to rebuild?
 
-You don't have to guess. The **doctor** runs on every container start, and on demand via
-**Positron CI: Doctor**. It compares `package-lock.json` against the last install and
-checks for compiled output, Electron, and a completed build, then names the task to run:
+You don't have to guess. The Doctor compares `package-lock.json` against the last install, checks
+the build, and names the task to run:
 
-- deps changed → **Positron CI: Reinstall deps**
-- no compiled output → start the watcher (`npm run watch`)
-- build incomplete → **Positron CI: Rebuild**
+- deps changed → **Reinstall deps** / **Reinstall e2e deps**
+- no compiled output → start **Watch (src)**
+- build incomplete → **Rebuild**
 
 ## Reference
 
@@ -207,10 +169,6 @@ checks for compiled output, Electron, and a completed build, then names the task
 | **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug →* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source — desktop app / browser build (see Debug above) |
-
-### Logs
-
-Server → `/tmp/positron-server.log` · Desktop → `/tmp/positron-electron.log`.
 
 ### Updating the image tag
 
@@ -243,11 +201,9 @@ It removes this project's dev container, its data volumes (root + e2e `node_modu
   also build natively on the same checkout, the two builds share `out/` and clobber each other;
   recompile after switching.
 - **One dev container per checkout** at a time.
-- **The Ports panel fills up** (often 30–40 entries). Positron opens many internal loopback ports
-  (extension hosts, language servers, Jupyter kernels) that VS Code auto-forwards. They're harmless
-  `127.0.0.1` entries — only the four labeled ones (8080/9323/6080/5900) matter. To declutter, run
-  **Remote: Close Unused Ports** from the Command Palette (clears the stale/dead ones); bind it to a
-  key (Keyboard Shortcuts → "Close Unused Ports") if you do it often. We tried suppressing the
-  auto-forwarding via settings — it doesn't stick in a connected container, so this is the cleanup.
+- **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
+  ports (extension hosts, language servers, kernels); only the four labeled ones
+  (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter. (Suppressing the
+  auto-forward via settings doesn't stick in a connected container.)
 - **After editing test-infra files** (`test/e2e/infra/…`), run **Developer: Reload Window** so the
   Playwright extension picks them up (it caches transpiles in a worker).
