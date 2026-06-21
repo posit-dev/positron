@@ -53,8 +53,7 @@ Open your Positron checkout (a regular clone or a git worktree), then:
 
 1. **File → Open Workspace from File…** → `positron-ci.code-workspace`
 2. **Dev Containers: Reopen in Container** → **Positron CI (ubuntu24-arm64)**
-3. When prompted to install the recommended **Task Buttons** extension, click **Install**. That's
-   what draws the status-bar buttons.
+3. When prompted, install the recommended Task Buttons extension by clicking Install. This extension adds the status bar buttons for quick access to common tasks. Alternatively, you can install it manually with: `code --install-extension spencerwmiles.vscode-task-buttons`. Using the buttons is a convenient shortcut that saves you from navigating multiple menus to find the right tasks
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright),
 about 10 minutes once per machine. It persists on Docker volumes, so later opens are fast.
@@ -76,26 +75,17 @@ Worth knowing about the setup:
 - **Worktrees just work.** A host-side `initializeCommand` auto-detects your checkout and git dir
   and mounts both. It must be a **full clone**, though: a shallow clone can't build, because the
   compile needs git history.
-- Opening `positron-ci.code-workspace` (rather than the plain folder) is what surfaces the CI tasks,
-  the debug config, and the buttons. Someone who opens the repo normally sees none of it.
 
 ## How to
 
-The common actions (**Server (Web)**, **Desktop (Electron)**, **Report**, **Stop**, **Doctor**) are
-**status-bar buttons** at the bottom of the window: one click, no Command Palette. Everything else is
-in `Cmd-Shift-P → Tasks: Run Task`, prefixed **`Positron CI:`** (type "Positron CI" to filter). The
-debugger lives in the **Run and Debug** panel.
+If you install the button tasks extension, the most common actions are at the bottom of the window: one click, no Command Palette. Everything else is in `Cmd-Shift-P → Tasks: Run Task`, prefixed `Positron CI:` (type "Positron CI" to filter). The debugger lives in the **Run and Debug** panel also prefxied with `Positron: CI`.
 
-A note on terminals: **Server**, **Desktop**, and **Stop** run silently — no terminal pops up and
-your view stays on the Doctor. The **Doctor** is a **live dashboard** that **updates on its own when
-something changes** (within a few seconds — so clicking Server/Desktop/Stop shows up there without
-you doing anything), stays still when nothing's happening, and any key forces a refresh (`q` quits).
-It **opens automatically when you open this workspace** (you may get a one-time "allow automatic
-tasks?" prompt — say yes), and you can re-open it any time with the **Doctor** button. Keep it in a
-split and it's your at-a-glance status board: the server/desktop URLs appear there when they're up.
-If a start **fails** (e.g. the build isn't ready), the Doctor shows a red **✗ … failed: reason** for
-that service instead of leaving it silently stopped — so windowless doesn't hide errors. (**VNC**
-and **Report** still open their own terminal, since their whole point is to show you a URL.)
+**Start the Doctor and keep it open** (click the **Doctor** button, or run the task) in a split.
+It's a live dashboard (build status, services, URLs) that refreshes itself within a few seconds
+whenever something changes; `q` quits. It's set to open on workspace load, but if it doesn't, just
+start it. Because **Server**, **Desktop**, and **Stop** run silently (no terminal), the Doctor is
+where you watch them come up, and where a failed start shows a red **✗ failed: reason** instead of
+vanishing quietly. **VNC** and **Report** open a terminal, since their job is to print a URL.
 
 ### Edit and re-run
 
