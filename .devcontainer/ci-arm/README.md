@@ -68,10 +68,11 @@ That's it — you have a working CI lab.
 Reopen the lab anytime: in VS Code, **Open Recent** the worktree and **Reopen in Container**. To
 reproduce a specific failure, `git checkout` that commit in the worktree first.
 
-Common actions are status-bar buttons (**Task Buttons**); everything else is `Cmd-Shift-P → Tasks:
-Run Task`, filtered by `Positron CI`, and debug profiles are in **Run and Debug**.
+> [!TIP]
+> Use the **Task Buttons** extension to launch common tasks quickly; everything else is `Cmd-Shift-P → Tasks: Run Task` - filtered by `Positron CI`
 
-> **Keep the Doctor open** — alive dashboard of build/service status and URLs; `q` quits.
+> [!IMPORTANT]
+> **Keep the Doctor open** — it is a live dashboard of build/service statuses and URLs
 
 ### Edit and re-run
 
@@ -102,17 +103,17 @@ To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift
 and hit ▶. Set breakpoints in `src/` as usual; both profiles run on the headless display, so watch
 in VNC.
 
-- **Positron CI: Debug (Electron)** — the desktop app; attaches to all its processes (main, renderer,
+* **Positron CI: Debug (Electron)** — the desktop app; attaches to all its processes (main, renderer,
   extension host, …). The simpler choice for most source.
-- **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
+*-* **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
   the workbench frontend in Chromium. Use it for web-only or `e2e-chromium` behavior.
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
 
 ### Run Positron itself
 
-- **Positron CI: Start server** — a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
-- **Positron CI: Desktop** — the desktop app on the headless display; watch via VNC.
+* **Positron CI: Start server** — a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
+* **Positron CI: Desktop** — the desktop app on the headless display; watch via VNC.
 
 Both run detached (logs in `/tmp/positron-{server,electron}.log`) and restart cleanly on re-click;
 their URLs show in the Doctor. **Stop** shuts both (plus the report) down and leaves core services up.
@@ -121,9 +122,9 @@ their URLs show in the Doctor. **Stop** shuts both (plus the report) down and le
 
 You don't have to guess — the Doctor checks deps and build state and names the task:
 
-- deps changed → **Reinstall deps** / **Reinstall e2e deps**
-- no compiled output → start **Watch (src)**
-- build incomplete → **Rebuild**
+* deps changed → **Reinstall deps** / **Reinstall e2e deps**
+* no compiled output → start **Watch (src)**
+* build incomplete → **Rebuild**
 
 ## Reference
 
@@ -131,7 +132,7 @@ You don't have to guess — the Doctor checks deps and build state and names the
 
 Your **checkout** is a bind mount, so edits live on your host disk and file navigation works
 normally. The heavy **container-built dirs** live on Docker volumes instead: native volume I/O beats
-macOS bind mounts, and it keeps Linux-built binaries out of your host checkout. There are four,
+macOS bind mounts, and it keeps those big Linux-built dirs off your host disk. There are four,
 prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume ls` or `reset.sh`):
 
 | Volume | Holds |
@@ -147,9 +148,8 @@ Everything not listed above — your home dir, `/tmp`, and all logs (Positron's,
 detached server/desktop) — lives in the container's writable layer: container-only, not on your
 host, and wiped on rebuild or `reset.sh`. Grab logs before rebuilding.
 
-**Worktrees** just work — a host-side `initializeCommand` auto-detects your checkout and git dir and
-mounts both. It must be a **full clone**, though: a shallow clone can't build, because the compile
-needs git history.
+Your checkout is a **worktree** (from Setup), so a host-side `initializeCommand` mounts both it and
+the shared git dir — that's what lets git resolve normally inside the container.
 
 #### Don't mix container and native builds
 
