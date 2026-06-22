@@ -168,6 +168,13 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		// Convert plain object back to Map from IPC
 		return new Map(Object.entries(result));
 	}
+
+	getPackageDetail(
+		name: string,
+		token: CancellationToken,
+	): Promise<Partial<ILanguageRuntimePackage> | undefined> {
+		return this._proxy.$getPackageDetail(this._handle, name, token);
+	}
 }
 
 /**
