@@ -36,6 +36,7 @@ function makeInstance(pkgs: ILanguageRuntimePackage[], sessionId = SESSION_ID): 
 		packages: pkgs,
 		session: makeSession(sessionId),
 		onDidRefreshPackagesInstance: new Emitter<ILanguageRuntimePackage[]>().event,
+		getPackageDetail: vi.fn().mockResolvedValue(undefined),
 	});
 }
 
@@ -159,5 +160,53 @@ describe('PackageDetail when the package is attached', () => {
 			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
 		expect(screen.getByText('Attached')).toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail with resolved detail fields', () => {
+	const instance = makeInstance([dplyr()]);
+	(instance.getPackageDetail as ReturnType<typeof vi.fn>).mockResolvedValue({
+		title: 'A grammar of data manipulation (extended)',
+		author: 'Hadley Wickham',
+		dependencyCount: 12,
+		sourceRepository: 'CRAN',
+	});
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('renders author, source repository, and dependency count after the fetch resolves', async () => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		expect(await screen.findByText('Hadley Wickham')).toBeInTheDocument();
+		expect(await screen.findByText('CRAN')).toBeInTheDocument();
+		expect(await screen.findByText('12')).toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail while detail fetch is pending', () => {
+	const instance = makeInstance([dplyr()]);
+	(instance.getPackageDetail as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => { /* never resolves */ }));
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('shows loading skeletons for detail-only rows while the fetch is pending', () => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		const skeletons = screen.getAllByTestId('package-detail-loading');
+		expect(skeletons.length).toBeGreaterThan(0);
 	});
 });

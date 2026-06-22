@@ -43,6 +43,27 @@ const Field = (props: { label: string; value: string | undefined; children?: Rea
 	);
 };
 
+/** A detail-only Overview row that shows a skeleton while the detail fetch is pending. */
+const DetailField = (props: { label: string; value: string | number | undefined; loading: boolean }) => {
+	if (props.value === undefined || props.value === '') {
+		if (props.loading) {
+			return (
+				<>
+					<div className='package-detail-field-label'>{props.label}</div>
+					<div className='package-detail-field-value'><span className='package-detail-skeleton' data-testid='package-detail-loading' /></div>
+				</>
+			);
+		}
+		return null;
+	}
+	return (
+		<>
+			<div className='package-detail-field-label'>{props.label}</div>
+			<div className='package-detail-field-value'>{props.value}</div>
+		</>
+	);
+};
+
 /**
  * PackageDetail component.
  * Renders the detail view for a package: header with actions, optional banners,
@@ -75,6 +96,25 @@ export const PackageDetail = (props: PackageDetailProps) => {
 
 		return () => store.dispose();
 	}, [packagesService, sessionId]);
+
+	// Detail fetch: call getPackageDetail when the package/session changes.
+	const [detail, setDetail] = useState<Partial<ILanguageRuntimePackage> | undefined>(undefined);
+	const [detailLoading, setDetailLoading] = useState(false);
+	useEffect(() => {
+		const inst = packagesService.getInstances().find(i => i.session.metadata.sessionId === sessionId);
+		if (!inst) {
+			setDetail(undefined);
+			setDetailLoading(false);
+			return;
+		}
+		let cancelled = false;
+		setDetail(undefined);
+		setDetailLoading(true);
+		inst.getPackageDetail(packageName)
+			.then(d => { if (!cancelled) { setDetail(d); setDetailLoading(false); } })
+			.catch(() => { if (!cancelled) { setDetail(undefined); setDetailLoading(false); } });
+		return () => { cancelled = true; };
+	}, [packagesService, sessionId, packageName]);
 
 	const instance: IPositronPackagesInstance | undefined = packagesService.getInstances()
 		.find(i => i.session.metadata.sessionId === sessionId);
@@ -194,6 +234,12 @@ export const PackageDetail = (props: PackageDetailProps) => {
 		}
 	};
 
+	// Merge detail fields over the list entry. Detail-only fields (author,
+	// dependencyCount, sourceRepository, title, and potentially license/publishedDate)
+	// are undefined until the fetch resolves; the list-derived fields are present
+	// immediately.
+	const merged = { ...pkg, ...detail };
+
 	// Installed version, with "(latest)" appended when the runtime reports the
 	// installed version is the latest (so we omit a separate Latest version row).
 	const installedVersionText = livePkg
@@ -238,8 +284,12 @@ export const PackageDetail = (props: PackageDetailProps) => {
 			<div className='package-detail-overview'>
 				<Field label={localize('positron.packages.detail.installedVersion', "Installed version")} value={installedVersionText} />
 				<Field label={localize('positron.packages.detail.latestVersion', "Latest version")} value={pkg?.outdated ? pkg?.latestVersion : undefined} />
-				<Field label={localize('positron.packages.detail.license', "License")} value={pkg?.license} />
-				<Field label={localize('positron.packages.detail.published', "Date published")} value={pkg?.publishedDate} />
+				<Field label={localize('positron.packages.detail.license', "License")} value={merged.license} />
+				<Field label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate} />
+				<DetailField label={localize('positron.packages.detail.title', "Title")} loading={detailLoading} value={merged.title && merged.title !== pkg?.description ? merged.title : undefined} />
+				<DetailField label={localize('positron.packages.detail.author', "Author")} loading={detailLoading} value={merged.author} />
+				<DetailField label={localize('positron.packages.detail.dependencies', "Dependencies")} loading={detailLoading} value={merged.dependencyCount} />
+				<DetailField label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
 				<Field label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
 			</div>
 		</div>

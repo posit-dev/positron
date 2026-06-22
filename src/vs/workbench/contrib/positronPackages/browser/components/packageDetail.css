@@ -134,3 +134,12 @@
 
 .package-detail-field-label { opacity: 0.6; }
 .package-detail-field-value { word-break: break-word; }
+
+.package-detail-skeleton {
+	display: inline-block;
+	width: 120px;
+	height: 1em;
+	border-radius: 3px;
+	background: var(--vscode-editorWidget-background);
+	opacity: 0.6;
+}
