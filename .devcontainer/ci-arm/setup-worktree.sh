@@ -56,12 +56,24 @@ else
   fi
 fi
 
+# Build the secrets reminder conditionally: copy from this checkout if it has the file, otherwise
+# point at the .env.example / 1Password step (a fresh checkout may have no secrets to copy).
+secret_line() {  # <file> <fallback-line>
+  if [ -f "$MAIN/.devcontainer/ci-arm/$1" ]; then
+    echo "       cp \"$MAIN/.devcontainer/ci-arm/$1\" \"$DEST/.devcontainer/ci-arm/$1\""
+  else
+    echo "$2"
+  fi
+}
+env_line="$(secret_line .env "       cp \"$DEST/.devcontainer/ci-arm/.env.example\" \"$DEST/.devcontainer/ci-arm/.env\"   # then fill in Postgres info from 1Password")"
+lic_line="$(secret_line license.txt "       # copy the 'Positron Server private key' from 1Password to \"$DEST/.devcontainer/ci-arm/license.txt\"")"
+
 cat <<EOF
 
 Done. Next, in the new worktree:
   1. Add your secrets (gitignored, so they aren't copied in -- the container needs them):
-       cp "$MAIN/.devcontainer/ci-arm/.env"         "$DEST/.devcontainer/ci-arm/.env"          # or see README Setup
-       cp "$MAIN/.devcontainer/ci-arm/license.txt"  "$DEST/.devcontainer/ci-arm/license.txt"
+$env_line
+$lic_line
   2. Open the workspace and Reopen in Container:
        code "$DEST/positron-ci.code-workspace"
 
