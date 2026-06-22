@@ -21,8 +21,8 @@ const CONTAINER_NAME = 'test';
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections);
+	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant);
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -87,7 +87,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
@@ -126,7 +126,7 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 		CONTAINER_NAME,
 		'/home/user1/.positron-server/User/',
 		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
-		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 	);
 	await copyKeyBindingsToContainer(CONTAINER_NAME, '/home/user1/.positron-server/User/');
 

@@ -30,6 +30,14 @@ export interface AppFixtureOptions {
 	 * copied into the container.
 	 */
 	enableDataConnections?: boolean;
+	/**
+	 * When true, suites opt into the Microsoft Foundry (msFoundry) assistant
+	 * provider, authenticated via Posit Workbench managed credentials. As with
+	 * the other override flags, the local apps apply this via the host
+	 * `settingsFile` in `beforeApp`, while the Docker-based apps merge the
+	 * settings into the container settings.
+	 */
+	enableFoundryAssistant?: boolean;
 }
 
 /**

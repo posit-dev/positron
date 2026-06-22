@@ -20,7 +20,7 @@ export { RunResult };
 export async function JupyterApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, useLegacyNotebookEditor, enableDataConnections } = fixtureOptions;
+	const { options, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant } = fixtureOptions;
 	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/qa-example-content/';
 
 	const app = createApp({ ...options, workspacePath: JUPYTER_WORKSPACE_PATH });
@@ -32,7 +32,7 @@ export async function JupyterApp(
 		await app.positJupyter.auth.signIn();
 
 		// Now that the user exists, setup the environment
-		await setupJupyterEnvironment(useLegacyNotebookEditor, enableDataConnections);
+		await setupJupyterEnvironment(useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant);
 
 		// Open Positron from JupyterLab
 		await app.positJupyter.lab.openPositron();
@@ -116,7 +116,7 @@ export async function JupyterApp(
  * Setup the complete Jupyter environment: Docker container, configuration, and permissions
  * NOTE: This must be called AFTER login, as login creates the jupyter-admin user
  */
-async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean): Promise<void> {
+async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean): Promise<void> {
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	const JUPYTER_WORKSPACE_PATH = '/home/jupyter-admin/qa-example-content/';
@@ -152,7 +152,7 @@ async function setupJupyterEnvironment(useLegacyNotebookEditor?: boolean, enable
 		'jupyter-test',
 		'/home/jupyter-admin/.positron-server/data/User/',
 		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
-		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 	);
 	await copyKeyBindingsToContainer('jupyter-test', '/home/jupyter-admin/.positron-server/data/User/');
 
