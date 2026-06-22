@@ -531,6 +531,19 @@ class PositronShell(ZMQInteractiveShell):
         except Exception:
             logger.exception("Error polling variables")
 
+        # Detach high-level plotting library figures (e.g. seaborn) so that re-running
+        # plotting code starts a fresh figure instead of drawing onto the previous one.
+        # See https://github.com/posit-dev/positron/issues/8898. Only act if matplotlib
+        # has already imported our backend: importing it here would run its module-level
+        # setup code, so we reuse the already-loaded module instead.
+        if "positron.matplotlib_backend" in sys.modules:
+            try:
+                from .matplotlib_backend import detach_library_figures
+
+                detach_library_figures()
+            except Exception:
+                logger.exception("Error detaching plotting library figures")
+
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
         Add the directory of the executed file to sys.path.
