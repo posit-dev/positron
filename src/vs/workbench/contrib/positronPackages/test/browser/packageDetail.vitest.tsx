@@ -85,13 +85,16 @@ describe('PackageDetail', () => {
 		const user = userEvent.setup();
 		const update = screen.getByRole('button', { name: /update/i });
 		await user.click(update);
-		expect(executeCommand).toHaveBeenCalledWith('positronPackages.updatePackage', 'dplyr');
+		// The update runs directly with the target version (no version prompt).
+		expect(executeCommand).toHaveBeenCalledWith('positronPackages.updatePackage', 'dplyr', '1.1.4');
 	});
 
 	it('shows the Overview metadata that is present', () => {
 		render();
-		expect(screen.getByText('1.1.2')).toBeInTheDocument();   // installed version
-		expect(screen.getByText('1.1.4')).toBeInTheDocument();   // latest version
+		// Version appears twice: the faded version next to the name and the
+		// installed-version Overview row.
+		expect(screen.getAllByText('1.1.2')).toHaveLength(2);
+		expect(screen.getByText('1.1.4')).toBeInTheDocument();   // latest version (outdated)
 		expect(screen.getByText('MIT')).toBeInTheDocument();     // license
 	});
 });
@@ -115,5 +118,46 @@ describe('PackageDetail when session is not active', () => {
 		);
 		expect(screen.getByText(/not the active session/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /uninstall/i })).toBeDisabled();
+	});
+});
+
+describe('PackageDetail when the package is current', () => {
+	const instance = makeInstance([dplyr({ version: '1.1.4', outdated: false, latestVersion: '1.1.4' })]);
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('appends "(latest)" to the installed version and omits a Latest version row', () => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		// Installed-version Overview row reads "1.1.4 (latest)"; the faded header
+		// version is the bare "1.1.4".
+		expect(screen.getByText('1.1.4 (latest)')).toBeInTheDocument();
+		expect(screen.getByText('1.1.4')).toBeInTheDocument();
+	});
+});
+
+describe('PackageDetail when the package is attached', () => {
+	const instance = makeInstance([dplyr({ attached: true })]);
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('shows an "Attached" pill', () => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		expect(screen.getByText('Attached')).toBeInTheDocument();
 	});
 });

@@ -98,7 +98,9 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	const runAction = (action: PackageAction) => {
 		switch (action) {
 			case 'update':
-				services.commandService.executeCommand('positronPackages.updatePackage', packageName);
+				// Pass the target version so the update runs directly without
+				// prompting for a version in a quick-pick.
+				services.commandService.executeCommand('positronPackages.updatePackage', packageName, pkg?.latestVersion);
 				break;
 			case 'uninstall':
 				services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
@@ -134,24 +136,85 @@ export const PackageDetail = (props: PackageDetailProps) => {
 		}
 	};
 
+	// Update/Install use the prominent (primary) button colour; Uninstall is a
+	// plain (secondary) button; Help and Website are icon-only buttons matching
+	// the Packages list. Website is never disabled (opening a URL is not a
+	// session operation).
+	const renderActionButton = (action: PackageAction) => {
+		const disabled = action !== 'website' && !view.actionsEnabled;
+		switch (action) {
+			case 'update':
+			case 'install':
+				return (
+					<Button
+						key={action}
+						className='package-detail-action package-detail-action-primary'
+						disabled={disabled}
+						onPressed={() => runAction(action)}
+					>
+						{actionLabel(action)}
+					</Button>
+				);
+			case 'uninstall':
+				return (
+					<Button
+						key={action}
+						className='package-detail-action'
+						disabled={disabled}
+						onPressed={() => runAction(action)}
+					>
+						{actionLabel(action)}
+					</Button>
+				);
+			case 'help':
+				return (
+					<Button
+						key={action}
+						ariaLabel={actionLabel('help')}
+						className='package-detail-action package-detail-action-icon'
+						disabled={disabled}
+						tooltip={actionLabel('help')}
+						onPressed={() => runAction(action)}
+					>
+						<span className='codicon codicon-book' />
+					</Button>
+				);
+			case 'website':
+				return (
+					<Button
+						key={action}
+						ariaLabel={actionLabel('website')}
+						className='package-detail-action package-detail-action-icon'
+						tooltip={actionLabel('website')}
+						onPressed={() => runAction(action)}
+					>
+						<span className='codicon codicon-link-external' />
+					</Button>
+				);
+		}
+	};
+
+	// Installed version, with "(latest)" appended when the runtime reports the
+	// installed version is the latest (so we omit a separate Latest version row).
+	const installedVersionText = livePkg
+		? (livePkg.outdated === false
+			? localize('positron.packages.detail.versionLatest', "{0} (latest)", livePkg.version)
+			: livePkg.version)
+		: undefined;
+
 	return (
 		<div className='positron-package-detail'>
 			<div className='package-detail-header'>
 				<div aria-hidden='true' className='package-detail-icon'>{languageBadge}</div>
 				<div className='package-detail-header-main'>
-					<h2 className='package-detail-title'>{packageName}</h2>
+					<div className='package-detail-title-row'>
+						<h2 className='package-detail-title'>{packageName}</h2>
+						{pkg?.version && <span className='package-detail-version'>{pkg.version}</span>}
+						{pkg?.attached && <span className='package-detail-attached-pill'>{localize('positron.packages.detail.attached', "Attached")}</span>}
+					</div>
 					{pkg?.description && <div className='package-detail-description'>{pkg.description}</div>}
 					<div className='package-detail-actions'>
-						{view.actions.map(action => (
-							<Button
-								key={action}
-								className='package-detail-action'
-								disabled={action !== 'website' && !view.actionsEnabled}
-								onPressed={() => runAction(action)}
-							>
-								{actionLabel(action)}
-							</Button>
-						))}
+						{view.actions.map(renderActionButton)}
 					</div>
 				</div>
 			</div>
@@ -173,20 +236,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 			</div>
 
 			<div className='package-detail-overview'>
-				<Field label={localize('positron.packages.detail.installedVersion', "Installed version")} value={livePkg?.version} />
-				<Field label={localize('positron.packages.detail.latestVersion', "Latest version")} value={pkg?.latestVersion} />
+				<Field label={localize('positron.packages.detail.installedVersion', "Installed version")} value={installedVersionText} />
+				<Field label={localize('positron.packages.detail.latestVersion', "Latest version")} value={pkg?.outdated ? pkg?.latestVersion : undefined} />
 				<Field label={localize('positron.packages.detail.license', "License")} value={pkg?.license} />
 				<Field label={localize('positron.packages.detail.published', "Date published")} value={pkg?.publishedDate} />
-				<Field
-					label={localize('positron.packages.detail.loaded', "Loaded")}
-					value={pkg?.attached === undefined
-						? undefined
-						: (pkg.attached
-							? localize('positron.packages.detail.yes', "Yes")
-							: localize('positron.packages.detail.no', "No")
-						)}
-				/>
-				<Field label={localize('positron.packages.detail.field.website', "Website")} value={pkg?.url} />
 				<Field label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
 			</div>
 		</div>

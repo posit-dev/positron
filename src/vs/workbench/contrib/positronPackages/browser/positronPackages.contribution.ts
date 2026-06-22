@@ -356,7 +356,10 @@ class InstallPackageAction extends Action2 {
 			// When a package name is provided (e.g. from the detail editor's
 			// Install button), install the newest available version directly,
 			// skipping the search quick-pick.
-			const argPackage = args.at(0) as string | undefined;
+			// Only a real package-name string triggers the direct install. Menu
+			// invocations (e.g. the view-title overflow "Install Package") pass a
+			// context object as arg0, which must fall through to the search quick-pick.
+			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
 			if (argPackage) {
 				const rawVersions = await service.searchPackageVersions(argPackage, cts.token);
 				// sortVersionsDescending mirrors what the version quick-pick does:
@@ -507,8 +510,17 @@ class UpdatePackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			const arg0 = args.at(0) as string | undefined;
-			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, arg0, cts);
+			// Only treat a real string as the package name (menu invocations pass a
+			// context object as arg0). When both a package name and a target version
+			// are given (e.g. the detail editor's Update button), update directly
+			// without prompting; otherwise fall through to the quick-pick flow.
+			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
+			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			if (argPackage && argVersion) {
+				await performUpdate(argPackage, argVersion);
+				return;
+			}
+			await updatePackage(accessor, performSearch, performSearchVersions, performUpdate, argPackage, cts);
 		} catch (error) {
 			notifications.error(cleanErrorMessage(error));
 			throw error;
