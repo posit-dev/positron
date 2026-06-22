@@ -137,6 +137,10 @@ prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume
 
 `out/` is the exception: it stays on the bind mount, since the compile recreates it.
 
+Everything not listed above — your home dir, `/tmp`, and all logs (Positron's, Xvfb/VNC, the
+detached server/desktop) — lives in the container's writable layer: container-only, not on your
+host, and wiped on rebuild or `reset.sh`. Grab logs before rebuilding.
+
 **Worktrees** just work — a host-side `initializeCommand` auto-detects your checkout and git dir and
 mounts both. It must be a **full clone**, though: a shallow clone can't build, because the compile
 needs git history.
