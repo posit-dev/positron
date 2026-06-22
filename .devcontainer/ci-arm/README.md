@@ -40,6 +40,8 @@ Copy the `Positron Server private key` from 1Password to:
 .devcontainer/ci-arm/license.txt
 ```
 
+Both `.env` and `license.txt` are gitignored — don't commit them.
+
 ### 3. Open the workspace in the container
 
 From a regular clone or a git worktree of Positron, run `Dev Containers: Open Workspace in
