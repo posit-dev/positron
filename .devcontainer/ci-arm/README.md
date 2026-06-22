@@ -39,7 +39,7 @@ never mix with native builds (see [Don't mix container and native builds](#dont-
 From your Positron checkout (a **full** clone — the build needs git history, so not a shallow one):
 
 ```bash
-git worktree add ../positron-ci
+git worktree add ../positron-ci-lab
 ```
 
 ### 2. Add secrets — in the new worktree
@@ -69,6 +69,14 @@ That's it — you have a working CI lab.
 **Get in and out.** Reopen the lab: **Open Recent** the worktree, then **Reopen in Container**. To
 reproduce a specific failure, `git checkout` that commit first. To return to local VS Code, run
 **Dev Containers: Reopen Folder Locally**.
+
+**Find the lab again.** It's a separate directory, not a branch — you don't switch to it, you `cd`
+into it. Forgot where it lives? `git worktree list` prints every worktree and its path:
+
+```bash
+git worktree list          # shows .../positron-ci-lab
+cd ../positron-ci-lab      # from your main checkout
+```
 
 **Run things.** Common actions are **Task Buttons** in the status bar; everything else is
 `Cmd-Shift-P → Tasks: Run Task` (filter "Positron CI"); debug profiles are in **Run and Debug**.

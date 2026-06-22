@@ -87,7 +87,6 @@
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/build-doctor.sh --watch",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
-				"runOptions": { "runOn": "folderOpen" },
 				"problemMatcher": []
 			},
 			{
