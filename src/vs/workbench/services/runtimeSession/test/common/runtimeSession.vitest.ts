@@ -1437,4 +1437,92 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(info, 'Expected cached session info to persist after deletion').toBeTruthy();
 		});
 	});
+
+	describe('session display state', () => {
+		test('display state mirrors raw state when not restarting', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			session.setRuntimeState(RuntimeState.Idle);
+
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId))
+				.toBe(RuntimeState.Idle);
+		});
+
+		test('fires onDidChangeDisplayRuntimeState on raw state change', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			const states: RuntimeState[] = [];
+			ctx.disposables.add(runtimeSessionService.onDidChangeDisplayRuntimeState(e => {
+				if (e.sessionId === session.sessionId) { states.push(e.state); }
+			}));
+
+			session.setRuntimeState(RuntimeState.Busy);
+			session.setRuntimeState(RuntimeState.Idle);
+
+			expect(states).toContain(RuntimeState.Busy);
+			expect(states).toContain(RuntimeState.Idle);
+		});
+
+		test('display state is Restarting while a restart is in flight and idle is transient', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			session.setRuntimeState(RuntimeState.Idle);
+
+			const restart = runtimeSessionService.restartSession(session.sessionId, 'test');
+
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId))
+				.toBe(RuntimeState.Restarting);
+
+			session.setRuntimeState(RuntimeState.Idle);
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId))
+				.toBe(RuntimeState.Restarting);
+
+			await restart;
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId))
+				.toBe(RuntimeState.Ready);
+		});
+
+		test('getDisplayRuntimeState returns undefined for an unknown session', () => {
+			expect(runtimeSessionService.getDisplayRuntimeState('no-such-session')).toBeUndefined();
+		});
+
+		test('does not fire a duplicate display-state event for an unchanged state', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			session.setRuntimeState(RuntimeState.Idle);
+
+			const states: RuntimeState[] = [];
+			ctx.disposables.add(runtimeSessionService.onDidChangeDisplayRuntimeState(e => {
+				if (e.sessionId === session.sessionId) { states.push(e.state); }
+			}));
+
+			session.setRuntimeState(RuntimeState.Idle);
+			session.setRuntimeState(RuntimeState.Idle);
+
+			expect(states).not.toContain(RuntimeState.Idle);
+		});
+
+		test('foreground display info reflects Restarting during a foreground restart', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			runtimeSessionService.foregroundSession = session;
+			session.setRuntimeState(RuntimeState.Idle);
+
+			const restart = runtimeSessionService.restartSession(session.sessionId, 'test');
+			expect(runtimeSessionService.foregroundSessionDisplayInfo?.sessionState)
+				.toBe(RuntimeState.Restarting);
+
+			await restart;
+		});
+
+		test('clears display state after the session is deleted', async () => {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId)).toBeDefined();
+
+			await runtimeSessionService.deleteSession(session.sessionId);
+			expect(runtimeSessionService.getDisplayRuntimeState(session.sessionId)).toBeUndefined();
+		});
+	});
 });

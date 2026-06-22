@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions: State', {
+test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }]
 }, () => {
@@ -44,8 +44,8 @@ test.describe.skip('Sessions: State', {
 		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
 		const rSessionId = await sessions.startAndSkipMetadata({ language: 'R', waitForReady: false });
 
-		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.expectStatusToBe(rSessionId, 'active');
+		// R starts fast enough that its transient 'active' state can't be reliably
+		// observed on startup; active is covered by the restart and execution checks.
 		await sessions.expectStatusToBe(rSessionId, 'idle');
 		await sessions.expectStatusToBe(pySessionId, 'idle');
 
@@ -63,7 +63,8 @@ test.describe.skip('Sessions: State', {
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
 		await sessions.restart(rSessionId, { waitForIdle: false });
-		// await sessions.expectStatusToBe(rSessionId, 'active'); // sometimes we miss the active state since it occurs very quickly, checking console text to confirm restart
+		await sessions.expectStatusToBe(rSessionId, 'active');
+		// sometimes we miss the active state since it occurs very quickly, checking console text to confirm restart
 		await console.waitForConsoleContents('restarted.', { timeout: 20000 });
 		await sessions.expectStatusToBe(rSessionId, 'idle');
 		await sessions.expectStatusToBe(pySessionId, 'disconnected');
