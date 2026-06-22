@@ -29,38 +29,29 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 ## Setup
 
-One-time, on the host.
-
 Container work lives in a **dedicated git worktree** so its Linux build artifacts never mix with
 native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-From your main clone, on any branch, **one command** creates that worktree off your current commit
-and opens it:
+From your main clone, on any branch, **one command** does it:
 
 ```bash
-./.devcontainer/ci-arm/start.sh        # creates the worktree, opens VS Code
+./.devcontainer/ci-arm/start.sh
 ```
 
-Then click **Reopen in Container**. (If setup fails — e.g. the branch is already checked out
-elsewhere — it tells you exactly what to do and opens nothing. `setup-worktree.sh` does only the
-worktree part if you'd rather open it yourself.)
+It creates the worktree (off your current commit) and opens it in VS Code; then click **Reopen in
+Container**.
 
-### 1. Create your `.env`
+**The first run stops and asks for your secrets.** `.env` and `license.txt` are gitignored, so a
+fresh worktree doesn't have them and the container needs both. Add them **in the worktree**
+(`start.sh` prints the exact lines — including copying from your main clone if you already have them
+there):
 
-Copy the template, then fill in the Postgres connection info from 1Password (`E2E Postgres DB connection info`):
+- **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
+  Postgres connection info from 1Password (`E2E Postgres DB connection info`).
+- **license** — copy the `Positron Server private key` from 1Password to
+  `.devcontainer/ci-arm/license.txt`.
 
-```bash
-cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
-```
-
-### 2. Add your license
-
-Copy the `Positron Server private key` from 1Password to:
-
-```
-.devcontainer/ci-arm/license.txt
-```
-
-Both `.env` and `license.txt` are gitignored — don't commit them.
+Then run `start.sh` again and it opens. (Neither file is committed — both are gitignored. Prefer not
+to use `start.sh`? `setup-worktree.sh` creates only the worktree and you open it yourself.)
 
 ## How to
 

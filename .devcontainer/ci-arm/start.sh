@@ -45,6 +45,31 @@ EOF
   exit 1
 fi
 
+# The container needs .env + license.txt, which are gitignored and so are NOT copied into a fresh
+# worktree. Don't open a container that would fail the build; tell the user exactly how to add them.
+CFG="$DEST/.devcontainer/ci-arm"
+MAINCFG="$MAIN/.devcontainer/ci-arm"
+missing=""
+[ -f "$CFG/.env" ]         || missing="$missing .env"
+[ -f "$CFG/license.txt" ]  || missing="$missing license.txt"
+if [ -n "$missing" ]; then
+  echo >&2
+  echo "Worktree ready, but it's missing:$missing" >&2
+  echo "(these are gitignored, so a fresh worktree doesn't get them — the container needs them)." >&2
+  echo "Add them in the worktree, then run start again:" >&2
+  for f in $missing; do
+    if [ -f "$MAINCFG/$f" ]; then
+      echo "  cp \"$MAINCFG/$f\" \"$CFG/$f\"" >&2
+    elif [ "$f" = ".env" ]; then
+      echo "  cp \"$CFG/.env.example\" \"$CFG/.env\"   # then fill in the Postgres info from 1Password" >&2
+    else
+      echo "  # copy the 'Positron Server private key' from 1Password to \"$CFG/license.txt\"" >&2
+    fi
+  done
+  echo "Nothing opened yet." >&2
+  exit 1
+fi
+
 echo
 if command -v code >/dev/null 2>&1; then
   echo "Opening $WS in VS Code..."
