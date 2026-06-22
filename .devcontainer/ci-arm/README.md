@@ -77,7 +77,7 @@ reproduce a specific failure, `git checkout` that commit first. To return to loc
 > Keep the **Doctor** open — a live dashboard of build/service status and URLs. When something's off,
 > it names the task to run.
 
-### Edit code and re-run
+### Edit and re-run
 
 Editing recompiles in seconds, never the ~10-min cold build:
 
