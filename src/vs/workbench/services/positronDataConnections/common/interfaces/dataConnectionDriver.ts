@@ -70,6 +70,15 @@ export type IDataConnectionParameter = IDataConnectionParameterBase & (
 );
 
 /**
+ * Type guard for a parameter that holds a secret value (e.g. a password). Secret parameters carry
+ * `secret: true`; non-secret parameters either omit the field or set it to `false`.
+ * @param parameter The parameter to test.
+ */
+export function isSecretParameter(parameter: IDataConnectionParameter): boolean {
+	return parameter.type === 'password' || (parameter.type === 'string' && parameter.secret === true);
+}
+
+/**
  * Service-level driver metadata. Same shape as IDataConnectionDriverMetadataDTO but with the
  * richer discriminated parameter type so consumers get narrowed `parameter.type`.
  */
@@ -83,6 +92,22 @@ export interface IDataConnectionDriverMetadata {
 }
 
 /**
+ * Service-level form of a single named connection code variant. Same shape as
+ * IDataConnectionCodeVariantDTO; kept distinct so the in-process representation can evolve
+ * independently of the wire contract.
+ */
+export interface IDataConnectionCodeVariant {
+	// A stable identifier for the variant, unique within the returned list.
+	id: string;
+
+	// A user-facing label for the variant.
+	label: string;
+
+	// The generated connection code for this variant.
+	code: string;
+}
+
+/**
  * A registered data connection driver as seen by the service layer.
  * The main thread adapter implements this.
  */
@@ -90,6 +115,18 @@ export interface IDataConnectionDriver {
 	readonly id: string;
 	readonly metadata: IDataConnectionDriverMetadata;
 	connect(params: DataConnectionParameterValues): Promise<IDataConnectionHandle>;
+
+	/**
+	 * Generates the available connection code variants for the given language using the provided
+	 * parameter values. Callers should only invoke this for drivers that report at least one
+	 * supported language (see {@link IDataConnectionDriverMetadata.supportedLanguageIds}); the
+	 * underlying driver rejects the call when it does not implement code generation. Variants are
+	 * returned in preference order (first is the default); an empty array means code cannot be
+	 * generated from the given parameters.
+	 * @param languageId One of the driver's supported language ids.
+	 * @param params The current connection parameter values.
+	 */
+	generateConnectionCode(languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]>;
 }
 
 /**

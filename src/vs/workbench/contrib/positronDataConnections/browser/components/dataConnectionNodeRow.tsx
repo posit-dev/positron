@@ -18,40 +18,48 @@ import { IDataConnectionHandle } from '../../../../services/positronDataConnecti
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 
 /**
- * Maps a DTO kind string to a codicon name. The driver-side kind values are free-form, so
- * unknown kinds fall back to a generic 'symbol-misc' icon. As specific kinds become common
- * across drivers, add entries here to upgrade their visual treatment.
+ * Maps a node DTO to a codicon name, keying off its kind (and, for columns/fields, whether it
+ * is a primary key). The driver-side kind values are free-form, so unknown kinds fall back to a
+ * generic 'symbol-misc' icon. As specific kinds become common across drivers, add entries here
+ * to upgrade their visual treatment.
  */
-const kindIcon = (kind: string): string => {
-	switch (kind) {
+const kindIcon = (dto: IDataConnectionNodeDTO): string => {
+	switch (dto.kind) {
 		case 'catalog':
 		case 'database':
-			return 'database';
+			return 'positron-db-database';
+
+		case 'group-schemas':
+			return 'positron-db-schemas';
+
+		case 'group-tables':
+			return 'positron-db-tables';
+
+		case 'group-indexes':
+			return 'positron-db-indexes';
+
+		case 'group-views':
+			return 'positron-db-views';
+
+		case 'group-columns':
+			return 'positron-db-columns';
+
 		case 'schema':
-			return 'symbol-namespace';
+			return 'positron-db-schema';
+
 		case 'table':
-			return 'table';
+			return 'positron-db-table';
+
+		case 'index':
+			return 'positron-db-index';
+
 		case 'view':
-			return 'eye';
+			return 'positron-db-view';
+
 		case 'column':
 		case 'field':
-			return 'symbol-field';
-		case 'group-schemas':
-			return 'symbol-namespace';
-		case 'group-tables':
-			return 'table';
-		case 'group-views':
-			return 'eye';
-		case 'group-columns':
-			return 'symbol-field';
-		case 'group-indexes':
-			return 'key';
-		case 'group-triggers':
-			return 'zap';
-		case 'trigger':
-			return 'zap';
-		case 'index':
-			return 'key';
+			return dto.isPrimaryKey ? 'positron-db-column-key' : 'positron-db-column';
+
 		default:
 			return 'symbol-misc';
 	}
@@ -127,7 +135,7 @@ export const DataConnectionNodeRow = ({ dto, handle }: DataConnectionNodeRowProp
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>
-			<div className={`codicon codicon-${kindIcon(dto.kind)} data-connection-node-icon`} />
+			<div className={`codicon codicon-${kindIcon(dto)} data-connection-node-icon`} />
 			<div className='data-connection-node-text'>{dto.name}</div>
 			{dto.dataType && (
 				<div className='data-connection-node-type'>{dto.dataType}</div>

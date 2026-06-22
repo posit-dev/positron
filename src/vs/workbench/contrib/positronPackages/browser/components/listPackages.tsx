@@ -36,7 +36,7 @@ import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilt
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
-import { usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -72,7 +72,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
 
-	const loading = usePositronContextKey<boolean>(POSITRON_PACKAGES_IS_BUSY.key);
+	const loading = useContextKey(POSITRON_PACKAGES_IS_BUSY);
 
 	useEffect(() => {
 		if (!activeInstance) {

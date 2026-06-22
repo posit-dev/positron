@@ -150,6 +150,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidChangeForegroundSessionDisplayInfoEmitter =
 		this._register(new Emitter<IRuntimeSessionDisplayInfo | undefined>);
 
+	// The event emitter for the onDidChangeDisplayRuntimeState event.
+	private readonly _onDidChangeDisplayRuntimeStateEmitter =
+		this._register(new Emitter<{ sessionId: string; state: RuntimeState }>());
+
+	// The set of session IDs that are currently restarting.
+	private readonly _restartingSessionIds = new Set<string>();
+
+	// The last known display state per session ID.
+	private readonly _lastDisplayRuntimeStateBySessionId = new Map<string, RuntimeState>();
+
 	// The current foreground session display info.
 	private _foregroundSessionDisplayInfo: IRuntimeSessionDisplayInfo | undefined;
 
@@ -319,6 +329,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when the foreground session display info changes.
 	readonly onDidChangeForegroundSessionDisplayInfo = this._onDidChangeForegroundSessionDisplayInfoEmitter.event;
+
+	// An event that fires when a session's display state changes.
+	readonly onDidChangeDisplayRuntimeState = this._onDidChangeDisplayRuntimeStateEmitter.event;
 
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
@@ -859,7 +872,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Keep the foreground session display info in sync
 		this.foregroundSessionDisplayInfo = this._foregroundSession
-			? new RuntimeSessionDisplayInfo(this._foregroundSession)
+			? this._createRuntimeSessionDisplayInfo(this._foregroundSession)
 			: undefined;
 
 		// Fire the onDidChangeForegroundSession event.
@@ -875,6 +888,49 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined {
 		return this._activeSessionsBySessionId.get(sessionId)?.session;
+	}
+
+	/**
+	 * Gets the display state for a session.
+	 *
+	 * @param sessionId The session ID to retrieve the display state for.
+	 * @returns The display state, or undefined if the session is not active.
+	 */
+	getDisplayRuntimeState(sessionId: string): RuntimeState | undefined {
+		const active = this._activeSessionsBySessionId.get(sessionId);
+		if (!active) {
+			return undefined;
+		}
+		return this._restartingSessionIds.has(sessionId)
+			? RuntimeState.Restarting
+			: active.state;
+	}
+
+	private _createRuntimeSessionDisplayInfo(session: ILanguageRuntimeSession): RuntimeSessionDisplayInfo {
+		return new RuntimeSessionDisplayInfo(session, this.getDisplayRuntimeState(session.sessionId));
+	}
+
+	/**
+	 * Recomputes the display state for a session and fires the change event if it changed.
+	 *
+	 * @param sessionId The session ID to update.
+	 */
+	private _updateDisplayRuntimeState(sessionId: string): void {
+		const displayState = this.getDisplayRuntimeState(sessionId);
+		if (displayState === undefined) {
+			this._lastDisplayRuntimeStateBySessionId.delete(sessionId);
+			return;
+		}
+		if (this._lastDisplayRuntimeStateBySessionId.get(sessionId) === displayState) {
+			return;
+		}
+		this._lastDisplayRuntimeStateBySessionId.set(sessionId, displayState);
+		this._onDidChangeDisplayRuntimeStateEmitter.fire({ sessionId, state: displayState });
+
+		if (this._foregroundSession?.sessionId === sessionId) {
+			this.foregroundSessionDisplayInfo =
+				new RuntimeSessionDisplayInfo(this._foregroundSession, displayState);
+		}
 	}
 
 	/**
@@ -1137,7 +1193,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Keep the foreground session display info in sync
 		if (this._foregroundSession?.sessionId === session.sessionId) {
-			this.foregroundSessionDisplayInfo = new RuntimeSessionDisplayInfo(this._foregroundSession);
+			this.foregroundSessionDisplayInfo = this._createRuntimeSessionDisplayInfo(this._foregroundSession);
 		}
 
 		// Log the end of the session name update
@@ -1174,6 +1230,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
+		// Open the restarting window so display state reads Restarting until the session is ready.
+		this._restartingSessionIds.add(session.sessionId);
+		this._updateDisplayRuntimeState(session.sessionId);
+		startPromise.p.finally(() => {
+			this._restartingSessionIds.delete(session.sessionId);
+			this._updateDisplayRuntimeState(session.sessionId);
+		}).catch(() => { /* handled by the awaited start promise */ });
 
 		// Mark the session as starting.
 		this.setStartingSessionMaps(
@@ -1337,6 +1401,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (this._lastActiveConsoleSession?.sessionId === sessionId) {
 				this._lastActiveConsoleSession = undefined;
 			}
+
+			// Remove stale display-state entries for the deleted session.
+			this._restartingSessionIds.delete(sessionId);
+			this._lastDisplayRuntimeStateBySessionId.delete(sessionId);
 
 			// Dispose of the session.
 			session.dispose();
@@ -1981,10 +2049,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				});
 			}
 
-			// Keep the foreground session display info in sync
-			if (this._foregroundSession?.sessionId === session.sessionId) {
-				this.foregroundSessionDisplayInfo = new RuntimeSessionDisplayInfo(this._foregroundSession);
-			}
+			this._updateDisplayRuntimeState(session.sessionId);
 		}));
 
 		activeSession.register(session.onDidEndSession(async exit => {

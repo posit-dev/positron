@@ -15,14 +15,11 @@ let nextConnectionId = 1;
  * Connection configuration passed from the driver.
  */
 export interface DuckDBConnectionConfig {
-	// Absolute path to the DuckDB database file. Undefined for in-memory databases.
-	databasePath?: string;
+	// Absolute path to the DuckDB database file.
+	databasePath: string;
 
-	// Whether to open the database in read-only mode (ignored for in-memory databases).
+	// Whether to open the database in read-only mode.
 	readOnly: boolean;
-
-	// Whether to open an in-memory database instead of a file.
-	inMemory: boolean;
 }
 
 /**
@@ -60,15 +57,12 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * read-only mode).
 	 */
 	async connect(): Promise<void> {
-		// In-memory databases use the special ':memory:' path.
-		const databasePath = this._config.inMemory ? ':memory:' : this._config.databasePath;
+		const databasePath = this._config.databasePath;
 		if (!databasePath) {
 			throw new Error('Database file path is required');
 		}
 
-		// In-memory databases are always read-write.
-		const readOnly = this._config.readOnly && !this._config.inMemory;
-		const client = new DuckDBWorkerClient({ databasePath, readOnly });
+		const client = new DuckDBWorkerClient({ databasePath, readOnly: this._config.readOnly });
 
 		try {
 			// Probe the connection so an open failure surfaces here rather than on
@@ -77,8 +71,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 			this._client = client;
 		} catch (err: any) {
 			client.dispose();
-			const target = this._config.inMemory ? 'in-memory database' : databasePath;
-			throw new Error(`Failed to open DuckDB database: ${target}. ${err?.message ?? err}`);
+			throw new Error(`Failed to open DuckDB database: ${databasePath}. ${err?.message ?? err}`);
 		}
 	}
 
@@ -126,8 +119,7 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 
 	/** Returns whether this connection was opened in read-only mode. */
 	async isReadOnly(): Promise<boolean> {
-		// In-memory databases are always read-write.
-		return this._config.readOnly && !this._config.inMemory;
+		return this._config.readOnly;
 	}
 
 	/** Closes the database and releases any previewed table views. Idempotent. */

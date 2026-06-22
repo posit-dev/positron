@@ -12,7 +12,7 @@ import { useCallback, useMemo } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, useContextKeyFromString } from '../../../../../base/browser/positronReactHooks.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
@@ -49,7 +49,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
-	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
+	const hasChatModels = useContextKeyFromString<boolean>('positron-assistant.hasChatModels');
 	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
 
 	// Only show buttons if assistant is enabled, notebook mode is enabled, and chat models are available
