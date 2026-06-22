@@ -5,13 +5,27 @@
 
 /// <reference types="vitest/globals" />
 
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { PackageEditorInput } from '../../browser/packageEditorInput.js';
 
-function input(sessionId: string, name: string): PackageEditorInput {
-	return new PackageEditorInput({ languageId: 'r', sessionId, packageName: name });
-}
-
 describe('PackageEditorInput', () => {
+	ensureNoLeakedDisposables();
+
+	let store: DisposableStore;
+
+	beforeEach(() => {
+		store = new DisposableStore();
+	});
+
+	afterEach(() => {
+		store.dispose();
+	});
+
+	function input(sessionId: string, name: string): PackageEditorInput {
+		return store.add(new PackageEditorInput({ languageId: 'r', sessionId, packageName: name }));
+	}
+
 	it('matches another input with the same session and package name', () => {
 		expect(input('s1', 'dplyr').matches(input('s1', 'dplyr'))).toBe(true);
 	});
@@ -31,6 +45,12 @@ describe('PackageEditorInput', () => {
 	it('exposes a stable resource and a descriptive name', () => {
 		const i = input('s1', 'dplyr');
 		expect(i.resource?.scheme).toBe('positron-package');
+		expect(i.resource?.authority).toBe('s1');
+		expect(i.resource?.path).toBe('/dplyr');
 		expect(i.getName()).toContain('dplyr');
+	});
+
+	it('produces a case-insensitive resource so framework deduplication is consistent with matches()', () => {
+		expect(input('s1', 'DPLYR').resource?.path).toBe('/dplyr');
 	});
 });

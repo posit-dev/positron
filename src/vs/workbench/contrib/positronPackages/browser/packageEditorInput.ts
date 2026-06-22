@@ -40,10 +40,13 @@ export class PackageEditorInput extends EditorInput {
 
 	override get resource(): URI {
 		// Identity-bearing URI: session in the authority, package name in the path.
+		// The package name is lowercased so the framework's URI-based editor
+		// deduplication (extUri.isEqual is case-sensitive on the path) stays
+		// consistent with the case-insensitive matches() below.
 		return URI.from({
 			scheme: 'positron-package',
 			authority: this.identity.sessionId,
-			path: '/' + this.identity.packageName,
+			path: '/' + this.identity.packageName.toLowerCase(),
 		});
 	}
 
