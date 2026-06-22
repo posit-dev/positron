@@ -296,6 +296,7 @@ export class AuthProvider
 
 		await this.context.secrets.delete(this.secretKey(sessionId));
 		await this.setStoredAccounts(accounts.filter(a => a.id !== sessionId));
+		await this.context.globalState.update(this.chainConfiguredKey, undefined);
 
 		this._onDidChangeSessions.fire({
 			added: [],
