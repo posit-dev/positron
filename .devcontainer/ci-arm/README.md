@@ -31,9 +31,9 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 One-time, on the host.
 
-**Recommended:** keep container work in a **dedicated checkout** so its Linux build artifacts never
-mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-From your main clone, one command creates a sibling worktree for it:
+**Recommended:** keep container work in a **dedicated git worktree** so its Linux build artifacts
+never mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+From your main clone, one command creates it:
 
 ```bash
 ./.devcontainer/ci-arm/setup-worktree.sh        # creates a sibling worktree, prints next steps
@@ -61,8 +61,7 @@ Both `.env` and `license.txt` are gitignored — don't commit them.
 
 ### Open the workspace in the container
 
-In your container checkout (the worktree from Setup — or any full clone you don't also build
-natively), run `Dev Containers: Open Workspace in
+In the container worktree (from Setup), run `Dev Containers: Open Workspace in
 Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
@@ -225,7 +224,7 @@ It removes this project's dev container, its data volumes (root + e2e `node_modu
   ```
   Deleting the `VERSION` marker is required — the installers skip when it matches. (`out/` is shared
   too; recompile after switching.)
-- **Don't switch the container checkout's branch while a session is active** — the source is
+- **Don't switch the container worktree's branch while a session is active** — the source is
   bind-mounted, so the container would see the change mid-session.
 - **One dev container per checkout** at a time.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
