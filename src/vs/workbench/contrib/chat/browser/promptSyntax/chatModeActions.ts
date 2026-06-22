@@ -42,7 +42,13 @@ function createPickerConfigureAgentsActionConfig(disabled: boolean) {
 		icon: disabled ? Codicon.lock : undefined,
 		category: CHAT_CATEGORY,
 		f1: false,
-		precondition: disabled ? ContextKeyExpr.false() : ChatContextKeys.Modes.agentModeDisabledByPolicy.negate(),
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
+		precondition: disabled ? ContextKeyExpr.false() : ContextKeyExpr.and(
+			ChatContextKeys.Modes.agentModeDisabledByPolicy.negate(),
+			ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+		),
+		// --- End Positron ---
 		menu: {
 			id: MenuId.ChatModePicker,
 			when: disabled ? ChatContextKeys.Modes.agentModeDisabledByPolicy : ChatContextKeys.Modes.agentModeDisabledByPolicy.negate(),
@@ -66,7 +72,13 @@ function createManageAgentsActionConfig(disabled: boolean) {
 		shortTitle: localize('configure-agents.short', "Custom Agents"),
 		icon: disabled ? Codicon.lock : Codicon.bookmark,
 		f1: !disabled,
-		precondition: disabled ? ContextKeyExpr.false() : ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.Modes.agentModeDisabledByPolicy.negate()),
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
+		precondition: disabled ? ContextKeyExpr.false() : ContextKeyExpr.and(
+			ChatContextKeys.available,
+			ChatContextKeys.Modes.agentModeDisabledByPolicy.negate(),
+		),
+		// --- End Positron ---
 		category: CHAT_CATEGORY,
 		menu: [
 			{

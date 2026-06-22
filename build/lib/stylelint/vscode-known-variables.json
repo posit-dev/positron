@@ -739,6 +739,8 @@
 		"--vscode-positronNotebook-cellFooterForeground",
 		"--vscode-positronNotebook-cellHoverBorder",
 		"--vscode-positronNotebook-cellInactiveFocusedBorder",
+		"--vscode-positronNotebook-cellTagBorder",
+		"--vscode-positronNotebook-cellTagHoverForeground",
 		"--vscode-positronNotebook-errorForeground",
 		"--vscode-positronNotebook-foreground",
 		"--vscode-positronNotebook-imgPlaceholderBackground",

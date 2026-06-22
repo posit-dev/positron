@@ -3,8 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags, expect } from '../_test.setup';
+import { test as base, tags, expect } from '../_test.setup';
 import { SessionRuntimes } from '../../pages/sessions.js';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'packages.enabled': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -13,12 +23,6 @@ test.use({
 test.describe('Packages Pane', {
 	tag: [tags.PACKAGES_PANE, tags.WEB]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'packages.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.packages.clearFilter();
@@ -53,7 +57,10 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	test.skip('R - Install, search, and uninstall package', {
+		tag: [tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14346' }
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -75,7 +82,7 @@ test.describe('Packages Pane', {
 
 			// Base is always attached
 			await packages.clickHelpButton('base');
-			await packages.expectHelpPaneToContainText('The R Base Package', 0);
+			await packages.expectHelpPaneToContainText('The R Base Package');
 		});
 
 		test('Python - Opens package help in Help pane', { tag: [tags.WEB] },
@@ -87,7 +94,7 @@ test.describe('Packages Pane', {
 				await packages.clickRefreshPackagesButton();
 
 				await packages.clickHelpButton('numpy');
-				await packages.expectHelpPaneToContainText('NumPy', 1);
+				await packages.expectHelpPaneToContainText('NumPy');
 			});
 	});
 

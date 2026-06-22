@@ -66,8 +66,13 @@ export class ChatQueueMessageAction extends Action2 {
 			icon: Codicon.add,
 			f1: false,
 			category: CHAT_CATEGORY,
-
-			precondition: ChatContextKeys.inputHasText,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.inputHasText,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			keybinding: [{
 				when: ContextKeyExpr.and(
 					ChatContextKeys.inChatInput,
@@ -120,7 +125,13 @@ export class ChatSteerWithMessageAction extends Action2 {
 			icon: Codicon.arrowUp,
 			f1: false,
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.inputHasText,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.inputHasText,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			keybinding: [{
 				when: ContextKeyExpr.and(
 					ChatContextKeys.inChatInput,
@@ -172,6 +183,10 @@ export class ChatRemovePendingRequestAction extends Action2 {
 			icon: Codicon.close,
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.ChatMessageTitle,
 				group: 'navigation',
@@ -211,6 +226,10 @@ export class ChatEditPendingRequestAction extends Action2 {
 			icon: Codicon.edit,
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.ChatMessageTitle,
 				group: 'navigation',
@@ -248,6 +267,10 @@ export class ChatSendPendingImmediatelyAction extends Action2 {
 			icon: Codicon.arrowUp,
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.ChatMessageTitle,
 				group: 'navigation',
@@ -306,6 +329,10 @@ export class ChatRemoveAllPendingRequestsAction extends Action2 {
 			icon: Codicon.clearAll,
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.ChatContext,
 				group: 'navigation',

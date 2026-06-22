@@ -10,6 +10,9 @@ import { CHAT_CATEGORY } from '../../browser/actions/chatActions.js';
 import { isMacintosh, isWindows } from '../../../../../base/common/platform.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
 import { OPEN_AGENTS_WINDOW_COMMAND_ID, OPEN_AGENTS_WINDOW_PRECONDITION } from '../../common/constants.js';
+// --- Start Positron ---
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 
 export class OpenAgentsWindowAction extends Action2 {
 	constructor() {
@@ -17,7 +20,10 @@ export class OpenAgentsWindowAction extends Action2 {
 			id: OPEN_AGENTS_WINDOW_COMMAND_ID,
 			title: localize2('openAgentsWindow', "Open Agents Application"),
 			category: CHAT_CATEGORY,
-			precondition: OPEN_AGENTS_WINDOW_PRECONDITION,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(OPEN_AGENTS_WINDOW_PRECONDITION, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true)),
+			// --- End Positron ---
 			f1: true,
 			menu: [{
 				id: MenuId.ChatTitleBarMenu,

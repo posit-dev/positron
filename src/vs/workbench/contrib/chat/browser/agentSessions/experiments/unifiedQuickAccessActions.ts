@@ -38,10 +38,13 @@ export class ShowUnifiedQuickAccessAction extends Action2 {
 			id: ShowUnifiedQuickAccessAction.ID,
 			title: localize2('showAgentQuickAccess', "Show Agent Quick Access"),
 			f1: true,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.has(`config.${ChatConfiguration.UnifiedAgentsBar}`)
 			),
+			// --- End Positron ---
 		});
 	}
 
@@ -64,10 +67,13 @@ export class ShowAgentSessionsQuickAccessAction extends Action2 {
 			id: ShowAgentSessionsQuickAccessAction.ID,
 			title: localize2('showAgentSessionsQuickAccess', "Show Agent Sessions"),
 			f1: true,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.has(`config.${ChatConfiguration.UnifiedAgentsBar}`)
 			),
+			// --- End Positron ---
 		});
 	}
 
@@ -90,10 +96,13 @@ export class ShowCommandsQuickAccessAction extends Action2 {
 			id: ShowCommandsQuickAccessAction.ID,
 			title: localize2('showCommandsQuickAccess', "Show Commands (Unified)"),
 			f1: true,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.has(`config.${ChatConfiguration.UnifiedAgentsBar}`)
 			),
+			// --- End Positron ---
 		});
 	}
 
@@ -116,10 +125,13 @@ export class ShowFilesQuickAccessAction extends Action2 {
 			id: ShowFilesQuickAccessAction.ID,
 			title: localize2('showFilesQuickAccess', "Show Files (Unified)"),
 			f1: true,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.has(`config.${ChatConfiguration.UnifiedAgentsBar}`)
 			),
+			// --- End Positron ---
 		});
 	}
 

@@ -134,7 +134,10 @@ class AttachFileToChatAction extends AttachResourceAction {
 			title: localize2('workbench.action.chat.attachFile.label', "Add File to Chat"),
 			category: CHAT_CATEGORY,
 			icon: Codicon.attach,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			menu: [{
 				id: MenuId.SearchContext,
@@ -216,6 +219,10 @@ class AttachFolderToChatAction extends AttachResourceAction {
 			title: localize2('workbench.action.chat.attachFolder.label', "Add Folder to Chat"),
 			category: CHAT_CATEGORY,
 			f1: false,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: {
 				id: MenuId.ExplorerContext,
 				group: '5_chat',
@@ -255,7 +262,10 @@ class AttachPinnedEditorsToChatAction extends Action2 {
 			id: AttachPinnedEditorsToChatAction.ID,
 			title: localize2('workbench.action.chat.attachPinnedEditors.label', "Add Pinned Editors to Chat"),
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 		});
 	}
@@ -303,7 +313,10 @@ class AttachSelectionToChatAction extends Action2 {
 			category: CHAT_CATEGORY,
 			icon: Codicon.attach,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.EditorContext,
 				group: '1_chat',
