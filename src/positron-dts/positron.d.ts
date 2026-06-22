@@ -1911,8 +1911,31 @@ declare module 'positron' {
 	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
 
 	/**
-	 * A driver that provides data connections through the 'New Data Connection' dialog.
+	 * A driver that provides data connections through the 'New Database' dialog.
 	 */
+	/**
+	 * A named variant of generated connection code for a single language. A driver may offer
+	 * several variants per language (for example, Python `sqlite3` vs `SQLAlchemy`) so users can
+	 * pick the library they prefer.
+	 */
+	export interface ConnectionCodeVariant {
+		/**
+		 * A stable identifier for the variant (e.g. 'sqlite3', 'sqlalchemy'). Unique within the
+		 * variants returned for a given language.
+		 */
+		id: string;
+
+		/**
+		 * A user-facing label for the variant (e.g. 'sqlite3', 'SQLAlchemy').
+		 */
+		label: string;
+
+		/**
+		 * The generated connection code for this variant.
+		 */
+		code: string;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -1948,6 +1971,20 @@ declare module 'positron' {
 		 * Connects using the provided parameter values.
 		 */
 		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Generates one or more named code variants that connect to this data source in the given
+		 * language, using the provided parameter values. The language is one of the driver's
+		 * `supportedLanguageIds`; drivers that report no supported languages need not implement this
+		 * method. Variants are returned in preference order, so the first is treated as the default.
+		 *
+		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
+		 *   the driver's `supportedLanguageIds`.
+		 * @param parameters The current values of the connection parameters defined in `parameters`.
+		 * @returns The available code variants, or an empty array if code cannot be generated from
+		 *   the given parameters (for example, when a required parameter is missing).
+		 */
+		generateConnectionCode?(languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
 	}
 
 	/**
@@ -1965,8 +2002,6 @@ declare module 'positron' {
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
-		GroupTriggers = 'group-triggers',
-		Trigger = 'trigger',
 		Index = 'index',
 	}
 
@@ -1985,6 +2020,12 @@ declare module 'positron' {
 		 * Data type information, for field nodes.
 		 */
 		dataType?: string;
+
+		/**
+		 * For field nodes under a table, whether the column is part of the table's primary key.
+		 * Columns under views are not part of a primary key, so this is left unset for them.
+		 */
+		isPrimaryKey?: boolean;
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
@@ -2890,7 +2931,7 @@ declare module 'positron' {
 	namespace dataConnections {
 		/**
 		 * Registers a data connection driver, allowing extensions to contribute
-		 * to the 'New Data Connection' dialog.
+		 * to the 'New Database' dialog.
 		 *
 		 * @param driver The driver to register.
 		 * @returns A disposable that unregisters the driver when disposed.

@@ -489,8 +489,6 @@ export enum DataConnectionNodeKind {
 	GroupViews = 'group-views',
 	GroupColumns = 'group-columns',
 	GroupIndexes = 'group-indexes',
-	GroupTriggers = 'group-triggers',
-	Trigger = 'trigger',
 	Index = 'index',
 }
 

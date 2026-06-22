@@ -58,6 +58,66 @@
 	font-family: var(--monaco-monospace-font);
 }
 
+/*
+ * Modal buttons. Defined once here so that footer buttons and any buttons rendered in dialog
+ * content share a single source of truth, mirroring how `.positron-modal-dialog-box .dialog-button`
+ * works for the older modal dialog. Size (width/height/padding) is intentionally left to the
+ * consumer (e.g. `.footer-button`, or a `.small` modifier) so the same visual treatment can be
+ * applied at different sizes.
+ */
+.positron-dynamic-modal-dialog-box .dialog-button {
+	display: flex;
+	cursor: pointer;
+	border-radius: 5px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-buttonBackground);
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button:hover {
+	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+}
+
+/*
+	VS Code 1.109.0 changed secondary buttons to have transparent background and no border in dark mode.
+	For modal dialog buttons, we need a visible border for secondary buttons (Cancel, Back, etc.)
+*/
+.vs-dark .positron-dynamic-modal-dialog-box .dialog-button:not(.default) {
+	border: 1px solid var(--vscode-button-border);
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button.default {
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button.default:hover {
+	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button.destructive {
+	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
+	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button:focus {
+	outline: none;
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button:focus-visible {
+	outline-offset: 2px !important;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.positron-dynamic-modal-dialog-box .dialog-button:disabled {
+	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
+	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
+	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
+	cursor: default;
+}
+
 /* Text inputs */
 .positron-dynamic-modal-dialog-box .text-input {
 	width: 100%;
