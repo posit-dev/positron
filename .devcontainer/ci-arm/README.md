@@ -105,7 +105,7 @@ in VNC.
 
 * **Positron CI: Debug (Electron)** — the desktop app; attaches to all its processes (main, renderer,
   extension host, …). The simpler choice for most source.
-*-* **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
+* **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
   the workbench frontend in Chromium. Use it for web-only or `e2e-chromium` behavior.
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
