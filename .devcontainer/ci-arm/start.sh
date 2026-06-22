@@ -46,27 +46,29 @@ EOF
 fi
 
 # The container needs .env + license.txt, which are gitignored and so are NOT copied into a fresh
-# worktree. Don't open a container that would fail the build; tell the user exactly how to add them.
+# worktree. Don't open a container that would fail its build; tell the user exactly how to add them.
 CFG="$DEST/.devcontainer/ci-arm"
 MAINCFG="$MAIN/.devcontainer/ci-arm"
-missing=""
-[ -f "$CFG/.env" ]         || missing="$missing .env"
-[ -f "$CFG/license.txt" ]  || missing="$missing license.txt"
-if [ -n "$missing" ]; then
-  echo >&2
-  echo "Worktree ready, but it's missing:$missing" >&2
-  echo "(these are gitignored, so a fresh worktree doesn't get them — the container needs them)." >&2
-  echo "Add them in the worktree, then run start again:" >&2
-  for f in $missing; do
-    if [ -f "$MAINCFG/$f" ]; then
-      echo "  cp \"$MAINCFG/$f\" \"$CFG/$f\"" >&2
-    elif [ "$f" = ".env" ]; then
-      echo "  cp \"$CFG/.env.example\" \"$CFG/.env\"   # then fill in the Postgres info from 1Password" >&2
-    else
-      echo "  # copy the 'Positron Server private key' from 1Password to \"$CFG/license.txt\"" >&2
-    fi
-  done
-  echo "Nothing opened yet." >&2
+secret_hint() {  # print a "cp" line for $1, but only if it's missing from the worktree
+  [ -f "$CFG/$1" ] && return 0
+  if [ -f "$MAINCFG/$1" ]; then
+    echo "  cp \"$MAINCFG/$1\" \"$CFG/$1\""
+  elif [ "$1" = ".env" ]; then
+    echo "  cp \"$CFG/.env.example\" \"$CFG/.env\"   # then fill in the Postgres info from 1Password"
+  else
+    echo "  # copy the 'Positron Server private key' from 1Password to \"$CFG/license.txt\""
+  fi
+}
+if [ ! -f "$CFG/.env" ] || [ ! -f "$CFG/license.txt" ]; then
+  {
+    echo
+    echo "Worktree ready, but the container needs secrets it doesn't have yet"
+    echo "(.env / license.txt are gitignored, so a fresh worktree doesn't get them). Add what's"
+    echo "missing in the worktree, then run start again:"
+    secret_hint .env
+    secret_hint license.txt
+    echo "Nothing opened yet."
+  } >&2
   exit 1
 fi
 
