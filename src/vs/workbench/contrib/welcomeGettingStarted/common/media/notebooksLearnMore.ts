@@ -14,5 +14,5 @@ export default () => /* markdown */`
 <img src="./notebook-hero-abstract.svg" alt="Positron Notebook Editor" width="400">
 </div>
 
-**Ready to dive in?** [Create a new notebook](command:ipynb.newUntitledIpynb) and try the [Notebook Layout](command:workbench.action.positronNotebookLayout) for an optimized workspace.
+**Ready to dive in?** [Create a new notebook](command:workbench.action.positronNewNotebookWithLayout) for an optimized workspace.
 `;

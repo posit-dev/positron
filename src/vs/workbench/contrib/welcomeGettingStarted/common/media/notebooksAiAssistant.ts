@@ -21,7 +21,7 @@ Unlike general-purpose AI assistants, Posit Assistant is specifically designed f
 
 The AI assistant can see your notebook's code, outputs, and variable states, making it uniquely powerful for interactive data science workflows.
 
-**Prerequisites:** Ensure you have the [Assistant enabled and configured](https://positron.posit.co/assistant-getting-started.html) with your preferred model provider.
+**Prerequisites:** Ensure you have [Assistant enabled and configured](https://positron.posit.co/assistant-getting-started.html) with your preferred model provider.
 
 **Try it now:** [Open Posit Assistant](command:workbench.view.extension.posit-assistant) to configure your model provider and start an AI-assisted data science conversation.
 

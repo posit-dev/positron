@@ -102,12 +102,12 @@ export function registerGettingStartedPositronNotebook(
 						Button(
 							localize(
 								'gettingStarted.notebooksWelcome.interpreter.button',
-								"Select an Interpreter"
+								"Interpreter Documentation"
 							),
-							'command:workbench.action.language.runtime.selectSession'
+							'https://positron.posit.co/positron-notebook-editor.html#selecting-a-notebook-kernel'
 						)
 					),
-					completionEvents: ['onCommand:workbench.action.language.runtime.selectSession'],
+					completionEvents: ['onLink:https://positron.posit.co/positron-notebook-editor.html#selecting-a-notebook-kernel'],
 					media: { type: 'markdown', path: 'notebooksInterpreter' },
 				},
 				{
