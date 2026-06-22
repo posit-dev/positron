@@ -16,51 +16,47 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 ## Prerequisites
 
-1. **Docker Desktop**, installed and configured:
-    * In `Settings → Resources → Advanced`: Allocate **8+ CPU**, **16 GB RAM**, and a few GB of free disk (image + `node_modules` + build).
-    * In `Settings > General > Virtual Machine Options`: Turn on **VirtioFS** for fast bind mounts.
-2. **GHCR login** (the images are private):
+Once, on your machine:
+
+1. **Docker Desktop**, in `Settings`:
+    * **Resources → Advanced**: **8+ CPU**, **16 GB RAM**, a few GB free disk.
+    * **General → Virtual Machine Options**: turn on **VirtioFS**.
+2. **GHCR login** (images are private):
    ```bash
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
-3. Install the following extensions:
-	* **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**, required, using **VS Code** as the client
-	* **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**, optional, but highly recommended so you don't have to dig through Task menus
+3. **VS Code** + the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
+   extension — the dev-container client (Positron can't host it). **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**
+   is recommended (auto-prompted on open). The container's own extensions install themselves.
 
 ## Setup
 
-Do this **once**. Container work lives in a **dedicated git worktree** so its Linux build artifacts
-never mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+Once, to create your CI lab: a **dedicated git worktree** so its Linux build artifacts never mix
+with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
 
 ### 1. Create the worktree
 
-From your Positron checkout (a clone or an existing worktree):
+From your Positron checkout (clone or worktree):
 
 ```bash
-./.devcontainer/ci-arm/setup-worktree.sh
+./.devcontainer/ci-arm/setup-worktree.sh        # raw equivalent: git worktree add ../positron-ci
 ```
 
-It makes a sibling worktree off your current commit and prints the next steps. (Raw equivalent, if
-you'd rather: `git worktree add ../positron-ci`.)
+### 2. Add secrets — in the new worktree
 
-### 2. Add your secrets — in the new worktree
-
-`.env` and `license.txt` are gitignored, so they aren't copied into the worktree and the container
-needs both. In the **worktree's** `.devcontainer/ci-arm/` (`setup-worktree.sh` prints these lines):
+Gitignored, so not copied in; the container needs both (`setup-worktree.sh` prints the exact lines):
 
 - **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
-  Postgres connection info from 1Password (`E2E Postgres DB connection info`).
-- **license** — copy the `Positron Server private key` from 1Password to
-  `.devcontainer/ci-arm/license.txt`.
+  Postgres info from 1Password (`E2E Postgres DB connection info`).
+- **license** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
 
-### 3. Open it in the container
+### 3. Open it
 
-Open the worktree's `positron-ci.code-workspace` in VS Code, then **Reopen in Container**. The first
-open runs the ~10-min cold build; after that it's warm.
+Open the worktree's `positron-ci.code-workspace`, then **Reopen in Container**. First open runs the
+~10-min cold build; after that it's warm.
 
-That worktree is now your standing CI lab — to debug a failure later, go back to it, check out the
-commit you're reproducing (`git fetch` + `git checkout`), and Reopen in Container. Incremental build,
-secrets already in place.
+Day to day, that worktree is your standing CI lab: go back, `git checkout` the commit you're
+reproducing, Reopen in Container.
 
 ## How to
 
