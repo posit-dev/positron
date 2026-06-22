@@ -11,7 +11,10 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [],
+	"activationEvents": [
+		"onCommand:positron.pdfServer.getViewerUrl",
+		"onCommand:positron.pdfServer.unregisterPdf"
+	],
 	"capabilities": {
 		"virtualWorkspaces": true,
 		"untrustedWorkspaces": {

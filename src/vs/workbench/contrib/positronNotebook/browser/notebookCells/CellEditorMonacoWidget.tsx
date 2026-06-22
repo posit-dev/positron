@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
@@ -146,28 +147,41 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		);
 
 		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
-		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
+		const editorOptions = disposables.add(new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService));
 
-		const defaultOptions = editorOptions.getDefaultValue();
-		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
-			...defaultOptions,
-			// Override padding for Positron notebooks to add breathing room between action bar and editor content
-			padding: { top: 16, bottom: 16 },
-			scrollbar: {
-				...defaultOptions.scrollbar,
-				// Smaller scrollbars since we embed many editor widgets
-				verticalScrollbarSize: 8,
-				horizontalScrollbarSize: 8
-			},
-			tabIndex: -1, // Remove editor from tab order - use Enter to focus
-			dimension: {
-				width: 0,
-				height: 0,
-			},
-		}, {
+		// Build the final editor options from the cell editor defaults merged with
+		// the Positron Notebook editor overrides. Used for both initial creation
+		// and live updates so the overrides are never lost on update.
+		const buildEditorOptions = () => {
+			const defaultOptions = editorOptions.getDefaultValue();
+			return {
+				...defaultOptions,
+				// Override padding for Positron notebooks to add breathing room between action bar and editor content
+				padding: { top: 16, bottom: 16 },
+				scrollbar: {
+					...defaultOptions.scrollbar,
+					// Smaller scrollbars since we embed many editor widgets
+					verticalScrollbarSize: 8,
+					horizontalScrollbarSize: 8
+				},
+				tabIndex: -1, // Remove editor from tab order - use Enter to focus
+				dimension: {
+					width: 0,
+					height: 0,
+				},
+			};
+		};
+
+		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, buildEditorOptions(), {
 			contributions: getNotebookEditorContributions()
 		}));
 		cell.attachEditor(editor);
+
+		// Re-apply options when they change so the open notebook
+		// updates without requiring a reload.
+		disposables.add(editorOptions.onDidChange(() => {
+			editor.updateOptions(buildEditorOptions() as IEditorOptions);
+		}));
 
 		// Request model for cell and pass to editor.
 		cell.getTextEditorModel().then(model => {

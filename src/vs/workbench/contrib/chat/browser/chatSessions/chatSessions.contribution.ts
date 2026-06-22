@@ -551,7 +551,10 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 						category: CHAT_CATEGORY,
 						icon: Codicon.plus,
 						f1: false,
-						precondition: ChatContextKeys.enabled
+						// --- Start Positron ---
+						// Hide when AI features are disabled.
+						precondition: ChatContextKeys.available,
+						// --- End Positron ---
 					});
 				}
 
@@ -593,7 +596,10 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 						category: CHAT_CATEGORY,
 						icon: Codicon.plus,
 						f1: true,
-						precondition: ChatContextKeys.enabled,
+						// --- Start Positron ---
+						// Hide when AI features are disabled.
+						precondition: ChatContextKeys.available,
+						// --- End Positron ---
 					});
 				}
 
@@ -611,7 +617,10 @@ export class ChatSessionsService extends Disposable implements IChatSessionsServ
 						category: CHAT_CATEGORY,
 						icon: Codicon.plus,
 						f1: false, // Hide from Command Palette
-						precondition: ChatContextKeys.enabled,
+						// --- Start Positron ---
+						// Hide when AI features are disabled.
+						precondition: ChatContextKeys.available,
+						// --- End Positron ---
 						menu: !isAvailableInSessionTypePicker ? {
 							id: MenuId.ChatNewMenu,
 							group: '3_new_special',
@@ -1264,7 +1273,10 @@ function registerNewSessionInPlaceAction(type: string, displayName: string): IDi
 				title: localize2('interactiveSession.openNewChatSessionInPlace', "New {0} Session", displayName),
 				category: CHAT_CATEGORY,
 				f1: false,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1292,7 +1304,10 @@ function registerNewSessionExternalAction(type: string, displayName: string, com
 				title: localize2('interactiveSession.openNewChatSessionExternal', "New {0} Session", displayName),
 				category: CHAT_CATEGORY,
 				f1: false,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 		async run(accessor: ServicesAccessor): Promise<void> {

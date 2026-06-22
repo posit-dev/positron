@@ -15,6 +15,7 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { mock } from '../../../../test/common/workbenchTestServices.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { CellExecutionUpdateType } from '../../../notebook/common/notebookExecutionService.js';
@@ -512,6 +513,303 @@ describe('Positron - RuntimeNotebookKernel', () => {
 	});
 });
 
+describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
+	const ctx = createTestContainer().withWorkbenchServices().build();
+	let notebookExecutionStateService: FaithfulTestNotebookExecutionStateService;
+	let runtimeSessionService: IRuntimeSessionService;
+	let runtime: ILanguageRuntimeMetadata;
+	let kernel: RuntimeNotebookKernel;
+	let notebookDocument: NotebookTextModel;
+	let rawCell: NotebookCellTextModel;
+
+	beforeEach(async () => {
+		const accessor = ctx.instantiationService.createInstance(PositronTestServiceAccessor);
+
+		runtimeSessionService = accessor.runtimeSessionService;
+
+		notebookExecutionStateService = new FaithfulTestNotebookExecutionStateService();
+		ctx.instantiationService.stub(INotebookExecutionStateService, notebookExecutionStateService);
+
+		// Create a test notebook document.
+		notebookDocument = createTestNotebookEditor(
+			ctx.instantiationService,
+			ctx.disposables.add(new DisposableStore()),
+			[
+				['print(x)', 'python', CellKind.Code, [], {}],
+				['print(y)', 'python', CellKind.Code, [], {}],
+				['raw cell', 'raw', CellKind.Code, [], {}],
+			],
+		).viewModel.notebookDocument;
+		rawCell = notebookDocument.cells.find(cell => cell.language === 'raw')!;
+
+		// Stub a mocked notebook service that returns the test notebook document.
+		ctx.instantiationService.stub(INotebookService, new class extends mock<INotebookService>() {
+			override getNotebookTextModel(uri: URI): NotebookTextModel | undefined {
+				return notebookDocument;
+			}
+		});
+
+		// Stub a mocked notebook editor service that returns a widget with layout info.
+		ctx.instantiationService.stub(INotebookEditorService, new class extends mock<INotebookEditorService>() {
+			override retrieveExistingWidgetFromURI(_resource: URI) {
+				const mockNotebookOptions = {
+					getCellEditorContainerLeftMargin: () => 60,
+					getLayoutConfiguration: () => ({ cellRightMargin: 16 }),
+				} as unknown as NotebookOptions;
+
+				const mockWidget = {
+					getLayoutInfo: () => ({ width: 800 }),
+					getDomNode: () => document.createElement('div'),
+					notebookOptions: mockNotebookOptions,
+				} as unknown as NotebookEditorWidget;
+
+				return { value: mockWidget };
+			}
+		});
+
+		// Clean up active sessions between tests to prevent leakage.
+		ctx.disposables.add(toDisposable(() => {
+			runtimeSessionService.activeSessions.forEach(s => s.dispose());
+		}));
+
+		// Create a test language runtime.
+		runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+
+		// Create the runtime notebook kernel.
+		kernel = ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeNotebookKernel, runtime));
+	});
+
+	/** Start a session for the test notebook and wait for it to be ready. */
+	async function startSession() {
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			notebookUri: notebookDocument.uri,
+			sessionName: 'test',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			startReason: '',
+		});
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		return session;
+	}
+
+	/** Get the execution created for a cell, asserting it exists. */
+	function getExecution(cell: NotebookCellTextModel) {
+		const execution = notebookExecutionStateService.executions.get(cell.uri);
+		expect(execution).toBeDefined();
+		return execution!;
+	}
+
+	it('executes the fragment, not the cell content, with output on the target cell', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		const cell = notebookDocument.cells[0];
+		await kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights');
+
+		// The fragment was sent to the session, not the cell's full content.
+		expect(executeSpy).toHaveBeenCalledOnce();
+		expect(executeSpy.mock.calls[0][0]).toBe('flights');
+
+		// The execution was created for the originating cell, started (clearing
+		// outputs), and completed successfully.
+		const execution = getExecution(cell);
+		expect(execution.update).toHaveBeenCalledWith([{
+			editType: CellExecutionUpdateType.ExecutionState,
+			runStartTime: expect.any(Number),
+		}, {
+			editType: CellExecutionUpdateType.Output,
+			cellHandle: cell.handle,
+			outputs: [],
+		}]);
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
+			lastRunSuccess: true,
+		});
+	});
+
+	it('fires onDidExecuteCode with the fragment code', async () => {
+		const session = await startSession();
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		let event: ILanguageRuntimeCodeExecutedEvent | undefined = undefined;
+		ctx.disposables.add(kernel.onDidExecuteCode(evt => {
+			event = evt;
+		}));
+
+		const cell = notebookDocument.cells[0];
+		await kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights');
+
+		expect(event).toBeDefined();
+		const executed = event as unknown as ILanguageRuntimeCodeExecutedEvent;
+		expect(executed.code).toBe('flights');
+		expect(executed.languageId).toBe('python');
+		expect(executed.attribution.source).toBe(CodeAttributionSource.Notebook);
+	});
+
+	it('passes layout metadata but no cellId for fragments; full cells still pass cellId', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		// Execute a fragment.
+		const cell = notebookDocument.cells[0];
+		await kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights');
+
+		// A fragment's line numbers don't correspond to the cell's content, so
+		// the cellId used for breakpoint mapping must not be sent.
+		const fragmentMetadata = (executeSpy.mock.calls[0] as unknown as unknown[])[5] as Record<string, unknown>;
+		expect(fragmentMetadata.output_width_px).toBe(724);
+		expect(fragmentMetadata.cellId).toBeUndefined();
+
+		// Execute the full cell through the regular path for contrast.
+		notebookExecutionStateService.createCellExecution(notebookDocument.uri, cell.handle);
+		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [cell.handle]);
+
+		const fullCellMetadata = (executeSpy.mock.calls[1] as unknown as unknown[])[5] as Record<string, unknown>;
+		expect(fullCellMetadata.cellId).toBe(cell.uri.toString());
+	});
+
+	it('skips raw cells', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+
+		await kernel.executeCodeInCell(notebookDocument.uri, rawCell.handle, 'some code');
+
+		expect(executeSpy).not.toHaveBeenCalled();
+		expect(notebookExecutionStateService.executions.size).toBe(0);
+	});
+
+	it('skips whitespace-only fragments', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+
+		await kernel.executeCodeInCell(notebookDocument.uri, notebookDocument.cells[0].handle, '  \n\t');
+
+		expect(executeSpy).not.toHaveBeenCalled();
+		expect(notebookExecutionStateService.executions.size).toBe(0);
+	});
+
+	it('skips unknown cell handles', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+
+		await kernel.executeCodeInCell(notebookDocument.uri, 12345, 'flights');
+
+		expect(executeSpy).not.toHaveBeenCalled();
+		expect(notebookExecutionStateService.executions.size).toBe(0);
+	});
+
+	it('skips when the cell already has an active execution', async () => {
+		const session = await startSession();
+		const executeSpy = vi.spyOn(session, 'execute');
+
+		// Simulate the cell already executing (or queued).
+		const cell = notebookDocument.cells[0];
+		const existing = notebookExecutionStateService.createCellExecution(notebookDocument.uri, cell.handle);
+
+		await kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights');
+
+		expect(executeSpy).not.toHaveBeenCalled();
+		// The pre-existing execution is left untouched.
+		expect(existing.update).not.toHaveBeenCalled();
+		expect(existing.complete).not.toHaveBeenCalled();
+	});
+
+	it('starts a new session if required', async () => {
+		// When a session is started, setup its execute handler to reply with an idle state.
+		ctx.disposables.add(runtimeSessionService.onWillStartSession(({ session }) => {
+			expect(session).toBeInstanceOf(TestLanguageRuntimeSession);
+			ctx.disposables.add(session);
+			ctx.disposables.add((session as TestLanguageRuntimeSession).onDidExecute(parent_id => (session as TestLanguageRuntimeSession).receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+		}));
+
+		const cell = notebookDocument.cells[0];
+		await kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights');
+
+		const execution = getExecution(cell);
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
+			lastRunSuccess: true,
+		});
+	});
+
+	it('queues behind an in-flight cell execution', async () => {
+		const session = await startSession();
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		const cell0 = notebookDocument.cells[0];
+		const cell1 = notebookDocument.cells[1];
+
+		// The regular path expects the execution to be created by the notebook
+		// execution service before the kernel is invoked.
+		notebookExecutionStateService.createCellExecution(notebookDocument.uri, cell0.handle);
+		await Promise.all([
+			kernel.executeNotebookCellsRequest(notebookDocument.uri, [cell0.handle]),
+			kernel.executeCodeInCell(notebookDocument.uri, cell1.handle, 'flights'),
+		]);
+
+		// The cell execution ran first; the fragment ran after it completed.
+		const execution0 = getExecution(cell0);
+		const execution1 = getExecution(cell1);
+		expect(execution0.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution0.complete.mock.invocationCallOrder[0]);
+		expect(execution0.complete.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.update.mock.invocationCallOrder[0]);
+		expect(execution1.update.mock.invocationCallOrder[0])
+			.toBeLessThan(execution1.complete.mock.invocationCallOrder[0]);
+	});
+
+	it('completes the pending execution without running when a queued predecessor errors', async () => {
+		const session = await startSession();
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ parent_id })));
+
+		const cell0 = notebookDocument.cells[0];
+		const cell1 = notebookDocument.cells[1];
+
+		notebookExecutionStateService.createCellExecution(notebookDocument.uri, cell0.handle);
+		await Promise.all([
+			kernel.executeNotebookCellsRequest(notebookDocument.uri, [cell0.handle]),
+			kernel.executeCodeInCell(notebookDocument.uri, cell1.handle, 'flights'),
+		]);
+
+		// The first cell errored.
+		const execution0 = getExecution(cell0);
+		expect(execution0.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
+			lastRunSuccess: false,
+			error: expect.any(Object),
+		});
+
+		// The fragment never ran, but its pending execution was completed so the
+		// cell doesn't show as pending forever.
+		const execution1 = getExecution(cell1);
+		expect(execution1.update).not.toHaveBeenCalled();
+		expect(execution1.complete).toHaveBeenCalledOnce();
+		expect(execution1.complete).toHaveBeenCalledWith({});
+	});
+
+	it('resolves without throwing when the fragment errors at runtime', async () => {
+		const session = await startSession();
+		ctx.disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ parent_id })));
+
+		const cell = notebookDocument.cells[0];
+		await expect(kernel.executeCodeInCell(notebookDocument.uri, cell.handle, 'flights'))
+			.resolves.toBeUndefined();
+
+		// The error is surfaced through the cell execution.
+		const execution = getExecution(cell);
+		expect(execution.complete).toHaveBeenCalledOnce();
+		expect(execution.complete).toHaveBeenCalledWith({
+			runEndTime: expect.any(Number),
+			lastRunSuccess: false,
+			error: expect.any(Object),
+		});
+	});
+});
+
 /** A TestNotebookExecutionStateService that spies on cell executions. */
 class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateService {
 	public readonly executions = new ResourceMap<TestCellExecution>();
@@ -542,4 +840,58 @@ class TestCellExecution implements INotebookCellExecution {
 	confirm = vi.fn();
 	update = vi.fn<(updates: ICellExecuteUpdate[]) => void>();
 	complete = vi.fn<(complete: ICellExecutionComplete) => void>();
+}
+
+/**
+ * A TestNotebookExecutionStateService that mirrors the production service's
+ * contract: createCellExecution registers an execution that getCellExecution
+ * returns until it completes.
+ */
+class FaithfulTestNotebookExecutionStateService extends TestNotebookExecutionStateService {
+	public readonly executions = new ResourceMap<TrackedTestCellExecution>();
+
+	override createCellExecution(notebook: URI, cellHandle: number): INotebookCellExecution {
+		const execution = new TrackedTestCellExecution(notebook, cellHandle);
+		this.executions.set(CellUri.generate(notebook, cellHandle), execution);
+		return execution;
+	}
+
+	override getCellExecution(cellUri: URI): INotebookCellExecution | undefined {
+		const execution = this.executions.get(cellUri);
+		return execution && !execution.isComplete ? execution : undefined;
+	}
+}
+
+/**
+ * An INotebookCellExecution with vi.fn() methods that tracks state transitions
+ * like the production CellExecution (Unconfirmed until the first ExecutionState
+ * update, gone from the service once completed).
+ */
+class TrackedTestCellExecution implements INotebookCellExecution {
+	constructor(
+		readonly notebook: URI,
+		readonly cellHandle: number,
+	) { }
+
+	private _state = NotebookCellExecutionState.Unconfirmed;
+	get state(): NotebookCellExecutionState {
+		return this._state;
+	}
+
+	isComplete = false;
+
+	readonly didPause: boolean = false;
+	readonly isPaused: boolean = false;
+
+	confirm = vi.fn(() => {
+		this._state = NotebookCellExecutionState.Pending;
+	});
+	update = vi.fn<(updates: ICellExecuteUpdate[]) => void>(updates => {
+		if (updates.some(update => update.editType === CellExecutionUpdateType.ExecutionState)) {
+			this._state = NotebookCellExecutionState.Executing;
+		}
+	});
+	complete = vi.fn<(complete: ICellExecutionComplete) => void>(() => {
+		this.isComplete = true;
+	});
 }

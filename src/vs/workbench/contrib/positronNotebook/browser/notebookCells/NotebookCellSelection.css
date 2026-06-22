@@ -156,6 +156,17 @@ focus indicator. Revert the selection border to avoid a doubled ring. */
 	border-color: var(--vscode-positronNotebook-cellBorder);
 }
 
+/* === Selected cell focus: suppress global workbench outline === */
+/*
+ * NotebookCellWrapper focuses the cell container (tabIndex=0) when selected.
+ * The workbench draws outline on [tabindex="0"]:focus, which wraps the whole cell
+ * including standalone tags below markdown/raw content -- a second ring on top of the
+ * selection border on .positron-notebook-cell-outputs / editor-section.
+ */
+.positron-notebook-editor .positron-notebook-cell.selected:focus,
+.positron-notebook-editor .positron-notebook-cell.editing:focus {
+	outline: none;
+}
 
 /* === Inactive Notebook Pane: dim the cell focus border when the notebook does not have focus === */
 

@@ -54,6 +54,11 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	 * URL for Positron documentation, if provided by Posit Workbench.
 	 */
 	readonly positronDocsUrl?: string;
+
+	/**
+	 * Raw value of the server's EXTENSIONS_GALLERY environment variable, if set.
+	 */
+	readonly extensionsGalleryEnv?: string;
 	// --- End Positron ---
 
 	/**
@@ -154,6 +159,10 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	// --- Start Positron ---
 	get positronDocsUrl(): string | undefined {
 		return this.options.positronDocsUrl;
+	}
+
+	get extensionsGalleryEnv(): string | undefined {
+		return this.options.extensionsGalleryEnv;
 	}
 	// --- End Positron ---
 

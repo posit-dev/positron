@@ -119,6 +119,11 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-notebook-export',
+		workspaceFolder: 'extensions/positron-notebook-export/test-workspace',
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-run-app',
 		workspaceFolder: 'extensions/positron-run-app/test-workspace',
 		mocha: { timeout: 60_000 }

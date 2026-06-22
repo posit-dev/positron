@@ -8,7 +8,7 @@ import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename,
-	ghostCellSettings: {
+	extraSettings: {
 		'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
 		'positron.assistant.notebook.ghostCellSuggestions.model': ['claude'],
 		'positron.assistant.notebook.ghostCellSuggestions.automatic': false,

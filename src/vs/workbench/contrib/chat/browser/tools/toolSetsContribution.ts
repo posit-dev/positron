@@ -322,7 +322,13 @@ export class ConfigureToolSets extends Action2 {
 			shortTitle: localize('chat.configureToolSets.short', "Tool Sets"),
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.Tools.toolsCount.greater(0)),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.available,
+				ChatContextKeys.Tools.toolsCount.greater(0),
+			),
+			// --- End Positron ---
 			menu: [{
 				id: CHAT_CONFIG_MENU_ID,
 				when: ContextKeyExpr.equals('view', ChatViewId),
