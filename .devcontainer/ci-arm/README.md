@@ -62,6 +62,12 @@ In VS Code via Command Palette run:
 **`Dev Containers: Open Workspace in Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`**.
 The first open runs the ~10-min cold build; later opens are fast.
 
+**After the first build finishes, run `Developer: Reload Window` once.** The editor attaches while
+the cold build is still installing `node_modules`, so the TypeScript server and Playwright extension
+start against an empty workspace — you'll see red squiggles on the e2e tests and no run/debug icons in
+the gutter. The reload restarts them against the now-installed deps. One-time only: later opens already
+have `node_modules`, so they come up clean.
+
 That's it — you have a working CI lab.
 
 ## Daily use
