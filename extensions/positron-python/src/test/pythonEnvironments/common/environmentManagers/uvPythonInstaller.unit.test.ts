@@ -133,10 +133,15 @@ suite('UV Python Installer Tests', () => {
 
             const result = await getAvailablePythonVersions();
 
-            // Should only have 3.13 and 3.12 (first occurrence of each minor version)
+            // Should only have 3.13 and 3.12 (one entry per minor version). A newer
+            // "<download available>" patch is listed before the installed older patch, so
+            // 3.13 must still be reported as installed with the installed patch's path.
             assert.strictEqual(result.length, 2);
             assert.strictEqual(result[0].version, '3.13');
+            assert.strictEqual(result[0].isInstalled, true);
+            assert.strictEqual(result[0].path, '/usr/local/bin/python3.13');
             assert.strictEqual(result[1].version, '3.12');
+            assert.strictEqual(result[1].isInstalled, false);
         });
 
         test('Sorts versions in descending order', async () => {
@@ -212,6 +217,52 @@ suite('UV Python Installer Tests', () => {
 
             assert.ok(v311);
             assert.strictEqual(v311.isInstalled, false);
+        });
+
+        test('Requests only uv-managed Pythons (passes --managed-python)', async () => {
+            // System Pythons (e.g. /usr/bin/python3) must not be reported as installed in the
+            // "Install Python via uv" flow, so the listing is restricted to uv-managed Pythons.
+            execStub.resolves({
+                stdout: 'cpython-3.13.1-macos-aarch64-none    <download available>',
+            });
+
+            await getAvailablePythonVersions();
+
+            const listCall = execStub
+                .getCalls()
+                .find((call) => Array.isArray(call.args[1]) && (call.args[1] as string[]).includes('list'));
+            assert.ok(listCall, 'Expected uv python list to be invoked');
+            assert.ok(
+                (listCall.args[1] as string[]).includes('--managed-python'),
+                'Expected uv python list to be called with --managed-python',
+            );
+        });
+
+        test('Reports a minor version as installed when a newer patch is download-available', async () => {
+            // Mirrors real `uv python list` output: newest patches are listed first as
+            // "<download available>", freethreaded variants are interleaved, and the installed
+            // patch (further down) uses a "actual -> target" symlink path.
+            execStub.resolves({
+                stdout: [
+                    'cpython-3.14.6-macos-aarch64-none                 <download available>',
+                    'cpython-3.14.6+freethreaded-macos-aarch64-none    <download available>',
+                    'cpython-3.14.5-macos-aarch64-none                 /Users/test/.local/bin/python3.14 -> /Users/test/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14',
+                    'cpython-3.13.14-macos-aarch64-none                <download available>',
+                    'cpython-3.13.13-macos-aarch64-none                /Users/test/.local/bin/python3.13 -> /Users/test/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/bin/python3.13',
+                    'cpython-3.12.13-macos-aarch64-none                /Users/test/.local/bin/python3.12 -> /Users/test/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12',
+                ].join('\n'),
+            });
+
+            const result = await getAvailablePythonVersions();
+
+            assert.deepStrictEqual(
+                result.map((v) => ({ version: v.version, isInstalled: v.isInstalled, path: v.path })),
+                [
+                    { version: '3.14', isInstalled: true, path: '/Users/test/.local/bin/python3.14' },
+                    { version: '3.13', isInstalled: true, path: '/Users/test/.local/bin/python3.13' },
+                    { version: '3.12', isInstalled: true, path: '/Users/test/.local/bin/python3.12' },
+                ],
+            );
         });
 
         test('Handles empty lines and whitespace in output', async () => {
