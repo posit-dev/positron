@@ -7,16 +7,28 @@ set -euo pipefail
 export DISPLAY="${DISPLAY:-:10}"
 VNC_PASSWORD="positron"
 
+# Serialize: this runs from post-start, launch-electron, AND the "Positron CI: VNC" task, which can
+# fire concurrently. Without a lock, two runs both enter the "x11vnc not up" branch below and race
+# to start it — you end up with overlapping x11vnc instances on display :10 that fight over the X
+# RECORD/XTEST extensions, the X server drops one with an "XIO error", and the desktop dies. flock
+# makes concurrent runs queue; the later one finds everything already up and no-ops.
+#
+# The lock is held on fd 9 for this script's lifetime. The long-lived daemons below are each started
+# with `9>&-` so they DON'T inherit fd 9 — otherwise they'd keep the lock held after we exit and the
+# next invocation would block forever.
+exec 9>/tmp/start-vnc.lock
+flock 9
+
 # Display server (post-start usually starts it; ensure it here too). Always wait until it's actually
 # responsive before starting x11vnc — otherwise x11vnc loses the race at boot and exits unbound.
 if ! pgrep -x Xvfb >/dev/null 2>&1; then
-  /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 >/tmp/Xvfb.out 2>&1 &
+  /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 >/tmp/Xvfb.out 2>&1 9>&- &
 fi
 for _ in $(seq 1 15); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
 
 # Window manager so windows are movable and the desktop is usable (right-click for a menu).
 if command -v fluxbox >/dev/null 2>&1 && ! pgrep -x fluxbox >/dev/null 2>&1; then
-  fluxbox >/tmp/fluxbox.log 2>&1 &
+  fluxbox >/tmp/fluxbox.log 2>&1 9>&- &
 fi
 
 # VNC server for native viewers. macOS Screen Sharing requires a password, so we set one. Verify it
@@ -32,7 +44,7 @@ if ! vnc_up; then
   x11vnc -storepasswd "$VNC_PASSWORD" /tmp/.vncpw >/dev/null 2>&1
   for _ in 1 2 3; do
     pkill -x x11vnc 2>/dev/null || true
-    setsid x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 >/tmp/x11vnc.log 2>&1 </dev/null &
+    setsid x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 >/tmp/x11vnc.log 2>&1 </dev/null 9>&- &
     for _ in $(seq 1 5); do vnc_up && break; sleep 1; done
     vnc_up && break
   done
@@ -40,25 +52,13 @@ fi
 
 # Browser-based VNC (noVNC) so the desktop opens from a clickable http URL. Install on first use
 # (the CI image doesn't ship it). setsid so it survives the launching shell/task exiting.
-#
-# This install runs over the network at container boot, where apt can transiently fail (slow/down
-# mirror, an update race). Retry a few times — like x11vnc's bind retry above — so one flaky boot
-# doesn't leave noVNC silently uninstalled and port 6080 down. Output goes to a log (not /dev/null)
-# so a real, persistent failure leaves a breadcrumb instead of vanishing.
 if ! command -v websockify >/dev/null 2>&1; then
   echo "Installing noVNC (first run, ~once)…"
-  for _ in 1 2 3; do
-    { DEBIAN_FRONTEND=noninteractive apt-get update -qq \
-      && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq novnc websockify; } \
-      >/tmp/novnc-install.log 2>&1 || true
-    command -v websockify >/dev/null 2>&1 && break
-    sleep 2
-  done
-  command -v websockify >/dev/null 2>&1 \
-    || echo "WARNING: noVNC install failed after retries — see /tmp/novnc-install.log"
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq novnc websockify >/dev/null 2>&1 || true
 fi
 if command -v websockify >/dev/null 2>&1 && ! pgrep -f "websockify.*6080" >/dev/null 2>&1; then
-  setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null &
+  setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null 9>&- &
 fi
 
 NOVNC_URL="http://localhost:6080/vnc.html?autoconnect=true&password=${VNC_PASSWORD}"
