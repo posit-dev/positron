@@ -190,6 +190,26 @@ export interface GetUvPythonVersionInfoOptions {
 }
 
 /**
+ * Extracts the interpreter path from a `uv python list` output line, stripping any
+ * " -> ..." symlink suffix. Returns undefined for "<download available>" rows or lines
+ * without a path column.
+ *   "cpython-3.13.7-macos-aarch64-none   /usr/local/bin/python3.13 -> ..." -> "/usr/local/bin/python3.13"
+ *   "cpython-3.13.7-windows-x86_64-none  C:\\Program Files\\Python\\python.exe"
+ */
+function parseUvPythonPath(line: string): string | undefined {
+    if (line.includes('<download available>')) {
+        return undefined;
+    }
+    // Columns are separated by 2+ spaces; the path is the second column.
+    const pathColumn = line
+        .split(/\s{2,}/)[1]
+        ?.trim()
+        .split(' -> ')[0]
+        .trim();
+    return pathColumn || undefined;
+}
+
+/**
  * Checks what Python version uv would install for a given version request.
  * Uses `uv python list` to see available versions without actually installing.
  * @param requestedVersion The version requested (e.g., "3.14", "3.13")
@@ -262,33 +282,10 @@ export async function getUvPythonVersionInfo(
 
         const isPrerelease = isVersionPrerelease(version);
 
-        // Check if this version is locally installed
-        const isLocal = !selectedLine.includes('<download available>');
-
-        // Extract path if this is a local install
-        let pythonPath: string | undefined;
-        if (isLocal) {
-            // Extract path from format like:
-            //   "cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ..."
-            //   "cpython-3.13.7-windows-x86_64-none   C:\Program Files\Python\python.exe"
-            // Split on 2+ spaces to separate columns, then strip " -> ..." suffix
-            const columns = selectedLine.split(/\s{2,}/);
-            if (columns.length >= 2) {
-                let pathColumn = columns[1].trim();
-                const arrowIndex = pathColumn.indexOf(' -> ');
-                if (arrowIndex !== -1) {
-                    pathColumn = pathColumn.substring(0, arrowIndex);
-                }
-                if (pathColumn.length > 0) {
-                    pythonPath = pathColumn;
-                }
-            }
-        }
-
         return {
             version,
             isPrerelease,
-            path: pythonPath,
+            path: parseUvPythonPath(selectedLine),
         };
     } catch (ex) {
         traceVerbose(`Error checking uv Python version: ${ex}`);
@@ -436,9 +433,7 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
         // installs should count as already installed; a system Python is shown as installable.
         // On Windows ARM64, use --all-arches to see ARM64 builds (uv defaults to x64)
         // See: https://github.com/astral-sh/uv/issues/12906
-        const args = isWindowsArm64()
-            ? ['python', 'list', '--managed-python', '--all-arches']
-            : ['python', 'list', '--managed-python'];
+        const args = ['python', 'list', '--managed-python', ...(isWindowsArm64() ? ['--all-arches'] : [])];
         const result = await exec(uvUtils.command, args, { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
@@ -507,25 +502,10 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
 
             const minorVersion = `${majorVersion}.${minorVersionNum}`;
 
-            // Extract the identifier (first column)
-            const columns = line.split(/\s{2,}/);
-            const identifier = columns[0].trim();
-
-            // Check if installed (has a path, not "<download available>")
+            // Identifier is the first column; install state and path come from the same line.
+            const identifier = line.split(/\s{2,}/)[0].trim();
             const isInstalled = !line.includes('<download available>');
-
-            let pythonPath: string | undefined;
-            if (isInstalled && columns.length >= 2) {
-                let pathColumn = columns[1].trim();
-                // Strip " -> ..." symlink suffix if present
-                const arrowIndex = pathColumn.indexOf(' -> ');
-                if (arrowIndex !== -1) {
-                    pathColumn = pathColumn.substring(0, arrowIndex);
-                }
-                if (pathColumn.length > 0) {
-                    pythonPath = pathColumn;
-                }
-            }
+            const pythonPath = parseUvPythonPath(line);
 
             // Only keep one entry per minor version. uv lists patches newest-first, so the
             // first entry for a minor version is often a newer "<download available>" patch
@@ -552,18 +532,9 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
 
         // Sort by version descending (newest first)
         versions.sort((a, b) => {
-            const aParts = a.version.split('.').map(Number);
-            const bParts = b.version.split('.').map(Number);
-
-            // Compare major version
-            if (aParts[0] !== bParts[0]) {
-                return bParts[0] - aParts[0];
-            }
-            // Compare minor version
-            if (aParts[1] !== bParts[1]) {
-                return bParts[1] - aParts[1];
-            }
-            return 0;
+            const [aMajor, aMinor] = a.version.split('.').map(Number);
+            const [bMajor, bMinor] = b.version.split('.').map(Number);
+            return bMajor - aMajor || bMinor - aMinor;
         });
 
         return versions;
