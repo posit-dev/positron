@@ -47,25 +47,23 @@ Copy the `Positron Server private key` from 1Password to:
 
 Both `.env` and `license.txt` are gitignored — don't commit them.
 
-### 3. Open the workspace in the container
+## How to
+
+### Open the workspace in the container
 
 From a regular clone or a git worktree of Positron, run `Dev Containers: Open Workspace in
 Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
 about 10 minutes, once per machine. The build persists on Docker volumes, so later opens are fast.
-`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop.
+`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop. (Worktrees work
+too, but must be a **full clone** — see [How storage works](#how-storage-works).)
 
-(Worktrees work too, but must be a **full clone** — see [How storage works](#how-storage-works).)
-
-## How to
-
-Install the **Task Buttons** extension and the common actions sit in the status bar — one click, no
-Command Palette. Everything else is under `Cmd-Shift-P → Tasks: Run Task` (type "Positron CI" to
-filter); debug profiles are in the **Run and Debug** panel.
-
-**Start the Doctor and keep it open** (Doctor button or task): a live dashboard of build status,
-services, and URLs that refreshes within a few seconds when anything changes. `q` quits.
+Once connected, the common actions live in the status bar if you installed **Task Buttons** — one
+click, no Command Palette. Everything else is under `Cmd-Shift-P → Tasks: Run Task` (type "Positron
+CI" to filter); debug profiles are in the **Run and Debug** panel. **Keep the Doctor open** (Doctor
+button or task): a live dashboard of build status, services, and URLs that refreshes within a few
+seconds when anything changes; `q` quits.
 
 ### Edit and re-run
 
@@ -88,8 +86,7 @@ the Doctor to watch live. Serve and view the playwright report via the `Report` 
 
 The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
 the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
-content** — it lands at the test path and is symlinked to `~/qa-example-content`. Test teardown
-git-resets the copy, so don't keep edits there.
+content** — it lands at the test path and is symlinked to `~/qa-example-content`.
 
 ### Debug
 
