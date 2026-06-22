@@ -40,5 +40,8 @@ fi
 # connect any time without launching anything first.
 "$(dirname "$0")/start-vnc.sh" || true
 
+# Advisory: flag wrong-OS native binaries (checkout also built natively?) instead of a silent hang.
+"$(dirname "$0")/check-native-arch.sh" || true
+
 # Report whether the build is current and what (if anything) needs rebuilding.
 "$(dirname "$0")/build-doctor.sh" || true
