@@ -31,27 +31,46 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 Container work lives in a **dedicated git worktree** so its Linux build artifacts never mix with
 native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-From your main clone, on any branch, **one command** does it:
+
+### 1. Get a full Positron clone
+
+Skip if you already have one. The build needs git history, so **don't** shallow-clone:
+
+```bash
+git clone https://github.com/posit-dev/positron.git
+cd positron
+```
+
+### 2. Run start
+
+From your clone, on any branch:
 
 ```bash
 ./.devcontainer/ci-arm/start.sh
 ```
 
-It creates the worktree (off your current commit) and opens it in VS Code; then click **Reopen in
-Container**.
+It creates a dedicated worktree off your current commit. The first run stops here to ask for your
+secrets (step 3).
 
-**The first run stops and asks for your secrets.** `.env` and `license.txt` are gitignored, so a
-fresh worktree doesn't have them and the container needs both. Add them **in the worktree**
-(`start.sh` prints the exact lines — including copying from your main clone if you already have them
-there):
+### 3. Add your secrets — in the worktree
+
+`.env` and `license.txt` are gitignored, so a fresh worktree doesn't have them and the container
+needs both. `start.sh` prints the exact lines (copying from your clone if you already have them
+there); add them in the worktree's `.devcontainer/ci-arm/`:
 
 - **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
   Postgres connection info from 1Password (`E2E Postgres DB connection info`).
 - **license** — copy the `Positron Server private key` from 1Password to
   `.devcontainer/ci-arm/license.txt`.
 
-Then run `start.sh` again and it opens. (Neither file is committed — both are gitignored. Prefer not
-to use `start.sh`? `setup-worktree.sh` creates only the worktree and you open it yourself.)
+### 4. Run start again
+
+```bash
+./.devcontainer/ci-arm/start.sh
+```
+
+Now it opens the worktree in VS Code — click **Reopen in Container**. Day to day, this one command
+is all you need (it reuses the worktree). Both secret files stay gitignored.
 
 ## How to
 
