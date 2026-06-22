@@ -479,6 +479,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 				// Home key.
 				case 'Home':
+					// When the keydown originates from the console input editor,
+					// let it bubble to the keybinding service so the input's Home
+					// binding (cursorLineStart) handles it. Only scroll the output
+					// to the top when focus is elsewhere in the console.
+					if (target.closest?.('.console-input')) {
+						return;
+					}
 					// Consume the event, set scroll lock, and scroll to the top.
 					consumeEvent();
 					props.positronConsoleInstance.scrollLocked = scrollable();
@@ -487,6 +494,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 				// End key.
 				case 'End':
+					// As with Home, let input-originated End bubble to the
+					// keybinding service (cursorLineEnd); otherwise scroll to the
+					// bottom of the output.
+					if (target.closest?.('.console-input')) {
+						return;
+					}
 					consumeEvent();
 					scrollToBottom();
 					return;
