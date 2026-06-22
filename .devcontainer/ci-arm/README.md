@@ -13,7 +13,6 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Docotor View">
 </p>
 
-
 ## Prerequisites
 
 Once, on your machine:
@@ -22,21 +21,21 @@ Once, on your machine:
     * **Resources → Advanced**: **8+ CPU**, **16 GB RAM**, a few GB free disk.
     * **General → Virtual Machine Options**: turn on **VirtioFS**.
 2. **GHCR login** (images are private):
+
    ```bash
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
-3. **VS Code** + the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
-   extension — the dev-container client (Positron can't host it). **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**
-   is recommended (auto-prompted on open). The container's own extensions install themselves.
+
+3. Install the following extensions in **VS Code**:
+   * **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
+   * **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**
 
 ## Setup
 
-Once, to create your CI lab: a **dedicated git worktree** so its Linux build artifacts never mix
-with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-
 ### 1. Create the worktree
 
-From your Positron checkout (clone or worktree):
+Once, to create your Container CI lab, create a **dedicated git worktree** so its Linux build artifacts never mix
+with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). From Positron clone or worktree run:
 
 ```bash
 ./.devcontainer/ci-arm/setup-worktree.sh        # raw equivalent: git worktree add ../positron-ci
@@ -44,36 +43,29 @@ From your Positron checkout (clone or worktree):
 
 ### 2. Add secrets — in the new worktree
 
-Gitignored, so not copied in; the container needs both (`setup-worktree.sh` prints the exact lines):
+Gitignored, so not copied in; the container needs both env vars:
 
-- **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
+* **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
   Postgres info from 1Password (`E2E Postgres DB connection info`).
-- **license** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
+* **license.txt** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
 
-### 3. Open it
+### 3. Open it in the container
 
-Open the worktree's `positron-ci.code-workspace`, then **Reopen in Container**. First open runs the
-~10-min cold build; after that it's warm.
+In VS Code via Command Palette run:
+**`Dev Containers: Open Workspace in Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`**.
+The first open runs the ~10-min cold build; later opens are fast.
 
-Day to day, that worktree is your standing CI lab: go back, `git checkout` the commit you're
-reproducing, Reopen in Container.
+That's it — you have a working CI lab.
 
-## How to
+## Daily use
 
-### Open the workspace in the container
+Reopen the lab anytime: in VS Code, **Open Recent** the worktree and **Reopen in Container**. To
+reproduce a specific failure, `git checkout` that commit in the worktree first.
 
-In the container worktree, run `Dev Containers: Open Workspace in
-Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
+Common actions are status-bar buttons (**Task Buttons**); everything else is `Cmd-Shift-P → Tasks:
+Run Task`, filtered by `Positron CI`, and debug profiles are in **Run and Debug**.
 
-The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
-about 10 minutes, once per machine. The build persists on Docker volumes, so later opens are fast.
-`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop.
-
-Once connected, the common actions live in the status bar if you installed **Task Buttons** — one
-click, no Command Palette. Everything else is under `Cmd-Shift-P → Tasks: Run Task` (type "Positron
-CI" to filter); debug profiles are in the **Run and Debug** panel. **Keep the Doctor open** (Doctor
-button or task): a live dashboard of build status, services, and URLs that refreshes within a few
-seconds when anything changes; `q` quits.
+> **Keep the Doctor open** — alive dashboard of build/service status and URLs; `q` quits.
 
 ### Edit and re-run
 
