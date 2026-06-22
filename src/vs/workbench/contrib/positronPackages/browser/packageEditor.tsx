@@ -33,13 +33,13 @@ export class PackageEditor extends EditorPane {
 	private _reactRenderer?: PositronReactRenderer;
 
 	constructor(
-		readonly _group: IEditorGroup,
+		group: IEditorGroup,
 		@IPositronPackagesService private readonly _packagesService: IPositronPackagesService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 	) {
-		super(PackageEditor.ID, _group, telemetryService, themeService, storageService);
+		super(PackageEditor.ID, group, telemetryService, themeService, storageService);
 		this._container = DOM.$('.positron-package-detail-container');
 	}
 
