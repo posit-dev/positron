@@ -22,14 +22,10 @@
 			{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
 		]
 	},
-	"extensions": {
-		// The task-buttons extension is recommended (not force-installed) — opening this workspace
-		// prompts you to install it; that's what draws the status-bar buttons. The functional
-		// extensions (playwright, eslint, …) are installed by the dev container itself.
-		"recommendations": [
-			"spencerwmiles.vscode-task-buttons"
-		]
-	},
+	// The task-buttons extension that draws these status-bar buttons is auto-installed into the
+	// container via .devcontainer/ci-arm/devcontainer.json (customizations.vscode.extensions),
+	// alongside the other functional extensions — so a fresh container has the buttons with no
+	// manual install step.
 	"tasks": {
 		"version": "2.0.0",
 		"tasks": [
