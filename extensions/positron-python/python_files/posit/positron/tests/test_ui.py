@@ -481,7 +481,7 @@ def test_get_package_detail_unknown(kernel: PositronIPyKernel) -> None:
 
 def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
     """_get_package_detail raises _InvalidParamsError for invalid params."""
-    from positron.ui import _InvalidParamsError, _get_package_detail
+    from positron.ui import _get_package_detail, _InvalidParamsError
 
     with pytest.raises(_InvalidParamsError):
         _get_package_detail(kernel, [])
@@ -491,6 +491,47 @@ def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
 
     with pytest.raises(_InvalidParamsError):
         _get_package_detail(kernel, "pytest")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # SPDX License-Expression is the top choice.
+        ({"License-Expression": "MIT"}, "MIT"),
+        # License-Expression beats a classifier.
+        (
+            {"License-Expression": "MIT", "Classifier": ["License :: OSI Approved :: GPL"]},
+            "MIT",
+        ),
+        # A short legacy License field is used.
+        ({"License": "BSD-3-Clause"}, "BSD-3-Clause"),
+        # An OSI license classifier is the fallback (last segment).
+        ({"Classifier": ["License :: OSI Approved :: MIT License"]}, "MIT License"),
+        # A multi-line legacy License (full text) is skipped in favour of a classifier.
+        (
+            {
+                "License": "Copyright ...\nfull license text\n...",
+                "Classifier": ["License :: OSI Approved :: Apache Software License"],
+            },
+            "Apache Software License",
+        ),
+        # No license metadata of any kind.
+        ({}, None),
+    ],
+    ids=[
+        "spdx-expression",
+        "expression-beats-classifier",
+        "short-legacy-license",
+        "classifier-fallback",
+        "multiline-license-skipped",
+        "none",
+    ],
+)
+def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_license prefers SPDX, then a one-line License, then a classifier."""
+    from positron.ui import _best_license
+
+    assert _best_license(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
 
 
 def test_is_not_plot_url_events(

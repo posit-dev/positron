@@ -242,7 +242,26 @@ def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
     return None
 
 
-def _get_package_detail(kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+def _best_license(metadata: Any) -> Optional[str]:
+    """Best-effort short license string.
+
+    Prefers the SPDX `License-Expression`, then a one-line legacy `License`
+    field, then an OSI license `Classifier`. Skips the legacy `License` field
+    when it holds the full multi-line license text rather than a short name.
+    """
+    expr = metadata.get("License-Expression")
+    if expr and expr.strip():
+        return expr.strip()
+    legacy = metadata.get("License")
+    if legacy and legacy.strip() and legacy.strip() != "UNKNOWN" and "\n" not in legacy:
+        return legacy.strip()
+    for classifier in metadata.get_all("Classifier") or []:
+        if classifier.startswith("License :: "):
+            return classifier.split("::")[-1].strip()
+    return None
+
+
+def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
         raise _InvalidParamsError(f"Expected a package name, got: {params}")
     name = params[0]
@@ -262,6 +281,9 @@ def _get_package_detail(kernel: "PositronIPyKernel", params: List[JsonData]) -> 
     repo = _source_repository(dist)
     if repo:
         detail["sourceRepository"] = repo
+    license_str = _best_license(metadata)
+    if license_str:
+        detail["license"] = license_str
     return detail
 
 

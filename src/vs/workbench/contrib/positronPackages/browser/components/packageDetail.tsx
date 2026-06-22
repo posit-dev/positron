@@ -240,6 +240,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	// immediately.
 	const merged = { ...pkg, ...detail };
 
+	// Header subtitle: prefer the short one-line title (R's `Title`, Python's
+	// `Summary`) over the longer list `description` (R's full Description).
+	const subtitle = merged.title || pkg?.description;
+
 	// Installed version, with "(latest)" appended when the runtime reports the
 	// installed version is the latest (so we omit a separate Latest version row).
 	const installedVersionText = livePkg
@@ -258,7 +262,8 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						{pkg?.version && <span className='package-detail-version'>{pkg.version}</span>}
 						{pkg?.attached && <span className='package-detail-attached-pill'>{localize('positron.packages.detail.attached', "Attached")}</span>}
 					</div>
-					{pkg?.description && <div className='package-detail-description'>{pkg.description}</div>}
+					{merged.author && <div className='package-detail-author'>{merged.author}</div>}
+					{subtitle && <div className='package-detail-description'>{subtitle}</div>}
 					<div className='package-detail-actions'>
 						{view.actions.map(renderActionButton)}
 					</div>
@@ -286,8 +291,6 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				<Field label={localize('positron.packages.detail.latestVersion', "Latest version")} value={pkg?.outdated ? pkg?.latestVersion : undefined} />
 				<Field label={localize('positron.packages.detail.license', "License")} value={merged.license} />
 				<Field label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate} />
-				<DetailField label={localize('positron.packages.detail.title', "Title")} loading={detailLoading} value={merged.title && merged.title !== pkg?.description ? merged.title : undefined} />
-				<DetailField label={localize('positron.packages.detail.author', "Author")} loading={detailLoading} value={merged.author} />
 				<DetailField label={localize('positron.packages.detail.dependencies', "Dependencies")} loading={detailLoading} value={merged.dependencyCount} />
 				<DetailField label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
 				<Field label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />

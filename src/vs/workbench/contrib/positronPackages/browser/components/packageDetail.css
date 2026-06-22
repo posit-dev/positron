@@ -35,6 +35,7 @@
 .package-detail-title-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .package-detail-title { margin: 0; font-size: 20px; font-weight: 600; }
 .package-detail-version { opacity: 0.7; font-size: 0.9em; }
+.package-detail-author { opacity: 0.7; margin: 2px 0; }
 .package-detail-description { opacity: 0.8; margin: 2px 0 10px; }
 .package-detail-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
@@ -47,49 +48,49 @@
 	background: color-mix(in srgb, var(--vscode-charts-green) 18%, var(--vscode-editor-background));
 }
 
-.package-detail-action {
+/*
+ * Buttons are anchored with `.positron-button` (two-class specificity) so these
+ * colours win over the base `.positron-button` rule, exactly as the Packages
+ * list does for its `.packages-list-item-update-button.positron-button`.
+ */
+.package-detail-action.positron-button {
 	padding: 2px 14px;
 	min-height: 26px;
 	border-radius: 4px;
 	color: var(--vscode-button-secondaryForeground);
-	background: var(--vscode-button-secondaryBackground);
+	background-color: var(--vscode-button-secondaryBackground);
 	border: 1px solid var(--vscode-button-border, transparent);
 }
 
-.package-detail-action:hover:not(:disabled) {
-	background: var(--vscode-button-secondaryHoverBackground);
+.package-detail-action.positron-button:hover:not(.disabled) {
+	background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.package-detail-action:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 2px;
-}
-
-.package-detail-action:disabled {
+.package-detail-action.positron-button.disabled {
 	opacity: 0.4;
 }
 
 /* Update / Install use the prominent (primary) button colour. */
-.package-detail-action-primary {
+.package-detail-action-primary.positron-button {
 	color: var(--vscode-button-foreground);
-	background: var(--vscode-button-background);
-	border-color: var(--vscode-button-border, transparent);
+	background-color: var(--vscode-button-background);
+	border: 1px solid var(--vscode-button-border, transparent);
 }
 
-.package-detail-action-primary:hover:not(:disabled) {
-	background: var(--vscode-button-hoverBackground);
+.package-detail-action-primary.positron-button:hover:not(.disabled) {
+	background-color: var(--vscode-button-hoverBackground);
 }
 
 /* Help / Website are icon-only buttons, matching the Packages list. */
-.package-detail-action-icon {
+.package-detail-action-icon.positron-button {
 	padding: 2px 6px;
 	color: var(--vscode-foreground);
-	background: transparent;
-	border-color: transparent;
+	background-color: transparent;
+	border: 1px solid transparent;
 }
 
-.package-detail-action-icon:hover:not(:disabled) {
-	background: var(--vscode-toolbar-hoverBackground);
+.package-detail-action-icon.positron-button:hover:not(.disabled) {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .package-detail-action-icon .codicon {
