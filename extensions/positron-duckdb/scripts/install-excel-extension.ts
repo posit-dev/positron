@@ -48,7 +48,7 @@ function duckdbPlatform(): string {
 		case 'win32':
 			return 'windows_amd64';
 		default:
-			throw new Error(`Unsupported platform for the DuckDB excel extension: ${platform()}`);
+			throw new Error(`Unsupported platform for the DuckDB Excel extension: ${platform()}`);
 	}
 }
 
@@ -76,7 +76,7 @@ function assertVersionMatchesEngine(pinnedVersion: string): void {
 	const engineVersion = `v${String(nodeApiPackageJson.version).split('-')[0]}`;
 	if (engineVersion !== pinnedVersion) {
 		throw new Error(
-			`The pinned excel extension version (${pinnedVersion}) does not match the ` +
+			`The pinned Excel extension version (${pinnedVersion}) does not match the ` +
 			`installed @duckdb/node-api engine (${engineVersion}). Update ` +
 			`positron.binaryDependencies.duckdbExcelExtension in package.json to ${engineVersion}.`
 		);
@@ -101,11 +101,11 @@ function httpsGet(url: string): Promise<IncomingMessage> {
 /** Download the gzipped extension and return its decompressed bytes. */
 async function downloadExtension(version: string, duckdbPlatformName: string): Promise<Buffer> {
 	const url = `https://extensions.duckdb.org/${version}/${duckdbPlatformName}/excel.duckdb_extension.gz`;
-	console.log(`Downloading DuckDB excel extension from ${url} ...`);
+	console.log(`Downloading DuckDB Excel extension from ${url} ...`);
 	const response = await httpsGet(url);
 	if (response.statusCode !== 200) {
 		response.resume();
-		throw new Error(`Failed to download the DuckDB excel extension: HTTP ${response.statusCode}`);
+		throw new Error(`Failed to download the DuckDB Excel extension: HTTP ${response.statusCode}`);
 	}
 	const chunks: Buffer[] = [];
 	for await (const chunk of response) {
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
 	// Skip the download if we already have the matching extension.
 	if (fs.existsSync(EXTENSION_FILE) && fs.existsSync(VERSION_FILE) &&
 		fs.readFileSync(VERSION_FILE, 'utf-8') === tag) {
-		console.log(`DuckDB excel extension ${tag} already present; nothing to do.`);
+		console.log(`DuckDB Excel extension ${tag} already present; nothing to do.`);
 		return;
 	}
 
@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 	fs.mkdirSync(RESOURCES_DIR, { recursive: true });
 	fs.writeFileSync(EXTENSION_FILE, new Uint8Array(extensionBytes));
 	fs.writeFileSync(VERSION_FILE, tag);
-	console.log(`Installed DuckDB excel extension ${tag} (${extensionBytes.length} bytes).`);
+	console.log(`Installed DuckDB Excel extension ${tag} (${extensionBytes.length} bytes).`);
 }
 
 /**
@@ -147,7 +147,7 @@ function isCI(): boolean {
 }
 
 main().catch((error) => {
-	console.error('Failed to install the DuckDB excel extension:', error);
+	console.error('Failed to install the DuckDB Excel extension:', error);
 	if (isCI()) {
 		// Fail the build hard: a release that "builds" but silently lacks Excel
 		// support is worse than a build failure. Better to find out here.
@@ -159,7 +159,7 @@ main().catch((error) => {
 	// support is unavailable, with a clear error -- and re-running install will
 	// fetch it once the network recovers.
 	console.warn(
-		'Continuing without the DuckDB excel extension. Excel (.xlsx) support in ' +
+		'Continuing without the DuckDB Excel extension. Excel (.xlsx) support in ' +
 		'the data explorer will be unavailable until this download succeeds; ' +
 		're-run `npm install` (or `npm run install-excel-extension`) to retry.'
 	);

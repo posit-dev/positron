@@ -2420,7 +2420,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			this._excelExtensionLoaded = true;
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
-			console.error(`Failed to load bundled DuckDB excel extension (${EXCEL_EXTENSION_PATH}): ${detail}`);
+			console.error(`Failed to load bundled DuckDB Excel extension (${EXCEL_EXTENSION_PATH}): ${detail}`);
 			throw new Error('Could not load Excel support. Please report this issue if it persists.');
 		}
 	}
