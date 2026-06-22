@@ -19,7 +19,7 @@ import {
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
-import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders, initializeCredentialTracking, setPreviouslySignedIn } from './configDialog';
+import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
 import { getProviderSources } from './providerSources';
 import {
 	normalizeToV1Url,
@@ -44,8 +44,6 @@ import { resolveGoogleVertexCredential } from './googleVertexResolver';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
-
-	initializeCredentialTracking(context);
 
 	await registerAnthropicProvider(context);
 	registerPositAIProvider(context);
@@ -80,12 +78,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			const provider = authProviders.get(e.provider.id);
 			if (provider) {
 				const sessions = await provider.getSessions();
-				updateProviderFromSessions(e.provider.id, sessions);
+				await updateProviderFromSessions(e.provider.id, sessions);
 			}
 			// Copilot uses GitHub's built-in auth, not a registered AuthProvider
 			if (e.provider.id === 'github') {
 				const session = await vscode.authentication.getSession('github', [], { silent: true });
-				updateProviderFromSessions('copilot-auth', session ? [session] : []);
+				await updateProviderFromSessions('copilot-auth', session ? [session] : []);
 			}
 		})
 	);
@@ -97,11 +95,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		const provider = authProviders.get(source.provider.id);
 		if (provider) {
 			const sessions = await provider.getSessions();
-			updateProviderFromSessions(source.provider.id, sessions);
+			await updateProviderFromSessions(source.provider.id, sessions);
 		}
 	}
 	const githubSession = await vscode.authentication.getSession('github', [], { silent: true });
-	updateProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
+	await updateProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
 
 	// Remove auth sessions when a provider is disabled in settings.
 	context.subscriptions.push(
@@ -113,7 +111,6 @@ export async function activate(context: vscode.ExtensionContext) {
 					if (!isEnabled) {
 						const provider = authProviders.get(source.provider.id);
 						if (provider) {
-							setPreviouslySignedIn(source.provider.id, false);
 							const sessions = await provider.getSessions();
 							for (const session of sessions) {
 								await provider.removeSession(session.id);

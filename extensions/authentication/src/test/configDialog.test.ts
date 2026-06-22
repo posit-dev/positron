@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { authProviders, registerAuthProvider, providerAction, updateProviderFromSessions, initializeCredentialTracking } from '../configDialog';
+import { authProviders, registerAuthProvider, providerAction, updateProviderFromSessions } from '../configDialog';
 import { AuthProvider } from '../authProvider';
 import { validateAnthropicApiKey } from '../validation';
 
@@ -56,7 +56,6 @@ suite('configDialog', () => {
 				},
 			},
 		} as unknown as vscode.ExtensionContext;
-		initializeCredentialTracking(mockContext);
 		provider = new AuthProvider('anthropic-api', 'Anthropic', mockContext);
 		registerAuthProvider('anthropic-api', provider, {
 			validateApiKey: async (apiKey, config) => validateAnthropicApiKey(apiKey, config),
@@ -308,12 +307,46 @@ suite('configDialog', () => {
 	});
 
 	suite('credential state updates', () => {
-		test('sessions present reports ok and persists the sign-in', () => {
+		// A chain provider records its configured state (via isConfigured) once
+		// it has successfully resolved, independent of current session validity.
+		function registerChainProvider(providerId: string): AuthProvider {
+			const globalState = new Map<string, unknown>();
+			const chainProvider = new AuthProvider(
+				providerId, providerId,
+				{
+					secrets: {
+						get: () => Promise.resolve(undefined),
+						store: () => Promise.resolve(),
+						delete: () => Promise.resolve(),
+					},
+					globalState: {
+						get: <T>(key: string) => globalState.get(key) as T | undefined,
+						update: (key: string, value: unknown) => {
+							globalState.set(key, value);
+							return Promise.resolve();
+						},
+					},
+				} as unknown as vscode.ExtensionContext,
+				undefined,
+				{ resolve: async () => 'chain-token' }
+			);
+			registerAuthProvider(providerId, chainProvider);
+			return chainProvider;
+		}
+
+		test('sessions present reports ok; later empty list reports expired', async () => {
+			const chainProvider = registerChainProvider('amazon-bedrock');
+			// Resolving the chain persists the provider's configured state.
+			await chainProvider.resolveChainCredentials();
+
 			// Chain sessions use the provider ID as the session ID.
-			updateProviderFromSessions('amazon-bedrock', [makeSession('amazon-bedrock')]);
-			// Sessions later disappear (e.g. expired chain after a reload):
-			// the persisted flag turns the empty list into an expired session.
-			updateProviderFromSessions('amazon-bedrock', []);
+			await updateProviderFromSessions('amazon-bedrock', [makeSession('amazon-bedrock')]);
+			// Sessions later disappear (e.g. expired chain after a reload): the
+			// provider's persisted configured state turns the empty list into an
+			// expired session.
+			await updateProviderFromSessions('amazon-bedrock', []);
+
+			chainProvider.dispose();
 
 			assert.deepStrictEqual(updateCalls, [
 				{ id: 'amazon-bedrock', update: { signedIn: true, status: 'ok', statusMessage: undefined } },
@@ -321,24 +354,24 @@ suite('configDialog', () => {
 			]);
 		});
 
-		test('no sessions and no prior sign-in reports null status', () => {
-			updateProviderFromSessions('anthropic-api', []);
+		test('no sessions and no prior sign-in reports null status', async () => {
+			await updateProviderFromSessions('anthropic-api', []);
 
 			assert.deepStrictEqual(updateCalls, [
 				{ id: 'anthropic-api', update: { signedIn: false, status: null, statusMessage: undefined } },
 			]);
 		});
 
-		test('delete clears the persisted sign-in', async () => {
+		test('delete clears the configured state', async () => {
 			await provider.storeKey('uuid-1', 'Anthropic', 'sk-ant-key');
-			updateProviderFromSessions('anthropic-api', await provider.getSessions());
+			await updateProviderFromSessions('anthropic-api', await provider.getSessions());
 
 			await providerAction(
 				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'anthropic-api', displayName: 'Anthropic', settingName: 'anthropic' }, supportedOptions: [], defaults: {} },
 				{},
 				'delete'
 			);
-			updateProviderFromSessions('anthropic-api', await provider.getSessions());
+			await updateProviderFromSessions('anthropic-api', await provider.getSessions());
 
 			assert.deepStrictEqual(updateCalls.at(-1), {
 				id: 'anthropic-api',
@@ -346,9 +379,9 @@ suite('configDialog', () => {
 			});
 		});
 
-		test('copilot-auth never reports an expired session', () => {
-			updateProviderFromSessions('copilot-auth', [makeSession('gh-uuid')]);
-			updateProviderFromSessions('copilot-auth', []);
+		test('copilot-auth never reports an expired session', async () => {
+			await updateProviderFromSessions('copilot-auth', [makeSession('gh-uuid')]);
+			await updateProviderFromSessions('copilot-auth', []);
 
 			assert.deepStrictEqual(updateCalls.at(-1), {
 				id: 'copilot-auth',

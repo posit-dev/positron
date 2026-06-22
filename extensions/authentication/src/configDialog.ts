@@ -28,36 +28,6 @@ const onSaveCallbacks = new Map<string, OnSaveCallback>();
 
 const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
 
-// Global state used to persist which providers have previously signed in,
-// so that after a reload an empty session list can be reported as an
-// expired session ('error') rather than a never-configured provider (null).
-let globalState: vscode.Memento | undefined;
-
-/**
- * Provide access to the extension's global state for credential tracking.
- * Call once during activation, before any provider updates.
- */
-export function initializeCredentialTracking(context: vscode.ExtensionContext): void {
-	globalState = context.globalState;
-}
-
-function previouslySignedInKey(providerId: string): string {
-	return `authentication.previouslySignedIn.${providerId}`;
-}
-
-function wasPreviouslySignedIn(providerId: string): boolean {
-	return globalState?.get<boolean>(previouslySignedInKey(providerId)) === true;
-}
-
-/**
- * Record or clear the persisted "previously signed in" flag for a provider.
- * Cleared on explicit sign-out so a later empty session list reads as
- * "not configured" rather than "expired".
- */
-export function setPreviouslySignedIn(providerId: string, value: boolean): void {
-	globalState?.update(previouslySignedInKey(providerId), value ? true : undefined);
-}
-
 /**
  * Register an auth provider so the config dialog can store/remove
  * credentials through it.
@@ -94,10 +64,10 @@ export function getAuthProvider(
  * Update a provider's signedIn and autoconfigure state from its current sessions.
  * The caller is responsible for fetching sessions via the appropriate mechanism.
  */
-export function updateProviderFromSessions(
+export async function updateProviderFromSessions(
 	providerId: string,
 	sessions: vscode.AuthenticationSession[],
-): void {
+): Promise<void> {
 	try {
 		const signedIn = sessions.length > 0;
 		// Chain sessions (env vars, credential chain, managed credentials) use
@@ -112,9 +82,8 @@ export function updateProviderFromSessions(
 		let status: 'ok' | 'error' | null;
 		let statusMessage: string | undefined;
 		if (signedIn) {
-			setPreviouslySignedIn(providerId, true);
 			status = 'ok';
-		} else if (providerId !== 'copilot-auth' && wasPreviouslySignedIn(providerId)) {
+		} else if (providerId !== 'copilot-auth' && await authProviders.get(providerId)?.isConfigured()) {
 			status = 'error';
 			statusMessage = vscode.l10n.t('Authentication expired');
 		} else {
@@ -311,7 +280,6 @@ async function handleDelete(
 		);
 	}
 	log.info(`Deleting ${deletable.length} session(s) for provider "${providerId}"`);
-	setPreviouslySignedIn(providerId, false);
 	for (const session of deletable) {
 		await provider.removeSession(session.id);
 	}
