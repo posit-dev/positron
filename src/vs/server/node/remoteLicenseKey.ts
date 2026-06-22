@@ -219,15 +219,23 @@ export async function validateLicense(connectionToken: string, license: string, 
 	}
 
 	// Try each supplied public key; accept the license if any key verifies.
-	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey].filter(k => k.trim() !== '');
+	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey];
 	const signature = Buffer.from(licenseKey.signature, 'base64');
 	let signatureValid = false;
 	for (const keyPem of keysToTry) {
 		if (!keyPem.trim()) {
 			continue;
 		}
+		let key: crypto.KeyObject;
 		try {
-			const key = crypto.createPublicKey({ key: keyPem, format: 'pem' });
+			key = crypto.createPublicKey({ key: keyPem, format: 'pem' });
+		} catch (e) {
+			// A configured key that won't parse is a deployment error, not a bad
+			// token; warn so it is not silently mistaken for an invalid signature.
+			console.warn('Skipping license public key that could not be parsed: ', e);
+			continue;
+		}
+		try {
 			const verifier = crypto.createVerify('sha256');
 			verifier.update(licenseKey.connection_token);
 			verifier.update(licenseKey.issuer);
@@ -238,7 +246,7 @@ export async function validateLicense(connectionToken: string, license: string, 
 				break;
 			}
 		} catch {
-			// Key parse failed or verification threw; try next key.
+			// Verification threw for this key; try next.
 		}
 	}
 

@@ -49,6 +49,20 @@ describe('validateLicense', () => {
 		expect(result.licensee).toBe('Test Corp');
 	});
 
+	it('validates a token with empty issuer and licensee', async () => {
+		// The minting service legitimately issues tokens with empty issuer/licensee
+		// (e.g. dev mode, or a license-manager whose verify output omits issuer).
+		// The empty strings are still part of the signed payload, so the token must
+		// validate rather than be rejected as "missing fields".
+		const token = 'test-token-empty-fields';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, '', '', timestamp);
+
+		const result = await validateLicense(token, license, [testPubKeyPem]);
+
+		expect(result.valid).toBe(true);
+	});
+
 	it('rejects a token with a wrong connection_token', async () => {
 		const timestamp = new Date().toISOString();
 		const license = mintLicense('right-token', 'Test Hub', 'Test Corp', timestamp);
@@ -127,6 +141,20 @@ describe('validateLicense', () => {
 
 		expect(result.valid).toBe(false);
 	});
+
+	it('falls back to the embedded keys when none are supplied', async () => {
+		// With no `publicKeys` argument, validation uses the embedded PublicKey /
+		// OrchestratorPublicKey constants. A token signed by our test key matches
+		// neither, so this exercises the default-key branch and must reject it. It
+		// guards against the default array being accidentally emptied or dropped.
+		const token = 'test-token-default';
+		const timestamp = new Date().toISOString();
+		const license = mintLicense(token, 'Hub', 'Corp', timestamp);
+
+		const result = await validateLicense(token, license);
+
+		expect(result.valid).toBe(false);
+	});
 });
 
 describe('validateLicenseKey', () => {
@@ -138,7 +166,9 @@ describe('validateLicenseKey', () => {
 		delete process.env.POSITRON_LICENSE_KEY;
 		delete process.env.POSITRON_LICENSE_KEY_FILE;
 		try {
-			const args: ServerParsedArgs = {};
+			// validateLicenseKey only reads the license-related args; an empty
+			// object covers the no-token-provided case under test.
+			const args = {} as ServerParsedArgs;
 			const result = await validateLicenseKey('some-token', args);
 			expect(result.valid).toBe(false);
 		} finally {
