@@ -8,6 +8,7 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
+import './contrib/help/NotebookHelpAction.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
