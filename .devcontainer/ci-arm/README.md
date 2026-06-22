@@ -17,8 +17,8 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
 3. Install the following extensions:
-   * **Dev Containers extension**, using **VS Code** as the client
-	 * **Task Buttons**, optional but highly recommended so you don't have to dig through Task menus
+	* **`Dev Containers`**, required, using **VS Code** as the client
+	* **`Task Buttons`**, optional, but highly recommended so you don't have to dig through Task menus
 
 ## Setup
 
@@ -26,132 +26,114 @@ One-time, on the host.
 
 ### 1. Create your `.env`
 
+Copy the template, then fill in the Postgres connection info from 1Password (`E2E Postgres DB connection info`):
+
 ```bash
 cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
 ```
 
-| Setting | Where |
-|---|---|
-| `E2E_POSTGRES_USER` / `E2E_POSTGRES_PASSWORD` | 1Password → *Positron > E2E Postgres DB Connection info* |
-| `POSITRON_CI_IMAGE_TAG` | defaults to the current CI tag (`127`); override to pin a specific CI run |
-| `POSITRON_CI_IMAGE_ARCH` | `arm64` (default, validated) |
-
 ### 2. Add your license
 
-The dev license is a multi-line PEM key (1Password → IDE/Workbench vault) that a `.env` can't hold,
-so save the whole `-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----` block to:
+Copy the `Positron Server private key` from 1Password to:
 
 ```
 .devcontainer/ci-arm/license.txt
 ```
 
-`post-create.sh` installs it as the `pdol_rsa` signing key. The e2e-electron tests use that key
-directly; the browser server needs a *generated* key, which the "Start server" task issues for you.
-Both `.env` and `license.txt` are gitignored.
-
 ### 3. Open the workspace in the container
 
-From a regular clone or a git worktree of Positron, run **Dev Containers: Open Workspace in
-Container…** → pick `positron-ci.code-workspace` → choose **Positron CI (ubuntu24-arm64)**.
+From a regular clone or a git worktree of Positron, run `Dev Containers: Open Workspace in
+Container…` → `positron-ci.code-workspace` → `Positron CI (ubuntu24-arm64)`.
 
+The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
+about 10 minutes, once per machine. The build persists on Docker volumes, so later opens are fast.
+`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop.
 
-The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright),
-about 10 minutes once per machine. It persists on Docker volumes, so later opens are fast.
-`post-start.sh` then starts Xvfb, VNC, and runs the doctor.
-
-Worth knowing about the setup:
-
-- Your checkout is a **bind mount**, so edits live on your host disk and file navigation works
-  normally.
-- The heavy container-built dirs live on **Docker volumes** instead of the bind mount — native
-  volume I/O is much faster than macOS bind mounts, and it keeps Linux-built binaries out of your
-  host checkout. Four volumes (shown by `reset.sh` / `docker volume ls`, prefixed with the Compose
-  project, e.g. `ci-arm_`):
-  - `positron-node-modules` — root `node_modules` (the big one)
-  - `positron-e2e-node-modules` — `test/e2e/node_modules` (separate npm project; small)
-  - `positron-build` — `.build/` (the built Electron + artifacts)
-  - `postgres-data` — the postgres sidecar's database files
-  `out/` is the exception: it stays on the bind mount (the compile recreates it).
-- **Worktrees just work.** A host-side `initializeCommand` auto-detects your checkout and git dir
-  and mounts both. It must be a **full clone**, though: a shallow clone can't build, because the
-  compile needs git history.
+(Worktrees work too, but must be a **full clone** — see [How storage works](#how-storage-works).)
 
 ## How to
 
-If you install the button tasks extension, the most common actions are at the bottom of the window: one click, no Command Palette. Everything else is in `Cmd-Shift-P → Tasks: Run Task`, prefixed `Positron CI:` (type "Positron CI" to filter). The debugger lives in the **Run and Debug** panel also prefxied with `Positron: CI`.
+Install the **Task Buttons** extension and the common actions sit in the status bar — one click, no
+Command Palette. Everything else is under `Cmd-Shift-P → Tasks: Run Task` (type "Positron CI" to
+filter); debug profiles are in the **Run and Debug** panel.
 
-**Start the Doctor and keep it open** (click the **Doctor** button, or run the task).
-It's a live dashboard (build status, services, URLs) that refreshes itself within a few seconds
-whenever something changes; `q` quits.
+**Start the Doctor and keep it open** (Doctor button or task): a live dashboard of build status,
+services, and URLs that refreshes within a few seconds when anything changes. `q` quits.
 
 ### Edit and re-run
 
-The everyday cycle. The key point: editing recompiles in seconds, never the ~10-min cold build.
+Editing recompiles in seconds, never the ~10-min cold build:
 
-1. Start the build watcher **once**: `npm run watch` or `Watch` task button. It recompiles changed files on save, in seconds.
-2. Edit code in VS Code. It's native editing against your host checkout.
-3. Re-run or re-debug. Only `npm ci`-level changes need a rebuild (see
-   [When do I need to rebuild?](#when-do-i-need-to-rebuild)).
+1. Start the **Watch** task once. It recompiles changed files on save.
+2. Edit code natively against your host checkout.
+3. Re-run or re-debug. Only `npm ci`-level changes need a rebuild — see
+   [When do I need to rebuild?](#when-do-i-need-to-rebuild).
 
 ### Run tests
 
-- **Spec files:** browse to any test and click the ▶ in the gutter. If no play button shows, check
-  that the correct Playwright project is selected.
-- **Terminal:** `npx playwright test --project e2e-electron --grep @:search`
+Click the ▶ in the gutter on any spec (if it's missing, check the selected Playwright project), or
+from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
-| Project | What it does | Need to start anything? |
-|---|---|---|
-| `e2e-electron` | self-launches the desktop app (headless) | no — the main CI-repro path |
-| `e2e-chromium` | self-starts a web server, runs headed in Chromium (watch via VNC) | no — works out of the box |
-| `e2e-server` | connects to an **external** server | yes — run **Positron CI: Start server** first |
-
-**Watching a headed run:** `e2e-electron`/`e2e-chromium` render on the headless display. Open the
-noVNC link in the Doctor to watch live; no need to launch the Desktop first.
+Headed runs (`e2e-electron`/`e2e-chromium`) render on the headless display — open the noVNC link in
+the Doctor to watch live.
 
 ### Test files (qa-example-content)
 
-Tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content)
-(notebooks, data, sample projects); the framework clones it on first run. To grab it up front for
-manual repro, run **Positron CI: Get QA content**. The real copy lands at the test path
-(`/tmp/vscsmoke/qa-example-content`) and is symlinked to `~/qa-example-content` for easy opening;
-re-run any time to refresh. The Doctor shows when it was last fetched. Test teardown git-resets the
-copy, so don't keep edits there.
+The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
+the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
+content** — it lands at the test path and is symlinked to `~/qa-example-content`. Test teardown
+git-resets the copy, so don't keep edits there.
 
 ### Debug
 
-Two profiles for debugging **Positron's own source** — open the **Run and Debug** panel
-(`Cmd-Shift-D`), pick one, and hit ▶ (or `fn-F5`). Set breakpoints in `src/` as usual; they bind via
-source maps. Both launch Positron on the headless display, so watch it in VNC (below).
+To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift-D`), pick a profile,
+and hit ▶. Set breakpoints in `src/` as usual; both profiles run on the headless display, so watch
+in VNC.
 
-- **Positron CI: Debug (Electron)** — the desktop app. Launches Positron and attaches to all of its
-  processes (main, renderer, extension host, …), so breakpoints anywhere in `src/` bind.
-- **Positron CI: Debug (Web)** — the browser build. Brings up the licensed server (`:8080`) and
-  debugs the workbench frontend in Chromium (viewable in VNC). Use it for web-only behavior or
-  `e2e-chromium` scenarios; for most source, Electron is simpler.
+- **Positron CI: Debug (Electron)** — the desktop app; attaches to all its processes (main, renderer,
+  extension host, …). The simpler choice for most source.
+- **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
+  the workbench frontend in Chromium. Use it for web-only or `e2e-chromium` behavior.
 
-**e2e tests** are debugged straight from the test files — click the Playwright run/debug icons in the
-editor gutter (or Test Explorer), not a launch profile.
+Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
 
 ### Run Positron itself
 
-- **Browser server:** **Positron CI: Start server** serves a licensed Positron at
-  `http://localhost:8080/?tkn=dev-token` (browser only, not VNC).
-- **Desktop app:** **Positron CI: Desktop** renders on the headless display; watch it via VNC.
+- **Positron CI: Start server** — a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
+- **Positron CI: Desktop** — the desktop app on the headless display; watch via VNC.
 
-Both run detached (logs in `/tmp/positron-server.log` and `/tmp/positron-electron.log`) and restart
-cleanly if you re-click; their URLs show in the Doctor a few seconds after they come up. **Stop**
-shuts down the server, desktop, and report together and leaves the core services up.
+Both run detached (logs in `/tmp/positron-{server,electron}.log`) and restart cleanly on re-click;
+their URLs show in the Doctor. **Stop** shuts both (plus the report) down and leaves core services up.
 
 ### When do I need to rebuild?
 
-You don't have to guess. The Doctor compares `package-lock.json` against the last install, checks
-the build, and names the task to run:
+You don't have to guess — the Doctor checks deps and build state and names the task:
 
 - deps changed → **Reinstall deps** / **Reinstall e2e deps**
 - no compiled output → start **Watch (src)**
 - build incomplete → **Rebuild**
 
 ## Reference
+
+### How storage works
+
+Your **checkout** is a bind mount, so edits live on your host disk and file navigation works
+normally. The heavy **container-built dirs** live on Docker volumes instead: native volume I/O beats
+macOS bind mounts, and it keeps Linux-built binaries out of your host checkout. There are four,
+prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume ls` or `reset.sh`):
+
+| Volume | Holds |
+|---|---|
+| `positron-node-modules` | root `node_modules` (the big one) |
+| `positron-e2e-node-modules` | `test/e2e/node_modules` (separate npm project; small) |
+| `positron-build` | `.build/` (built Electron + artifacts) |
+| `postgres-data` | the postgres sidecar's database files |
+
+`out/` is the exception: it stays on the bind mount, since the compile recreates it.
+
+**Worktrees** just work — a host-side `initializeCommand` auto-detects your checkout and git dir and
+mounts both. It must be a **full clone**, though: a shallow clone can't build, because the compile
+needs git history.
 
 ### Tasks
 
