@@ -7,11 +7,16 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 > Validated on **arm64** (Apple Silicon) only. The arch is parameterized and amd64 images exist
 > (CI uses them), but amd64 and Windows aren't validated yet.
 
+<p align="center">
+  <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Docotor View">
+</p>
+
+
 ## Prerequisites
 
-1. **Docker Desktop**, with enough resources: **8+ CPU, 16 GB RAM**, and a few GB of free disk
-   (image + `node_modules` + build). `Settings → Resources → Advanced`; turn on **VirtioFS** for the
-   best bind-mount performance.
+1. **Docker Desktop**, installed and configured:
+    * In `Settings → Resources → Advanced`: Allocate **8+ CPU**, **16 GB RAM**, and a few GB of free disk (image + `node_modules` + build).
+    * In `Settings > General > Virtual Machine Options`: Turn on **VirtioFS** for fast bind mounts.
 2. **GHCR login** (the images are private):
    ```bash
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
@@ -187,7 +192,6 @@ It removes this project's dev container, its data volumes (root + e2e `node_modu
 - **One dev container per checkout** at a time.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
-  (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter. (Suppressing the
-  auto-forward via settings doesn't stick in a connected container.)
+  (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter.
 - **After editing test-infra files** (`test/e2e/infra/…`), run **Developer: Reload Window** so the
   Playwright extension picks them up (it caches transpiles in a worker).
