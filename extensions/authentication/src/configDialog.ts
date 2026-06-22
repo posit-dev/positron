@@ -26,8 +26,6 @@ export const authProviders = new Map<string, AuthProvider>();
 const apiKeyValidators = new Map<string, ApiKeyValidator>();
 const onSaveCallbacks = new Map<string, OnSaveCallback>();
 
-const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
-
 /**
  * Register an auth provider so the config dialog can store/remove
  * credentials through it.
@@ -74,7 +72,7 @@ export async function updateProviderFromSessions(
 		// the provider ID as their session ID; stored API-key sessions use a
 		// random UUID. Only autoconfigured sessions should show the
 		// "authenticated automatically" UI and hide the sign-out button.
-		const isAutoSession = signedIn && sessions[0].id === providerId;
+		const isAutoSession = signedIn && (sessions[0].id === providerId || providerId === 'copilot-auth');
 
 		// Distinguish "configured but expired" from "never configured" using
 		// the persisted flag. Copilot is excluded: it rides GitHub's built-in
@@ -146,7 +144,12 @@ export async function providerAction(
 		case 'save':
 		case 'oauth-signin': {
 			if (providerId === 'copilot-auth') {
-				await handleCopilotSignIn();
+				// Copilot may finish without a session (e.g. the user cancels
+				// the GitHub sign-in), so only report success when one exists.
+				const signedIn = await handleCopilotSignIn();
+				if (!signedIn) {
+					break;
+				}
 			} else {
 				await handleSave(source, config);
 			}
@@ -176,7 +179,7 @@ export async function providerAction(
 
 const GITHUB_SCOPES = ['read:user', 'user:email', 'repo', 'workflow'];
 
-async function handleCopilotSignIn(): Promise<void> {
+async function handleCopilotSignIn(): Promise<boolean> {
 	let session = await vscode.authentication.getSession('github', GITHUB_SCOPES, { silent: true });
 	if (!session) {
 		session = await vscode.authentication.getSession('github', GITHUB_SCOPES, { createIfNone: true });
@@ -192,6 +195,7 @@ async function handleCopilotSignIn(): Promise<void> {
 			}
 		}
 	}
+	return !!session;
 }
 
 /**

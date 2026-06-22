@@ -306,6 +306,29 @@ suite('configDialog', () => {
 		chainProvider.dispose();
 	});
 
+	test('copilot sign-in shows no success message when no session results', async () => {
+		const originalGetSession = vscode.authentication.getSession;
+		const originalShowInfo = vscode.window.showInformationMessage;
+		let infoShown = false;
+		// Simulate the user cancelling GitHub sign-in: no session is created.
+		(vscode.authentication as any).getSession = async () => undefined;
+		(vscode.window as any).showInformationMessage = () => {
+			infoShown = true;
+			return Promise.resolve(undefined);
+		};
+		try {
+			await providerAction(
+				{ type: positron.PositronLanguageModelType.Chat, provider: { id: 'copilot-auth', displayName: 'GitHub Copilot', settingName: 'githubCopilot' }, supportedOptions: [], defaults: {} },
+				{},
+				'oauth-signin'
+			);
+			assert.strictEqual(infoShown, false);
+		} finally {
+			(vscode.authentication as any).getSession = originalGetSession;
+			(vscode.window as any).showInformationMessage = originalShowInfo;
+		}
+	});
+
 	suite('credential state updates', () => {
 		// A chain provider records its configured state (via isConfigured) once
 		// it has successfully resolved, independent of current session validity.
@@ -376,6 +399,26 @@ suite('configDialog', () => {
 			assert.deepStrictEqual(updateCalls.at(-1), {
 				id: 'anthropic-api',
 				update: { signedIn: false, status: null, statusMessage: undefined },
+			});
+		});
+
+		test('copilot-auth signed in marks autoconfigure signed in', async () => {
+			await updateProviderFromSessions('copilot-auth', [makeSession('gh-uuid')]);
+
+			assert.deepStrictEqual(updateCalls.at(-1), {
+				id: 'copilot-auth',
+				update: {
+					signedIn: true,
+					status: 'ok',
+					statusMessage: undefined,
+					defaults: {
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: 'the Accounts menu.',
+							signedIn: true,
+						},
+					},
+				},
 			});
 		});
 

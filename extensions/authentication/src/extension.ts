@@ -105,9 +105,14 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (e) => {
 			for (const source of getProviderSources()) {
-				const settingKey = `positron.assistant.provider.${source.provider.settingName}.enable`;
-				if (e.affectsConfiguration(settingKey)) {
-					const isEnabled = vscode.workspace.getConfiguration().get<boolean>(settingKey);
+				const settingKeys = [
+					`assistant.provider.${source.provider.settingName}.enabled`,
+					`positron.assistant.provider.${source.provider.settingName}.enable`,
+				];
+				if (settingKeys.some(key => e.affectsConfiguration(key))) {
+					const isEnabled = settingKeys.some(
+						key => vscode.workspace.getConfiguration().get<boolean>(key)
+					);
 					if (!isEnabled) {
 						const provider = authProviders.get(source.provider.id);
 						if (provider) {
