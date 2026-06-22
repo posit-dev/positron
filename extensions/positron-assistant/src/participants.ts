@@ -675,7 +675,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (isMaxTokensFinishReason(finishReason)) {
 			const maxTokensArg = encodeURIComponent(JSON.stringify(['positron.assistant.maxOutputTokens']));
 			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
-			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
+			const overridesArg = encodeURIComponent(JSON.stringify(['ai.models']));
 			const overridesUri = `command:workbench.action.openSettings?${overridesArg}`;
 			const tokenLimitSuffix = maxOutputTokens ? ` (${maxOutputTokens} tokens)` : '';
 			const message = new vscode.MarkdownString(

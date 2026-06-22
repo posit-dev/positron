@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getSettingNameForProvider } from './providerMetadata.js';
+import { getAiModelsKeyForProvider, getSettingNameForProvider } from './providerMetadata.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -17,17 +17,29 @@ export interface ModelDefinition {
 /**
  * Get custom models from VS Code settings for a specific provider.
  *
- * Reads from the individual provider setting (models.overrides.<settingName>).
- * Legacy object-based settings are migrated on startup, so no fallback is needed.
+ * Reads from ai.models.<key> (new namespace) first, then falls back to
+ * positron.assistant.models.overrides.<settingName> for users who have not yet
+ * restarted since the startup migration ran.
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const settingName = getSettingNameForProvider(providerId);
+	const aiModelsKey = getAiModelsKeyForProvider(providerId);
+	if (aiModelsKey) {
+		const newModels = vscode.workspace
+			.getConfiguration('ai')
+			.get<ModelDefinition[]>(`models.${aiModelsKey}`);
+		if (newModels && newModels.length > 0) {
+			return newModels;
+		}
+	}
 
+	// Legacy fallback: read from positron.assistant.models.overrides.*
+	const settingName = getSettingNameForProvider(providerId);
 	if (settingName) {
-		const individualModels = config.get<ModelDefinition[]>(`models.overrides.${settingName}`);
-		if (individualModels && individualModels.length > 0) {
-			return individualModels;
+		const legacyModels = vscode.workspace
+			.getConfiguration('positron.assistant')
+			.get<ModelDefinition[]>(`models.overrides.${settingName}`);
+		if (legacyModels && legacyModels.length > 0) {
+			return legacyModels;
 		}
 	}
 

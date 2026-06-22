@@ -44,6 +44,11 @@ export interface ProviderInfo {
 	 * Used for providers that have additional configuration like AWS profiles/regions.
 	 */
 	providerVariablesSettingName?: string;
+	/**
+	 * Override key for the ai.models.* namespace when it differs from settingName.
+	 * When absent, settingName is used as the ai.models.* key.
+	 */
+	aiModelsKey?: string;
 }
 
 /**
@@ -91,6 +96,7 @@ export const PROVIDER_METADATA = {
 		id: 'google',
 		displayName: 'Gemini Code Assist',
 		settingName: 'google',
+		aiModelsKey: 'gemini',
 	},
 	openai: {
 		id: 'openai-api',
@@ -120,6 +126,22 @@ export function getSettingNameForProvider(providerId: string): string | undefine
 	for (const metadata of Object.values(PROVIDER_METADATA)) {
 		if (metadata.id === providerId) {
 			return metadata.settingName;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Get the ai.models.* key for a provider ID.
+ * Uses aiModelsKey if set, otherwise falls back to settingName.
+ *
+ * @param providerId - The provider ID (e.g., 'anthropic-api', 'openai-api')
+ * @returns The ai.models.* key (e.g., 'anthropic', 'gemini') or undefined if not found
+ */
+export function getAiModelsKeyForProvider(providerId: string): string | undefined {
+	for (const metadata of Object.values(PROVIDER_METADATA) as ProviderInfo[]) {
+		if (metadata.id === providerId) {
+			return metadata.aiModelsKey ?? metadata.settingName;
 		}
 	}
 	return undefined;
