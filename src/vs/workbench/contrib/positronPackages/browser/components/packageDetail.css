@@ -149,6 +149,31 @@
 	margin-top: 4px;
 }
 
+/* Sections below the stat strip (Metadata, and future PPM Status). */
+.package-detail-section {
+	margin-top: 20px;
+	padding-top: 14px;
+	border-top: 1px solid var(--vscode-panel-border);
+}
+
+.package-detail-section-title {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 10px;
+}
+
+.package-detail-meta-grid {
+	display: grid;
+	grid-template-columns: 160px 1fr;
+	row-gap: 8px;
+	align-items: baseline;
+}
+
+.package-detail-meta-label { color: var(--vscode-descriptionForeground); }
+.package-detail-meta-value { word-break: break-word; }
+
 .package-detail-skeleton {
 	display: inline-block;
 	width: 60px;

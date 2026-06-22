@@ -49,6 +49,26 @@ const Stat = (props: { label: string; value: string | number | undefined; loadin
 };
 
 /**
+ * A label/value row in the Metadata section. Shows a skeleton while a
+ * detail-sourced value is pending, and renders nothing once resolved if there
+ * is still no value.
+ */
+const MetaRow = (props: { label: string; value: string | number | undefined; loading?: boolean }) => {
+	const hasValue = props.value !== undefined && props.value !== '';
+	if (!hasValue && !props.loading) {
+		return null;
+	}
+	return (
+		<>
+			<div className='package-detail-meta-label'>{props.label}</div>
+			<div className='package-detail-meta-value'>
+				{hasValue ? props.value : <span className='package-detail-skeleton' data-testid='package-detail-loading' />}
+			</div>
+		</>
+	);
+};
+
+/**
  * PackageDetail component.
  * Renders the detail view for a package: header with actions, optional banners,
  * and an Overview metadata list.
@@ -275,6 +295,15 @@ export const PackageDetail = (props: PackageDetailProps) => {
 					<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
 					<Stat label={localize('positron.packages.detail.license', "License")} loading={detailLoading} value={merged.license} />
 					<Stat label={localize('positron.packages.detail.deps', "Deps")} loading={detailLoading} value={merged.dependencyCount} />
+				</div>
+
+				<div className='package-detail-section'>
+					<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
+					<div className='package-detail-meta-grid'>
+						<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
+						<MetaRow label={localize('positron.packages.detail.published', "Date published")} loading={detailLoading} value={merged.publishedDate} />
+						<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+					</div>
 				</div>
 			</div>
 		</div>
