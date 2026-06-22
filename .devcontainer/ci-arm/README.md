@@ -34,19 +34,25 @@ Once, on your machine:
 
 ### 1. Create the worktree
 
-Once, to create your Container CI lab, create a **dedicated git worktree** so its Linux build artifacts never mix
-with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). From Positron clone or worktree run:
+Once, to create your Container CI lab: a **dedicated git worktree** so its Linux build artifacts
+never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+From your Positron checkout (a **full** clone — the build needs git history, so not a shallow one):
 
 ```bash
-./.devcontainer/ci-arm/setup-worktree.sh        # raw equivalent: git worktree add ../positron-ci
+git worktree add ../positron-ci
 ```
 
 ### 2. Add secrets — in the new worktree
 
 Gitignored, so not copied in; the container needs both env vars:
 
-* **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
-  Postgres info from 1Password (`E2E Postgres DB connection info`).
+* **.env** — first copy the example env file:
+
+```
+cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
+```
+
+Then insert the `E2E Postgres DB connection info` from 1Password.
 * **license.txt** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
 
 ### 3. Open it in the container

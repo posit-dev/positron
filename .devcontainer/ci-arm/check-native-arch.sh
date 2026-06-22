@@ -20,6 +20,6 @@ check ark      "$WS/extensions/positron-r/resources/ark/ark"
 check kcserver "$WS/extensions/positron-supervisor/resources/kallichore/kcserver"
 if [ "$bad" -eq 1 ]; then
   echo "  Fix: README -> Gotchas -> 'Python/R interpreters dead' (delete the binary + its VERSION, re-run the installer)."
-  echo "  Better: keep container work in a dedicated worktree (setup-worktree.sh)."
+  echo "  Better: keep container work in its own dedicated worktree (see README Setup)."
 fi
 exit 0
