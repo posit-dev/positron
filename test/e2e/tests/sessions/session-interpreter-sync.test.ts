@@ -10,22 +10,7 @@
  * when navigating between different file types (.R, .py, .ipynb).
  */
 
-import { test as base, tags } from '../_test.setup';
-
-const test = base.extend<{}, {}>({
-	beforeApp: [
-		async ({ enableDataConnections, settingsFile }, use) => {
-			if (enableDataConnections) {
-				await settingsFile.append({ 'dataConnections.enabled': true });
-			}
-			// This test requires the new notebook editor and is incompatible with
-			// useLegacyNotebookEditor; always enable it.
-			await settingsFile.append({ 'positron.notebook.enabled': true });
-			await use();
-		},
-		{ scope: 'worker' }
-	],
-});
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename

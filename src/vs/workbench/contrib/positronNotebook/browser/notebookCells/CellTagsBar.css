@@ -1,0 +1,207 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-cell-tags {
+	display: inline-flex;
+	flex: 1 1 auto;
+	/* Large tag sets wrap onto extra rows (in both the footer and standalone
+	placements) rather than scrolling horizontally -- a scrollable row has no
+	visual affordance that more tags exist. */
+	flex-wrap: wrap;
+	align-items: center;
+	min-width: 0;
+	/* Small, consistent gaps between pills and the add control. */
+	gap: 4px;
+	/* Tag-bar typography for footer and standalone (markdown / raw) placement.
+	The registered size token (11px by default) keeps the bar in step with themes
+	or users that bump the base font sizes. */
+	font-size: var(--vscode-bodyFontSize-xSmall);
+}
+
+/* "You're in the group" cue while keyboard-navigating the bar (it is a single
+tab stop with arrow-key movement inside, so the group needs to read as entered).
+The focused control's own ring comes from the workbench-wide `button:focus`
+rule; this outline is the group-level layer of the toolbar pattern.
+`:has(button:focus-visible)` keeps it keyboard-only and excludes the inline
+tag input, which carries its own focusBorder. */
+.positron-notebook-cell-tags:has(button:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* Standalone placement (markdown / raw cells, which have no footer). */
+.positron-notebook-cell-tags.standalone {
+	flex: initial;
+	margin: 4px 1rem 6px 1rem;
+}
+
+/* Quiet pill: a thin outline, fully rounded, with no fill so it reads as calm
+metadata, not a button. */
+.positron-notebook-cell-tag {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	flex-shrink: 0;
+	/* 18px at the default 11px font; tracks the size token so a larger font
+	doesn't clip descenders. */
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
+	padding: 0 8px;
+	/* A dedicated tag border color: the widget border is transparent in some
+	minimal themes, which left the pills invisible. */
+	border: 1px solid var(--vscode-positronNotebook-cellTagBorder);
+	border-radius: 999px;
+	background: transparent;
+	/* Muted footer text; also drives the close icon color via inherit. */
+	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+	/* Animate the trailing-padding trim on hover (see the :hover rule below) so it
+	moves in step with the close icon's reveal. */
+	transition: padding-inline-end 120ms ease;
+}
+
+/* Button typography in the tag bar. The workbench reset
+`.monaco-workbench button { font-size: 100% }` is (0,1,1) and beats a single tag-bar
+class on its own; code cells only looked correct because the footer sets 11px so
+100% still computed to 11px -- standalone markdown / raw cells do not. Scoped under
+the tag bar (0,2,1) so the explicit size wins in every placement. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-label {
+	border: none;
+	background: transparent;
+	color: inherit;
+	font-size: var(--vscode-bodyFontSize-xSmall);
+	/* overflow:hidden (for the ellipsis) clips the line box, and at line-height:1
+	that box is too short for descenders (j/p/g) -- give it room; the 18px pill
+	centers the taller line box with space to spare. */
+	line-height: 1.4;
+	padding: 0;
+	cursor: text;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Close affordance: hidden at rest, revealed on hover / keyboard focus with a
+brief width + opacity transition so a row of tags stays calm rather than jumping. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 0;
+	height: 14px;
+	opacity: 0;
+	overflow: hidden;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	padding: 0;
+	transition: width 120ms ease, opacity 120ms ease, margin-left 120ms ease;
+}
+
+.positron-notebook-cell-tags .positron-notebook-cell-tag:hover .positron-notebook-cell-tag-remove,
+.positron-notebook-cell-tags .positron-notebook-cell-tag:focus-within .positron-notebook-cell-tag-remove {
+	width: 14px;
+	margin-left: 2px;
+	opacity: 1;
+}
+
+/* The revealed close icon carries whitespace within its own glyph canvas, so trim
+the pill's trailing padding on hover to keep the right inset balanced with the left. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag:hover,
+.positron-notebook-cell-tags .positron-notebook-cell-tag:focus-within {
+	padding-inline-end: 3px;
+}
+
+/* Hovering the close icon itself brightens it toward the primary text color. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-remove:hover {
+	color: var(--vscode-foreground);
+}
+
+/* Add affordance, styled to match the tag pills (thin outline, fully rounded).
+Hidden at rest and revealed on hover of the tag bar (or keyboard focus) so an
+untouched row stays calm. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	flex-shrink: 0;
+	gap: 3px;
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
+	padding: 0 8px;
+	border: 1px solid var(--vscode-positronNotebook-cellTagBorder);
+	border-radius: 999px;
+	background-color: transparent;
+	color: var(--vscode-positronNotebook-cellFooterForeground, var(--vscode-descriptionForeground));
+	font-size: var(--vscode-bodyFontSize-xSmall);
+	line-height: 1;
+	cursor: pointer;
+	/* Revealed via opacity (kept in layout) so hovering doesn't reflow the row. */
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.positron-notebook-cell-tags:hover .positron-notebook-cell-tag-add,
+.positron-notebook-cell-tags:focus-within .positron-notebook-cell-tag-add {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* On hover the add pill picks up the tag hover accent color with a faint
+accent-tinted fill. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add:hover {
+	color: var(--vscode-positronNotebook-cellTagHoverForeground);
+	border-color: var(--vscode-positronNotebook-cellTagHoverForeground);
+	background-color: color-mix(in srgb, var(--vscode-positronNotebook-cellTagHoverForeground) 12%, transparent);
+}
+
+.positron-notebook-cell-tags .positron-notebook-cell-tag-add-label {
+	white-space: nowrap;
+}
+
+/* Tag codicons (close + plus) are scoped under the tag bar to reach specificity
+(0,4,0) and beat the workbench base `.monaco-workbench .codicon[class*='codicon-']`
+16px rule (0,3,0) -- otherwise the 10px size and inherited color are ignored.
+`add-small` in particular is drawn to fill its em box, so it reads heavy at the
+label size; one pixel under it keeps the plus at the label's cap height.
+color:inherit lets each affordance drive its own glyph color per state. */
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon,
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-add-icon {
+	font-size: calc(var(--vscode-bodyFontSize-xSmall) - 1px);
+	line-height: 1;
+	color: inherit;
+}
+
+/* The close glyph also fills and centers within the pill's flex box. Some codicon
+glyphs aren't centered in their canvas (see IconedButton.css), so nudge in em. */
+.positron-notebook-cell-tags .codicon[class*='codicon-'].positron-notebook-cell-tag-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	transform: translate(0.04em, 0.04em);
+}
+
+/* Intrinsic width from current value (grows while editing); capped to match the
+display pill: 200px label + 16px horizontal padding + 2px border. */
+.positron-notebook-cell-tags .positron-notebook-cell-tag-input {
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	height: calc(var(--vscode-bodyFontSize-xSmall) + 7px);
+	min-width: 70px;
+	max-width: 218px;
+	width: auto;
+	field-sizing: content;
+	border-radius: 999px;
+	border: 1px solid var(--vscode-focusBorder);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: var(--vscode-bodyFontSize-xSmall);
+	line-height: 1;
+	padding: 0 8px;
+	outline: none;
+}

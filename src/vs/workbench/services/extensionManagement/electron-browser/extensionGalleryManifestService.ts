@@ -7,7 +7,6 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IHeaders } from '../../../../base/parts/request/common/request.js';
 import { localize } from '../../../../nls.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 import { IExtensionGalleryManifestService, IExtensionGalleryManifest, ExtensionGalleryServiceUrlConfigKey, ExtensionGalleryManifestStatus } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
@@ -15,10 +14,8 @@ import { ExtensionGalleryManifestService } from '../../../../platform/extensionM
 import { resolveMarketplaceHeaders } from '../../../../platform/externalServices/common/marketplace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ISharedProcessService } from '../../../../platform/ipc/electron-browser/services.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { asJson, IRequestService } from '../../../../platform/request/common/request.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
@@ -31,74 +28,13 @@ import { IDefaultAccount } from '../../../../base/common/defaultAccount.js';
 
 // --- Start Positron ---
 import { env } from '../../../../base/common/process.js';
-import { toAction } from '../../../../base/common/actions.js';
-import { showWindowLogActionId } from '../../../services/log/common/logConstants.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 // eslint-disable-next-line no-duplicate-imports
 import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // eslint-disable-next-line no-duplicate-imports
 import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-import { parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
-
-/**
- * Parses the EXTENSIONS_GALLERY env var and reports the outcome to the user:
- * a warning notification + log on parse failure, an info log on success.
- * Exported for unit testing -- the host class wires services in.
- */
-export function reportExtensionsGalleryEnv(
-	envValue: string | undefined,
-	gallerySource: string | undefined,
-	logService: Pick<ILogService, 'info' | 'warn'>,
-	notificationService: Pick<INotificationService, 'notify'>,
-	openLog: () => void,
-): ExtensionGalleryConfig | undefined {
-	if (!envValue) {
-		return undefined;
-	}
-	const parsed = parseExtensionsGalleryEnv<ExtensionGalleryConfig>(envValue, msg => {
-		logService.warn(msg);
-		notificationService.notify({
-			severity: Severity.Warning,
-			message: localize(
-				'positron.extensionsGallery.envInvalid',
-				"The EXTENSIONS_GALLERY environment variable is set but is not valid. The extension gallery source setting (positron.extensions.gallerySource), currently \"{0}\", will be used instead. See the log for details.",
-				gallerySource ?? ''),
-			actions: {
-				primary: [
-					toAction({
-						id: 'positron.extensionsGallery.showLog',
-						label: localize('positron.extensionsGallery.showLog', "Show Window Log"),
-						run: () => openLog(),
-					})
-				]
-			}
-		});
-	});
-	if (parsed) {
-		logService.info(`[Marketplace] Using extension gallery from EXTENSIONS_GALLERY env var: ${parsed.serviceUrl}`);
-	}
-	return parsed;
-}
-
-/**
- * Decides what happens when the Positron gallery source setting changes. Only a
- * successfully-parsed EXTENSIONS_GALLERY env var overrides the setting, so notify
- * the user that the change won't take effect and skip the restart prompt in that
- * case; otherwise (env var unset or malformed) the setting applies, so request a
- * restart. Exported for unit testing -- the host class wires services in.
- */
-export function handleGallerySourceSettingChange(
-	envGallery: ExtensionGalleryConfig | undefined,
-	notificationService: Pick<INotificationService, 'info'>,
-	requestRestart: () => void,
-): void {
-	if (envGallery) {
-		notificationService.info(localize(
-			'positron.extensionsGallery.settingIgnoredByEnv',
-			"The EXTENSIONS_GALLERY environment variable is set and overrides the extension gallery source setting. Unset the environment variable for this setting to take effect."));
-		return;
-	}
-	requestRestart();
-}
+import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv, showWindowLog } from '../common/extensionGalleryManifestEnvReporting.js';
 // --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
@@ -159,23 +95,13 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 			gallerySource,
 			this.logService,
 			this.notificationService,
-			() => this.showWindowLog(),
+			() => showWindowLog(this.instantiationService),
 		);
 		return resolvePositronGalleryConfig(
 			envGallery,
 			gallerySource,
 			super.getGalleryConfig(),
 		);
-	}
-
-	/**
-	 * Reveals the Window log channel. ICommandService is resolved lazily rather
-	 * than injected because this service sits below the command-service layer in
-	 * the DI graph (commandService -> extensionService -> extensionGalleryService
-	 * -> this service); injecting it directly forms a cyclic dependency.
-	 */
-	private showWindowLog(): void {
-		this.instantiationService.invokeFunction(accessor => accessor.get(ICommandService).executeCommand(showWindowLogActionId));
 	}
 	// --- End Positron ---
 
@@ -213,7 +139,7 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 					this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
 					this.logService,
 					this.notificationService,
-					() => this.showWindowLog(),
+					() => showWindowLog(this.instantiationService),
 				);
 				handleGallerySourceSettingChange(envGallery, this.notificationService, () => this.requestRestart());
 				return;

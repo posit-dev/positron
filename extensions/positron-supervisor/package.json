@@ -189,7 +189,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.64"
+      "kallichore": "0.1.65"
     }
   },
   "extensionDependencies": [
@@ -197,7 +197,7 @@
   ],
   "dependencies": {
     "tail": "^2.2.6",
-    "ws": "^8.18.0",
+    "ws": "^8.21.0",
     "axios": "^1.16.0"
   },
   "overrides": {

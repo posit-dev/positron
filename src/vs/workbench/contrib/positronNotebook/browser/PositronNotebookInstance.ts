@@ -16,6 +16,7 @@ import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
+import { applyTagsToNestedMetadata } from './PositronNotebookCells/cellTagsMetadata.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
@@ -111,6 +112,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+
+	/**
+	 * Whether cell tags are hidden across this notebook. Transient view state (not
+	 * persisted); toggled by the "Toggle Cell Tag Visibility" command.
+	 */
+	private readonly _cellTagsHidden = observableValue<boolean>('positronNotebookCellTagsHidden', false);
+	public readonly cellTagsHidden: IObservable<boolean> = this._cellTagsHidden;
 
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
@@ -2336,6 +2344,50 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this.currentContainer?.focus({ preventScroll: true });
 				break;
 		}
+	}
+
+	/**
+	 * Toggle whether cell tags are shown across this notebook (see
+	 * {@link cellTagsHidden}).
+	 */
+	toggleCellTagsHidden(): void {
+		this._cellTagsHidden.set(!this._cellTagsHidden.get(), undefined);
+	}
+
+	/**
+	 * Removes every tag from every cell in the notebook in a single undoable edit.
+	 * A no-op when no cell has tags or the notebook is read-only.
+	 */
+	removeAllCellTags(): void {
+		// Tag edits are document mutations, so respect a read-only notebook
+		// (mirrors the reorder guard in PositronNotebookComponent and setTags on
+		// the cell).
+		if (this.isReadOnly) {
+			return;
+		}
+		this._assertTextModel();
+		const textModel = this.textModel;
+		const cells = this.cells.get();
+		const edits: ICellEditOperation[] = [];
+		for (let index = 0; index < cells.length; index++) {
+			// `this.cells` and `textModel.cells` are index-aligned (see
+			// clearCellOutputsByIndex). Skip cells with no tags so undo only spans
+			// the cells that actually changed.
+			if (cells[index].tags.get().length === 0) {
+				continue;
+			}
+			edits.push({
+				editType: CellEditType.PartialMetadata,
+				index,
+				metadata: { metadata: applyTagsToNestedMetadata(textModel.cells[index].metadata.metadata, []) }
+			});
+		}
+		if (edits.length === 0) {
+			return;
+		}
+		// The trailing `true` is computeUndoRedo, so the removal remains undoable
+		// (the read-only guard above already excluded the non-undoable case).
+		textModel.applyEdits(edits, true, undefined, () => undefined, undefined, true);
 	}
 
 	/**

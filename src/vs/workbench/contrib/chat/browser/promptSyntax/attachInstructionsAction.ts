@@ -42,7 +42,10 @@ class ManageInstructionsFilesAction extends Action2 {
 			shortTitle: localize2('configure-instructions.short', "Instructions & Rules"),
 			icon: Codicon.bookmark,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: CHAT_CATEGORY,
 			menu: {
 				id: CHAT_CONFIG_MENU_ID,

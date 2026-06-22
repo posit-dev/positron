@@ -90,10 +90,21 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	/**
 	 * Focuses the appropriate input element.
 	 */
-	const focusInput = useCallback(() => {
+	const focusInput = useCallback((preventScroll: boolean = false) => {
 		if (isPassword) {
-			passwordInputRef.current?.scrollIntoView({ behavior: 'auto' });
-			passwordInputRef.current?.focus();
+			if (!preventScroll) {
+				passwordInputRef.current?.scrollIntoView({ behavior: 'auto' });
+			}
+			passwordInputRef.current?.focus({ preventScroll });
+		} else if (preventScroll) {
+			// Focus the editor's text area directly so the browser does not scroll it into
+			// view, preserving the user's scroll position (#11772).
+			const textArea = editorRef.current?.getDomNode()?.querySelector('textarea');
+			if (textArea) {
+				textArea.focus({ preventScroll: true });
+			} else {
+				editorRef.current?.focus();
+			}
 		} else {
 			editorContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 			editorRef.current?.focus();
@@ -301,8 +312,8 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
-			focusInput();
+		disposableStore.add(props.positronConsoleInstance.onFocusInput((options) => {
+			focusInput(options.preventScroll);
 		}));
 
 		return () => disposableStore.dispose();

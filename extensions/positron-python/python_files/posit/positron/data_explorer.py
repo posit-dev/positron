@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -1469,7 +1469,8 @@ class PandasView(DataExplorerTableView):
         dtype = column.dtype
 
         try:
-            timezone = column.dtype.tz.zone
+            tz_obj = column.dtype.tz
+            timezone = str(tz_obj) if tz_obj is not None else None
         except AttributeError:
             timezone = None
 
@@ -1546,6 +1547,8 @@ class PandasView(DataExplorerTableView):
             "boolean": "boolean",
             # NA-enabled string
             "string": "string",
+            # pandas 3.0 default StringDtype
+            "str": "string",
         }
     )
 
@@ -1785,10 +1788,10 @@ class PandasView(DataExplorerTableView):
 
         # Nulls are possible in the mask, so we just fill them if any
         if mask.dtype != bool:
-            mask[mask.isna()] = False
-            mask = mask.astype(bool)
+            mask = mask.fillna(value=False).astype(bool)
 
-        return mask.to_numpy()
+        # pandas 3.0 CoW returns read-only arrays; copy to allow in-place combination
+        return mask.to_numpy().copy()
 
     @staticmethod
     def _coerce_value(value, dtype, inferred_type):
@@ -2075,8 +2078,6 @@ _ISO_8601_FORMATS = [
 
 
 def _parse_iso8601_like(x, tz=None):
-    import pytz
-
     for fmt in _ISO_8601_FORMATS:
         try:
             result = datetime.strptime(x, fmt)  # noqa: DTZ007
@@ -2084,8 +2085,15 @@ def _parse_iso8601_like(x, tz=None):
             # Localize tz-naive datetime if needed to avoid TypeError
             if tz is not None:
                 if isinstance(tz, str):
+                    import pytz
+
                     tz = pytz.timezone(tz)
-                result = tz.localize(result)
+                # pytz uses .localize() for DST-aware localization;
+                # zoneinfo.ZoneInfo (pandas 3.0) uses .replace(tzinfo=tz)
+                if hasattr(tz, "localize"):
+                    result = tz.localize(result)
+                else:
+                    result = result.replace(tzinfo=tz)
 
             return result
         except ValueError:  # noqa: PERF203

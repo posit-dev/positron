@@ -168,6 +168,22 @@ export class DataConnections {
 	}
 
 	/**
+	 * Double-clicks a previewable node (table, view, or column) to open it in the Data Explorer.
+	 * Reveals the row first so it is rendered, then dispatches the dblclick event directly on the
+	 * node row. Like {@link expandRow}, this uses `dispatchEvent` rather than a coordinate-based
+	 * click because the tree is a virtualized grid with absolutely-positioned rows.
+	 * @param label The node label, e.g. 'actor' or 'first_name'.
+	 */
+	async doubleClickNode(label: string): Promise<void> {
+		await test.step(`Double-click node: ${label}`, async () => {
+			const row = this.treeRow(label);
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
+		});
+	}
+
+	/**
 	 * Scrolls the virtualized tree to the top by hovering the grid and wheeling up past the start
 	 * (the offset is clamped to zero).
 	 */
