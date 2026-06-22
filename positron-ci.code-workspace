@@ -58,6 +58,14 @@
 				"problemMatcher": []
 			},
 			{
+				"label": "Positron CI: VNC logs",
+				"detail": "Dump VNC-stack diagnostics (processes, ports, memory/OOM, logs) for debugging when the VNC viewer keeps dropping. Run it right after a disconnect and paste the output.",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/vnc-doctor.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": true, "clear": true },
+				"problemMatcher": []
+			},
+			{
 				"label": "Positron CI: Report",
 				"detail": "Serves the last run's trace/report at http://localhost:9323",
 				"type": "shell",
