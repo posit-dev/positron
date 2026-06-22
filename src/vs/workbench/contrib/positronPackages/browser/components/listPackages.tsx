@@ -68,6 +68,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		return () => disposable.dispose();
 	}, [services.positronPackagesService]);
 
+	// Tracks the last package name opened as a detail editor. Used to avoid
+	// reopening the editor when a list refresh re-selects the same package.
+	const lastOpenedRef = useRef<string | undefined>(undefined);
+
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
 
@@ -359,6 +363,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						e.stopPropagation();
 						showRowContextMenu({ x: e.clientX, y: e.clientY });
 					}}
+					onDoubleClick={() => {
+						// Double-click pins the editor (matching the Extensions pane behaviour).
+						lastOpenedRef.current = pkg.name;
+						void services.commandService.executeCommand('positronPackages.openPackage', pkg.name, true);
+					}}
 				>
 					{attached !== undefined && (
 						<span
@@ -414,6 +423,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
+	// When the selection changes to a new non-empty package, also open a preview editor.
 	useEffect(() => {
 		const pushSelection = () => {
 			const name = listInstance.getSelectedItems()[0]?.name;
@@ -427,13 +437,20 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			if (name !== lastName) {
 				lastName = name;
 				services.positronPackagesService.setSelectedPackage(name);
+				// Open a preview (non-pinned) editor when the selected package changes.
+				// lastOpenedRef guards against reopening on list refreshes that
+				// re-select the same row without the user having changed selection.
+				if (name && name !== lastOpenedRef.current) {
+					lastOpenedRef.current = name;
+					void services.commandService.executeCommand('positronPackages.openPackage', name, false);
+				}
 			}
 		});
 		return () => {
 			disposable.dispose();
 			services.positronPackagesService.setSelectedPackage(undefined);
 		};
-	}, [listInstance, services]);
+	}, [listInstance, services, lastOpenedRef]);
 
 	// Dispose the list instance on unmount.
 	useEffect(() => () => listInstance.dispose(), [listInstance]);

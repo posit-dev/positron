@@ -9,17 +9,18 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorExtensions } from '../../../common/editor.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
@@ -136,6 +137,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 });
 
 export const PACKAGES_INSTALL_COMMAND_ID = 'positronPackages.installPackage';
+export const PACKAGES_OPEN_COMMAND_ID = 'positronPackages.openPackage';
 export const PACKAGES_UPDATE_COMMAND_ID = 'positronPackages.updatePackage';
 export const PACKAGES_UPDATE_ALL_COMMAND_ID = 'positronPackages.updateAllPackages';
 export const PACKAGES_UNINSTALL_COMMAND_ID = 'positronPackages.uninstallPackage';
@@ -727,6 +729,26 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 		new SyncDescriptor(PackageEditorInput)
 	]
 );
+
+// Opens a package detail editor for the given package name.
+// `pinned` is false for preview (single-click) and true for a pinned tab (double-click).
+CommandsRegistry.registerCommand(PACKAGES_OPEN_COMMAND_ID,
+	async (accessor: ServicesAccessor, packageName: string, pinned: boolean) => {
+		const packagesService = accessor.get(IPositronPackagesService);
+		const editorService = accessor.get(IEditorService);
+		const instantiationService = accessor.get(IInstantiationService);
+
+		const instance = packagesService.activePackagesInstance;
+		if (!instance) {
+			return;
+		}
+		const input = instantiationService.createInstance(PackageEditorInput, {
+			languageId: instance.session.runtimeMetadata.languageId,
+			sessionId: instance.session.sessionId,
+			packageName,
+		});
+		await editorService.openEditor(input, { pinned: !!pinned });
+	});
 
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
