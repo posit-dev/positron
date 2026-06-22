@@ -230,6 +230,8 @@ export async function validateLicense(connectionToken: string, license: string, 
 			const key = crypto.createPublicKey({ key: keyPem, format: 'pem' });
 			const verifier = crypto.createVerify('sha256');
 			verifier.update(licenseKey.connection_token);
+			verifier.update(licenseKey.issuer);
+			verifier.update(licenseKey.licensee);
 			verifier.update(licenseKey.timestamp);
 			if (verifier.verify(key, signature)) {
 				signatureValid = true;
