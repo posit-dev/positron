@@ -7,7 +7,7 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 > Validated on **arm64** (Apple Silicon) only. The arch is parameterized
 > (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
 > the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
-> progress). Windows isn't validated yet either.
+> progress). Hosts: macOS and Linux — Windows/WSL2 isn't validated yet.
 
 <p align="center">
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Docotor View">
@@ -31,6 +31,14 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 One-time, on the host.
 
+**Recommended:** keep container work in a **dedicated checkout** so its Linux build artifacts never
+mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+From your main clone, one command creates a sibling worktree for it:
+
+```bash
+./.devcontainer/ci-arm/setup-worktree.sh        # creates a sibling worktree, prints next steps
+```
+
 ### 1. Create your `.env`
 
 Copy the template, then fill in the Postgres connection info from 1Password (`E2E Postgres DB connection info`):
@@ -53,7 +61,8 @@ Both `.env` and `license.txt` are gitignored — don't commit them.
 
 ### Open the workspace in the container
 
-From a regular clone or a git worktree of Positron, run `Dev Containers: Open Workspace in
+In your container checkout (the worktree from Setup — or any full clone you don't also build
+natively), run `Dev Containers: Open Workspace in
 Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
@@ -145,6 +154,23 @@ host, and wiped on rebuild or `reset.sh`. Grab logs before rebuilding.
 mounts both. It must be a **full clone**, though: a shallow clone can't build, because the compile
 needs git history.
 
+#### Don't mix container and native builds
+
+**One directory, one toolchain.** A few build artifacts live in the bind-mounted source tree (not on
+the volumes), so they're shared between host and container — and three are **OS-specific native
+binaries**. Build the same checkout both in the container (Linux) and natively (macOS) and each build
+overwrites the other's, leaving the next run trying to exec a wrong-OS binary:
+
+| binary | breaks if it's wrong-OS |
+|---|---|
+| `pet` (`extensions/positron-python/python-env-tools/pet`) | Python interpreter discovery (exits with a shell "syntax error") |
+| `ark` (`extensions/positron-r/resources/ark/ark`) | R kernel — "Discovering interpreters…" hangs |
+| `kcserver` (`extensions/positron-supervisor/resources/kallichore/kcserver`) | the kernel supervisor — kernels won't start |
+
+`out/` is shared too (recompile after switching). A plain rebuild does **not** fix the binaries:
+their installers skip when the `VERSION` marker matches, so the wrong-OS binary stays. The dedicated
+worktree from [Setup](#setup) avoids all of this; if you're already mixed, see the recovery Gotcha.
+
 ### Tasks
 
 | Task | What it does |
@@ -183,9 +209,24 @@ It removes this project's dev container, its data volumes (root + e2e `node_modu
 - **`npm ci` may leave files staged in your worktree.** Positron's postinstall runs
   `git add --renormalize`, which stages line-ending changes in your bind-mounted index. It's
   harmless: `git restore --staged .`.
-- **`out/` lives on your host disk** (it can't be a volume, since the compile `rmdir`s it). If you
-  also build natively on the same checkout, the two builds share `out/` and clobber each other;
-  recompile after switching.
+- **Python/R interpreters dead after building one checkout both ways** — wrong-OS `pet`/`ark`/`kcserver`
+  (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Run in the
+  context whose binaries are wrong, then recompile:
+  ```bash
+  file extensions/positron-python/python-env-tools/pet \
+       extensions/positron-r/resources/ark/ark \
+       extensions/positron-supervisor/resources/kallichore/kcserver   # confirms wrong OS
+  rm -f extensions/positron-python/python-env-tools/pet extensions/positron-python/resources/pet/VERSION
+  rm -f extensions/positron-r/resources/ark/ark extensions/positron-r/resources/ark/VERSION
+  rm -f extensions/positron-supervisor/resources/kallichore/kcserver extensions/positron-supervisor/resources/kallichore/VERSION
+  npm --prefix extensions/positron-python run install-pet
+  npm --prefix extensions/positron-r run install-kernel
+  npm --prefix extensions/positron-supervisor run install-kallichore
+  ```
+  Deleting the `VERSION` marker is required — the installers skip when it matches. (`out/` is shared
+  too; recompile after switching.)
+- **Don't switch the container checkout's branch while a session is active** — the source is
+  bind-mounted, so the container would see the change mid-session.
 - **One dev container per checkout** at a time.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
