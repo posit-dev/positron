@@ -77,7 +77,7 @@ reproduce a specific failure, `git checkout` that commit first. To return to loc
 > Keep the **Doctor** open — a live dashboard of build/service status and URLs. When something's off,
 > it names the task to run.
 
-### Edit and re-run
+### Edit code and re-run
 
 Editing recompiles in seconds, never the ~10-min cold build:
 
@@ -148,20 +148,11 @@ the shared git dir — that's what lets git resolve normally inside the containe
 
 #### Don't mix container and native builds
 
-**One directory, one toolchain.** A few build artifacts live in the bind-mounted source tree (not on
-the volumes), so they're shared between host and container — and three are **OS-specific native
-binaries**. Build the same checkout both in the container (Linux) and natively (macOS) and each build
-overwrites the other's, leaving the next run trying to exec a wrong-OS binary:
-
-| binary | breaks if it's wrong-OS |
-|---|---|
-| `pet` (`extensions/positron-python/python-env-tools/pet`) | Python interpreter discovery (exits with a shell "syntax error") |
-| `ark` (`extensions/positron-r/resources/ark/ark`) | R kernel — "Discovering interpreters…" hangs |
-| `kcserver` (`extensions/positron-supervisor/resources/kallichore/kcserver`) | the kernel supervisor — kernels won't start |
-
-`out/` is shared too (recompile after switching). A plain rebuild does **not** fix the binaries:
-their installers skip when the `VERSION` marker matches, so the wrong-OS binary stays. The dedicated
-worktree from [Setup](#setup) avoids all of this; if you're already mixed, see the recovery Gotcha.
+**One directory, one toolchain.** A few build artifacts (including three OS-specific binaries — `pet`,
+`ark`, `kcserver`) live in the source tree, shared between host and container. Building the same
+checkout both in-container (Linux) and natively (macOS) makes them overwrite each other and breaks
+interpreter/kernel startup. The dedicated worktree from [Setup](#setup) prevents this; if you're
+already mixed, see [Gotchas](#gotchas) for the fix.
 
 ### Tasks
 
