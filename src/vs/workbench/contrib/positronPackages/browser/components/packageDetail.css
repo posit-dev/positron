@@ -105,15 +105,21 @@
 	border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-panel-border));
 }
 
+/*
+ * Full-bleed tab strip: negative margins cancel the container's 24px padding so
+ * the bottom border spans the whole editor width; the 12px inner padding keeps
+ * the first tab's label aligned with the header content (12 + 12 = 24px).
+ */
 .package-detail-tabs {
 	display: flex;
-	gap: 18px;
+	gap: 4px;
 	border-bottom: 1px solid var(--vscode-panel-border);
-	margin-top: 12px;
+	margin: 12px -24px 0;
+	padding: 0 12px;
 }
 
 .package-detail-tab {
-	padding: 8px 0;
+	padding: 8px 12px;
 	font-size: 12px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
@@ -136,15 +142,20 @@
 	flex-wrap: wrap;
 }
 
+/* Label centered horizontally over its value. */
+.package-detail-stat {
+	text-align: center;
+}
+
 .package-detail-stat-label {
-	font-size: 11px;
+	font-size: 12px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	color: var(--vscode-descriptionForeground);
 }
 
 .package-detail-stat-value {
-	font-size: 16px;
+	font-size: 14px;
 	font-weight: 600;
 	margin-top: 4px;
 }
