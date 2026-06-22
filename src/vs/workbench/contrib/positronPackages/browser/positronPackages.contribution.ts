@@ -31,7 +31,7 @@ import { positronSessionViewIcon } from '../../positronSession/browser/positronS
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
-import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { installPackage, sortVersionsDescending, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -307,7 +307,7 @@ class InstallPackageAction extends Action2 {
 			}
 		});
 	}
-	override async run(accessor: ServicesAccessor): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const service = accessor.get<IPositronPackagesService>(IPositronPackagesService);
 		const notifications = accessor.get<INotificationService>(INotificationService);
 		const progress = accessor.get<IProgressService>(IProgressService);
@@ -352,6 +352,23 @@ class InstallPackageAction extends Action2 {
 					}
 				}, () => cts.cancel());
 			};
+
+			// When a package name is provided (e.g. from the detail editor's
+			// Install button), install the newest available version directly,
+			// skipping the search quick-pick.
+			const argPackage = args.at(0) as string | undefined;
+			if (argPackage) {
+				const rawVersions = await service.searchPackageVersions(argPackage, cts.token);
+				// sortVersionsDescending mirrors what the version quick-pick does:
+				// raw results have no guaranteed order, so sort newest-first here.
+				const versions = sortVersionsDescending(rawVersions);
+				if (versions.length === 0) {
+					notifications.error(nls.localize('positron.packages.noVersions', "No installable versions found for '{0}'.", argPackage));
+					return;
+				}
+				await performInstall(argPackage, versions[0]);
+				return;
+			}
 
 			await installPackage(accessor, performSearch, performSearchVersions, performInstall, cts);
 		} catch (error) {
