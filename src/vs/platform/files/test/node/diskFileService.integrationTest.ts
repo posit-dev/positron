@@ -2285,25 +2285,34 @@ flakySuite('Disk File Service', function () {
 		assert.strictEqual(readFileSync(resource.fsPath).toString(), content);
 	});
 
-	test('writeFile - locked files and unlocking', async () => {
+	// --- Start Positron ---
+	// testLockedFiles() locks a file by clearing its write bit (chmod ~0o200)
+	// and expects writes to be rejected. When the test runs as root -- as it
+	// does in the containerized CI image -- the kernel bypasses permission
+	// checks (CAP_DAC_OVERRIDE), so the write succeeds and these assertions
+	// fail. Skip them when running as root; they stay active for non-root runs.
+	const skipIfRoot = process.getuid?.() === 0 ? test.skip : test;
+	// --- End Positron ---
+
+	skipIfRoot('writeFile - locked files and unlocking', async () => {
 		setCapabilities(fileProvider, FileSystemProviderCapabilities.FileReadWrite | FileSystemProviderCapabilities.FileWriteUnlock);
 
 		return testLockedFiles(false);
 	});
 
-	test('writeFile (stream) - locked files and unlocking', async () => {
+	skipIfRoot('writeFile (stream) - locked files and unlocking', async () => {
 		setCapabilities(fileProvider, FileSystemProviderCapabilities.FileOpenReadWriteClose | FileSystemProviderCapabilities.FileWriteUnlock);
 
 		return testLockedFiles(false);
 	});
 
-	test('writeFile - locked files and unlocking throws error when missing capability', async () => {
+	skipIfRoot('writeFile - locked files and unlocking throws error when missing capability', async () => {
 		setCapabilities(fileProvider, FileSystemProviderCapabilities.FileReadWrite);
 
 		return testLockedFiles(true);
 	});
 
-	test('writeFile (stream) - locked files and unlocking throws error when missing capability', async () => {
+	skipIfRoot('writeFile (stream) - locked files and unlocking throws error when missing capability', async () => {
 		setCapabilities(fileProvider, FileSystemProviderCapabilities.FileOpenReadWriteClose);
 
 		return testLockedFiles(true);
