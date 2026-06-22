@@ -9,13 +9,3 @@
 	gap: 12px;
 	padding: 16px 0;
 }
-
-.file-options-content .file-options-sheet {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.file-options-content .file-options-label {
-	font-weight: 600;
-}
