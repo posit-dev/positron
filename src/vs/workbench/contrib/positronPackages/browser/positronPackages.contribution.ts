@@ -19,8 +19,12 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorExtensions } from '../../../common/editor.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../../common/views.js';
+import { PackageEditor } from './packageEditor.js';
+import { PackageEditorInput } from './packageEditorInput.js';
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
@@ -711,6 +715,18 @@ class TogglePackagesItemSizeAction extends Action2 {
 		service.setItemSize(service.itemSize === 'card' ? 'row' : 'card');
 	}
 }
+
+// Register the package detail editor pane.
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		PackageEditor,
+		PackageEditor.ID,
+		nls.localize('positron.packageDetailEditor', "Package Detail Editor")
+	),
+	[
+		new SyncDescriptor(PackageEditorInput)
+	]
+);
 
 registerAction2(InstallPackageAction);
 registerAction2(RefreshPackagesAction);
