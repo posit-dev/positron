@@ -53,6 +53,7 @@ Gitignored, so not copied in; the container needs both env vars:
     ```
 
     Then insert the `E2E Postgres DB connection info` from 1Password.
+
 * **license.txt** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
 
 ### 3. Open it in the container
@@ -65,24 +66,26 @@ That's it — you have a working CI lab.
 
 ## Daily use
 
-Reopen the lab anytime: in VS Code, **Open Recent** the worktree and **Reopen in Container**. To
-reproduce a specific failure, `git checkout` that commit in the worktree first. To step back out to
-local VS Code, run **Dev Containers: Reopen Folder Locally**.
+**Get in and out.** Reopen the lab: **Open Recent** the worktree, then **Reopen in Container**. To
+reproduce a specific failure, `git checkout` that commit first. To return to local VS Code, run
+**Dev Containers: Reopen Folder Locally**.
 
-> [!TIP]
-> Use the **Task Buttons** extension to launch common tasks quickly; everything else is `Cmd-Shift-P → Tasks: Run Task` - filtered by `Positron CI`
+**Run things.** Common actions are **Task Buttons** in the status bar; everything else is
+`Cmd-Shift-P → Tasks: Run Task` (filter "Positron CI"); debug profiles are in **Run and Debug**.
 
 > [!IMPORTANT]
-> **Keep the Doctor open** — it is a live dashboard of build/service statuses and URLs
+> Keep the **Doctor** open — a live dashboard of build/service status and URLs. When something's off,
+> it names the task to run.
 
 ### Edit and re-run
 
 Editing recompiles in seconds, never the ~10-min cold build:
 
-1. Start the **Watch** task once. It recompiles changed files on save.
-2. Edit code natively against your host checkout.
-3. Re-run or re-debug. Only `npm ci`-level changes need a rebuild — see
-   [When do I need to rebuild?](#when-do-i-need-to-rebuild).
+1. Start the **Watch** task once — it recompiles changed files on save.
+2. Edit code in VS Code (files live on your host disk).
+3. Re-run or re-debug. Only `npm ci`-level changes need a heavier rebuild — and you don't have to
+   guess: the **Doctor** checks deps + build state and names the task (**Reinstall deps**, start
+   **Watch**, or **Rebuild**).
 
 ### Run tests
 
@@ -90,24 +93,17 @@ Click the ▶ in the gutter on any spec (if it's missing, check the selected Pla
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron`/`e2e-chromium`) render on the headless display — open the noVNC link in
-the Doctor to watch live. Serve and view the playwright report via the `Report` task at anytime.
-
-### Test files (qa-example-content)
-
-The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
-the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
-content** — it lands at the test path and is symlinked to `~/qa-example-content`.
+the Doctor to watch live; serve the report anytime with the **Report** task.
 
 ### Debug
 
 To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift-D`), pick a profile,
-and hit ▶. Set breakpoints in `src/` as usual; both profiles run on the headless display, so watch
-in VNC.
+and hit ▶. Set breakpoints in `src/` as usual; both run on the headless display, so watch in VNC.
 
 * **Positron CI: Debug (Electron)** — the desktop app; attaches to all its processes (main, renderer,
-  extension host, …). The simpler choice for most source.
+  extension host, …). Simplest for most source.
 * **Positron CI: Debug (Web)** — the browser build; brings up the licensed server (`:8080`) and debugs
-  the workbench frontend in Chromium. Use it for web-only or `e2e-chromium` behavior.
+  the workbench frontend in Chromium. For web-only or `e2e-chromium` behavior.
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
 
@@ -117,15 +113,13 @@ Debug **e2e tests** straight from the test files via the gutter run/debug icons,
 * **Positron CI: Desktop** — the desktop app on the headless display; watch via VNC.
 
 Both run detached (logs in `/tmp/positron-{server,electron}.log`) and restart cleanly on re-click;
-their URLs show in the Doctor. **Stop** shuts both (plus the report) down and leaves core services up.
+their URLs show in the Doctor. **Stop** shuts both down (and the report), leaving core services up.
 
-### When do I need to rebuild?
+### Test data (qa-example-content)
 
-You don't have to guess — the Doctor checks deps and build state and names the task:
-
-* deps changed → **Reinstall deps** / **Reinstall e2e deps**
-* no compiled output → start **Watch (src)**
-* build incomplete → **Rebuild**
+The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
+the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
+content** — it's symlinked at `~/qa-example-content`.
 
 ## Reference
 
