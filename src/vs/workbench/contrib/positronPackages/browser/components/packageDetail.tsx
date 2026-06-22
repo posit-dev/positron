@@ -29,6 +29,24 @@ export interface PackageDetailProps {
 }
 
 /**
+ * Normalize a runtime-provided published date to YYYY-MM-DD. Handles the common
+ * case where the value already begins with an ISO date (e.g. R's
+ * "2024-11-17 08:30:05 UTC"), falls back to Date parsing, and otherwise passes
+ * the original string through unchanged.
+ */
+function formatPublishedDate(raw: string): string {
+	const isoPrefix = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+	if (isoPrefix) {
+		return isoPrefix[1];
+	}
+	const parsed = new Date(raw);
+	if (!Number.isNaN(parsed.getTime())) {
+		return parsed.toISOString().slice(0, 10);
+	}
+	return raw;
+}
+
+/**
  * A single stat in the Overview's top stat strip: an uppercase label above a
  * prominent value. Shows a skeleton while a detail-sourced value is pending,
  * and renders nothing once resolved if there is still no value.
@@ -301,7 +319,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 					<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
 					<div className='package-detail-meta-grid'>
 						<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
-						<MetaRow label={localize('positron.packages.detail.published', "Date published")} loading={detailLoading} value={merged.publishedDate} />
+						<MetaRow label={localize('positron.packages.detail.published', "Date published")} loading={detailLoading} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
 						<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
 					</div>
 				</div>

@@ -168,6 +168,7 @@ describe('PackageDetail with resolved detail fields', () => {
 		author: 'Hadley Wickham',
 		dependencyCount: 12,
 		sourceRepository: 'CRAN',
+		publishedDate: '2024-11-17 08:30:05 UTC',
 	});
 	const packagesService = stubInterface<IPositronPackagesService>({
 		getInstances: () => [instance],
@@ -187,6 +188,8 @@ describe('PackageDetail with resolved detail fields', () => {
 		expect(await screen.findByText('A grammar of data manipulation (extended)')).toBeInTheDocument();
 		expect(await screen.findByText('12')).toBeInTheDocument();     // DEPS stat
 		expect(await screen.findByText('CRAN')).toBeInTheDocument();   // Metadata: source repository
+		// The published date is normalized to YYYY-MM-DD (time/zone stripped).
+		expect(await screen.findByText('2024-11-17')).toBeInTheDocument();
 	});
 });
 
