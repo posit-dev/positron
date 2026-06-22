@@ -6,7 +6,6 @@
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { importAMDNodeModule } from '../../../../amdX.js';
 import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
@@ -263,9 +262,8 @@ export class QuartoEquationPreviewContribution extends QuartoInlinePreviewContri
 	constructor(
 		editor: ICodeEditor,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ILogService logService: ILogService,
 	) {
-		super(editor, logService);
+		super(editor);
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(POSITRON_QUARTO_EQUATION_PREVIEW_KEY)) {

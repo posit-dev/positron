@@ -9,7 +9,6 @@ import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { EditorLayoutInfo } from '../../../../editor/common/config/editorOptions.js';
 import { URI } from '../../../../base/common/uri.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { isQuartoDocument } from '../common/positronQuartoConfig.js';
 
 /**
@@ -242,7 +241,6 @@ export abstract class QuartoInlinePreviewContribution<TItem extends IInlinePrevi
 
 	constructor(
 		protected readonly editor: ICodeEditor,
-		@ILogService protected readonly logService: ILogService,
 	) {
 		super();
 

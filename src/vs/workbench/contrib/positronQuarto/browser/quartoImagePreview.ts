@@ -132,9 +132,9 @@ export class QuartoImagePreviewContribution extends QuartoInlinePreviewContribut
 		editor: ICodeEditor,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IFileService private readonly _fileService: IFileService,
-		@ILogService logService: ILogService,
+		@ILogService private readonly _logService: ILogService,
 	) {
-		super(editor, logService);
+		super(editor);
 
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
@@ -186,7 +186,7 @@ export class QuartoImagePreviewContribution extends QuartoInlinePreviewContribut
 			);
 		}
 
-		this.logService.info('[QuartoImagePreview] Could not resolve image path:', item.imagePath, '-', result.errorMessage);
+		this._logService.info('[QuartoImagePreview] Could not resolve image path:', item.imagePath, '-', result.errorMessage);
 		return new QuartoImagePreviewViewZone(
 			this.editor,
 			item.lineNumber,
