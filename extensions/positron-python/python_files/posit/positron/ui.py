@@ -201,6 +201,70 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     return best_url
 
 
+def _best_author(metadata: Any) -> Optional[str]:
+    """Normalize author/maintainer into a display string (names, no emails)."""
+    raw = (
+        metadata.get("Author-email")
+        or metadata.get("Maintainer-email")
+        or metadata.get("Author")
+        or metadata.get("Maintainer")
+    )
+    if not raw or raw == "UNKNOWN":
+        return None
+    names = []
+    for part in raw.split(","):
+        part = part.strip()
+        name = part.split("<")[0].strip().strip('"')
+        names.append(name or part)
+    joined = ", ".join(n for n in names if n)
+    return joined or None
+
+
+def _runtime_dependency_count(dist: importlib.metadata.Distribution) -> int:
+    """Count runtime Requires-Dist, excluding requirements gated by an extra."""
+    count = 0
+    for req in dist.requires or []:
+        if "extra ==" in req:
+            continue
+        count += 1
+    return count
+
+
+def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Return the Source/Repository Project-URL if present."""
+    metadata: Any = dist.metadata
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        if _normalize_url_label(label) in ("source", "repository", "sourcecode", "code"):
+            url = url.strip()
+            if url:
+                return url
+    return None
+
+
+def _get_package_detail(kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected a package name, got: {params}")
+    name = params[0]
+    try:
+        dist = importlib.metadata.distribution(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+    metadata: Any = dist.metadata
+    detail: Dict[str, JsonData] = {"name": name, "dependencyCount": _runtime_dependency_count(dist)}
+    summary = metadata.get("Summary")
+    if summary and summary != "UNKNOWN":
+        detail["title"] = summary
+    author = _best_author(metadata)
+    if author:
+        detail["author"] = author
+    repo = _source_repository(dist)
+    if repo:
+        detail["sourceRepository"] = repo
+    return detail
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -250,6 +314,7 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
     "getPackagesInstalled": _get_packages_installed,
+    "getPackageDetail": _get_package_detail,
 }
 
 

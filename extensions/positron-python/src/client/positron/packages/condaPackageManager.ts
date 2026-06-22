@@ -71,6 +71,13 @@ export class CondaPackageManager implements IPackageManager {
         return this._callMethod<positron.LanguageRuntimePackage[]>('getPackagesInstalled', token);
     }
 
+    async getPackageDetail(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+        return this._callMethod<Partial<positron.LanguageRuntimePackage> | undefined>('getPackageDetail', token, name);
+    }
+
     /**
      * Check if conda is available.
      */

@@ -457,6 +457,42 @@ fig
         assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
+def test_get_package_detail_installed(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns a dict with expected fields for an installed package."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["pytest"])
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["name"] == "pytest"
+    assert isinstance(result["dependencyCount"], int)
+    assert result["dependencyCount"] >= 0
+    assert "title" in result
+    assert isinstance(result["title"], str)
+
+
+def test_get_package_detail_unknown(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns None for an unknown package name."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["__no_such_package_xyz__"])
+    assert result is None
+
+
+def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail raises _InvalidParamsError for invalid params."""
+    from positron.ui import _InvalidParamsError, _get_package_detail
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [])
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [42])  # type: ignore[list-item]
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, "pytest")  # type: ignore[arg-type]
+
+
 def test_is_not_plot_url_events(
     shell: PositronShell,
     ui_comm: DummyComm,
