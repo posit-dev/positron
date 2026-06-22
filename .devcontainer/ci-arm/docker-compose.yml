@@ -1,6 +1,6 @@
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-${POSITRON_CI_IMAGE_ARCH:-arm64}:${POSITRON_CI_IMAGE_TAG:-127}
+    image: ghcr.io/posit-dev/positron-ubuntu24-${POSITRON_CI_IMAGE_ARCH:-arm64}:127
     init: true
     privileged: true
     command: /bin/sh -c "while sleep 1000; do :; done"

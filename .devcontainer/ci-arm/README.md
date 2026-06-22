@@ -158,9 +158,9 @@ needs git history.
 
 ### Updating the image tag
 
-When CI bumps the image, update `POSITRON_CI_IMAGE_TAG` (the default in `docker-compose.yml`, or in
-your `.env`). A tag change needs **Dev Containers: Rebuild Container**; a changed `.env` alone won't
-trigger a rebuild.
+When CI bumps the image, edit the tag on the `test` service's `image:` line in `docker-compose.yml`
+(the `postgres` image has its own tag right below it). Then run **Dev Containers: Rebuild Container**
+to pick it up.
 
 ### Start over (reset)
 
