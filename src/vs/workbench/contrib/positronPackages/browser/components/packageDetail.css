@@ -36,6 +36,28 @@
 .package-detail-description { opacity: 0.8; margin: 2px 0 10px; }
 .package-detail-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
+.package-detail-action {
+	padding: 2px 14px;
+	min-height: 26px;
+	border-radius: 4px;
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-border, transparent);
+}
+
+.package-detail-action:hover:not(:disabled) {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.package-detail-action:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.package-detail-action:disabled {
+	opacity: 0.4;
+}
+
 .package-detail-banner {
 	margin-top: 12px;
 	padding: 8px 12px;

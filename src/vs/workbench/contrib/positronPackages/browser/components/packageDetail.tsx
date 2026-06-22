@@ -145,7 +145,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						{view.actions.map(action => (
 							<Button
 								key={action}
-								className='package-detail-action button-default'
+								className='package-detail-action'
 								disabled={action !== 'website' && !view.actionsEnabled}
 								onPressed={() => runAction(action)}
 							>
