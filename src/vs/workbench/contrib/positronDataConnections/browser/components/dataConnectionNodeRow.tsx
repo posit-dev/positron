@@ -39,7 +39,7 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 			return 'positron-db-indexes';
 
 		case 'group-views':
-			return 'eye';
+			return 'positron-db-views';
 
 		case 'group-columns':
 			return 'positron-db-columns';
@@ -54,7 +54,7 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 			return 'positron-db-index';
 
 		case 'view':
-			return 'eye';
+			return 'positron-db-view';
 
 		case 'column':
 		case 'field':
