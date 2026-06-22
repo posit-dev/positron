@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Create (or reuse) a dedicated git worktree for CI dev-container work, so container (Linux) builds
 # never share a checkout with native (host) builds. See README "How storage works". Run on the HOST
-# from a FULL Positron clone (this script lives at <clone>/.devcontainer/ci-arm/).
+# from any full Positron checkout (a clone or an existing worktree).
 #
 # Usage: ./.devcontainer/ci-arm/setup-worktree.sh [dest-path] [branch]
 #   dest-path  default: <clone>-ci      (or $POSITRON_CI_WORKTREE)
@@ -12,13 +12,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MAIN="$(cd "$HERE/../.." && pwd)"
 cd "$MAIN"
 
-# Must be a full clone (the compile needs history) and the main clone, not a worktree.
+# Must be a full clone -- the compile needs git history. (Running from a worktree is fine: git
+# worktree commands operate on the whole repo, so a new worktree can be created from any of them.)
 if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
   echo "This is a shallow clone; the build needs full history. Re-clone at full depth." >&2
-  exit 1
-fi
-if [ -f "$MAIN/.git" ]; then   # a linked worktree has a .git FILE; the main clone has a .git DIR
-  echo "Run this from your main clone, not from a worktree." >&2
   exit 1
 fi
 
@@ -61,10 +58,12 @@ fi
 
 cat <<EOF
 
-Done. Next:
-  1. Open the workspace in the worktree:
+Done. Next, in the new worktree:
+  1. Add your secrets (gitignored, so they aren't copied in -- the container needs them):
+       cp "$MAIN/.devcontainer/ci-arm/.env"         "$DEST/.devcontainer/ci-arm/.env"          # or see README Setup
+       cp "$MAIN/.devcontainer/ci-arm/license.txt"  "$DEST/.devcontainer/ci-arm/license.txt"
+  2. Open the workspace and Reopen in Container:
        code "$DEST/positron-ci.code-workspace"
-  2. Run "Dev Containers: Reopen in Container".
 
 Rule: do container work ONLY in this worktree; keep native/host builds in:
   $MAIN

@@ -29,61 +29,49 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 ## Setup
 
-Container work lives in a **dedicated git worktree** so its Linux build artifacts never mix with
-native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+Do this **once**. Container work lives in a **dedicated git worktree** so its Linux build artifacts
+never mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
 
-### 1. Get a full Positron clone
+### 1. Create the worktree
 
-Skip if you already have one. The build needs git history, so **don't** shallow-clone:
-
-```bash
-git clone https://github.com/posit-dev/positron.git
-cd positron
-```
-
-### 2. Run start
-
-From your clone, on any branch:
+From your Positron checkout (a clone or an existing worktree):
 
 ```bash
-./.devcontainer/ci-arm/start.sh
+./.devcontainer/ci-arm/setup-worktree.sh
 ```
 
-It creates a dedicated worktree off your current commit. The first run stops here to ask for your
-secrets (step 3).
+It makes a sibling worktree off your current commit and prints the next steps. (Raw equivalent, if
+you'd rather: `git worktree add ../positron-ci`.)
 
-### 3. Add your secrets — in the worktree
+### 2. Add your secrets — in the new worktree
 
-`.env` and `license.txt` are gitignored, so a fresh worktree doesn't have them and the container
-needs both. `start.sh` prints the exact lines (copying from your clone if you already have them
-there); add them in the worktree's `.devcontainer/ci-arm/`:
+`.env` and `license.txt` are gitignored, so they aren't copied into the worktree and the container
+needs both. In the **worktree's** `.devcontainer/ci-arm/` (`setup-worktree.sh` prints these lines):
 
 - **`.env`** — `cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env`, then fill in the
   Postgres connection info from 1Password (`E2E Postgres DB connection info`).
 - **license** — copy the `Positron Server private key` from 1Password to
   `.devcontainer/ci-arm/license.txt`.
 
-### 4. Run start again
+### 3. Open it in the container
 
-```bash
-./.devcontainer/ci-arm/start.sh
-```
+Open the worktree's `positron-ci.code-workspace` in VS Code, then **Reopen in Container**. The first
+open runs the ~10-min cold build; after that it's warm.
 
-Now it opens the worktree in VS Code — click **Reopen in Container**. Day to day, this one command
-is all you need (it reuses the worktree). Both secret files stay gitignored.
+That worktree is now your standing CI lab — to debug a failure later, go back to it, check out the
+commit you're reproducing (`git fetch` + `git checkout`), and Reopen in Container. Incremental build,
+secrets already in place.
 
 ## How to
 
 ### Open the workspace in the container
 
-`start.sh` (above) opens this for you. To do it by hand instead — in the container worktree, run
-`Dev Containers: Open Workspace in
+In the container worktree, run `Dev Containers: Open Workspace in
 Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
 about 10 minutes, once per machine. The build persists on Docker volumes, so later opens are fast.
-`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop. (Worktrees work
-too, but must be a **full clone** — see [How storage works](#how-storage-works).)
+`post-start.sh` then starts Xvfb, VNC, and the Doctor, and you're ready to develop.
 
 Once connected, the common actions live in the status bar if you installed **Task Buttons** — one
 click, no Command Palette. Everything else is under `Cmd-Shift-P → Tasks: Run Task` (type "Positron
