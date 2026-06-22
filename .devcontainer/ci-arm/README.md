@@ -4,8 +4,10 @@ Develop, debug, and run Positron **inside the actual CI image**
 (`ghcr.io/posit-dev/positron-ubuntu24-arm64`) so CI failures reproduce locally. You edit code
 natively in VS Code; the build, the tests, and Positron itself all run in the container.
 
-> Validated on **arm64** (Apple Silicon) only. The arch is parameterized and amd64 images exist
-> (CI uses them), but amd64 and Windows aren't validated yet.
+> Validated on **arm64** (Apple Silicon) only. The arch is parameterized
+> (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
+> the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
+> progress). Windows isn't validated yet either.
 
 <p align="center">
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Docotor View">
