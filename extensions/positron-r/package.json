@@ -710,6 +710,10 @@
           "when": "isRPackage"
         },
         {
+          "command": "r.useTest",
+          "when": "false"
+        },
+        {
           "category": "R",
           "command": "r.packageCheck",
           "when": "isRPackage"

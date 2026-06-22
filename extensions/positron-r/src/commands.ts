@@ -153,7 +153,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.useTest', async () => {
-			executeCodeForCommand('usethis', 'usethis::use_test("rename-me")');
+			executeCodeForCommand('usethis', 'usethis::use_test("something")');
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
