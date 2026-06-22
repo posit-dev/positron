@@ -22,12 +22,17 @@ fi
 # VNC server for native viewers. macOS Screen Sharing requires a password, so we set one. Verify it
 # actually binds :5900 (not just that a process exists) and retry — at boot it can exit before
 # binding, which is why VNC sometimes shows down right after the container starts.
+#
+# Detach with setsid (like websockify below), NOT x11vnc's own -bg: when this script runs from the
+# postStart hook / a task, the -bg child stays in the launching shell's session and gets reaped when
+# that shell exits — x11vnc then dies seconds after start and VNC won't connect. setsid puts it in
+# its own session so it survives. (-quiet dropped too, so /tmp/x11vnc.log keeps the exit reason.)
 vnc_up() { (exec 3<>/dev/tcp/127.0.0.1/5900) 2>/dev/null; }
 if ! vnc_up; then
   x11vnc -storepasswd "$VNC_PASSWORD" /tmp/.vncpw >/dev/null 2>&1
   for _ in 1 2 3; do
     pkill -x x11vnc 2>/dev/null || true
-    x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 -bg -quiet >/tmp/x11vnc.log 2>&1 || true
+    setsid x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 >/tmp/x11vnc.log 2>&1 </dev/null &
     for _ in $(seq 1 5); do vnc_up && break; sleep 1; done
     vnc_up && break
   done
