@@ -208,8 +208,9 @@ It removes this project's dev container, its data volumes (root + e2e `node_modu
   ```
   Deleting the `VERSION` marker is required — the installers skip when it matches. (`out/` is shared
   too; recompile after switching.)
-- **Don't switch the container worktree's branch while a session is active** — the source is
-  bind-mounted, so the container would see the change mid-session.
+- **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
+  running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
+  reload the window and let **Watch** recompile (restart any running Positron/debug).
 - **One dev container per checkout** at a time.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
