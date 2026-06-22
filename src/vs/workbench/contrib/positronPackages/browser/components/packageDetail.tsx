@@ -7,7 +7,7 @@
 import './packageDetail.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { URI } from '../../../../../base/common/uri.js';
@@ -26,7 +26,6 @@ export interface PackageDetailProps {
 	readonly sessionId: string;
 	readonly packageName: string;
 	readonly packagesService: IPositronPackagesService;
-	readonly onClose: () => void;
 }
 
 /**
@@ -83,9 +82,13 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	const isActive = packagesService.activePackagesInstance?.session.metadata.sessionId === sessionId;
 	const livePkg = instance?.packages.find(p => p.name.toLowerCase() === packageName.toLowerCase());
 
-	const [lastKnown, setLastKnown] = useState<ILanguageRuntimePackage | undefined>(livePkg);
-	useEffect(() => { if (livePkg) { setLastKnown(livePkg); } }, [livePkg]);
-	const pkg = livePkg ?? lastKnown;
+	// Retain the last-known package so the header/website survive uninstall/session-end.
+	// A ref updated during render (always the same value within a render) avoids the
+	// extra render cycles a state+effect would cause, since `instance.packages` returns
+	// freshly-constructed objects on every read.
+	const lastKnownRef = useRef<ILanguageRuntimePackage | undefined>(livePkg);
+	if (livePkg) { lastKnownRef.current = livePkg; }
+	const pkg = livePkg ?? lastKnownRef.current;
 
 	const view = derivePackageViewState(pkg, { installed: !!livePkg, sessionAlive, isActive });
 
@@ -127,14 +130,14 @@ export const PackageDetail = (props: PackageDetailProps) => {
 			case 'help':
 				return localize('positron.packages.detail.help', "Show Help");
 			case 'website':
-				return localize('positron.packages.detail.website', "Website");
+				return localize('positron.packages.detail.action.website', "Website");
 		}
 	};
 
 	return (
 		<div className='positron-package-detail'>
 			<div className='package-detail-header'>
-				<div className='package-detail-icon'>{languageBadge}</div>
+				<div aria-hidden='true' className='package-detail-icon'>{languageBadge}</div>
 				<div className='package-detail-header-main'>
 					<h2 className='package-detail-title'>{packageName}</h2>
 					{pkg?.description && <div className='package-detail-description'>{pkg.description}</div>}
@@ -183,7 +186,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 							: localize('positron.packages.detail.no', "No")
 						)}
 				/>
-				<Field label={localize('positron.packages.detail.website', "Website")} value={pkg?.url} />
+				<Field label={localize('positron.packages.detail.field.website', "Website")} value={pkg?.url} />
 				<Field label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
 			</div>
 		</div>

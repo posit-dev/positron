@@ -53,7 +53,7 @@ describe('PackageDetail', () => {
 	const packagesService = stubInterface<IPositronPackagesService>({
 		getInstances: () => [instance],
 		activePackagesInstance: instance,
-		onDidChangeActivePackagesInstance: new Emitter().event,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
 		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
 	});
 
@@ -70,7 +70,6 @@ describe('PackageDetail', () => {
 				packageName='dplyr'
 				packagesService={packagesService}
 				sessionId={SESSION_ID}
-				onClose={() => { }}
 			/>
 		);
 	}
@@ -104,7 +103,7 @@ describe('PackageDetail when session is not active', () => {
 	const packagesService = stubInterface<IPositronPackagesService>({
 		getInstances: () => [instance],
 		activePackagesInstance: otherInstance,
-		onDidChangeActivePackagesInstance: new Emitter().event,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
 		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
 	});
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand }).build();
@@ -112,7 +111,7 @@ describe('PackageDetail when session is not active', () => {
 
 	it('shows the not-active hint and disables package actions', () => {
 		rtl.render(
-			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} onClose={() => { }} />
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
 		expect(screen.getByText(/not the active session/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /uninstall/i })).toBeDisabled();
