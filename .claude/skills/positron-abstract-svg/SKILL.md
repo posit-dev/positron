@@ -15,27 +15,37 @@ description: >
 # Positron Abstract SVG Skill
 
 This skill helps you create clean, on-brand abstract SVG illustrations of the
-Positron IDE for use in documentation and in-app walkthroughs.
+Positron IDE for documentation, walkthroughs, onboarding, and feature previews.
+
+It applies to **any part of the Positron IDE** -- editor, notebooks, data
+explorer, console, plots, variables pane, terminal, AI assistant, and so on. The
+bundled examples and component patterns happen to focus on notebooks (that is
+what has been built so far), so treat them as a starting library rather than the
+full scope: the constraints, palette, fonts, layering rules, and icon
+conventions generalize to any surface. For a surface not yet covered, work from a
+screenshot and compose new components from the same primitives in the same style.
 
 ## Critical Constraints
 
-**These SVGs are loaded as `<img src="...">` inside a VS Code webview.** This means:
+**These are static SVGs rendered as plain images (e.g. `<img src="...">`) in many different contexts** -- documentation sites, in-app walkthroughs, READMEs, etc. They cannot rely on the host page's styles or scripts. This means:
 
-- **No CSS variables** -- `var(--vscode-editor-background)` will NOT work. All colors must be hardcoded hex values.
+- **No external CSS / CSS variables** -- references like `var(--some-token)` will NOT resolve. All colors must be self-contained (hardcoded hex values, or an inline `<style>` block within the SVG itself).
 - **No JavaScript** -- static SVG only.
-- **Light theme only** -- these images are always shown in a light context.
-- **Standard walkthrough size**: `width="520" height="260"` (can vary for other uses).
+- **Assume a light background by default** -- the palette and examples target a light context. Supporting both light and dark themes is a nice-to-have, not a requirement (see below); reach for it when the SVG will appear on surfaces of both kinds.
+- **Sizing**: walkthrough images are commonly `width="520" height="260"`, but pick a size and aspect ratio that suits the surface you are depicting and where the image will appear.
 
-Always start every SVG with a white background rect:
+For a light-only image, start with an opaque white background rect:
 ```svg
 <rect width="520" height="260" fill="#FFFFFF"/>
 ```
+
+To support light **and** dark, omit the opaque background and either use colors that read on both, or adapt with an inline `<style>` block inside the SVG (a `@media (prefers-color-scheme: dark)` rule honored when the SVG carries its own styles). Keep it simple and always preview on both backgrounds.
 
 ## Color Palette
 
 These images exist to communicate complex UI simply. **Clarity comes first** -- a color that helps the eye parse the layout is worth using even if it isn't an exact Positron theme color. Matching the Positron theme is a nice-to-have, not a requirement; reach for whatever reads clearly at small sizes.
 
-The palette below is a tested starting point. `#447099` is the Positron brand blue (it matches the positron-python gallery banner in `extensions/positron-python/package.json`); reserve it for the focal point. Treat the grays as a coherent set rather than precise values to match.
+The palette below is a tested starting point. `#447099` is the Positron brand blue; reserve it for the focal point. Treat the grays as a coherent set rather than precise values to match.
 
 | Color | Hex | Use |
 |-------|-----|-----|
@@ -80,11 +90,11 @@ The more context you have about the actual UI, the better the abstract image wil
 
 ## SVG Layering (Z-order)
 
-SVG renders elements in document order -- later elements appear on top. Keep this in mind:
+SVG renders elements in document order -- later elements appear on top. The general rule: draw containers before their contents, and floating/overlay elements last. For example:
 
-- Draw cell borders and backgrounds **before** their content.
-- Draw **cell action bars after** their parent cell, so the action bar floats on top.
-- Draw **panel separator lines** early so content overlaps them correctly.
+- Draw a container's border and background **before** the content inside it (a cell, panel, dialog, etc.).
+- Draw **floating toolbars and overlays after** their parent so they sit on top (e.g. a cell action bar).
+- Draw **separator/divider lines** early so later content overlaps them cleanly.
 
 ## Fonts
 
@@ -93,7 +103,7 @@ SVG renders elements in document order -- later elements appear on top. Keep thi
 
 ## Code Representation
 
-Never write real readable code in these illustrations unless the content is the focal point of the image. Use placeholder gray rects instead:
+Never write real readable text (code, labels, descriptions) in these illustrations unless the content is the focal point of the image. Use placeholder gray rects for any body text instead:
 
 ```svg
 <!-- Good: placeholder code lines -->
@@ -130,7 +140,7 @@ For smaller contexts (cell action bar at ~11px), scale down:
 
 ## Component Patterns
 
-See `references/patterns.md` for copy-pasteable SVG snippets for every major component:
+See `references/patterns.md` for copy-pasteable SVG snippets. The current set is notebook-focused (it covers what has been built so far). For other Positron surfaces, reuse the general primitives below -- tab bars, panels, toolbars, icons, placeholder text, separators -- and compose new components in the same style. Available snippets:
 
 - Tab bar with active file tab
 - Notebook toolbar (Run All, Clear All, + Code, + Markdown, Refresh, Python dropdown)
@@ -145,12 +155,17 @@ See `references/patterns.md` for copy-pasteable SVG snippets for every major com
 
 ## Tips
 
-- **Blue is a focal point color** -- don't use `#447099` everywhere. Reserve it for the one element that should draw the eye (active tab underline, active cell border, Python dropdown border, key highlights).
-- **Keep the Variables pane and Posit Assistant panel visually distinct** -- use the gray header (`#F4F4F4`) to anchor them.
-- **Consistent cell padding**: line numbers at `text-anchor="end"` positioned 20px from cell left edge; code content 26px from cell left edge.
-- **Separator lines** between code and output areas inside cells should be `#EEEEEE`, 1px.
-- **Output areas** are always white (`fill="#FFFFFF"`), not gray -- they represent rendered output, not a code editor.
-- **Close (x) on active tab**: two crossing lines, not an SVG symbol -- use two `<line>` elements.
+General (apply to any surface):
+
+- **Blue is a focal-point color** -- don't use `#447099` everywhere. Reserve it for the one element that should draw the eye (the active/selected item, a key highlight).
+- **Anchor distinct regions with a gray header** (`#F4F4F4`) -- it keeps panels (Variables, Posit Assistant, any sidebar) visually separate.
+- **Build glyphs from primitives, not font symbols** -- e.g. a close (x) is two crossing `<line>` elements, not an SVG symbol.
+- **Output/content areas are white** (`fill="#FFFFFF"`), reserved for rendered results; gray backgrounds read as editors/inputs.
+
+Notebook-specific (examples of applying the above):
+
+- **Consistent cell padding**: line numbers at `text-anchor="end"` positioned 20px from the cell's left edge; code content 26px from the left edge.
+- **Code/output separator lines** inside a cell: `#EEEEEE`, 1px.
 
 ## Reference Images
 
