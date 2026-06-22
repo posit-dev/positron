@@ -48,11 +48,11 @@ Gitignored, so not copied in; the container needs both env vars:
 
 * **.env** — first copy the example env file:
 
-```
-cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
-```
+    ```
+    cp .devcontainer/ci-arm/.env.example .devcontainer/ci-arm/.env
+    ```
 
-Then insert the `E2E Postgres DB connection info` from 1Password.
+    Then insert the `E2E Postgres DB connection info` from 1Password.
 * **license.txt** — the `Positron Server private key` from 1Password → `.devcontainer/ci-arm/license.txt`.
 
 ### 3. Open it in the container
@@ -66,7 +66,8 @@ That's it — you have a working CI lab.
 ## Daily use
 
 Reopen the lab anytime: in VS Code, **Open Recent** the worktree and **Reopen in Container**. To
-reproduce a specific failure, `git checkout` that commit in the worktree first.
+reproduce a specific failure, `git checkout` that commit in the worktree first. To step back out to
+local VS Code, run **Dev Containers: Reopen Folder Locally**.
 
 > [!TIP]
 > Use the **Task Buttons** extension to launch common tasks quickly; everything else is `Cmd-Shift-P → Tasks: Run Task` - filtered by `Positron CI`
