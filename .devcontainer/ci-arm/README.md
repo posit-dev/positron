@@ -31,13 +31,18 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 One-time, on the host.
 
-**Recommended:** keep container work in a **dedicated git worktree** so its Linux build artifacts
-never mix with native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-From your main clone, one command creates it:
+Container work lives in a **dedicated git worktree** so its Linux build artifacts never mix with
+native/host builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
+From your main clone, on any branch, **one command** creates that worktree off your current commit
+and opens it:
 
 ```bash
-./.devcontainer/ci-arm/setup-worktree.sh        # creates a sibling worktree, prints next steps
+./.devcontainer/ci-arm/start.sh        # creates the worktree, opens VS Code
 ```
+
+Then click **Reopen in Container**. (If setup fails — e.g. the branch is already checked out
+elsewhere — it tells you exactly what to do and opens nothing. `setup-worktree.sh` does only the
+worktree part if you'd rather open it yourself.)
 
 ### 1. Create your `.env`
 
@@ -61,7 +66,8 @@ Both `.env` and `license.txt` are gitignored — don't commit them.
 
 ### Open the workspace in the container
 
-In the container worktree (from Setup), run `Dev Containers: Open Workspace in
+`start.sh` (above) opens this for you. To do it by hand instead — in the container worktree, run
+`Dev Containers: Open Workspace in
 Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
