@@ -17,8 +17,8 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
 3. Install the following extensions:
-	* **`Dev Containers`**, required, using **VS Code** as the client
-	* **`Task Buttons`**, optional, but highly recommended so you don't have to dig through Task menus
+	* **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**, required, using **VS Code** as the client
+	* **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**, optional, but highly recommended so you don't have to dig through Task menus
 
 ## Setup
 
@@ -45,7 +45,7 @@ Both `.env` and `license.txt` are gitignored — don't commit them.
 ### 3. Open the workspace in the container
 
 From a regular clone or a git worktree of Positron, run `Dev Containers: Open Workspace in
-Container…` → `positron-ci.code-workspace` → `Positron CI (ubuntu24-arm64)`.
+Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`.
 
 The **first open runs the cold build** (`post-create.sh`: `npm ci`, compile, Electron, Playwright) —
 about 10 minutes, once per machine. The build persists on Docker volumes, so later opens are fast.
@@ -77,7 +77,7 @@ Click the ▶ in the gutter on any spec (if it's missing, check the selected Pla
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron`/`e2e-chromium`) render on the headless display — open the noVNC link in
-the Doctor to watch live.
+the Doctor to watch live. Serve and view the playwright report via the `Report` task at anytime.
 
 ### Test files (qa-example-content)
 
