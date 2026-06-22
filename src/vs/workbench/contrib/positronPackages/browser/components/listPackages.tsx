@@ -450,7 +450,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			disposable.dispose();
 			services.positronPackagesService.setSelectedPackage(undefined);
 		};
-	}, [listInstance, services, lastOpenedRef]);
+	}, [listInstance, services]);
 
 	// Dispose the list instance on unmount.
 	useEffect(() => () => listInstance.dispose(), [listInstance]);

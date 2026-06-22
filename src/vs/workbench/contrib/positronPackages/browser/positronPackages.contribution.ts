@@ -764,7 +764,7 @@ CommandsRegistry.registerCommand(PACKAGES_OPEN_COMMAND_ID,
 			sessionId: instance.session.sessionId,
 			packageName,
 		});
-		await editorService.openEditor(input, { pinned: !!pinned });
+		await editorService.openEditor(input, { pinned });
 	});
 
 registerAction2(InstallPackageAction);
