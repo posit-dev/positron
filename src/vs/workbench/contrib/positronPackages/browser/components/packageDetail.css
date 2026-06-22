@@ -127,18 +127,31 @@
 
 .package-detail-overview {
 	margin-top: 14px;
-	display: grid;
-	grid-template-columns: 160px 1fr;
-	row-gap: 8px;
-	align-items: baseline;
 }
 
-.package-detail-field-label { color: var(--vscode-descriptionForeground); }
-.package-detail-field-value { word-break: break-word; }
+/* Top stat strip: VERSION / LICENSE / DEPS as labelled columns. */
+.package-detail-stats {
+	display: flex;
+	gap: 36px;
+	flex-wrap: wrap;
+}
+
+.package-detail-stat-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.package-detail-stat-value {
+	font-size: 16px;
+	font-weight: 600;
+	margin-top: 4px;
+}
 
 .package-detail-skeleton {
 	display: inline-block;
-	width: 120px;
+	width: 60px;
 	height: 1em;
 	border-radius: 3px;
 	background: var(--vscode-editorWidget-background);

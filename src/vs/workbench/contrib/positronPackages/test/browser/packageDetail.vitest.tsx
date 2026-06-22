@@ -90,13 +90,11 @@ describe('PackageDetail', () => {
 		expect(executeCommand).toHaveBeenCalledWith('positronPackages.updatePackage', 'dplyr', '1.1.4');
 	});
 
-	it('shows the Overview metadata that is present', () => {
+	it('shows the Overview stat strip', () => {
 		render();
-		// Version appears twice: the faded version next to the name and the
-		// installed-version Overview row.
+		// The version appears twice: faded next to the name and as the VERSION stat.
 		expect(screen.getAllByText('1.1.2')).toHaveLength(2);
-		expect(screen.getByText('1.1.4')).toBeInTheDocument();   // latest version (outdated)
-		expect(screen.getByText('MIT')).toBeInTheDocument();     // license
+		expect(screen.getByText('MIT')).toBeInTheDocument();     // LICENSE stat
 	});
 });
 
@@ -180,13 +178,14 @@ describe('PackageDetail with resolved detail fields', () => {
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders author, source repository, and dependency count after the fetch resolves', async () => {
+	it('renders the author, title, and dependency count after the fetch resolves', async () => {
 		rtl.render(
 			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
 		expect(await screen.findByText('Hadley Wickham')).toBeInTheDocument();
-		expect(await screen.findByText('CRAN')).toBeInTheDocument();
-		expect(await screen.findByText('12')).toBeInTheDocument();
+		// The fetched title (differs from the description) becomes the header subtitle.
+		expect(await screen.findByText('A grammar of data manipulation (extended)')).toBeInTheDocument();
+		expect(await screen.findByText('12')).toBeInTheDocument();   // DEPS stat
 	});
 });
 

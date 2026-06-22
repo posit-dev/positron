@@ -29,38 +29,22 @@ export interface PackageDetailProps {
 }
 
 /**
- * A single label/value row in the Overview list. Renders nothing when value is empty.
+ * A single stat in the Overview's top stat strip: an uppercase label above a
+ * prominent value. Shows a skeleton while a detail-sourced value is pending,
+ * and renders nothing once resolved if there is still no value.
  */
-const Field = (props: { label: string; value: string | undefined; children?: React.ReactNode }) => {
-	if (!props.value && !props.children) {
+const Stat = (props: { label: string; value: string | number | undefined; loading?: boolean }) => {
+	const hasValue = props.value !== undefined && props.value !== '';
+	if (!hasValue && !props.loading) {
 		return null;
 	}
 	return (
-		<>
-			<div className='package-detail-field-label'>{props.label}</div>
-			<div className='package-detail-field-value'>{props.children ?? props.value}</div>
-		</>
-	);
-};
-
-/** A detail-only Overview row that shows a skeleton while the detail fetch is pending. */
-const DetailField = (props: { label: string; value: string | number | undefined; loading: boolean }) => {
-	if (props.value === undefined || props.value === '') {
-		if (props.loading) {
-			return (
-				<>
-					<div className='package-detail-field-label'>{props.label}</div>
-					<div className='package-detail-field-value'><span className='package-detail-skeleton' data-testid='package-detail-loading' /></div>
-				</>
-			);
-		}
-		return null;
-	}
-	return (
-		<>
-			<div className='package-detail-field-label'>{props.label}</div>
-			<div className='package-detail-field-value'>{props.value}</div>
-		</>
+		<div className='package-detail-stat'>
+			<div className='package-detail-stat-label'>{props.label}</div>
+			<div className='package-detail-stat-value'>
+				{hasValue ? props.value : <span className='package-detail-skeleton' data-testid='package-detail-loading' />}
+			</div>
+		</div>
 	);
 };
 
@@ -287,13 +271,11 @@ export const PackageDetail = (props: PackageDetailProps) => {
 			</div>
 
 			<div className='package-detail-overview'>
-				<Field label={localize('positron.packages.detail.installedVersion', "Installed version")} value={installedVersionText} />
-				<Field label={localize('positron.packages.detail.latestVersion', "Latest version")} value={pkg?.outdated ? pkg?.latestVersion : undefined} />
-				<Field label={localize('positron.packages.detail.license', "License")} value={merged.license} />
-				<Field label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate} />
-				<DetailField label={localize('positron.packages.detail.dependencies', "Dependencies")} loading={detailLoading} value={merged.dependencyCount} />
-				<DetailField label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
-				<Field label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+				<div className='package-detail-stats'>
+					<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
+					<Stat label={localize('positron.packages.detail.license', "License")} loading={detailLoading} value={merged.license} />
+					<Stat label={localize('positron.packages.detail.deps', "Deps")} loading={detailLoading} value={merged.dependencyCount} />
+				</div>
 			</div>
 		</div>
 	);
