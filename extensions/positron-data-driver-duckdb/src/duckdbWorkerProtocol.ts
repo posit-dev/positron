@@ -12,10 +12,10 @@
  * encoded) so the worker can open the database the moment it starts.
  */
 export interface WorkerOpenConfig {
-	/** Absolute path to the database file, or ':memory:' for an in-memory database. */
+	/** Absolute path to the database file. */
 	databasePath: string;
 
-	/** Whether to open the database in read-only mode (file-backed databases only). */
+	/** Whether to open the database in read-only mode. */
 	readOnly: boolean;
 }
 

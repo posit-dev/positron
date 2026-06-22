@@ -21,7 +21,6 @@ export interface PostgreSQLConnectionConfig {
 	user: string;
 	password: string;
 	ssl: boolean;
-	readOnly: boolean;
 }
 
 /**
@@ -54,7 +53,6 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresP
 			user: _config.user,
 			password: _config.password,
 			ssl: _config.ssl ? { rejectUnauthorized: false } : false,
-			options: _config.readOnly ? '-c default_transaction_read_only=on' : undefined,
 		});
 	}
 
@@ -74,10 +72,11 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresP
 	}
 
 	/**
-	 * Gets a value which indicates whether the connection is read only.
+	 * Gets a value which indicates whether the connection is read only. PostgreSQL connections are
+	 * always read/write; read-only is not exposed as a connection parameter.
 	 */
 	async isReadOnly(): Promise<boolean> {
-		return this._config.readOnly;
+		return false;
 	}
 
 	/**

@@ -238,8 +238,9 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionProvider.title',
-				"New Data Connection"
+				"Add Database"
 			)}
+			titleBarSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}

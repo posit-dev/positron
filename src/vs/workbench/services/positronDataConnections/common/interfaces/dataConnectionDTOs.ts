@@ -55,8 +55,25 @@ export interface IDataConnectionNodeDTO {
 	name: string;
 	kind: string; // DataConnectionNodeKind value
 	dataType?: string;
+	isPrimaryKey?: boolean;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
+}
+
+/**
+ * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs
+ * `SQLAlchemy`). A generateConnectionCode call returns an ordered list of these; an empty list
+ * means code cannot be generated from the given parameters.
+ */
+export interface IDataConnectionCodeVariantDTO {
+	// A stable identifier for the variant, unique within the returned list.
+	id: string;
+
+	// A user-facing label for the variant.
+	label: string;
+
+	// The generated connection code for this variant.
+	code: string;
 }
 
 /**
