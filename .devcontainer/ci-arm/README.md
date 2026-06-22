@@ -156,12 +156,6 @@ needs git history.
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug →* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source — desktop app / browser build (see Debug above) |
 
-### Updating the image tag
-
-When CI bumps the image, edit the tag on the `test` service's `image:` line in `docker-compose.yml`
-(the `postgres` image has its own tag right below it). Then run **Dev Containers: Rebuild Container**
-to pick it up.
-
 ### Start over (reset)
 
 To force a fresh cold build - e.g. to verify the whole flow end to end - close the container
