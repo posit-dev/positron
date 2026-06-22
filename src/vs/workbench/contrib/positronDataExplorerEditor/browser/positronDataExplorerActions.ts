@@ -74,7 +74,7 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
-	OpenInExcel = 'workbench.action.positronDataExplorer.openInExcel',
+	OpenAsSpreadsheet = 'workbench.action.positronDataExplorer.openAsSpreadsheet',
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
@@ -892,7 +892,7 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 	constructor() {
 		// This action applies to delimited text files (CSV/TSV) but not Excel
 		// workbooks, which are opened with the OS-native application instead via
-		// PositronDataExplorerOpenInExcelAction.
+		// PositronDataExplorerOpenAsSpreadsheetAction.
 		const when = ContextKeyExpr.and(
 			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 			POSITRON_DATA_EXPLORER_IS_PLAINTEXT,
@@ -969,7 +969,7 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 }
 
 /**
- * PositronDataExplorerOpenInExcelAction action.
+ * PositronDataExplorerOpenAsSpreadsheetAction action.
  *
  * Opens an Excel workbook (.xlsx) backing the Data Explorer with the OS-native
  * application (typically Excel). Only available in the local desktop app;
@@ -977,7 +977,7 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
  * web/server build, nor when connected to a remote, so the action is hidden in
  * those cases.
  */
-class PositronDataExplorerOpenInExcelAction extends Action2 {
+class PositronDataExplorerOpenAsSpreadsheetAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
@@ -989,10 +989,10 @@ class PositronDataExplorerOpenInExcelAction extends Action2 {
 			RemoteNameContext.isEqualTo('')
 		);
 		super({
-			id: PositronDataExplorerCommandId.OpenInExcel,
+			id: PositronDataExplorerCommandId.OpenAsSpreadsheet,
 			title: {
-				value: localize('positronDataExplorer.openInExcel', 'Open in Excel'),
-				original: 'Open in Excel'
+				value: localize('positronDataExplorer.openAsSpreadsheet', 'Open as Spreadsheet'),
+				original: 'Open as Spreadsheet'
 			},
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -1502,7 +1502,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
-	registerAction2(PositronDataExplorerOpenInExcelAction);
+	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);

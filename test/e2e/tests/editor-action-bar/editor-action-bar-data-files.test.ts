@@ -105,7 +105,7 @@ test.describe('Editor Action Bar: Data Files', {
 		});
 	}
 
-	test('Excel file shows "Open in Excel" on desktop only', async function ({ app, openDataFile }) {
+	test('Excel file shows "Open as Spreadsheet" on desktop only', async function ({ app, openDataFile }) {
 		// Open an Excel workbook directly via DuckDB.
 		await openDataFile('data-files/supermarkt_sales/supermarkt_sales.xlsx');
 		await expect(app.code.driver.currentPage.getByText('Data: supermarkt_sales.xlsx', { exact: true })).toBeVisible();
@@ -113,9 +113,9 @@ test.describe('Editor Action Bar: Data Files', {
 		// "Open as Plain Text File" is never offered for Excel workbooks.
 		await editorActionBar.verifyButtonVisible('Open as Plain Text File', false);
 
-		// "Open in Excel" opens the file with the OS-native application, which is
+		// "Open as Spreadsheet" opens the file with the OS-native application, which is
 		// only possible in the desktop app; it is hidden in web/server mode.
-		await editorActionBar.verifyButtonVisible('Open in Excel', !app.web);
+		await editorActionBar.verifyButtonVisible('Open as Spreadsheet', !app.web);
 	});
 });
 
