@@ -86,6 +86,232 @@ describe('PositronNotebookCell', () => {
 
 });
 
+describe('PositronNotebookCell tags', () => {
+	const ctx = createTestContainer().withNotebookEditorServices().build();
+
+	/** Create a single-code-cell notebook, seeding the cell's metadata. */
+	function createCellWithMetadata(metadata: Record<string, unknown>): PositronNotebookCodeCell {
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata,
+			internalMetadata: {},
+		}], ctx);
+		return notebook.cells.get()[0] as PositronNotebookCodeCell;
+	}
+
+	it('normalizes tags read from cell metadata', () => {
+		// tags live under the nested `metadata.metadata` (the only location the
+		// ipynb serializer persists) and are untrusted file data, so the read drops
+		// non-strings, dedupes, and ignores a non-array or a top-level value.
+		const tagsFor = (metadata: Record<string, unknown>) =>
+			createCellWithMetadata(metadata).tags.get();
+
+		expect({
+			nested: tagsFor({ metadata: { tags: ['seeded'] } }),
+			malformedEntries: tagsFor({ metadata: { tags: ['ok', 42, null, 'ok', { x: 1 }] } }),
+			nonArray: tagsFor({ metadata: { tags: 'not-an-array' } }),
+			topLevel: tagsFor({ tags: ['ignored'] }),
+		}).toEqual({
+			nested: ['seeded'],
+			malformedEntries: ['ok'],
+			nonArray: [],
+			topLevel: [],
+		});
+	});
+
+	it('a tag write lands in the nested location, not the top level', () => {
+		const cell = createCellWithMetadata({});
+		expect(cell.addTag('important')).toBe('ok');
+		expect(cell.addTag('wip')).toBe('ok');
+
+		expect((cell.model.metadata.metadata as Record<string, unknown>).tags).toEqual(['important', 'wip']);
+		expect(cell.model.metadata.tags).toBeUndefined();
+		expect(cell.tags.get()).toEqual(['important', 'wip']);
+	});
+
+	it('a tag write preserves sibling nested metadata keys', () => {
+		// PartialMetadata is a shallow top-level merge, so the nested object is
+		// replaced wholesale unless the write spreads it. Verify collapsed state
+		// and the vscode language id survive a tag edit.
+		const cell = createCellWithMetadata({
+			metadata: { collapsed: true, vscode: { languageId: 'python' } },
+		});
+		expect(cell.addTag('tag')).toBe('ok');
+
+		expect(cell.model.metadata.metadata).toEqual({
+			collapsed: true,
+			vscode: { languageId: 'python' },
+			tags: ['tag'],
+		});
+	});
+
+	it('removing the last tag drops the tags key per nbformat convention', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['gone'], collapsed: true } });
+		expect(cell.removeTag('gone')).toBe('ok');
+
+		expect(cell.model.metadata.metadata).toEqual({ collapsed: true });
+		expect(cell.tags.get()).toEqual([]);
+	});
+
+	it('a tag write ignores a non-object nested metadata value instead of spreading it', () => {
+		// metadata.metadata is untrusted; spreading a scalar would inject numeric
+		// keys (e.g. {0:'a',1:'b',...}). A malformed value is dropped and only the
+		// tag metadata is written.
+		const cell = createCellWithMetadata({ metadata: 'abc' });
+		expect(cell.addTag('tag')).toBe('ok');
+
+		expect(cell.model.metadata.metadata).toEqual({ tags: ['tag'] });
+	});
+
+	it('a no-op tag write is skipped and leaves the metadata object untouched', () => {
+		// applyEdits replaces the metadata object (a new reference) and fires a
+		// change even for identical content, which would add an undo entry and
+		// dirty the notebook. Renaming a tag to its current value is a no-op and
+		// must leave the metadata object untouched.
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
+		const before = cell.model.metadata;
+
+		expect(cell.renameTag('a', 'a')).toBe('ok');
+		expect(cell.model.metadata).toBe(before);
+	});
+
+	it('addTag trims, appends, and reports "ok"', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+
+		expect(cell.addTag('  second  ')).toBe('ok');
+		expect(cell.tags.get()).toEqual(['first', 'second']);
+	});
+
+	it('addTag is a silent no-op for a whitespace-only tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+
+		expect(cell.addTag('   ')).toBe('ok');
+		expect(cell.tags.get()).toEqual(['first']);
+	});
+
+	it('addTag reports "duplicate" and adds nothing for an existing tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['dup'] } });
+
+		expect(cell.addTag('  dup  ')).toBe('duplicate');
+		expect(cell.tags.get()).toEqual(['dup']);
+	});
+
+	it('addTag reports "failed" when the write cannot be applied to a detached cell', () => {
+		// Once the cell is removed from the notebook its index is -1, so the write
+		// no-ops. addTag must report that instead of claiming the tag was added.
+		const cell = createCellWithMetadata({ metadata: { tags: ['first'] } });
+		cell.delete();
+
+		expect(cell.addTag('second')).toBe('failed');
+	});
+
+	it('removeTag filters the tag and reports success', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b', 'c'] } });
+
+		expect(cell.removeTag('b')).toBe('ok');
+		expect(cell.tags.get()).toEqual(['a', 'c']);
+	});
+
+	it('removeTag is a no-op success for a tag that is not present', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
+		const before = cell.model.metadata;
+
+		expect(cell.removeTag('missing')).toBe('ok');
+		expect(cell.model.metadata).toBe(before);
+		expect(cell.tags.get()).toEqual(['a']);
+	});
+
+	it('renameTag trims, replaces in place, and reports "ok"', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['old', 'keep'] } });
+
+		expect(cell.renameTag('old', '  new  ')).toBe('ok');
+		expect(cell.tags.get()).toEqual(['new', 'keep']);
+	});
+
+	it('renameTag is a silent no-op for a whitespace-only value', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['old'] } });
+
+		expect(cell.renameTag('old', '   ')).toBe('ok');
+		expect(cell.tags.get()).toEqual(['old']);
+	});
+
+	it('renameTag reports "duplicate" when the new value is another existing tag', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a', 'b'] } });
+
+		expect(cell.renameTag('a', 'b')).toBe('duplicate');
+		expect(cell.tags.get()).toEqual(['a', 'b']);
+	});
+
+	it('renameTag reports "failed" when the original tag is no longer present', () => {
+		const cell = createCellWithMetadata({ metadata: { tags: ['a'] } });
+
+		expect(cell.renameTag('missing', 'new')).toBe('failed');
+		expect(cell.tags.get()).toEqual(['a']);
+	});
+
+	it('tag writes fail on a read-only notebook', () => {
+		// Tag edits are document mutations, so a read-only notebook rejects them
+		// at the setTags choke point and the verbs report 'failed'.
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata: { metadata: { tags: ['seeded'] } },
+			internalMetadata: {},
+		}], ctx);
+		vi.spyOn(notebook, 'isReadOnly', 'get').mockReturnValue(true);
+		const cell = notebook.cells.get()[0];
+
+		expect({
+			add: cell.addTag('new'),
+			remove: cell.removeTag('seeded'),
+			rename: cell.renameTag('seeded', 'renamed'),
+			tags: cell.tags.get(),
+		}).toEqual({
+			add: 'failed',
+			remove: 'failed',
+			rename: 'failed',
+			tags: ['seeded'],
+		});
+	});
+
+	it('tagUIVisible folds tags, an in-progress add, and the notebook-wide hide toggle', () => {
+		// The cell owns the tag UI visibility predicate the tag bar and the code
+		// cell footer both render against.
+		const notebook = createTestPositronNotebookInstance([{
+			source: 'print("hello")',
+			mime: undefined,
+			language: 'python',
+			cellKind: CellKind.Code,
+			outputs: [],
+			metadata: {},
+			internalMetadata: {},
+		}], ctx);
+		const cell = notebook.cells.get()[0];
+		expect(cell.tagUIVisible.get()).toBe(false);
+
+		// An in-progress add shows the UI on an untagged cell; ending it hides it.
+		cell.beginAddTag();
+		expect(cell.tagUIVisible.get()).toBe(true);
+		cell.endAddTag();
+		expect(cell.tagUIVisible.get()).toBe(false);
+
+		expect(cell.addTag('tag')).toBe('ok');
+		expect(cell.tagUIVisible.get()).toBe(true);
+
+		// The notebook-wide toggle hides the UI without touching the tags.
+		notebook.toggleCellTagsHidden();
+		expect(cell.tagUIVisible.get()).toBe(false);
+		expect(cell.tags.get()).toEqual(['tag']);
+	});
+});
+
 /** Tests to ensure that the test harness is correctly setup, useful for debugging the test harness */
 describe('PositronNotebookCell Test Harness', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();

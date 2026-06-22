@@ -7,7 +7,7 @@
 import './languageModelModalDialog.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -48,6 +48,25 @@ export const showLanguageModelModalDialog = (
 	);
 };
 
+/**
+ * Sort rank for grouping providers in the modal: Posit AI first, then stable
+ * providers (no status), then preview, then experimental. Within a group,
+ * callers fall back to an alphabetical comparison.
+ */
+const providerSortRank = (provider: IPositronLanguageModelSource['provider']): number => {
+	if (provider.id === 'posit-ai') {
+		return 0;
+	}
+	switch (provider.status) {
+		case 'preview':
+			return 2;
+		case 'experimental':
+			return 3;
+		default:
+			return 1;
+	}
+};
+
 interface LanguageModelConfigurationProps {
 	sources: IPositronLanguageModelSource[];
 	renderer: PositronModalReactRenderer;
@@ -63,19 +82,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
-			// Posit AI should always be first
-			if (a.provider.id === 'posit-ai') {
-				return -1;
-			}
-			if (b.provider.id === 'posit-ai') {
-				return 1;
-			}
-			// Echo and Error providers should always be last
-			if (a.provider.id === 'echo' || a.provider.id === 'error') {
-				return 1;
-			}
-			if (b.provider.id === 'echo' || b.provider.id === 'error') {
-				return -1;
+			// Posit AI is always first, then stable providers, then preview,
+			// then experimental. Within each group, sort alphabetically.
+			const rankDiff = providerSortRank(a.provider) - providerSortRank(b.provider);
+			if (rankDiff !== 0) {
+				return rankDiff;
 			}
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		});
@@ -91,6 +102,19 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		// Fallback to first provider (assumes providers array is non-empty)
 		return providers[0];
 	})();
+
+	// Log service for tracing the provider sign-in flow. Prefixed so traces can be
+	// filtered from the log, e.g. when investigating GitHub Copilot sign-in issues.
+	// useCallback keeps the reference stable so it can be listed in effect deps.
+	const logService = props.renderer.services.logService;
+	const trace = useCallback(
+		(message: string) => logService.trace(`[Positron Assistant] [sign-in] ${message}`),
+		[logService]
+	);
+	const logError = useCallback(
+		(message: string) => logService.error(`[Positron Assistant] [sign-in] ${message}`),
+		[logService]
+	);
 
 	// The currently selected language model provider. The UI preselects this initial provider.
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
@@ -128,6 +152,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
 			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
 			// for how the source is expanded from the stored model config.
+			trace(`onChangeLanguageModelConfig: provider=${newSource.provider.id} signedIn=${newSource.signedIn}`);
 			setProviderSources(prevSources =>
 				prevSources.map(source =>
 					source.provider.id === newSource.provider.id ? newSource : source
@@ -135,7 +160,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			);
 		}));
 		return () => { disposables.forEach(d => d.dispose()); };
-	}, [props.renderer.services]);
+	}, [props.renderer.services, trace]);
 
 	// Listen for auth session changes from the Authentication extension so API key providers
 	// update immediately after save/delete while the modal is open.
@@ -145,6 +170,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			authService,
 			providers.map(source => source.provider.id),
 			(providerId, signedIn) => {
+				trace(`auth session sync: provider=${providerId} signedIn=${signedIn}`);
 				setProviderSources(prevSources => {
 					const index = prevSources.findIndex(source => source.provider.id === providerId);
 					if (index === -1) {
@@ -160,7 +186,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}
 		);
 		return () => disposable.dispose();
-	}, [props.renderer.services, providers]);
+	}, [props.renderer.services, providers, trace]);
 
 	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
@@ -240,6 +266,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** When the user clicks a different provider in the modal */
 	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
+		trace(`onChangeProvider: provider=${provider.provider.id} signedIn=${!!provider.signedIn}`);
 		setSelectedProvider(provider);
 		setProviderConfig(provider.defaults);
 		setShowProgress(false);
@@ -290,8 +317,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	/** When the user clicks the Sign In button */
 	const onSignIn = async (apiKeyFromInput?: string) => {
 		if (!selectedProvider) {
+			trace('onSignIn called with no selected provider; aborting');
 			return;
 		}
+		trace(`onSignIn: provider=${selectedProvider.provider.id} authMethod=${getAuthMethod()} signedIn=${isSignedIn()}`);
 		setShowProgress(true);
 		setErrorMessage(undefined);
 		let currentConfig = providerConfigRef.current;
@@ -321,13 +350,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					// When currently signed in, this button acts as sign out.
 					// Otherwise, treat it as sign in/save.
 					action = isSignedIn() ? 'delete' : 'save';
+					trace(`dispatching action='${action}' (API_KEY) for provider=${selectedProvider.provider.id}`);
 					await props.onAction(selectedProvider, currentConfig, action);
+					trace(`action='${action}' (API_KEY) for provider=${selectedProvider.provider.id} resolved`);
 					break;
 				case AuthMethod.OAUTH:
 					action = isSignedIn() ? 'oauth-signout' : 'oauth-signin';
+					trace(`dispatching action='${action}' (OAUTH) for provider=${selectedProvider.provider.id}`);
 					await props.onAction(selectedProvider, currentConfig, action);
+					trace(`action='${action}' (OAUTH) for provider=${selectedProvider.provider.id} resolved`);
 					break;
 				default:
+					trace(`unsupported auth method for provider=${selectedProvider.provider.id}`);
 					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
 					return;
 			}
@@ -348,8 +382,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}
 
 		} catch (e) {
+			logError(`onSignIn failed for provider=${selectedProvider.provider.id}: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
 			setErrorMessage(e instanceof Error ? e.message : String(e));
 		} finally {
+			trace(`onSignIn finished for provider=${selectedProvider.provider.id}`);
 			setShowProgress(false);
 		}
 	};
@@ -358,8 +394,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onCancel = async () => {
 		// NOTE: this action is currently only applicable to Copilot OAuth.
 		// See positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
+		trace(`onCancel: dispatching action='cancel' for provider=${selectedProvider.provider.id}`);
 		await props.onAction(selectedProvider, providerConfigRef.current, 'cancel')
 			.catch((e) => {
+				logError(`onCancel failed for provider=${selectedProvider.provider.id}: ${e instanceof Error ? `${e.message}\n${e.stack}` : String(e)}`);
 				setErrorMessage(e.message);
 			}).finally(() => {
 				setShowProgress(false);
@@ -435,6 +473,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							identifier={source.provider.id}
 							logoUrl={source.provider.logoUrl}
 							selected={source.provider.id === selectedProvider.provider.id}
+							status={source.provider.status}
 							onClick={() => onChangeProvider(source)}
 						/>;
 					})

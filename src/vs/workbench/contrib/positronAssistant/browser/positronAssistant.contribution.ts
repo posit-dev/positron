@@ -19,7 +19,7 @@ import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/comm
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ChatAgentLocation } from '../../chat/common/constants.js';
+import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 
@@ -40,7 +40,12 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 					menu: {
 						id: MenuId.AccountsContext,
 						group: '3_configuration',
-						when: ChatContextKeys.enabled,
+						// Configuring language model providers is about provider
+						// availability, not the chat UI, so it must stay reachable
+						// even when `chat.disableAIFeatures` is true (which gates
+						// `ChatContextKeys.enabled`). OR in the AI-disabled state so
+						// the setting can never hide this entry.
+						when: ContextKeyExpr.or(ChatContextKeys.enabled, ContextKeyExpr.has(`config.${ChatConfiguration.AIDisabled}`)),
 					},
 				});
 			}
@@ -57,7 +62,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				super({
 					id: 'workbench.action.positronAssistant.runInConsole',
 					title: localize2('interactive.runInConsole.label', "Run in Console"),
-					precondition: ChatContextKeys.enabled,
+					precondition: ChatContextKeys.available,
 					f1: true,
 					category: localize2('chat.category', 'Chat'),
 					icon: codiconsLibrary.play,

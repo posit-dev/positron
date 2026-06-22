@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 
+import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
@@ -25,13 +26,27 @@ interface LanguageModelButtonProps {
 	logoUrl?: string;
 	selected?: boolean;
 	disabled?: boolean;
+	status?: 'preview' | 'experimental';
 	onClick?: () => void;
+}
+
+/** Human-readable label for a provider's maturity status, or undefined for stable providers. */
+function getStatusLabel(status: LanguageModelButtonProps['status']): string | undefined {
+	switch (status) {
+		case 'preview':
+			return localize('positron.languageModelButton.status.preview', "Preview");
+		case 'experimental':
+			return localize('positron.languageModelButton.status.experimental', "Experimental");
+		default:
+			return undefined;
+	}
 }
 
 /**
  * LanguageModelButton component.
  */
 export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageModelButtonProps>((props, ref) => {
+	const statusLabel = getStatusLabel(props.status);
 	return (
 		<Button
 			className={positronClassNames(
@@ -45,6 +60,7 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 				<VerticalStack>
 					<LanguageModelIcon logoUrl={props.logoUrl} provider={props.identifier} />
 					{props.displayName}
+					{statusLabel && <span className='language-model button-status'>{statusLabel}</span>}
 				</VerticalStack>
 			</div>
 		</Button>

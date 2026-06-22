@@ -20,15 +20,6 @@ test.describe('Sessions: Interpreter Sync', {
 	tag: [tags.WIN, tags.WEB, tags.SESSIONS, tags.CONSOLE]
 }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set(
-			{
-				'positron.notebook.enabled': true
-			},
-			{ reload: 'web', waitMs: 1000 }
-		);
-	});
-
 	test.beforeEach(async function ({ hotKeys }) {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();

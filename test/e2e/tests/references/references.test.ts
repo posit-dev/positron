@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { Application } from '../../infra';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { join } from 'path';
 
 test.use({
@@ -16,6 +15,12 @@ test.describe('References', {
 	tag: [tags.REFERENCES, tags.WEB, tags.WIN]
 }, () => {
 
+	test.beforeAll(async ({ settings }) => {
+		// Drive the Open Folder picker via the quick input instead of the native
+		// OS dialog, which Playwright cannot operate.
+		await settings.set({ 'files.simpleDialog.enable': true });
+	});
+
 	test.afterEach(async ({ app, runCommand }) => {
 
 		await app.workbench.references.close();
@@ -25,9 +30,14 @@ test.describe('References', {
 
 	test('R - Verify References Pane Lists All Function References Across Files', {
 		tag: [tags.ARK]
-	}, async function ({ app, r, openFile }) {
+	}, async function ({ app, openFolder, openFile }) {
 		const helper = 'helper.R';
 
+		// Scope the workspace to the fixture folder so find-references can resolve
+		// `source()` from the right root.
+		await openFolder('qa-example-content/workspaces/references_tests/r');
+
+		await app.workbench.sessions.start('r');
 		await openFile(join('workspaces', 'references_tests', 'r', helper));
 
 		await openAndCommonValidations(app, helper);

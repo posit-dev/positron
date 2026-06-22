@@ -140,7 +140,7 @@ export class DeferredPlotOperation {
 export class DeferredRender {
 	private readonly deferred: DeferredPromise<IRenderedPlot>;
 
-	constructor(public readonly renderRequest: RenderRequest) {
+	constructor(public readonly renderRequest: RenderRequest, public readonly preview = false) {
 		this.deferred = new DeferredPromise<IRenderedPlot>();
 	}
 

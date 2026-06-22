@@ -317,6 +317,14 @@ export interface ILanguageRuntimePackage {
 
 	/** Optional short description or summary. */
 	description?: string;
+
+	/**
+	 * The package's primary external URL (its homepage, falling back to its
+	 * repository, etc.). Chosen by the language runtime from whatever metadata
+	 * it has. The Packages pane validates it (http/https only) and surfaces it
+	 * via the row's external-link button.
+	 */
+	url?: string;
 }
 
 /**

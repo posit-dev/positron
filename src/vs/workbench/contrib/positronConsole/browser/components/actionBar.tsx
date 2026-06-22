@@ -470,14 +470,14 @@ export const ActionBar = (props: ActionBarProps) => {
 				ariaLabel={positronRestartSession}
 				dataTestId='restart-session'
 				disabled={!canShutdown || restarting}
-				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
+				icon={ThemeIcon.fromId('refresh')}
 				tooltip={(positronRestartSession)}
 				onPressed={restartConsoleHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
-			icon: 'positron-restart-runtime-thin',
+			icon: 'refresh',
 			label: positronRestartSession,
 			onSelected: restartConsoleHandler
 		}

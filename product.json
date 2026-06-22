@@ -117,7 +117,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.48.0",
+			"version": "2026.54.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -211,7 +211,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.0.0",
+			"version": "1.1.1",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -241,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.9",
+			"version": "2.8.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -305,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.11",
-			"sha256": "b721bb67c4e978898043c316449ec5980b96c4e3da18a3f6d1d951ad14865694",
+			"version": "0.6.0",
+			"sha256": "e8042fe26298ea24fbe0772079bcd400d794252886b88b889eb68aa3af4092e0",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

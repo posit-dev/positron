@@ -17,6 +17,8 @@ import { formatCellDuration, getRelativeTime } from '../../positronNotebook/brow
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -2606,36 +2608,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.appendChild(loadingIndicator);
 
 		try {
-			// Create a runtime message for the HTML content
-			const runtimeMessage: ILanguageRuntimeMessageWebOutput = {
-				id: output.outputId,
-				parent_id: '',
-				when: new Date().toISOString(),
-				type: LanguageRuntimeMessageType.Output,
-				event_clock: 0,
-				kind: RuntimeOutputKind.ViewerWidget,
-				data: { 'text/html': content },
-				output_location: PositronOutputLocation.Console,
-				resource_roots: undefined,
-			};
+			// Resolve relative assets against the document's directory when it
+			// lives on disk (untitled documents have no meaningful base).
+			const baseUri = this._documentUri && this._documentUri.scheme !== Schemas.untitled
+				? dirname(this._documentUri)
+				: undefined;
 
-			// Create the webview
-			const webview = await this._webviewService.createNotebookOutputWebview({
-				id: output.outputId,
-				runtime: this._session,
-				output: runtimeMessage,
-				viewType: 'jupyter-notebook',
-			});
-
-			if (!webview) {
-				// No renderer available - show the HTML escaped
-				container.removeChild(loadingIndicator);
-				const pre = document.createElement('pre');
-				pre.className = 'quarto-output-html-escaped';
-				pre.textContent = content.substring(0, 1000) + (content.length > 1000 ? '...' : '');
-				container.appendChild(pre);
-				return;
-			}
+			// Render raw HTML content as a self-contained document (i.e. an R
+			// leaflet map). Using `createNotebookOutputWebview()` would find the
+			// built-in renderer for `text/html` and flatten the self-contained
+			// document, dropping `<head>` and scripts.
+			const webview = await this._webviewService.createRawHtmlOutputWebview(
+				output.outputId,
+				content,
+				baseUri,
+			);
 
 			// Store the webview and container for later cleanup and scroll updates
 			this._webviewsByOutputId.set(output.outputId, webview);

@@ -4,9 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
-import * as fs from 'fs/promises';
+import { test as base, expect, tags } from '../_test.setup';
+import * as fs from 'fs';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'interpreters.startupBehavior': 'auto' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -16,14 +25,10 @@ test.describe('New uv Environment', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { reload: 'web' });
-	});
-
 	test.afterAll(async () => {
 		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
 		try {
-			await fs.rm(projPath, { recursive: true, force: true });
+			await fs.promises.rm(projPath, { recursive: true, force: true });
 			console.log(`Cleaned up test project: ${projPath}`);
 		} catch (err) {
 			console.warn(`Failed to delete ${projPath}:`, err);
@@ -35,6 +40,7 @@ test.describe('New uv Environment', {
 		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 
 		await app.workbench.terminal.clickTerminalTab();
+		await app.workbench.terminal.createTerminal();
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
