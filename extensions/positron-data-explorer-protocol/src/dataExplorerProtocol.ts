@@ -204,6 +204,12 @@ export interface BackendState {
 	 */
 	error_message?: string;
 
+	/**
+	 * For Excel workbooks, the names of the worksheets available to read, in
+	 * workbook order. Absent for non-Excel data sources.
+	 */
+	available_sheets?: Array<string>;
+
 }
 
 /**
@@ -1177,15 +1183,21 @@ export interface ColumnSelection {
 }
 
 /**
- * Import options for file-based data sources. Currently supports options
- * for delimited text files (CSV, TSV).
+ * Import options for file-based data sources. Supports options for
+ * delimited text files (CSV, TSV) and Excel workbooks (XLSX).
  */
 export interface DatasetImportOptions {
 	/**
 	 * Whether the first row contains column headers (for delimited text
-	 * files)
+	 * files and Excel workbooks)
 	 */
 	has_header_row?: boolean;
+
+	/**
+	 * The name of the worksheet to read (for Excel workbooks). Defaults to
+	 * the first sheet.
+	 */
+	sheet_name?: string;
 
 }
 

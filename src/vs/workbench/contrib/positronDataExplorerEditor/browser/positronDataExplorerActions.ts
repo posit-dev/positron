@@ -9,7 +9,8 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { IsDevelopmentContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { RemoteNameContext } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
@@ -31,10 +32,11 @@ import { raceTimeout } from '../../../../base/common/async.js';
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
@@ -72,6 +74,7 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
+	OpenAsSpreadsheet = 'workbench.action.positronDataExplorer.openAsSpreadsheet',
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
@@ -887,6 +890,14 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 	 * Constructor.
 	 */
 	constructor() {
+		// This action applies to delimited text files (CSV/TSV) but not Excel
+		// workbooks, which are opened with the OS-native application instead via
+		// PositronDataExplorerOpenAsSpreadsheetAction.
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_PLAINTEXT,
+			POSITRON_DATA_EXPLORER_IS_XLSX.toNegated()
+		);
 		super({
 			id: PositronDataExplorerCommandId.OpenAsPlaintext,
 			title: {
@@ -899,26 +910,17 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			},
 			category,
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-			),
+			precondition: when,
 			icon: Codicon.fileText,
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: ContextKeyExpr.and(
-						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-					)
+					when
 				},
 				{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: ContextKeyExpr.and(
-						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
-					)
+					when
 				}
 			]
 		});
@@ -963,6 +965,81 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 				source: EditorOpenSource.USER
 			}
 		});
+	}
+}
+
+/**
+ * PositronDataExplorerOpenAsSpreadsheetAction action.
+ *
+ * Opens an Excel workbook (.xlsx) backing the Data Explorer with the OS-native
+ * application (typically Excel). Only available in the local desktop app;
+ * opening a file with the OS-native application is not possible in the
+ * web/server build, nor when connected to a remote, so the action is hidden in
+ * those cases.
+ */
+class PositronDataExplorerOpenAsSpreadsheetAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		const when = ContextKeyExpr.and(
+			POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			POSITRON_DATA_EXPLORER_IS_XLSX,
+			IsWebContext.toNegated(),
+			RemoteNameContext.isEqualTo('')
+		);
+		super({
+			id: PositronDataExplorerCommandId.OpenAsSpreadsheet,
+			title: {
+				value: localize('positronDataExplorer.openAsSpreadsheet', 'Open as Spreadsheet'),
+				original: 'Open as Spreadsheet'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			category,
+			f1: true,
+			precondition: when,
+			icon: Codicon.githubProject,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const openerService = accessor.get(IOpenerService);
+
+		// Grab Data Explorer URI (scheme = positron-data-explorer)
+		const originalURI = EditorResourceAccessor.getOriginalUri(editorService.activeEditor);
+		if (!originalURI) {
+			return;
+		}
+
+		const backingUri = PositronDataExplorerUri.backingUri(originalURI);
+		if (!backingUri) {
+			return;
+		}
+
+		// Open the file with the OS-native application (Excel). On the desktop,
+		// the opener service routes external opens through the native host,
+		// which opens local files with their default application.
+		await openerService.open(backingUri, { openExternal: true });
 	}
 }
 
@@ -1425,6 +1502,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerOpenAsSpreadsheetAction);
 	registerAction2(PositronDataExplorerFileOptionsAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
