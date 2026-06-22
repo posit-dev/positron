@@ -8,10 +8,11 @@ WS="$(cd "$(dirname "$0")/../.." && pwd)"
 bad=0
 check() { # <label> <path>
   [ -e "$2" ] || return 0
-  if ! file -b "$2" | grep -q '^ELF'; then
+  local ftype; ftype="$(file -b "$2")"
+  if ! printf '%s' "$ftype" | grep -q '^ELF'; then
     [ "$bad" -eq 0 ] && echo "WARNING: wrong-OS interpreter binaries (was this checkout built natively on the host?):"
     bad=1
-    echo "  - $1: $(file -b "$2" | cut -c1-45)"
+    echo "  - $1: $(printf '%s' "$ftype" | cut -c1-45)"
   fi
 }
 check pet      "$WS/extensions/positron-python/python-env-tools/pet"

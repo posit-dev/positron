@@ -33,18 +33,29 @@ fi
 
 if git worktree list --porcelain | grep -qxF "worktree $DEST"; then
   echo "Worktree already exists at: $DEST  (reusing)"
-else
-  if [ -z "$BRANCH" ]; then
-    # No branch given: make a dedicated one off HEAD so we never collide with the main clone's
-    # branch (git forbids two worktrees on the same branch).
-    BRANCH="ci-container-$(date +%Y%m%d)"
+elif [ -z "$BRANCH" ]; then
+  # No branch given: use a dedicated dated branch off HEAD so we never collide with the main clone's
+  # branch (git forbids two worktrees on one branch). The branch can outlive a `git worktree remove`,
+  # so reuse it if it already exists rather than failing on `add -b`.
+  BRANCH="ci-container-$(date +%Y%m%d)"
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    echo "Creating worktree at $DEST on existing branch '$BRANCH'..."
+    git worktree add "$DEST" "$BRANCH"
+  else
     echo "Creating worktree at $DEST on new branch '$BRANCH' (off current HEAD)..."
     git worktree add -b "$BRANCH" "$DEST"
-  elif git worktree add "$DEST" "$BRANCH" 2>/dev/null; then
+  fi
+else
+  # User-specified branch. git forbids two worktrees on one branch, so fall back to a detached
+  # checkout only for that specific case; surface any other error instead of masking it.
+  if err="$(git worktree add "$DEST" "$BRANCH" 2>&1)"; then
     echo "Created worktree at $DEST on branch '$BRANCH'."
-  else
+  elif printf '%s' "$err" | grep -qiE 'already (checked out|used)'; then
     echo "Branch '$BRANCH' is checked out elsewhere; creating a detached worktree instead." >&2
     git worktree add --detach "$DEST" "$BRANCH"
+  else
+    printf 'git worktree add failed:\n%s\n' "$err" >&2
+    exit 1
   fi
 fi
 
