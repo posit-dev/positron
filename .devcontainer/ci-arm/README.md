@@ -145,34 +145,31 @@ You **edit on your host**; **everything else runs in the container.** The deskto
 watch it (and any headed test) through noVNC in a browser. A postgres sidecar backs the e2e tests.
 
 ```mermaid
-flowchart TB
-    subgraph host["Host (macOS) — you edit here"]
-        code["VS Code · Dev Containers"]
+flowchart LR
+    subgraph host["Host (macOS)"]
+        code["VS Code"]
         web["Browser"]
     end
-
-    subgraph ctr["CI container · positron-ubuntu24-arm64 — everything runs here"]
-        pos["Positron desktop / server :8080 · e2e tests"]
-        xvnc["Xvnc · headless display :10 + VNC :5900"]
-        flux["fluxbox window manager"]
-        nov["noVNC / websockify :6080"]
+    subgraph ctr["CI container · positron-ubuntu24-arm64"]
+        pos["Positron<br/>desktop · server :8080 · e2e tests"]
+        subgraph disp["Headless desktop"]
+            nov["noVNC :6080"] --> xvnc["Xvnc :10<br/>display + VNC :5900"]
+        end
         rep["Playwright report :9323"]
     end
+    pg[("postgres :5432")]
 
-    pg[("postgres :5432 · sidecar")]
-
-    code -. "edit src/ via bind mount" .-> pos
-    pos -- "desktop & headed tests render on" --> xvnc
-    flux -- "manages windows on" --> xvnc
-    nov -- "bridges :6080 → :5900" --> xvnc
-    web -- "watch desktop :6080" --> nov
-    web -- "use server :8080" --> pos
-    web -- "view report :9323" --> rep
-    pos -- "tests query :5432" --> pg
+    code -->|"edit src/ (bind mount)"| pos
+    pos -->|"renders on"| xvnc
+    web -->|":6080 watch"| nov
+    web -->|":8080 use"| pos
+    web -->|":9323"| rep
+    pos -->|"tests query :5432"| pg
 ```
 
-Ports `:8080` (server), `:6080` (noVNC desktop), `:9323` (report), and `:5900` (native VNC) are
-forwarded to your host. What lives on a bind mount vs a Docker volume is covered next.
+A window manager (fluxbox) runs on the display so windows are movable. Ports `:8080` (server),
+`:6080` (noVNC desktop), `:9323` (report), and `:5900` (native VNC) are forwarded to your host. What
+lives on a bind mount vs a Docker volume is covered next.
 
 ### How storage works
 
