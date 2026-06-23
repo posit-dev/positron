@@ -84,8 +84,8 @@ cd ../positron-ci-lab      # from your main checkout
 `Cmd-Shift-P → Tasks: Run Task` (filter "Positron CI"); debug profiles are in **Run and Debug**.
 
 > [!IMPORTANT]
-> Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. When
-> something's off, it names the task to run.
+> Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. If a check
+> fails, it tells you which task fixes it.
 
 ### Editing and the Watch task
 
