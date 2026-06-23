@@ -21,6 +21,7 @@
 	// remote.autoForwardPorts / restoreForwardedPorts did not reliably suppress them in this
 	// connected-container setup, so we don't fight it. The four above are the ones you use.
 	"containerEnv": {
+		"DOCKER_CLI_HINTS": "false",
 		"DISPLAY": ":10",
 		"POSITRON_PY_VER_SEL": "3.10.12",
 		"POSITRON_R_VER_SEL": "4.5.2",

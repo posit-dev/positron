@@ -55,8 +55,9 @@ These files are gitignored, so they aren't copied into the worktree. The contain
 
 ### 3. Open it in the container
 
-In VS Code via Command Palette run:
-**`Dev Containers: Open Workspace in Container... > positron-ci-lab.code-workspace > Positron CI (ubuntu24-arm64)`**.
+In VS Code, open the Command Palette and run **`Dev Containers: Open Workspace in Container...`**.
+A file picker opens - select **`positron-ci-lab.code-workspace`** from the worktree directory.
+A quick pick then appears - choose **`Positron CI (ubuntu24-arm64)`**.
 The first open runs the ~10-min cold build; later opens are fast.
 
 **After the first build, run `Developer: Reload Window` once** so the editor's TypeScript server and
@@ -70,6 +71,7 @@ That's it - you have a working CI lab.
 | To... | Do this |
 |---|---|
 | reopen the lab | **Open Recent** the worktree, then **Reopen in Container** |
+| done for the day | click **Stop** (stops services, prints disconnect instructions), then click the remote indicator → **Reopen Folder Locally** |
 | return to local VS Code | run **Dev Containers: Reopen Folder Locally** |
 | find where the lab lives | `git worktree list` prints its path (it's a directory, not a branch - `cd` into it) |
 | run a common action | click a **Task Button** in the status bar |
