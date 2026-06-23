@@ -309,9 +309,10 @@ export class PositAssistant {
 	 * includes decorations (check icon column, trailing note/multiplier),
 	 * so we match on the span text instead.
 	 *
-	 * Some providers auto-pick a default and do not need this call. Models
-	 * beyond the initial slice are hidden behind a "More models" inline
-	 * disclosure — add that fallback when a test needs a non-top-tier model.
+	 * Some providers auto-pick a default and do not need this call. Only
+	 * top-tier models appear in the initial slice; the rest are hidden behind a
+	 * "More models" disclosure, which this method expands automatically when the
+	 * requested model isn't already shown.
 	 *
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
@@ -324,9 +325,20 @@ export class PositAssistant {
 		//    "Model" label span; that label is stable across states.
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
-		// 3. Click the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini".
-		await this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`).click();
+		// 3. Locate the desired model. `:text-is()` is exact-match so
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Wait for the submenu
+		//    to render (the model itself or the "More models" disclosure), then
+		//    expand "More models" if the model isn't in the initial slice (e.g.
+		//    non-top-tier providers like Microsoft Foundry's "model-router").
+		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		const moreModels = this.frame.locator('[role="menuitem"]:has-text("More models")');
+		await expect(model.or(moreModels).first()).toBeVisible();
+		if (!(await model.isVisible())) {
+			await moreModels.click();
+		}
+
+		// 4. Click the model.
+		await model.click();
 
 		// Menu closes on selection; wait for the trigger to collapse so
 		// subsequent actions (e.g. Send) don't race an open overlay.
