@@ -77,7 +77,7 @@ That's it — you have a working CI lab. :tada:
 | find where the lab lives | `git worktree list` prints its path (it's a directory, not a branch — `cd` into it) |
 | run a common action | click a **Task Button** in the status bar |
 | run any task | `Cmd-Shift-P` → **Tasks: Run Task**, filter "Positron CI" |
-| debug Positron's source | open **Run and Debug** (`Cmd-Shift-D`) |
+| debug Positron's source | open **Run and Debug** (`Cmd-Shift-D`), pick a **Positron CI:** profile |
 
 > [!IMPORTANT]
 > Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. If a check
