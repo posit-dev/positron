@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import { Code } from '../infra/code';
+import { QuickAccess } from './quickaccess';
 import { Explorer } from './explorer';
 
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
@@ -13,11 +15,23 @@ const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
  */
 export class TestExplorer extends Explorer {
 
+	constructor(code: Code, private quickaccess: QuickAccess) {
+		super(code);
+	}
+
 	async openTestExplorer(): Promise<void> {
-		const locator = this.code.driver.currentPage.locator(TEST_EXPLORER_ICON);
-		await locator.waitFor({ state: 'attached' });
-		await locator.waitFor({ state: 'visible' });
-		await locator.click();
+		// The view container's activity-bar icon appears once test discovery has
+		// populated it; wait for that before focusing, or the command no-ops.
+		await this.code.driver.currentPage.locator(TEST_EXPLORER_ICON).waitFor({ state: 'visible' });
+		await this.quickaccess.runCommand('workbench.view.testing.focus');
+	}
+
+	async collapseAllTests(): Promise<void> {
+		await this.quickaccess.runCommand('testing.collapseAll');
+	}
+
+	async clearAllTestResults(): Promise<void> {
+		await this.quickaccess.runCommand('testing.clearTestResults');
 	}
 
 	async expectTestItems(labels: string[]): Promise<void> {
@@ -29,6 +43,13 @@ export class TestExplorer extends Explorer {
 
 	async runAllTests(): Promise<void> {
 		await this.code.driver.currentPage.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
+	}
+
+	async runTest(label: string): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		const row = tree.locator('.monaco-list-row', { hasText: label });
+		await row.hover();
+		await row.getByLabel('Run Test', { exact: true }).click();
 	}
 
 	async expandAllTests(): Promise<void> {

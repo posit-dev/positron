@@ -15,10 +15,21 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../../editor/browser/editorExtensions.js';
 import { ICodeEditorService } from '../../../../../editor/browser/services/codeEditorService.js';
+// --- Start Positron ---
+// EditorContextKeys is only referenced by the suppressed editor context-menu
+// entries below (kept as a comment), so it is dropped here to avoid an
+// unused-import error.
+/*
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
+*/
+// --- End Positron ---
 import { localize, localize2 } from '../../../../../nls.js';
 import { IActionViewItemService } from '../../../../../platform/actions/browser/actionViewItemService.js';
-import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../../platform/actions/common/actions.js';
+// --- Start Positron ---
+// MenuRegistry import dropped: its only uses were the suppressed editor context-menu
+// entries below (kept as a comment). See issue #13955.
+import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
+// --- End Positron ---
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 // --- Start Positron ---
 // import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -27,7 +38,13 @@ import { CommandsRegistry, ICommandService } from '../../../../../platform/comma
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 // --- End Positron ---
 import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+// IsWebContext is only referenced by the suppressed title-bar sign-in menu below
+// (kept as a comment), so it is dropped here to avoid an unused-import error.
+/*
 import { IsWebContext } from '../../../../../platform/contextkey/common/contextkeys.js';
+*/
+// --- End Positron ---
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { IEnvironmentService } from '../../../../../platform/environment/common/environment.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
@@ -357,6 +374,12 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 				super({
 					id: 'workbench.action.chat.triggerSetupFromAccounts',
 					title: localize2('triggerChatSetupFromAccounts', "Sign in to use AI features..."),
+					// --- Start Positron ---
+					// Suppress the Accounts menu entry: it opens the upstream Copilot
+					// chat-setup sign-in dialog, which reads as GitHub Copilot rather
+					// than Positron. The command still exists; only the menu
+					// contribution is omitted. See issue #13955.
+					/*
 					menu: {
 						id: MenuId.AccountsContext,
 						group: '2_copilot',
@@ -367,6 +390,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ChatContextKeys.Entitlement.signedOut
 						)
 					}
+					*/
+					// --- End Positron ---
 				});
 			}
 
@@ -389,6 +414,12 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					id: ChatSetupSignInTitleBarAction.ID,
 					title: localize('signInIndicatorTitleBarAction', 'Sign In'),
 					f1: false,
+					// --- Start Positron ---
+					// Suppress the title-bar "Sign In" button: it opens the upstream
+					// Copilot chat-setup sign-in dialog, which reads as GitHub Copilot
+					// rather than Positron. The command still exists; only the menu
+					// contribution is omitted. See issue #13955.
+					/*
 					menu: [{
 						id: MenuId.TitleBarAdjacentCenter,
 						order: 0, // same position as the update button
@@ -401,6 +432,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ContextKeyExpr.has('updateTitleBar').negate()
 						),
 					}]
+					*/
+					// --- End Positron ---
 				});
 			}
 
@@ -579,6 +612,15 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 		registerGenerateCodeCommand('chat.internal.review', 'github.copilot.chat.review');
 		registerGenerateCodeCommand('chat.internal.codeReview.run', 'github.copilot.chat.codeReview.run');
 
+		// --- Start Positron ---
+		// Suppress the pre-setup editor context-menu entries (Explain / Fix / Code
+		// Review). Their gate is `Setup.completed.negate()`, so upstream shows them
+		// to signed-out users as an on-ramp into the Copilot chat-setup flow. In
+		// Positron these affordances should only appear once the user is signed in
+		// with Copilot, at which point the chat extension contributes its own
+		// equivalents. The `chat.internal.*` commands stay registered above but are
+		// no longer wired to any menu. See issue #13955.
+		/*
 		const internalGenerateCodeContext = ContextKeyExpr.and(
 			ChatContextKeys.Setup.hidden.negate(),
 			ChatContextKeys.Setup.disabledInWorkspace.negate(),
@@ -617,6 +659,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			order: 6,
 			when: internalGenerateCodeContext
 		});
+		*/
+		// --- End Positron ---
 
 	}
 
@@ -842,16 +886,18 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 				super({
 					id: ChatSetupHideAction.ID,
 					title: ChatSetupHideAction.TITLE,
-					f1: true,
-					category: CHAT_CATEGORY,
 					// --- Start Positron ---
-					// Hide from command palette when AI features are disabled.
+					// Keep this Copilot affordance out of the command palette regardless of
+					// the `chat.disableAIFeatures` setting (f1: false instead of upstream's true).
+					// The command only applies to Copilot affordances but sounds general, so better
+					// to hide it from the palette altogether to avoid confusion. See issue #13955.
+					f1: false,
+					// --- End Positron ---
+					category: CHAT_CATEGORY,
 					precondition: ContextKeyExpr.and(
 						ChatContextKeys.Setup.hidden.negate(),
 						ChatContextKeys.Setup.disabledInWorkspace.negate(),
-						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 					),
-					// --- End Positron ---
 					menu: {
 						id: MenuId.ChatTitleBarMenu,
 						group: 'z_hide',

@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
@@ -157,6 +157,26 @@ describe('CodeCellStatusFooter', () => {
 			expect(screen.getByTestId('cell-footer-metadata')).toBeInTheDocument();
 		} else {
 			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+		}
+	});
+
+	it('refreshes the relative time for each footer in a one minute interval', async () => {
+		vi.useFakeTimers();
+		try {
+			const startTime = Date.now();
+			renderFooter({
+				lastExecutionDuration: 500,
+				lastRunEndTime: startTime - 60_000,
+				lastRunSuccess: true,
+			});
+
+			expect(screen.getByText('1 min ago')).toBeInTheDocument();
+			await act(async () => {
+				vi.advanceTimersByTime(60_000);
+			});
+			expect(screen.getByText('2 mins ago')).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
 		}
 	});
 });
