@@ -167,7 +167,7 @@ flowchart LR
     desk --> xvnc
     e2e --> xvnc
     nov --> xvnc
-    web -->|":6080 · watch desktop / tests"| nov
+    web -->|":6080 · watch desktop / e2e tests"| nov
     web -->|":8080 · use"| srv
     web -->|":9323 · view"| rep
     e2e -->|query| pg
@@ -181,12 +181,12 @@ flowchart LR
     class vols,pg storcls
 ```
 
-Two ways to see Positron: **use** the web server directly at `:8080`, or **watch** the headless
-desktop — and any headed test — through noVNC at `:6080`.
+Two ways to see Positron: **use** the web server at `:8080` in your browser, or **watch** the
+headless desktop (including any headed e2e test) over noVNC at `:6080`.
 
-A window manager (fluxbox) runs on the display so windows are movable. Ports `:8080` (server),
-`:6080` (noVNC desktop), `:9323` (report), and `:5900` (native VNC) are forwarded to your host. What
-lives on a bind mount vs a Docker volume is covered next.
+A window manager (fluxbox) keeps windows movable on the display. Forwarded to your host: `:8080`
+(server), `:6080` (noVNC desktop), `:9323` (Playwright report), `:5900` (native VNC). The bind mount
+vs Docker volume split is covered below.
 
 ### How storage works
 
