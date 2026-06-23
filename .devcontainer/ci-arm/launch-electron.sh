@@ -33,7 +33,11 @@ sleep 1
 # code.sh runs Electron in the foreground (streams logs, never returns). Launch it detached with
 # logs to a file so they don't bury the URL; setsid keeps it alive after this task ends. The
 # software-GL flags (same set the e2e runner uses) let it render on the headless display (no GPU).
-setsid ./scripts/code.sh --no-sandbox --user-data-dir="$USER_DATA" \
+#
+# VSCODE_SKIP_PRELAUNCH=1: the cold build / Rebuild already ran prelaunch (compile + electron +
+# built-in extensions). Re-running it on every launch only slows startup and briefly re-extracts
+# .build/electron — which made the Doctor flash a false "Electron not set up". Skip it here.
+VSCODE_SKIP_PRELAUNCH=1 setsid ./scripts/code.sh --no-sandbox --user-data-dir="$USER_DATA" \
   --disable-dev-shm-usage \
   --use-gl=swiftshader \
   --enable-unsafe-swiftshader \
