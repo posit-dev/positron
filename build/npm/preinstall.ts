@@ -189,8 +189,21 @@ function installBuildDependencies() {
 	const env: NodeJS.ProcessEnv = { ...process.env };
 
 
-	// Target the current Node.js version for the build directory
-	env['npm_config_target'] = process.versions.node;
+	// --- Start Positron ---
+	// Build native modules against the Node version pinned in build/.npmrc rather than the
+	// running Node. Node 24's V8 headers require C++20, but tree-sitter hard-pins "c++17" in
+	// its binding.gyp; the pinned Node 22 headers avoid that requirement. Resolving the target
+	// from build/.npmrc (instead of forcing process.versions.node) makes the pin take effect
+	// even though an Electron npm_config_target is inherited from the root .npmrc env.
+	// Keep in sync with the matching block in postinstall.ts.
+	// refs https://github.com/tree-sitter/node-tree-sitter/issues/268
+	const buildTarget = getHeaderInfo(path.join(buildDir, '.npmrc'))?.target;
+	if (buildTarget) {
+		env['npm_config_target'] = buildTarget;
+	} else {
+		delete env['npm_config_target'];
+	}
+	// --- End Positron ---
 	env['npm_config_arch'] = process.arch;
 
 	// --- Start Positron ---
