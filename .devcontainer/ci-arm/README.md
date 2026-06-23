@@ -85,13 +85,9 @@ That's it — you have a working CI lab. :tada:
 
 ### Editing and the Watch task
 
-**Watch** recompiles `src/` to `out/` on save. Needed only when editing source, not to run or test
-the existing build.
-
-Loop: start **Watch** once, edit, then reload the window after `Finished compilation`.
-
-Dependency changes (a new `package-lock.json`) need **Reinstall deps** or **Rebuild**; the **Doctor**
-flags which.
+The **Watch** task incrementally recompiles `src/` to `out/` on save. Start it when you're editing
+Positron's source; you don't need it to run or test the existing build. Dependency changes (a new
+`package-lock.json`) call for **Reinstall deps** or **Rebuild** instead, which the **Doctor** flags.
 
 ### Run tests
 
