@@ -26,9 +26,9 @@ Once, on your machine:
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
 
-3. Install the following extensions in **VS Code**:
-   * **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
-   * **[Task Buttons](https://marketplace.visualstudio.com/items?itemName=spencerwmiles.vscode-task-buttons)**
+3. Install the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
+   extension in **VS Code** — it's what opens the container. The lab's own extensions (Task Buttons,
+   Playwright, …) install automatically inside the container, so you don't add them by hand.
 
 ## Setup
 
