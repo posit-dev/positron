@@ -43,6 +43,21 @@ cat <<'MSG'
   ============================================================
     🎉  Success! Your CI Lab is set up and ready for use!
   ============================================================
+MSG
+
+# Only after a fresh cold build (flag set by post-create): the editor attached before node_modules
+# existed, so a one-time reload restarts the TS server / Playwright against the installed deps.
+if [ -f /tmp/.ci-arm-fresh-build ]; then
+  rm -f /tmp/.ci-arm-fresh-build
+  cat <<'MSG'
+
+  ▸ First-time setup — run "Developer: Reload Window" once:
+      the editor started before deps were installed, so this clears the red squiggles on the
+      e2e tests and restores the run/debug icons in the test gutter.
+MSG
+fi
+
+cat <<'MSG'
 
   ▸ Start the Doctor to see services, ports, and build status:
       the "Doctor" button in the status bar

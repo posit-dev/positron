@@ -57,4 +57,9 @@ fi
 echo "==> recording build state"
 "$(dirname "$0")/mark-build-state.sh"
 
+# Flag a fresh cold build so the next post-start prompts a one-time "Reload Window" — the editor
+# attached while node_modules was still installing, so the TS server / Playwright need a restart to
+# pick them up. post-start consumes (deletes) this, so the prompt shows once per build, not per open.
+touch /tmp/.ci-arm-fresh-build
+
 echo "==> post-create complete"

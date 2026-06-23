@@ -160,12 +160,15 @@ flowchart LR
     pg[("postgres :5432")]
 
     code -->|"edit src/ (bind mount)"| pos
-    pos -->|"renders on"| xvnc
+    pos -->|"desktop and tests render on"| xvnc
     web -->|":6080 watch"| nov
     web -->|":8080 use"| pos
     web -->|":9323"| rep
     pos -->|"tests query :5432"| pg
 ```
+
+Two ways to see Positron: **use** the web server directly at `:8080`, or **watch** the headless
+desktop — and any headed test — through noVNC at `:6080`.
 
 A window manager (fluxbox) runs on the display so windows are movable. Ports `:8080` (server),
 `:6080` (noVNC desktop), `:9323` (report), and `:5900` (native VNC) are forwarded to your host. What
