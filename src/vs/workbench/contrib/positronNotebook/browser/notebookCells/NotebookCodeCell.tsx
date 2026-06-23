@@ -27,6 +27,8 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { getActiveWindow, isHTMLElement } from '../../../../../base/browser/dom.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
+import { ShadowDomContent } from '../../../../../base/browser/positron/ShadowDomContent.js';
+import { createTrustedTypesPolicy } from '../../../../../base/browser/trustedTypes.js';
 import { Markdown } from './Markdown.js';
 import { LatexOutput } from './LatexOutput.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
@@ -44,6 +46,10 @@ import { CellSelectionType } from '../selectionMachine.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
+
+// Passthrough policy to assign HTML output under Trusted Types. Safe here: active
+// content is routed to a webview upstream and innerHTML never runs scripts.
+const htmlOutputTTPolicy = createTrustedTypesPolicy('positronNotebookHtmlOutput', { createHTML: value => value });
 
 const copyOutputTextLabel = localize('positron.notebook.copyOutputText', "Copy Output Text");
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
@@ -332,8 +338,16 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			</div>;
 		case 'image':
 			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
-		case 'html':
-			return renderHtml(parsed.content);
+		case 'html': {
+			// Full HTML documents go in a shadow root; renderHtml only handles fragments.
+			const lower = parsed.content.toLowerCase();
+			const isFullDocument = lower.includes('<!doctype') ||
+				lower.includes('<html') ||
+				lower.includes('<body');
+			return isFullDocument
+				? <ShadowDomContent content={parsed.content} trustedTypesPolicy={htmlOutputTTPolicy} />
+				: renderHtml(parsed.content);
+		}
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'latex':
