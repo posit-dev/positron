@@ -85,10 +85,8 @@ That's it — you have a working CI lab. :tada:
 
 ### Editing and the Watch task
 
-**You only need Watch if you're editing Positron's `src/`.** The cold build (and **Rebuild**) already
-compiled a complete, runnable app — so to *just run or test* it, skip straight to
-[Run Positron itself](#run-positron-itself) or [Run tests](#run-tests). Watch's only job is to
-recompile *your* edits into `out/` as you save.
+**Watch is only for editing `src/`.** It recompiles your edits into `out/` on save. Just running or
+testing the existing build? You don't need it.
 
 When you *are* editing, this recompiles in seconds (never the ~10-min cold build):
 
