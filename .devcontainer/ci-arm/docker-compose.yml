@@ -21,6 +21,11 @@ services:
       - ${POSITRON_GIT_COMMON_DIR:?set by .devcontainer/ci-arm/initialize.sh}:${POSITRON_GIT_COMMON_DIR}
       - positron-node-modules:${POSITRON_WORKSPACE_PATH}/node_modules
       - positron-e2e-node-modules:${POSITRON_WORKSPACE_PATH}/test/e2e/node_modules
+      # remote/ node_modules carries heavy native modules (spdlog, kerberos, node-pty …) built by
+      # node-gyp in the container, so it lives on a volume for native-FS speed, like root + test/e2e.
+      # Correctness across resets is handled by reset.sh wiping every node_modules (volume + bind),
+      # not by volume coverage — the volume here is purely the perf win for this heavy native dir.
+      - positron-remote-node-modules:${POSITRON_WORKSPACE_PATH}/remote/node_modules
       - positron-build:${POSITRON_WORKSPACE_PATH}/.build
     depends_on:
       postgres:
@@ -53,5 +58,6 @@ networks:
 volumes:
   positron-node-modules:
   positron-e2e-node-modules:
+  positron-remote-node-modules:
   positron-build:
   postgres-data:
