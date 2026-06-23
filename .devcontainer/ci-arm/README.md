@@ -146,9 +146,10 @@ watch it (and any headed test) through noVNC in a browser. A postgres sidecar ba
 
 ```mermaid
 flowchart LR
-    subgraph host["Host (macOS)"]
+    subgraph host["Host — your Mac (macOS)"]
         code["VS Code"]
         web["Browser"]
+        src[/"Your checkout: src, out/<br/>your files, on your Mac"/]
     end
     subgraph ctr["Container · positron-ubuntu24-arm64"]
         desk["Desktop app<br/>(Electron)"]
@@ -157,14 +158,12 @@ flowchart LR
         nov["noVNC<br/>:6080"]
         xvnc["Xvnc<br/>display :10 · VNC :5900"]
         rep["Playwright<br/>report :9323"]
-        subgraph fs["Filesystem"]
-            src[/"src, out/<br/>bind mount — you edit, on host disk"/]
-            vols[("node_modules ×3 · .build<br/>Docker volumes — container-built")]
-        end
+        vols[("node_modules ×3 · .build<br/>Docker volumes — in the container, not on your Mac")]
     end
     pg[("postgres :5432<br/>sidecar")]
 
     code -->|edit| src
+    src -. bind-mounted into .-> ctr
     desk --> xvnc
     e2e --> xvnc
     nov --> xvnc
@@ -178,7 +177,8 @@ flowchart LR
     classDef storcls fill:#d3f9d8,stroke:#2f9e44,color:#0b1324
     class code,web hostcls
     class desk,srv,e2e,nov,xvnc,rep contcls
-    class src,vols,pg storcls
+    class src hostcls
+    class vols,pg storcls
 ```
 
 Two ways to see Positron: **use** the web server directly at `:8080`, or **watch** the headless
