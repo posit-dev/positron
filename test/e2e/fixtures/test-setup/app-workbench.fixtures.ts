@@ -67,11 +67,19 @@ export async function WorkbenchApp(
 			);
 			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
 		}
-		// Give startup messaging a chance to appear before asserting it's gone,
-		// so we don't pass instantly when this check runs ahead of the UI.
-		await app.code.driver.currentPage.waitForTimeout(5000);
-		await app.workbench.sessions.expectNoStartUpMessaging();
-		await app.workbench.sessions.deleteAll();
+		// The Azure shard runs as a freshly-provisioned JIT user (rstudio-ide-test)
+		// whose interpreter discovery / runtime startup does not settle the way
+		// user1's warm environment does -- it sits on "Discovering interpreters"
+		// well past the 90s gate. These credential/assistant tests don't use a
+		// Python/R runtime session, so skip the session-readiness gate for this
+		// shard rather than block the fixture on a signal we never consume.
+		if (managedCredentials !== 'azure') {
+			// Give startup messaging a chance to appear before asserting it's gone,
+			// so we don't pass instantly when this check runs ahead of the UI.
+			await app.code.driver.currentPage.waitForTimeout(5000);
+			await app.workbench.sessions.expectNoStartUpMessaging();
+			await app.workbench.sessions.deleteAll();
+		}
 
 		await app.workbench.hotKeys.closeAllEditors();
 	};
