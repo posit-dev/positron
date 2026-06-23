@@ -6,7 +6,7 @@ Develop, debug, and run Positron **inside the actual CI image**
 > Validated on **arm64** (Apple Silicon) only. The arch is parameterized
 > (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
 > the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
-> progress). Host: macOS with Docker Desktop + VirtioFS. Linux and Windows/WSL2 aren’t validated yet.
+> progress). Host: macOS with Docker Desktop + VirtioFS. Linux and Windows/WSL2 aren't validated yet.
 
 <p align="center">
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Doctor View">
@@ -33,7 +33,7 @@ One-time setup:
 
 ### 1. Create the worktree
 
-Create a dedicated git worktree for your CI lab so Linux build artifacts never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Start from a full Positron clone—not a shallow clone—because the build requires git history:
+Create a dedicated git worktree for your CI lab so Linux build artifacts never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Start from a full Positron clone (not a shallow clone) because the build requires git history:
 
 ```bash
 git worktree add ../positron-ci-lab
@@ -41,7 +41,7 @@ git worktree add ../positron-ci-lab
 
 ### 2. Add secrets - in the new worktree
 
-These files are gitignored, so they aren’t copied into the worktree. The container needs both:
+These files are gitignored, so they aren't copied into the worktree. The container needs both:
 
 * **.env** - first copy the example env file:
 
@@ -88,7 +88,7 @@ Positron's source; you don't need it to run or test the existing build. Dependen
 ### Run Positron itself
 Click these task buttons to run Positron:
 * **Server (Web)** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
-* **Desktop (Electron)** - the desktop app on the headless display; watch via VNC.
+* **Desktop (Electron)** - the desktop app on the headless display; view via VNC.
 
 Both run detached and restart cleanly on re-click; their URLs show in the Doctor. Click **Logs** to
 tail their output (`/tmp/positron-{server,electron}.log`, inside the container). **Stop** shuts both
@@ -99,7 +99,7 @@ down (and the report), leaving core services up.
 Click the run icon in the gutter on any spec (if it's missing, check the selected Playwright project), or
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
-Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to watch live. Use the **Report** task to serve the report at any time.
+Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
 ### Test data (qa-example-content)
 
@@ -110,7 +110,7 @@ content** - it's symlinked at `~/qa-example-content`.
 ### Debug
 
 To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift-D`), pick a profile,
-and run it. Set breakpoints in `src/` as usual; both run on the headless display, so watch in VNC.
+and run it. Set breakpoints in `src/` as usual; both run on the headless display, so view in VNC.
 
 * **Positron CI: Debug (Electron)** - the desktop app; attaches to all its processes (main, renderer,
   extension host, ...). Simplest for most source.
@@ -148,7 +148,7 @@ flowchart LR
     desk --> xvnc
     e2e --> xvnc
     nov --> xvnc
-    web -->|":6080 watch desktop / e2e tests"| nov
+    web -->|":6080 view<br/>desktop / e2e tests"| nov
     web -->|":8080 use"| srv
     web -->|":9323 view"| rep
     e2e -->|query| pg
@@ -162,7 +162,7 @@ flowchart LR
     class vols,pg storcls
 ```
 
-Two ways to see Positron: **use** the web server at `:8080` in your browser, or **watch** the
+Two ways to see Positron: **use** the web server at `:8080` in your browser, or **view** the
 headless desktop (including any headed e2e test) over noVNC at `:6080`.
 
 A window manager (fluxbox) keeps windows movable on the display. Forwarded to your host: `:8080`
@@ -202,7 +202,7 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | Task | What it does |
 |---|---|
 | **Positron CI: Start server** | licenses and serves Positron at `:8080` (detached, clean restart, prints the URL when up) |
-| **Positron CI: Desktop** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
+| **Positron CI: Desktop** | runs the desktop app on the headless display, view via VNC (detached, clean restart) |
 | **Positron CI: VNC** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Report** | serves the last run's trace/report at `:9323` |
 | **Positron CI: Logs** | tails the detached server + desktop logs in a terminal |
