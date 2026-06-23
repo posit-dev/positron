@@ -149,7 +149,7 @@ flowchart LR
     subgraph host["Host — your Mac (macOS)"]
         code["VS Code"]
         web["Browser"]
-        src[/"Your checkout: src, out/<br/>your files, on your Mac"/]
+        src[/"Your checkout<br/>src · out/"/]
     end
     subgraph ctr["Container · positron-ubuntu24-arm64"]
         desk["Desktop app<br/>(Electron)"]
@@ -158,7 +158,7 @@ flowchart LR
         nov["noVNC<br/>:6080"]
         xvnc["Xvnc<br/>display :10 · VNC :5900"]
         rep["Playwright<br/>report :9323"]
-        vols[("node_modules ×3 · .build<br/>Docker volumes — in the container, not on your Mac")]
+        vols[("Docker volumes<br/>node_modules ×3 · .build")]
     end
     pg[("postgres :5432<br/>sidecar")]
 
