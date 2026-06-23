@@ -85,17 +85,13 @@ That's it — you have a working CI lab. :tada:
 
 ### Editing and the Watch task
 
-**Watch is only for editing `src/`.** It recompiles your edits into `out/` on save. Just running or
-testing the existing build? You don't need it.
+**Watch** recompiles `src/` to `out/` on save. Needed only when editing source, not to run or test
+the existing build.
 
-When you *are* editing, this recompiles in seconds (never the ~10-min cold build):
+Loop: start **Watch** once, edit, then reload the window after `Finished compilation`.
 
-1. Start the **Watch** task once — it recompiles changed files on save.
-2. Edit code in VS Code (files live on your host disk).
-3. Reload the Positron window after **Finished compilation**, then re-run or re-debug.
-
-Only `npm ci`-level changes (a new `package-lock.json`) need a heavier step — and you don't have to
-guess: the **Doctor** checks deps + build state and names the task (**Reinstall deps** or **Rebuild**).
+Dependency changes (a new `package-lock.json`) need **Reinstall deps** or **Rebuild**; the **Doctor**
+flags which.
 
 ### Run tests
 
