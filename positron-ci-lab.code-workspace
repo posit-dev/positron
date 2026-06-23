@@ -30,7 +30,11 @@
 			"statusBar.background": "#1e3a8a",
 			"statusBar.foreground": "#ffffff",
 			"statusBar.noFolderBackground": "#1e3a8a"
-		}
+		},
+		// Hide VS Code's auto-detected nested repos from Source Control. The R-kernel build clones
+		// the ark kernel source into extensions/positron-r/ark; it's a build artifact, not part of
+		// this branch, and listing it as a second repo just clutters the panel.
+		"git.ignoredRepositories": ["extensions/positron-r/ark"]
 	},
 	// The task-buttons extension that draws these status-bar buttons is auto-installed into the
 	// container via .devcontainer/ci-arm/devcontainer.json (customizations.vscode.extensions),
