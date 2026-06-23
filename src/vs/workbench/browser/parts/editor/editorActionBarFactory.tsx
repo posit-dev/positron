@@ -11,7 +11,7 @@ import { localize } from '../../../../nls.js';
 import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
@@ -70,9 +70,10 @@ export class EditorActionBarFactory extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets the menu disposable stores.
+	 * Gets the menu disposable stores. Registered so the stores are disposed when the
+	 * factory is disposed, and replacing an entry disposes the previous store.
 	 */
-	private readonly _menuDisposableStores = new Map<MenuId, DisposableStore>();
+	private readonly _menuDisposableStores = this._register(new DisposableMap<MenuId, DisposableStore>());
 
 	/**
 	 * Gets the menus.
@@ -241,10 +242,7 @@ export class EditorActionBarFactory extends Disposable {
 	 * @param menuId The menu ID.
 	 */
 	private createMenu(menuId: MenuId) {
-		// Dispose the current menu disposable store.
-		this._menuDisposableStores.get(menuId)?.dispose();
-
-		// Add the menu disposable store.
+		// Add the menu disposable store. Setting it disposes any existing store for this menu.
 		const disposableStore = new DisposableStore();
 		this._menuDisposableStores.set(menuId, disposableStore);
 
