@@ -108,7 +108,7 @@ render() {
     [ -d "$WS/out" ]        || { build_ok=0; actions+=("No compiled output (out/) → start the watcher ('npm run watch') or run 'Positron CI: Rebuild'."); }
     [ -e "$WS/.build/electron" ] || { build_ok=0; actions+=("Electron not set up → run 'Positron CI: Rebuild'."); }
     [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
-    [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Rebuild'."); }
+    [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Reinstall e2e deps'."); }
     if [ "$build_ok" -eq 1 ]; then
       printf '  %s✓%s %-*s%scurrent · %s%s\n' "$G" "$RST" "$NAMEW" "Build" "$DIM" "$last_build" "$RST"
     else
