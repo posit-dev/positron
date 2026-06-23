@@ -168,10 +168,10 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				services.commandService.executeCommand('positronPackages.uninstallPackage', packageName);
 				break;
 			case 'install':
-				// Pass the latest known version so the install runs directly without
-				// prompting (falls back to the installed version for an up-to-date
-				// package, which is itself the latest).
-				services.commandService.executeCommand('positronPackages.installPackage', packageName, pkg?.latestVersion ?? pkg?.version);
+				// Install the latest version directly when we know it; otherwise pass
+				// no version so the command falls through to the version quick-pick
+				// (reinstalling the same version would be meaningless).
+				services.commandService.executeCommand('positronPackages.installPackage', packageName, pkg?.latestVersion);
 				break;
 			case 'help':
 				if (instance) {
