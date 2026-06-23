@@ -42,6 +42,9 @@ export class AskAssistantAction extends Action2 {
 			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
 			icon: ThemeIcon.fromId('positron-assistant'),
 			f1: true,
+			// Gate the command palette entry and command execution on the AI main switch.
+			// The menu `when` below hides the toolbar button; precondition covers the rest.
+			precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
 			category: localize2('positronNotebook.category', 'Notebook'),
 			positronActionBarOptions: {
 				controlType: 'button',
