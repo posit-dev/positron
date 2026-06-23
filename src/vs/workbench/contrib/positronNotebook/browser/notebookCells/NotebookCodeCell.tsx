@@ -81,7 +81,12 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	useScrollingIndicator(outputsInnerRef);
 
 	// Per-cell scrolling override takes precedence over global setting.
-	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
+	// A webview output (position:fixed overlay) is not clipped by the output
+	// container's max-height, so applying the scrolling cap would let it overflow
+	// into neighboring cells. Webviews size to their own content instead.
+	const hasWebviewOutput = outputs.some(o => o.preloadMessageResult !== undefined);
+	const outputScrollingEnabled = perCellScrolling ?? layout.outputScrolling;
+	const applyOutputScrolling = outputScrollingEnabled && !hasWebviewOutput;
 
 	const clearHeightOverride = useCallback(() => {
 		const el = outputsInnerRef.current;
@@ -95,7 +100,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	// Reset height override when outputs change (new execution) or scrolling mode toggles.
 	useEffect(() => {
 		clearHeightOverride();
-	}, [outputs, outputScrolling, clearHeightOverride]);
+	}, [outputs, applyOutputScrolling, clearHeightOverride]);
 
 	const onBeginResize = useCallback((): HorizontalSplitterResizeParams => {
 		const el = outputsInnerRef.current;
@@ -239,7 +244,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': outputScrolling },
+					{ 'output-scrolling': applyOutputScrolling },
 				)}>
 
 					{isCollapsed
@@ -253,14 +258,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 							>
 								<CellOutput
 									{...output}
-									outputScrolling={outputScrolling}
+									outputScrolling={outputScrollingEnabled}
 									onShowFullOutput={() => cell.showFullOutput()}
 								/>
 							</NotebookErrorBoundary>
 						))
 					}
 				</div>
-				{outputScrolling && !isCollapsed && hasOutputs &&
+				{applyOutputScrolling && !isCollapsed && hasOutputs &&
 					<HorizontalSplitter
 						showResizeIndicator
 						onBeginResize={onBeginResize}
@@ -318,7 +323,7 @@ interface CellOutputProps extends NotebookCellOutputs {
 
 const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	if (output.preloadMessageResult) {
-		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
+		return <PreloadMessageOutput outputScrolling={output.outputScrolling} preloadMessageResult={output.preloadMessageResult} />;
 	}
 
 	const { parsed, outputs, outputScrolling, onShowFullOutput } = output;

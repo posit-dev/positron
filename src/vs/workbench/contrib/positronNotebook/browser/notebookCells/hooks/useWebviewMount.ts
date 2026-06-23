@@ -53,6 +53,7 @@ export class WebviewMountError extends Error {
 interface WebviewMountOptions {
 	readonly onDoubleClick?: () => void;
 	readonly onFocus?: () => void;
+	readonly outputScrolling?: boolean;
 }
 
 /**
@@ -85,11 +86,13 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 	const services = usePositronReactServicesContext();
 	const onDoubleClick = options?.onDoubleClick;
 	const onFocus = options?.onFocus;
+	const outputScrolling = options?.outputScrolling ?? true;
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
 		if (isHTMLOutputWebviewMessage(message) && containerRef.current) {
-			let boundedHeight = Math.min(message.bodyScrollHeight, MAX_OUTPUT_HEIGHT);
+			const cap = outputScrolling ? MAX_OUTPUT_HEIGHT : Infinity;
+			let boundedHeight = Math.min(message.bodyScrollHeight, cap);
 			// Avoid undesired default 150px "empty output" height
 			if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
 				boundedHeight = 0;
@@ -115,7 +118,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 		if (isDoubleClickMessage(message)) {
 			onDoubleClick?.();
 		}
-	}, [notebookInstance, onDoubleClick]);
+	}, [notebookInstance, onDoubleClick, outputScrolling]);
 
 	React.useEffect(() => {
 		// Abort controller for canceling ongoing tasks if needed
