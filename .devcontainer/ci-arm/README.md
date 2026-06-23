@@ -7,10 +7,10 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 > Validated on **arm64** (Apple Silicon) only. The arch is parameterized
 > (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
 > the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
-> progress). Hosts: macOS and Linux - Windows/WSL2 isn't validated yet.
+> progress). Host: macOS (the setup assumes Docker Desktop + VirtioFS); Linux and Windows/WSL2 aren't validated yet.
 
 <p align="center">
-  <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Docotor View">
+  <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Doctor View">
 </p>
 
 ## Prerequisites
@@ -34,7 +34,7 @@ Once, on your machine:
 
 ### 1. Create the worktree
 
-Once, to create your Container CI lab: a **dedicated git worktree** so its Linux build artifacts
+Once, to create your CI lab: a **dedicated git worktree** so its Linux build artifacts
 never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
 From your Positron checkout (a **full** clone - the build needs git history, so not a shallow one):
 
@@ -62,9 +62,9 @@ In VS Code via Command Palette run:
 **`Dev Containers: Open Workspace in Container... > positron-ci-lab.code-workspace > Positron CI (ubuntu24-arm64)`**.
 The first open runs the ~10-min cold build; later opens are fast.
 
-**After the first build finishes, run `Developer: Reload Window` once.** The editor attaches while
-the cold build is still installing `node_modules`, so the TypeScript server and Playwright extension
-start against an empty workspace. The reload restarts them against the now-installed deps. One-time only: later opens already have `node_modules`, so they come up clean. When you see success message, start up the Doctor (task button in status bar) to confirm that everythign is running smoothly.
+**After the first build, run `Developer: Reload Window` once** so the editor's TypeScript server and
+Playwright extension pick up the freshly installed `node_modules` (one-time; later opens are clean).
+Then open the **Doctor** (status-bar button) to confirm everything's up.
 
 That's it - you have a working CI lab.
 
@@ -87,7 +87,17 @@ That's it - you have a working CI lab.
 
 The **Watch** task incrementally recompiles `src/` to `out/` on save. Start it when you're editing
 Positron's source; you don't need it to run or test the existing build. Dependency changes (a new
-`package-lock.json`) call for **Reinstall deps** or **Rebuild** instead, which the **Doctor** flags.
+`package-lock.json`) call for **Reinstall deps** (or **Reinstall e2e deps**) or **Rebuild** instead,
+which the **Doctor** flags.
+
+### Run Positron itself
+Click the following task buttons to run Positron:
+* **Server (Web)** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
+* **Desktop (Electron)** - the desktop app on the headless display; watch via VNC.
+
+Both run detached and restart cleanly on re-click; their URLs show in the Doctor. Click **Logs** to
+tail their output (`/tmp/positron-{server,electron}.log`, inside the container). **Stop** shuts both
+down (and the report), leaving core services up.
 
 ### Run tests
 
@@ -96,6 +106,12 @@ from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron`/`e2e-chromium`) render on the headless display - open the noVNC link in
 the Doctor to watch live; serve the report anytime with the **Report** task.
+
+### Test data (qa-example-content)
+
+The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
+the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
+content** - it's symlinked at `~/qa-example-content`.
 
 ### Debug
 
@@ -108,20 +124,6 @@ and run it. Set breakpoints in `src/` as usual; both run on the headless display
   the workbench frontend in Chromium. For web-only or `e2e-chromium` behavior.
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
-
-### Run Positron itself
-
-* **Positron CI: Start server** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
-* **Positron CI: Desktop** - the desktop app on the headless display; watch via VNC.
-
-Both run detached (logs in `/tmp/positron-{server,electron}.log`) and restart cleanly on re-click;
-their URLs show in the Doctor. **Stop** shuts both down (and the report), leaving core services up.
-
-### Test data (qa-example-content)
-
-The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
-the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
-content** - it's symlinked at `~/qa-example-content`.
 
 ## Reference
 
@@ -198,7 +200,7 @@ host, and wiped on rebuild or `reset.sh`. Grab logs before rebuilding.
 Your checkout is a **worktree** (from Setup), so a host-side `initializeCommand` mounts both it and
 the shared git dir - that's what lets git resolve normally inside the container.
 
-#### Don't mix container and native builds
+### Don't mix container and native builds
 
 **One directory, one toolchain.** A few build artifacts (including three OS-specific binaries - `pet`,
 `ark`, `kcserver`) live in the source tree, shared between host and container. Building the same
@@ -214,6 +216,7 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | **Positron CI: Desktop** | runs the desktop app on the headless display, watch via VNC (detached, clean restart) |
 | **Positron CI: VNC** | ensures VNC is up; prints `vnc://localhost:5900` and the password |
 | **Positron CI: Report** | serves the last run's trace/report at `:9323` |
+| **Positron CI: Logs** | tails the detached server + desktop logs in a terminal |
 | **Positron CI: Stop** | stops the on-demand server/desktop/report (leaves Xvnc/noVNC/postgres up) |
 | **Positron CI: Doctor** | live dashboard - build status + what's up (Xvnc/noVNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps** | after the root `package-lock.json` changes; records only the root hash |
@@ -234,8 +237,8 @@ npm run ci-lab-reset -- -y             # skip the prompt
 # (or call the script directly: ./.devcontainer/ci-arm/reset.sh)
 ```
 
-It removes this project's dev container, its data volumes (root + e2e `node_modules`, `.build`,
-`postgres-data`) and the compiled `out/`, scoped to this checkout's Compose project. Your source,
+It removes this project's dev container, its data volumes (root + e2e + remote `node_modules`,
+`.build`, `postgres-data`) and the compiled `out/`, scoped to this checkout's Compose project. Your source,
 `.env`, and `license.txt` are left alone. Then **Reopen in Container** for the clean build.
 
 ### Gotchas
