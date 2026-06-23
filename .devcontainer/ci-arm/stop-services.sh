@@ -30,7 +30,7 @@ rm -f /tmp/positron-server.err /tmp/positron-electron.err
 
 echo "Core services (Xvnc desktop, noVNC, postgres) left running. Run the Doctor to confirm."
 echo
-echo "  To disconnect from the container:"
-echo "  Click the remote indicator (bottom-left status bar) → Reopen Folder Locally"
-echo "  Container + volumes stay intact; next open skips the cold build."
+echo "  👋 Done for the day?"
+echo "  → Click the remote indicator (bottom-left) → Reopen Folder Locally"
+echo ""
 exit 0
