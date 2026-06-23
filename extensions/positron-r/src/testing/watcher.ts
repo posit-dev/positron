@@ -27,10 +27,10 @@ async function createWatchers(testingTools: TestingTools, packageRoot: vscode.Ur
 	const dotRPattern = new vscode.RelativePattern(packageRoot, testthatDotRPattern);
 	const dotRWatcher = vscode.workspace.createFileSystemWatcher(dotRPattern);
 
-	dotRWatcher.onDidCreate((uri) => {
+	dotRWatcher.onDidCreate(() => {
 		refreshTestthatStatus();
 	});
-	dotRWatcher.onDidDelete((uri) => {
+	dotRWatcher.onDidDelete(() => {
 		refreshTestthatStatus();
 	});
 
@@ -39,7 +39,7 @@ async function createWatchers(testingTools: TestingTools, packageRoot: vscode.Ur
 	const folderPattern = new vscode.RelativePattern(packageRoot, testsPattern);
 	const folderWatcher = vscode.workspace.createFileSystemWatcher(folderPattern);
 
-	folderWatcher.onDidDelete((uri) => {
+	folderWatcher.onDidDelete(() => {
 		refreshTestthatStatus();
 	});
 
