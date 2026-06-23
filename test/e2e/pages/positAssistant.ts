@@ -326,12 +326,14 @@ export class PositAssistant {
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
 		// 3. Locate the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Wait for the submenu
-		//    to render (the model itself or the "More models" disclosure), then
-		//    expand "More models" if the model isn't in the initial slice (e.g.
-		//    non-top-tier providers like Microsoft Foundry's "model-router").
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
+		//    group, less-preferred models (e.g. those flagged with a warning note,
+		//    like Microsoft Foundry's "model-router") are collapsed under a "More
+		//    models" inline disclosure -- a plain <button>, not a menuitem. Wait
+		//    for the submenu to render (the model itself or the disclosure), then
+		//    expand the disclosure if the model isn't already shown.
 		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
-		const moreModels = this.frame.locator('[role="menuitem"]:has-text("More models")');
+		const moreModels = this.frame.locator('button:has-text("More models")');
 		await expect(model.or(moreModels).first()).toBeVisible();
 		if (!(await model.isVisible())) {
 			await moreModels.click();
