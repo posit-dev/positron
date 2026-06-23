@@ -9,6 +9,7 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
+import { hasWebviewOutput } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -306,6 +307,28 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'an inert full document must not route to a webview').toBe(undefined);
 			expect(outputs[0].parsed.type).toBe('html');
+		});
+
+		it('hasWebviewOutput is true for a webview output and false for an inline output', () => {
+			const webviewCell: TestCellInput = {
+				source: 'display_map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [complexHtmlOutputItem()] }],
+			};
+			const webviewNotebook = createTestPositronNotebookInstance([webviewCell], ctx);
+			expect(hasWebviewOutput(webviewNotebook.cells.get()[0].outputs.get())).toBe(true);
+
+			const inlineCell: TestCellInput = {
+				source: 'GT(df)',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [inertFullDocumentOutputItem()] }],
+			};
+			const inlineNotebook = createTestPositronNotebookInstance([inlineCell], ctx);
+			expect(hasWebviewOutput(inlineNotebook.cells.get()[0].outputs.get())).toBe(false);
 		});
 	});
 

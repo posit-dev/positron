@@ -19,6 +19,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { hasWebviewOutput } from '../PositronNotebookCells/notebookOutputUtils.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
@@ -84,9 +85,8 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	// A webview output (position:fixed overlay) is not clipped by the output
 	// container's max-height, so applying the scrolling cap would let it overflow
 	// into neighboring cells. Webviews size to their own content instead.
-	const hasWebviewOutput = outputs.some(o => o.preloadMessageResult !== undefined);
 	const outputScrollingEnabled = perCellScrolling ?? layout.outputScrolling;
-	const applyOutputScrolling = outputScrollingEnabled && !hasWebviewOutput;
+	const applyOutputScrolling = outputScrollingEnabled && !hasWebviewOutput(outputs);
 
 	const clearHeightOverride = useCallback(() => {
 		const el = outputsInnerRef.current;

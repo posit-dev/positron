@@ -25,6 +25,19 @@ const EMPTY_OUTPUT_HEIGHT = 150;
 const WHEEL_LINE_HEIGHT_PX = 40;
 
 /**
+ * Computes the webview container height from the body scroll height reported by
+ * the webview. When output scrolling is enabled the height is capped at
+ * {@link MAX_OUTPUT_HEIGHT} (taller content scrolls inside the webview rather
+ * than overflowing the cell); when disabled it grows to fit the content. The
+ * default 150px "empty output" height is collapsed to 0.
+ */
+export function computeBoundedHeight(bodyScrollHeight: number, outputScrolling: boolean): number {
+	const cap = outputScrolling ? MAX_OUTPUT_HEIGHT : Infinity;
+	const boundedHeight = Math.min(bodyScrollHeight, cap);
+	return boundedHeight === EMPTY_OUTPUT_HEIGHT ? 0 : boundedHeight;
+}
+
+/**
  * Convert a forwarded wheel event's vertical delta into pixels so raw
  * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by
  * a single pixel per tick.
@@ -91,12 +104,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
 		if (isHTMLOutputWebviewMessage(message) && containerRef.current) {
-			const cap = outputScrolling ? MAX_OUTPUT_HEIGHT : Infinity;
-			let boundedHeight = Math.min(message.bodyScrollHeight, cap);
-			// Avoid undesired default 150px "empty output" height
-			if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
-				boundedHeight = 0;
-			}
+			const boundedHeight = computeBoundedHeight(message.bodyScrollHeight, outputScrolling);
 			containerRef.current.style.height = `${boundedHeight}px`;
 			updateWebviewLayoutRef.current?.(true);
 			return;
