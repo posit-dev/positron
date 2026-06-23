@@ -134,8 +134,10 @@ render() {
   # --- Core Services ---
   printf '%sCore Services%s\n' "$BOLD" "$RST"
   local vncfix="run the 'Positron CI: VNC' task to restart the display + VNC stack"
-  pgrep -x Xvnc >/dev/null 2>&1; csvc "Display"  "Xvnc"        ":10"   "$?" "$vncfix"
-  tcp 127.0.0.1 5900;            csvc "VNC"       "Xvnc"        ":5900" "$?" "$vncfix"
+  # Xvnc is one process serving both the headless display (:10) and the VNC port (:5900), so it's
+  # one row — green only when the process is up AND :5900 is accepting connections.
+  local xvnc_up; if pgrep -x Xvnc >/dev/null 2>&1 && tcp 127.0.0.1 5900; then xvnc_up=0; else xvnc_up=1; fi
+  csvc "Display/VNC" "Xvnc" ":10 + :5900" "$xvnc_up" "$vncfix"
   tcp 127.0.0.1 6080; novnc_up=$?; csvc "noVNC"   "websockify"  ":6080" "$novnc_up" "$vncfix"
   tcp postgres 5432;             csvc "Postgres"  "postgres"    ":5432" "$?" "the postgres container isn't running - Dev Containers: Rebuild Container"
   printf '\n'
