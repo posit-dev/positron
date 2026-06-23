@@ -19,7 +19,7 @@ import { PositronModalDialogReactRenderer } from '../../../../../base/browser/po
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionMechanism, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * UI-side form state for a single parameter field, pairing the value with an error indicator.
@@ -48,6 +48,9 @@ interface ConfigureDataConnectionProps {
 
 	// The driver for the connection being configured.
 	driver: IDataConnectionDriver;
+
+	// The mechanism the connection is being configured with. Its parameters drive the form.
+	mechanism: IDataConnectionMechanism;
 
 	// The profile. Omit when creating a new profile.
 	profile?: IDataConnectionProfile;
@@ -92,7 +95,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 	const [parameterFieldStates, setParameterFieldStates] = useState<ParameterFieldStates>(() => {
 		// Initialize parameter field states.
 		const initialParameterFieldStates: ParameterFieldStates = {};
-		for (const parameter of props.driver.metadata.parameters) {
+		for (const parameter of props.mechanism.parameters) {
 			// Get the default value for the parameter. Password parameters and secret string
 			// parameters do not have a default value in the type system.
 			const defaultValue = parameter.type === 'password' || (parameter.type === 'string' && parameter.secret)
@@ -147,7 +150,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 		// Validate the parameters.
 		const updatedParameterFieldStates = { ...parameterFieldStates };
-		for (const parameter of props.driver.metadata.parameters) {
+		for (const parameter of props.mechanism.parameters) {
 			// Get the current value for this parameter field.
 			const value = parameterFieldStates[parameter.id].value;
 
@@ -194,6 +197,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 					supportedLanguageIds: props.driver.metadata.supportedLanguageIds,
 				},
 				connectionName,
+				mechanismId: props.mechanism.id,
 				parameterValues,
 			});
 		}
@@ -235,7 +239,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						{/* Parameters */}
 						<ConfigureDataConnectionParameters
 							parameterFieldStates={parameterFieldStates}
-							parameters={props.driver.metadata.parameters}
+							parameters={props.mechanism.parameters}
 							storedSecretIds={storedSecretIds}
 							onParameterChanged={setParameterFieldState}
 						/>

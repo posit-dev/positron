@@ -1911,6 +1911,34 @@ declare module 'positron' {
 	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
 
 	/**
+	 * A configuration mechanism for a data connection driver. A driver exposes one or more
+	 * mechanisms, each describing a distinct way to configure a connection (for example, a
+	 * PostgreSQL driver may offer separate mechanisms for username/password and certificate-based
+	 * authentication). Each mechanism carries its own set of parameters.
+	 */
+	export interface DataConnectionMechanism {
+		/**
+		 * A stable identifier for the mechanism, unique within the driver.
+		 */
+		id: string;
+
+		/**
+		 * A short user-facing label for the mechanism (e.g. 'Username & Password').
+		 */
+		label: string;
+
+		/**
+		 * A user-facing description of the mechanism, shown as supporting text.
+		 */
+		description: string;
+
+		/**
+		 * The parameters required to configure a connection using this mechanism.
+		 */
+		parameters: DataConnectionParameter[];
+	}
+
+	/**
 	 * A driver that provides data connections through the 'New Database' dialog.
 	 */
 	/**
@@ -1958,9 +1986,11 @@ declare module 'positron' {
 		iconSvg: string;
 
 		/**
-		 * The driver parameters.
+		 * The configuration mechanisms this driver supports. Each mechanism describes a distinct
+		 * way to configure a connection and carries its own set of parameters. A driver must expose
+		 * at least one mechanism.
 		 */
-		parameters: DataConnectionParameter[];
+		mechanisms: DataConnectionMechanism[];
 
 		/**
 		 * The language identifiers this driver supports.
@@ -1968,23 +1998,30 @@ declare module 'positron' {
 		supportedLanguageIds: string[];
 
 		/**
-		 * Connects using the provided parameter values.
+		 * Connects using the selected mechanism and the provided parameter values.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
 		 */
-		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		connect(mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 
 		/**
 		 * Generates one or more named code variants that connect to this data source in the given
-		 * language, using the provided parameter values. The language is one of the driver's
-		 * `supportedLanguageIds`; drivers that report no supported languages need not implement this
-		 * method. Variants are returned in preference order, so the first is treated as the default.
+		 * language, using the selected mechanism and the provided parameter values. The language is
+		 * one of the driver's `supportedLanguageIds`; drivers that report no supported languages need
+		 * not implement this method. Variants are returned in preference order, so the first is
+		 * treated as the default.
 		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
 		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
 		 *   the driver's `supportedLanguageIds`.
-		 * @param parameters The current values of the connection parameters defined in `parameters`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
 		 * @returns The available code variants, or an empty array if code cannot be generated from
 		 *   the given parameters (for example, when a required parameter is missing).
 		 */
-		generateConnectionCode?(languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+		generateConnectionCode?(mechanismId: string, languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
 	}
 
 	/**
@@ -2076,8 +2113,8 @@ declare module 'positron' {
 		// The driver description.
 		description: string;
 
-		// The driver parameters.
-		parameters: DataConnectionParameter[];
+		// The configuration mechanisms this driver supports.
+		mechanisms: DataConnectionMechanism[];
 
 		// The language identifiers this driver supports.
 		supportedLanguageIds: string[];
@@ -2944,15 +2981,16 @@ declare module 'positron' {
 		export function getDrivers(): Thenable<DataConnectionDriverSummary[]>;
 
 		/**
-		 * Connects to a data connection driver with the given parameters.
+		 * Connects to a data connection driver using the selected mechanism and the given parameters.
 		 * The connection goes through the main thread service and exercises
 		 * the full RPC pipeline.
 		 *
 		 * @param driverId The driver identifier.
+		 * @param mechanismId The id of the mechanism to connect with. One of the driver's mechanisms.
 		 * @param parameters The connection parameters.
 		 * @returns A data connection.
 		 */
-		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		export function connect(driverId: string, mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 	}
 
 	/**

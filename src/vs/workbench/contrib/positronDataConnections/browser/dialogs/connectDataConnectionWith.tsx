@@ -23,7 +23,7 @@ import { CodeAttributionSource } from '../../../../services/positronConsole/comm
 import { DataConnectionCodeEditor, DataConnectionCodeEditorWidget } from '../components/dataConnectionCodeEditor.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { IDataConnectionCodeVariant, IDataConnectionDriver, isSecretParameter } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionCodeVariant, IDataConnectionDriver, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 // The width of the Connect Data Connection With dialog.
 const CONNECT_DATA_CONNECTION_WITH_WIDTH = 800;
@@ -41,6 +41,10 @@ export interface ConnectDataConnectionWithOptions {
 	// The driver for this connection. Used for the title (driver name) and to detect whether the
 	// connection has any secret parameters (which surfaces the Include Secrets action).
 	readonly driver: IDataConnectionDriver;
+
+	// The id of the mechanism this connection was configured with. Determines which of the driver's
+	// parameters define the connection's secret schema.
+	readonly mechanismId: string;
 
 	// Regenerates the connection code variants with secret values (e.g. passwords) embedded. Invoked
 	// only after the user confirms the Include Secrets action; pulls secrets from secret storage.
@@ -67,6 +71,7 @@ export const showConnectDataConnectionWith = (options: ConnectDataConnectionWith
 			driver={options.driver}
 			generateSecretVariants={options.generateSecretVariants}
 			languageId={options.languageId}
+			mechanismId={options.mechanismId}
 			renderer={renderer}
 			variants={options.variants}
 		/>
@@ -81,6 +86,7 @@ interface ConnectDataConnectionWithProps {
 	readonly languageId: string;
 	readonly connectionName: string;
 	readonly driver: IDataConnectionDriver;
+	readonly mechanismId: string;
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
 }
@@ -95,9 +101,11 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 
 	const editorRef = useRef<DataConnectionCodeEditorWidget>(undefined!);
 
-	// Whether the driver has any secret parameters (e.g. a password) whose values we keep out of the
-	// generated code unless the user opts in.
-	const hasSecrets = props.driver.metadata.parameters.some(isSecretParameter);
+	// Whether the connection's mechanism has any secret parameters (e.g. a password) whose values we
+	// keep out of the generated code unless the user opts in. Falls back to the first mechanism for
+	// pre-mechanisms profiles.
+	const mechanism = resolveDataConnectionMechanism(props.driver.metadata, props.mechanismId);
+	const hasSecrets = mechanism?.parameters.some(isSecretParameter) ?? false;
 
 	// Whether secret parameter values have been embedded in the generated code. Starts false; set
 	// once the user confirms the Include Secrets action. One-way: the dialog reopens secret-free.

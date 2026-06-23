@@ -326,13 +326,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 
 			/**
-			 * Connects to a data connection driver with the given parameters.
+			 * Connects to a data connection driver using the selected mechanism and the given parameters.
 			 * @param driverId The driver identifier.
+			 * @param mechanismId The id of the mechanism to connect with. One of the driver's mechanisms.
 			 * @param parameters The parameter values for the connection.
 			 * @returns A DataConnection that can be used to browse and interact with the data source.
 			 */
-			connect(driverId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
-				return extHostDataConnections.connect(driverId, parameters);
+			connect(driverId: string, mechanismId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
+				return extHostDataConnections.connect(driverId, mechanismId, parameters);
 			},
 		};
 

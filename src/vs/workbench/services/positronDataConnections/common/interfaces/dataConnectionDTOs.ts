@@ -26,6 +26,17 @@ export interface IDataConnectionParameterDTO {
 }
 
 /**
+ * Serializable configuration mechanism definition. Carries the mechanism's identity and its own
+ * set of parameters.
+ */
+export interface IDataConnectionMechanismDTO {
+	id: string;
+	label: string;
+	description: string;
+	parameters: IDataConnectionParameterDTO[];
+}
+
+/**
  * Serializable driver metadata sent from the ext host to the main thread when a driver is
  * registered. Converted to the richer service-level IDataConnectionDriverMetadata at the
  * main-thread boundary.
@@ -35,7 +46,7 @@ export interface IDataConnectionDriverMetadataDTO {
 	name: string;
 	description: string;
 	iconSvg: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }
 
@@ -84,6 +95,6 @@ export interface IDataConnectionDriverSummaryDTO {
 	id: string;
 	name: string;
 	description: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }

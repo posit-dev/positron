@@ -218,7 +218,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * adapter calls back into the ext host via $driverConnect, so the full
 	 * RPC round trip is exercised.
 	 */
-	$connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 
 	/**
 	 * Checks whether a connection is read-only via the main thread service.
@@ -262,8 +262,8 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  * lifecycle of connections that live in the extension process.
  */
 export interface ExtHostDataConnectionsShape {
-	$driverConnect(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
-	$generateConnectionCode(driverId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
+	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
