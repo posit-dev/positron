@@ -520,15 +520,23 @@ class PositronLanguageServer(LanguageServer):
             """Handle an incoming LSP connection."""
             logger.debug("Connected to LSP client")
             self.protocol.set_writer(writer)  # type: ignore[attr-defined]
-            await run_async(
-                stop_event=stop_event,
-                reader=reader,
-                protocol=self.protocol,
-                logger=logger,
-                error_handler=self.report_server_error,
-            )
-            logger.debug("LSP connection closed")
-            self._shutdown_server()
+            try:
+                await run_async(
+                    stop_event=stop_event,
+                    reader=reader,
+                    protocol=self.protocol,
+                    logger=logger,
+                    error_handler=self.report_server_error,
+                )
+            finally:
+                logger.debug("LSP connection closed")
+                # Close this connection's transport so the server can detach it
+                # and wait_closed() (awaited by serve_forever) can complete.
+                writer.close()
+                # Stop accepting connections so serve_forever() returns; the
+                # thread's finally block performs the full teardown. Closing the
+                # loop from here would fail because it is still running.
+                self._stop_serving()
 
         async def start_server() -> None:
             # Use port=0 to let the OS pick a port
@@ -587,11 +595,10 @@ class PositronLanguageServer(LanguageServer):
         existing_thread = self._server_thread
         if existing_thread is not None and existing_thread.is_alive():
             logger.warning("LSP server thread already exists, shutting it down")
-            if self._stop_event:
-                self._stop_event.set()
-                existing_thread.join(timeout=5)
-                if existing_thread.is_alive():
-                    logger.warning("LSP server thread did not exit after 5s, dropping it")
+            self.stop()
+            existing_thread.join(timeout=5)
+            if existing_thread.is_alive():
+                logger.warning("LSP server thread did not exit after 5s, dropping it")
 
         # Start the server in a new thread
         logger.info("Starting LSP server thread")
@@ -604,7 +611,7 @@ class PositronLanguageServer(LanguageServer):
         self._server_thread.start()
 
     def _shutdown_server(self) -> None:
-        """Internal shutdown logic."""
+        """Internal shutdown logic. Runs on the server thread once the loop is idle."""
         logger.info("Shutting down LSP server")
 
         if self._stop_event:
@@ -617,9 +624,29 @@ class PositronLanguageServer(LanguageServer):
             self._server.close()
 
         if self._loop and not self._loop.is_closed():
+            # Cancel and drain any pending tasks (e.g. serve_forever) before
+            # closing the loop. Closing a loop while a coroutine is still
+            # suspended makes Python throw GeneratorExit into it on garbage
+            # collection, printing a spurious "coroutine ignored GeneratorExit"
+            # RuntimeError to the Console.
+            pending = asyncio.all_tasks(self._loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                self._loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            self._loop.run_until_complete(self._loop.shutdown_asyncgens())
             self._loop.close()
 
         self._server_thread = None
+
+    def _stop_serving(self) -> None:
+        """Close the asyncio server so serve_forever() returns.
+
+        Must run on the server thread's event loop, either directly from a loop
+        callback or scheduled via ``call_soon_threadsafe``.
+        """
+        if self._server is not None:
+            self._server.close()
 
     def stop(self) -> None:
         """Stop the LSP server from another thread."""
@@ -627,6 +654,15 @@ class PositronLanguageServer(LanguageServer):
             logger.warning("Cannot stop LSP server, it was not started")
             return
         self._stop_event.set()
+
+        # Setting the threading.Event alone does not interrupt the running event
+        # loop. Schedule the server to close on the loop thread so serve_forever()
+        # returns and the thread exits cleanly instead of being orphaned with a
+        # suspended coroutine.
+        loop = self._loop
+        if loop is not None and not loop.is_closed():
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(self._stop_serving)
 
     def set_debug(self, debug: bool) -> None:  # noqa: FBT001
         """Enable or disable debug mode."""
