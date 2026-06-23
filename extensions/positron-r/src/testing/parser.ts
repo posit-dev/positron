@@ -220,8 +220,11 @@ function processCapture(
 ): Match {
 	return {
 		functionName: captureFunction.node.text,
-		// we start at 1 and end at (length - 1) because we don't want the surrounding quotes
-		desc: captureDesc.node.text.substring(1, captureDesc.node.text.length - 1),
+		// We start at 1 and end at (length - 1) because we don't want the surrounding
+		// quotes. We normalize CRLF/CR to LF so a multi-line description matches the desc
+		// testthat reports: it reads test files via brio::read_lines, which strips the CR.
+		// This keeps our test-item IDs and single-test `desc=` runs in sync on Windows (#10133).
+		desc: captureDesc.node.text.substring(1, captureDesc.node.text.length - 1).replace(/\r\n?/g, '\n'),
 		startPos: toVSCodePosition(captureCall.node.startPosition),
 		endPos: toVSCodePosition(captureCall.node.endPosition),
 		topLevel: captureCall.node.parent && captureCall.node.parent.type === 'program'
