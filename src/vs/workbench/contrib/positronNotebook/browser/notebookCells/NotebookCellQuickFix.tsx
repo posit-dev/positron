@@ -19,6 +19,7 @@ import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
@@ -47,13 +48,13 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const { commandService, contextMenuService, notificationService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
-	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
+	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const hasChatModels = useContextKeyFromString<boolean>('positron-assistant.hasChatModels');
 	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
 
-	// Only show buttons if assistant is enabled, notebook mode is enabled, and chat models are available
-	const showQuickFix = enableAssistant && enableNotebookMode && hasChatModels;
+	// Only show buttons if AI is enabled, notebook mode is enabled, and chat models are available
+	const showQuickFix = aiEnabled && enableNotebookMode && hasChatModels;
 
 	const cleanError = useMemo(
 		() => removeAnsiEscapeCodes(props.errorContent).trim(),

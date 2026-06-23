@@ -17,6 +17,7 @@ import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
@@ -52,7 +53,7 @@ export class AskAssistantAction extends Action2 {
 				order: 50,
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has('config.positron.assistant.enable'),
+					ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
 				)
 			}
 		});
