@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,6 +12,7 @@ import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -293,7 +294,11 @@ export class EditorActionBarFactory extends Disposable {
 		const secondaryActions: IAction[] = [];
 		const submenuDescriptors = new Set<SubmenuDescriptor>();
 		const options = {
-			arg: this._editorGroup.activeEditor?.resource,
+			// Resolve the primary side's URI so the argument is forwarded correctly for
+			// diff editors (e.g. the save-conflict editor), whose `resource` getter returns
+			// undefined when the two sides differ. This matches how the upstream editor
+			// title bar (EditorGroupView) builds the same EditorTitle menu actions.
+			arg: EditorResourceAccessor.getOriginalUri(this._editorGroup.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY }),
 			shouldForwardArgs: true
 		} satisfies IMenuActionOptions;
 		for (const [group, actions] of menu.getActions(options)) {
