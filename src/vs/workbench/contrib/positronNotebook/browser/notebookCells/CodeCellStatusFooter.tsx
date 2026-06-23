@@ -54,17 +54,13 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		// Only set up interval if we have a completion time to display
 		if (lastRunEndTime === undefined) {
 			return;
 		}
 
 		const targetWindow = DOM.getWindow(containerRef.current);
 		const intervalId = targetWindow.setInterval(() => {
-			// Only update if cell is visible to avoid unnecessary re-renders
-			if (cell.isInViewport()) {
-				setTick(tick => tick + 1);
-			}
+			setTick(tick => tick + 1);
 		}, 60000);
 
 		return () => targetWindow.clearInterval(intervalId);

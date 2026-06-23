@@ -127,20 +127,41 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined>;
 
 	/**
-	 * Toggles the "has header row" option and reloads the data.
-	 * Only applicable for delimited text files (CSV/TSV) opened with DuckDB backend.
+	 * Applies file import options (header row and, for Excel workbooks, the
+	 * worksheet to read) and reloads the data. Only applicable for files opened
+	 * with the DuckDB backend.
+	 * @param options The file options to apply.
+	 */
+	applyFileOptions(options: { hasHeaderRow: boolean; sheetName?: string }): Promise<void>;
+
+	/**
+	 * Toggles the "has header row" option and reloads the data, preserving the
+	 * currently selected worksheet. Only applicable for files opened with DuckDB.
 	 */
 	toggleFileHasHeaderRow(): Promise<void>;
 
 	/**
-	 * Gets whether file options are supported (i.e., this is a DuckDB-backed CSV/TSV file).
+	 * Gets whether file options are supported (i.e., this is a DuckDB-backed file).
 	 */
 	readonly supportsFileOptions: boolean;
 
 	/**
-	 * Gets the current "has header row" state for delimited text files.
+	 * Gets the current "has header row" state for delimited text files and Excel
+	 * workbooks.
 	 */
 	readonly fileHasHeaderRow: boolean;
+
+	/**
+	 * Gets the worksheet names available in the open Excel workbook, in workbook
+	 * order. Empty for non-Excel data sources.
+	 */
+	readonly fileAvailableSheets: string[];
+
+	/**
+	 * Gets the currently selected worksheet for an Excel workbook, or undefined
+	 * when no sheets are known. Defaults to the first available sheet.
+	 */
+	readonly fileSelectedSheet: string | undefined;
 
 	/**
 	 * The onDidChangeFileHasHeaderRow event.

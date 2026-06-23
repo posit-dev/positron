@@ -34,6 +34,7 @@ export const FooterButton = (props: PropsWithChildren<FooterButtonProps>) => {
 		<Button
 			autoFocus={props.autoFocus}
 			className={positronClassNames(
+				'dialog-button',
 				'footer-button',
 				{ 'default': props.default }
 			)}

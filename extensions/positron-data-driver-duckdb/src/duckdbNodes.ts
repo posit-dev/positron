@@ -105,7 +105,7 @@ function createViewsGroupNode(
 }
 
 /**
- * Creates a table node that expands to show its columns as leaf field nodes.
+ * Creates a table node that expands to two category groups: Columns and Indexes.
  */
 function createTableNode(
 	client: IDuckDBQueryClient,
@@ -116,8 +116,11 @@ function createTableNode(
 	return {
 		name: tableName,
 		kind: positron.DataConnectionNodeKind.Table,
-		getChildren() {
-			return getFieldNodes(client, host, schemaName, tableName, 'table');
+		async getChildren() {
+			return [
+				createColumnsGroupNode(client, host, schemaName, tableName, 'table'),
+				createIndexesGroupNode(client, schemaName, tableName),
+			];
 		},
 		preview() {
 			return host.previewObject(schemaName, tableName, 'table');
@@ -126,7 +129,8 @@ function createTableNode(
 }
 
 /**
- * Creates a view node that expands to show its columns as leaf field nodes.
+ * Creates a view node that expands to a single "Columns" group. Views don't have indexes in the
+ * schema-browsing sense, so there's only one category under each view.
  */
 function createViewNode(
 	client: IDuckDBQueryClient,
@@ -137,11 +141,57 @@ function createViewNode(
 	return {
 		name: viewName,
 		kind: positron.DataConnectionNodeKind.View,
-		getChildren() {
-			return getFieldNodes(client, host, schemaName, viewName, 'view');
+		async getChildren() {
+			return [createColumnsGroupNode(client, host, schemaName, viewName, 'view')];
 		},
 		preview() {
 			return host.previewObject(schemaName, viewName, 'view');
+		},
+	};
+}
+
+/**
+ * Creates the "Columns" group inside a table or view. Lists column nodes; each can be previewed as
+ * a single-column Data Explorer.
+ */
+function createColumnsGroupNode(
+	client: IDuckDBQueryClient,
+	host: IDuckDBPreviewHost,
+	schemaName: string,
+	relationName: string,
+	kind: 'table' | 'view'
+): positron.DataConnectionNode {
+	return {
+		name: 'Columns',
+		kind: positron.DataConnectionNodeKind.GroupColumns,
+		getChildren() {
+			return getFieldNodes(client, host, schemaName, relationName, kind);
+		},
+	};
+}
+
+/**
+ * Creates the "Indexes" group inside a table. Lists the table's indexes as leaf nodes.
+ */
+function createIndexesGroupNode(
+	client: IDuckDBQueryClient,
+	schemaName: string,
+	tableName: string
+): positron.DataConnectionNode {
+	return {
+		name: 'Indexes',
+		kind: positron.DataConnectionNodeKind.GroupIndexes,
+		async getChildren() {
+			const rows = await client.runQuery(
+				`SELECT index_name FROM duckdb_indexes() ` +
+				`WHERE database_name = current_database() AND schema_name = $schema ` +
+				`AND table_name = $table ORDER BY index_name`,
+				{ schema: schemaName, table: tableName }
+			);
+			return rows.map(row => ({
+				name: String(row.index_name),
+				kind: positron.DataConnectionNodeKind.Index,
+			}));
 		},
 	};
 }
@@ -157,6 +207,11 @@ async function getFieldNodes(
 	relationName: string,
 	kind: 'table' | 'view'
 ): Promise<positron.DataConnectionNode[]> {
+	// Primary-key columns (tables only; views have no primary key).
+	const primaryKeyColumns = kind === 'table'
+		? await getPrimaryKeyColumns(client, schemaName, relationName)
+		: new Set<string>();
+
 	const rows = await client.runQuery(
 		`SELECT column_name, data_type FROM information_schema.columns ` +
 		`WHERE table_catalog = current_database() AND table_schema = $schema ` +
@@ -169,9 +224,33 @@ async function getFieldNodes(
 			name: columnName,
 			kind: positron.DataConnectionNodeKind.Field,
 			dataType: String(row.data_type),
+			isPrimaryKey: primaryKeyColumns.has(columnName),
 			preview() {
 				return host.previewColumn(schemaName, relationName, kind, columnName);
 			},
 		};
 	});
+}
+
+/**
+ * Returns the set of column names that make up a table's primary key, read from duckdb_constraints().
+ * The constraint's column names come back as a list, which is flattened into the returned set.
+ */
+async function getPrimaryKeyColumns(client: IDuckDBQueryClient, schemaName: string, tableName: string): Promise<Set<string>> {
+	const rows = await client.runQuery(
+		`SELECT constraint_column_names FROM duckdb_constraints() ` +
+		`WHERE database_name = current_database() AND schema_name = $schema ` +
+		`AND table_name = $table AND constraint_type = 'PRIMARY KEY'`,
+		{ schema: schemaName, table: tableName }
+	);
+	const columnNames = new Set<string>();
+	for (const row of rows) {
+		const names = row.constraint_column_names;
+		if (Array.isArray(names)) {
+			for (const name of names) {
+				columnNames.add(String(name));
+			}
+		}
+	}
+	return columnNames;
 }

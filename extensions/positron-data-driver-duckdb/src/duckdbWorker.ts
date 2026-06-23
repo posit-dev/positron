@@ -35,11 +35,7 @@ let initError: Error | undefined;
 // crashing, so the host can surface a clean error from connect().
 const ready: Promise<void> = (async () => {
 	try {
-		// access_mode only applies to file-backed databases; in-memory databases
-		// are always read-write.
-		const options = (config.databasePath !== ':memory:' && config.readOnly)
-			? { access_mode: 'READ_ONLY' }
-			: undefined;
+		const options = config.readOnly ? { access_mode: 'READ_ONLY' } : undefined;
 		const instance = await DuckDBInstance.create(config.databasePath, options);
 		connection = await instance.connect();
 	} catch (error) {

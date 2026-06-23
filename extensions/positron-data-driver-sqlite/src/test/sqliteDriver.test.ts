@@ -48,11 +48,22 @@ suite('SQLite Driver Tests', () => {
 		return conn;
 	}
 
-	// Returns the children of the named top-level category group ('Tables' | 'Views' | 'Indexes').
+	// Returns the children of the named top-level category group ('Tables' | 'Views').
 	async function groupChildren(conn: SQLiteConnection, groupName: string): Promise<positron.DataConnectionNode[]> {
 		const groups = await conn.getChildren();
 		const group = groups.find(g => g.name === groupName);
 		assert.ok(group, `group '${groupName}' should exist`);
+		return group.getChildren!();
+	}
+
+	// Returns the children of a table's named category group ('Columns' | 'Indexes').
+	async function tableGroupChildren(conn: SQLiteConnection, tableName: string, groupName: string): Promise<positron.DataConnectionNode[]> {
+		const tables = await groupChildren(conn, 'Tables');
+		const table = tables.find(t => t.name === tableName);
+		assert.ok(table, `table '${tableName}' should exist`);
+		const groups = await table.getChildren!();
+		const group = groups.find(g => g.name === groupName);
+		assert.ok(group, `group '${groupName}' should exist under table '${tableName}'`);
 		return group.getChildren!();
 	}
 
@@ -96,12 +107,12 @@ suite('SQLite Driver Tests', () => {
 
 	// --- Top-level groups ---
 
-	test('top level is three category groups', async () => {
+	test('top level is two category groups', async () => {
 		const dbPath = createTestDb('groups.db');
 		const conn = await connect(dbPath);
 
 		const groups = await conn.getChildren();
-		assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views', 'Indexes']);
+		assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views']);
 
 		await conn.disconnect();
 	});
@@ -159,7 +170,7 @@ suite('SQLite Driver Tests', () => {
 
 	// --- Field nodes ---
 
-	test('table node expands to field nodes with types', async () => {
+	test('table Columns group expands to field nodes with types', async () => {
 		const dbPath = createTestDb('fields.db', (db) => {
 			db.exec(`
 				CREATE TABLE products (
@@ -174,12 +185,14 @@ suite('SQLite Driver Tests', () => {
 		});
 
 		const conn = await connect(dbPath);
+
+		// A table expands to Columns and Indexes category groups.
 		const tables = await groupChildren(conn, 'Tables');
 		const productsNode = tables.find(t => t.name === 'products');
 		assert.ok(productsNode, 'products table should exist');
-		assert.ok(productsNode.getChildren, 'table node should have getChildren');
+		assert.deepStrictEqual((await productsNode.getChildren!()).map(g => g.name), ['Columns', 'Indexes']);
 
-		const fields = await productsNode.getChildren!();
+		const fields = await tableGroupChildren(conn, 'products', 'Columns');
 		assert.strictEqual(fields.length, 6);
 
 		const idField = fields.find(f => f.name === 'id')!;
@@ -187,6 +200,10 @@ suite('SQLite Driver Tests', () => {
 		assert.strictEqual(idField.dataType, 'INTEGER');
 		assert.strictEqual(fields.find(f => f.name === 'name')!.dataType, 'TEXT');
 		assert.strictEqual(fields.find(f => f.name === 'price')!.dataType, 'REAL');
+
+		// The id column is the primary key; the others are not.
+		assert.strictEqual(idField.isPrimaryKey, true);
+		assert.strictEqual(fields.find(f => f.name === 'name')!.isPrimaryKey, false);
 
 		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		assert.strictEqual(idField.getChildren, undefined);
@@ -201,9 +218,33 @@ suite('SQLite Driver Tests', () => {
 		});
 
 		const conn = await connect(dbPath);
-		const tables = await groupChildren(conn, 'Tables');
-		const fields = await tables.find(t => t.name === 'flex')!.getChildren!();
+		const fields = await tableGroupChildren(conn, 'flex', 'Columns');
 		assert.strictEqual(fields[0].dataType, 'BLOB');
+
+		await conn.disconnect();
+	});
+
+	// --- Indexes (nested under their table) ---
+
+	test('table Indexes group lists the table indexes and excludes auto-indexes', async () => {
+		const dbPath = createTestDb('indexes.db', (db) => {
+			db.exec(`
+				CREATE TABLE people (id INTEGER PRIMARY KEY, email TEXT UNIQUE, name TEXT);
+				CREATE INDEX idx_people_name ON people (name);
+			`);
+		});
+
+		const conn = await connect(dbPath);
+
+		// Only the explicitly-created index is listed; the sqlite_autoindex_* backing the UNIQUE
+		// constraint is hidden.
+		const indexes = await tableGroupChildren(conn, 'people', 'Indexes');
+		assert.deepStrictEqual(indexes.map(i => i.name), ['idx_people_name']);
+		assert.strictEqual(indexes[0].kind, positron.DataConnectionNodeKind.Index);
+
+		// An index expands to the columns it covers.
+		const indexColumns = await indexes[0].getChildren!();
+		assert.deepStrictEqual(indexColumns.map(c => c.name), ['name']);
 
 		await conn.disconnect();
 	});

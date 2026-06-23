@@ -1,0 +1,73 @@
+<svg width="520" height="270" viewBox="0 0 530 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="520" height="260" fill="#FFFFFF"/>
+  <rect x="0" y="0" width="520" height="28" fill="#F2F2F2"/>
+  <line x1="0" y1="28" x2="520" y2="28" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="0" y="0" width="148" height="28" fill="#FFFFFF"/>
+  <line x1="0" y1="27" x2="148" y2="27" stroke="#447099" stroke-width="2"/>
+  <text x="12" y="18" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" fill="#333333">analysis.ipynb</text>
+  <line x1="131" y1="9" x2="141" y2="19" stroke="#8A8A8A" stroke-width="1.2"/>
+  <line x1="141" y1="9" x2="131" y2="19" stroke="#8A8A8A" stroke-width="1.2"/>
+  <line x1="148" y1="0" x2="148" y2="28" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="0" y="28" width="520" height="34" fill="#FAFAFA"/>
+  <line x1="0" y1="62" x2="520" y2="62" stroke="#E0E0E0" stroke-width="1"/>
+  <g transform="translate(10, 37)" fill="#5A5A5A"><path d="M2.78 2L2 2.41v12l.78.42 9-6V8l-9-6zM3 13.48V3.35l7.6 5.07L3 13.48z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6 14.683l8.78-5.853V8L6 2.147V3.35l7.6 5.07L6 13.48v1.203z"/></g>
+  <g transform="translate(32, 37)" fill="#5A5A5A"><path d="M10 12.6l.7.7 1.6-1.6 1.6 1.6.8-.7L13 11l1.7-1.6-.8-.8-1.6 1.7-1.6-1.7-.7.8 1.6 1.6-1.6 1.6zM1 4h14V3H1v1zm0 3h14V6H1v1zm8 2.5V9H1v1h8v-.5zM9 13v-1H1v1h8z"/></g>
+  <g transform="translate(54, 40) scale(0.6875)" fill="#5A5A5A"><path d="M8 1.5C8 1.22386 7.77614 1 7.5 1C7.22386 1 7 1.22386 7 1.5V7H1.5C1.22386 7 1 7.22386 1 7.5C1 7.77614 1.22386 8 1.5 8H7V13.5C7 13.7761 7.22386 14 7.5 14C7.77614 14 8 13.7761 8 13.5V8H13.5C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7H8V1.5Z"/></g>
+  <text x="66" y="49" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" fill="#5A5A5A">Code</text>
+  <g transform="translate(97, 40) scale(0.6875)" fill="#5A5A5A"><path d="M8 1.5C8 1.22386 7.77614 1 7.5 1C7.22386 1 7 1.22386 7 1.5V7H1.5C1.22386 7 1 7.22386 1 7.5C1 7.77614 1.22386 8 1.5 8H7V13.5C7 13.7761 7.22386 14 7.5 14C7.77614 14 8 13.7761 8 13.5V8H13.5C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7H8V1.5Z"/></g>
+  <text x="109" y="49" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" fill="#5A5A5A">Markdown</text>
+  <g transform="translate(395, 37)" fill="#5A5A5A"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/></g>
+  <rect x="415" y="34" width="92" height="22" rx="4" fill="#FFFFFF" stroke="#447099" stroke-width="1.5"/>
+  <circle cx="425" cy="45" r="4" fill="#3DAA6E"/>
+  <text x="433" y="49" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" fill="#333333">Python</text>
+  <g transform="translate(492, 40) scale(0.625)" fill="#5A5A5A"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/></g>
+  
+  <rect x="30" y="76" width="478" height="172" rx="4" fill="#FFFFFF" stroke="#447099" stroke-width="1.5"/>
+  <rect x="31.5" y="82" width="475" height="56" fill="#F8F8F8"/>
+  <line x1="31" y1="138" x2="507" y2="138" stroke="#EEEEEE" stroke-width="1"/>
+  <text x="50" y="94" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">1</text>
+  <text x="50" y="106" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">2</text>
+  <text x="50" y="118" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">3</text>
+  <text x="50" y="130" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">4</text>
+  <rect x="58" y="90" width="200" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="58" y="102" width="80" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="58" y="114" width="120" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="58" y="126" width="160" height="4" rx="2" fill="#C8C8C8"/>
+  <text x="2" y="150" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8A8A8A">[1]</text>
+  <rect x="204" y="197" width="12" height="38" fill="#447099" opacity="0.7"/>
+  <rect x="221" y="180" width="12" height="55" fill="#447099" opacity="0.7"/>
+  <rect x="238" y="193" width="12" height="42" fill="#447099" opacity="0.7"/>
+  <rect x="255" y="170" width="12" height="65" fill="#447099" opacity="0.7"/>
+  <rect x="272" y="187" width="12" height="48" fill="#447099" opacity="0.7"/>
+  <rect x="289" y="177" width="12" height="58" fill="#447099" opacity="0.7"/>
+  <rect x="306" y="203" width="12" height="32" fill="#447099" opacity="0.7"/>
+  <rect x="323" y="185" width="12" height="50" fill="#447099" opacity="0.7"/>
+  <line x1="197" y1="235" x2="342" y2="235" stroke="#DDDDDD" stroke-width="1"/>
+  <rect x="205" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="222" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="239" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="256" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="273" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="290" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="307" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  <rect x="324" y="239" width="10" height="3" rx="1.5" fill="#D0D0D0"/>
+  
+  <rect x="30" y="66" width="88" height="16" rx="3" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <g transform="translate(35, 68) scale(0.7)" fill="#5A5A5A">
+    <path d="M3.78 2L3 2.41v12l.78.42 9-6V8l-9-6zM4 13.48V3.35l7.6 5.07L4 13.48z"/>
+  </g>
+  <line x1="51" y1="70" x2="51" y2="78" stroke="#D0D0D0" stroke-width="1"/>
+  <g transform="translate(55, 68) scale(0.7)" fill="#5A5A5A">
+    <path d="M7.293 9.006l-.88.88A2.484 2.484 0 0 0 4 8a2.488 2.488 0 0 0-2.413 1.886l-.88-.88L0 9.712l1.147 1.146-.147.146v1H0v.999h1v.053c.051.326.143.643.273.946L0 15.294.707 16l1.1-1.099A2.873 2.873 0 0 0 4 16a2.875 2.875 0 0 0 2.193-1.099L7.293 16 8 15.294l-1.273-1.292A3.92 3.92 0 0 0 7 13.036v-.067h1v-.965H7v-1l-.147-.146L8 9.712l-.707-.706zM4 9.006a1.5 1.5 0 0 1 1.5 1.499h-3A1.498 1.498 0 0 1 4 9.006zm2 3.997A2.217 2.217 0 0 1 4 15a2.22 2.22 0 0 1-2-1.998v-1.499h4v1.499z"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M5 2.41L5.78 2l9 6v.83L9 12.683v-1.2l4.6-3.063L6 3.35V7H5V2.41z"/>
+  </g>
+  <g transform="translate(70, 68) scale(0.7)" fill="#5A5A5A">
+    <path d="M1.77 1.01L1 1.42v12l.78.42 9-6v-.83l-9.01-6zM2 12.49V2.36l7.6 5.07L2 12.49zM12.15 8h.71l2.5 2.5-.71.71L13 9.56V15h-1V9.55l-1.65 1.65-.7-.7 2.5-2.5z"/>
+  </g>
+  <g transform="translate(85, 68) scale(0.7)" fill="#5A5A5A">
+    <path d="M4 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm5 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+  </g>
+  <g transform="translate(100, 68) scale(0.7)" fill="#5A5A5A">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M10 3h3v1h-1v9l-1 1H4l-1-1V4H2V3h3V2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zM9 2H6v1h3V2zM4 13h7V4H4v9zm2-8H5v7h1V5zm1 0h1v7H7V5zm2 0h1v7H9V5z"/>
+  </g>
+</svg>

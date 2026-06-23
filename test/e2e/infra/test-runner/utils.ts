@@ -6,7 +6,7 @@
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import rimraf from 'rimraf';
+import * as rimraf from 'rimraf';
 import * as os from 'os';
 
 export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in cloneTestRepo'): void {
@@ -70,7 +70,8 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 function copyRepo(source: string, destination: string): void {
 	// Clear any stale copy first: git pack files are read-only, so cp -R
 	// (and xcopy) cannot overwrite them on a rerun, causing "Permission denied".
-	rimraf.sync(destination);
+	fs.rmSync(destination, { recursive: true, force: true });
+	fs.mkdirSync(destination, { recursive: true });
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
 	} else {
