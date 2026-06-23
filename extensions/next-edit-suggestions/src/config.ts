@@ -34,6 +34,16 @@ export function getSelectedCompletionModelId(): string {
 		.get<string>('selectedCompletionModel') || '';
 }
 
+/**
+ * Whether Positron's AI features are enabled. Gated on the Positron-owned
+ * `ai.enabled` main switch. Next Edit Suggestions only work when AI is enabled.
+ */
+function isAIEnabled(): boolean {
+	return vscode.workspace
+		.getConfiguration('ai')
+		.get<boolean>('enabled') === true;
+}
+
 function isFileExcludedFromAI(uri: vscode.Uri): boolean {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 
@@ -78,11 +88,17 @@ function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean 
 /** Determines whether inline completions are enabled for a document.
  *
  * Checks are evaluated in order:
- * 1. `positron.assistant.aiExcludes` -- file excluded from all AI features.
- * 2. `nextEditSuggestions.enable` -- per-language ID, then filename glob.
- * 3. `nextEditSuggestions.enable` -- `*` wildcard.
+ * 1. `ai.enabled` -- main switch for Positron's AI features.
+ * 2. `positron.assistant.aiExcludes` -- file excluded from all AI features.
+ * 3. `nextEditSuggestions.enable` -- per-language ID, then filename glob.
+ * 4. `nextEditSuggestions.enable` -- `*` wildcard.
  */
 export function isCompletionEnabled(document: vscode.TextDocument): boolean {
+	if (!isAIEnabled()) {
+		log.debug('Inline completions are disabled because the ai.enabled setting is off.');
+		return false;
+	}
+
 	if (isFileExcludedFromAI(document.uri)) {
 		log.debug(`AI features are disabled for ${document.uri.fsPath} based on positron.assistant.aiExcludes configuration.`);
 		return false;

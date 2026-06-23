@@ -11,6 +11,7 @@ import { isCompletionEnabled } from '../config.js';
 function setupConfigStubs(values: {
 	aiExcludes?: string[];
 	enable?: Record<string, boolean>;
+	aiEnabled?: boolean;
 }): void {
 	const positronAssistantGet = sinon.stub();
 	positronAssistantGet.withArgs('aiExcludes').returns(values.aiExcludes);
@@ -18,9 +19,16 @@ function setupConfigStubs(values: {
 	const nextEditSuggestionsGet = sinon.stub();
 	nextEditSuggestionsGet.withArgs('enable').returns(values.enable);
 
+	// Default the AI main switch on so existing cases exercise the per-file /
+	// per-language logic; the gate has its own dedicated suite. An explicit
+	// `aiEnabled: undefined` models the setting being unset.
+	const aiGet = sinon.stub();
+	aiGet.withArgs('enabled').returns(Object.hasOwn(values, 'aiEnabled') ? values.aiEnabled : true);
+
 	const getConfiguration = sinon.stub(vscode.workspace, 'getConfiguration');
 	getConfiguration.withArgs('positron.assistant').returns({ get: positronAssistantGet } as unknown as vscode.WorkspaceConfiguration);
 	getConfiguration.withArgs('nextEditSuggestions').returns({ get: nextEditSuggestionsGet } as unknown as vscode.WorkspaceConfiguration);
+	getConfiguration.withArgs('ai').returns({ get: aiGet } as unknown as vscode.WorkspaceConfiguration);
 }
 
 function mockDocument(fsPath: string, languageId: string): vscode.TextDocument {
@@ -31,6 +39,41 @@ function mockDocument(fsPath: string, languageId: string): vscode.TextDocument {
 suite('config / isCompletionEnabled', () => {
 	teardown(() => {
 		sinon.restore();
+	});
+
+	suite('ai.enabled gates everything', () => {
+		test('completions disabled when ai.enabled is false', () => {
+			setupConfigStubs({
+				aiEnabled: false,
+				aiExcludes: [],
+				enable: { '*': true, typescript: true },
+			});
+
+			const doc = mockDocument('/project/src/file.ts', 'typescript');
+			assert.strictEqual(isCompletionEnabled(doc), false);
+		});
+
+		test('completions disabled when ai.enabled is unset', () => {
+			setupConfigStubs({
+				aiEnabled: undefined,
+				aiExcludes: [],
+				enable: { '*': true },
+			});
+
+			const doc = mockDocument('/project/src/file.ts', 'typescript');
+			assert.strictEqual(isCompletionEnabled(doc), false);
+		});
+
+		test('completions enabled when ai.enabled is true', () => {
+			setupConfigStubs({
+				aiEnabled: true,
+				aiExcludes: [],
+				enable: { '*': true },
+			});
+
+			const doc = mockDocument('/project/src/file.ts', 'typescript');
+			assert.strictEqual(isCompletionEnabled(doc), true);
+		});
 	});
 
 	suite('aiExcludes takes precedence over nextEditSuggestions.enable', () => {
