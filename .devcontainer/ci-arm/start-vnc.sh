@@ -42,10 +42,14 @@ if [ "${#pkgs[@]}" -gt 0 ]; then
 fi
 
 # VNC password file (TigerVNC VncAuth). vncpasswd -f reads the password from stdin and writes the
-# obfuscated form to stdout. Cheap to regenerate each run, so it's always correct.
-mkdir -p "$(dirname "$PASSWD_FILE")"
-printf '%s' "$VNC_PASSWORD" | vncpasswd -f > "$PASSWD_FILE" 2>/dev/null
-chmod 600 "$PASSWD_FILE"
+# obfuscated form to stdout. Cheap to regenerate each run, so it's always correct. Guarded on
+# vncpasswd existing: if the install above failed, calling it would exit 127 and (under set -e) abort
+# the whole script before we reach the clearer "is Xvnc here?" failure path below.
+if command -v vncpasswd >/dev/null 2>&1; then
+  mkdir -p "$(dirname "$PASSWD_FILE")"
+  printf '%s' "$VNC_PASSWORD" | vncpasswd -f > "$PASSWD_FILE" 2>/dev/null
+  chmod 600 "$PASSWD_FILE"
+fi
 
 # Start Xvnc on :10 / RFB :5900 if it isn't already serving. Verify it actually binds :5900 (not just
 # that a process exists) and retry. setsid + 9>&- so it survives the launching shell/task and doesn't
@@ -53,9 +57,11 @@ chmod 600 "$PASSWD_FILE"
 vnc_up() { (exec 3<>/dev/tcp/127.0.0.1/5900) 2>/dev/null; }
 if ! vnc_up; then
   vncserver -kill :10 >/dev/null 2>&1 || true
-  pkill -x Xvnc 2>/dev/null || true
-  rm -f /tmp/.X10-lock "/tmp/.X11-unix/X10" 2>/dev/null || true
   for _ in 1 2 3; do
+    # Kill any prior attempt and clear its X locks INSIDE the loop, so a retry can't leave two Xvnc
+    # processes racing for display :10 / port :5900 if the previous one was slow to bind.
+    pkill -x Xvnc 2>/dev/null || true
+    rm -f /tmp/.X10-lock "/tmp/.X11-unix/X10" 2>/dev/null || true
     setsid Xvnc :10 -geometry "$GEOMETRY" -depth "$DEPTH" -rfbport 5900 \
       -SecurityTypes VncAuth -PasswordFile "$PASSWD_FILE" -AlwaysShared \
       -BlacklistThreshold 1000000 \
