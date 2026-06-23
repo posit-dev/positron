@@ -86,8 +86,18 @@ if command -v fluxbox >/dev/null 2>&1 && ! pgrep -x fluxbox >/dev/null 2>&1; the
 fi
 
 # Browser-based VNC (noVNC) so the desktop opens from a clickable http URL. setsid + 9>&- as above.
-if command -v websockify >/dev/null 2>&1 && ! pgrep -f "websockify.*6080" >/dev/null 2>&1; then
-  setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null 9>&- &
+# Verify it actually binds :6080 and retry, like Xvnc above: started bare in the background it can
+# lose the race against Xvnc (proxy target :5900 not ready yet) and exit, leaving :6080 down with
+# nothing to restart it until the next start-vnc.sh call — which is why noVNC sometimes showed down
+# after the VNC task but came up once launching the desktop re-ran this.
+novnc_up() { (exec 3<>/dev/tcp/127.0.0.1/6080) 2>/dev/null; }
+if command -v websockify >/dev/null 2>&1 && ! novnc_up; then
+  for _ in 1 2 3; do
+    pkill -f "websockify.*6080" 2>/dev/null || true
+    setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null 9>&- &
+    for _ in $(seq 1 5); do novnc_up && break; sleep 1; done
+    novnc_up && break
+  done
 fi
 
 if [ "$QUIET" -eq 0 ]; then
