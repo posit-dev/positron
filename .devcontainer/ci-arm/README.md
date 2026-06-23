@@ -17,7 +17,7 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 Once, on your machine:
 
-1. **Docker Desktop**, in `Settings`:
+1. Install and configure **Docker Desktop**, in `Settings`:
     * **Resources → Advanced**: **8+ CPU**, **12 GB RAM**, a few GB free disk.
     * **General → Virtual Machine Options**: turn on **VirtioFS**.
 2. **GHCR login** (images are private):
@@ -66,7 +66,7 @@ The first open runs the ~10-min cold build; later opens are fast.
 the cold build is still installing `node_modules`, so the TypeScript server and Playwright extension
 start against an empty workspace. The reload restarts them against the now-installed deps. One-time only: later opens already have `node_modules`, so they come up clean. When you see success message, start up the Doctor (task button in status bar) to confirm that everythign is running smoothly.
 
-That's it — you have a working CI lab. :tada:
+That's it — you have a working CI lab.
 
 ## Daily use
 

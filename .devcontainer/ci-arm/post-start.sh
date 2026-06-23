@@ -40,9 +40,9 @@ fi
 # closes — which feels broken. Just confirm readiness and point at the real (interactive) Doctor.
 cat <<'MSG'
 
-  ============================================================
+  ------------------------------------------------------------
     🎉  Success! Your CI Lab is set up and ready for use!
-  ============================================================
+  ------------------------------------------------------------
 MSG
 
 # Only after a fresh cold build (flag set by post-create): the editor attached before node_modules
