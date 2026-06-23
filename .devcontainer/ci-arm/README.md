@@ -70,18 +70,14 @@ That's it — you have a working CI lab. :tada:
 
 ## Daily use
 
-**Get in and out.** To reopen the lab: **Open Recent** the worktree, then **Reopen in Container**. To return to local VS Code, run **Dev Containers: Reopen Folder Locally**.
-
-**Find the lab again.** It's a separate directory, not a branch — you don't switch to it, you `cd`
-into it. Forgot where it lives? `git worktree list` prints every worktree and its path:
-
-```bash
-git worktree list          # shows .../positron-ci-lab
-cd ../positron-ci-lab      # from your main checkout
-```
-
-**Run things.** Common actions are **Task Buttons** in the status bar; everything else is
-`Cmd-Shift-P → Tasks: Run Task` (filter "Positron CI"); debug profiles are in **Run and Debug**.
+| To… | Do this |
+|---|---|
+| reopen the lab | **Open Recent** the worktree, then **Reopen in Container** |
+| return to local VS Code | run **Dev Containers: Reopen Folder Locally** |
+| find where the lab lives | `git worktree list` prints its path (it's a directory, not a branch — `cd` into it) |
+| run a common action | click a **Task Button** in the status bar |
+| run any task | `Cmd-Shift-P` → **Tasks: Run Task**, filter "Positron CI" |
+| debug Positron's source | open **Run and Debug** (`Cmd-Shift-D`) |
 
 > [!IMPORTANT]
 > Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. If a check
