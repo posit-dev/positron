@@ -24,7 +24,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
@@ -108,6 +108,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is plaintext editable context key.
 	 */
 	private readonly _isPlaintextContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is xlsx context key.
+	 */
+	private readonly _isXlsxContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the is convert to code enabled context key.
@@ -269,6 +274,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isPlaintextContextKey = POSITRON_DATA_EXPLORER_IS_PLAINTEXT.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._isXlsxContextKey = POSITRON_DATA_EXPLORER_IS_XLSX.bindTo(
+			this._group.scopedContextKeyService
+		);
 		this._isConvertToCodeEnabledContextKey = POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED.bindTo(
 			this._group.scopedContextKeyService
 		);
@@ -386,9 +394,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 				const uri = PositronDataExplorerUri.backingUri(input.resource);
 				if (uri) {
-					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => uri.path.endsWith(ext)));
+					// Match extensions case-insensitively: the editor resolver routes
+					// files like REPORT.XLSX here, so the toolbar actions must too.
+					const path = uri.path.toLowerCase();
+					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => path.endsWith(ext)));
+					this._isXlsxContextKey.set(path.endsWith('.xlsx'));
 				} else {
 					this._isPlaintextContextKey.reset();
+					this._isXlsxContextKey.reset();
 				}
 
 
@@ -564,7 +577,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	//#endregion Private Methods
 }
 
+// File extensions whose data explorer exposes file import options (the "File
+// Options" toolbar action). Despite the "plaintext" name, this includes Excel
+// workbooks, which expose a sheet selector in addition to the header-row option.
 const PLAINTEXT_EXTS = [
 	'.csv',
-	'.tsv'
+	'.tsv',
+	'.xlsx'
 ];

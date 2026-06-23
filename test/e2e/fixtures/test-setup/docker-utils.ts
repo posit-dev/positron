@@ -61,7 +61,7 @@ export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolea
 		overrides['positron.notebook.enabled'] = false;
 	}
 	if (opts.enableDataConnections) {
-		overrides['dataConnections.enabled'] = true;
+		overrides['databases.enabled'] = true;
 	}
 	return Object.keys(overrides).length > 0 ? overrides : undefined;
 }

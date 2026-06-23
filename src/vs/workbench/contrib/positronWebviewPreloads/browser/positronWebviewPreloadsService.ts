@@ -18,6 +18,11 @@ import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPosit
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { dirname } from '../../../../base/common/resources.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import * as path from '../../../../base/common/path.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { EditorOpenSource, EditorResolution } from '../../../../platform/editor/common/editor.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * Format of output from a notebook cell
@@ -36,6 +41,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	/** Map of created ipywidgets webviews keyed by output ID for Positron notebooks. */
 	private readonly _widgetWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+
+	/** Map of created PDF webviews keyed by output ID for Positron notebooks. */
+	private readonly _pdfWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
 
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
@@ -58,6 +66,8 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@ICommandService private _commandService: ICommandService,
+		@IEditorService private _editorService: IEditorService,
 	) {
 		super();
 
@@ -142,8 +152,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(toDisposable(() => {
 			const outputIds = this._outputIdsByNotebookId.get(notebookId);
 			if (outputIds) {
-				// Remove all cached webview promises for this notebook's outputs
-				outputIds.forEach(outputId => this._widgetWebviewsByOutputId.delete(outputId));
+				outputIds.forEach(outputId => {
+					this._widgetWebviewsByOutputId.delete(outputId);
+					this._pdfWebviewsByOutputId.delete(outputId);
+				});
 				this._outputIdsByNotebookId.delete(notebookId);
 			}
 			this._messagesByNotebookId.delete(notebookId);
@@ -199,12 +211,36 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			const rawHtmlBaseUri = instance.uri.scheme === Schemas.untitled
 				? undefined
 				: dirname(instance.uri);
+
 			// TODO: Overlay webviews (display AND raw HTML) are not disposed when
 			// outputs are cleared, cells are deleted, or output types change. A
 			// follow-up PR should add model-change reconciliation for all webview
 			// types. This is also a virtualization prerequisite: when cells are
 			// virtualized, the service will need to hold webviews across
 			// component mount/unmount cycles.
+
+			// Check if this HTML contains an iframe pointing to a PDF file.
+			// If so, route through the PDF server for proper rendering.
+			const pdfIframeInfo = extractPdfIframeInfo(rawHtml);
+			if (pdfIframeInfo) {
+				const existingWebview = this._pdfWebviewsByOutputId.get(outputId);
+				if (existingWebview) {
+					return { preloadMessageType: 'display', webview: existingWebview };
+				}
+
+				// Untitled notebooks have no base URI, so notebookDir is empty and a
+				// relative PDF src cannot be resolved (it will 404). Only absolute
+				// PDF paths render for unsaved notebooks.
+				const notebookDir = rawHtmlBaseUri?.fsPath ?? '';
+				const webviewPromise = this._createPdfNotebookWebview(instance, outputId, pdfIframeInfo, notebookDir, rawHtmlBaseUri)
+					.catch(err => {
+						this._pdfWebviewsByOutputId.delete(outputId);
+						throw err;
+					});
+				this._pdfWebviewsByOutputId.set(outputId, webviewPromise);
+				return { preloadMessageType: 'display', webview: webviewPromise };
+			}
+
 			return {
 				preloadMessageType: 'display',
 				webview: this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri),
@@ -276,6 +312,111 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
 	}
+	/**
+	 * Create a webview that renders a PDF inline in a notebook cell using the
+	 * positron-pdf-server extension's full viewer with "Open With..." support.
+	 */
+	private async _createPdfNotebookWebview(
+		instance: IPositronNotebookInstance,
+		outputId: string,
+		pdfInfo: { src: string; width?: string; height?: string },
+		notebookDir: string,
+		baseUri: URI | undefined,
+	): Promise<INotebookOutputWebview> {
+		// Track this output ID for cache cleanup when notebook is disposed.
+		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		if (outputIds) {
+			outputIds.add(outputId);
+		}
+
+		// Resolve relative paths against the notebook's directory.
+		const pdfPath = path.isAbsolute(pdfInfo.src)
+			? pdfInfo.src
+			: path.join(notebookDir, pdfInfo.src);
+
+		// Call the pdf-server extension command to register the PDF and get a viewer URL.
+		// Tradeoff: the IDE theme is baked into the viewer URL here and the webview is
+		// cached per output, so switching the IDE theme leaves already-rendered PDFs
+		// stale until recompute. A full fix would subscribe to onDidChangeActiveColorTheme
+		// and refresh; left as a follow-up.
+		let result: { viewerUrl: string; pdfId: string } | undefined;
+		try {
+			result = await this._commandService.executeCommand<{ viewerUrl: string; pdfId: string }>(
+				'positron.pdfServer.getViewerUrl',
+				pdfPath
+			);
+		} catch {
+			// Extension not available or command failed.
+		}
+
+		if (!result) {
+			return this._notebookOutputWebviewService.createRawHtmlOutputWebview(
+				outputId,
+				`<p>Unable to render PDF: ${pdfInfo.src}</p>`,
+				baseUri
+			);
+		}
+
+		const height = pdfInfo.height || '600';
+		const width = pdfInfo.width ? `${pdfInfo.width}px` : '100%';
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+<style>
+	body, html { margin: 0; padding: 0; overflow: hidden; }
+	iframe { border: none; width: ${width}; height: ${height}px; display: block; }
+</style>
+</head>
+<body>
+<iframe id="pdf-frame" src="${result.viewerUrl}"></iframe>
+<script>
+	(function() {
+		var vscode = acquireVsCodeApi();
+		var expectedOrigin = new URL(${JSON.stringify(result.viewerUrl)}).origin;
+		window.addEventListener('message', function(event) {
+			if (event.origin !== expectedOrigin) { return; }
+			if (event.data && event.data.channel === 'pdf-open-with') {
+				vscode.postMessage({
+					__vscode_notebook_message: true,
+					type: 'positron-open-pdf-with',
+					path: ${JSON.stringify(pdfPath)}
+				});
+			}
+		});
+	})();
+</script>
+</body>
+</html>`;
+
+		const webview = await this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, html, baseUri);
+
+		// Tie disposables to the notebook's lifecycle, not the service singleton.
+		// The store is created in attachNotebookInstance, so its absence here is a
+		// programming error rather than an expected state.
+		const disposables = this._notebookToDisposablesMap.get(instance.getId());
+		if (!disposables) {
+			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
+		}
+
+		disposables.add(webview.webview.onMessage((event) => {
+			const msg = event.message;
+			if (msg?.__vscode_notebook_message && msg.type === 'positron-open-pdf-with' && msg.path) {
+				this._editorService.openEditor({
+					resource: URI.file(msg.path),
+					options: { override: EditorResolution.PICK, source: EditorOpenSource.USER }
+				});
+			}
+		}));
+
+		// Unregister the PDF from the HTTP server when the notebook is disposed.
+		disposables.add(toDisposable(() => {
+			this._commandService.executeCommand('positron.pdfServer.unregisterPdf', result.pdfId);
+		}));
+
+		return webview;
+	}
+
 	/**
 	 * Create a webview for an IPyWidget output from a Positron Notebook.
 	 * Creates a per-output messaging channel to enable proper communication
@@ -428,6 +569,27 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 }
 
+/**
+ * Extract PDF iframe info from HTML content.
+ * Detects patterns like `<iframe src="file.pdf" width="800" height="600">`.
+ */
+export function extractPdfIframeInfo(html: string): { src: string; width?: string; height?: string } | undefined {
+	const iframeMatch = html.match(/<iframe[^>]*\ssrc=["']([^"']*\.pdf)["'][^>]*>/i);
+	if (!iframeMatch) {
+		return undefined;
+	}
+	const src = iframeMatch[1];
+	// Scan width/height against the matched iframe tag only, so attributes from a
+	// different (non-PDF) iframe elsewhere in the HTML are not mixed in.
+	const iframeTag = iframeMatch[0];
+	const widthMatch = iframeTag.match(/\swidth=["'](\d+)["']/i);
+	const heightMatch = iframeTag.match(/\sheight=["'](\d+)["']/i);
+	return {
+		src,
+		width: widthMatch?.[1],
+		height: heightMatch?.[1],
+	};
+}
 
 // Register service.
 registerSingleton(IPositronWebviewPreloadService, PositronWebviewPreloadService, InstantiationType.Delayed);

@@ -33,8 +33,14 @@ export class Help {
 		return innerInnerFrame;
 	}
 
-	async getHelpFrame(nth: number): Promise<FrameLocator> {
-		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).nth(nth).contentFrame();
+	/**
+	 * FrameLocator for the Help pane's content iframe. Help is always the LAST
+	 * `.webview` (opened after editors/notebooks/plots), so `.last()` resolves it
+	 * immediately; a fixed `.nth(n)` races a shifting index while a transient
+	 * webview exists.
+	 */
+	async getHelpFrame(): Promise<FrameLocator> {
+		const outerFrame = this.code.driver.currentPage.locator(OUTER_FRAME).last().contentFrame();
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);
 		return innerInnerFrame;

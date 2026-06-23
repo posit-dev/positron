@@ -79,7 +79,14 @@ test.describe('Remote SSH', {
 
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
-			const pythonSession = await sshWorkbench.sessions.start('python');
+			// Append '(uv: root)' to the version so the picker selects the correct interpreter
+			// when multiple Python entries share the same version number.
+			// The base version comes from POSITRON_PY_REMOTE_VER_SEL (set in the yml).
+			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
+				language: 'Python',
+				version: `${process.env.POSITRON_PY_REMOTE_VER_SEL} (uv: root)`,
+			});
+			const pythonSession = await sshWorkbench.sessions.getMetadata(pythonSessionId);
 			await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
 			await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
 

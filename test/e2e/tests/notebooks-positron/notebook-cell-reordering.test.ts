@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { tags } from '../_test.setup';
-import { test } from './_test.setup.js';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,14 +12,17 @@ test.use({
 test.describe('Notebook Cell Reordering', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	// Drag-and-drop integration, drag-handle hover visibility, and auto-scroll-during-drag
-	// only. Action-bar / keyboard move triggers, boundary no-ops, sequential moves,
-	// undo/redo, and the multi-select grouping decision are covered by:
+	// Drag-and-drop integration, drag-handle hover visibility, auto-scroll-during-drag,
+	// and keyboard-move scroll-into-view only. The remaining move behavior - action-bar /
+	// keyboard move triggers, boundary no-ops, sequential moves, undo/redo, and the
+	// multi-select grouping decision - is covered by:
 	//   - selectionKeybindings.vitest.ts (MoveCellUp/Down action wiring)
 	//   - positronNotebookInstance.vitest.ts (moveCellsUp/Down behavior)
 	//   - notebookUndoRedo.vitest.ts (moveCells undo/redo)
 	//   - sortableCellListLogic.vitest.ts (drop-index + multi-select grouping)
 	//   - sortableCellList.vitest.tsx (escape cancels drag)
+	// Auto-scroll-into-view after a keyboard move is a viewport behavior the vitest
+	// suites can't see (jsdom has no layout), so it gets the e2e test below (#12413).
 
 	test('Drag handle: visible on hover, hidden otherwise', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
@@ -93,6 +95,31 @@ test.describe('Notebook Cell Reordering', {
 		];
 		await notebooksPositron.expectCellContentsToBe(expectedContents);
 		await notebooksPositron.expectCellCountToBe(12);
+	});
+
+	test('Keyboard move: auto-scrolls destination into view in long notebook', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const page = app.code.driver.currentPage;
+
+		// 12 cells - tall enough that the bottom is off-screen on CI viewports (#12413).
+		const CELL_COUNT = 12;
+		const LAST_INDEX = CELL_COUNT - 1;
+		await notebooksPositron.newNotebook({ codeCells: CELL_COUNT });
+
+		// Baseline: the destination must start off-screen, so a later in-viewport
+		// pass proves the view followed the move. Unlike drag (moveCells, no reveal),
+		// the keyboard path (moveCellsDown) reveals the cell at its new position.
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await expect(notebooksPositron.cell.nth(LAST_INDEX)).not.toBeInViewport();
+
+		// Alt+ArrowDown moves the selected cell down one position at a time.
+		for (let i = 0; i < LAST_INDEX; i++) {
+			await page.keyboard.press('Alt+ArrowDown');
+		}
+
+		// The moved cell is now at the bottom and the viewport should have followed it.
+		await notebooksPositron.expectCellContentAtIndexToBe(LAST_INDEX, '# Cell 0');
+		await expect(notebooksPositron.cell.nth(LAST_INDEX)).toBeInViewport();
 	});
 
 	test('Multi-drag: drag three cells to beginning of notebook', async function ({ app }) {

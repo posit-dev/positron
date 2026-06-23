@@ -35,6 +35,7 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
 		shortcuts: [
 			{ label: localize('positron.notebookHelp.runCell', 'Run cell'), commandId: 'positronNotebook.cell.executeOrToggleEditor' },
 			{ label: localize('positron.notebookHelp.runCellAndAdvance', 'Run cell and advance'), commandId: 'positronNotebook.cell.executeAndSelectBelow' },
+			{ label: localize('positron.notebookHelp.runSelection', 'Run selection or current line'), commandId: 'positronNotebook.cell.executeSelection' },
 			{ label: localize('positron.notebookHelp.runAll', 'Run all cells'), commandId: 'positronNotebook.runAllCells' },
 		]
 	},

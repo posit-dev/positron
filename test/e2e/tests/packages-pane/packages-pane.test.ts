@@ -8,13 +8,7 @@ import { SessionRuntimes } from '../../pages/sessions.js';
 
 const test = base.extend<{}, {}>({
 	beforeApp: [
-		async ({ useLegacyNotebookEditor, enableDataConnections, settingsFile }, use) => {
-			if (useLegacyNotebookEditor) {
-				await settingsFile.append({ 'positron.notebook.enabled': false });
-			}
-			if (enableDataConnections) {
-				await settingsFile.append({ 'dataConnections.enabled': true });
-			}
+		async ({ settingsFile }, use) => {
 			await settingsFile.append({ 'packages.enabled': true });
 			await use();
 		},
@@ -63,7 +57,10 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test('R - Install, search, and uninstall package', { tag: [tags.WIN] },
+	test.skip('R - Install, search, and uninstall package', {
+		tag: [tags.WIN],
+		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14346' }
+	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -85,7 +82,7 @@ test.describe('Packages Pane', {
 
 			// Base is always attached
 			await packages.clickHelpButton('base');
-			await packages.expectHelpPaneToContainText('The R Base Package', 0);
+			await packages.expectHelpPaneToContainText('The R Base Package');
 		});
 
 		test('Python - Opens package help in Help pane', { tag: [tags.WEB] },
@@ -97,7 +94,7 @@ test.describe('Packages Pane', {
 				await packages.clickRefreshPackagesButton();
 
 				await packages.clickHelpButton('numpy');
-				await packages.expectHelpPaneToContainText('NumPy', 1);
+				await packages.expectHelpPaneToContainText('NumPy');
 			});
 	});
 

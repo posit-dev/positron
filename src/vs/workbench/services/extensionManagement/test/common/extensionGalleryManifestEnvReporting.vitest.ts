@@ -7,7 +7,7 @@
 
 import { Severity } from '../../../../../platform/notification/common/notification.js';
 import { ExtensionGalleryConfig } from '../../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv } from '../../electron-browser/extensionGalleryManifestService.js';
+import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv } from '../../common/extensionGalleryManifestEnvReporting.js';
 
 function makeServices() {
 	return {

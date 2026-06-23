@@ -8,6 +8,7 @@ import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { CHAT_CATEGORY } from './chatActions.js';
@@ -27,6 +28,10 @@ export function registerQuickChatActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.chatSparkle,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatInputSide,
 					group: 'navigation',
@@ -49,6 +54,10 @@ export function registerQuickChatActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.close,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatInputSide,
 					group: 'navigation',
@@ -70,7 +79,10 @@ class QuickChatGlobalAction extends Action2 {
 		super({
 			id: ASK_QUICK_QUESTION_ACTION_ID,
 			title: localize2('quickChat', 'Open Quick Chat'),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			icon: Codicon.chatSparkle,
 			f1: false,
 			category: CHAT_CATEGORY,
@@ -134,7 +146,10 @@ class AskQuickChatAction extends Action2 {
 			id: `workbench.action.openQuickChat`,
 			category: CHAT_CATEGORY,
 			title: localize2('interactiveSession.open', "Open Quick Chat"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true
 		});
 	}

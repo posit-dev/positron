@@ -234,13 +234,19 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					title: ChatSetupTriggerAction.CHAT_SETUP_ACTION_LABEL,
 					category: CHAT_CATEGORY,
 					f1: true,
-					precondition: ContextKeyExpr.or(
-						ChatContextKeys.Setup.hidden,
-						ChatContextKeys.Setup.disabledInWorkspace,
-						ChatContextKeys.Setup.untrusted,
-						ChatContextKeys.Setup.completed.negate(),
-						ChatContextKeys.Entitlement.canSignUp
-					)
+					// --- Start Positron ---
+					// Hide from command palette when AI features are disabled.
+					precondition: ContextKeyExpr.and(
+						ContextKeyExpr.or(
+							ChatContextKeys.Setup.hidden,
+							ChatContextKeys.Setup.disabledInWorkspace,
+							ChatContextKeys.Setup.untrusted,
+							ChatContextKeys.Setup.completed.negate(),
+							ChatContextKeys.Entitlement.canSignUp
+						),
+						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					),
+					// --- End Positron ---
 				});
 			}
 
@@ -416,14 +422,18 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					title: localize2('managePlan', "Upgrade to GitHub Copilot Pro"),
 					category: localize2('chat.category', 'Chat'),
 					f1: true,
+					// --- Start Positron ---
+					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ChatContextKeys.Setup.hidden.negate(),
 						ChatContextKeys.Setup.disabledInWorkspace.negate(),
 						ContextKeyExpr.or(
 							ChatContextKeys.Entitlement.canSignUp,
 							ChatContextKeys.Entitlement.planFree
-						)
+						),
+						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 					),
+					// --- End Positron ---
 					menu: {
 						id: MenuId.ChatTitleBarMenu,
 						group: 'a_first',
@@ -473,6 +483,8 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					title: localize2('manageOverages', "Manage GitHub Copilot Overages"),
 					category: localize2('chat.category', 'Chat'),
 					f1: true,
+					// --- Start Positron ---
+					// Hide from command palette when AI features are disabled.
 					precondition: ContextKeyExpr.and(
 						ChatContextKeys.Setup.hidden.negate(),
 						ChatContextKeys.Setup.disabledInWorkspace.negate(),
@@ -480,8 +492,10 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ChatContextKeys.Entitlement.planPro,
 							ChatContextKeys.Entitlement.planProPlus,
 							ChatContextKeys.Entitlement.planEdu,
-						)
+						),
+						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 					),
+					// --- End Positron ---
 					menu: {
 						id: MenuId.ChatTitleBarMenu,
 						group: 'a_first',
@@ -830,7 +844,14 @@ export class ChatTeardownContribution extends Disposable implements IWorkbenchCo
 					title: ChatSetupHideAction.TITLE,
 					f1: true,
 					category: CHAT_CATEGORY,
-					precondition: ContextKeyExpr.and(ChatContextKeys.Setup.hidden.negate(), ChatContextKeys.Setup.disabledInWorkspace.negate()),
+					// --- Start Positron ---
+					// Hide from command palette when AI features are disabled.
+					precondition: ContextKeyExpr.and(
+						ChatContextKeys.Setup.hidden.negate(),
+						ChatContextKeys.Setup.disabledInWorkspace.negate(),
+						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					),
+					// --- End Positron ---
 					menu: {
 						id: MenuId.ChatTitleBarMenu,
 						group: 'z_hide',

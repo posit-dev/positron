@@ -229,6 +229,18 @@ export type DidNavigateInputHistoryUpEventArgs = {
 };
 
 /**
+ * Options for focusing the console input.
+ */
+export type FocusInputOptions = {
+	/**
+	 * Whether to focus the input without scrolling it into view. Used when the
+	 * user has scrolled up to view history so that focusing the input does not
+	 * yank the viewport back to the bottom.
+	 */
+	preventScroll?: boolean;
+};
+
+/**
  * IConsoleFindWidget interface. Abstracts the find widget so the service layer
  * can own its lifecycle without depending on the concrete implementation.
  */
@@ -322,7 +334,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onFocusInput event.
 	 */
-	readonly onFocusInput: Event<void>;
+	readonly onFocusInput: Event<FocusInputOptions>;
 
 	/**
 	 * The onDidChangeState event.
@@ -418,8 +430,9 @@ export interface IPositronConsoleInstance {
 
 	/**
 	 * Focuses the input for the console.
+	 * @param options Options controlling how focus is taken.
 	 */
-	focusInput(): void;
+	focusInput(options?: FocusInputOptions): void;
 
 	/**
 	 * Gets the find widget's DOM node for insertion into the console container.

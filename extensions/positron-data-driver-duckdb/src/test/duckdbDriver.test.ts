@@ -59,9 +59,10 @@ suite('DuckDB Driver Tests', () => {
 		return schema;
 	}
 
-	// Returns the named category group ('Tables' | 'Views') under a schema node.
-	async function getGroup(schema: positron.DataConnectionNode, groupName: string): Promise<positron.DataConnectionNode> {
-		const groups = await schema.getChildren!();
+	// Returns the named category group under a parent node: 'Tables'/'Views' under a schema, or
+	// 'Columns'/'Indexes' under a table or view.
+	async function getGroup(parent: positron.DataConnectionNode, groupName: string): Promise<positron.DataConnectionNode> {
+		const groups = await parent.getChildren!();
 		const group = groups.find(g => g.name === groupName);
 		assert.ok(group, `group '${groupName}' should exist`);
 		return group;
@@ -71,7 +72,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('connect and disconnect', async () => {
 		const dbPath = await createTestDb('basic.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		assert.strictEqual(await conn.isConnected(), true);
 		await conn.disconnect();
@@ -80,7 +81,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('disconnect is idempotent', async () => {
 		const dbPath = await createTestDb('idempotent.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		await conn.disconnect();
 		await conn.disconnect();
@@ -89,25 +90,16 @@ suite('DuckDB Driver Tests', () => {
 
 	test('connect to non-existent file in read-only mode throws', async () => {
 		await assert.rejects(
-			() => connect({ databasePath: path.join(tmpDir, 'nonexistent.duckdb'), readOnly: true, inMemory: false }),
+			() => connect({ databasePath: path.join(tmpDir, 'nonexistent.duckdb'), readOnly: true }),
 			/Failed to open DuckDB database/
 		);
-	});
-
-	test('in-memory database connects and is read-write', async () => {
-		const conn = await connect({ readOnly: false, inMemory: true });
-
-		assert.strictEqual(await conn.isConnected(), true);
-		assert.strictEqual(await conn.isReadOnly(), false);
-
-		await conn.disconnect();
 	});
 
 	// --- Empty database ---
 
 	test('empty database has no tables or views', async () => {
 		const dbPath = await createTestDb('empty.duckdb');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
@@ -127,7 +119,7 @@ suite('DuckDB Driver Tests', () => {
 			CREATE VIEW user_orders AS
 				SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id;
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 
@@ -145,7 +137,7 @@ suite('DuckDB Driver Tests', () => {
 
 	// --- Field nodes ---
 
-	test('table node expands to show fields with types', async () => {
+	test('table Columns group expands to field nodes with types', async () => {
 		const dbPath = await createTestDb('fields.duckdb', `
 			CREATE TABLE products (
 				id INTEGER PRIMARY KEY,
@@ -155,15 +147,17 @@ suite('DuckDB Driver Tests', () => {
 				created_at TIMESTAMP
 			);
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
 		const productsNode = tables.find(t => t.name === 'products');
 		assert.ok(productsNode);
-		assert.ok(productsNode.getChildren);
 
-		const fields = await productsNode.getChildren!();
+		// A table expands to Columns and Indexes category groups.
+		assert.deepStrictEqual((await productsNode.getChildren!()).map(g => g.name), ['Columns', 'Indexes']);
+
+		const fields = await (await getGroup(productsNode, 'Columns')).getChildren!();
 		assert.strictEqual(fields.length, 5);
 
 		const idField = fields.find(f => f.name === 'id')!;
@@ -176,6 +170,10 @@ suite('DuckDB Driver Tests', () => {
 		const priceField = fields.find(f => f.name === 'price')!;
 		assert.strictEqual(priceField.dataType, 'DOUBLE');
 
+		// The id column is the primary key; the others are not.
+		assert.strictEqual(idField.isPrimaryKey, true);
+		assert.strictEqual(nameField.isPrimaryKey, false);
+
 		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		assert.strictEqual(idField.getChildren, undefined);
 		assert.strictEqual(typeof idField.preview, 'function');
@@ -183,20 +181,43 @@ suite('DuckDB Driver Tests', () => {
 		await conn.disconnect();
 	});
 
-	test('view node expands to show fields', async () => {
+	test('view Columns group expands to field nodes', async () => {
 		const dbPath = await createTestDb('view-fields.duckdb', `
 			CREATE TABLE people (id INTEGER, name VARCHAR);
 			CREATE VIEW people_view AS SELECT id, name FROM people;
 		`);
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const views = await (await getGroup(schema, 'Views')).getChildren!();
 		const viewNode = views.find(v => v.name === 'people_view');
 		assert.ok(viewNode);
 
-		const fields = await viewNode.getChildren!();
+		// A view expands to a single Columns group.
+		assert.deepStrictEqual((await viewNode.getChildren!()).map(g => g.name), ['Columns']);
+
+		const fields = await (await getGroup(viewNode, 'Columns')).getChildren!();
 		assert.deepStrictEqual(fields.map(f => f.name), ['id', 'name']);
+
+		await conn.disconnect();
+	});
+
+	// --- Indexes (nested under their table) ---
+
+	test('table Indexes group lists the table indexes', async () => {
+		const dbPath = await createTestDb('indexes.duckdb', `
+			CREATE TABLE people (id INTEGER, email VARCHAR, name VARCHAR);
+			CREATE INDEX idx_people_name ON people (name);
+		`);
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
+
+		const schema = await getSchemaNode(conn);
+		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
+		const peopleNode = tables.find(t => t.name === 'people')!;
+
+		const indexes = await (await getGroup(peopleNode, 'Indexes')).getChildren!();
+		assert.deepStrictEqual(indexes.map(i => i.name), ['idx_people_name']);
+		assert.strictEqual(indexes[0].kind, positron.DataConnectionNodeKind.Index);
 
 		await conn.disconnect();
 	});
@@ -205,7 +226,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('read-only mode allows reads', async () => {
 		const dbPath = await createTestDb('readonly.duckdb', 'CREATE TABLE data (val VARCHAR);');
-		const conn = await connect({ databasePath: dbPath, readOnly: true, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: true });
 
 		assert.strictEqual(await conn.isReadOnly(), true);
 		const schema = await getSchemaNode(conn);
@@ -219,7 +240,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('getChildren after disconnect throws', async () => {
 		const dbPath = await createTestDb('disconnected.duckdb', 'CREATE TABLE t (x INTEGER);');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 		await conn.disconnect();
 
 		await assert.rejects(
@@ -232,7 +253,7 @@ suite('DuckDB Driver Tests', () => {
 
 	test('preview does not throw', async () => {
 		const dbPath = await createTestDb('preview.duckdb', 'CREATE TABLE t (x INTEGER);');
-		const conn = await connect({ databasePath: dbPath, readOnly: false, inMemory: false });
+		const conn = await connect({ databasePath: dbPath, readOnly: false });
 
 		const schema = await getSchemaNode(conn);
 		const tables = await (await getGroup(schema, 'Tables')).getChildren!();
