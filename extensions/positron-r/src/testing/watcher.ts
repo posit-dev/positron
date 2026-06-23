@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { TestingTools } from './util-testing';
+import { uriToFileNodeId, TestingTools } from './util-testing';
 import { getOrCreateFileItem } from './loader';
 import { parseTestsFromFile } from './parser';
 import { LOGGER } from '../extension';
@@ -54,7 +54,7 @@ async function createWatchers(testingTools: TestingTools, packageRoot: vscode.Ur
 	});
 	testFileWatcher.onDidChange((uri) => parseTestsFromFile(testingTools, getOrCreateFileItem(testingTools, uri)));
 	testFileWatcher.onDidDelete((uri) => {
-		testingTools.controller.items.delete(uri.path);
+		testingTools.controller.items.delete(uriToFileNodeId(uri));
 		// important to know if there are no test files left
 		refreshTestthatStatus();
 	});
