@@ -17,7 +17,7 @@
 			{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
 			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
 			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
-			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/noVNC/postgres up)" },
+			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvnc/noVNC/postgres up)" },
 			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
 			{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
 		],
@@ -80,7 +80,7 @@
 			},
 			{
 				"label": "Positron CI: Stop",
-				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvfb/VNC/noVNC/postgres up.",
+				"detail": "Stops the on-demand processes (server, desktop, Playwright report); leaves Xvnc/noVNC/postgres up.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/stop-services.sh",
 				"presentation": { "panel": "dedicated", "reveal": "never", "focus": false },
@@ -160,7 +160,7 @@
 				// Container-aware clone of the repo's "Launch Positron Internal" (.vscode/launch.json).
 				// The stock config can't launch Electron in this headless container: it runs as root
 				// with no --no-sandbox (Chromium aborts) and no software GL (nothing renders under
-				// Xvfb), so no renderer ever appears on :9222 and the debugger reports "Could not find
+				// Xvnc), so no renderer ever appears on :9222 and the debugger reports "Could not find
 				// any debuggable target". We add the same flags the e2e runner and launch-electron.sh
 				// use. Kept here (not the repo's .vscode/) so the shared launch.json stays untouched.
 				// Like the original, this carries --inspect-brk=5875 and is meant to run via the
@@ -185,7 +185,7 @@
 					"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
 					"--disable-features=CalculateNativeWinOcclusion",
 					"--disable-extension=vscode.vscode-api-tests",
-					// --- ci-arm: launch Electron headless, as root, under Xvfb with no GPU ---
+					// --- ci-arm: launch Electron headless, as root, under Xvnc with no GPU ---
 					"--no-sandbox",
 					"--disable-dev-shm-usage",
 					"--use-gl=swiftshader",
@@ -207,7 +207,7 @@
 				// Web/browser debugging: debug the workbench frontend running in Chromium against the
 				// Positron *server* (vs the Electron desktop app above). The "Start server" prelaunch
 				// brings up the licensed server on :8080; this then launches Playwright's Chromium
-				// (resolved by chromium.sh) headed on Xvfb — view it in noVNC — pointed at that URL,
+				// (resolved by chromium.sh) headed on Xvnc — view it in noVNC — pointed at that URL,
 				// with the same root/headless flags Electron needs. Breakpoints in workbench src bind
 				// via source maps. The repo's "Positron Server (Web, Chrome)" is the un-containerized
 				// equivalent. For most src debugging "Positron CI: Debug (Electron)" is simpler; use this for
