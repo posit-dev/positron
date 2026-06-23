@@ -38,8 +38,8 @@ opt_running=0
 
 # Build + Core Services share one name column (NAMEW) so their value columns line up. On-Demand
 # uses its own wider column (ODNAMEW) because its names are descriptive ("Desktop (Electron)").
-NAMEW=14    # longest name is "Display/VNC" (11) — keep a few spaces before the value column
-ODNAMEW=20  # longest name is "Desktop (Electron)" (18) — leave a 2-space gap before the value
+NAMEW=14    # longest name is "Display/VNC" (11); keep a few spaces before the value column
+ODNAMEW=20  # longest name is "Desktop (Electron)" (18); leave a 2-space gap before the value
 
 # Core service row: csvc <name> <tool> <port> <up:0/1> <fix>.  ✓ = up, ⚠ = down (footer shows fix).
 csvc() {
