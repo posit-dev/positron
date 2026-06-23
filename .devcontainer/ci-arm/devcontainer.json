@@ -36,7 +36,7 @@
 		"vscode": {
 			// Functional extensions for CI dev work, auto-installed into the container so they run in
 			// the remote extension host (not just the local host). task-buttons draws the status-bar
-			// buttons defined in positron-ci.code-workspace; installing it here means a fresh container
+			// buttons defined in positron-ci-lab.code-workspace; installing it here means a fresh container
 			// has the buttons without a manual "Install in Dev Container" step. It's inert without the
 			// workspace's button definitions, so it's harmless for anyone opening the bare container.
 			"extensions": [

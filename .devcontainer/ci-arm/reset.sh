@@ -80,5 +80,5 @@ echo "cleared $nm_count host node_modules dir(s) (git-tracked fixtures kept)"
 rm -rf "$ROOT/out" && echo "cleared $ROOT/out"
 
 echo
-echo "Clean slate. Open positron-ci.code-workspace and run 'Dev Containers: Reopen in Container'"
+echo "Clean slate. Open positron-ci-lab.code-workspace and run 'Dev Containers: Reopen in Container'"
 echo "for a full cold build."

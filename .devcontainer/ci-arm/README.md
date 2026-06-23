@@ -59,7 +59,7 @@ Gitignored, so not copied in; the container needs both env vars:
 ### 3. Open it in the container
 
 In VS Code via Command Palette run:
-**`Dev Containers: Open Workspace in Container… > positron-ci.code-workspace > Positron CI (ubuntu24-arm64)`**.
+**`Dev Containers: Open Workspace in Container… > positron-ci-lab.code-workspace > Positron CI (ubuntu24-arm64)`**.
 The first open runs the ~10-min cold build; later opens are fast.
 
 **After the first build finishes, run `Developer: Reload Window` once.** The editor attaches while
