@@ -534,6 +534,41 @@ def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
     assert _best_license(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # The plain Author field is preferred over the *-email field.
+        ({"Author": "Jane Doe", "Author-email": "Other Name <other@x.com>"}, "Jane Doe"),
+        # Maintainer is used when there is no Author.
+        ({"Maintainer": "Bob Smith"}, "Bob Smith"),
+        # Falls back to the email field, stripping the address.
+        ({"Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # Multiple authors in the email field keep names, drop addresses.
+        (
+            {"Author-email": "Jane Doe <jane@x.com>, Bob Smith <bob@y.com>"},
+            "Jane Doe, Bob Smith",
+        ),
+        # "UNKNOWN" / empty placeholders are skipped in favour of a real field.
+        ({"Author": "UNKNOWN", "Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # No usable author at all.
+        ({}, None),
+    ],
+    ids=[
+        "plain-author-preferred",
+        "maintainer-fallback",
+        "email-stripped",
+        "multiple-authors",
+        "unknown-skipped",
+        "none",
+    ],
+)
+def test_best_author(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_author prefers plain-name fields and strips email addresses."""
+    from positron.ui import _best_author
+
+    assert _best_author(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
+
+
 def test_is_not_plot_url_events(
     shell: PositronShell,
     ui_comm: DummyComm,

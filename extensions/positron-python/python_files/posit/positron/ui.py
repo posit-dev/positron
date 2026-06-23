@@ -203,13 +203,19 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
 
 def _best_author(metadata: Any) -> Optional[str]:
     """Normalize author/maintainer into a display string (names, no emails)."""
-    raw = (
-        metadata.get("Author-email")
-        or metadata.get("Maintainer-email")
-        or metadata.get("Author")
-        or metadata.get("Maintainer")
-    )
-    if not raw or raw == "UNKNOWN":
+    # Prefer the plain-name fields (no email to strip) over the RFC-style
+    # *-email fields, skipping empty / "UNKNOWN" placeholders in any field.
+    raw = None
+    for value in (
+        metadata.get("Author"),
+        metadata.get("Maintainer"),
+        metadata.get("Author-email"),
+        metadata.get("Maintainer-email"),
+    ):
+        if value and value.strip() and value.strip() != "UNKNOWN":
+            raw = value
+            break
+    if not raw:
         return None
     names = []
     for part in raw.split(","):

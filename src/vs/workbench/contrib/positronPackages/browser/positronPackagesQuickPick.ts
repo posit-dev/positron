@@ -60,7 +60,7 @@ interface PackageSearchResult {
  * Sort version strings in descending order (newest first).
  * Uses semver comparison when possible, falls back to string comparison.
  */
-export function sortVersionsDescending(versions: string[]): string[] {
+function sortVersionsDescending(versions: string[]): string[] {
 	return [...versions].sort((a, b) => {
 		const aSemver = semver.valid(a, true) ? a : semver.coerce(a);
 		const bSemver = semver.valid(b, true) ? b : semver.coerce(b);

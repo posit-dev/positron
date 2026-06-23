@@ -31,7 +31,7 @@ import { positronSessionViewIcon } from '../../positronSession/browser/positronS
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
 import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
-import { installPackage, sortVersionsDescending, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
+import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
 import { PositronPackagesView } from './positronPackagesView.js';
 
@@ -353,23 +353,15 @@ class InstallPackageAction extends Action2 {
 				}, () => cts.cancel());
 			};
 
-			// When a package name is provided (e.g. from the detail editor's
-			// Install button), install the newest available version directly,
-			// skipping the search quick-pick.
-			// Only a real package-name string triggers the direct install. Menu
-			// invocations (e.g. the view-title overflow "Install Package") pass a
-			// context object as arg0, which must fall through to the search quick-pick.
+			// When a package name and version are both provided (e.g. the detail
+			// editor's Install button), install that version directly. Only a real
+			// string is treated as the package name -- menu invocations (e.g. the
+			// view-title overflow "Install Package") pass a context object as arg0,
+			// which must fall through to the search quick-pick.
 			const argPackage = typeof args.at(0) === 'string' ? args.at(0) as string : undefined;
-			if (argPackage) {
-				const rawVersions = await service.searchPackageVersions(argPackage, cts.token);
-				// sortVersionsDescending mirrors what the version quick-pick does:
-				// raw results have no guaranteed order, so sort newest-first here.
-				const versions = sortVersionsDescending(rawVersions);
-				if (versions.length === 0) {
-					notifications.error(nls.localize('positron.packages.noVersions', "No installable versions found for '{0}'.", argPackage));
-					return;
-				}
-				await performInstall(argPackage, versions[0]);
+			const argVersion = typeof args.at(1) === 'string' ? args.at(1) as string : undefined;
+			if (argPackage && argVersion) {
+				await performInstall(argPackage, argVersion);
 				return;
 			}
 
