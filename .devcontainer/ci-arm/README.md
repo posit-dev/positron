@@ -1,13 +1,12 @@
 # Positron CI dev container (ubuntu24-arm64)
 
 Develop, debug, and run Positron **inside the actual CI image**
-(`ghcr.io/posit-dev/positron-ubuntu24-arm64`) so CI failures reproduce locally. You edit code
-natively in VS Code; the build, the tests, and Positron itself all run in the container.
+(`ghcr.io/posit-dev/positron-ubuntu24-arm64`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
 
 > Validated on **arm64** (Apple Silicon) only. The arch is parameterized
 > (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
 > the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
-> progress). Host: macOS (the setup assumes Docker Desktop + VirtioFS); Linux and Windows/WSL2 aren't validated yet.
+> progress). Host: macOS with Docker Desktop + VirtioFS. Linux and Windows/WSL2 aren’t validated yet.
 
 <p align="center">
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Doctor View">
@@ -15,7 +14,7 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 
 ## Prerequisites
 
-Once, on your machine:
+One-time setup:
 
 1. Install and configure **Docker Desktop**, in `Settings`:
     * **Resources -> Advanced**: **8+ CPU**, **12 GB RAM**, a few GB free disk.
@@ -34,9 +33,7 @@ Once, on your machine:
 
 ### 1. Create the worktree
 
-Once, to create your CI lab: a **dedicated git worktree** so its Linux build artifacts
-never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)).
-From your Positron checkout (a **full** clone - the build needs git history, so not a shallow one):
+Create a dedicated git worktree for your CI lab so Linux build artifacts never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Start from a full Positron clone—not a shallow clone—because the build requires git history:
 
 ```bash
 git worktree add ../positron-ci-lab
@@ -44,7 +41,7 @@ git worktree add ../positron-ci-lab
 
 ### 2. Add secrets - in the new worktree
 
-Gitignored, so not copied in; the container needs both env vars:
+These files are gitignored, so they aren’t copied into the worktree. The container needs both:
 
 * **.env** - first copy the example env file:
 
@@ -68,7 +65,7 @@ Then open the **Doctor** (status-bar button) to confirm everything's up.
 
 That's it - you have a working CI lab.
 
-## Daily use
+## Common Workflows
 
 | To... | Do this |
 |---|---|
@@ -86,12 +83,10 @@ That's it - you have a working CI lab.
 ### Editing and the Watch task
 
 The **Watch** task incrementally recompiles `src/` to `out/` on save. Start it when you're editing
-Positron's source; you don't need it to run or test the existing build. Dependency changes (a new
-`package-lock.json`) call for **Reinstall deps** (or **Reinstall e2e deps**) or **Rebuild** instead,
-which the **Doctor** flags.
+Positron's source; you don't need it to run or test the existing build. Dependency changes (for example, a new package-lock.json) require Reinstall deps (or Reinstall e2e deps) or Rebuild instead; the **Doctor** flags this.
 
 ### Run Positron itself
-Click the following task buttons to run Positron:
+Click these task buttons to run Positron:
 * **Server (Web)** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
 * **Desktop (Electron)** - the desktop app on the headless display; watch via VNC.
 
@@ -104,8 +99,7 @@ down (and the report), leaving core services up.
 Click the run icon in the gutter on any spec (if it's missing, check the selected Playwright project), or
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
-Headed runs (`e2e-electron`/`e2e-chromium`) render on the headless display - open the noVNC link in
-the Doctor to watch live; serve the report anytime with the **Report** task.
+Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to watch live. Use the **Report** task to serve the report at any time.
 
 ### Test data (qa-example-content)
 
@@ -129,8 +123,7 @@ Debug **e2e tests** straight from the test files via the gutter run/debug icons,
 
 ### Architecture
 
-You **edit on your host**; **everything else runs in the container.** The desktop is headless - you
-watch it (and any headed test) through noVNC in a browser. A postgres sidecar backs the e2e tests.
+You **edit on your host**; **everything else runs in the container.** The desktop is headless - you view it (and any headed test) through noVNC in a browser. A postgres sidecar backs the e2e tests.
 
 ```mermaid
 flowchart LR
@@ -179,9 +172,7 @@ vs Docker volume split is covered below.
 ### How storage works
 
 Your **checkout** is a bind mount, so edits live on your host disk and file navigation works
-normally. The heavy **container-built dirs** live on Docker volumes instead: native volume I/O beats
-macOS bind mounts, and it keeps those big Linux-built dirs off your host disk. There are five,
-prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume ls` or `reset.sh`):
+normally. The heavy **container-built dirs** live on Docker volumes instead: native volume I/O performs much better than macOS bind mounts, and it keeps those big Linux-built dirs off your host disk. There are five, prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume ls` or `reset.sh`):
 
 | Volume | Holds |
 |---|---|
@@ -203,9 +194,7 @@ the shared git dir - that's what lets git resolve normally inside the container.
 ### Don't mix container and native builds
 
 **One directory, one toolchain.** A few build artifacts (including three OS-specific binaries - `pet`,
-`ark`, `kcserver`) live in the source tree, shared between host and container. Building the same
-checkout both in-container (Linux) and natively (macOS) makes them overwrite each other and breaks
-interpreter/kernel startup. The dedicated worktree from [Setup](#setup) prevents this; if you're
+`ark`, `kcserver`) live in the source tree, shared between host and container. Building the same checkout both in the container (Linux) and natively (macOS) causes them to overwrite each other, breaking interpreter and kernel startup. The dedicated worktree from [Setup](#setup) prevents this; if you're
 already mixed, see [Gotchas](#gotchas) for the fix.
 
 ### Tasks
@@ -228,12 +217,12 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 
 ### Start over (reset)
 
-To force a fresh cold build - e.g. to verify the whole flow end to end - close the container
-(**Dev Containers: Reopen Folder Locally**), then run on the host:
+To force a fresh cold build and reset the environment:
+1. Close the container (**Dev Containers: Reopen Folder Locally**)
+2. Then run on the host:
 
 ```bash
 npm run ci-lab-reset                   # shows what it'll remove and prompts
-npm run ci-lab-reset -- -y             # skip the prompt
 # (or call the script directly: ./.devcontainer/ci-arm/reset.sh)
 ```
 
