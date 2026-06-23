@@ -14,11 +14,12 @@
 		// Status-bar buttons (spencerwmiles.vscode-task-buttons) for the common actions, so you
 		// don't have to go through the Command Palette. Each runs the like-named task below.
 		"VsCodeTaskButtons.tasks": [
+			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
 			{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
 			{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
 			{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+			{ "label": "$(output) Logs", "task": "Positron CI: Logs", "tooltip": "Tail the server + desktop logs (/tmp/positron-{server,electron}.log)" },
 			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvnc/noVNC/postgres up)" },
-			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
 			{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
 		],
 		// Make this window unmistakably the CI lab (vs a normal Positron checkout): a "CI LAB" prefix
@@ -76,6 +77,14 @@
 				"type": "shell",
 				"command": "npx playwright show-report --host 0.0.0.0",
 				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
+				"problemMatcher": []
+			},
+			{
+				"label": "Positron CI: Logs",
+				"detail": "Tail the detached server + desktop logs. touch first so it opens cleanly before either is started; tail -F survives the logs being truncated on restart.",
+				"type": "shell",
+				"command": "touch /tmp/positron-server.log /tmp/positron-electron.log && tail -F /tmp/positron-server.log /tmp/positron-electron.log",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false, "clear": true },
 				"problemMatcher": []
 			},
 			{
