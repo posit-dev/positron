@@ -100,7 +100,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sha || github.sha }}
           path: ${{ github.workspace }}/positron
@@ -312,7 +312,7 @@ jobs:
 
       - name: Checkout posit-sboms repository
         if: ${{ !inputs.dry-run }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: rstudio/posit-sboms
           path: ${{ github.workspace }}/posit-sboms

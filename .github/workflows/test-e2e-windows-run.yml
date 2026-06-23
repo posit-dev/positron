@@ -108,7 +108,7 @@ jobs:
     outputs:
       extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -514,7 +514,7 @@ jobs:
     needs: [windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout specific commit
         if: ${{ inputs.commit != '' }}

@@ -74,7 +74,7 @@ jobs:
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       LANG: "en_US.UTF-8"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -328,7 +328,7 @@ jobs:
     needs: [e2e-macos-run]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
