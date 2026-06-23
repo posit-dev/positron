@@ -158,7 +158,7 @@ flowchart LR
         nov["noVNC<br/>:6080"]
         xvnc["Xvnc<br/>display :10 · VNC :5900"]
         rep["Playwright<br/>report :9323"]
-        vols[("Docker volumes<br/>node_modules ×3 · .build")]
+        vols[("Docker volumes<br/>node_modules · .build")]
     end
     pg[("postgres :5432<br/>sidecar")]
 
