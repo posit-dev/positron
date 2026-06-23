@@ -20,6 +20,9 @@ import {
     getCIPythonPath,
     InterpreterPathService,
 } from '../../client/common/interpreterPathService';
+// --- Start Positron ---
+const globalInterpreterPathKey = 'GLOBAL_INTERPRETER_PATH';
+// --- End Positron ---
 import { FileSystemPaths } from '../../client/common/platform/fs-paths';
 import { InterpreterConfigurationScope, IPersistentState, IPersistentStateFactory } from '../../client/common/types';
 import { createDeferred, sleep } from '../../client/common/utils/async';
@@ -60,50 +63,54 @@ suite('Interpreter Path Service', async () => {
         sinon.restore();
     });
 
+    // --- Start Positron ---
     test('Global settings are not updated if stored value is same as new value', async () => {
-        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
-        workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
-        workspaceConfig
-            .setup((w) => w.inspect<string>('defaultInterpreterPath'))
-            .returns(
-                () =>
-                    ({
-                        globalValue: interpreterPath,
-                    } as any),
-            );
-        workspaceConfig
-            .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
+        const persistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => persistentState.object);
+        persistentState.setup((p) => p.value).returns(() => interpreterPath);
+        persistentState
+            .setup((p) => p.updateValue(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve())
             .verifiable(TypeMoq.Times.never());
 
-        await interpreterPathService.update(resource, ConfigurationTarget.Global, interpreterPath);
+        await interpreterPathService.update(undefined, ConfigurationTarget.Global, interpreterPath);
 
-        workspaceConfig.verifyAll();
+        persistentState.verifyAll();
     });
 
-    test('Global settings are correctly updated otherwise', async () => {
-        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
-        workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
-        workspaceConfig
-            .setup((w) => w.inspect<string>('defaultInterpreterPath'))
-            .returns(
-                () =>
-                    ({
-                        globalValue: 'storedValue',
-                    } as any),
-            );
-        workspaceConfig
-            .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
+    test('Global settings are correctly updated and the emitter fires', async () => {
+        const persistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => persistentState.object);
+        persistentState.setup((p) => p.value).returns(() => 'storedValue');
+        persistentState
+            .setup((p) => p.updateValue(interpreterPath))
             .returns(() => Promise.resolve())
-            /// --- Start Positron ---
-            // Do not reset defaultInterpreterPath setting unless the user does
-            .verifiable(TypeMoq.Times.never());
-        // --- End Positron ---
+            .verifiable(TypeMoq.Times.once());
 
-        await interpreterPathService.update(resource, ConfigurationTarget.Global, interpreterPath);
+        const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
+        interpreterPathService._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        _didChangeInterpreterEmitter
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: undefined,
+                    configTarget: ConfigurationTarget.Global,
+                    startSession: true,
+                    source: 'unspecified',
+                }),
+            )
+            .returns(() => undefined)
+            .verifiable(TypeMoq.Times.once());
 
-        workspaceConfig.verifyAll();
+        await interpreterPathService.update(undefined, ConfigurationTarget.Global, interpreterPath);
+
+        persistentState.verifyAll();
+        _didChangeInterpreterEmitter.verifyAll();
     });
+    // --- End Positron ---
 
     test('Workspace settings are not updated if stored value is same as new value', async () => {
         const expectedSettingKey = `WORKSPACE_FOLDER_INTERPRETER_PATH_${resource.fsPath}`;
@@ -299,16 +306,20 @@ suite('Interpreter Path Service', async () => {
             .setup((w) => w.inspect<string>('defaultInterpreterPath'))
             .returns(
                 () =>
-                    ({
-                        globalValue: 'default/path/to/interpreter',
-                    } as any),
+                ({
+                    globalValue: 'default/path/to/interpreter',
+                } as any),
             );
-        const persistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        // --- Start Positron ---
         workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        // inspect() now always reads the internal global state; no internal value is set here so
+        // it falls back to defaultInterpreterPath.globalValue.
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => undefined);
         persistentStateFactory
-            .setup((p) => p.createGlobalPersistentState<string | undefined>(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-            .returns(() => persistentState.object)
-            .verifiable(TypeMoq.Times.never());
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        // --- End Positron ---
 
         const settings = interpreterPathService.inspect(resourceOutsideOfWorkspace);
         assert.deepEqual(settings, {
@@ -316,9 +327,51 @@ suite('Interpreter Path Service', async () => {
             workspaceFolderValue: undefined,
             workspaceValue: undefined,
         });
-
-        persistentStateFactory.verifyAll();
     });
+
+    // --- Start Positron ---
+    test('inspect() returns internal global value when set, ignoring defaultInterpreterPath', async () => {
+        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        workspaceService
+            .setup((w) => w.getConfiguration('python', TypeMoq.It.isAny()))
+            .returns(() => workspaceConfig.object);
+        workspaceConfig
+            .setup((w) => w.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({ globalValue: 'default/path/to/interpreter' } as any));
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => '/active/venv/python');
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+
+        const settings = interpreterPathService.inspect(resourceOutsideOfWorkspace);
+        assert.deepEqual(settings, {
+            globalValue: '/active/venv/python',
+            workspaceFolderValue: undefined,
+            workspaceValue: undefined,
+        });
+    });
+
+    test('get(undefined) returns internal global value when set', async () => {
+        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        workspaceService
+            .setup((w) => w.getConfiguration('python', TypeMoq.It.isAny()))
+            .returns(() => workspaceConfig.object);
+        workspaceConfig
+            .setup((w) => w.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({} as any));
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => '/active/venv/python');
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+
+        const value = interpreterPathService.get(undefined);
+        assert.equal(value, '/active/venv/python');
+    });
+    // --- End Positron ---
 
     test('Inspecting settings returns as expected if a folder is directly opened', async () => {
         const expectedSettingKey = `WORKSPACE_FOLDER_INTERPRETER_PATH_${resource.fsPath}`;
@@ -331,9 +384,9 @@ suite('Interpreter Path Service', async () => {
             .setup((w) => w.inspect<string>('defaultInterpreterPath'))
             .returns(
                 () =>
-                    ({
-                        globalValue: 'default/path/to/interpreter',
-                    } as any),
+                ({
+                    globalValue: 'default/path/to/interpreter',
+                } as any),
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
@@ -344,6 +397,13 @@ suite('Interpreter Path Service', async () => {
             .setup((p) => p.createGlobalPersistentState<string | undefined>(expectedSettingKey, undefined))
             .returns(() => workspaceFolderPersistentState.object);
         workspaceFolderPersistentState.setup((p) => p.value).returns(() => 'workspaceFolderValue');
+        // --- Start Positron ---
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => undefined);
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        // --- End Positron ---
 
         const settings = interpreterPathService.inspect(resource);
 
@@ -367,9 +427,9 @@ suite('Interpreter Path Service', async () => {
             .setup((w) => w.inspect<string>('defaultInterpreterPath'))
             .returns(
                 () =>
-                    ({
-                        globalValue: 'default/path/to/interpreter',
-                    } as any),
+                ({
+                    globalValue: 'default/path/to/interpreter',
+                } as any),
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         const workspacePersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
@@ -384,6 +444,13 @@ suite('Interpreter Path Service', async () => {
             .returns(() => workspacePersistentState.object);
         workspaceFolderPersistentState.setup((p) => p.value).returns(() => 'workspaceFolderValue');
         workspacePersistentState.setup((p) => p.value).returns(() => 'workspaceValue');
+        // --- Start Positron ---
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => undefined);
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        // --- End Positron ---
 
         const settings = interpreterPathService.inspect(resource);
 
@@ -407,11 +474,11 @@ suite('Interpreter Path Service', async () => {
             .setup((w) => w.inspect<string>('defaultInterpreterPath'))
             .returns(
                 () =>
-                    ({
-                        globalValue: 'default/path/to/interpreter',
-                        workspaceValue: 'defaultWorkspaceValue',
-                        workspaceFolderValue: 'defaultWorkspaceFolderValue',
-                    } as any),
+                ({
+                    globalValue: 'default/path/to/interpreter',
+                    workspaceValue: 'defaultWorkspaceValue',
+                    workspaceFolderValue: 'defaultWorkspaceFolderValue',
+                } as any),
             );
         const workspaceFolderPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
         const workspacePersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
@@ -426,6 +493,13 @@ suite('Interpreter Path Service', async () => {
             .returns(() => workspacePersistentState.object);
         workspaceFolderPersistentState.setup((p) => p.value).returns(() => undefined);
         workspacePersistentState.setup((p) => p.value).returns(() => undefined);
+        // --- Start Positron ---
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => undefined);
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        // --- End Positron ---
 
         const settings = interpreterPathService.inspect(resource);
 
@@ -486,6 +560,16 @@ suite('Interpreter Path Service', async () => {
             .verifiable(TypeMoq.Times.once());
         interpreterPathService._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
         // --- Start Positron ---
+        // The global value is unchanged (undefined before and after), so nothing is cleared.
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => undefined);
+        globalPersistentState
+            .setup((p) => p.updateValue(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve())
+            .verifiable(TypeMoq.Times.never());
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
         // Config changes are always session intent: the extension never writes
         // `python.defaultInterpreterPath` itself in Positron, so every fire is a real edit.
         _didChangeInterpreterEmitter
@@ -499,11 +583,152 @@ suite('Interpreter Path Service', async () => {
             )
             .returns(() => undefined)
             .verifiable(TypeMoq.Times.once());
-        // --- End Positron ---
         await interpreterPathService.onDidChangeConfiguration(event.object);
         _didChangeInterpreterEmitter.verifyAll();
+        globalPersistentState.verifyAll();
         event.verifyAll();
     });
+
+    test('If the global defaultInterpreterPath value changes, the internal global state is cleared even with a workspace open', async () => {
+        // A mutable global value lets us model the user editing the User-scope setting after the
+        // service captured its baseline at construction.
+        let globalValue: string | undefined = '/old/global';
+        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        workspaceConfig
+            .setup((c) => c.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({ globalValue } as any));
+        workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
+        // A workspace is open: the clear must not be gated on workspace state, otherwise a global
+        // edit from a workspace window stays ineffective for future no-workspace windows.
+        workspaceService
+            .setup((w) => w.workspaceFolders)
+            .returns(() => [{ uri: resource, name: 'Workspacefolder', index: 0 }]);
+        const service = new InterpreterPathService(
+            persistentStateFactory.object,
+            workspaceService.object,
+            [],
+            appEnvironment.object,
+        );
+        globalValue = '/new/global';
+
+        const event = TypeMoq.Mock.ofType<ConfigurationChangeEvent>();
+        event.setup((e) => e.affectsConfiguration(`python.${defaultInterpreterPathSetting}`)).returns(() => true);
+        const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
+        service._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => '/old/python');
+        globalPersistentState
+            .setup((p) => p.updateValue(undefined))
+            .returns(() => Promise.resolve())
+            .verifiable(TypeMoq.Times.once());
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        _didChangeInterpreterEmitter
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: undefined,
+                    configTarget: ConfigurationTarget.Global,
+                    startSession: true,
+                    source: 'config-change',
+                }),
+            )
+            .returns(() => undefined)
+            .verifiable(TypeMoq.Times.once());
+
+        await service.onDidChangeConfiguration(event.object);
+
+        globalPersistentState.verifyAll();
+        _didChangeInterpreterEmitter.verifyAll();
+    });
+
+    test('If only a workspace-scoped defaultInterpreterPath changes, the internal global state is preserved', async () => {
+        // The global value is stable across the edit, so the change was workspace/workspace-folder
+        // scoped and must not wipe the shared global state.
+        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        workspaceConfig
+            .setup((c) => c.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({ globalValue: '/stable/global' } as any));
+        workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
+        workspaceService
+            .setup((w) => w.workspaceFolders)
+            .returns(() => [{ uri: resource, name: 'Workspacefolder', index: 0 }]);
+        const service = new InterpreterPathService(
+            persistentStateFactory.object,
+            workspaceService.object,
+            [],
+            appEnvironment.object,
+        );
+
+        const event = TypeMoq.Mock.ofType<ConfigurationChangeEvent>();
+        event.setup((e) => e.affectsConfiguration(`python.${defaultInterpreterPathSetting}`)).returns(() => true);
+        const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
+        service._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => '/old/python');
+        globalPersistentState
+            .setup((p) => p.updateValue(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve())
+            .verifiable(TypeMoq.Times.never());
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+        _didChangeInterpreterEmitter
+            .setup((emitter) =>
+                emitter.fire({
+                    uri: undefined,
+                    configTarget: ConfigurationTarget.Global,
+                    startSession: true,
+                    source: 'config-change',
+                }),
+            )
+            .returns(() => undefined)
+            .verifiable(TypeMoq.Times.once());
+
+        await service.onDidChangeConfiguration(event.object);
+
+        globalPersistentState.verifyAll();
+        _didChangeInterpreterEmitter.verifyAll();
+    });
+
+    test('If clearing the internal global state fails, a later config event retries the clear', async () => {
+        let globalValue: string | undefined = '/old/global';
+        const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        workspaceConfig
+            .setup((c) => c.inspect<string>('defaultInterpreterPath'))
+            .returns(() => ({ globalValue } as any));
+        workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
+        workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+        const service = new InterpreterPathService(
+            persistentStateFactory.object,
+            workspaceService.object,
+            [],
+            appEnvironment.object,
+        );
+        globalValue = '/new/global';
+
+        const event = TypeMoq.Mock.ofType<ConfigurationChangeEvent>();
+        event.setup((e) => e.affectsConfiguration(`python.${defaultInterpreterPathSetting}`)).returns(() => true);
+        const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();
+        service._didChangeInterpreterEmitter = _didChangeInterpreterEmitter.object;
+        // updateValue() swallows storage failures: the stored value stays set, so the baseline must
+        // not advance and the next config event must retry the clear.
+        const globalPersistentState = TypeMoq.Mock.ofType<IPersistentState<string | undefined>>();
+        globalPersistentState.setup((p) => p.value).returns(() => '/old/python');
+        globalPersistentState
+            .setup((p) => p.updateValue(undefined))
+            .returns(() => Promise.resolve())
+            .verifiable(TypeMoq.Times.exactly(2));
+        persistentStateFactory
+            .setup((p) => p.createGlobalPersistentState<string | undefined>(globalInterpreterPathKey, undefined))
+            .returns(() => globalPersistentState.object);
+
+        await service.onDidChangeConfiguration(event.object);
+        await service.onDidChangeConfiguration(event.object);
+
+        globalPersistentState.verifyAll();
+    });
+    // --- End Positron ---
 
     test('If some other setting changed, no event is fired', async () => {
         const _didChangeInterpreterEmitter = TypeMoq.Mock.ofType<EventEmitter<InterpreterConfigurationScope>>();

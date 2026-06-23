@@ -81,6 +81,8 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 */
 	getContent(): string;
 
+	getLineCount(): number;
+
 	/**
 	 * The cell's current code editor widget.
 	 */

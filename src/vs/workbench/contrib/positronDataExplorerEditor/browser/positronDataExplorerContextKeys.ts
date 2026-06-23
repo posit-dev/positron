@@ -35,6 +35,15 @@ export const POSITRON_DATA_EXPLORER_IS_PLAINTEXT = new RawContextKey<boolean>(
 	'positronDataExplorerIsPlaintext',
 	false
 );
+/**
+ * Context key for whether the file backing the data explorer is an Excel
+ * workbook (.xlsx). Used to swap the "Open as Plain Text File" action for an
+ * "Open as Spreadsheet" action, which is only meaningful in the desktop app.
+ */
+export const POSITRON_DATA_EXPLORER_IS_XLSX = new RawContextKey<boolean>(
+	'positronDataExplorerIsXlsx',
+	false
+);
 export const POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED = new RawContextKey<boolean>(
 	'positronDataExplorerIsConvertToCodeEnabled',
 	false

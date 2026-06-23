@@ -362,6 +362,11 @@ class BackendState(BaseModel):
         description="Optional experimental parameter to provide an explanation when connected=false. This parameter may change.",
     )
 
+    available_sheets: Optional[List[StrictStr]] = Field(
+        default=None,
+        description="For Excel workbooks, the names of the worksheets available to read, in workbook order. Absent for non-Excel data sources.",
+    )
+
 
 class ColumnSchema(BaseModel):
     """
@@ -1235,13 +1240,18 @@ class ColumnSelection(BaseModel):
 
 class DatasetImportOptions(BaseModel):
     """
-    Import options for file-based data sources. Currently supports options
-    for delimited text files (CSV, TSV).
+    Import options for file-based data sources. Supports options for
+    delimited text files (CSV, TSV) and Excel workbooks (XLSX).
     """
 
     has_header_row: Optional[StrictBool] = Field(
         default=None,
-        description="Whether the first row contains column headers (for delimited text files)",
+        description="Whether the first row contains column headers (for delimited text files and Excel workbooks)",
+    )
+
+    sheet_name: Optional[StrictStr] = Field(
+        default=None,
+        description="The name of the worksheet to read (for Excel workbooks). Defaults to the first sheet.",
     )
 
 

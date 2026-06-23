@@ -6,7 +6,7 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
@@ -230,6 +230,17 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 
 		// Wrap the handle so the service can call getChildren/disconnect/etc.
 		return new MainThreadDataConnectionHandleAdapter(connectionHandle, this._proxy);
+	}
+
+	/**
+	 * Asks the ext host to run driver.generateConnectionCode() via RPC, returning the available
+	 * code variants. An empty array means code could not be generated from the given parameters.
+	 * @param languageId One of the driver's supported language ids.
+	 * @param params User-supplied parameter values from the connection dialog.
+	 */
+	async generateConnectionCode(languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
+		const variants = await this._proxy.$generateConnectionCode(this.id, languageId, params);
+		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
 	}
 }
 
