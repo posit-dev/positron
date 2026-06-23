@@ -20,7 +20,16 @@
 			{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop the on-demand server/desktop/report (leaves Xvfb/VNC/noVNC/postgres up)" },
 			{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
 			{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
-		]
+		],
+		// Make this window unmistakably the CI lab (vs a normal Positron checkout): a "CI LAB" prefix
+		// in the title text, plus a deep-blue status bar — that's where the CI task buttons live, so
+		// it's the natural spot to tint.
+		"window.title": "🧪 CI LAB${separator}${activeEditorShort}${separator}${rootName}",
+		"workbench.colorCustomizations": {
+			"statusBar.background": "#1e3a8a",
+			"statusBar.foreground": "#ffffff",
+			"statusBar.noFolderBackground": "#1e3a8a"
+		}
 	},
 	// The task-buttons extension that draws these status-bar buttons is auto-installed into the
 	// container via .devcontainer/ci-arm/devcontainer.json (customizations.vscode.extensions),
