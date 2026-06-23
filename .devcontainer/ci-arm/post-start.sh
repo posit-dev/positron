@@ -40,10 +40,15 @@ fi
 # closes — which feels broken. Just confirm readiness and point at the real (interactive) Doctor.
 cat <<'MSG'
 
-  ✅ Positron CI lab is ready.
+  ============================================================
+    🎉  Success! Your CI Lab is set up and ready for use!
+  ============================================================
 
-     • Desktop (browser):  http://localhost:6080/vnc.html?autoconnect=true&password=positron
-     • Live status:        click the "Doctor" button in the status bar
-                           (or Command Palette → "Tasks: Run Task" → "Positron CI: Doctor")
+  ▸ Start the Doctor to see services, ports, and build status:
+      the "Doctor" button in the status bar
+      (or Command Palette → "Tasks: Run Task" → "Positron CI: Doctor")
+
+  ▸ Watch the desktop in your browser:
+      http://localhost:6080/vnc.html?autoconnect=true&password=positron
 
 MSG
