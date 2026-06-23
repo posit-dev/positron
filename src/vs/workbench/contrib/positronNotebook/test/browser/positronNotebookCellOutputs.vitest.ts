@@ -239,6 +239,12 @@ describe('Positron Notebook Cell Outputs', () => {
 			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
 		}
 
+		function inertFullDocumentOutputItem() {
+			// A full HTML document with styles but no active content (no scripts or
+			// iframes), e.g. Great Tables output. Must render inline, not in a webview.
+			return { mime: 'text/html', data: VSBuffer.fromString('<!DOCTYPE html><html><head><style>table { color: red; }</style></head><body><table><tr><td>1</td></tr></table></body></html>') };
+		}
+
 		it('complex HTML output produces a preloadMessageResult with display type', () => {
 			const cellWithComplexHtml: TestCellInput = {
 				source: 'display_map()',
@@ -278,6 +284,27 @@ describe('Positron Notebook Cell Outputs', () => {
 			const outputs = cell.outputs.get();
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'simple HTML should not have preloadMessageResult').toBe(undefined);
+			expect(outputs[0].parsed.type).toBe('html');
+		});
+
+		it('inert full-document HTML renders inline without a webview', () => {
+			const cellWithFullDocument: TestCellInput = {
+				source: 'GT(df)',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [inertFullDocumentOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithFullDocument], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].preloadMessageResult, 'an inert full document must not route to a webview').toBe(undefined);
 			expect(outputs[0].parsed.type).toBe('html');
 		});
 	});
