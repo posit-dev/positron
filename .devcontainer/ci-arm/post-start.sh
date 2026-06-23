@@ -52,8 +52,9 @@ if [ -f /tmp/.ci-arm-fresh-build ]; then
   cat <<'MSG'
 
   ▸ First-time setup — run "Developer: Reload Window" once:
-      the editor started before deps finished installing, so reloading clears the unresolved-import
-      errors on the e2e tests and restores the run/debug icons in the test gutter.
+      the editor started before deps finished installing, so reloading clears the editor's
+      unresolved-import errors (most visible on the e2e tests) and restores the run/debug icons
+      in the test gutter.
 MSG
 fi
 
