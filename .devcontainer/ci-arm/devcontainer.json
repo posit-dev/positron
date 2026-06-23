@@ -45,7 +45,8 @@
 				"ms-vscode.vscode-selfhost-test-provider",
 				"EditorConfig.EditorConfig",
 				"GitHub.vscode-pull-request-github",
-				"spencerwmiles.vscode-task-buttons"
+				"spencerwmiles.vscode-task-buttons",
+				"bierner.markdown-mermaid"
 			]
 		}
 	}

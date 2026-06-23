@@ -28,7 +28,7 @@ Once, on your machine:
 
 3. Install the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
    extension in **VS Code** — it's what opens the container. The lab's own extensions (Task Buttons,
-   Playwright, …) install automatically inside the container, so you don't add them by hand.
+   Playwright, etc) install automatically inside the container.
 
 ## Setup
 
@@ -64,17 +64,13 @@ The first open runs the ~10-min cold build; later opens are fast.
 
 **After the first build finishes, run `Developer: Reload Window` once.** The editor attaches while
 the cold build is still installing `node_modules`, so the TypeScript server and Playwright extension
-start against an empty workspace — you'll see red squiggles on the e2e tests and no run/debug icons in
-the gutter. The reload restarts them against the now-installed deps. One-time only: later opens already
-have `node_modules`, so they come up clean.
+start against an empty workspace. The reload restarts them against the now-installed deps. One-time only: later opens already have `node_modules`, so they come up clean. When you see success message, start up the Doctor (task button in status bar) to confirm that everythign is running smoothly.
 
-That's it — you have a working CI lab.
+That's it — you have a working CI lab. :tada:
 
 ## Daily use
 
-**Get in and out.** Reopen the lab: **Open Recent** the worktree, then **Reopen in Container**. To
-reproduce a specific failure, `git checkout` that commit first. To return to local VS Code, run
-**Dev Containers: Reopen Folder Locally**.
+**Get in and out.** To reopen the lab: **Open Recent** the worktree, then **Reopen in Container**. To return to local VS Code, run **Dev Containers: Reopen Folder Locally**.
 
 **Find the lab again.** It's a separate directory, not a branch — you don't switch to it, you `cd`
 into it. Forgot where it lives? `git worktree list` prints every worktree and its path:
@@ -91,15 +87,21 @@ cd ../positron-ci-lab      # from your main checkout
 > Keep the **Doctor** open — a live dashboard of build/service status and URLs. When something's off,
 > it names the task to run.
 
-### Edit and re-run
+### Editing and the Watch task
 
-Editing recompiles in seconds, never the ~10-min cold build:
+**You only need Watch if you're editing Positron's `src/`.** The cold build (and **Rebuild**) already
+compiled a complete, runnable app — so to *just run or test* it, skip straight to
+[Run Positron itself](#run-positron-itself) or [Run tests](#run-tests). Watch's only job is to
+recompile *your* edits into `out/` as you save.
+
+When you *are* editing, this recompiles in seconds (never the ~10-min cold build):
 
 1. Start the **Watch** task once — it recompiles changed files on save.
 2. Edit code in VS Code (files live on your host disk).
-3. Re-run or re-debug. Only `npm ci`-level changes need a heavier rebuild — and you don't have to
-   guess: the **Doctor** checks deps + build state and names the task (**Reinstall deps**, start
-   **Watch**, or **Rebuild**).
+3. Reload the Positron window after **Finished compilation**, then re-run or re-debug.
+
+Only `npm ci`-level changes (a new `package-lock.json`) need a heavier step — and you don't have to
+guess: the **Doctor** checks deps + build state and names the task (**Reinstall deps** or **Rebuild**).
 
 ### Run tests
 
@@ -136,6 +138,41 @@ the framework clones it on first run. To grab it up front for manual repro, run 
 content** — it's symlinked at `~/qa-example-content`.
 
 ## Reference
+
+### Architecture
+
+You **edit on your host**; **everything else runs in the container.** The desktop is headless — you
+watch it (and any headed test) through noVNC in a browser. A postgres sidecar backs the e2e tests.
+
+```mermaid
+flowchart TB
+    subgraph host["Host (macOS) — you edit here"]
+        code["VS Code · Dev Containers"]
+        web["Browser"]
+    end
+
+    subgraph ctr["CI container · positron-ubuntu24-arm64 — everything runs here"]
+        pos["Positron desktop / server :8080 · e2e tests"]
+        xvnc["Xvnc · headless display :10 + VNC :5900"]
+        flux["fluxbox window manager"]
+        nov["noVNC / websockify :6080"]
+        rep["Playwright report :9323"]
+    end
+
+    pg[("postgres :5432 · sidecar")]
+
+    code -. "edit src/ via bind mount" .-> pos
+    pos -- "desktop & headed tests render on" --> xvnc
+    flux -- "manages windows on" --> xvnc
+    nov -- "bridges :6080 → :5900" --> xvnc
+    web -- "watch desktop :6080" --> nov
+    web -- "use server :8080" --> pos
+    web -- "view report :9323" --> rep
+    pos -- "tests query :5432" --> pg
+```
+
+Ports `:8080` (server), `:6080` (noVNC desktop), `:9323` (report), and `:5900` (native VNC) are
+forwarded to your host. What lives on a bind mount vs a Docker volume is covered next.
 
 ### How storage works
 
