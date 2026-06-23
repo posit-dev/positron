@@ -150,21 +150,35 @@ flowchart LR
         code["VS Code"]
         web["Browser"]
     end
-    subgraph ctr["CI container · positron-ubuntu24-arm64"]
-        pos["Positron<br/>desktop · server :8080 · e2e tests"]
-        subgraph disp["Headless desktop"]
-            nov["noVNC :6080"] --> xvnc["Xvnc :10<br/>display + VNC :5900"]
+    subgraph ctr["Container · positron-ubuntu24-arm64"]
+        desk["Desktop app<br/>(Electron)"]
+        srv["Web server<br/>:8080"]
+        e2e["e2e tests"]
+        nov["noVNC<br/>:6080"]
+        xvnc["Xvnc<br/>display :10 · VNC :5900"]
+        rep["Playwright<br/>report :9323"]
+        subgraph fs["Filesystem"]
+            src[/"src, out/<br/>bind mount — you edit, on host disk"/]
+            vols[("node_modules ×3 · .build<br/>Docker volumes — container-built")]
         end
-        rep["Playwright report :9323"]
     end
-    pg[("postgres :5432")]
+    pg[("postgres :5432<br/>sidecar")]
 
-    code -->|"edit src/ (bind mount)"| pos
-    pos -->|"desktop and tests render on"| xvnc
-    web -->|":6080 watch"| nov
-    web -->|":8080 use"| pos
-    web -->|":9323"| rep
-    pos -->|"tests query :5432"| pg
+    code -->|edit| src
+    desk --> xvnc
+    e2e --> xvnc
+    nov --> xvnc
+    web -->|":6080 · watch desktop / tests"| nov
+    web -->|":8080 · use"| srv
+    web -->|":9323 · view"| rep
+    e2e -->|query| pg
+
+    classDef hostcls fill:#dbe4ff,stroke:#4263eb,color:#0b1324
+    classDef contcls fill:#fff3bf,stroke:#f08c00,color:#0b1324
+    classDef storcls fill:#d3f9d8,stroke:#2f9e44,color:#0b1324
+    class code,web hostcls
+    class desk,srv,e2e,nov,xvnc,rep contcls
+    class src,vols,pg storcls
 ```
 
 Two ways to see Positron: **use** the web server directly at `:8080`, or **watch** the headless
