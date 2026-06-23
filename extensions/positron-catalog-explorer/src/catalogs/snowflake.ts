@@ -63,6 +63,30 @@ export function registerSnowflakeProvider(
 }
 
 /**
+ * Compute the path to the Snowflake SDK log file.
+ *
+ * The file lives in the extension's log directory so it stays out of the user's
+ * home/working directory (see {@link configureSnowflakeLogging}).
+ */
+export function getSnowflakeLogFilePath(context: vscode.ExtensionContext): string {
+	return path.join(context.logUri.fsPath, 'snowflake.log');
+}
+
+/**
+ * Ensure the extension's log directory exists before the SDK is pointed at it.
+ *
+ * Failures are logged rather than thrown: a missing log directory should not
+ * prevent the extension from activating.
+ */
+export async function ensureSnowflakeLogDirectory(context: vscode.ExtensionContext): Promise<void> {
+	try {
+		await vscode.workspace.fs.createDirectory(context.logUri);
+	} catch (error) {
+		traceError('Failed to create log directory for Snowflake logs:', error);
+	}
+}
+
+/**
  * Configure the Snowflake SDK logger.
  *
  * The SDK initializes a winston file logger whose default path is `snowflake.log`
@@ -79,16 +103,11 @@ export async function configureSnowflakeLogging(context: vscode.ExtensionContext
 	const config = vscode.workspace.getConfiguration('catalogExplorer');
 	const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
 
-	// Ensure the extension's log directory exists before pointing the SDK at it.
-	try {
-		await vscode.workspace.fs.createDirectory(context.logUri);
-	} catch (error) {
-		traceError('Failed to create log directory for Snowflake logs:', error);
-	}
+	await ensureSnowflakeLogDirectory(context);
 
 	snowflake.configure({
 		logLevel: logLevelStr,
-		logFilePath: path.join(context.logUri.fsPath, 'snowflake.log'),
+		logFilePath: getSnowflakeLogFilePath(context),
 	});
 }
 
