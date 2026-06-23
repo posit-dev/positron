@@ -6,15 +6,36 @@
 .positron-add-cell-buttons {
 	position: relative;
 	display: flex;
+	align-items: center;
 	justify-content: center;
 	opacity: 0;
 	transition: opacity 0.2s;
-	gap: 8px;
 	color: inherit;
+}
+
+/*
+ * Equal-width Code and Markdown buttons that auto-size to the wider label (no
+ * magic number, so localized labels stay equal). `grid-auto-columns: 1fr`
+ * makes both columns the width of the widest, and grid items stretch to fill.
+ * This lives on an inner group rather than the container because the container
+ * spans the full notebook width (the drop indicator is absolutely positioned
+ * across it), which would defeat the auto-sizing.
+ */
+.positron-add-cell-buttons .add-cell-buttons-group {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: 1fr;
+	align-items: center;
+	gap: 6px;
 }
 
 .positron-add-cell-buttons:hover,
 .positron-add-cell-buttons:focus-within {
+	opacity: 1;
+}
+
+/* Keep the group visible while its dropdown menu is open; the menu renders at the body level, so focus and hover leave the container when it opens. */
+.positron-add-cell-buttons.menu-open {
 	opacity: 1;
 }
 
@@ -25,8 +46,125 @@
 	opacity: 1 !important;
 }
 
-.positron-add-cell-buttons.drop-target .positron-iconed-button {
+.positron-add-cell-buttons.drop-target .positron-iconed-button,
+.positron-add-cell-buttons.drop-target .split-button {
 	opacity: 0;
+}
+
+/*
+ * Button polish (#13562): keep the split button and the Markdown button
+ * visually consistent with each other and the editor's action buttons. Scoped
+ * here so SplitButton.css / IconedButton.css (shared elsewhere) stay untouched.
+ */
+
+/*
+ * Both controls share one box model so they read as siblings: same height,
+ * border, and corner radius. The Markdown button defines no padding of its
+ * own, so match the split button's main-segment padding here too. (Equal width
+ * comes from the grid group above.)
+ */
+.positron-add-cell-buttons .split-button.add-cell-split-button,
+.positron-add-cell-buttons .positron-iconed-button.bordered {
+	box-sizing: border-box;
+	height: 24px;
+	border-color: var(--vscode-positronNotebook-actionBarBorder);
+	border-radius: 4px;
+}
+
+.positron-add-cell-buttons .positron-iconed-button.bordered {
+	padding: 2px 8px;
+	/* Center the icon+label within the shared min-width. */
+	justify-content: center;
+}
+
+/*
+ * Match label sizing and inner spacing across both controls. Stretch the main
+ * segment to the container's full height (the caret already does) so its hover
+ * fill reaches the top and bottom edges instead of leaving an unfilled band.
+ */
+.positron-add-cell-buttons .add-cell-split-button .split-button-main {
+	align-self: stretch;
+	/* Absorb the min-width slack so the caret stays pinned to the right edge. */
+	flex: 1;
+	justify-content: center;
+	gap: 4px;
+	font-size: 12px;
+}
+
+/*
+ * Add icons: 11px, thickened with a text stroke. codicon.ttf ships a single
+ * weight, so numeric font-weights are no-ops; `-webkit-text-stroke` strokes the
+ * glyph outline at a width we control (unlike the browser-decided amount of
+ * `font-weight: bold`) and defaults to currentColor, so it still tracks the
+ * theme. Tune the stroke width to taste. Three selectors share this: the inline
+ * split button and Markdown button (this group), and the notebook's editor
+ * action bar Code/Markdown buttons, which are plain action-bar buttons
+ * (registered as Action2s) rather than React buttons. The `codicon-add-small`
+ * class only appears on these buttons within an editor action bar, so other
+ * editors' action bars are untouched. Selectors stay specific enough to win
+ * over the 16px codicon base rule.
+ */
+.positron-add-cell-buttons .add-cell-split-button .button-icon.codicon-add-small,
+.positron-add-cell-buttons .positron-iconed-button .button-icon.codicon-add-small,
+.editor-action-bar-container .action-bar-button-icon.codicon-add-small {
+	font-size: 11px;
+	-webkit-text-stroke: 0.35px currentColor;
+}
+
+/*
+ * Nudge each plus a sub-pixel to optically center it. The amount differs by
+ * box: the inline buttons and the action-bar buttons size their glyph slots
+ * differently.
+ */
+.positron-add-cell-buttons .add-cell-split-button .button-icon.codicon-add-small,
+.positron-add-cell-buttons .positron-iconed-button .button-icon.codicon-add-small {
+	transform: translate(1px, 0.7px);
+}
+
+.editor-action-bar-container .action-bar-button-icon.codicon-add-small {
+	transform: translate(0, 0.5px);
+}
+
+/*
+ * The caret reads as a sibling of the plus (same 14px weight) and is divided
+ * off by an inset rule rather than a full-height border. A 1px gutter
+ * (margin-left) holds the divider between the two segments so neither side's
+ * hover fill covers it: each fill stops at its edge of the gutter and the
+ * divider sits centered on the boundary. The caret needs less breathing room
+ * than the label, so it uses tighter horizontal padding (2px) than the main
+ * segment's 8px.
+ */
+.positron-add-cell-buttons .add-cell-split-button .split-button-dropdown {
+	position: relative;
+	margin-left: 1px;
+	padding: 0 2px;
+	border-left: none;
+}
+
+.positron-add-cell-buttons .add-cell-split-button .split-button-dropdown::before {
+	content: '';
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: -1px;
+	width: 1px;
+	background-color: var(--vscode-positronNotebook-actionBarBorder);
+}
+
+.positron-add-cell-buttons .add-cell-split-button .split-button-dropdown .codicon {
+	font-size: 14px;
+}
+
+/*
+ * Soften the hover fill across all three controls. The split button highlights
+ * per-segment (main vs caret are distinct actions), so a saturated fill on one
+ * half reads as half-lit. The toolbar token is translucent, so it blends instead
+ * of stamping a flat block, and each segment keeps its rounded outer corners.
+ */
+.positron-add-cell-buttons .add-cell-split-button .split-button-main:hover,
+.positron-add-cell-buttons .add-cell-split-button .split-button-dropdown:hover,
+.positron-add-cell-buttons .positron-iconed-button.bordered:hover {
+	background: var(--vscode-toolbar-hoverBackground);
 }
 
 .positron-add-cell-buttons .drag-drop-indicator {
