@@ -75,7 +75,7 @@
 				"detail": "Serves the last run's trace/report at http://localhost:9323",
 				"type": "shell",
 				"command": "npx playwright show-report --host 0.0.0.0",
-				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
 				"problemMatcher": []
 			},
 			{
