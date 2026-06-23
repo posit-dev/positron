@@ -202,14 +202,15 @@ suite('ChatAgents', function () {
 			panelParticipantRegistered: ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService),
 		});
 
-		const fireAIDisabledChange = () => {
+		const fireConfigChange = (changedKey: string) => {
 			configurationService.onDidChangeConfigurationEmitter.fire({
-				affectsConfiguration: (key: string) => key === ChatConfiguration.AIDisabled,
-				affectedKeys: new Set([ChatConfiguration.AIDisabled]),
+				affectsConfiguration: (key: string) => key === changedKey,
+				affectedKeys: new Set([changedKey]),
 				change: { keys: [], overrides: [] },
 				source: ConfigurationTarget.USER,
 			});
 		};
+		const fireAIDisabledChange = () => fireConfigChange(ChatConfiguration.AIDisabled);
 
 		test('chat context keys are set when AI features are enabled', () => {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
@@ -273,6 +274,42 @@ suite('ChatAgents', function () {
 			fireAIDisabledChange();
 
 			assert.strictEqual(agentsChangedCount, 1, 'onDidChangeAgents fires when the setting is toggled at runtime');
+		});
+
+		// `ai.enabled` is Positron's master AI switch. It overrides
+		// `chat.disableAIFeatures` in one direction only: `ai.enabled = false` forces
+		// the chat UI off regardless of `chat.disableAIFeatures`, while `ai.enabled =
+		// true` (or unset) leaves `chat.disableAIFeatures` to govern Copilot on its own.
+		test('ai.enabled off hides the chat UI even when chat.disableAIFeatures is off', () => {
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, false);
+			configurationService.setUserConfiguration('ai.enabled', false);
+			store.add(chatAgentService.registerAgent(inlineAgentId, inlineAgentData));
+			store.add(chatAgentService.registerAgentImplementation(inlineAgentId, agentImpl));
+
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+			assert.strictEqual(chatAgentService.getDefaultAgent(ChatAgentLocation.EditorInline), undefined);
+		});
+
+		test('ai.enabled on does not force the chat UI on while chat.disableAIFeatures is on', () => {
+			configurationService.setUserConfiguration('ai.enabled', true);
+			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
+			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
+			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
+
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+		});
+
+		test('config listener recomputes chat context keys when ai.enabled flips', () => {
+			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
+			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
+
+			configurationService.setUserConfiguration('ai.enabled', false);
+			fireConfigChange('ai.enabled');
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false }, 'keys hide when the master switch is off at runtime');
+
+			configurationService.setUserConfiguration('ai.enabled', true);
+			fireConfigChange('ai.enabled');
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true }, 'keys return when the master switch is back on at runtime');
 		});
 	});
 	// --- End Positron ---
