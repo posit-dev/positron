@@ -18,7 +18,7 @@ natively in VS Code; the build, the tests, and Positron itself all run in the co
 Once, on your machine:
 
 1. **Docker Desktop**, in `Settings`:
-    * **Resources → Advanced**: **8+ CPU**, **16 GB RAM**, a few GB free disk.
+    * **Resources → Advanced**: **8+ CPU**, **12 GB RAM**, a few GB free disk.
     * **General → Virtual Machine Options**: turn on **VirtioFS**.
 2. **GHCR login** (images are private):
 
@@ -141,13 +141,14 @@ content** — it's symlinked at `~/qa-example-content`.
 
 Your **checkout** is a bind mount, so edits live on your host disk and file navigation works
 normally. The heavy **container-built dirs** live on Docker volumes instead: native volume I/O beats
-macOS bind mounts, and it keeps those big Linux-built dirs off your host disk. There are four,
+macOS bind mounts, and it keeps those big Linux-built dirs off your host disk. There are five,
 prefixed with the Compose project (e.g. `ci-arm_`; list them with `docker volume ls` or `reset.sh`):
 
 | Volume | Holds |
 |---|---|
 | `positron-node-modules` | root `node_modules` (the big one) |
 | `positron-e2e-node-modules` | `test/e2e/node_modules` (separate npm project; small) |
+| `positron-remote-node-modules` | `remote/node_modules` (native server modules: spdlog, kerberos, node-pty) |
 | `positron-build` | `.build/` (built Electron + artifacts) |
 | `postgres-data` | the postgres sidecar's database files |
 
