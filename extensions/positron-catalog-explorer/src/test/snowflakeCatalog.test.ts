@@ -6,6 +6,8 @@
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as snowflake from 'snowflake-sdk';
 import { CatalogNode, CatalogProvider, CatalogProviderRegistry } from '../catalog';
@@ -123,21 +125,36 @@ suite('Snowflake Catalog Provider Tests', () => {
 
 
 	test('configureSnowflakeLogging points the SDK log file at the extension log directory', async () => {
-		// Stub directory creation and the SDK's configure() so we can assert on the
-		// log file path without touching disk or the real SDK logger.
-		const createDirStub = sandbox.stub(vscode.workspace.fs, 'createDirectory').resolves();
+		// Point logUri at a real temp directory so createDirectory can run for real
+		// (vscode.workspace.fs.createDirectory is non-configurable and cannot be
+		// stubbed). Stub the SDK's configure() so we can assert on the log file path
+		// without touching the real SDK logger.
+		const logDir = vscode.Uri.file(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-explorer-logs-'))
+		);
+		// mkdtemp already created the directory; remove it so we can verify
+		// configureSnowflakeLogging recreates it.
+		fs.rmdirSync(logDir.fsPath);
+		Object.defineProperty(mockExtensionContext, 'logUri', {
+			value: logDir,
+			configurable: true,
+		});
 		const configureStub = sandbox.stub(snowflake, 'configure');
 
-		await configureSnowflakeLogging(mockExtensionContext);
+		try {
+			await configureSnowflakeLogging(mockExtensionContext);
 
-		// The log directory is created and the SDK is pointed at a file inside it,
-		// rather than falling back to snowflake.log in the working directory.
-		assert.ok(createDirStub.calledOnceWithExactly(mockExtensionContext.logUri));
-		const options = configureStub.firstCall.args[0] as snowflake.ConfigureOptions;
-		assert.strictEqual(
-			options.logFilePath,
-			path.join(mockExtensionContext.logUri.fsPath, 'snowflake.log')
-		);
+			// The log directory is created and the SDK is pointed at a file inside it,
+			// rather than falling back to snowflake.log in the working directory.
+			assert.ok(fs.existsSync(logDir.fsPath));
+			const options = configureStub.firstCall.args[0] as snowflake.ConfigureOptions;
+			assert.strictEqual(
+				options.logFilePath,
+				path.join(logDir.fsPath, 'snowflake.log')
+			);
+		} finally {
+			fs.rmSync(logDir.fsPath, { recursive: true, force: true });
+		}
 	});
 
 	test('registerSnowflakeCatalog uses existing connection when specified', async () => {
