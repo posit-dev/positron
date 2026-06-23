@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stop the on-demand Positron processes (server, desktop, Playwright report) that this dev container
-# starts detached. Leaves the core services (Xvfb, x11vnc, noVNC, postgres) up — those are the
+# starts detached. Leaves the core services (Xvnc, noVNC, postgres) up — those are the
 # always-on baseline and cheap when idle. Idempotent: stopping something already stopped is fine.
 set -uo pipefail
 
@@ -28,5 +28,5 @@ stop "Playwright report (:9323)" "playwright.*show-report"
 # Clear any "failed to start" markers — stopping resets intent (the Doctor shows them otherwise).
 rm -f /tmp/positron-server.err /tmp/positron-electron.err
 
-echo "Core services (Xvfb, VNC, postgres) left running. Run the Doctor to confirm."
+echo "Core services (Xvnc desktop, noVNC, postgres) left running. Run the Doctor to confirm."
 exit 0

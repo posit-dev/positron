@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
-# Per-start: ensure the display server and DB are ready. Idempotent.
+# Per-start: ensure the desktop (display + VNC) and DB are ready. Idempotent.
 set -euo pipefail
 
+# The display itself is created by Xvnc in start-vnc.sh (called below) — Xvnc IS the X server now,
+# so there's no separate Xvfb to start here. We just export DISPLAY for the steps in between.
 export DISPLAY=:10
-if ! pgrep -x Xvfb >/dev/null 2>&1; then
-  /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 >/tmp/Xvfb.out 2>&1 &
-fi
-for _ in $(seq 1 10); do
-  if xdpyinfo >/dev/null 2>&1; then
-    echo "Xvfb ready on :10"
-    break
-  fi
-  sleep 1
-done
 
 # Persist DISPLAY for interactive shells
 grep -q 'export DISPLAY=:10' ~/.bashrc 2>/dev/null || echo 'export DISPLAY=:10' >> ~/.bashrc
@@ -36,12 +28,22 @@ else
   echo "WARNING: postgres not reachable"
 fi
 
-# Make the headless display viewable over VNC right away (window manager + x11vnc), so you can
-# connect any time without launching anything first.
+# Bring up the desktop (Xvnc display + window manager + noVNC) so you can connect any time without
+# launching anything first.
 "$(dirname "$0")/start-vnc.sh" || true
 
 # Advisory: flag wrong-OS native binaries (checkout also built natively?) instead of a silent hang.
 "$(dirname "$0")/check-native-arch.sh" || true
 
-# Report whether the build is current and what (if anything) needs rebuilding.
-"$(dirname "$0")/build-doctor.sh" || true
+# Completion notice. We deliberately do NOT render the Doctor here: a one-shot render looks
+# identical to the live Doctor panel, so people press a key to "refresh" and this postStart terminal
+# closes — which feels broken. Just confirm readiness and point at the real (interactive) Doctor.
+cat <<'MSG'
+
+  ✅ Positron CI lab is ready.
+
+     • Desktop (browser):  http://localhost:6080/vnc.html?autoconnect=true&password=positron
+     • Live status:        click the "Doctor" button in the status bar
+                           (or Command Palette → "Tasks: Run Task" → "Positron CI: Doctor")
+
+MSG

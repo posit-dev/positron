@@ -1,62 +1,79 @@
 #!/usr/bin/env bash
-# Make the headless display (:10) viewable, ready to connect any time. Starts a window manager
-# (fluxbox), x11vnc (for native VNC viewers), and noVNC/websockify (so the desktop is a clickable
-# http:// URL in a browser — no separate app needed). Idempotent; called from post-start and
-# launch-electron. VNC password: "positron".
+# Make the headless desktop (:10) viewable AND interactive, ready to connect any time. Runs a single
+# TigerVNC server (Xvnc = the X display and the VNC server in one process), a window manager
+# (fluxbox), and noVNC/websockify (so the desktop opens from a clickable http:// URL in a browser).
+# Idempotent; called from post-start, launch-electron, and the "Positron CI: VNC" task.
+# VNC password: "positron".
+#
+# Why Xvnc, not Xvfb + x11vnc: x11vnc polled a *separate* Xvfb and died with an "XIO error" whenever
+# junk traffic on :5900 (VS Code's port probe, the Doctor's liveness checks) disrupted it — taking
+# the whole desktop down. Xvnc is one integrated, network-hardened server: bad clients are just
+# dropped, the display stays up. We also disable TigerVNC's connection blacklist below — on a
+# localhost-only lab that probe churn would otherwise blacklist 127.0.0.1 and lock noVNC out.
 set -euo pipefail
 export DISPLAY="${DISPLAY:-:10}"
 VNC_PASSWORD="positron"
+GEOMETRY="2560x1440"
+DEPTH="24"
+PASSWD_FILE="$HOME/.vnc/passwd"
 
-# Serialize: this runs from post-start, launch-electron, AND the "Positron CI: VNC" task, which can
-# fire concurrently. Without a lock, two runs both enter the "x11vnc not up" branch below and race
-# to start it — you end up with overlapping x11vnc instances on display :10 that fight over the X
-# RECORD/XTEST extensions, the X server drops one with an "XIO error", and the desktop dies. flock
-# makes concurrent runs queue; the later one finds everything already up and no-ops.
-#
-# The lock is held on fd 9 for this script's lifetime. The long-lived daemons below are each started
-# with `9>&-` so they DON'T inherit fd 9 — otherwise they'd keep the lock held after we exit and the
-# next invocation would block forever.
+# Serialize: post-start, launch-electron, and the VNC task can fire concurrently. Without a lock two
+# runs race to start the server. flock makes them queue; the later one finds it up and no-ops. The
+# long-lived daemons below use 9>&- so they don't inherit the lock fd and deadlock the next run.
 exec 9>/tmp/start-vnc.lock
 flock 9
 
-# Display server (post-start usually starts it; ensure it here too). Always wait until it's actually
-# responsive before starting x11vnc — otherwise x11vnc loses the race at boot and exits unbound.
-if ! pgrep -x Xvfb >/dev/null 2>&1; then
-  /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 >/tmp/Xvfb.out 2>&1 9>&- &
+# Install TigerVNC + noVNC on first use (the CI image doesn't ship them). A network install at boot
+# can transiently fail (slow mirror, update race), so retry a few times and keep a log under /tmp.
+pkgs=()
+command -v Xvnc       >/dev/null 2>&1 || pkgs+=(tigervnc-standalone-server tigervnc-common)
+command -v websockify >/dev/null 2>&1 || pkgs+=(novnc websockify)
+if [ "${#pkgs[@]}" -gt 0 ]; then
+  echo "Installing ${pkgs[*]} (first run, ~once)…"
+  for _ in 1 2 3; do
+    { DEBIAN_FRONTEND=noninteractive apt-get update -qq \
+      && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${pkgs[@]}"; } \
+      >/tmp/vnc-install.log 2>&1 || true
+    command -v Xvnc >/dev/null 2>&1 && command -v websockify >/dev/null 2>&1 && break
+    sleep 2
+  done
+  { command -v Xvnc >/dev/null 2>&1 && command -v websockify >/dev/null 2>&1; } \
+    || echo "WARNING: VNC tools failed to install after retries — see /tmp/vnc-install.log"
 fi
-for _ in $(seq 1 15); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
 
-# Window manager so windows are movable and the desktop is usable (right-click for a menu).
-if command -v fluxbox >/dev/null 2>&1 && ! pgrep -x fluxbox >/dev/null 2>&1; then
-  fluxbox >/tmp/fluxbox.log 2>&1 9>&- &
-fi
+# VNC password file (TigerVNC VncAuth). vncpasswd -f reads the password from stdin and writes the
+# obfuscated form to stdout. Cheap to regenerate each run, so it's always correct.
+mkdir -p "$(dirname "$PASSWD_FILE")"
+printf '%s' "$VNC_PASSWORD" | vncpasswd -f > "$PASSWD_FILE" 2>/dev/null
+chmod 600 "$PASSWD_FILE"
 
-# VNC server for native viewers. macOS Screen Sharing requires a password, so we set one. Verify it
-# actually binds :5900 (not just that a process exists) and retry — at boot it can exit before
-# binding, which is why VNC sometimes shows down right after the container starts.
-#
-# Detach with setsid (like websockify below), NOT x11vnc's own -bg: when this script runs from the
-# postStart hook / a task, the -bg child stays in the launching shell's session and gets reaped when
-# that shell exits — x11vnc then dies seconds after start and VNC won't connect. setsid puts it in
-# its own session so it survives. (-quiet dropped too, so /tmp/x11vnc.log keeps the exit reason.)
+# Start Xvnc on :10 / RFB :5900 if it isn't already serving. Verify it actually binds :5900 (not just
+# that a process exists) and retry. setsid + 9>&- so it survives the launching shell/task and doesn't
+# hold the flock. -BlacklistThreshold is huge so localhost probe churn never locks out the real client.
 vnc_up() { (exec 3<>/dev/tcp/127.0.0.1/5900) 2>/dev/null; }
 if ! vnc_up; then
-  x11vnc -storepasswd "$VNC_PASSWORD" /tmp/.vncpw >/dev/null 2>&1
+  vncserver -kill :10 >/dev/null 2>&1 || true
+  pkill -x Xvnc 2>/dev/null || true
+  rm -f /tmp/.X10-lock "/tmp/.X11-unix/X10" 2>/dev/null || true
   for _ in 1 2 3; do
-    pkill -x x11vnc 2>/dev/null || true
-    setsid x11vnc -display "$DISPLAY" -forever -shared -rfbauth /tmp/.vncpw -rfbport 5900 >/tmp/x11vnc.log 2>&1 </dev/null 9>&- &
-    for _ in $(seq 1 5); do vnc_up && break; sleep 1; done
+    setsid Xvnc :10 -geometry "$GEOMETRY" -depth "$DEPTH" -rfbport 5900 \
+      -SecurityTypes VncAuth -PasswordFile "$PASSWD_FILE" -AlwaysShared \
+      -BlacklistThreshold 1000000 \
+      >/tmp/xvnc.log 2>&1 </dev/null 9>&- &
+    for _ in $(seq 1 8); do vnc_up && break; sleep 1; done
     vnc_up && break
   done
 fi
 
-# Browser-based VNC (noVNC) so the desktop opens from a clickable http URL. Install on first use
-# (the CI image doesn't ship it). setsid so it survives the launching shell/task exiting.
-if ! command -v websockify >/dev/null 2>&1; then
-  echo "Installing noVNC (first run, ~once)…"
-  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 || true
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq novnc websockify >/dev/null 2>&1 || true
+# Wait until the display is actually responsive before starting the window manager.
+for _ in $(seq 1 15); do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
+
+# Window manager so windows are movable and the desktop is usable (right-click menu, drag).
+if command -v fluxbox >/dev/null 2>&1 && ! pgrep -x fluxbox >/dev/null 2>&1; then
+  setsid fluxbox >/tmp/fluxbox.log 2>&1 </dev/null 9>&- &
 fi
+
+# Browser-based VNC (noVNC) so the desktop opens from a clickable http URL. setsid + 9>&- as above.
 if command -v websockify >/dev/null 2>&1 && ! pgrep -f "websockify.*6080" >/dev/null 2>&1; then
   setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null 9>&- &
 fi
