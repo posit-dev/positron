@@ -6,13 +6,15 @@
 set -uo pipefail
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 bad=0
+# Detect ELF by its 4-byte magic (7f 45 4c 46) with od. The CI image doesn't ship `file`, and a
+# missing `file` would make every binary look non-ELF and false-warn on every start.
 check() { # <label> <path>
   [ -e "$2" ] || return 0
-  local ftype; ftype="$(file -b "$2")"
-  if ! printf '%s' "$ftype" | grep -q '^ELF'; then
+  local magic; magic="$(od -An -tx1 -N4 "$2" 2>/dev/null | tr -d ' \n')"
+  if [ "$magic" != "7f454c46" ]; then
     [ "$bad" -eq 0 ] && echo "WARNING: wrong-OS interpreter binaries (was this checkout built natively on the host?):"
     bad=1
-    echo "  - $1: $(printf '%s' "$ftype" | cut -c1-45)"
+    echo "  - $1: not a Linux ELF binary (magic ${magic:-empty})"
   fi
 }
 check pet      "$WS/extensions/positron-python/python-env-tools/pet"

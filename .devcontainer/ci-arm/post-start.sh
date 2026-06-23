@@ -30,7 +30,7 @@ fi
 
 # Bring up the desktop (Xvnc display + window manager + noVNC) so you can connect any time without
 # launching anything first.
-"$(dirname "$0")/start-vnc.sh" || true
+"$(dirname "$0")/start-vnc.sh" --quiet || true
 
 # Advisory: flag wrong-OS native binaries (checkout also built natively?) instead of a silent hang.
 "$(dirname "$0")/check-native-arch.sh" || true

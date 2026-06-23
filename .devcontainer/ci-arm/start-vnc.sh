@@ -17,6 +17,12 @@ GEOMETRY="2560x1440"
 DEPTH="24"
 PASSWD_FILE="$HOME/.vnc/passwd"
 
+# --quiet (used when chained from post-start, which prints its own "ready" banner with the URL)
+# suppresses the trailing "Desktop ready" block below so the URL isn't echoed twice. Standalone runs
+# — the "Positron CI: VNC" task — print it.
+QUIET=0
+case "${1:-}" in -q|--quiet) QUIET=1 ;; esac
+
 # Serialize: post-start, launch-electron, and the VNC task can fire concurrently. Without a lock two
 # runs race to start the server. flock makes them queue; the later one finds it up and no-ops. The
 # long-lived daemons below use 9>&- so they don't inherit the lock fd and deadlock the next run.
@@ -84,7 +90,9 @@ if command -v websockify >/dev/null 2>&1 && ! pgrep -f "websockify.*6080" >/dev/
   setsid websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 </dev/null 9>&- &
 fi
 
-NOVNC_URL="http://localhost:6080/vnc.html?autoconnect=true&password=${VNC_PASSWORD}"
-echo "Desktop ready — open in your browser (Cmd-click):"
-echo "    ${NOVNC_URL}"
-echo "(or a native VNC viewer → vnc://localhost:5900, password ${VNC_PASSWORD})"
+if [ "$QUIET" -eq 0 ]; then
+  NOVNC_URL="http://localhost:6080/vnc.html?autoconnect=true&password=${VNC_PASSWORD}"
+  echo "Desktop ready — open in your browser (Cmd-click):"
+  echo "    ${NOVNC_URL}"
+  echo "(or a native VNC viewer → vnc://localhost:5900, password ${VNC_PASSWORD})"
+fi
