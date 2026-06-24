@@ -105,10 +105,15 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+      # Consumed by the Postgres e2e tests (connections-postgres / data-connections postgres).
+      # The Linux Ubuntu job sets these from the same secrets; mirror them here so the
+      # connection inputs match the user/password baked into the postgres container.
+      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
     outputs:
       extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -170,10 +175,30 @@ jobs:
       # "Download binaries" step below runs `npm rebuild` on every run (even on
       # a cache hit), which re-invokes node-gyp, so the toolchain must always be
       # present regardless of cache state.
+      # Installed straight from Microsoft's CDN rather than the Chocolatey
+      # community feed: choco's visualstudio2022-workload-vctools package
+      # deterministically fails to resolve its chocolatey-dotnetfx.extension
+      # dependency from community.chocolatey.org. The bootstrapper below is what
+      # that package wraps anyway. Exit code 3010 means "success, reboot required"
+      # and is treated as success. Retry guards against transient CDN/network blips.
       - name: Install Visual Studio 2022 C++ build tools
-        shell: pwsh
-        run: |
-          choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: pwsh
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+            $p = Start-Process -FilePath $bootstrapper -Wait -PassThru -ArgumentList @(
+              '--quiet','--wait','--norestart','--nocache',
+              '--add','Microsoft.VisualStudio.Workload.VCTools',
+              '--add','Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre',
+              '--includeRecommended'
+            )
+            if ($p.ExitCode -notin 0,3010) { exit $p.ExitCode }
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
@@ -279,7 +304,7 @@ jobs:
       - name: Restore Python packages cache
         id: cache-python
         continue-on-error: true
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}\uv-cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -296,7 +321,7 @@ jobs:
       - name: Save Python packages cache
         if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}\uv-cache
           key: ${{ runner.os }}-uv-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -339,7 +364,7 @@ jobs:
       - name: Restore R packages cache
         id: cache-r
         continue-on-error: true
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -359,7 +384,7 @@ jobs:
       - name: Save R packages cache
         if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -424,6 +449,80 @@ jobs:
         with:
           identifier: ${{ inputs.project }}
           skip-summary: true
+
+      # ---------------------------------------------------------------------
+      # Postgres for the data-connection / connections e2e tests.
+      #
+      # GitHub Actions `services:` containers only work on Linux runners, and
+      # positron-postgres is a Linux/amd64 image, so a service block can't be
+      # used here. Windows Server 2025 (the windows-latest image) ships WSL2,
+      # which can run Linux containers. We install docker inside a WSL2 Ubuntu
+      # distro and run the SAME image the Ubuntu job uses, keeping the
+      # periodic/dvdrental seed data a single source of truth. WSL2 forwards
+      # published ports to the Windows host's loopback, so the container's 5432
+      # is reachable from Windows at 127.0.0.1:5432. The tests connect to host
+      # "postgres", so a hosts-file entry maps that name to 127.0.0.1 (WSL2
+      # forwarding only works over 127.0.0.1, not arbitrary hostnames).
+      #
+      # These steps run on every shard: predictive sharding can place the
+      # postgres tests on any shard, so each runner needs its own container.
+      # ---------------------------------------------------------------------
+      - name: Set up WSL2 and Docker (for Postgres)
+        shell: bash
+        run: |
+          set -e
+          # Install Ubuntu without launching the interactive first-run setup.
+          wsl --install Ubuntu --no-launch
+          wsl --set-default-version 2
+          # Start the distro and keep it running for the rest of the job so the
+          # docker daemon and container survive across subsequent steps. Running
+          # as root avoids the interactive first-run user setup (OOBE).
+          wsl -d Ubuntu -u root --exec dbus-launch true
+          # Install docker-ce inside WSL2 via the official convenience script.
+          wsl -d Ubuntu -u root -- bash -c "curl -fsSL https://get.docker.com | sh"
+          wsl -d Ubuntu -u root -- service docker start
+
+      - name: Start Postgres container in WSL2
+        shell: bash
+        env:
+          GHCR_USER: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          GHCR_PAT: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        run: |
+          set -e
+          # Pass secrets/config into WSL via WSLENV rather than embedding them in
+          # the command line (keeps them out of process args / logs).
+          export WSLENV=GHCR_USER:GHCR_PAT:E2E_POSTGRES_USER:E2E_POSTGRES_PASSWORD
+          # Each command passed to WSL is kept on a single physical line: a
+          # multi-line string crossing Git-bash -> wsl.exe -> WSL bash gets its
+          # newlines mangled (CR injection) and breaks the inner shell parse.
+          wsl -d Ubuntu -u root -- bash -c 'echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin'
+          # POSTGRES_DB stays "postgres": the image's init scripts create the
+          # "periodic" and "dvdrental" databases (and the "e2e" user) themselves.
+          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres-amd64:142'
+          # Wait for the seeded "periodic" database to accept connections. Run
+          # the loop in this step's bash and let each `wsl -- <cmd> <args>` pass
+          # straight through to Linux: a complex program (loops, $(), ;) sent via
+          # `wsl bash -c '...'` gets mangled crossing the Git-bash/wsl.exe boundary.
+          ready=0
+          for i in $(seq 1 30); do
+            if wsl -d Ubuntu -u root -- docker exec postgres pg_isready -U "$E2E_POSTGRES_USER" -d periodic; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "Postgres did not become ready"
+            wsl -d Ubuntu -u root -- docker logs postgres
+            exit 1
+          fi
+
+      - name: Map "postgres" host to loopback
+        shell: pwsh
+        run: |
+          # The tests connect to host "postgres"; point it at the WSL2-forwarded
+          # loopback address (forwarding only works over 127.0.0.1).
+          Add-Content -Path "$env:windir\System32\drivers\etc\hosts" -Value "127.0.0.1 postgres"
 
       - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
@@ -514,7 +613,7 @@ jobs:
     needs: [windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout specific commit
         if: ${{ inputs.commit != '' }}

@@ -1478,6 +1478,81 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
+	changeToHeading(level: number): void {
+		this._assertTextModel();
+		const cell = getActiveCell(this.selectionStateMachine.state.get());
+		if (!cell) {
+			return;
+		}
+
+		const cellIndex = cell.index;
+		const cellModel = this.textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		const content = cellModel.getValue();
+		const lines = content.split(/\r?\n/);
+		const firstLine = lines[0] ?? '';
+
+		// Strip existing heading prefix and apply new one
+		const stripped = firstLine.replace(/^#{1,6}\s*/, '');
+		lines[0] = '#'.repeat(level) + ' ' + stripped;
+
+		const newContent = lines.join('\n');
+		const computeUndoRedo = !this.isReadOnly || this.textModel.viewType === 'interactive';
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: cellIndex, end: cellIndex + 1 },
+			selections: [{ start: cellIndex, end: cellIndex + 1 }]
+		};
+
+		// Single atomic edit: converts to markdown (if needed) and sets heading in one operation
+		this.textModel.applyEdits([{
+			editType: CellEditType.Replace,
+			index: cellIndex,
+			count: 1,
+			cells: [{
+				cellKind: CellKind.Markup,
+				language: 'markdown',
+				mime: cellModel.mime,
+				source: newContent,
+				outputs: cellModel.outputs,
+				metadata: cellModel.metadata,
+			}]
+		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
+	}
+
+	interruptKernel(): void {
+		this._assertTextModel();
+		const cells = this.cells.get();
+		const executingCells = cells.filter(cell =>
+			this.notebookExecutionStateService.getCellExecution(cell.uri)
+		);
+		if (executingCells.length > 0) {
+			this.notebookExecutionService.cancelNotebookCells(
+				this.textModel,
+				executingCells.map(c => c.model as NotebookCellTextModel)
+			);
+		}
+	}
+
+	selectAllCells(): void {
+		const cells = this.cells.get();
+		if (cells.length === 0) {
+			return;
+		}
+		if (cells.length === 1) {
+			this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			return;
+		}
+		// Select the first cell normally, then add all remaining cells
+		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+		for (let i = 1; i < cells.length; i++) {
+			this.selectionStateMachine.selectCell(cells[i], CellSelectionType.Add);
+		}
+	}
+
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.
