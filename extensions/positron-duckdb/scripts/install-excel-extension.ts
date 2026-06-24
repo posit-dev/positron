@@ -133,19 +133,26 @@ function assertHash(bytes: Buffer, duckdbPlatformName: string): void {
 }
 
 /**
- * Truncate a thin 64-bit Mach-O to the end of its code signature, dropping any
- * trailing data (DuckDB appends its signature there). Returns the truncated
- * bytes, or `undefined` if `bytes` is not a thin 64-bit Mach-O with an `LC_CODE_SIGNATURE`
- * (e.g. a fat binary or a non-Mach-O artifact), in which case nothing is
- * stripped. Downloads are always thin, per-arch artifacts, so the fat case does
- * not arise here; the guard just keeps this safe if that ever changes.
+ * Truncate a thin 64-bit Mach-O to the end of its last segment, dropping any
+ * trailing data. DuckDB signs its extensions by appending a footer past the end
+ * of the Mach-O image (it does NOT add an `LC_CODE_SIGNATURE` load command), and
+ * that trailing footer is what trips Apple's strict validation. Returns the
+ * truncated bytes, or `undefined` if `bytes` is not a thin 64-bit Mach-O with
+ * trailing data to strip (e.g. a fat binary, a non-Mach-O artifact, or a file
+ * with no bytes past its last segment). Downloads are always thin, per-arch
+ * artifacts, so the fat case does not arise here; the guard just keeps this safe
+ * if that ever changes.
+ *
+ * The end of the image is the maximum of `fileoff + filesize` across every
+ * `LC_SEGMENT_64`. The code signature (if any) lives inside `__LINKEDIT`, so a
+ * segment-based end also covers an `LC_CODE_SIGNATURE` when one is present.
  */
 function stripMachOTrailingData(bytes: Buffer): Buffer | undefined {
 	// DuckDB ships x86_64 / arm64 extensions, which are little-endian 64-bit
 	// Mach-O. Only handle that; treat anything else (fat, big-endian, non-Mach-O)
 	// as "nothing to strip".
 	const MH_MAGIC_64 = 0xfeedfacf;
-	const LC_CODE_SIGNATURE = 0x1d;
+	const LC_SEGMENT_64 = 0x19;
 
 	if (bytes.length < 32 || bytes.readUInt32LE(0) !== MH_MAGIC_64) {
 		return undefined;
@@ -153,18 +160,20 @@ function stripMachOTrailingData(bytes: Buffer): Buffer | undefined {
 
 	const ncmds = bytes.readUInt32LE(16); // mach_header_64: magic, cputype, cpusubtype, filetype, ncmds, ...
 	let offset = 32; // size of mach_header_64
-	for (let i = 0; i < ncmds && offset + 16 <= bytes.length; i++) {
+	let imageEnd = 0;
+	for (let i = 0; i < ncmds && offset + 8 <= bytes.length; i++) {
 		const cmd = bytes.readUInt32LE(offset);
 		const cmdsize = bytes.readUInt32LE(offset + 4);
-		if (cmd === LC_CODE_SIGNATURE) {
-			const dataoff = bytes.readUInt32LE(offset + 8);
-			const datasize = bytes.readUInt32LE(offset + 12);
-			const end = dataoff + datasize;
-			return end < bytes.length ? bytes.subarray(0, end) : undefined;
+		if (cmd === LC_SEGMENT_64) {
+			// segment_command_64: cmd, cmdsize, segname[16], vmaddr(8), vmsize(8),
+			// fileoff(8) @ +40, filesize(8) @ +48, ...
+			const fileoff = Number(bytes.readBigUInt64LE(offset + 40));
+			const filesize = Number(bytes.readBigUInt64LE(offset + 48));
+			imageEnd = Math.max(imageEnd, fileoff + filesize);
 		}
 		offset += cmdsize;
 	}
-	return undefined;
+	return imageEnd > 0 && imageEnd < bytes.length ? bytes.subarray(0, imageEnd) : undefined;
 }
 
 /** GET a URL, following redirects, resolving with the final response. */
@@ -243,13 +252,22 @@ async function main(): Promise<void> {
 	assertHash(extensionBytes, duckdbPlatformName);
 
 	// On macOS, strip DuckDB's trailing signature so codesign's strict validation
-	// passes and the app can be notarized (see the file header for why).
+	// passes and the app can be notarized (see the file header for why). Fail
+	// loudly if there was nothing to strip: shipping a file with DuckDB's footer
+	// still attached would break signing later in the pipeline with the opaque
+	// "main executable failed strict validation", far from this root cause.
 	if (duckdbPlatformName.startsWith('osx_')) {
 		const stripped = stripMachOTrailingData(extensionBytes);
-		if (stripped) {
-			console.log(`Stripped ${extensionBytes.length - stripped.length} trailing bytes (DuckDB signature) for macOS signing.`);
-			extensionBytes = stripped;
+		if (!stripped) {
+			throw new Error(
+				`Expected to strip DuckDB's trailing signature from the macOS Excel extension ` +
+				`(${duckdbPlatformName}), but found no trailing data past the Mach-O image. The ` +
+				'artifact format may have changed; signing would fail strict validation. Inspect ' +
+				'the download and update stripMachOTrailingData before shipping.'
+			);
 		}
+		console.log(`Stripped ${extensionBytes.length - stripped.length} trailing bytes (DuckDB signature) for macOS signing.`);
+		extensionBytes = stripped;
 	}
 
 	fs.mkdirSync(RESOURCES_DIR, { recursive: true });
