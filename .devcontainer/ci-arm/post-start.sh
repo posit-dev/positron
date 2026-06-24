@@ -64,7 +64,4 @@ cat <<'MSG'
       the "Doctor" button in the status bar
       (or Command Palette → "Tasks: Run Task" → "Positron CI: Doctor")
 
-  ▸ Watch the desktop in your browser:
-      http://localhost:6080/vnc.html?autoconnect=true&password=positron
-
 MSG

@@ -194,7 +194,7 @@ render() {
 
   # --- Footer ---
   if [ "${#actions[@]}" -eq 0 ]; then
-    printf '%s✓ Ready for development%s\n' "$G" "$RST"
+    printf '\n%s✓ Ready for development%s\n' "$G" "$RST"
   else
     printf '%s⚠ %d item(s) need attention%s\n' "$Y" "${#actions[@]}" "$RST"
     for a in "${actions[@]}"; do printf '  %s• %s%s\n' "$DIM" "$a" "$RST"; done
