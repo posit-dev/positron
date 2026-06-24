@@ -72,19 +72,19 @@ export const TopActionBarSessionPicker = () => {
 			commandId={command}
 			height={24}
 		>
-			<div className='top-action-bar-session-manager-face show-file-icons'>
+			<div className='top-action-bar-session-picker-face show-file-icons'>
 				{runtimeStatus !== undefined &&
 					<RuntimeStatusIcon status={runtimeStatus} />
 				}
 				{displayInfo
 					? <RuntimeIcon
-						data-testid='session-manager-icon'
+						data-testid='session-picker-icon'
 						languageId={displayInfo.languageId}
 						notebookUri={displayInfo.notebookUri}
 						sessionMode={displayInfo.sessionMode}
 					/>
 					: <ActionBarButtonIcon
-						data-testid='session-manager-icon'
+						data-testid='session-picker-icon'
 						icon={Codicon.arrowSwap}
 					/>
 				}

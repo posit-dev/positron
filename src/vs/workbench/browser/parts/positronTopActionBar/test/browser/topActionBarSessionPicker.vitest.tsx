@@ -24,6 +24,7 @@ import { ICommandService } from '../../../../../../platform/commands/common/comm
 
 /** Matches the button's accessible name in either of its two states (CommandCenter.title resolves to one of these). */
 const SESSION_BUTTON_NAME = /Start New Console Session|Select Session/;
+const SESSION_PICKER_ICON_TEST_ID = 'session-picker-icon';
 
 /**
  * Creates a mock IRuntimeSessionDisplayInfo with sensible defaults.
@@ -66,7 +67,7 @@ function makeConsoleSessionStub(): Partial<ILanguageRuntimeSession> {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('TopActionBarSessionManager', () => {
+describe('TopActionBarSessionPicker', () => {
 	// Register commands in beforeAll so they are set up in a test lifecycle
 	// hook rather than at module scope. CommandCenter has no deregistration
 	// API, but Vitest isolates modules per file so this won't leak to other
@@ -105,7 +106,7 @@ describe('TopActionBarSessionManager', () => {
 			// Without a session we render <ActionBarButtonIcon icon={Codicon.arrowSwap} />,
 			// which carries the action-bar-button-icon + codicon classes but not
 			// runtime-session-icon (that class is only applied by <RuntimeIcon>).
-			const icon = screen.getByTestId('session-manager-icon');
+			const icon = screen.getByTestId(SESSION_PICKER_ICON_TEST_ID);
 			expect(icon).toHaveClass('action-bar-button-icon', 'codicon', 'codicon-arrow-swap');
 			expect(icon).not.toHaveClass('runtime-session-icon');
 		});
@@ -139,7 +140,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders a runtime-session-icon with the language class for a console session', () => {
 			rtl.render(<TopActionBarSessionPicker />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'python-lang-file-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon');
 		});
 	});
 
@@ -167,7 +168,7 @@ describe('TopActionBarSessionManager', () => {
 
 		it('renders a runtime-session-icon with the file-extension class for a notebook session', () => {
 			rtl.render(<TopActionBarSessionPicker />);
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
 		});
 	});
 
@@ -238,16 +239,16 @@ describe('TopActionBarSessionManager', () => {
 		it('swaps from the arrow-swap fallback to a runtime-session-icon when a console session appears', () => {
 			rtl.render(<TopActionBarSessionPicker />);
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon-arrow-swap');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('runtime-session-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('codicon-arrow-swap');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).not.toHaveClass('runtime-session-icon');
 
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
 
-			expect(screen.getByTestId('session-manager-icon'))
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID))
 				.toHaveClass('runtime-session-icon', 'python-lang-file-icon');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('codicon-arrow-swap');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).not.toHaveClass('codicon-arrow-swap');
 		});
 
 		it('swaps to a runtime-session-icon with the notebook extension class when switching to a notebook session', () => {
@@ -260,7 +261,7 @@ describe('TopActionBarSessionManager', () => {
 				}));
 			});
 
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'ipynb-ext-file-icon');
 		});
 
 		it('reverts to "Start Session" when session is cleared', () => {
@@ -283,13 +284,13 @@ describe('TopActionBarSessionManager', () => {
 			act(() => {
 				displayInfoEmitter.fire(makeDisplayInfo());
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('runtime-session-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon');
 
 			act(() => {
 				displayInfoEmitter.fire(undefined);
 			});
-			expect(screen.getByTestId('session-manager-icon')).toHaveClass('codicon-arrow-swap');
-			expect(screen.getByTestId('session-manager-icon')).not.toHaveClass('runtime-session-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('codicon-arrow-swap');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).not.toHaveClass('runtime-session-icon');
 		});
 	});
 
