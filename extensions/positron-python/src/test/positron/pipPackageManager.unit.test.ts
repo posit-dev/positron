@@ -30,6 +30,7 @@ suite('PipPackageManager update Tests', () => {
     let writtenContent: string;
     let messageEmitter: MessageEmitter;
     let session: PackageSession;
+    let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
 
     setup(() => {
         pythonService = {
@@ -58,6 +59,7 @@ suite('PipPackageManager update Tests', () => {
 
         // Assign getConfiguration so _getProxyFlags() gets a real WorkspaceConfiguration-like
         // object (vscode.workspace is a ts-mockito instance; sinon.stub won't work on it).
+        originalGetConfiguration = vscode.workspace.getConfiguration;
         vscode.workspace.getConfiguration = (_section?: string) =>
             ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
 
@@ -79,7 +81,10 @@ suite('PipPackageManager update Tests', () => {
         manager = new PipPackageManager('/path/to/python', messageEmitter, serviceContainer, session);
     });
 
-    teardown(() => sinon.restore());
+    teardown(() => {
+        sinon.restore();
+        vscode.workspace.getConfiguration = originalGetConfiguration;
+    });
 
     test('updatePackages installs a pinned requirements file naming all packages', async () => {
         await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
