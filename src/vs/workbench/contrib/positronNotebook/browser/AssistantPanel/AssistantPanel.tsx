@@ -13,9 +13,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
-import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
@@ -95,7 +94,7 @@ export interface AssistantPanelProps {
 	initialNotebook: IPositronNotebookInstance | undefined;
 	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
 	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	chatEditingService: IChatEditingService;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
@@ -690,19 +689,18 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 	};
 
 	return (
-		<PositronModalDialog
-			closeOnClickOutside={true}
-			height={450}
-			renderer={renderer}
-			title={panelTitle}
-			width={400}
-			onCancel={handleClose}
-		>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='assistant-panel-content'>
 					{renderContent()}
 				</div>
-			</ContentArea>
-		</PositronModalDialog>
+			}
+			contentMaxHeight={600}
+			contentMinHeight={200}
+			renderer={renderer}
+			title={panelTitle}
+			width={480}
+			onClickOutside={handleClose}
+		/>
 	);
 };
