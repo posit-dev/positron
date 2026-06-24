@@ -162,7 +162,7 @@ export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcu
 						</div>
 					))}
 					<div className='notebook-help-all-shortcuts'>
-						<button className='all-shortcuts-link' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
+						<button className='all-shortcuts-link' type='button' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
 							{localize('positron.notebookHelp.allShortcuts', 'View All Notebook Keyboard Shortcuts...')}
 						</button>
 					</div>

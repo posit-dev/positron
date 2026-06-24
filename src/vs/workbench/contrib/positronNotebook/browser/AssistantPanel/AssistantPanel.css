@@ -12,11 +12,6 @@
 	position: relative;
 }
 
-/* Adjust section spacing for modal context */
-.positron-modal-dialog-box .assistant-panel-section {
-	margin: 0;
-}
-
 .assistant-panel {
 	display: flex;
 	flex-direction: column;
