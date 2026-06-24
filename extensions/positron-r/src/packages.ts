@@ -16,8 +16,8 @@ import { RSession } from './session';
  * primary backend with base R fallback. Communicates with Ark via RPC methods.
  */
 export class RPackageManager {
-	/** Whether the user has declined to install pak (session-scoped) */
-	private _pakDeclined: boolean = false;
+	/** Whether the pak install recommendation has been shown this session */
+	private _pakRecommendationShown: boolean = false;
 
 	constructor(private readonly _session: RSession) { }
 
@@ -139,6 +139,8 @@ export class RPackageManager {
 		await this._execute(code, token);
 		if (isRenv) {
 			this._snapshotRenv();
+		} else {
+			void this._maybeRecommendPak();
 		}
 		this._session.invalidatePackageResourceCaches();
 	}
@@ -187,6 +189,8 @@ export class RPackageManager {
 		await this._execute(code, token);
 		if (isRenv) {
 			this._snapshotRenv();
+		} else {
+			void this._maybeRecommendPak();
 		}
 		this._session.invalidatePackageResourceCaches();
 	}
@@ -223,6 +227,7 @@ export class RPackageManager {
 			} else {
 				await this._execute(`update.packages(ask = FALSE)`, token);
 			}
+			void this._maybeRecommendPak();
 		}
 
 		this._session.invalidatePackageResourceCaches();
@@ -400,7 +405,7 @@ export class RPackageManager {
 
 	/**
 	 * Read the configured R packages installer preference.
-	 * 'auto' means: prefer pak, prompt to install it when missing, fall back to base on decline.
+	 * 'auto' means: use pak if installed, otherwise use base R and recommend pak (non-blocking).
 	 * 'pak' means: prefer pak, install it without prompting when missing.
 	 * 'base' means: never use or install pak.
 	 */
@@ -420,24 +425,66 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Prompt the user to install pak.
+	 * Recommend installing pak after a package operation, without blocking it.
+	 *
+	 * Shown at most once per session and only when pak would be preferred
+	 * ('auto' setting) but is not installed. The notification is fired after the
+	 * operation completes so it never blocks the package command -- a blocking
+	 * prompt can hang when notifications are filtered (e.g. Do Not Disturb),
+	 * which is the bug this replaces (see #14195).
+	 *
+	 * - "Install pak" installs pak so subsequent operations use it.
+	 * - "Open Settings" reveals the `packages.r.installer` setting so the user
+	 *   can choose base R themselves rather than having a consequential setting
+	 *   changed silently on their behalf.
+	 * - Dismissing leaves everything untouched; the recommendation may return
+	 *   in a later session.
 	 */
-	private async _promptInstallPak(): Promise<boolean> {
+	private async _maybeRecommendPak(): Promise<void> {
+		if (this._pakRecommendationShown) {
+			return;
+		}
+		// Only 'auto' recommends: 'pak' installs silently, 'base' has opted out.
+		if (this._getConfiguredInstaller() !== 'auto') {
+			return;
+		}
+		if (await this._detectPak()) {
+			return;
+		}
+
+		// Guard before awaiting so a concurrent operation doesn't double-prompt.
+		this._pakRecommendationShown = true;
+
 		const install = vscode.l10n.t('Install pak');
+		const openSettings = vscode.l10n.t('Open Settings');
 		const result = await vscode.window.showInformationMessage(
 			vscode.l10n.t('The pak package provides faster and more reliable package operations. Would you like to install it?'),
 			install,
-			vscode.l10n.t('Not now')
+			openSettings
 		);
-		return result === install;
+
+		if (result === install) {
+			await this._execute('install.packages("pak")');
+			this._session.invalidatePackageResourceCaches();
+		} else if (result === openSettings) {
+			// Open the installer setting so the user can opt out (e.g. base R)
+			// themselves, rather than changing a consequential setting for them.
+			await vscode.commands.executeCommand('workbench.action.openSettings', '@id:packages.r.installer');
+		}
+		// Dismissing the notification does nothing; the session guard above
+		// prevents re-prompting until the next session.
 	}
 
 	/**
 	 * Resolve which installer to use, honoring the `packages.r.installer` setting.
 	 *
-	 * @param allowInstallPak When true (install/update operations), may install pak, either
-	 *                       by prompting the user (setting: 'auto') or silently (setting: 'pak').
-	 *                       When false (list/search/uninstall), only detects what is available.
+	 * @param allowInstallPak When true (install/update operations), may silently
+	 *                       install pak when the setting is 'pak'. When false
+	 *                       (list/search/uninstall), only detects what is
+	 *                       available. The 'auto' setting never installs pak
+	 *                       here; it falls back to base R and a non-blocking
+	 *                       recommendation is shown after the operation (see
+	 *                       _maybeRecommendPak).
 	 */
 	private async _resolveMethod(allowInstallPak: boolean): Promise<string> {
 		const setting = this._getConfiguredInstaller();
@@ -459,15 +506,7 @@ export class RPackageManager {
 			return (await this._detectPak()) ? 'pak' : 'base';
 		}
 
-		// setting === 'auto': prompt once per session, remember declines.
-		if (this._pakDeclined) {
-			return 'base';
-		}
-		if (await this._promptInstallPak()) {
-			await this._execute('install.packages("pak")');
-			return (await this._detectPak()) ? 'pak' : 'base';
-		}
-		this._pakDeclined = true;
+		// setting === 'auto': use base R now;
 		return 'base';
 	}
 
