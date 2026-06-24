@@ -22,8 +22,6 @@ if [ -t 1 ]; then
 else
   G=; Y=; RED=; DIM=; BOLD=; RST=
 fi
-# allow-any-unicode-next-line
-DIV="────────────────────────────────────────────"
 SERVER_ERR=/tmp/positron-server.err     # written by start-server.sh on a failed start
 DESKTOP_ERR=/tmp/positron-electron.err  # written by launch-electron.sh on a failed launch
 
@@ -195,7 +193,6 @@ render() {
   printf '\n'
 
   # --- Footer ---
-  printf '%s%s%s\n\n' "$DIM" "$DIV" "$RST"
   if [ "${#actions[@]}" -eq 0 ]; then
     printf '%s✓ Ready for development%s\n' "$G" "$RST"
   else
