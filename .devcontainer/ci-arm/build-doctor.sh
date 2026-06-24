@@ -130,7 +130,7 @@ render() {
     [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("Root deps changed → run 'Positron CI: Reinstall deps'."); }
     [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] || { build_ok=0; actions+=("test/e2e deps changed → run 'Positron CI: Reinstall e2e deps'."); }
     if [ "$build_ok" -eq 1 ]; then
-      printf '  %s✓%s %-*s%ssynced %s%s\n' "$G" "$RST" "$NAMEW" "Build" "$DIM" "$last_build" "$RST"
+      printf '  %s✓%s %-*s%s%s%s\n' "$G" "$RST" "$NAMEW" "Build" "$DIM" "$last_build" "$RST"
     else
       printf '  %s⚠%s %-*s%sneeds attention%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
     fi
