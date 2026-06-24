@@ -218,15 +218,15 @@ describe('HeadlessLanguageModelService', () => {
 			expect(result.available && result.usedFallback).toBe(true);
 		});
 
-		it('the fast/cheap tier reads its configured patterns', async () => {
+		it('the fast/cheap tier uses the built-in default patterns', async () => {
 			signedInAuthProviders.add('anthropic-api');
-			configValues.set('ai.modelSelection.fastCheap', ['sonnet']);
 			const service = createService(fakeEngine({
-				models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic'), model('claude-sonnet', 'Claude Sonnet', 'anthropic')] },
+				models: { anthropic: [model('claude-sonnet', 'Claude Sonnet', 'anthropic'), model('claude-haiku', 'Claude Haiku', 'anthropic')] },
 			}));
-			// The default tier now prefers 'sonnet' from the setting, not the built-in 'haiku'.
+			// The default tier matches the built-in 'haiku' pattern, picking the
+			// haiku model over the higher-priority sonnet.
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
-			expect(result.available && result.model.id).toBe('claude-sonnet');
+			expect(result.available && result.model.id).toBe('claude-haiku');
 		});
 	});
 

@@ -13,10 +13,6 @@ import { hasKey } from '../../../../base/common/types.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { AuthenticationSession, IAuthenticationService } from '../../authentication/common/authentication.js';
-import {
-	FAST_CHEAP_DEFAULT_PATTERNS,
-	TIER_SETTING_KEYS,
-} from '../common/headlessLanguageModelConfiguration.js';
 import { ICredentials, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import {
 	FastCheap,
@@ -34,6 +30,14 @@ interface IResolvedState {
 	readonly models: readonly IModelDescriptor[];
 	readonly anyCredential: boolean;
 }
+
+/**
+ * Built-in preference patterns for the fast/cheap model tier, tried in order
+ * until one matches an available model (case-insensitive). Intentionally not
+ * user-configurable yet: a setting for this will return once the
+ * ai-provider-bridge / providers.json owns model selection (PR #13730 review).
+ */
+const FAST_CHEAP_DEFAULT_PATTERNS: readonly string[] = ['haiku', 'mini', 'flash', 'gemma'];
 
 /**
  * All of the headless-LM policy: model selection, provider priority,
@@ -292,16 +296,14 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/**
-	 * Resolve a selection for the selector: a tier becomes its configured
-	 * preference patterns (with the built-in default as fallback); an id or
-	 * pattern selection passes through unchanged.
+	 * Resolve a selection for the selector: a tier becomes its built-in
+	 * preference patterns; an id or pattern selection passes through unchanged.
 	 */
 	private resolveSelection(selection: ModelSelection): ResolvedModelSelection {
 		if (!hasKey(selection, { tier: true })) {
 			return selection;
 		}
-		const configured = this._configService.getValue<string[]>(TIER_SETTING_KEYS[selection.tier]);
-		return { patterns: configured && configured.length > 0 ? configured : FAST_CHEAP_DEFAULT_PATTERNS };
+		return { patterns: FAST_CHEAP_DEFAULT_PATTERNS };
 	}
 
 	/** Resolve credentials for a provider id, looking up its mapping first. */
