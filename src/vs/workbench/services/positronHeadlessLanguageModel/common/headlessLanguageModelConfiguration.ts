@@ -22,7 +22,7 @@ export const FAST_CHEAP_DEFAULT_PATTERNS: readonly string[] = ['haiku', 'mini', 
  * forces an entry here, keeping the resolver and the config contribution in sync.
  */
 export const TIER_SETTING_KEYS: Record<ModelTier, string> = {
-	'fast-cheap': 'languageModels.fastCheap',
+	'fast-cheap': 'ai.modelSelection.fastCheap',
 };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
@@ -37,7 +37,7 @@ configurationRegistry.registerConfiguration({
 			items: { type: 'string' },
 			default: [...FAST_CHEAP_DEFAULT_PATTERNS],
 			markdownDescription: localize(
-				'positron.languageModels.fastCheap',
+				'positron.ai.modelSelection.fastCheap',
 				"Preference patterns for the fast/cheap model tier used by background language-model features. Patterns are tried in order until one matches an available model (case-insensitive)."
 			),
 			scope: ConfigurationScope.APPLICATION,

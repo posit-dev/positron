@@ -220,7 +220,7 @@ describe('HeadlessLanguageModelService', () => {
 
 		it('the fast/cheap tier reads its configured patterns', async () => {
 			signedInAuthProviders.add('anthropic-api');
-			configValues.set('languageModels.fastCheap', ['sonnet']);
+			configValues.set('ai.modelSelection.fastCheap', ['sonnet']);
 			const service = createService(fakeEngine({
 				models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic'), model('claude-sonnet', 'Claude Sonnet', 'anthropic')] },
 			}));
