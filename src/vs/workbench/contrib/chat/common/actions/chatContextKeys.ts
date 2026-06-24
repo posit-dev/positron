@@ -11,6 +11,9 @@ import { ViewContainerLocation } from '../../../../common/views.js';
 import { ChatEntitlementContextKeys } from '../../../../services/chat/common/chatEntitlementService.js';
 import { ChatAccountPolicyGateActiveContext } from '../../../../services/policies/common/accountPolicyService.js';
 import { ChatAgentLocation, ChatModeKind, ChatPermissionLevel } from '../constants.js';
+// --- Start Positron ---
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+// --- End Positron ---
 
 export namespace ChatContextKeys {
 	export const responseVote = new RawContextKey<string>('chatSessionResponseVote', '', { type: 'string', description: localize('interactiveSessionResponseVote', "When the response has been voted up, is set to 'up'. When voted down, is set to 'down'. Otherwise an empty string.") });
@@ -58,9 +61,12 @@ export namespace ChatContextKeys {
 	export const supported = ContextKeyExpr.or(IsWebContext.negate(), RemoteNameContext.notEqualsTo(''), ContextKeyExpr.has('config.chat.experimental.serverlessWebEnabled'));
 	export const enabled = new RawContextKey<boolean>('chatIsEnabled', false, { type: 'boolean', description: localize('chatIsEnabled', "True when chat is enabled because a default chat participant is activated with an implementation.") });
 	// --- Start Positron ---
-	// available = enabled AND Positron's AI features are not disabled via chat.disableAIFeatures.
+	// available = enabled AND chat AI is not disabled by either killswitch:
+	// Copilot's own `chat.disableAIFeatures`, or Positron's `ai.enabled` main switch.
 	// Use this in action preconditions instead of combining enabled + notEquals() inline everywhere.
-	export const available = ContextKeyExpr.and(enabled, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true))!;
+	// `ai.enabled` defaults to true, so notEquals(false) keeps unset profiles enabled and only
+	// an explicit `false` hides the commands.
+	export const available = ContextKeyExpr.and(enabled, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true), ContextKeyExpr.notEquals(`config.${AI_ENABLED_KEY}`, false))!;
 	// --- End Positron ---
 	export const accountPolicyGateActive = ChatAccountPolicyGateActiveContext;
 
