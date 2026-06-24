@@ -26,6 +26,8 @@ test.describe('Posit Assistant', {
 				// Ensure we're running the latest Posit Assistant dev build.
 				// Enables the auto dev-build update check, triggers the check,
 				// and accepts the resulting "Update Now" / "Reload" toasts.
+				// Best-effort: if the update can't complete (e.g. the current web
+				// install regression), the suite continues on the bundled build.
 				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 

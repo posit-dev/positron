@@ -579,6 +579,20 @@ export class PositAssistant {
 	 *
 	 * Note: this is for Posit Assistant (not Positron Assistant).
 	 *
+	 * Best-effort by design. The float exists to surface UI drift against the
+	 * latest assistant dev build; it is NOT a hard prerequisite for the suite.
+	 * The update installs a VSIX via `workbench.extensions.installExtension` and
+	 * the assistant silently swallows its own install errors (see the assistant
+	 * repo's auto-update.ts), so when the install fails the "...has been updated"
+	 * toast never appears. If that happens we log it and continue against the
+	 * bundled build rather than letting a `beforeAll` throw take down the whole
+	 * suite (which otherwise surfaces misleadingly as the first test failing).
+	 *
+	 * This tolerance is platform-agnostic on purpose: the float worked on web
+	 * through mid-June 2026 and then regressed there (electron unaffected), so we
+	 * don't hard-skip web -- once the upstream install regression is fixed, web
+	 * resumes floating with no code change here.
+	 *
 	 * @param settings The settings fixture used to write the user setting.
 	 * @param quickaccess The quickaccess page object used to run the command.
 	 * @param options.toastTimeout Maximum time to wait for each toast (default: 30000).
@@ -621,7 +635,15 @@ export class PositAssistant {
 		await toasts.clickButton('Update Now');
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
-		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
+		//    The download+install is best-effort: the extension silently swallows
+		//    failures, so if it errors out the success toast never appears. Don't let
+		//    that take down the whole suite -- log and continue against the bundled build.
+		try {
+			await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
+		} catch {
+			this.code.logger.log('Posit Assistant dev-build update did not complete (no "updated" toast); continuing with the bundled build.');
+			return;
+		}
 		await toasts.clickButton('Reload');
 
 		// 5. Clicking Reload reloads the window natively. Wait for the
