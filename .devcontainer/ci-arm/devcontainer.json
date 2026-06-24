@@ -35,11 +35,24 @@
 	"postStartCommand": "./.devcontainer/ci-arm/post-start.sh",
 	"customizations": {
 		"vscode": {
+			// Status-bar buttons for the common CI actions. Defined here (not in the .code-workspace
+			// file) so they only appear when the workspace is open inside the container — on the local
+			// host the buttons won't exist, avoiding the confusing "everything looks broken" state you'd
+			// get if you accidentally ran these scripts outside the container.
+			"settings": {
+				"VsCodeTaskButtons.tasks": [
+					{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
+					{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
+					{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
+					{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+					{ "label": "$(output) Logs", "task": "Positron CI: Logs", "tooltip": "Tail the server + desktop logs (/tmp/positron-{server,electron}.log)" },
+					{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop server/desktop/report; shows how to disconnect the container if you're done" },
+					{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
+				]
+			},
 			// Functional extensions for CI dev work, auto-installed into the container so they run in
-			// the remote extension host (not just the local host). task-buttons draws the status-bar
-			// buttons defined in positron-ci-lab.code-workspace; installing it here means a fresh container
-			// has the buttons without a manual "Install in Dev Container" step. It's inert without the
-			// workspace's button definitions, so it's harmless for anyone opening the bare container.
+			// the remote extension host (not just the local host). task-buttons is included here so a
+			// fresh container picks up the button definitions above without a manual install step.
 			"extensions": [
 				"ms-playwright.playwright",
 				"dbaeumer.vscode-eslint",
