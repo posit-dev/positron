@@ -11,11 +11,10 @@ import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { FooterButton } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { OKCancelBackNextActionBar } from '../../../../../browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
 import { DropDownListBox, DropDownListBoxEntry } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
@@ -101,13 +100,21 @@ export const showVisualizeModalDialog = (
 	notebookUri?: URI,
 ): Promise<VisualizeResult | undefined> => {
 	return new Promise(resolve => {
-		const renderer = new PositronModalReactRenderer();
 		let resolved = false;
-		const finish = (r: VisualizeResult | undefined) => {
+		// Resolve the promise at most once. Routed through the renderer's onDisposed so any close
+		// path -- the Cancel/Insert buttons, Escape (native <dialog> close), or a click outside --
+		// settles the promise exactly once.
+		const settle = (r: VisualizeResult | undefined) => {
 			if (resolved) { return; }
 			resolved = true;
-			renderer.dispose();
 			resolve(r);
+		};
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => settle(undefined),
+		});
+		const finish = (r: VisualizeResult | undefined) => {
+			settle(r);
+			renderer.dispose();
 		};
 		renderer.render(
 			<VisualizeModalDialog
@@ -124,7 +131,7 @@ export const showVisualizeModalDialog = (
 };
 
 interface Props {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	initialDfName: string;
 	columns: DataFrameColumn[];
 	notebookUri?: URI;
@@ -275,14 +282,8 @@ const VisualizeModalDialog = (props: Props) => {
 	const previewReady = dfNameValid && answers.x.trim().length > 0;
 
 	return (
-		<PositronModalDialog
-			height={560}
-			renderer={props.renderer}
-			title={localize('positron.notebook.visualize.title', 'Visualize dataframe')}
-			width={900}
-			onCancel={props.onCancel}
-		>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='visualize-split'>
 					<div className='visualize-modal-content'>
 						<StepIndicator currentIdx={currentIdx} total={STEP_ORDER.length} />
@@ -405,25 +406,33 @@ const VisualizeModalDialog = (props: Props) => {
 						</div>
 					)}
 				</div>
-			</ContentArea>
-
-			<OKCancelBackNextActionBar
-				backButtonConfig={{
-					disable: currentIdx === 0,
-					onClick: goBack,
-				}}
-				cancelButtonConfig={{ onClick: props.onCancel }}
-				nextButtonConfig={isLastStep ? undefined : {
-					disable: !canAdvance,
-					onClick: advanceOrSubmit,
-				}}
-				okButtonConfig={isLastStep ? {
-					title: localize('positron.notebook.visualize.insert', 'Insert'),
-					disable: !canInsert,
-					onClick: advanceOrSubmit,
-				} : undefined}
-			/>
-		</PositronModalDialog>
+			}
+			contentMaxHeight={480}
+			contentMinHeight={480}
+			footer={
+				<div className='visualize-footer'>
+					<FooterButton disabled={currentIdx === 0} onPressed={goBack}>
+						{localize('positron.notebook.visualize.back', 'Back')}
+					</FooterButton>
+					<div className='visualize-footer-right'>
+						<FooterButton onPressed={props.onCancel}>
+							{localize('positron.notebook.visualize.cancel', 'Cancel')}
+						</FooterButton>
+						{isLastStep
+							? <FooterButton default disabled={!canInsert} type='submit' onPressed={advanceOrSubmit}>
+								{localize('positron.notebook.visualize.insert', 'Insert')}
+							</FooterButton>
+							: <FooterButton default disabled={!canAdvance} type='submit' onPressed={advanceOrSubmit}>
+								{localize('positron.notebook.visualize.next', 'Next')}
+							</FooterButton>}
+					</div>
+				</div>
+			}
+			renderer={props.renderer}
+			title={localize('positron.notebook.visualize.title', 'Visualize dataframe')}
+			width={900}
+			onSubmit={advanceOrSubmit}
+		/>
 	);
 };
 
