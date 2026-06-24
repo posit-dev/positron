@@ -232,13 +232,24 @@ async function buildSqliteServerBinding(): Promise<void> {
 		return;
 	}
 
+	// The default binary is the Electron-ABI build. A correct server binding is a
+	// *distinct* (Node-ABI) build, so if a server binary already exists and differs
+	// from the default, it is already good -- skip the (network-bound) rebuild. This
+	// makes the step idempotent and cheap, so it can also run on the "up to date"
+	// path to self-heal a missing or stale (Electron-ABI) server binary. A server
+	// binary byte-identical to the default is the failure we must repair: it means a
+	// previous run copied the Electron binary without rebuilding it.
+	const electronBinary = fs.readFileSync(defaultBinary);
+	if (fs.existsSync(serverBinary) && !fs.readFileSync(serverBinary).equals(electronBinary)) {
+		return;
+	}
+
 	const nodeTarget = readNpmrcValue(path.join(root, 'remote', '.npmrc'), 'target') ?? process.versions.node;
 	log(dir, `Building Node-ABI (node ${nodeTarget}) better-sqlite3 binary for the server extension host...`);
 
 	// prebuild-install / node-gyp both write to build/Release/better_sqlite3.node,
 	// so preserve the Electron binary, produce the Node binary, copy it aside, then
 	// restore the Electron binary as the default.
-	const electronBinary = fs.readFileSync(defaultBinary);
 	const requireFromModule = createRequire(path.join(moduleDir, 'package.json'));
 	try {
 		try {
@@ -253,6 +264,14 @@ async function buildSqliteServerBinding(): Promise<void> {
 				? path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp.cmd')
 				: path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp');
 			await spawnAsync(nodeGyp, ['rebuild', '--release', `--target=${nodeTarget}`, `--arch=${process.arch}`, '--dist-url=https://nodejs.org/dist'], { cwd: moduleDir, shell: true });
+		}
+		// Verify the rebuild actually produced a Node-ABI binary before copying it.
+		// If the default is still byte-identical to the Electron binary, the rebuild
+		// silently no-op'd (e.g. a download that exited 0 without overwriting); fail
+		// loudly rather than ship an Electron-ABI binary that the server extension
+		// host cannot load (NODE_MODULE_VERSION mismatch).
+		if (fs.readFileSync(defaultBinary).equals(electronBinary)) {
+			throw new Error(`better-sqlite3 Node-ABI rebuild (node ${nodeTarget}) did not replace the Electron binary; refusing to write an Electron-ABI server binding. Re-run with VSCODE_FORCE_INSTALL=1 and network access.`);
 		}
 		fs.copyFileSync(defaultBinary, serverBinary);
 		log(dir, `Wrote ${path.relative(root, serverBinary)}`);
@@ -465,6 +484,11 @@ async function main() {
 
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
 		log('.', 'All dependencies up to date, skipping postinstall.');
+		// Even when no dependencies changed, ensure the SQLite server (Node-ABI)
+		// binding exists and is not a stale Electron-ABI copy. This is idempotent
+		// and cheap when the binary is already correct (see buildSqliteServerBinding),
+		// so a cached/already-installed node_modules still gets repaired here.
+		await buildSqliteServerBinding();
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
