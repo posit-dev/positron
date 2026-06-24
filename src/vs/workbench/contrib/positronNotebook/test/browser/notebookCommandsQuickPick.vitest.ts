@@ -23,7 +23,7 @@ describe('showNotebookCommandsQuickPick', () => {
 	// Reassigned each test; the IQuickInputService stub captures it by closure
 	// so createQuickPick() returns the current double.
 	let pick: TestQuickPick<ICommandPickItem>;
-	const executeCommand = vi.fn();
+	const executeCommand = vi.fn(() => Promise.resolve(undefined));
 
 	const ctx = createTestContainer()
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({

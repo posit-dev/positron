@@ -7,6 +7,7 @@ import { localize, localize2 } from '../../../../../../nls.js';
 import { Action2, isIMenuItem, MenuId, MenuRegistry, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -34,19 +35,15 @@ function collectNotebookCommandIds(): string[] {
 			ids.add(item.command.id);
 		}
 	}
-	// To surface commands the prefix scan misses (e.g. keybinding-only commands
-	// absent from the command palette), add a greenlist of ids here before the
-	// self-exclusion below. Only greenlist commands that actually run from the
-	// Positron Notebook editor: upstream commands gated on `notebookEditorFocused`
-	// won't run, because the editor sets `positronNotebookEditorFocused` instead.
+	// Greenlist additional ids here (before this self-exclusion) if the prefix
+	// scan ever needs to surface palette-absent commands.
 	ids.delete(SHOW_NOTEBOOK_COMMANDS_ACTION_ID);
 	return [...ids];
 }
 
 /**
  * Show a quick pick of Positron Notebook commands and run the selected one.
- * Exported so other entry points (e.g. a future customizations dropdown) can
- * reuse it.
+ * Exported for testing.
  */
 export function showNotebookCommandsQuickPick(
 	quickInputService: IQuickInputService,
@@ -75,7 +72,7 @@ export function showNotebookCommandsQuickPick(
 	store.add(quickPick.onDidAccept(() => {
 		const selected = quickPick.selectedItems[0];
 		if (selected) {
-			commandService.executeCommand(selected.commandId);
+			commandService.executeCommand(selected.commandId).then(undefined, onUnexpectedError);
 		}
 		quickPick.hide();
 	}));
