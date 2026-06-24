@@ -170,10 +170,18 @@ jobs:
       # "Download binaries" step below runs `npm rebuild` on every run (even on
       # a cache hit), which re-invokes node-gyp, so the toolchain must always be
       # present regardless of cache state.
+      # Wrapped in retry because community.chocolatey.org intermittently
+      # rate-limits or 5xx's during dependency resolution, surfacing as
+      # "Unable to resolve dependency 'chocolatey-dotnetfx.extension'".
       - name: Install Visual Studio 2022 C++ build tools
-        shell: pwsh
-        run: |
-          choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: pwsh
+          command: |
+            choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
