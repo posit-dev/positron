@@ -61,7 +61,7 @@ fi
 cat <<'MSG'
 
   ▸ Start the Doctor to see services, ports, and build status:
-      the "Doctor" button in the status bar
-      (or Command Palette → "Tasks: Run Task" → "Positron CI: Doctor")
+     · click the "Doctor" button in the status bar
+     · or run: Command Palette → "Tasks: Run Task" → "Positron CI: Doctor"
 
 MSG
