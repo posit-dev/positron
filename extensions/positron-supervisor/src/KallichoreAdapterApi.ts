@@ -98,7 +98,51 @@ export function sharesApplicationLifetime(
 	// A non-default shutdown timeout means the server is run detached and is
 	// meant to outlive the application. Otherwise the server shares the
 	// application's lifetime.
+	//
+	// Note that 'when idle' does *not* share the application's lifetime: the
+	// server is left running detached past quit so in-flight computations can
+	// finish, then it shuts itself down once idle. It is therefore deliberately
+	// excluded here (so we don't force-shut-it-down on quit), even though it is
+	// not a reconnect target (see {@link isReconnectTarget}).
 	return shutdownTimeout === 'immediately';
+}
+
+/**
+ * Whether a supervisor server is a reconnect target: a server we expect to find
+ * still running, and reconnect to, in a future application session. This
+ * governs whether its reconnect state is persisted on disk (a reconnect target)
+ * or kept ephemeral and cleared when the application exits (not a reconnect
+ * target).
+ *
+ * Two shutdown timeouts produce servers that outlive a window reload but are
+ * never reconnected to across an application exit, so they are not reconnect
+ * targets:
+ * - 'immediately': the server is shut down when the application quits.
+ * - 'when idle': the server lingers past quit only to let in-flight
+ *   computations finish, then shuts itself down once idle. The goal is to avoid
+ *   killing running work, not to reconnect to it later.
+ *
+ * Exported so the policy can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param uiKind The UI kind the application is running as.
+ * @param shutdownTimeout The `kernelSupervisor.shutdownTimeout` setting value.
+ * @returns True if the server is a reconnect target whose state should persist.
+ */
+export function isReconnectTarget(
+	uiKind: vscode.UIKind,
+	shutdownTimeout: string,
+): boolean {
+	// Web servers are long-lived and survive client disconnects, so we expect
+	// to reconnect to them after a restart.
+	if (uiKind === vscode.UIKind.Web) {
+		return true;
+	}
+
+	// Only timeouts that keep the server alive for the purpose of later
+	// reconnection ('indefinitely' or a fixed number of hours) are reconnect
+	// targets. 'immediately' and 'when idle' are not.
+	return shutdownTimeout !== 'immediately' && shutdownTimeout !== 'when idle';
 }
 
 export class KCApi implements PositronSupervisorApi {
@@ -819,19 +863,27 @@ export class KCApi implements PositronSupervisorApi {
 	 * The lifetime of ephemeral storage closely matches the validity window of
 	 * a bearer token: it survives window reloads and extension host restarts
 	 * but is cleared when the application process exits. We use it whenever the
-	 * server is expected to share the application's lifetime, so that a stale
-	 * reconnect target is never read back from disk after the application (and
-	 * the server it owns) have exited. When the server is configured to outlive
-	 * the application, we fall back to persistent storage so we can reconnect to
-	 * it after a restart.
+	 * server is not a reconnect target, so that a stale reconnect target is
+	 * never read back from disk after the application has exited. When the
+	 * server is a reconnect target (see {@link isReconnectTarget}), we use
+	 * persistent storage so we can reconnect to it after a restart.
+	 *
+	 * Note this is governed by {@link isReconnectTarget}, not
+	 * {@link sharesApplicationLifetime}: a 'when idle' server outlives the
+	 * application (so it does not share its lifetime) but is still not a
+	 * reconnect target, so its state stays ephemeral.
 	 *
 	 * @returns True to use ephemeral storage, false to use persistent storage.
 	 */
 	private useEphemeralState(): boolean {
-		// Ephemeral storage is the right fit precisely when the server shares
-		// the application's lifetime: the storage is cleared when the
-		// application exits, just as the server does.
-		return this.serverSharesApplicationLifetime();
+		// Ephemeral storage is the right fit precisely when the server is not a
+		// reconnect target: the storage is cleared when the application exits,
+		// just as a non-reconnect-target server is either shut down on quit
+		// ('immediately') or left to finish in-flight work and then exit
+		// ('when idle').
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		return !isReconnectTarget(vscode.env.uiKind, shutdownTimeout);
 	}
 
 	/**
