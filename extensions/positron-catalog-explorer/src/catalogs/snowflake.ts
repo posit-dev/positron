@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import * as snowflake from 'snowflake-sdk';
 import {
 	CatalogNode,
@@ -62,6 +63,55 @@ export function registerSnowflakeProvider(
 }
 
 /**
+ * Compute the path to the Snowflake SDK log file.
+ *
+ * The file lives in the extension's log directory so it stays out of the user's
+ * home/working directory (see {@link configureSnowflakeLogging}).
+ */
+export function getSnowflakeLogFilePath(context: vscode.ExtensionContext): string {
+	return path.join(context.logUri.fsPath, 'snowflake.log');
+}
+
+/**
+ * Ensure the extension's log directory exists before the SDK is pointed at it.
+ *
+ * Failures are logged rather than thrown: a missing log directory should not
+ * prevent the extension from activating.
+ */
+export async function ensureSnowflakeLogDirectory(context: vscode.ExtensionContext): Promise<void> {
+	try {
+		await vscode.workspace.fs.createDirectory(context.logUri);
+	} catch (error) {
+		traceError('Failed to create log directory for Snowflake logs:', error);
+	}
+}
+
+/**
+ * Configure the Snowflake SDK logger.
+ *
+ * The SDK initializes a winston file logger whose default path is `snowflake.log`
+ * in the current working directory. On some platforms (e.g. Linux) the working
+ * directory is the user's home directory, so the SDK drops a `snowflake.log`
+ * there. Point the log file at the extension's log directory instead so it stays
+ * out of the user's home directory.
+ *
+ * This is configured once at activation so the log path is set before any
+ * Snowflake connection is established (connecting is what triggers the SDK's
+ * first log writes).
+ */
+export async function configureSnowflakeLogging(context: vscode.ExtensionContext): Promise<void> {
+	const config = vscode.workspace.getConfiguration('catalogExplorer');
+	const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
+
+	await ensureSnowflakeLogDirectory(context);
+
+	snowflake.configure({
+		logLevel: logLevelStr,
+		logFilePath: getSnowflakeLogFilePath(context),
+	});
+}
+
+/**
  * Register a Snowflake catalog provider using authentication details from connections.toml.
  */
 export async function registerSnowflakeCatalog(
@@ -81,7 +131,7 @@ export async function registerSnowflakeCatalog(
 			const connectionNames = Object.keys(connections);
 			items = connectionNames.map(name => ({
 				label: name,
-				description: l10n.t(`Connection from account (${connections[name].account || 'No account specified'})`),
+				description: l10n.t('Connection from account ({0})', connections[name].account || 'No account specified'),
 			}));
 		} else {
 			// If no connections found, offer help options
@@ -117,16 +167,6 @@ export async function registerSnowflakeCatalog(
 	if (!connName) {
 		return undefined;
 	}
-
-	// Place snowflake logs in users workspace folder if available
-	const config = vscode.workspace.getConfiguration('catalogExplorer');
-	const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
-
-	snowflake.configure({
-		logLevel: logLevelStr,
-		logFilePath: vscode.workspace.workspaceFolders
-			? vscode.workspace.workspaceFolders[0].uri.fsPath : undefined
-	});
 
 	// If we don't already have a connection profile from the input, try to get it from connections.toml
 	if (!connOptions && connections && connName) {
@@ -166,7 +206,7 @@ export async function registerSnowflakeCatalog(
 	return await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: l10n.t(`Authenticating to Snowflake via ${connOptions.authenticator}... (will timeout after 30s)`),
+			title: l10n.t('Authenticating to Snowflake via {0}... (will timeout after 30s)', connOptions.authenticator),
 		},
 		async () => {
 			const AUTH_TIMEOUT_MS = 30000;

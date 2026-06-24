@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { PdfHttpServer } from './pdfHttpServer';
+import { buildPdfViewerUrls } from './pdfViewerUrls';
 
 /**
  * Generate a random nonce for CSP.
@@ -49,29 +50,24 @@ export async function createWebviewHtml(
 
 	// Get the CSP source for the webview and the server URL.
 	const cspSource = webview.cspSource;
-	let serverUrl = await httpServer.getExternalUrl();
+	const serverUrl = await httpServer.getExternalUrl();
 
-	// Remove trailing slash if present.
-	if (serverUrl.endsWith('/')) {
-		serverUrl = serverUrl.slice(0, -1);
-	}
+	// Build the normalized base URL and the viewer URL. The base URL ends with a
+	// trailing slash so CSP sources match all sub-paths under it (see buildPdfViewerUrls).
+	const theme = getPdfJsTheme();
+	const { baseUrl, viewerUrl } = buildPdfViewerUrls(serverUrl, pdfId, theme);
 
 	// Build CSP allowing localhost iframes with full PDF.js viewer resources.
 	const csp = [
 		`default-src 'none'`,
-		`style-src ${cspSource} 'unsafe-inline' ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`script-src ${cspSource} 'nonce-${nonce}' ${serverUrl} http://localhost:* http://127.0.0.1:* 'unsafe-eval'`,
-		`frame-src ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`img-src ${cspSource} data: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`font-src ${cspSource} data: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`worker-src ${cspSource} blob: ${serverUrl} http://localhost:* http://127.0.0.1:*`,
-		`connect-src ${serverUrl} http://localhost:* http://127.0.0.1:*`
+		`style-src ${cspSource} 'unsafe-inline' ${baseUrl} http://localhost:* http://127.0.0.1:*`,
+		`script-src ${cspSource} 'nonce-${nonce}' ${baseUrl} http://localhost:* http://127.0.0.1:* 'unsafe-eval'`,
+		`frame-src ${baseUrl} http://localhost:* http://127.0.0.1:*`,
+		`img-src ${cspSource} data: ${baseUrl} http://localhost:* http://127.0.0.1:*`,
+		`font-src ${cspSource} data: ${baseUrl} http://localhost:* http://127.0.0.1:*`,
+		`worker-src ${cspSource} blob: ${baseUrl} http://localhost:* http://127.0.0.1:*`,
+		`connect-src ${baseUrl} http://localhost:* http://127.0.0.1:*`
 	].join('; ');
-
-	// Build viewer URL - use custom wrapper that sets theme preference.
-	const pdfUrl = `${serverUrl}/pdf/${pdfId}`;
-	const theme = getPdfJsTheme();
-	const viewerUrl = `${serverUrl}/viewer?file=${encodeURIComponent(pdfUrl)}&theme=${theme}`;
 
 	// Return the complete HTML for the webview, including the CSP and the iframe pointing to the viewer URL.
 	// Also includes a script to forward keyboard events from the PDF viewer to VS Code's keybinding service.

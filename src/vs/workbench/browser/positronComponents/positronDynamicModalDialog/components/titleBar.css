@@ -17,3 +17,14 @@
 	overflow: hidden;
 	color: var(--vscode-positronModalDialog-titleBarForeground);
 }
+
+.positron-dynamic-modal-dialog-box .title-bar.large {
+	flex-basis: 48px;
+	background: var(--vscode-positronModalDialog-background);
+	border-bottom: solid 1px var(--vscode-positronModalDialog-border);
+}
+
+.positron-dynamic-modal-dialog-box .title-bar.large .title-bar-title {
+	font-size: 16px;
+	color: var(--vscode-descriptionForeground);
+}

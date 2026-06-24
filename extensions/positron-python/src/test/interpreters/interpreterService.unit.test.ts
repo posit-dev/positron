@@ -99,6 +99,9 @@ suite('Interpreters service', () => {
         pythonSettings = createTypeMoq<IPythonSettings>();
         pythonSettings.setup((s) => s.pythonPath).returns(() => PYTHON_PATH);
         configService.setup((c) => c.getSettings(TypeMoq.It.isAny())).returns(() => pythonSettings.object);
+        // --- Start Positron ---
+        workspace.setup((w) => w.getWorkspaceFolderIdentifier(TypeMoq.It.isAny())).returns(() => '');
+        // --- End Positron ---
 
         pythonExecutionService.setup((p: any) => p.then).returns(() => undefined);
         workspace.setup((x) => x.getConfiguration('python', TypeMoq.It.isAny())).returns(() => config.object);
@@ -263,7 +266,10 @@ suite('Interpreters service', () => {
         const resource = Uri.parse('a');
         const workspaceFolder = { uri: resource, name: '', index: 0 };
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
-        service._pythonPathSetting = '';
+        // --- Start Positron ---
+        // No entry in _pythonPathSetting map = initial state (equivalent to old empty-string sentinel).
+        // service._pythonPathSetting = '';
+        // --- End Positron ---
         configService.reset();
         configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
         interpreterDisplay
@@ -283,7 +289,9 @@ suite('Interpreters service', () => {
         const resource = Uri.parse('a');
         const workspaceFolder = { uri: resource, name: '', index: 0 };
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
-        service._pythonPathSetting = 'stored setting';
+        // --- Start Positron ---
+        service._pythonPathSetting.set('', 'stored setting');
+        // --- End Positron ---
         configService.reset();
         configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
         interpreterDisplay
@@ -301,7 +309,9 @@ suite('Interpreters service', () => {
     test('If stored setting is equal to current interpreter path setting, do not refresh the interpreter display', async () => {
         const service = new InterpreterService(serviceContainer, pyenvs.object);
         const resource = Uri.parse('a');
-        service._pythonPathSetting = 'setting';
+        // --- Start Positron ---
+        service._pythonPathSetting.set('', 'setting');
+        // --- End Positron ---
         configService.reset();
         configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'setting' } as any));
         interpreterDisplay
@@ -319,7 +329,7 @@ suite('Interpreters service', () => {
         const resource = Uri.parse('a');
         const workspaceFolder = { uri: resource, name: '', index: 0 };
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
-        service._pythonPathSetting = 'stored setting';
+        service._pythonPathSetting.set('', 'stored setting');
         configService.reset();
         configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
         interpreterDisplay.setup((i) => i.refresh()).returns(() => Promise.resolve());
@@ -341,7 +351,7 @@ suite('Interpreters service', () => {
         const resource = Uri.parse('a');
         const workspaceFolder = { uri: resource, name: '', index: 0 };
         workspace.setup((w) => w.getWorkspaceFolder(resource)).returns(() => workspaceFolder);
-        service._pythonPathSetting = 'stored setting';
+        service._pythonPathSetting.set('', 'stored setting');
         configService.reset();
         configService.setup((c) => c.getSettings(resource)).returns(() => ({ pythonPath: 'current path' } as any));
         interpreterDisplay.setup((i) => i.refresh()).returns(() => Promise.resolve());
@@ -351,6 +361,37 @@ suite('Interpreters service', () => {
         await service._onConfigChanged(resource);
 
         expect(events).to.deep.equal([{ resource, startSession: true, source: 'unspecified' }]);
+    });
+
+    test('A change under one folder does not suppress the change for another folder with the same path', async () => {
+        const service = new InterpreterService(serviceContainer, pyenvs.object);
+        const folderA = Uri.parse('folderA');
+        const folderB = Uri.parse('folderB');
+
+        // Distinct identifiers per folder so the per-folder _pythonPathSetting keys don't collide.
+        workspace
+            .setup((w) => w.getWorkspaceFolderIdentifier(TypeMoq.It.isAny()))
+            .returns((resource?: Uri) => resource?.toString() ?? '');
+
+        // Both folders resolve to the same interpreter path. The old single-value _pythonPathSetting
+        // would treat folder B's path as unchanged after folder A and suppress its refresh; the
+        // per-folder Map must not.
+        configService.reset();
+        configService
+            .setup((c) => c.getSettings(TypeMoq.It.isAny()))
+            .returns(() => ({ pythonPath: 'shared path' } as any));
+        interpreterDisplay.setup((i) => i.refresh()).returns(() => Promise.resolve());
+
+        const events: InterpreterChangeEvent[] = [];
+        service.onDidChangeInterpreter((e) => events.push(e));
+
+        await service._onConfigChanged(folderA);
+        await service._onConfigChanged(folderB);
+
+        expect(events).to.deep.equal([
+            { resource: folderA, startSession: true, source: 'unspecified' },
+            { resource: folderB, startSession: true, source: 'unspecified' },
+        ]);
     });
     // --- End Positron ---
 });

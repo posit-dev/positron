@@ -166,13 +166,11 @@ jobs:
       # toolchain check is satisfied too. The Spectre-mitigated runtime libs are
       # added explicitly because our native modules (e.g. @vscode/native-watchdog,
       # @vscode/deviceid) build with Spectre mitigation required (MSB8040).
-      # Gated on the same condition as the install step below, since the
-      # toolchain is only needed when native modules are actually (re)built
-      # (i.e. on an npm cache miss).
+      # Runs unconditionally rather than only on an npm cache miss: the
+      # "Download binaries" step below runs `npm rebuild` on every run (even on
+      # a cache hit), which re-invokes node-gyp, so the toolchain must always be
+      # present regardless of cache state.
       - name: Install Visual Studio 2022 C++ build tools
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
-            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         shell: pwsh
         run: |
           choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"

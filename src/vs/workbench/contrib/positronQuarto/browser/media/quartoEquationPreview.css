@@ -1,0 +1,40 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Outer wrapper for the equation preview view zone. This IS the view zone's
+ * domNode: the editor sets inline `position`, `display`, `width` and `height` on
+ * it (so layout cannot be driven via display/flex here), but it does NOT set
+ * padding. With `box-sizing: border-box` the padding stays inside the editor's
+ * height and provides the breathing room above and below the equation. Keep the
+ * padding in sync with VERTICAL_PADDING in quartoEquationPreview.ts.
+ */
+.quarto-equation-preview-wrapper {
+	box-sizing: border-box;
+	padding: 16px 0;
+	pointer-events: auto !important;
+	user-select: none;
+	-webkit-user-select: none;
+	position: relative;
+	z-index: 5;
+}
+
+/*
+ * Container for the rendered equation. Block layout (not flex): KaTeX display
+ * math is an inline-block whose strut/baseline gets mis-positioned by a flex
+ * cross-axis, riding up over the top padding. Block flow renders it normally;
+ * left alignment comes from `.katex-display { text-align: left }` below.
+ */
+.quarto-equation-preview-container {
+	overflow-x: auto;
+	overflow-y: hidden;
+	color: var(--vscode-editor-foreground);
+}
+
+/* Keep KaTeX's default centered display block; just remove its default top/bottom margins
+ * (the breathing room comes from the wrapper padding). */
+.quarto-equation-preview-container .katex-display {
+	margin: 0;
+}

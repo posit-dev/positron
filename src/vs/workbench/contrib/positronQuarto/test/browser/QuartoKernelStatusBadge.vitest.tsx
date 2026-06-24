@@ -9,7 +9,7 @@ import { act, screen } from '@testing-library/react';
 import { URI } from '../../../../../base/common/uri.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState, QuartoKernelStateChangeEvent } from '../../browser/quartoKernelManager.js';
 import { QuartoKernelStatusBadge } from '../../browser/QuartoKernelStatusBadge.js';
@@ -20,9 +20,9 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 describe('QuartoKernelStatusBadge', () => {
 	const stateChange = new Emitter<QuartoKernelStateChangeEvent>();
 	const editorChange = new Emitter<void>();
+	const displayStateEmitter = new Emitter<{ sessionId: string; state: RuntimeState }>();
+	let displayState: RuntimeState | undefined;
 
-	// Use mutable stub objects so individual tests can override specific methods
-	// without triggering Proxy-set semantics on the stubInterface result.
 	const editorServiceStub = {
 		activeEditor: { resource: URI.file('/tmp/notebook.qmd') },
 		activeTextEditorControl: undefined as unknown,
@@ -39,12 +39,17 @@ describe('QuartoKernelStatusBadge', () => {
 		.withReactServices()
 		.stub(IEditorService, editorServiceStub)
 		.stub(IQuartoKernelManager, kernelManagerStub)
+		.stub(IRuntimeSessionService, {
+			onDidChangeDisplayRuntimeState: displayStateEmitter.event,
+			getDisplayRuntimeState: () => displayState,
+		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function makeSession(initial: RuntimeState) {
+	function makeSession(initial: RuntimeState, sessionId = 's1') {
 		const emitter = new Emitter<RuntimeState>();
 		const session = stubInterface<ILanguageRuntimeSession>({
+			sessionId,
 			getRuntimeState: () => initial,
 			onDidChangeRuntimeState: emitter.event,
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeName: 'Python 3.12' }),
@@ -53,7 +58,7 @@ describe('QuartoKernelStatusBadge', () => {
 	}
 
 	beforeEach(() => {
-		// Reset stubs to defaults before each test
+		displayState = undefined;
 		editorServiceStub.activeEditor = { resource: URI.file('/tmp/notebook.qmd') };
 		kernelManagerStub.getKernelState = () => QuartoKernelState.None;
 		kernelManagerStub.getSessionForDocument = () => undefined;
@@ -76,27 +81,31 @@ describe('QuartoKernelStatusBadge', () => {
 		const { session } = makeSession(RuntimeState.Idle);
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 		expect(screen.getByTestId('runtime-status-idle')).toBeInTheDocument();
 		expect(screen.getByText('Python 3.12')).toBeInTheDocument();
 	});
 
-	it('updates display when the session emits a state change', () => {
-		const { session, emitter } = makeSession(RuntimeState.Idle);
+	it('updates display when the display state emitter fires a state change', () => {
+		const { session } = makeSession(RuntimeState.Idle);
 		kernelManagerStub.getSessionForDocument = () => session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
-		act(() => emitter.fire(RuntimeState.Busy));
+		act(() => displayStateEmitter.fire({ sessionId: 's1', state: RuntimeState.Busy }));
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 
 	it('reflects the new session runtime state when manager swaps the session', () => {
-		const a = makeSession(RuntimeState.Idle);
+		const a = makeSession(RuntimeState.Idle, 'sA');
 		kernelManagerStub.getSessionForDocument = () => a.session;
 		kernelManagerStub.getKernelState = () => QuartoKernelState.Ready;
+		displayState = RuntimeState.Idle;
 		rtl.render(<QuartoKernelStatusBadge accessor={ctx.instantiationService} />);
 
-		const b = makeSession(RuntimeState.Starting);
+		const b = makeSession(RuntimeState.Starting, 'sB');
+		displayState = RuntimeState.Starting;
 		act(() => stateChange.fire({
 			documentUri: URI.file('/tmp/notebook.qmd'),
 			oldState: QuartoKernelState.Ready,
@@ -104,7 +113,6 @@ describe('QuartoKernelStatusBadge', () => {
 			session: b.session,
 		}));
 
-		// Display follows session B, not session A
 		expect(screen.getByTestId('runtime-status-active')).toBeInTheDocument();
 	});
 });

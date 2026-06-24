@@ -94,7 +94,11 @@ export class InterpreterService implements Disposable, IInterpreterService {
         return this.didChangeInterpreterConfigurationEmitter.event;
     }
 
-    public _pythonPathSetting: string | undefined = '';
+    // --- Start Positron ---
+    // Keyed by getWorkspaceFolderIdentifier(resource) so changes in one folder don't mask another.
+    // public _pythonPathSetting: string | undefined = '';
+    public _pythonPathSetting: Map<string, string> = new Map();
+    // --- End Positron ---
 
     private readonly didChangeInterpreterConfigurationEmitter = new EventEmitter<Uri | undefined>();
 
@@ -298,9 +302,13 @@ export class InterpreterService implements Disposable, IInterpreterService {
         await sleep(1);
         const pySettings = this.configService.getSettings(resource);
         this.didChangeInterpreterConfigurationEmitter.fire(resource);
-        if (this._pythonPathSetting === '' || this._pythonPathSetting !== pySettings.pythonPath) {
-            this._pythonPathSetting = pySettings.pythonPath;
-            // --- Start Positron ---
+        // --- Start Positron ---
+        const workspaceKey = this.serviceContainer
+            .get<IWorkspaceService>(IWorkspaceService)
+            .getWorkspaceFolderIdentifier(resource);
+        const previousPath = this._pythonPathSetting.get(workspaceKey);
+        if (previousPath === undefined || previousPath !== pySettings.pythonPath) {
+            this._pythonPathSetting.set(workspaceKey, pySettings.pythonPath);
             this.fireInterpreterChanged(resource, scope.startSession ?? true, scope.source ?? 'unspecified');
             // --- End Positron ---
             const workspaceFolder = this.serviceContainer
@@ -310,13 +318,19 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 path: pySettings.pythonPath,
                 resource: workspaceFolder,
             });
-            const workspaceKey = this.serviceContainer
-                .get<IWorkspaceService>(IWorkspaceService)
-                .getWorkspaceFolderIdentifier(resource);
+            // --- Start Positron ---
+            // moved this up
+            // const workspaceKey = this.serviceContainer
+            //     .get<IWorkspaceService>(IWorkspaceService)
+            //     .getWorkspaceFolderIdentifier(resource);
+            // --- End Positron ---
             this.activeInterpreterPaths.set(workspaceKey, { path: pySettings.pythonPath, workspaceFolder });
             const interpreterDisplay = this.serviceContainer.get<IInterpreterDisplay>(IInterpreterDisplay);
             interpreterDisplay.refresh().catch((ex) => traceError('Python Extension: display.refresh', ex));
-            await this.ensureEnvironmentContainsPython(this._pythonPathSetting, workspaceFolder);
+            // --- Start Positron ---
+            // await this.ensureEnvironmentContainsPython(this._pythonPathSetting, workspaceFolder);
+            await this.ensureEnvironmentContainsPython(pySettings.pythonPath, workspaceFolder);
+            // --- End Positron ---
         }
     }
 

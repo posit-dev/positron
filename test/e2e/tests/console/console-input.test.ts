@@ -178,5 +178,41 @@ cat(sprintf('Hello %s!\n', val))`;
 		await page.keyboard.press('Control+C');
 		await expect(inputLocator).not.toContainText("base::mea");
 	});
+
+	test('Python - Home / End / Ctrl+U act on the console input, not the output scroll', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7380' }]
+	}, async function ({ app, page, python }) {
+		// Regression test for the keybinding migration. Home / End must move the
+		// cursor to the start / end of the input line (cursorLineStart /
+		// cursorLineEnd) rather than scrolling the console output to top / bottom,
+		// and Ctrl+U must delete from the cursor to the start of the line. The
+		// console output container has its own Home / End scroll handler, so this
+		// guards the carve-out that lets input-originated keys reach the editor.
+		const activeConsole = app.workbench.console.activeConsole;
+		const inputLocator = activeConsole.locator('.console-input');
+
+		await app.workbench.console.typeToConsole('abcDEF');
+		await app.workbench.console.waitForCurrentConsoleLineContents('abcDEF');
+
+		// Dismiss any autocomplete popup so it does not capture the keys.
+		await page.keyboard.press('Escape');
+
+		// Home moves the cursor to the start: typing inserts before 'abc'.
+		await page.keyboard.press('Home');
+		await page.keyboard.type('1');
+		await expect(inputLocator).toContainText('1abcDEF');
+		await expect(inputLocator).not.toContainText('abcDEF1');
+
+		// End moves the cursor to the end: typing appends.
+		await page.keyboard.press('End');
+		await page.keyboard.type('2');
+		await expect(inputLocator).toContainText('1abcDEF2');
+
+		// Ctrl+U deletes from the cursor (end of line) to the start of the line.
+		await page.keyboard.press('Control+U');
+		await expect(inputLocator).not.toContainText('abcDEF');
+
+		await app.workbench.console.clearInput();
+	});
 });
 
