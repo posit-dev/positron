@@ -219,6 +219,14 @@ sig() {
   [ -f "$SERVER_ERR" ] && s+=E || s+=e
   [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
   pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && s+=B || s+=b
+  # Build readiness inputs (the same ones the Build row checks): fold them in so the panel redraws
+  # the moment a watch/build produces out/ or the deps come back into (or drift out of) sync - not
+  # only when the completion marker is re-stamped. `npm run watch` creates out/ without touching the
+  # marker, so without these bits the Build row stayed stale until a manual refresh.
+  [ -d "$WS/out" ] && s+=O || s+=o
+  [ -e "$WS/.build/electron" ] && s+=L || s+=l
+  [ "$(sha "$WS/package-lock.json")" = "$(cat "$STATE/deps.sha" 2>/dev/null)" ] && s+=M || s+=m
+  [ "$(sha "$WS/test/e2e/package-lock.json")" = "$(cat "$STATE/e2e-deps.sha" 2>/dev/null)" ] && s+=2 || s+=z
   # Build-marker mtime: Reinstall deps / Rebuild rewrite it (mark-build-state.sh), so the Build
   # card redraws when they finish — Reinstall never runs post-create.sh, so the B bit alone misses it.
   [ -f "$STATE/complete" ] && s+="C$(stat -c %Y "$STATE/complete" 2>/dev/null)" || s+=c
