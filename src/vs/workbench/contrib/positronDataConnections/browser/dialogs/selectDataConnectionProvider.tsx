@@ -240,7 +240,7 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 				'positron.selectDataConnectionProvider.title',
 				"Add Database"
 			)}
-			titleBarSize='large'
+			titleBarSize='normal'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}
