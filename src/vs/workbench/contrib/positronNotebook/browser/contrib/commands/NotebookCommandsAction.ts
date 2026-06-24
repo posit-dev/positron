@@ -5,17 +5,14 @@
 
 import { localize, localize2 } from '../../../../../../nls.js';
 import { Action2, isIMenuItem, MenuId, MenuRegistry, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
-import { Codicon } from '../../../../../../base/common/codicons.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { onUnexpectedError } from '../../../../../../base/common/errors.js';
-import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../../platform/quickinput/common/quickInput.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 
-const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
+export const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
 
 /** Command id prefix that identifies Positron Notebook commands. */
 const POSITRON_NOTEBOOK_COMMAND_PREFIX = 'positronNotebook.';
@@ -167,16 +164,10 @@ export class ShowNotebookCommandsAction extends Action2 {
 		super({
 			id: SHOW_NOTEBOOK_COMMANDS_ACTION_ID,
 			title: localize2('positron.notebookCommands.action', 'Show Notebook Commands'),
-			tooltip: localize2('positron.notebookCommands.tooltip', 'Show Notebook Commands'),
-			icon: Codicon.listFlat,
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
-			menu: {
-				id: MenuId.EditorActionsLeft,
-				group: 'navigation',
-				order: 56,
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
-			}
+			// No toolbar menu: this is surfaced from the notebook Help modal
+			// ("See All Commands") and the command palette, not a toolbar button.
 		});
 	}
 

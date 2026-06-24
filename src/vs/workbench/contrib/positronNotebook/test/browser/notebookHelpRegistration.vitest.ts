@@ -19,4 +19,11 @@ describe('Positron notebook contribution registration', () => {
 	it('registers the keyboard shortcuts help action', () => {
 		expect(CommandsRegistry.getCommand('positronNotebook.showKeyboardShortcuts')).toBeDefined();
 	});
+
+	it('registers the show-commands action', () => {
+		// showCommands has no toolbar button (it is reached from the Help modal
+		// and the command palette), so a dropped registration leaves no visual
+		// affordance to notice. Guard the command wiring.
+		expect(CommandsRegistry.getCommand('positronNotebook.showCommands')).toBeDefined();
+	});
 });

@@ -59,6 +59,23 @@
 	font-size: 11px;
 }
 
+.notebook-help-panel .notebook-help-command-row {
+	display: block;
+	width: 100%;
+	text-align: left;
+	background: none;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	font-size: 13px;
+	cursor: pointer;
+	padding: 4px 0;
+}
+
+.notebook-help-panel .notebook-help-command-row:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
 .notebook-help-panel .notebook-help-all-shortcuts {
 	text-align: center;
 	padding-top: 4px;

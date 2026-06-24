@@ -100,6 +100,7 @@ interface NotebookHelpPanelProps {
 	renderer: PositronModalDialogReactRenderer;
 	resolvedBindings: ResolvedBindingsMap;
 	onOpenAllShortcuts: () => void;
+	onSeeAllCommands: () => void;
 }
 
 function getChordKeys(chord: ResolvedChord): string[] {
@@ -141,11 +142,17 @@ function KeybindingDisplay({ commandId, resolvedBindings }: { commandId: string;
 	return renderKeybinding(keybinding);
 }
 
-export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcuts }: NotebookHelpPanelProps): ReactElement {
+export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcuts, onSeeAllCommands }: NotebookHelpPanelProps): ReactElement {
 	return (
 		<PositronDynamicModalDialog
 			content={
 				<div className='notebook-help-panel'>
+					<div>
+						<h2>{localize('positron.notebookHelp.section.commands', 'See All Commands')}</h2>
+						<button className='notebook-help-command-row' onClick={() => { renderer.dispose(); onSeeAllCommands(); }}>
+							{localize('positron.notebookHelp.browseCommands', 'Browse all notebook commands...')}
+						</button>
+					</div>
 					{SHORTCUT_SECTIONS.map(section => (
 						<div key={section.title}>
 							<h2>{section.title}</h2>
@@ -173,7 +180,7 @@ export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcu
 				<OneButtonFooter buttonTitle={localize('positron.notebookHelp.close', 'Close')} onButton={() => renderer.dispose()} />
 			}
 			renderer={renderer}
-			title={localize('positron.notebookHelp.title', 'Notebook Keyboard Shortcuts')}
+			title={localize('positron.notebookHelp.title', 'Notebook Help')}
 			width={500}
 			onSubmit={() => renderer.dispose()}
 		/>
