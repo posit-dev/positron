@@ -666,6 +666,15 @@ export class KallichoreInstances {
 	 */
 	private static getStoredSupervisorState(): KallichoreServerState | undefined {
 		const context = this.getContext();
+
+		// The current window's reconnect state may live in ephemeral storage
+		// (when the server shares the application's lifetime) rather than
+		// persistent storage, so check there first.
+		const ephemeral = positron.context.ephemeralState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		if (ephemeral) {
+			return ephemeral;
+		}
+
 		if (vscode.workspace.workspaceFolders) {
 			return context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 		}

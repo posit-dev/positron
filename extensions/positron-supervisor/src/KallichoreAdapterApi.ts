@@ -60,6 +60,19 @@ function extractPipeName(basePath: string): string | null {
 	return match ? match[1] : null;
 }
 
+/**
+ * Determines whether an error represents an HTTP 401 Unauthorized response.
+ * This is the symptom of a stale bearer token: the server is reachable but
+ * rejects our credentials because it is a different instance than the one that
+ * issued the token.
+ *
+ * @param err The error to inspect.
+ * @returns True if the error is a 401 Unauthorized response.
+ */
+function isUnauthorizedError(err: any): boolean {
+	return isAxiosError(err) && (err.response?.status === 401 || err.status === 401);
+}
+
 export class KCApi implements PositronSupervisorApi {
 	/** The DAP comm class */
 	readonly DapComm = DapComm;
@@ -111,6 +124,15 @@ export class KCApi implements PositronSupervisorApi {
 	private _showingDisconnectedWarning = false;
 
 	/**
+	 * Per-workspace ephemeral storage for the server reconnect state. Used
+	 * instead of persistent workspace storage when the server shares the
+	 * application's lifetime, so that a stale reconnect target is never read
+	 * back after the application (and the server it owns) have exited. See
+	 * {@link useEphemeralState}.
+	 */
+	private readonly _ephemeralState: positron.context.EphemeralMemento = positron.context.ephemeralState;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -153,13 +175,21 @@ export class KCApi implements PositronSupervisorApi {
 		// Listen for changes to the idle shutdown hours config setting; if the
 		// server is running, apply the change immediately
 		if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-			const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+			const configListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 				if (event.affectsConfiguration('kernelSupervisor.shutdownTimeout')) {
 					if (this._started.isOpen()) {
 						this.log(
 							'Updating server configuration with new shutdown timeout: ' +
 							this.getShutdownHours());
 						this.updateIdleTimeout();
+
+						// The shutdown timeout governs which storage tier holds
+						// the reconnect state (ephemeral vs persistent), so
+						// re-save to move it into the now-appropriate tier and
+						// clear the other.
+						if (this._reconnect) {
+							await this.migrateServerState();
+						}
 					}
 				}
 			});
@@ -280,7 +310,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Check to see if there's a server already running for this workspace,
 		// if reconnect is permitted.
 		const serverState = this._reconnect ?
-			this.loadServerState() :
+			await this.loadServerState() :
 			undefined;
 
 		// If there is, and we can reconnect to it, do so
@@ -735,33 +765,109 @@ export class KCApi implements PositronSupervisorApi {
 			// For domain sockets, also save the original socket_path from connection data
 			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
 			// For named pipes, also save the original named_pipe from connection data
-			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined)
+			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined),
+			// Record the server's identity so we can later detect when a saved
+			// connection points at a different server instance (stale token).
+			server_id: status.server_id
 		};
+
+		// Load the finalized state into the API instance so that subsequent
+		// identity checks (e.g. in testServerExited) can read the server_id.
+		this.refreshServerState(state);
 
 		// Save the server state for reconnect if enabled
 		if (this._reconnect) {
-			this.saveServerState(state);
+			await this.saveServerState(state);
 		}
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), state);
 	}
 
 	/**
+	 * Whether the server reconnect state should be stored in ephemeral
+	 * (in-memory, process-scoped) storage rather than persistent workspace
+	 * storage.
+	 *
+	 * The lifetime of ephemeral storage closely matches the validity window of
+	 * a bearer token: it survives window reloads and extension host restarts
+	 * but is cleared when the application process exits. We use it whenever the
+	 * server is expected to share the application's lifetime, so that a stale
+	 * reconnect target is never read back from disk after the application (and
+	 * the server it owns) have exited. When the server is configured to outlive
+	 * the application, we fall back to persistent storage so we can reconnect to
+	 * it after a restart.
+	 *
+	 * @returns True to use ephemeral storage, false to use persistent storage.
+	 */
+	private useEphemeralState(): boolean {
+		// Web servers are expected to be long-lived and to survive client
+		// disconnects, so their reconnect state must persist on disk.
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			return false;
+		}
+
+		// A non-default shutdown timeout means the server is run detached and
+		// is meant to outlive the application; persist its state so we can
+		// reconnect after a restart. Otherwise the server shares the
+		// application's lifetime, so ephemeral storage is the better fit.
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		return config.get<string>('shutdownTimeout', 'immediately') === 'immediately';
+	}
+
+	/**
 	 * Save the current server state for reconnect.
+	 *
+	 * The state is written to whichever storage tier is currently appropriate
+	 * (see {@link useEphemeralState}) and cleared from the other tier, so there
+	 * is always a single source of truth.
 	 *
 	 * @param state The server state to save, or undefined to clear the saved state.
 	 */
-	private saveServerState(state: KallichoreServerState | undefined) {
-		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+	private async saveServerState(state: KallichoreServerState | undefined): Promise<void> {
+		if (this.useEphemeralState()) {
+			await this._ephemeralState.update(KALLICHORE_STATE_KEY, state);
+			await this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+		} else {
+			await this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+			await this._ephemeralState.update(KALLICHORE_STATE_KEY, undefined);
+		}
 	}
 
 	/**
 	 * Load the current server state for reconnect.
 	 *
+	 * Reads from the storage tier that is currently appropriate (see
+	 * {@link useEphemeralState}), falling back to the other tier. The fallback
+	 * covers a shutdown timeout change made while the application was closed:
+	 * the state will have been persisted under the previous setting, and is
+	 * migrated to the correct tier on the next save.
+	 *
 	 * @returns The saved server state, or undefined if not found.
 	 */
-	private loadServerState(): KallichoreServerState | undefined {
-		return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+	private async loadServerState(): Promise<KallichoreServerState | undefined> {
+		// Ensure the ephemeral store has finished its initial async load before
+		// we read from it; a synchronous read at startup (e.g. after a window
+		// reload) would otherwise race the load and miss the persisted value.
+		await this._ephemeralState.whenReady;
+
+		const ephemeral = this._ephemeralState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		const persistent = this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+
+		return this.useEphemeralState() ?
+			(ephemeral ?? persistent) :
+			(persistent ?? ephemeral);
+	}
+
+	/**
+	 * Re-saves the current server state so it lives in the storage tier that is
+	 * now appropriate. Called when the shutdown timeout changes, since that
+	 * setting governs which tier is used.
+	 */
+	private async migrateServerState(): Promise<void> {
+		const state = await this.loadServerState();
+		if (state) {
+			await this.saveServerState(state);
+		}
 	}
 
 	/***
@@ -877,7 +983,32 @@ export class KCApi implements PositronSupervisorApi {
 			this.log(`Streaming Kallichore server logs at ${serverState.log_path}`);
 		});
 
+		// Probe the server's status. This endpoint is not authenticated, so it
+		// succeeds even if our saved bearer token is stale; that lets us detect
+		// a stale connection here, before we make any authenticated calls that
+		// would fail with a confusing 401.
 		const status = await this._api.api.serverStatus();
+
+		// If the server reports a different identity than the one we saved, the
+		// original server has gone away and something else is now answering at
+		// the same address. The saved bearer token belongs to the old server
+		// and is therefore stale, so refuse to reconnect and let the caller
+		// start a fresh server instead.
+		const liveServerId = status.data.server_id;
+		if (serverState.server_id && liveServerId && serverState.server_id !== liveServerId) {
+			this.log(`Not reconnecting to Kallichore server at ${connectionInfo}: ` +
+				`server identity changed (expected ${serverState.server_id}, found ` +
+				`${liveServerId}). The saved bearer token is stale; a new server ` +
+				`will be started.`);
+			return false;
+		}
+
+		// Record the live server identity in case the saved state predates the
+		// server_id field, so future identity checks have something to compare.
+		if (!serverState.server_id && liveServerId) {
+			serverState.server_id = liveServerId;
+		}
+
 		this._started.open();
 		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
@@ -1034,16 +1165,23 @@ export class KCApi implements PositronSupervisorApi {
 				await session.create(kernel);
 				break;
 			} catch (err) {
-				// If the connection was refused, check the server status; this
-				// suggests that the server may have exited
-				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT') && !retried) {
-					this.log(`Could not connect while attempting to create session; checking server status`);
+				// A refused connection (the server may have exited) or a 401
+				// Unauthorized (our bearer token is stale because the server was
+				// replaced) both warrant re-checking the server. If it turns out
+				// to be gone, testServerExited restarts it and we retry once
+				// against the new server.
+				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT' || isUnauthorizedError(err)) && !retried) {
+					this.log(`Could not create session (${summarizeError(err)}); checking server status`);
 					await this.testServerExited();
 
-					// If the open barrier is now open, we can retry the
-					// session creation once.
+					// If the open barrier is now open, the server was restarted;
+					// retry the session creation once against it.
 					if (this._started.isOpen()) {
 						retried = true;
+						// Point the session at the new server's API so it uses
+						// the fresh bearer token rather than the stale one it
+						// captured when it was created.
+						session.refreshApi(this._api.api);
 						continue;
 					}
 				}
@@ -1173,6 +1311,30 @@ export class KCApi implements PositronSupervisorApi {
 			}
 		}
 
+		// If the process still appears to be running, verify that it is the
+		// same server instance we connected to. The status endpoint is not
+		// authenticated, so this works even when our bearer token is stale. A
+		// changed server_id means the original server is gone and something
+		// else now answers at the same address (so our token is stale); treat
+		// that the same as the server having exited so we tear down and restart.
+		if (serverRunning && serverState.server_id) {
+			try {
+				const status = await this._api.api.serverStatus();
+				const liveServerId = status.data.server_id;
+				if (liveServerId && liveServerId !== serverState.server_id) {
+					this.log(`Kallichore server identity changed (expected ` +
+						`${serverState.server_id}, found ${liveServerId}); the saved ` +
+						`bearer token is stale. Treating the server as exited.`);
+					serverRunning = false;
+				}
+			} catch (err) {
+				// If we cannot reach the server to check its identity, leave the
+				// decision to the process check above; an unreachable server
+				// surfaces elsewhere as ECONNREFUSED/ENOENT.
+				this.log(`Could not verify Kallichore server identity: ${summarizeError(err)}`);
+			}
+		}
+
 		// The server is still running; nothing to do
 		if (serverRunning) {
 			return false;
@@ -1184,7 +1346,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Clean up the state so we don't try to reconnect to a server that
 		// isn't running.
 		if (this._reconnect) {
-			this.saveServerState(undefined);
+			await this.saveServerState(undefined);
 		}
 
 		// We need to mark all sessions as exited since (at least right now)
@@ -1463,9 +1625,8 @@ export class KCApi implements PositronSupervisorApi {
 		});
 		this._sessions.length = 0;
 
-		// Clear the workspace state so we don't try to reconnect to the old
-		// server
-		this.saveServerState(undefined);
+		// Clear the saved state so we don't try to reconnect to the old server
+		await this.saveServerState(undefined);
 
 		// Do the same with the environment variable, and clean up the
 		// connection file if it exists.

@@ -2464,6 +2464,15 @@ declare module 'positron' {
 			 * Remove all stored keys for this extension's ephemeral storage.
 			 */
 			clear(): Thenable<void>;
+
+			/**
+			 * A promise that resolves when the ephemeral storage has finished
+			 * loading its initial values from the backing store. Synchronous
+			 * reads via {@link vscode.Memento.get get} are only guaranteed to
+			 * reflect previously persisted values once this has resolved, so
+			 * await it before reading at startup (e.g. after a window reload).
+			 */
+			readonly whenReady: Thenable<unknown>;
 		}
 	}
 
