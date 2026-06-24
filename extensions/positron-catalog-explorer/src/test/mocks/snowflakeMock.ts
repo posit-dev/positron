@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -159,6 +159,7 @@ export class SnowflakeMock {
 			extensionUri: vscode.Uri.parse('file:///mock-extension'),
 			extensionPath: '/mock-extension',
 			storagePath: '/mock-storage',
+			logUri: vscode.Uri.file('/mock-logs'),
 			globalState: {
 				get: (key: string) => mockState.get(key),
 				update: (key: string, value: any) => {

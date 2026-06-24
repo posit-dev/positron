@@ -549,16 +549,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
-			case KeyCode.KeyU: {
-				// Bind Ctrl+U to `deleteAllLeft`
-				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('deleteAllLeft');
-					break;
-				}
-				break;
-			}
-
 			// Tab processing.
 			case KeyCode.Tab: {
 				// If the history browser is active, accept the selected history entry and
@@ -566,26 +556,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (historyBrowserActiveRef.current) {
 					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
-				}
-				break;
-			}
-
-			// Bind Home key to `cursorLineStart` (same as Ctrl+A)
-			case KeyCode.Home: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineStart');
-					break;
-				}
-				break;
-			}
-
-			// Bind End key to `cursorLineEnd` (same as Ctrl+E)
-			case KeyCode.End: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineEnd');
-					break;
 				}
 				break;
 			}

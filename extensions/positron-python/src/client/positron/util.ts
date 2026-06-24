@@ -1,11 +1,12 @@
 /* eslint-disable max-classes-per-file */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { traceVerbose } from '../logging';
+import { IWorkspaceService } from '../common/application/types';
 
 export class PromiseHandles<T> {
     resolve!: (value: T | Promise<T>) => void;
@@ -29,6 +30,26 @@ export function delay(ms: number): Promise<void> {
 export async function whenTimeout<T>(ms: number, fn: () => T): Promise<T> {
     await delay(ms);
     return fn();
+}
+
+/**
+ * Returns the ConfigurationTarget and resource Uri for the current workspace state:
+ * - No workspace folder: Global with undefined resource
+ * - Multi-folder workspace (.code-workspace): Workspace with workspace file uri
+ * - Single folder workspace: WorkspaceFolder with folder[0] uri
+ */
+export function getActiveInterpreterConfigTarget(workspaceService: IWorkspaceService): {
+    configTarget: vscode.ConfigurationTarget;
+    folderUri: vscode.Uri | undefined;
+} {
+    const { workspaceFolders } = workspaceService;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        return { configTarget: vscode.ConfigurationTarget.Global, folderUri: undefined };
+    }
+    if (workspaceService.workspaceFile) {
+        return { configTarget: vscode.ConfigurationTarget.Workspace, folderUri: workspaceService.workspaceFile };
+    }
+    return { configTarget: vscode.ConfigurationTarget.WorkspaceFolder, folderUri: workspaceFolders[0].uri };
 }
 
 // Check if the current workspace contains files matching any of the passed glob ptaterns

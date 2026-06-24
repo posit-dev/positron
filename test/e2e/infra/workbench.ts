@@ -142,7 +142,7 @@ export class Workbench {
 		this.terminal = new Terminal(code, this.quickaccess);
 		this.viewer = new Viewer(code, this.contextMenu);
 		this.editor = new Editor(code);
-		this.testExplorer = new TestExplorer(code);
+		this.testExplorer = new TestExplorer(code, this.quickaccess);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new UserSettings(code, this.hotKeys);

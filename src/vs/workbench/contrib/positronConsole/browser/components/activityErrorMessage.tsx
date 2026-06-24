@@ -15,7 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, usePositronContextKey, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -42,7 +42,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// as Copilot). This is the authoritative, assistant-agnostic signal. The key
 	// string is mirrored in the Posit Assistant extension (the two repositories
 	// cannot share a module).
-	const hasChatModels = usePositronContextKey<boolean>('posit-assistant.hasChatModels');
+	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
 	const showAssistantActions = enableAssistantActions && positAssistantInstalled && !!hasChatModels;
 
 	// Traceback useEffect.

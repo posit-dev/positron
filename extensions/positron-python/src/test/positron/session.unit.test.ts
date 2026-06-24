@@ -210,7 +210,8 @@ suite('Python Runtime Session', () => {
         sinon.restore();
     });
 
-    test('Start: updates the active interpreter for console sessions', async () => {
+    test('Start: updates the active interpreter with Global target when no workspace is opened', async () => {
+        // workspaceService.workspaceFolders is undefined in the test setup -> Global target.
         const target = sinon.spy(interpreterPathService, 'update');
 
         const session = createSession(positron.LanguageRuntimeSessionMode.Console);
@@ -219,7 +220,7 @@ suite('Python Runtime Session', () => {
         sinon.assert.calledOnceWithExactly(
             target,
             undefined,
-            vscode.ConfigurationTarget.WorkspaceFolder,
+            vscode.ConfigurationTarget.Global,
             interpreter.path,
             // Session start is a storage-only fire: the session is already starting here, so the
             // PythonRuntimeManager listener must not start another one.

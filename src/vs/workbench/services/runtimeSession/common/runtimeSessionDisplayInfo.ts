@@ -13,6 +13,8 @@ import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo } from './runtimeSe
  */
 export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 	public readonly sessionName: string;
+	// Set from an explicit constructor arg, not always session.getRuntimeState(), so
+	// callers can pass a derived display state (e.g. `Restarting` during a restart).
 	public readonly sessionState: RuntimeState;
 	public readonly sessionMode: LanguageRuntimeSessionMode;
 	public readonly notebookUri: URI | undefined;
@@ -22,9 +24,9 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 	public readonly languageId: string;
 	public readonly base64EncodedIconSvg: string | undefined;
 
-	constructor(session: ILanguageRuntimeSession) {
+	constructor(session: ILanguageRuntimeSession, sessionState: RuntimeState = session.getRuntimeState()) {
 		this.sessionName = session.dynState.sessionName;
-		this.sessionState = session.getRuntimeState();
+		this.sessionState = sessionState;
 		this.sessionMode = session.metadata.sessionMode;
 		this.notebookUri = session.metadata.notebookUri;
 		this.runtimeId = session.runtimeMetadata.runtimeId;

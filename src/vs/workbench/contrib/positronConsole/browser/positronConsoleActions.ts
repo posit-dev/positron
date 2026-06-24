@@ -28,7 +28,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeRejectionKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { toAction } from '../../../../base/common/actions.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
@@ -1505,6 +1505,45 @@ export function registerPositronConsoleActions() {
 				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}
 		}
+	});
+
+	// The console input maps Home / End / Ctrl+U to the matching editor commands
+	// rather than the editor's defaults: Home and End go to the true line start /
+	// end (cursorLineStart / cursorLineEnd) instead of smart-home / cursorEnd, and
+	// Ctrl+U deletes to the start of the line (readline-style), which has no
+	// default editor binding on any platform.
+	//
+	// The `when` clause requires the console editor to actually hold text focus:
+	// PositronConsoleFocused alone is true for the whole console pane (including
+	// the find input, which is not a Monaco editor), so it is paired with
+	// EditorContextKeys.textInputFocus to avoid dispatching these editor commands
+	// when a non-editor part of the console is focused.
+	const whenConsoleInputFocused = ContextKeyExpr.and(
+		PositronConsoleFocused,
+		EditorContextKeys.textInputFocus,
+	);
+
+	KeybindingsRegistry.registerKeybindingRule({
+		id: 'cursorLineStart',
+		primary: KeyCode.Home,
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
+	});
+
+	KeybindingsRegistry.registerKeybindingRule({
+		id: 'cursorLineEnd',
+		primary: KeyCode.End,
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
+	});
+
+	KeybindingsRegistry.registerKeybindingRule({
+		// Ctrl+U on all platforms (like GNU readline's unix-line-discard):
+		id: 'deleteAllLeft',
+		primary: KeyMod.CtrlCmd | KeyCode.KeyU,
+		mac: { primary: KeyMod.WinCtrl | KeyCode.KeyU },
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
 	});
 }
 

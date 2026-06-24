@@ -15,8 +15,7 @@ const TEST_CONFIG: PostgreSQLConnectionConfig = {
 	database: 'testdb',
 	user: 'testuser',
 	password: 'testpass',
-	ssl: false,
-	readOnly: true
+	ssl: false
 };
 
 // A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
@@ -287,6 +286,9 @@ suite('PostgreSQL Driver Tests', () => {
 					]
 				};
 			}
+			if (sql.includes('table_constraints')) {
+				return { rows: [{ column_name: 'id' }] };
+			}
 			if (sql.includes('information_schema.tables') && sql.includes('BASE TABLE')) {
 				return { rows: [{ table_name: 'products' }] };
 			}
@@ -303,9 +305,12 @@ suite('PostgreSQL Driver Tests', () => {
 		const idField = fields.find(f => f.name === 'id')!;
 		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
 		assert.strictEqual(idField.dataType, 'integer');
+		// The id column is the primary key; the others are not.
+		assert.strictEqual(idField.isPrimaryKey, true);
 
 		const nameField = fields.find(f => f.name === 'name')!;
 		assert.strictEqual(nameField.dataType, 'character varying(255)');
+		assert.strictEqual(nameField.isPrimaryKey, false);
 
 		const priceField = fields.find(f => f.name === 'price')!;
 		assert.strictEqual(priceField.dataType, 'numeric(10,2)');

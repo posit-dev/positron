@@ -273,6 +273,62 @@ describe('PositronNotebookInstance', () => {
 		});
 	});
 
+	describe('left gutter alignment of code cells (lineNumbersMinChars)', () => {
+		function linesOf(n: number): string {
+			return Array.from({ length: n }, (_, i) => `line ${i}`).join('\n');
+		}
+
+		it('initial width is 2 when all cells have fewer than 100 lines', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(20), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(2);
+		});
+
+		it('initial width scales to the widest cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(20), 'python', CellKind.Code],
+					[linesOf(150), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(3);
+		});
+
+		it('returns the same options instance for repeated calls with the same language', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[[linesOf(5), 'python', CellKind.Code]],
+				ctx,
+			);
+			const a = notebook.getBaseCellEditorOptions('python');
+			const b = notebook.getBaseCellEditorOptions('python');
+			expect(a).toBe(b);
+		});
+
+		it('width updates when a cell crosses a digit boundary', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[
+					[linesOf(5), 'python', CellKind.Code],
+					[linesOf(9), 'python', CellKind.Code],
+				],
+				ctx,
+			);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(2);
+			// Edit in place via applyEdits (as production does) so the cell's
+			// shared text buffer reflects the new line count. setValue would
+			// replace the model's buffer and leave the cell's buffer stale.
+			const textModel = notebook.cells.get()[1].model.textModel!;
+			textModel.applyEdits([{ range: textModel.getFullModelRange(), text: linesOf(100) }]);
+			expect(notebook.getBaseCellEditorOptions('python').value.lineNumbersMinChars).toBe(3);
+		});
+	});
+
 	describe('identity', () => {
 		// This test was introduced when we added support for split editing.
 		// Split editing required the move from having a unique instance per
