@@ -111,13 +111,12 @@ render() {
   printf '%sPositron CI Doctor%s\n\n' "$BOLD" "$RST"
 
   # --- Environment ---
-  # One umbrella over what's provisioned: the Build, the Container, and the QA fixture data.
-  # allow-any-unicode-next-line
-  # Build carries health glyphs (✓ current / ⚠ needs attention / ⟳ building) because it can
-  # allow-any-unicode-next-line
-  # actually break; Container and QA content use presence glyphs (● there / ○ absent) — the
-  # container is always up since we're running inside it, and QA content is just cloned-or-not.
-  # The footer lists the "why" whenever the build needs attention.
+  # One umbrella over what's provisioned: Build, Container, Interpreters, and QA fixture data.
+  # Healthy/normal reads as a check across the board, so the eye only catches the exceptions: a
+  # warning when something needs attention (Build out of date, Interpreters wrong-OS), the spinner
+  # while a build runs, and a dim circle for the optional QA content when it isn't fetched (neutral -
+  # absence isn't an error, never in the footer). Container is always healthy (we run inside it).
+  # The footer lists the "why" for any warning.
   printf '%sEnvironment%s\n' "$BOLD" "$RST"
 
   if [ "$building" = 1 ]; then
@@ -138,8 +137,8 @@ render() {
     fi
   fi
 
-  # Container — always up (we're inside it); this is just its uptime.
-  printf '  %s●%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
+  # Container — always up (we're inside it), so it always reads ✓; this is just its uptime.
+  printf '  %s✓%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
 
   # Interpreters — the in-tree pet/ark/kcserver must be Linux ELF; a macOS binary here (checkout
   # also built natively on the host) silently breaks Python/R startup, so it carries health glyphs
@@ -152,12 +151,11 @@ render() {
     actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? Run 'Positron CI: Reinstall interpreters'.")
   fi
 
-  # allow-any-unicode-next-line
-  # QA content — optional fixture data the e2e tests open. ● cloned / ○ absent; absence isn't an
-  # error, so it never lands in the footer. The path comes from the 'Get QA content' task.
+  # QA content — optional fixture data the e2e tests open. Fetched reads ✓; when absent it's a dim
+  # circle (neutral, not an error - so it never lands in the footer). Path from the 'Get QA content' task.
   if [ -d "$QA_DEST" ]; then
     qa_age="$(human_dur $(( now - $(stat -c %Y "$QA_DEST" 2>/dev/null || echo "$now") )))"
-    printf '  %s●%s %-*s%sfetched %s ago%s\n' "$G" "$RST" "$NAMEW" "QA content" "$DIM" "$qa_age" "$RST"
+    printf '  %s✓%s %-*s%sfetched %s ago%s\n' "$G" "$RST" "$NAMEW" "QA content" "$DIM" "$qa_age" "$RST"
   else
     # allow-any-unicode-next-line
     printf '  %s○ %-*snot present — run "Positron CI: Get QA content"%s\n' "$DIM" "$NAMEW" "QA content" "$RST"
