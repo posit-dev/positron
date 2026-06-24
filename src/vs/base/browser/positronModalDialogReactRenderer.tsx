@@ -14,6 +14,7 @@ import { createRoot, Root } from 'react-dom/client';
 import * as DOM from './dom.js';
 import { Emitter } from '../common/event.js';
 import { Disposable } from '../common/lifecycle.js';
+import { KeyCode } from '../common/keyCodes.js';
 import { StandardKeyboardEvent } from './keyboardEvent.js';
 import { PositronReactServices } from './positronReactServices.js';
 import { PositronReactServicesProvider } from './positronReactRendererContext.js';
@@ -208,7 +209,16 @@ export class PositronModalDialogReactRenderer extends Disposable {
 			);
 			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId !== null) {
 				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
-					DOM.EventHelper.stop(event, true);
+					// Escape needs special handling: the native <dialog> closes itself on Escape via
+					// the keydown's default action. When Escape is bound to a command in the
+					// underlying editor (e.g. a notebook cell's exit-edit-mode binding), only stop
+					// propagation so that command doesn't also run -- do NOT preventDefault, which
+					// would suppress the dialog's own close and leave the modal stuck open.
+					if (event.keyCode === KeyCode.Escape) {
+						event.stopPropagation();
+					} else {
+						DOM.EventHelper.stop(event, true);
+					}
 				}
 			}
 		};
