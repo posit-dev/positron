@@ -5549,6 +5549,22 @@
 				{
 					"command": "github.copilot.chat.otel.exportAgentTracesDB",
 					"when": "config.github.copilot.chat.otel.dbSpanExporter.enabled && !config.chat.disableAIFeatures"
+				},
+				{
+					"command": "github.copilot.debug.showChatLogView",
+					"when": "!config.chat.disableAIFeatures"
+				},
+				{
+					"command": "github.copilot.debug.collectDiagnostics",
+					"when": "!config.chat.disableAIFeatures"
+				},
+				{
+					"command": "github.copilot.chat.notebook.enableFollowCellExecution",
+					"when": "config.github.copilot.chat.notebook.followCellExecution.enabled && !config.chat.disableAIFeatures"
+				},
+				{
+					"command": "github.copilot.chat.notebook.disableFollowCellExecution",
+					"when": "config.github.copilot.chat.notebook.followCellExecution.enabled && !config.chat.disableAIFeatures"
 				}
 			],
 			"view/title": [
