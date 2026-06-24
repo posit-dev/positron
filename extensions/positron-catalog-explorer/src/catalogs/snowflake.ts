@@ -131,7 +131,7 @@ export async function registerSnowflakeCatalog(
 			const connectionNames = Object.keys(connections);
 			items = connectionNames.map(name => ({
 				label: name,
-				description: l10n.t('Connection from account ({0})', connections[name].account || 'No account specified'),
+				description: l10n.t(`Connection from account (${connections[name].account || 'No account specified'})`),
 			}));
 		} else {
 			// If no connections found, offer help options
@@ -206,7 +206,7 @@ export async function registerSnowflakeCatalog(
 	return await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: l10n.t('Authenticating to Snowflake via {0}... (will timeout after 30s)', connOptions.authenticator),
+			title: l10n.t(`Authenticating to Snowflake via ${connOptions.authenticator}... (will timeout after 30s)`),
 		},
 		async () => {
 			const AUTH_TIMEOUT_MS = 30000;
