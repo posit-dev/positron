@@ -118,6 +118,10 @@ render() {
   # The footer lists the "why" for any warning.
   printf '%sEnvironment%s\n' "$BOLD" "$RST"
 
+  # Container leads as the foundation everything else lives inside - always up (we're inside it),
+  # so it always reads ✓; this is just its uptime.
+  printf '  %s✓%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
+
   if [ "$building" = 1 ]; then
     # A cold build / Rebuild is actively running — show that instead of nagging to rebuild.
     # allow-any-unicode-next-line
@@ -135,9 +139,6 @@ render() {
       printf '  %s⚠%s %-*s%sneeds attention%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
     fi
   fi
-
-  # Container — always up (we're inside it), so it always reads ✓; this is just its uptime.
-  printf '  %s✓%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
 
   # Interpreters — the in-tree pet/ark/kcserver must be Linux ELF; a macOS binary here (checkout
   # also built natively on the host) silently breaks Python/R startup, so it carries health glyphs
