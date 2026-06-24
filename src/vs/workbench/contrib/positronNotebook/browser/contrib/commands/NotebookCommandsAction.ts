@@ -19,29 +19,13 @@ const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
 /** Command id prefix that identifies Positron Notebook commands. */
 const POSITRON_NOTEBOOK_COMMAND_PREFIX = 'positronNotebook.';
 
-/**
- * Extra command ids to surface in the notebook commands picker that the
- * `positronNotebook.` prefix does not auto-include -- commands shared with
- * other editors, or commands that aren't registered in the command palette.
- *
- * Only greenlight commands that actually run from the Positron Notebook editor.
- * Upstream commands gated on the `notebookEditorFocused` context key will NOT
- * run here, because the Positron editor sets `positronNotebookEditorFocused`
- * instead -- prefer Positron's own commands or context-free toggles.
- */
-const GREENLIT_COMMAND_IDS: readonly string[] = [
-	// Positron's own line-numbers toggle: runs in our editor, but is
-	// keybinding-only (Shift+L) and otherwise absent from the command palette.
-	'positronNotebook.toggleLineNumbers',
-];
-
 interface INotebookCommandPickItem extends IQuickPickItem {
 	readonly commandId: string;
 }
 
 /**
  * Collect the command ids to show: every `positronNotebook.` command in the
- * command palette, plus the greenlit ids, minus this picker's own command.
+ * command palette, minus this picker's own command.
  */
 function collectNotebookCommandIds(): string[] {
 	const ids = new Set<string>();
@@ -50,9 +34,11 @@ function collectNotebookCommandIds(): string[] {
 			ids.add(item.command.id);
 		}
 	}
-	for (const id of GREENLIT_COMMAND_IDS) {
-		ids.add(id);
-	}
+	// To surface commands the prefix scan misses (e.g. keybinding-only commands
+	// absent from the command palette), add a greenlist of ids here before the
+	// self-exclusion below. Only greenlist commands that actually run from the
+	// Positron Notebook editor: upstream commands gated on `notebookEditorFocused`
+	// won't run, because the editor sets `positronNotebookEditorFocused` instead.
 	ids.delete(SHOW_NOTEBOOK_COMMANDS_ACTION_ID);
 	return [...ids];
 }

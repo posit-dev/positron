@@ -38,12 +38,12 @@ describe('showNotebookCommandsQuickPick', () => {
 	beforeEach(() => {
 		pick = ctx.disposables.add(new TestQuickPick<ICommandPickItem>());
 		registrations = new DisposableStore();
-		// A palette command under the positronNotebook. prefix -> auto-included.
+		// A palette command under the positronNotebook. prefix -> included.
 		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.testAuto', title: 'Test Auto Command' }));
 		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.testAuto', title: 'Test Auto Command' } }));
-		// The greenlit command: registered but NOT in the command palette, so it
-		// can only appear via the greenlist.
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.toggleLineNumbers', title: 'Toggle Line Numbers' }));
+		// A palette command without the prefix -> excluded.
+		registrations.add(MenuRegistry.addCommand({ id: 'notebook.testOther', title: 'Other Command' }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'notebook.testOther', title: 'Other Command' } }));
 	});
 
 	afterEach(() => {
@@ -62,11 +62,23 @@ describe('showNotebookCommandsQuickPick', () => {
 		return pick.items.filter((i): i is ICommandPickItem => i.type !== 'separator');
 	}
 
-	it('lists prefixed palette commands and greenlit commands', () => {
+	it('lists positronNotebook.-prefixed palette commands and excludes others', () => {
 		run();
 		const ids = items().map(i => i.commandId);
 		expect(ids).toContain('positronNotebook.testAuto');
-		expect(ids).toContain('positronNotebook.toggleLineNumbers');
+		expect(ids).not.toContain('notebook.testOther');
+		pick.cancel(); // close the picker so its DisposableStore is released
+	});
+
+	it('excludes the picker\'s own command', () => {
+		// The picker action is registered in the palette under the
+		// positronNotebook. prefix, so it would be auto-included; it must not
+		// list itself.
+		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.showCommands', title: 'Show Notebook Commands' }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.showCommands', title: 'Show Notebook Commands' } }));
+		run();
+		const ids = items().map(i => i.commandId);
+		expect(ids).not.toContain('positronNotebook.showCommands');
 		pick.cancel(); // close the picker so its DisposableStore is released
 	});
 
