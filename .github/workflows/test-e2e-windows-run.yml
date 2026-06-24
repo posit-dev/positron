@@ -170,9 +170,12 @@ jobs:
       # "Download binaries" step below runs `npm rebuild` on every run (even on
       # a cache hit), which re-invokes node-gyp, so the toolchain must always be
       # present regardless of cache state.
-      # Wrapped in retry because community.chocolatey.org intermittently
-      # rate-limits or 5xx's during dependency resolution, surfacing as
-      # "Unable to resolve dependency 'chocolatey-dotnetfx.extension'".
+      # Installed straight from Microsoft's CDN rather than the Chocolatey
+      # community feed: choco's visualstudio2022-workload-vctools package
+      # deterministically fails to resolve its chocolatey-dotnetfx.extension
+      # dependency from community.chocolatey.org. The bootstrapper below is what
+      # that package wraps anyway. Exit code 3010 means "success, reboot required"
+      # and is treated as success. Retry guards against transient CDN/network blips.
       - name: Install Visual Studio 2022 C++ build tools
         uses: nick-fields/retry@v4
         with:
@@ -181,7 +184,16 @@ jobs:
           retry_wait_seconds: 15
           shell: pwsh
           command: |
-            choco install visualstudio2022-workload-vctools -y --no-progress --package-parameters "--add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre --includeRecommended"
+            $ErrorActionPreference = 'Stop'
+            $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+            $p = Start-Process -FilePath $bootstrapper -Wait -PassThru -ArgumentList @(
+              '--quiet','--wait','--norestart','--nocache',
+              '--add','Microsoft.VisualStudio.Workload.VCTools',
+              '--add','Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre',
+              '--includeRecommended'
+            )
+            if ($p.ExitCode -notin 0,3010) { exit $p.ExitCode }
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
