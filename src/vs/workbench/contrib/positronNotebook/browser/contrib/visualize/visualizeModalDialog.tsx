@@ -99,8 +99,8 @@ export const showVisualizeModalDialog = (
 	return new Promise(resolve => {
 		let resolved = false;
 		// Resolve the promise at most once. Routed through the renderer's onDisposed so any close
-		// path -- the Cancel/Insert buttons, Escape (native <dialog> close), or a click outside --
-		// settles the promise exactly once.
+		// path -- the Cancel/Insert buttons or Escape (native <dialog> close) -- settles the promise
+		// exactly once.
 		const settle = (r: VisualizeResult | undefined) => {
 			if (resolved) { return; }
 			resolved = true;
@@ -614,7 +614,11 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 			>
-				{/* Empty placeholder option. When allowClear, this doubles as the "None" choice; otherwise it's an unselectable prompt. */}
+				{/*
+					Empty placeholder option. When allowClear, this is the "None" choice; otherwise it's
+					the initial prompt. Selecting it sets the value to '', which the canAdvance/canInsert
+					guards treat as "no column chosen" -- so it can't be submitted either way.
+				*/}
 				<option value=''>
 					{allowClear ? localize('positron.notebook.visualize.columnPicker.none', 'None') : placeholder}
 				</option>

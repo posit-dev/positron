@@ -43,6 +43,8 @@ export interface PositronDynamicModalDialogProps {
 	// the underlying submit event automatically). Enter-to-submit only fires if the footer includes a
 	// button with type='submit' to serve as the form's implicit submit target -- callers opt in
 	// per button (Button defaults to type='button', so other buttons never become the submit target).
+	// Wire onSubmit to the SAME action as that submit button's onPressed, otherwise Enter and a mouse
+	// click on the primary button will do different things.
 	onSubmit?: () => void;
 }
 
