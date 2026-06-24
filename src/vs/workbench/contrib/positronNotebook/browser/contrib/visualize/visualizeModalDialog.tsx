@@ -15,9 +15,6 @@ import { PositronModalDialogReactRenderer } from '../../../../../../base/browser
 import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { FooterButton } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { DropDownListBox, DropDownListBoxEntry } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
-import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { DropDownListBoxSeparator } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ChartType, codeSnippetToCellSource, generateVizCode, isValidDataFrameExpr, VizAnswers, VizLibrary } from './generateVizCode.js';
@@ -589,19 +586,7 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 }) {
 	const hasColumns = columns.length > 0;
 
-	// Dropdown autoFocus: LabeledTextInput handles its own autoFocus via
-	// the native input attribute; DropDownListBox doesn't, so focus the
-	// button ourselves on mount.
-	const dropdownRef = useRef<HTMLButtonElement>(null);
-	const didAutoFocusRef = useRef(false);
-	useEffect(() => {
-		if (autoFocus && hasColumns && !didAutoFocusRef.current) {
-			dropdownRef.current?.focus();
-			didAutoFocusRef.current = true;
-		}
-	}, [autoFocus, hasColumns]);
-
-	// Fallback when the dataframe wasn't inspectable -- the dropdown would
+	// Fallback when the dataframe wasn't inspectable -- the select would
 	// be empty, so let the user type a column name.
 	if (!hasColumns) {
 		return (
@@ -614,44 +599,29 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 		);
 	}
 
-	const entries: DropDownListBoxEntry<string, string>[] = columns.map(c =>
-		new DropDownListBoxItem<string, string>({
-			identifier: c.name,
-			title: `${c.name}   ${c.type}`,
-			value: c.name,
-		})
-	);
-	// Identify the "None" / clear entry by reference rather than by
-	// identifier string, so a column literally named (e.g.) "None" can't
-	// be misinterpreted as a clear action.
-	const clearEntry = allowClear
-		? new DropDownListBoxItem<string, string>({
-			identifier: '',
-			title: localize('positron.notebook.visualize.columnPicker.none', 'None'),
-			value: '',
-		})
-		: null;
-	if (clearEntry) {
-		entries.push(new DropDownListBoxSeparator());
-		entries.push(clearEntry);
-	}
-
+	// A native <select> is used instead of the styled DropDownListBox because
+	// this dialog is a native <dialog> opened with showModal(), which lives in
+	// the browser top layer. DropDownListBox renders its popup into the normal
+	// DOM, so it would be occluded behind the dialog. Native <select> popups
+	// render in the OS layer and appear correctly above the dialog.
+	const placeholder = localize('positron.notebook.visualize.columnPicker.placeholder', 'Select a column');
 	return (
 		<div className='visualize-column-picker'>
 			<span className='visualize-column-picker-label'>{label}</span>
-			<DropDownListBox<string, string>
-				ref={dropdownRef}
-				entries={entries}
-				selectedIdentifier={value || undefined}
-				title={localize('positron.notebook.visualize.columnPicker.placeholder', 'Select a column')}
-				onSelectionChanged={(item) => {
-					if (item === clearEntry) {
-						onChange('');
-					} else {
-						onChange(item.options.value);
-					}
-				}}
-			/>
+			<select
+				autoFocus={autoFocus}
+				className='visualize-column-select'
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+			>
+				{/* Empty placeholder option. When allowClear, this doubles as the "None" choice; otherwise it's an unselectable prompt. */}
+				<option value=''>
+					{allowClear ? localize('positron.notebook.visualize.columnPicker.none', 'None') : placeholder}
+				</option>
+				{columns.map(c => (
+					<option key={c.name} value={c.name}>{`${c.name}   ${c.type}`}</option>
+				))}
+			</select>
 		</div>
 	);
 }
