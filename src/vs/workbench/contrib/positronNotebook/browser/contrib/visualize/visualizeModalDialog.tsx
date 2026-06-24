@@ -19,6 +19,7 @@ import { positronClassNames } from '../../../../../../base/common/positronUtilit
 import { URI } from '../../../../../../base/common/uri.js';
 import { ChartType, codeSnippetToCellSource, generateVizCode, isValidDataFrameExpr, VizAnswers, VizLibrary } from './generateVizCode.js';
 import { InsertMode } from './applyVisualizeResult.js';
+import { createSingleCallFunction } from '../../../../../../base/common/functional.js';
 import { VisualizePreview } from './visualizePreview.js';
 
 export type { InsertMode };
@@ -97,15 +98,11 @@ export const showVisualizeModalDialog = (
 	notebookUri?: URI,
 ): Promise<VisualizeResult | undefined> => {
 	return new Promise(resolve => {
-		let resolved = false;
-		// Resolve the promise at most once. Routed through the renderer's onDisposed so any close
-		// path -- the Cancel/Insert buttons or Escape (native <dialog> close) -- settles the promise
-		// exactly once.
-		const settle = (r: VisualizeResult | undefined) => {
-			if (resolved) { return; }
-			resolved = true;
-			resolve(r);
-		};
+		// Resolve the promise at most once across every close path. settle wraps resolve via
+		// createSingleCallFunction and is wired to the renderer's onDisposed, so Escape / click-outside
+		// settle with undefined. finish is the button path: settle with the result, then dispose -- the
+		// dispose's onDisposed -> settle(undefined) is a no-op because settle already ran.
+		const settle = createSingleCallFunction(resolve);
 		const renderer = new PositronModalDialogReactRenderer({
 			onDisposed: () => settle(undefined),
 		});
