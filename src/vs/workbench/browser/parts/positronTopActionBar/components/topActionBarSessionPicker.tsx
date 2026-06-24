@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './topActionBarSessionManager.css';
+import './topActionBarSessionPicker.css';
 
 // React.
 import { useEffect, useState } from 'react';
@@ -32,7 +32,7 @@ const startSession = localize('positron.console.startSession', "Start Session");
  * - allows users to switch between console sessions
  * - allows the user to start a new console session
  */
-export const TopActionBarSessionManager = () => {
+export const TopActionBarSessionPicker = () => {
 	const services = usePositronReactServicesContext();
 
 	const [displayInfo, setDisplayInfo] = useState<IRuntimeSessionDisplayInfo | undefined>(
