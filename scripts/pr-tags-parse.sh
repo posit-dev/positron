@@ -124,10 +124,10 @@ else
 	# as a single filename entry in the PR files API when the pointer changes.
 	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
 		--header "Authorization: token $GITHUB_TOKEN" \
-		--jq '.[].filename' 2>/dev/null || true)
+		--jq '.[].filename' || true)
 	if [[ -z "$CHANGED_FILES" ]]; then
 		echo "Warning: could not fetch changed files; skipping @:ark injection."
-	elif echo "$CHANGED_FILES" | grep -qx "extensions/positron-r/ark"; then
+	elif echo "$CHANGED_FILES" | grep -qxF "extensions/positron-r/ark"; then
 		echo "Ark submodule changed. Injecting @:ark tag."
 		if [[ -n "$TAGS" ]]; then
 			TAGS="$TAGS,@:ark"
