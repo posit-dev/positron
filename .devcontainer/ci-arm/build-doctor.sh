@@ -108,7 +108,8 @@ render() {
   up_secs=$(ps -o etimes= -p 1 2>/dev/null | tr -dc '0-9')
   up_str=$([ -n "$up_secs" ] && human_dur "$up_secs" || echo "?")
 
-  printf '%sPositron CI Doctor%s\n\n' "$BOLD" "$RST"
+  printf '%sPositron CI Doctor%s\n' "$BOLD" "$RST"
+  printf '%s%s%s\n\n' "$DIM" "$DIV" "$RST"
 
   # --- Environment ---
   # One umbrella over what's provisioned: Build, Container, Interpreters, and QA fixture data.
