@@ -50,6 +50,13 @@ wrong_os_bins() {
   printf '%s' "${bad% }"
 }
 
+# In-progress detection for the long-running fix tasks, so their row shows a spinner while running
+# instead of a stale verdict until they finish. Each task is identified by a unique string in its
+# command line (pgrep -f matches the task's shell for the whole run): the Reinstall deps/e2e tasks
+# end in `mark-build-state.sh root|e2e`; Reinstall interpreters runs its own script.
+busy_deps()    { pgrep -f "mark-build-state.sh root" >/dev/null 2>&1 || pgrep -f "mark-build-state.sh e2e" >/dev/null 2>&1; }
+busy_interps() { pgrep -f "ci-arm/reinstall-interpreters.sh" >/dev/null 2>&1; }
+
 actions=()
 opt_running=0
 
@@ -126,6 +133,10 @@ render() {
     # A cold build / Rebuild is actively running — show that instead of nagging to rebuild.
     # allow-any-unicode-next-line
     printf '  %s⟳%s %-*s%sbuilding… (watch the build terminal)%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
+  elif busy_deps; then
+    # A Reinstall deps / e2e deps task is running — show progress, not the stale verdict.
+    # allow-any-unicode-next-line
+    printf '  %s⟳%s %-*s%sreinstalling deps… (watch the task terminal)%s\n' "$Y" "$RST" "$NAMEW" "Build" "$DIM" "$RST"
   else
     build_ok=1
     [ -f "$STATE/complete" ] || { build_ok=0; actions+=("Cold build never completed → run 'Positron CI: Rebuild'."); }
@@ -143,12 +154,18 @@ render() {
   # Interpreters — the in-tree pet/ark/kcserver must be Linux ELF; a macOS binary here (checkout
   # also built natively on the host) silently breaks Python/R startup, so it carries health glyphs
   # like Build. The footer names the fix.
-  local wrong_bins; wrong_bins="$(wrong_os_bins)"
-  if [ -z "$wrong_bins" ]; then
-    printf '  %s✓%s %-*s%sok%s\n' "$G" "$RST" "$NAMEW" "Interpreters" "$DIM" "$RST"
+  if busy_interps; then
+    # The Reinstall interpreters task is running — show progress, not the stale verdict.
+    # allow-any-unicode-next-line
+    printf '  %s⟳%s %-*s%sreinstalling… (watch the task terminal)%s\n' "$Y" "$RST" "$NAMEW" "Interpreters" "$DIM" "$RST"
   else
-    printf '  %s⚠%s %-*s%swrong-OS: %s%s\n' "$Y" "$RST" "$NAMEW" "Interpreters" "$DIM" "$wrong_bins" "$RST"
-    actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? Run 'Positron CI: Reinstall interpreters'.")
+    local wrong_bins; wrong_bins="$(wrong_os_bins)"
+    if [ -z "$wrong_bins" ]; then
+      printf '  %s✓%s %-*s%sok%s\n' "$G" "$RST" "$NAMEW" "Interpreters" "$DIM" "$RST"
+    else
+      printf '  %s⚠%s %-*s%swrong-OS: %s%s\n' "$Y" "$RST" "$NAMEW" "Interpreters" "$DIM" "$wrong_bins" "$RST"
+      actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? Run 'Positron CI: Reinstall interpreters'.")
+    fi
   fi
 
   # QA content — optional fixture data the e2e tests open. Fetched reads ✓; when absent it's a dim
@@ -220,6 +237,9 @@ sig() {
   [ -f "$SERVER_ERR" ] && s+=E || s+=e
   [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
   pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && s+=B || s+=b
+  # Long-running fix tasks in flight: redraw when they start/finish so their row shows/clears ⟳.
+  busy_deps && s+=U || s+=u
+  busy_interps && s+=J || s+=j
   # Build readiness inputs (the same ones the Build row checks): fold them in so the panel redraws
   # the moment a watch/build produces out/ or the deps come back into (or drift out of) sync - not
   # only when the completion marker is re-stamped. `npm run watch` creates out/ without touching the
