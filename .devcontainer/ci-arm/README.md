@@ -212,6 +212,7 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | **Positron CI: Doctor** | live dashboard - build status + what's up (Xvnc/noVNC/postgres, server/desktop/report); updates when state changes, any key refreshes, `q` quits |
 | **Positron CI: Reinstall deps** | after the root `package-lock.json` changes; records only the root hash |
 | **Positron CI: Reinstall e2e deps** | after `test/e2e/package-lock.json` changes; records only the e2e hash |
+| **Positron CI: Reinstall interpreters** | restore the Linux `pet`/`ark`/`kcserver` binaries after a native build clobbered them (Python/R fail to start; the Doctor flags it) |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
 | **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
@@ -241,21 +242,9 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   `git add --renormalize`, which stages line-ending changes in your bind-mounted index. It's
   harmless: `git restore --staged .`.
 - **Python/R interpreters dead after building one checkout both ways** - wrong-OS `pet`/`ark`/`kcserver`
-  (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Run in the
-  context whose binaries are wrong, then recompile:
-  ```bash
-  file extensions/positron-python/python-env-tools/pet \
-       extensions/positron-r/resources/ark/ark \
-       extensions/positron-supervisor/resources/kallichore/kcserver   # confirms wrong OS
-  rm -f extensions/positron-python/python-env-tools/pet extensions/positron-python/resources/pet/VERSION
-  rm -f extensions/positron-r/resources/ark/ark extensions/positron-r/resources/ark/VERSION
-  rm -f extensions/positron-supervisor/resources/kallichore/kcserver extensions/positron-supervisor/resources/kallichore/VERSION
-  npm --prefix extensions/positron-python run install-pet
-  npm --prefix extensions/positron-r run install-kernel
-  npm --prefix extensions/positron-supervisor run install-kallichore
-  ```
-  Deleting the `VERSION` marker is required - the installers skip when it matches. (`out/` is shared
-  too; recompile after switching.)
+  (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). The Doctor's
+  **Interpreters** row flags this; run **Positron CI: Reinstall interpreters** to restore the Linux
+  binaries. (`out/` is shared too; recompile after switching.)
 - **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
   running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
   reload the window and let **Watch** recompile (restart any running Positron/debug).

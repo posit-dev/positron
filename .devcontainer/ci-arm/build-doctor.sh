@@ -149,7 +149,7 @@ render() {
     printf '  %s✓%s %-*s%sok%s\n' "$G" "$RST" "$NAMEW" "Interpreters" "$DIM" "$RST"
   else
     printf '  %s⚠%s %-*s%swrong-OS: %s%s\n' "$Y" "$RST" "$NAMEW" "Interpreters" "$DIM" "$wrong_bins" "$RST"
-    actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? See README Gotchas: delete each binary + its VERSION, then re-run the installer.")
+    actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? Run 'Positron CI: Reinstall interpreters'.")
   fi
 
   # allow-any-unicode-next-line

@@ -124,6 +124,14 @@
 				"problemMatcher": []
 			},
 			{
+				"label": "Positron CI: Reinstall interpreters",
+				"detail": "Restore the Linux pet/ark/kcserver binaries after a native build clobbered them (Python/R fail with 'Exec format error'; the Doctor's Interpreters row flags it).",
+				"type": "shell",
+				"command": "./.devcontainer/ci-arm/reinstall-interpreters.sh",
+				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
+				"problemMatcher": []
+			},
+			{
 				"label": "Positron CI: Rebuild",
 				"detail": "Re-run the whole cold build (idempotent). Use if the doctor reports the build is incomplete.",
 				"type": "shell",
