@@ -58,7 +58,6 @@ busy_deps()    { pgrep -f "mark-build-state.sh root" >/dev/null 2>&1 || pgrep -f
 busy_interps() { pgrep -f "ci-arm/reinstall-interpreters.sh" >/dev/null 2>&1; }
 
 actions=()
-opt_running=0
 
 # A heading + its rows form a "card". Rows share one left edge (text starts at column 4) across all
 # sections. Names lead; tool/port/detail are dimmed so the eye scans the glyph + name first.
@@ -84,7 +83,6 @@ csvc() {
 odsvc() {
   if [ "$3" -eq 0 ]; then
     printf '  %s●%s %-*s%s%-7s %s%s\n' "$G" "$RST" "$ODNAMEW" "$1" "$DIM" "$2" "${5:-}" "$RST"
-    opt_running=$((opt_running + 1))
   elif [ -n "${4:-}" ] && [ -f "$4" ]; then
     local why; why="$(head -1 "$4" 2>/dev/null)"
     # allow-any-unicode-next-line
@@ -97,7 +95,7 @@ odsvc() {
 }
 
 render() {
-  actions=(); opt_running=0
+  actions=()
   local now last_build up_secs up_str build_ok qa_age novnc_up
   # Build-running state: --watch passes it in (derived from sig's B bit) so we don't re-probe the
   # process table every frame; standalone (one-shot) calls leave it empty and compute it here.
@@ -117,7 +115,7 @@ render() {
   printf '%s------------------%s\n\n' "$DIM" "$RST"
 
   # --- Environment ---
-  # One umbrella over what's provisioned: Build, Container, Interpreters, and QA fixture data.
+  # One umbrella over what's provisioned: Container, Build, Interpreters, and QA fixture data.
   # Healthy/normal reads as a check across the board, so the eye only catches the exceptions: a
   # warning when something needs attention (Build out of date, Interpreters wrong-OS), the spinner
   # while a build runs, and a dim circle for the optional QA content when it isn't fetched (neutral -
@@ -214,7 +212,7 @@ render() {
   if [ "${#actions[@]}" -eq 0 ]; then
     printf '\n%s✓ Ready for development%s\n' "$G" "$RST"
   else
-    printf '%s⚠ %d item(s) need attention%s\n' "$Y" "${#actions[@]}" "$RST"
+    printf '\n%s⚠ %d item(s) need attention%s\n' "$Y" "${#actions[@]}" "$RST"
     for a in "${actions[@]}"; do printf '  %s• %s%s\n' "$DIM" "$a" "$RST"; done
   fi
 }
