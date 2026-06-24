@@ -97,7 +97,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'string',
 			enum: ['auto', 'pak', 'base'],
 			enumDescriptions: [
-				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise use base R and offer to install pak."),
 				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
 				nls.localize('positron.packages.r.installer.base', "Always use base R."),
 			],
