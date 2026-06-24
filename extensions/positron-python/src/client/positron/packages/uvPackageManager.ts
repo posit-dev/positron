@@ -269,7 +269,7 @@ export class UvPackageManager implements IPackageManager {
         if (!result.stdout || result.stdout.trim() === '') {
             throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
         }
-        return result.stdout.split(/\r?\n/);
+        return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
     }
 
     /**

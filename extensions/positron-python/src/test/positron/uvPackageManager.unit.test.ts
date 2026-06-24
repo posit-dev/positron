@@ -320,6 +320,7 @@ version = "0.1.0"`;
             expect((fileSystem as any).getWritten()).to.contain('werkzeug==3.1.8');
             const [, args] = terminalService.sendCommand.firstCall.args;
             expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt']);
+            expect(args).to.not.include('--upgrade');
         });
     });
 });
