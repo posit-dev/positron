@@ -97,12 +97,13 @@ runs:
       run: |
         # Install rig directly from GitHub releases to avoid a broken cask in
         # the r-lib/homebrew-rig tap (double-quote typo in rig.rb line 5).
+        RIG_VERSION="0.8.1"
         if [ "$(uname -m)" = "x86_64" ]; then
-          RIG_PKG="rig-macos-x86_64-latest.pkg"
+          RIG_PKG="rig-${RIG_VERSION}-macOS-x86_64.pkg"
         else
-          RIG_PKG="rig-macos-arm64-latest.pkg"
+          RIG_PKG="rig-${RIG_VERSION}-macOS-arm64.pkg"
         fi
-        curl -fsSL "https://github.com/r-lib/rig/releases/latest/download/${RIG_PKG}" -o /tmp/rig.pkg
+        curl -fsSL "https://github.com/r-lib/rig/releases/download/v${RIG_VERSION}/${RIG_PKG}" -o /tmp/rig.pkg
         sudo installer -pkg /tmp/rig.pkg -target /
 
     - name: Install R (primary)
