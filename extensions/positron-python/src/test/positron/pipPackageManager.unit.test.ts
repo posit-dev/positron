@@ -127,6 +127,7 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
         const [, args] = terminalService.sendCommand.firstCall.args;
         expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+        expect(args).to.not.include('--upgrade');
     });
 
     test('updateAllPackages does nothing when no packages are outdated', async () => {
