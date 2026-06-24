@@ -175,8 +175,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 			const drivers = await positron.dataConnections.getDrivers();
 			const pg = drivers.find(d => d.id === 'positron-data-driver-postgresql')!;
 
-			// Test the single 'password' mechanism.
-			assert.strictEqual(pg.mechanisms.length, 1);
+			// Test the 'password' mechanism.
 			const mechanism = pg.mechanisms.find(m => m.id === 'password')!;
 			assert.ok(mechanism);
 
@@ -212,6 +211,16 @@ suite('PostgreSQL Data Connection Integration', () => {
 			const sslParam = mechanism.parameters.find(p => p.id === 'ssl');
 			assert.ok(sslParam);
 			assert.strictEqual(sslParam.type, 'boolean');
+
+			// The peer mechanism is offered only on Unix (it uses a local socket); Windows has no
+			// equivalent.
+			const peerMechanism = pg.mechanisms.find(m => m.id === 'peer');
+			if (process.platform === 'win32') {
+				assert.strictEqual(peerMechanism, undefined);
+			} else {
+				assert.ok(peerMechanism);
+				assert.deepStrictEqual(peerMechanism.parameters.map(p => p.id), ['database', 'user', 'socketDirectory']);
+			}
 		});
 	});
 

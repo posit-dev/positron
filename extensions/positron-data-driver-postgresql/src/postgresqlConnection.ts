@@ -12,15 +12,18 @@ import { IPostgresDataExplorerHost, POSTGRESQL_DATA_EXPLORER_PROVIDER_ID } from 
 let nextConnectionId = 1;
 
 /**
- * Connection configuration passed from the driver.
+ * Connection configuration passed from the driver. Only the database and user are always present;
+ * host, port, password, and SSL are omitted for peer authentication, which connects over a local
+ * Unix domain socket as the operating system account. When omitted, the pg client falls back to its
+ * defaults (local socket, port 5432, no password).
  */
 export interface PostgreSQLConnectionConfig {
-	host: string;
-	port: number;
+	host?: string;
+	port?: number;
 	database: string;
 	user: string;
-	password: string;
-	ssl: boolean;
+	password?: string;
+	ssl?: boolean;
 }
 
 /**
@@ -67,7 +70,12 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresP
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			throw new Error(`Failed to connect to PostgreSQL at ${this._config.host}:${this._config.port}: ${err.message}`);
+			// A socket-directory host (or no host) means a local-socket/peer connection; otherwise
+			// report the host:port we tried.
+			const target = this._config.host && !this._config.host.startsWith('/')
+				? `${this._config.host}:${this._config.port ?? 5432}`
+				: 'the local socket';
+			throw new Error(`Failed to connect to PostgreSQL at ${target}: ${err.message}`);
 		}
 	}
 
