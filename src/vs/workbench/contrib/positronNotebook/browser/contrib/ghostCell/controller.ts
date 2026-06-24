@@ -267,6 +267,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			this._logService.warn(`[ghost-cell] Suggestion timed out for ${this._notebook.uri.toString()}`);
 			cts.cancel();
 			this._showGhostCellFailure(executedCellIndex);
+			this._finishGeneration(cts);
 		}, GHOST_CELL_GENERATION_TIMEOUT_MS);
 
 		const onProgress = (partial: IGhostCellPartial) => {
@@ -290,14 +291,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 					// running, the generation timeout is its, so leave it alone.
 					return;
 				}
-				this._clearGenerationTimeout();
+				this._finishGeneration(cts);
 				this._applyGhostCellOutcome(executedCellIndex, outcome, built.language);
 			})
 			.catch((error: unknown) => {
 				if (token.isCancellationRequested) {
 					return;
 				}
-				this._clearGenerationTimeout();
+				this._finishGeneration(cts);
 				this._logService.error(this._notebook.uri.toString(), 'Ghost cell suggestion failed:', error);
 				this._showGhostCellFailure(executedCellIndex);
 			});
@@ -307,6 +308,19 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		if (this._generationTimeoutTimer) {
 			clearTimeout(this._generationTimeoutTimer);
 			this._generationTimeoutTimer = undefined;
+		}
+	}
+
+	/**
+	 * Tear down a finished generation: clear its timeout and dispose its
+	 * cancellation source. Without this the per-request source leaks until the
+	 * next request supersedes it (or the cell is dismissed/disposed).
+	 */
+	private _finishGeneration(cts: CancellationTokenSource): void {
+		this._clearGenerationTimeout();
+		cts.dispose();
+		if (this._ghostCellCancellationToken === cts) {
+			this._ghostCellCancellationToken = undefined;
 		}
 	}
 
@@ -670,15 +684,25 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			return true;
 		}
 
-		// Check if user has explicitly set the enabled setting using inspect()
-		// If userValue is undefined, user hasn't made a choice yet
-		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
-		if (inspected?.userValue === undefined) {
+		// If the user hasn't explicitly made a choice yet, default to off.
+		if (!this._hasExplicitEnabledSetting()) {
 			return false;
 		}
 
-		// Fall back to global setting
+		// Fall back to the configured setting (respects scope precedence).
 		return this._configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? false;
+	}
+
+	/**
+	 * Whether the user has explicitly set the enabled setting at any scope. The
+	 * setting is WINDOW-scoped, so a workspace value is a real choice too --
+	 * checking only `userValue` would miss it.
+	 */
+	private _hasExplicitEnabledSetting(): boolean {
+		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
+		return inspected.userValue !== undefined
+			|| inspected.workspaceValue !== undefined
+			|| inspected.workspaceFolderValue !== undefined;
 	}
 
 	/**
@@ -697,10 +721,8 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			return false;
 		}
 
-		// Check if user has explicitly set the enabled setting using inspect()
-		// If userValue is defined, user has made a choice
-		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
-		if (inspected?.userValue !== undefined) {
+		// If the user has explicitly made a choice (at any scope), don't prompt.
+		if (this._hasExplicitEnabledSetting()) {
 			return false;
 		}
 

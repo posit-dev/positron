@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { AsyncIterableObject } from '../../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
@@ -314,6 +315,23 @@ describe('HeadlessLanguageModelService', () => {
 			const service = createService(fakeEngine({ models: { anthropic: [model('claude-haiku', 'Claude Haiku', 'anthropic')] } }));
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result.available && result.model.id).toBe('claude-haiku');
+		});
+	});
+
+	describe('cancellation', () => {
+		it('streamText stops waiting on a hung preflight when the token is cancelled', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			// An engine whose model listing never resolves (a black-holed IPC call).
+			const hangingEngine: IHeadlessLanguageModelEngine = {
+				getProviderMappings: async () => TEST_MAPPINGS,
+				listModels: () => new Promise<IModelDescriptor[]>(() => { }),
+				streamChat: () => AsyncIterableObject.fromArray(['ok']),
+			};
+			const service = createService(hangingEngine);
+			const cts = ctx.disposables.add(new CancellationTokenSource());
+			cts.cancel();
+			const result = await service.streamText({ systemPrompt: 's', messages: [], cancellationToken: cts.token });
+			expect(result).toEqual({ available: false, reason: 'temporarily-unavailable' });
 		});
 	});
 

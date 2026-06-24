@@ -5,6 +5,7 @@
 
 import { distinct } from '../../../../base/common/arrays.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { raceCancellation } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { SelfHealingLazyPromise } from '../../../../base/common/positron/async.js';
@@ -167,7 +168,8 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			return { available: false, reason: 'no-providers-configured' };
 		}
 
-		const prepared = await this.prepareRequest(params.model ?? FastCheap);
+		const token = params.cancellationToken ?? CancellationToken.None;
+		const prepared = await this.prepareRequest(params.model ?? FastCheap, token);
 		if (!prepared.ok) {
 			return { available: false, reason: prepared.reason };
 		}
@@ -182,7 +184,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			systemPrompt: params.systemPrompt,
 			messages: params.messages,
 			maxOutputTokens: params.maxOutputTokens,
-		}, params.cancellationToken ?? CancellationToken.None);
+		}, token);
 
 		return { available: true, model: { id: prepared.model.id, name: prepared.model.name }, usedFallback: prepared.usedFallback, text };
 	}
@@ -194,12 +196,20 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	 * reason rather than a throw -- the service's contract is that only the
 	 * returned `text` iterable throws mid-stream.
 	 */
-	private async prepareRequest(selection: ModelSelection): Promise<
+	private async prepareRequest(selection: ModelSelection, token: CancellationToken): Promise<
 		| { readonly ok: true; readonly model: IModelDescriptor; readonly credentials: ICredentials; readonly usedFallback: boolean }
 		| { readonly ok: false; readonly reason: UnavailableReason }
 	> {
 		try {
-			const state = await this._state.get();
+			// Tie the preflight to the request token. The model listing is a shared,
+			// self-healing cache, so we don't cancel the computation (that would
+			// blow it away for other callers); we just stop waiting on it. A hung
+			// listing (black-holed IPC) then surfaces as a transient failure when
+			// the caller's token fires instead of keeping the request pending.
+			const state = await raceCancellation(this._state.get(), token);
+			if (!state) {
+				return { ok: false, reason: 'temporarily-unavailable' };
+			}
 			if (!state.anyCredential) {
 				return { ok: false, reason: 'sign-in-required' };
 			}
@@ -218,7 +228,10 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 			// Resolve credentials freshly for the chosen provider so short-lived
 			// tokens stay valid. The token may have lapsed since listing.
-			const credentials = await this.resolveCredentialFor(model.providerId);
+			const credentials = await raceCancellation(this.resolveCredentialFor(model.providerId), token);
+			if (token.isCancellationRequested) {
+				return { ok: false, reason: 'temporarily-unavailable' };
+			}
 			if (!credentials) {
 				return { ok: false, reason: 'sign-in-required' };
 			}
