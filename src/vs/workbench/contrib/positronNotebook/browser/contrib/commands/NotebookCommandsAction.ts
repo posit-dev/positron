@@ -99,7 +99,7 @@ function collectNotebookCommandIds(): string[] {
  * item, then emit them under their group's separator in `COMMAND_GROUPS` order,
  * sorted by label within each group, with any leftovers under "Other".
  */
-export function buildNotebookCommandPickItems(keybindingService: IKeybindingService): QuickPickInput<INotebookCommandPickItem>[] {
+function buildNotebookCommandPickItems(keybindingService: IKeybindingService): QuickPickInput<INotebookCommandPickItem>[] {
 	const itemsById = new Map<string, INotebookCommandPickItem>();
 	for (const commandId of collectNotebookCommandIds()) {
 		const command = MenuRegistry.getCommand(commandId);
