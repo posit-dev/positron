@@ -10,9 +10,12 @@ import * as path from 'path';
 import * as sinon from 'sinon';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { Uri } from 'vscode';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { IFileSystem } from '../../client/common/platform/types';
+import { IProcessServiceFactory } from '../../client/common/process/types';
+import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { UvPackageManager } from '../../client/positron/packages/uvPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
@@ -39,13 +42,21 @@ suite('UvPackageManager Tests', () => {
     let fileSystem: IFileSystem;
     let messageEmitter: MessageEmitter;
     let session: PackageSession;
+    let uvSandbox: sinon.SinonStub;
 
     setup(() => {
-        // Create mocks for services
+        // Capture requirements written to the temp file.
+        let writtenContent = '';
         fileSystem = {
             fileExists: sinon.stub().resolves(false),
             readFile: sinon.stub().resolves(''),
+            createTemporaryFile: sinon.stub().resolves({ filePath: '/tmp/reqs.txt', dispose: sinon.stub() }),
+            writeFile: sinon.stub().callsFake((_p: string, text: string) => {
+                writtenContent = text;
+                return Promise.resolve();
+            }),
         } as any;
+        (fileSystem as any).getWritten = () => writtenContent;
 
         workspaceService = {
             getWorkspaceFolder: sinon.stub().returns(undefined),
@@ -246,6 +257,69 @@ version = "0.1.0"`;
             const result = await uvPackageManager.shouldUseProjectWorkflow();
 
             expect(result).to.be.false;
+        });
+    });
+
+    suite('Environment-workflow updates', () => {
+        let processService: { exec: sinon.SinonStub };
+        let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
+        let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+
+        setup(() => {
+            // Stub getConfiguration so _getProxyEnv() does not crash (vscode.workspace is a mock instance).
+            originalGetConfiguration = vscode.workspace.getConfiguration;
+            vscode.workspace.getConfiguration = (_section?: string) =>
+                ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
+
+            // uv available.
+            uvSandbox = sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+
+            processService = { exec: sinon.stub() };
+            // uv pip freeze
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze']))
+                .resolves({ stdout: 'werkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n', stderr: '' });
+            const processFactory = { create: sinon.stub().resolves(processService) };
+
+            terminalService = {
+                show: sinon.stub().resolves(),
+                sendCommand: sinon.stub().resolves(),
+                sendText: sinon.stub().resolves(),
+            };
+            const terminalFactory = { getTerminalService: sinon.stub().returns(terminalService) };
+
+            (serviceContainer.get as sinon.SinonStub)
+                .withArgs(IProcessServiceFactory)
+                .returns(processFactory)
+                .withArgs(ITerminalServiceFactory)
+                .returns(terminalFactory);
+        });
+
+        teardown(() => {
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+        });
+
+        test('updatePackages installs a pinned requirements file', async () => {
+            await uvPackageManager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+            expect((fileSystem as any).getWritten()).to.contain('werkzeug==3.1.8');
+            expect((fileSystem as any).getWritten()).to.contain('positron-update-demo @ file:///tmp/demo');
+            const [uvBin, args] = terminalService.sendCommand.firstCall.args;
+            expect(uvBin).to.equal('uv');
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+            expect(args).to.not.include('--upgrade');
+        });
+
+        test('updateAllPackages pins outdated packages to latest', async () => {
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+            await uvPackageManager.updateAllPackages();
+
+            expect((fileSystem as any).getWritten()).to.contain('werkzeug==3.1.8');
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt']);
         });
     });
 });
