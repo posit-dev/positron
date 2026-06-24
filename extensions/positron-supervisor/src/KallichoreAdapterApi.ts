@@ -73,6 +73,34 @@ function isUnauthorizedError(err: any): boolean {
 	return isAxiosError(err) && (err.response?.status === 401 || err.status === 401);
 }
 
+/**
+ * Whether a supervisor server is expected to share the application's lifetime,
+ * and therefore should be shut down when the application quits, rather than
+ * being run detached so it can outlive the application.
+ *
+ * Exported so the policy can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param uiKind The UI kind the application is running as.
+ * @param shutdownTimeout The `kernelSupervisor.shutdownTimeout` setting value.
+ * @returns True if the server shares the application's lifetime.
+ */
+export function sharesApplicationLifetime(
+	uiKind: vscode.UIKind,
+	shutdownTimeout: string,
+): boolean {
+	// Web servers are expected to be long-lived and to survive client
+	// disconnects, so they outlive the application.
+	if (uiKind === vscode.UIKind.Web) {
+		return false;
+	}
+
+	// A non-default shutdown timeout means the server is run detached and is
+	// meant to outlive the application. Otherwise the server shares the
+	// application's lifetime.
+	return shutdownTimeout === 'immediately';
+}
+
 export class KCApi implements PositronSupervisorApi {
 	/** The DAP comm class */
 	readonly DapComm = DapComm;
@@ -800,18 +828,24 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns True to use ephemeral storage, false to use persistent storage.
 	 */
 	private useEphemeralState(): boolean {
-		// Web servers are expected to be long-lived and to survive client
-		// disconnects, so their reconnect state must persist on disk.
-		if (vscode.env.uiKind === vscode.UIKind.Web) {
-			return false;
-		}
+		// Ephemeral storage is the right fit precisely when the server shares
+		// the application's lifetime: the storage is cleared when the
+		// application exits, just as the server does.
+		return this.serverSharesApplicationLifetime();
+	}
 
-		// A non-default shutdown timeout means the server is run detached and
-		// is meant to outlive the application; persist its state so we can
-		// reconnect after a restart. Otherwise the server shares the
-		// application's lifetime, so ephemeral storage is the better fit.
+	/**
+	 * Whether the supervisor server connected to this window is expected to
+	 * share the application's lifetime, reading the current UI kind and
+	 * `shutdownTimeout` configuration. See the module-level
+	 * {@link sharesApplicationLifetime} for the policy.
+	 *
+	 * @returns True if the server shares the application's lifetime.
+	 */
+	private serverSharesApplicationLifetime(): boolean {
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		return config.get<string>('shutdownTimeout', 'immediately') === 'immediately';
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		return sharesApplicationLifetime(vscode.env.uiKind, shutdownTimeout);
 	}
 
 	/**
@@ -1509,6 +1543,53 @@ export class KCApi implements PositronSupervisorApi {
 	public async serverStatus(): Promise<ServerStatus> {
 		const status = await this._api.api.serverStatus();
 		return status.data;
+	}
+
+	/**
+	 * Shut down the supervisor server because the application is quitting.
+	 *
+	 * Only servers that share the application's lifetime are shut down (see
+	 * {@link serverSharesApplicationLifetime}); detached servers configured to
+	 * outlive the application are left running so they can be reconnected to on
+	 * the next launch.
+	 *
+	 * Historically we relied on the server exiting on its own when its terminal
+	 * was torn down on quit. That depends on the OS propagating SIGHUP through
+	 * the pty's process group down to the (grand)child server process, which is
+	 * fragile and is not reliable across pty host changes; an orphaned server
+	 * would then linger until its idle-shutdown timeout reaped it. We now ask
+	 * the server to shut down explicitly instead.
+	 *
+	 * Best-effort: the extension host is being torn down, so we bound the wait
+	 * and swallow errors rather than blocking the application's exit.
+	 */
+	async shutdownForQuit(): Promise<void> {
+		// Detached servers are meant to outlive the application; leave them
+		// running so they can be reconnected to on the next launch.
+		if (!this.serverSharesApplicationLifetime()) {
+			return;
+		}
+
+		// If the server never came online there's nothing to shut down.
+		if (!this._started.isOpen()) {
+			return;
+		}
+
+		try {
+			// Bound the wait since the extension host is being torn down and we
+			// cannot block the application's exit indefinitely.
+			await this._api.api.shutdownServer({ timeout: 2000 });
+			this.log('Requested Kallichore server shutdown on quit');
+		} catch (err) {
+			// Not fatal; the server's idle-shutdown timeout is the backstop.
+			this.log(`Failed to shut down Kallichore server on quit: ${summarizeError(err)}`);
+		}
+
+		// Kill the terminal hosting the server so its shell doesn't linger.
+		if (this._terminal) {
+			this._terminal.dispose();
+			this._terminal = undefined;
+		}
 	}
 
 	/**
