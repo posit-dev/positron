@@ -87,6 +87,7 @@ jobs:
           POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
           POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
           POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+          POSITRON_SIGNING_KEY: "op://Positron/Positron Server private key/notesPlain"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -116,6 +117,8 @@ jobs:
           github-token: ${{ steps.access-token.outputs.token }}
           run-id: ${{ github.run_id }}
           positron-license: ${{ secrets.POSITRON_LICENSE }}
+          server-tarball: /tmp/artifacts/positron-server-linux-x64-branch.tar.gz
+          signing-key: ${{ env.POSITRON_SIGNING_KEY }}
 
       - name: Setup test dependencies and compile tests
         uses: ./.github/actions/setup-e2e-test-dependencies

@@ -764,12 +764,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 					findValue: value
 				});
 			}
-
-			setTimeout(() => {
-				this._helpOverlayWebview?.postMessage({
-					id: 'positron-help-focus'
-				});
-			}, 100);
 		}
 	}
 
