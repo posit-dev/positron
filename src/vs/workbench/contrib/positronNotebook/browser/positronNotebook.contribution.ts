@@ -2192,7 +2192,7 @@ export class RunAllCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.runAllCells',
-			title: localize2('runAllCells', 'Run All'),
+			title: localize2('runAllCells', 'Run All Cells'),
 			icon: ThemeIcon.fromId('notebook-execute-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -2230,7 +2230,7 @@ registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.stopAllCells',
-			title: localize2('stopAllCells', 'Stop'),
+			title: localize2('stopAllCells', 'Stop Execution'),
 			icon: ThemeIcon.fromId('primitive-square'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -2271,7 +2271,7 @@ export class ClearAllOutputsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
-			title: localize2('clearAllOutputs', 'Clear Outputs'),
+			title: localize2('clearAllOutputs', 'Clear All Outputs'),
 			icon: ThemeIcon.fromId('clear-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,

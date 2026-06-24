@@ -12,13 +12,66 @@ import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/con
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
-import { IQuickInputService, IQuickPickItem } from '../../../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../../platform/quickinput/common/quickInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 
 const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
 
 /** Command id prefix that identifies Positron Notebook commands. */
 const POSITRON_NOTEBOOK_COMMAND_PREFIX = 'positronNotebook.';
+
+/**
+ * Picker-only label overrides. A few commands carry a title tuned for another
+ * surface -- e.g. toolbar buttons sitting next to an icon ("Code", "Markdown")
+ * or a cell submenu ("Add Tag") where the context is implied. Flattened into
+ * this text-only list that context is gone, so we substitute a fuller label
+ * here without disturbing the command's registered title elsewhere.
+ */
+const LABEL_OVERRIDES: Record<string, string> = {
+	'positronNotebook.addCodeCell': localize('positron.notebookCommands.addCodeCell', "Add Code Cell"),
+	'positronNotebook.addMarkdownCell': localize('positron.notebookCommands.addMarkdownCell', "Add Markdown Cell"),
+	'positronNotebook.cell.addTag': localize('positron.notebookCommands.addCellTag', "Add Cell Tag"),
+};
+
+interface ICommandGroup {
+	readonly label: string;
+	readonly ids: readonly string[];
+}
+
+/**
+ * Ordered groups for the picker. A command lands in the first group that lists
+ * it; anything unlisted -- including extension-contributed commands (e.g.
+ * `positronNotebook.export`) and newly-added ones -- falls into a trailing
+ * "Other" group, so the picker never silently drops a command.
+ */
+const COMMAND_GROUPS: readonly ICommandGroup[] = [
+	{
+		label: localize('positron.notebookCommands.group.run', "Run"),
+		ids: ['positronNotebook.runAllCells', 'positronNotebook.stopAllCells', 'positronNotebook.cell.executeSelection', 'positronNotebook.executeSelectionInConsole'],
+	},
+	{
+		label: localize('positron.notebookCommands.group.cells', "Cells"),
+		ids: ['positronNotebook.addCodeCell', 'positronNotebook.addMarkdownCell', 'positronNotebook.cell.addTag', 'positronNotebook.removeAllCellTags', 'positronNotebook.toggleCellTags'],
+	},
+	{
+		label: localize('positron.notebookCommands.group.outputs', "Outputs"),
+		ids: ['positronNotebook.clearAllOutputs'],
+	},
+	{
+		label: localize('positron.notebookCommands.group.kernel', "Kernel"),
+		ids: ['positronNotebook.selectKernel'],
+	},
+	{
+		label: localize('positron.notebookCommands.group.view', "View"),
+		ids: ['positronNotebook.toggleOutline', 'positronNotebook.showConsole'],
+	},
+	{
+		label: localize('positron.notebookCommands.group.assistant', "Assistant"),
+		ids: ['positronNotebook.askAssistant', 'positronNotebook.enableGhostCellSuggestionsForNotebook', 'positronNotebook.showGhostCellInfo'],
+	},
+];
+
+const OTHER_GROUP_LABEL = localize('positron.notebookCommands.group.other', "Other");
 
 interface INotebookCommandPickItem extends IQuickPickItem {
 	readonly commandId: string;
@@ -42,6 +95,48 @@ function collectNotebookCommandIds(): string[] {
 }
 
 /**
+ * Build the grouped picker items: resolve each collected command to a pick
+ * item, then emit them under their group's separator in `COMMAND_GROUPS` order,
+ * sorted by label within each group, with any leftovers under "Other".
+ */
+export function buildNotebookCommandPickItems(keybindingService: IKeybindingService): QuickPickInput<INotebookCommandPickItem>[] {
+	const itemsById = new Map<string, INotebookCommandPickItem>();
+	for (const commandId of collectNotebookCommandIds()) {
+		const command = MenuRegistry.getCommand(commandId);
+		if (!command) {
+			continue;
+		}
+		const label = LABEL_OVERRIDES[commandId]
+			?? (typeof command.title === 'string' ? command.title : command.title.value);
+		itemsById.set(commandId, { commandId, label, keybinding: keybindingService.lookupKeybinding(commandId) });
+	}
+
+	const result: QuickPickInput<INotebookCommandPickItem>[] = [];
+	const emitGroup = (label: string, groupItems: INotebookCommandPickItem[]): void => {
+		if (!groupItems.length) {
+			return;
+		}
+		groupItems.sort((a, b) => a.label.localeCompare(b.label));
+		result.push({ type: 'separator', label });
+		result.push(...groupItems);
+	};
+
+	for (const group of COMMAND_GROUPS) {
+		const groupItems: INotebookCommandPickItem[] = [];
+		for (const id of group.ids) {
+			const item = itemsById.get(id);
+			if (item) {
+				groupItems.push(item);
+				itemsById.delete(id);
+			}
+		}
+		emitGroup(group.label, groupItems);
+	}
+	emitGroup(OTHER_GROUP_LABEL, [...itemsById.values()]);
+	return result;
+}
+
+/**
  * Show a quick pick of Positron Notebook commands and run the selected one.
  * Exported for testing.
  */
@@ -50,25 +145,12 @@ export function showNotebookCommandsQuickPick(
 	commandService: ICommandService,
 	keybindingService: IKeybindingService,
 ): void {
-	const items: INotebookCommandPickItem[] = [];
-	for (const commandId of collectNotebookCommandIds()) {
-		const command = MenuRegistry.getCommand(commandId);
-		if (!command) {
-			continue;
-		}
-		const label = typeof command.title === 'string' ? command.title : command.title.value;
-		items.push({
-			commandId,
-			label,
-			keybinding: keybindingService.lookupKeybinding(commandId),
-		});
-	}
-	items.sort((a, b) => a.label.localeCompare(b.label));
-
 	const store = new DisposableStore();
-	const quickPick = store.add(quickInputService.createQuickPick<INotebookCommandPickItem>());
+	const quickPick = store.add(quickInputService.createQuickPick<INotebookCommandPickItem>({ useSeparators: true }));
+	// Keep our group order; the picker otherwise re-sorts items alphabetically.
+	quickPick.sortByLabel = false;
 	quickPick.placeholder = localize('positron.notebookCommands.placeholder', "Select a notebook command to run");
-	quickPick.items = items;
+	quickPick.items = buildNotebookCommandPickItems(keybindingService);
 	store.add(quickPick.onDidAccept(() => {
 		const selected = quickPick.selectedItems[0];
 		if (selected) {

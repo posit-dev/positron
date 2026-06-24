@@ -13,7 +13,7 @@ import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quic
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
-import { showNotebookCommandsQuickPick } from '../../browser/contrib/commands/NotebookCommandsAction.js';
+import { buildNotebookCommandPickItems, showNotebookCommandsQuickPick } from '../../browser/contrib/commands/NotebookCommandsAction.js';
 
 interface ICommandPickItem extends IQuickPickItem {
 	readonly commandId: string;
@@ -88,5 +88,39 @@ describe('showNotebookCommandsQuickPick', () => {
 		pick.accept(item);
 		expect(executeCommand).toHaveBeenCalledTimes(1);
 		expect(executeCommand).toHaveBeenCalledWith('positronNotebook.testAuto');
+	});
+
+	describe('buildNotebookCommandPickItems', () => {
+		function build() {
+			return buildNotebookCommandPickItems(ctx.get(IKeybindingService));
+		}
+
+		it('substitutes the picker label for commands with an override', () => {
+			// addCodeCell registers as "Code" (a toolbar button label) but the
+			// picker must show the fuller "Add Code Cell".
+			registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.addCodeCell', title: 'Code' }));
+			registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.addCodeCell', title: 'Code' } }));
+			const item = build().find((i): i is ICommandPickItem => i.type !== 'separator' && i.commandId === 'positronNotebook.addCodeCell')!;
+			expect(item.label).toBe('Add Code Cell');
+		});
+
+		it('files each command under its group separator, unknown ones into Other', () => {
+			registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.runAllCells', title: 'Run All Cells' }));
+			registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.runAllCells', title: 'Run All Cells' } }));
+
+			// Map each command to the separator label it sits under. Robust to
+			// whatever other notebook commands the global registry carries.
+			const groupOf = new Map<string, string>();
+			let current = '';
+			for (const i of build()) {
+				if (i.type === 'separator') {
+					current = i.label ?? '';
+				} else {
+					groupOf.set((i as ICommandPickItem).commandId, current);
+				}
+			}
+			expect(groupOf.get('positronNotebook.runAllCells')).toBe('Run');
+			expect(groupOf.get('positronNotebook.testAuto')).toBe('Other'); // unmapped
+		});
 	});
 });
