@@ -159,7 +159,7 @@ export function showNotebookCommandsQuickPick(
 	quickPick.show();
 }
 
-export class ShowNotebookCommandsAction extends Action2 {
+class ShowNotebookCommandsAction extends Action2 {
 	constructor() {
 		super({
 			id: SHOW_NOTEBOOK_COMMANDS_ACTION_ID,

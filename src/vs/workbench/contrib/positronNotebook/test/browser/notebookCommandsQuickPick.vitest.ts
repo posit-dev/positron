@@ -39,11 +39,9 @@ describe('showNotebookCommandsQuickPick', () => {
 		pick = ctx.disposables.add(new TestQuickPick<ICommandPickItem>());
 		registrations = new DisposableStore();
 		// A palette command under the positronNotebook. prefix -> included.
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.testAuto', title: 'Test Auto Command' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.testAuto', title: 'Test Auto Command' } }));
+		register('positronNotebook.testAuto', 'Test Auto Command');
 		// A palette command without the prefix -> excluded.
-		registrations.add(MenuRegistry.addCommand({ id: 'notebook.testOther', title: 'Other Command' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'notebook.testOther', title: 'Other Command' } }));
+		register('notebook.testOther', 'Other Command');
 	});
 
 	afterEach(() => {
@@ -95,8 +93,7 @@ describe('showNotebookCommandsQuickPick', () => {
 		// The picker action is registered in the palette under the
 		// positronNotebook. prefix, so it would be auto-included; it must not
 		// list itself.
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.showCommands', title: 'Show Notebook Commands' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.showCommands', title: 'Show Notebook Commands' } }));
+		register('positronNotebook.showCommands', 'Show Notebook Commands');
 		run();
 		const ids = items().map(i => i.commandId);
 		expect(ids).not.toContain('positronNotebook.showCommands');
@@ -174,10 +171,8 @@ describe('showNotebookCommandsQuickPick', () => {
 		// executeSelectionInConsole, but the labels sort the other way ("E" <
 		// "R"), so without the within-group sort they would come out in the
 		// wrong order.
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.runAllCells', title: 'Run All Cells' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.runAllCells', title: 'Run All Cells' } }));
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.executeSelectionInConsole', title: 'Execute Selection in Console' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.executeSelectionInConsole', title: 'Execute Selection in Console' } }));
+		register('positronNotebook.runAllCells', 'Run All Cells');
+		register('positronNotebook.executeSelectionInConsole', 'Execute Selection in Console');
 		run();
 		const runGroup = items()
 			.filter(i => i.commandId === 'positronNotebook.runAllCells' || i.commandId === 'positronNotebook.executeSelectionInConsole')
