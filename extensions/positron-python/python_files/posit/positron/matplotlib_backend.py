@@ -262,6 +262,24 @@ class FigureCanvasPositron(FigureCanvasAgg):
             frontend.
         """
         logger.debug("Drawing to canvas")
+
+        # A high-level library (e.g. seaborn) may draw onto a figure that plain
+        # matplotlib created via an implicit `plt.gca()` (for example a leftover figure
+        # from an earlier cell). Re-tag the figure here -- the library's frames are on
+        # the stack during the draw it triggers -- so it is detached after the cell like
+        # a freshly-created seaborn figure (see `detach_library_figures`). Only runs on
+        # user-initiated draws, and only upgrades the tag (a figure is never reverted to
+        # matplotlib). See https://github.com/posit-dev/positron/issues/8898.
+        manager = getattr(self, "manager", None)
+        if (
+            not is_rendering
+            and manager is not None
+            and manager.plotting_library not in _DETACH_AFTER_CELL_KINDS
+        ):
+            library = _detect_plotting_library()
+            if library in _DETACH_AFTER_CELL_KINDS:
+                manager.plotting_library = library
+
         try:
             super().draw()
         finally:

@@ -545,6 +545,30 @@ def test_mpl_seaborn_figure_detached_after_cell(
     assert "result" in _do_render(plot_comm)["data"]
 
 
+def test_mpl_seaborn_drawn_on_existing_figure_is_detached(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A high-level library drawing onto a plain matplotlib figure (e.g. seaborn reusing a
+    leftover figure via implicit plt.gca()) re-tags the figure so it is detached after
+    the cell, instead of accumulating across re-runs.
+
+    See https://github.com/posit-dev/positron/issues/8898.
+    """
+    # The figure starts as plain matplotlib (created before seaborn is involved).
+    _create_mpl_plot(shell, plots_service)
+    assert plt.get_fignums() == [1]
+
+    # Simulate a seaborn draw onto that existing figure: the draw re-tags it, and the
+    # post-cell detach then removes it.
+    monkeypatch.setattr(
+        "positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn"
+    )
+    shell.run_cell("plt.plot([1, 2])").raise_error()
+
+    assert plt.get_fignums() == []
+
+
 def test_mpl_matplotlib_figure_persists_after_cell(
     shell: PositronShell, plots_service: PlotsService
 ) -> None:
