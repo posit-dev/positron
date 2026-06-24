@@ -71,10 +71,6 @@ function copyRepo(source: string, destination: string): void {
 	// Clear any stale copy first: git pack files are read-only, so cp -R
 	// (and xcopy) cannot overwrite them on a rerun, causing "Permission denied".
 	fs.rmSync(destination, { recursive: true, force: true });
-	// Ensure the destination and its parents exist before copying. cp/xcopy create the leaf
-	// dir but not missing parents, so a missing WORKSPACE_PATH parent (e.g. an absent
-	// /tmp/positron-e2e on a fresh /tmp or container) makes cp fail with "No such file or
-	// directory". Matches copyFixtureFolder below.
 	fs.mkdirSync(destination, { recursive: true });
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
