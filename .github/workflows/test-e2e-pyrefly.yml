@@ -34,7 +34,7 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive

@@ -53,7 +53,7 @@ jobs:
     runs-on: macos-latest-xlarge
     steps:
       - name: Checkout positron
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate POSITRON_BOT token
         id: bot-token
