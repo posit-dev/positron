@@ -8,6 +8,13 @@ STATE="$WS/.build/.ci-arm-state"
 QA_TMP="${TMPDIR:-/tmp}"; QA_TMP="${QA_TMP%/}"
 QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/qa-example-content"  # what the e2e tests open
 
+# In-tree native binaries (pet/ark/kcserver). Bind-mounted and shared with the host, so a native
+# macOS build leaves Mach-O binaries here that can't exec in the container - silently breaking
+# Python/R startup. The Interpreters row flags a wrong-OS binary. See check-native-arch.sh / README.
+PET_BIN="$WS/extensions/positron-python/python-env-tools/pet"
+ARK_BIN="$WS/extensions/positron-r/resources/ark/ark"
+KC_BIN="$WS/extensions/positron-supervisor/resources/kallichore/kcserver"
+
 # Color only when writing to a terminal (post-start runs this against a non-TTY log). Named ANSI
 # attributes so it stays readable in both dark and light themes.
 if [ -t 1 ]; then
@@ -28,6 +35,21 @@ human_dur() { # seconds -> compact "3d 4h" / "2h 5m" / "12m" / "9s"
   elif [ "$s" -ge 3600 ];  then echo "$((s / 3600))h $(((s % 3600) / 60))m"
   elif [ "$s" -ge 60 ];    then echo "$((s / 60))m"
   else echo "${s}s"; fi
+}
+
+# Wrong-OS guard: detect ELF by its 4-byte magic with od (the CI image ships no `file`; a missing
+# `file` would false-flag every binary). wrong_os_bins prints the space-joined names of any
+# present-but-non-ELF binaries - empty when all good.
+is_elf() { # <path> -> 0 if absent or Linux ELF, 1 if present but not ELF
+  [ -e "$1" ] || return 0
+  [ "$(od -An -tx1 -N4 "$1" 2>/dev/null | tr -d ' \n')" = "7f454c46" ]
+}
+wrong_os_bins() {
+  local bad=""
+  is_elf "$PET_BIN" || bad+="pet "
+  is_elf "$ARK_BIN" || bad+="ark "
+  is_elf "$KC_BIN"  || bad+="kcserver "
+  printf '%s' "${bad% }"
 }
 
 actions=()
@@ -119,6 +141,17 @@ render() {
   # Container — always up (we're inside it); this is just its uptime.
   printf '  %s●%s %-*s%sup %s%s\n' "$G" "$RST" "$NAMEW" "Container" "$DIM" "$up_str" "$RST"
 
+  # Interpreters — the in-tree pet/ark/kcserver must be Linux ELF; a macOS binary here (checkout
+  # also built natively on the host) silently breaks Python/R startup, so it carries health glyphs
+  # like Build. The footer names the fix.
+  local wrong_bins; wrong_bins="$(wrong_os_bins)"
+  if [ -z "$wrong_bins" ]; then
+    printf '  %s✓%s %-*s%sok%s\n' "$G" "$RST" "$NAMEW" "Interpreters" "$DIM" "$RST"
+  else
+    printf '  %s⚠%s %-*s%swrong-OS: %s%s\n' "$Y" "$RST" "$NAMEW" "Interpreters" "$DIM" "$wrong_bins" "$RST"
+    actions+=("Wrong-OS interpreter binaries ($wrong_bins) → built natively on the host? See README Gotchas: delete each binary + its VERSION, then re-run the installer.")
+  fi
+
   # allow-any-unicode-next-line
   # QA content — optional fixture data the e2e tests open. ● cloned / ○ absent; absence isn't an
   # error, so it never lands in the footer. The path comes from the 'Get QA content' task.
@@ -185,6 +218,8 @@ sig() {
   # Fold in the mtime, not just presence: a re-fetch refreshes in place (same dir), so a
   # presence-only bit wouldn't change and the panel wouldn't redraw to show the new age.
   [ -d "$QA_DEST" ] && s+="Q$(stat -c %Y "$QA_DEST" 2>/dev/null)" || s+=q
+  # Wrong-OS binary bit: redraw the moment a native build clobbers a binary mid-session.
+  [ -z "$(wrong_os_bins)" ] && s+=I || s+=i
   [ -f "$SERVER_ERR" ] && s+=E || s+=e
   [ -f "$DESKTOP_ERR" ] && s+=F || s+=f
   pgrep -f "ci-arm/post-create.sh" >/dev/null 2>&1 && s+=B || s+=b
