@@ -7,10 +7,12 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
+import { IFileSystem } from '../../common/platform/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { buildPinnedRequirements } from './requirementsFile';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -97,11 +99,20 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        const packageSpecs = this._formatPackageSpecs(packages);
-        const flags = await this._getInstallFlags();
-        const args = ['install', '--upgrade', ...flags, ...packageSpecs];
-
-        await this._executePipInTerminal(args, token);
+        // Re-resolve against the full installed set so all constraints are
+        // honored: pin everything at its current version and move only the
+        // targets. An inconsistent update fails atomically instead of silently
+        // breaking the environment.
+        const freezeLines = await this._getInstalledFreeze(token);
+        const content = buildPinnedRequirements(freezeLines, packages);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async updateAllPackages(token?: vscode.CancellationToken): Promise<void> {
@@ -185,6 +196,31 @@ export class PipPackageManager implements IPackageManager {
     }
 
     /**
+     * Capture the full installed set as pinned `pip freeze` lines. Origins
+     * (`@ file://`, `-e`, VCS URLs) are preserved so already-installed packages
+     * resolve as satisfied without an index lookup.
+     */
+    private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
+        const pythonService = await this._getPythonService();
+        const result = await pythonService.execModule('pip', ['freeze'], { token });
+        if (!result.stdout || result.stdout.trim() === '') {
+            throw new Error('Failed to read the installed package list (pip freeze returned no output).');
+        }
+        return result.stdout.split(/\r?\n/);
+    }
+
+    /**
+     * Write requirements content to a temporary file. Caller must `dispose()`
+     * the returned handle when the install completes.
+     */
+    private async _writeRequirementsTempFile(content: string): Promise<{ filePath: string; dispose: () => void }> {
+        const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        const tempFile = await fs.createTemporaryFile('.txt');
+        await fs.writeFile(tempFile.filePath, content);
+        return tempFile;
+    }
+
+    /**
      * Ensure pip is available, throwing an error if not.
      */
     private async _ensurePip(): Promise<void> {
@@ -209,7 +245,8 @@ export class PipPackageManager implements IPackageManager {
      * Get proxy flags if a proxy is configured.
      */
     private _getProxyFlags(): string[] {
-        const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
+        const config = vscode.workspace.getConfiguration('http');
+        const proxy = config?.get<string>('proxy', '');
         if (proxy) {
             return ['--proxy', proxy];
         }
