@@ -247,6 +247,18 @@ async function buildSqliteServerBinding(): Promise<void> {
 	const nodeTarget = readNpmrcValue(path.join(root, 'remote', '.npmrc'), 'target') ?? process.versions.node;
 	log(dir, `Building Node-ABI (node ${nodeTarget}) better-sqlite3 binary for the server extension host...`);
 
+	// The postinstall runs under the root npm install, so the environment carries the
+	// root .npmrc's Electron build config (npm_config_runtime=electron, npm_config_target,
+	// npm_config_disturl) plus any nodedir/devdir npm derived from it. node-gyp and
+	// prebuild-install read those env vars and they OVERRIDE the --target/--dist-url we
+	// pass below -- node-gyp would build against the Electron headers and emit an
+	// Electron-ABI (.node) instead of the Node-ABI binary we need. Strip them so the
+	// rebuild targets plain Node via our explicit flags.
+	const childEnv: NodeJS.ProcessEnv = { ...process.env };
+	for (const key of [...rootNpmrcConfigKeys, 'nodedir', 'devdir', 'build_from_source', 'force_process_config']) {
+		delete childEnv[`npm_config_${key.replace(/-/g, '_')}`];
+	}
+
 	// prebuild-install / node-gyp both write to build/Release/better_sqlite3.node,
 	// so preserve the Electron binary, produce the Node binary, copy it aside, then
 	// restore the Electron binary as the default.
@@ -254,7 +266,7 @@ async function buildSqliteServerBinding(): Promise<void> {
 	try {
 		try {
 			const prebuildInstall = requireFromModule.resolve('prebuild-install/bin.js');
-			await spawnAsync(process.execPath, [prebuildInstall, '-r', 'node', '-t', nodeTarget, '--tag-prefix', 'v', '--arch', process.arch], { cwd: moduleDir });
+			await spawnAsync(process.execPath, [prebuildInstall, '-r', 'node', '-t', nodeTarget, '--tag-prefix', 'v', '--arch', process.arch], { cwd: moduleDir, env: childEnv });
 		} catch (prebuildErr) {
 			// No prebuilt Node-ABI binary for this platform (e.g. musl): build from
 			// source against the Node headers for the target version. The postinstall
@@ -263,7 +275,7 @@ async function buildSqliteServerBinding(): Promise<void> {
 			const nodeGyp = process.platform === 'win32'
 				? path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp.cmd')
 				: path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp');
-			await spawnAsync(nodeGyp, ['rebuild', '--release', `--target=${nodeTarget}`, `--arch=${process.arch}`, '--dist-url=https://nodejs.org/dist'], { cwd: moduleDir, shell: true });
+			await spawnAsync(nodeGyp, ['rebuild', '--release', `--target=${nodeTarget}`, `--arch=${process.arch}`, '--dist-url=https://nodejs.org/dist'], { cwd: moduleDir, shell: true, env: childEnv });
 		}
 		// Verify the rebuild actually produced a Node-ABI binary before copying it.
 		// If the default is still byte-identical to the Electron binary, the rebuild
