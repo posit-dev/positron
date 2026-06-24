@@ -245,8 +245,7 @@ export class PipPackageManager implements IPackageManager {
      * Get proxy flags if a proxy is configured.
      */
     private _getProxyFlags(): string[] {
-        const config = vscode.workspace.getConfiguration('http');
-        const proxy = config?.get<string>('proxy', '');
+        const proxy = vscode.workspace.getConfiguration('http').get<string>('proxy', '');
         if (proxy) {
             return ['--proxy', proxy];
         }

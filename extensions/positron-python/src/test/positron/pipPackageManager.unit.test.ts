@@ -7,6 +7,7 @@
 
 import { expect } from 'chai';
 import * as sinon from 'sinon';
+import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
@@ -54,6 +55,11 @@ suite('PipPackageManager update Tests', () => {
                 return Promise.resolve();
             }),
         };
+
+        // Assign getConfiguration so _getProxyFlags() gets a real WorkspaceConfiguration-like
+        // object (vscode.workspace is a ts-mockito instance; sinon.stub won't work on it).
+        vscode.workspace.getConfiguration = (_section?: string) =>
+            ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
 
         serviceContainer = { get: sinon.stub() } as any;
         const pythonFactory: IPythonExecutionFactory = { create: sinon.stub().resolves(pythonService) } as any;
