@@ -58,6 +58,12 @@ describe('showNotebookCommandsQuickPick', () => {
 		);
 	}
 
+	/** Register a palette command under the test's lifecycle. */
+	function register(id: string, title: string): void {
+		registrations.add(MenuRegistry.addCommand({ id, title }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id, title } }));
+	}
+
 	function items(): ICommandPickItem[] {
 		return pick.items.filter((i): i is ICommandPickItem => i.type !== 'separator');
 	}
@@ -111,17 +117,6 @@ describe('showNotebookCommandsQuickPick', () => {
 		pick.cancel();
 	});
 
-	it('substitutes the picker label for commands with an override', () => {
-		// addCodeCell registers as "Code" (a toolbar button label) but the
-		// picker must show the fuller "Add Code Cell".
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.addCodeCell', title: 'Code' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.addCodeCell', title: 'Code' } }));
-		run();
-		const item = items().find(i => i.commandId === 'positronNotebook.addCodeCell')!;
-		expect(item.label).toBe('Add Code Cell');
-		pick.cancel();
-	});
-
 	it('resolves the label from an object-typed (localized) command title', () => {
 		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.testObjectTitle', title: { value: 'Localized Title', original: 'Localized Title' } }));
 		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.testObjectTitle', title: { value: 'Localized Title', original: 'Localized Title' } } }));
@@ -131,13 +126,46 @@ describe('showNotebookCommandsQuickPick', () => {
 		pick.cancel();
 	});
 
-	it('files each command under its group separator, unknown ones into Other', () => {
-		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.runAllCells', title: 'Run All Cells' }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.runAllCells', title: 'Run All Cells' } }));
+	it('files a representative command from each group under the right separator', () => {
+		// One command per named group, so a broken group label or a broken
+		// id-match misfiles its command and fails here. A source-side typo in a
+		// COMMAND_GROUPS id is not catchable without loading the real command
+		// modules (deliberately not imported here); it surfaces as the command
+		// dropping into Other in the running app.
+		const expected: Record<string, string> = {
+			'positronNotebook.runAllCells': 'Run',
+			'positronNotebook.addCodeCell': 'Cells',
+			'positronNotebook.clearAllOutputs': 'Outputs',
+			'positronNotebook.selectKernel': 'Kernel',
+			'positronNotebook.toggleOutline': 'View',
+			'positronNotebook.askAssistant': 'Assistant',
+			'positronNotebook.testAuto': 'Other', // unmapped -> catch-all
+		};
+		for (const id of Object.keys(expected)) {
+			register(id, id);
+		}
 		run();
 		const groupOf = groupByCommand();
-		expect(groupOf.get('positronNotebook.runAllCells')).toBe('Run');
-		expect(groupOf.get('positronNotebook.testAuto')).toBe('Other'); // unmapped
+		const actual = Object.fromEntries(Object.keys(expected).map(id => [id, groupOf.get(id)]));
+		expect(actual).toEqual(expected);
+		pick.cancel();
+	});
+
+	it('substitutes the picker label for every LABEL_OVERRIDES entry', () => {
+		// Each registers under a title tuned for another surface; the picker
+		// must show the fuller override label instead.
+		const overrides: Record<string, string> = {
+			'positronNotebook.addCodeCell': 'Add Code Cell',
+			'positronNotebook.addMarkdownCell': 'Add Markdown Cell',
+			'positronNotebook.cell.addTag': 'Add Cell Tag',
+		};
+		for (const id of Object.keys(overrides)) {
+			register(id, 'Original Title'); // deliberately not the override text
+		}
+		run();
+		const byId = new Map(items().map(i => [i.commandId, i.label]));
+		const actual = Object.fromEntries(Object.keys(overrides).map(id => [id, byId.get(id)]));
+		expect(actual).toEqual(overrides);
 		pick.cancel();
 	});
 
