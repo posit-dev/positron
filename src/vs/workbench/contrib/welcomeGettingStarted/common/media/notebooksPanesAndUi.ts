@@ -17,5 +17,5 @@ Positron provides a powerful batteries included environment for working with Jup
 - [Connections pane](command:workbench.panel.positronConnections.focus): Manage database connections and preview tables easily.
 - [Help pane](command:workbench.panel.positronHelp.focus): Lookup documentation for Python objects and packages easily.
 
-**Tip:** Try the [Notebook Layout](command:workbench.action.positronNotebookLayout) preset, which is optimized for notebook workflows. You can also [customize your layout](command:workbench.action.customizeLayout) to find the arrangement that works best for you.
+**Tip:** Try the [Notebook Layout](command:workbench.action.positronNotebookLayout) preset, which is optimized for notebook workflows.
 `;

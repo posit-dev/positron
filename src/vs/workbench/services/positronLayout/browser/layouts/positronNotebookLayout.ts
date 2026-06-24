@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize2 } from '../../../../../nls.js';
-import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
 import { Action2, registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -68,8 +67,7 @@ registerAction2(class extends Action2 {
 		super({
 			id: 'workbench.action.positronNewNotebookWithLayout',
 			title: localize2('positronNewNotebookWithLayout', 'Create Notebook with Notebook Layout'),
-			category: Categories.View,
-			f1: true,
+			f1: false,
 		});
 	}
 	async run(accessor: ServicesAccessor): Promise<void> {

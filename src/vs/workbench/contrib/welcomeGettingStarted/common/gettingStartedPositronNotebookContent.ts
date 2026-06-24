@@ -138,7 +138,7 @@ export function registerGettingStartedPositronNotebook(
 					),
 					description: localize(
 						'gettingStarted.notebooksWelcome.learnMore.description',
-						"Explore documentation, the roadmap, and ways to share feedback\n{0}",
+						"Create your first notebook, explore tutorials and more\n{0}",
 						Button(
 							localize(
 								'gettingStarted.notebooksWelcome.newNotebook.button',
