@@ -167,7 +167,7 @@ export class ShowNotebookCommandsAction extends Action2 {
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
 			// No toolbar menu: this is surfaced from the notebook Help modal
-			// ("See All Commands") and the command palette, not a toolbar button.
+			// ("Browse All Notebook Commands...") and the command palette, not a toolbar button.
 		});
 	}
 

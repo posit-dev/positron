@@ -13,6 +13,13 @@
 }
 
 .notebook-help-panel h2 {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin: 0;
+}
+
+.notebook-help-panel h3 {
 	font-size: 12px;
 	font-weight: 600;
 	text-transform: uppercase;
@@ -21,6 +28,12 @@
 	margin: 0 0 8px 0;
 	padding-bottom: 4px;
 	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.notebook-help-panel .notebook-help-shortcuts {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
 }
 
 .notebook-help-panel .shortcut-grid {
@@ -59,21 +72,10 @@
 	font-size: 11px;
 }
 
-.notebook-help-panel .notebook-help-command-row {
-	display: block;
-	width: 100%;
-	text-align: left;
-	background: none;
-	border: none;
-	color: var(--vscode-textLink-foreground);
-	font-size: 13px;
-	cursor: pointer;
-	padding: 4px 0;
-}
-
-.notebook-help-panel .notebook-help-command-row:hover {
-	color: var(--vscode-textLink-activeForeground);
-	text-decoration: underline;
+.notebook-help-panel .notebook-help-browse-commands {
+	text-align: center;
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--vscode-widget-border);
 }
 
 .notebook-help-panel .notebook-help-all-shortcuts {
@@ -82,7 +84,7 @@
 	border-top: 1px solid var(--vscode-widget-border);
 }
 
-.notebook-help-panel .all-shortcuts-link {
+.notebook-help-panel .notebook-help-link {
 	background: none;
 	border: none;
 	color: var(--vscode-textLink-foreground);
@@ -91,7 +93,7 @@
 	padding: 4px 8px;
 }
 
-.notebook-help-panel .all-shortcuts-link:hover {
+.notebook-help-panel .notebook-help-link:hover {
 	color: var(--vscode-textLink-activeForeground);
 	text-decoration: underline;
 }

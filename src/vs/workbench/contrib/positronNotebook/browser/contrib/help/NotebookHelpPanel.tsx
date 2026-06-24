@@ -147,29 +147,31 @@ export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcu
 		<PositronDynamicModalDialog
 			content={
 				<div className='notebook-help-panel'>
-					<div>
-						<h2>{localize('positron.notebookHelp.section.commands', 'See All Commands')}</h2>
-						<button className='notebook-help-command-row' onClick={() => { renderer.dispose(); onSeeAllCommands(); }}>
-							{localize('positron.notebookHelp.browseCommands', 'Browse all notebook commands...')}
+					<div className='notebook-help-browse-commands'>
+						<button className='notebook-help-link' type='button' onClick={() => { renderer.dispose(); onSeeAllCommands(); }}>
+							{localize('positron.notebookHelp.browseCommands', 'Browse All Notebook Commands...')}
 						</button>
 					</div>
-					{SHORTCUT_SECTIONS.map(section => (
-						<div key={section.title}>
-							<h2>{section.title}</h2>
-							<div className='shortcut-grid'>
-								{section.shortcuts.map(shortcut => (
-									<div key={shortcut.commandId} className='shortcut-row'>
-										<span className='shortcut-label'>{shortcut.label}</span>
-										<span className='shortcut-keys'>
-											<KeybindingDisplay commandId={shortcut.commandId} resolvedBindings={resolvedBindings} />
-										</span>
-									</div>
-								))}
+					<div className='notebook-help-shortcuts'>
+						<h2>{localize('positron.notebookHelp.keyboardShortcuts', 'Keyboard Shortcuts')}</h2>
+						{SHORTCUT_SECTIONS.map(section => (
+							<div key={section.title}>
+								<h3>{section.title}</h3>
+								<div className='shortcut-grid'>
+									{section.shortcuts.map(shortcut => (
+										<div key={shortcut.commandId} className='shortcut-row'>
+											<span className='shortcut-label'>{shortcut.label}</span>
+											<span className='shortcut-keys'>
+												<KeybindingDisplay commandId={shortcut.commandId} resolvedBindings={resolvedBindings} />
+											</span>
+										</div>
+									))}
+								</div>
 							</div>
-						</div>
-					))}
+						))}
+					</div>
 					<div className='notebook-help-all-shortcuts'>
-						<button className='all-shortcuts-link' type='button' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
+						<button className='notebook-help-link' type='button' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
 							{localize('positron.notebookHelp.allShortcuts', 'View All Notebook Keyboard Shortcuts...')}
 						</button>
 					</div>
