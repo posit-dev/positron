@@ -36,7 +36,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			description: localize(
 				'positron.ai.enabled',
-				"Enable Positron's AI features, such as Next Edit Suggestions and AI features in notebooks and the console. When disabled, all of Positron's AI features are turned off."
+				"Enable Positron's AI features, such as Posit Assistant, Posit AI Next Edit Suggestions and AI features in notebooks and the console. When disabled, all of Positron's AI features are turned off."
 			),
 			scope: ConfigurationScope.WINDOW,
 		}
