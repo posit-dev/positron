@@ -26,9 +26,10 @@ fi
 # stuck instance triggers Electron's "another instance is running" lock and the new window paints
 # blank/white. This makes re-clicking Launch a clean restart.
 USER_DATA=/tmp/positron-dev-data
+pkill -f "user-data-dir=$USER_DATA" 2>/dev/null || true
+sleep 1
 pkill -9 -f "user-data-dir=$USER_DATA" 2>/dev/null || true
 rm -f "$USER_DATA/SingletonLock" 2>/dev/null || true
-sleep 1
 
 # code.sh runs Electron in the foreground (streams logs, never returns). Launch it detached with
 # logs to a file so they don't bury the URL; setsid keeps it alive after this task ends. The

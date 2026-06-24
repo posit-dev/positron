@@ -26,15 +26,17 @@ case "${1:-}" in -y|--yes) YES=1 ;; esac
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 
-# Dev Containers prefixes its Compose volumes with a project name it derives. Anchor on our unique
-# positron-node-modules volume, take its prefix, and scope everything (incl. the generic
-# postgres-data) to that one project - so a second positron worktree's volumes are never touched.
-anchor="$(docker volume ls -q | grep -E 'positron-node-modules$' | head -1 || true)"
-if [ -z "$anchor" ]; then
+# Derive the Compose project name from docker compose (which reads the local .env), falling back
+# to the directory name. This pins the anchor to exactly this checkout's project so reset.sh
+# from one worktree can never accidentally wipe another worktree's volumes.
+project="$(cd "$HERE" && docker compose config 2>/dev/null | awk '/^name:/{print $2; exit}')"
+[ -z "$project" ] && project="$(basename "$HERE")"
+anchor="${project}_positron-node-modules"
+if ! docker volume ls -q | grep -qxF "$anchor"; then
   echo "No ci-arm volumes found - already clean. Just Reopen in Container for a fresh build."
   vols=""
 else
-  prefix="${anchor%positron-node-modules}"
+  prefix="${project}_"
   vols="$(docker volume ls -q | grep -E "^${prefix}(positron-node-modules|positron-e2e-node-modules|positron-remote-node-modules|positron-build|postgres-data)$" || true)"
 fi
 
@@ -58,8 +60,8 @@ if [ "$YES" -ne 1 ]; then
   case "$ans" in y|Y|yes|YES) ;; *) echo "Aborted - nothing removed."; exit 0 ;; esac
 fi
 
-[ -n "$cons" ] && { docker rm -f $cons >/dev/null; echo "removed containers"; }
-[ -n "$vols" ] && { docker volume rm $vols >/dev/null; echo "removed volumes"; }
+[ -n "$cons" ] && { readarray -t _cons_arr <<< "$cons"; docker rm -f "${_cons_arr[@]}" >/dev/null; echo "removed containers"; }
+[ -n "$vols" ] && { readarray -t _vols_arr <<< "$vols"; docker volume rm "${_vols_arr[@]}" >/dev/null; echo "removed volumes"; }
 rm -rf "$ROOT/out" && echo "cleared $ROOT/out"
 
 echo

@@ -35,8 +35,9 @@ fi
 # Clear any server we previously started on this port so re-running is a clean restart (otherwise
 # the new one can't bind the port). The "--port $PORT" match targets our server only, not the
 # dev-container's own remote server (which runs on a different port).
-pkill -9 -f "out/server-main.js.*--port $PORT" 2>/dev/null || true
+pkill -f "out/server-main.js.*--port $PORT" 2>/dev/null || true
 sleep 1
+pkill -9 -f "out/server-main.js.*--port $PORT" 2>/dev/null || true
 
 cd "$ROOT"
 # e2e-start-server.sh runs the server in the foreground (streams logs, never returns). Detach it
