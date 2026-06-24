@@ -140,4 +140,21 @@ describe('showNotebookCommandsQuickPick', () => {
 		expect(groupOf.get('positronNotebook.testAuto')).toBe('Other'); // unmapped
 		pick.cancel();
 	});
+
+	it('sorts commands alphabetically within a group', () => {
+		// Both land in the Run group. The group lists runAllCells before
+		// executeSelectionInConsole, but the labels sort the other way ("E" <
+		// "R"), so without the within-group sort they would come out in the
+		// wrong order.
+		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.runAllCells', title: 'Run All Cells' }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.runAllCells', title: 'Run All Cells' } }));
+		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.executeSelectionInConsole', title: 'Execute Selection in Console' }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.executeSelectionInConsole', title: 'Execute Selection in Console' } }));
+		run();
+		const runGroup = items()
+			.filter(i => i.commandId === 'positronNotebook.runAllCells' || i.commandId === 'positronNotebook.executeSelectionInConsole')
+			.map(i => i.label);
+		expect(runGroup).toEqual(['Execute Selection in Console', 'Run All Cells']);
+		pick.cancel();
+	});
 });
