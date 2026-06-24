@@ -359,6 +359,24 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
 
 	/**
+	 * Changes the active cell to a markdown heading of the given level.
+	 * Converts to markdown if needed, then sets the heading prefix.
+	 *
+	 * @param level Heading level 1-6
+	 */
+	changeToHeading(level: number): void;
+
+	/**
+	 * Interrupts all currently executing cells in the notebook.
+	 */
+	interruptKernel(): void;
+
+	/**
+	 * Selects all cells in the notebook.
+	 */
+	selectAllCells(): void;
+
+	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.
 	 */
