@@ -1978,15 +1978,15 @@ export const POSITRON_PACKAGES_BORDER_COLOR = registerColor('positronPackages.bo
 }, localize('positronPackages.border', "Positron packages border color."));
 
 // Background of a package row briefly highlighted after install or update.
-// Derived from the selection background with a brightness offset (lighter in
-// dark themes, darker in light themes) so the transient flash always reads as
-// distinct from a selected row, never colliding with the selection color.
-export const POSITRON_PACKAGES_RECENTLY_CHANGED_BACKGROUND_COLOR = registerColor('positronPackages.recentlyChangedBackground', {
-	dark: lighten(listActiveSelectionBackground, 0.3),
-	light: darken(listActiveSelectionBackground, 0.1),
-	hcDark: lighten(listActiveSelectionBackground, 0.3),
-	hcLight: darken(listActiveSelectionBackground, 0.1)
-}, localize('positronPackages.recentlyChangedBackground', "Background of a package row briefly highlighted after it is installed or updated."));
+// A translucent foreground tint rather than a lighten/darken of the selection:
+// `lighten` is multiplicative on HSL lightness (l + l*factor), so it can't lift
+// a pure-black base (e.g. the high-contrast dark selection), leaving no visible
+// flash. The foreground contrasts the background in every theme by definition,
+// so an alpha overlay always shifts the surface -- including a selected row,
+// keeping the flash distinct from the selection color.
+export const POSITRON_PACKAGES_RECENTLY_CHANGED_BACKGROUND_COLOR = registerColor('positronPackages.recentlyChangedBackground',
+	transparent(POSITRON_PACKAGES_FOREGROUND_COLOR, 0.25),
+	localize('positronPackages.recentlyChangedBackground', "Background of a package row briefly highlighted after it is installed or updated."));
 
 // < --- Positron Plots --- >
 
