@@ -29,7 +29,16 @@ let initError: Error | undefined;
 // fails to load) are captured and reported per-query rather than crashing.
 const ready: Promise<void> = (async () => {
 	try {
-		const instance = await DuckDBInstance.create(':memory:');
+		// On macOS the bundled `excel` extension has DuckDB's own trailing
+		// signature stripped at install time so the file can be Apple code-signed
+		// and notarized (see install-excel-extension.ts). That makes DuckDB treat
+		// it as unsigned, so we must allow loading unsigned extensions; trust comes
+		// instead from the OS code signature, the SHA-256 pinned at install time,
+		// and the fact that we only ever LOAD our own vendored extension by path.
+		// On Linux/Windows the extension keeps DuckDB's signature, so we leave the
+		// check in place rather than loosening it needlessly.
+		const config = process.platform === 'darwin' ? { allow_unsigned_extensions: 'true' } : {};
+		const instance = await DuckDBInstance.create(':memory:', config);
 		connection = await instance.connect();
 		await connection.run(`LOAD icu;
 		SET TIMEZONE='UTC';
