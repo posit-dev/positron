@@ -119,6 +119,23 @@ else
 		fi
 	fi
 
+	# Auto-inject @:ark when the ark submodule is bumped.
+	# extensions/positron-r/ark is a gitlink (submodule pointer); it appears
+	# as a single filename entry in the PR files API when the pointer changes.
+	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[].filename' 2>/dev/null || true)
+	if [[ -z "$CHANGED_FILES" ]]; then
+		echo "Warning: could not fetch changed files; skipping @:ark injection."
+	elif echo "$CHANGED_FILES" | grep -qx "extensions/positron-r/ark"; then
+		echo "Ark submodule changed. Injecting @:ark tag."
+		if [[ -n "$TAGS" ]]; then
+			TAGS="$TAGS,@:ark"
+		else
+			TAGS="@:ark"
+		fi
+	fi
+
 	# Output the tags
 	echo "Extracted Tags: $TAGS"
 fi
