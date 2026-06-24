@@ -60,8 +60,8 @@ if [ "$YES" -ne 1 ]; then
   case "$ans" in y|Y|yes|YES) ;; *) echo "Aborted - nothing removed."; exit 0 ;; esac
 fi
 
-[ -n "$cons" ] && { readarray -t _cons_arr <<< "$cons"; docker rm -f "${_cons_arr[@]}" >/dev/null; echo "removed containers"; }
-[ -n "$vols" ] && { readarray -t _vols_arr <<< "$vols"; docker volume rm "${_vols_arr[@]}" >/dev/null; echo "removed volumes"; }
+[ -n "$cons" ] && { echo "$cons" | xargs docker rm -f >/dev/null; echo "removed containers"; }
+[ -n "$vols" ] && { echo "$vols" | xargs docker volume rm >/dev/null; echo "removed volumes"; }
 rm -rf "$ROOT/out" && echo "cleared $ROOT/out"
 
 echo
