@@ -112,4 +112,30 @@ suite('PipPackageManager update Tests', () => {
         }
         expect(threw).to.equal(true);
     });
+
+    test('updateAllPackages pins outdated packages to latest in the requirements file', async () => {
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+            .resolves({
+                stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]),
+                stderr: '',
+            });
+
+        await manager.updateAllPackages();
+
+        expect(writtenContent).to.contain('werkzeug==3.1.8');
+        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+    });
+
+    test('updateAllPackages does nothing when no packages are outdated', async () => {
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+            .resolves({ stdout: '[]', stderr: '' });
+
+        await manager.updateAllPackages();
+
+        expect(terminalService.sendCommand.called).to.equal(false);
+    });
 });

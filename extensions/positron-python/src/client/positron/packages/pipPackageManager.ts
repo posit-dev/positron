@@ -134,11 +134,20 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        const packageNames = outdatedPackages.map((pkg) => pkg.name);
-        const flags = await this._getInstallFlags();
-        const args = ['install', '--upgrade', ...flags, ...packageNames];
-
-        await this._executePipInTerminal(args, token);
+        // All-or-nothing: pin every installed package and bump the outdated ones
+        // to latest in a single resolve. If the batch is inconsistent it fails
+        // and nothing changes.
+        const freezeLines = await this._getInstalledFreeze(token);
+        const targets = outdatedPackages.map((pkg) => ({ name: pkg.name, version: pkg.latest_version }));
+        const content = buildPinnedRequirements(freezeLines, targets);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async searchPackages(query: string, token?: vscode.CancellationToken): Promise<positron.LanguageRuntimePackage[]> {
