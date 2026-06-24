@@ -32,6 +32,14 @@ const EDITOR_COMMAND_IDS = [
 	'deleteAllLeft',
 ];
 
+// '-'-prefixed command ids the console registers to strip leaked upstream
+// bindings. interactive.history.focus is the interactive window's Cmd+Up "Focus
+// History" binding, which Positron removes because that command is unreachable
+// here and the binding otherwise misleads the Keyboard Shortcuts UI (#7380).
+const REMOVED_COMMAND_IDS = [
+	'-interactive.history.focus',
+];
+
 /**
  * Resolve, for a given OS, the set of dispatch chords bound to each of the given
  * commands. `getDefaultKeybindingsForOS` re-applies the mac/linux/win platform
@@ -159,6 +167,36 @@ describe('Console input keybindings', () => {
 			  ],
 			  "deleteAllLeft": [
 			    "ctrl+U",
+			  ],
+			}
+		`);
+	});
+
+	// The console registers a '-interactive.history.focus' removal rule to strip the
+	// interactive window's leaked Cmd+Up "Focus History" binding from the Keyboard
+	// Shortcuts UI (#7380). The removal must target the same chord Cmd+Up resolves to
+	// on each platform: meta+UpArrow on macOS, ctrl+UpArrow on Linux/Windows. (The
+	// snapshot proves the removal rule is registered against the right chord; the
+	// resolver's upstream-tested removal semantics do the actual stripping.)
+	it('removes the leaked interactive.history.focus Cmd+Up binding on every platform', () => {
+		expect(bindingsForOS(REMOVED_COMMAND_IDS, OperatingSystem.Macintosh)).toMatchInlineSnapshot(`
+			{
+			  "-interactive.history.focus": [
+			    "meta+UpArrow",
+			  ],
+			}
+		`);
+		expect(bindingsForOS(REMOVED_COMMAND_IDS, OperatingSystem.Linux)).toMatchInlineSnapshot(`
+			{
+			  "-interactive.history.focus": [
+			    "ctrl+UpArrow",
+			  ],
+			}
+		`);
+		expect(bindingsForOS(REMOVED_COMMAND_IDS, OperatingSystem.Windows)).toMatchInlineSnapshot(`
+			{
+			  "-interactive.history.focus": [
+			    "ctrl+UpArrow",
 			  ],
 			}
 		`);

@@ -1545,6 +1545,23 @@ export function registerPositronConsoleActions() {
 		when: whenConsoleInputFocused,
 		weight: KeybindingWeight.WorkbenchContrib,
 	});
+
+	// The upstream interactive window binds Cmd+Up to 'interactive.history.focus'
+	// ("Focus History"). Positron does not surface the interactive window, so that
+	// command can never run here (its precondition requires a composite-notebook
+	// editor that is unreachable in Positron). The binding still leaked into the
+	// Keyboard Shortcuts UI, where it falsely appeared to own Cmd+Up, the chord the
+	// Positron console actually uses for prefix-match history navigation (see
+	// NavigateInputHistoryUpUsingPrefixMatch above). Remove it so the UI reflects
+	// what Cmd+Up really does in Positron. A '-'-prefixed rule strips the matching
+	// default binding during keybinding resolution; with no `when` it removes every
+	// platform variant of the Cmd+Up binding for that command.
+	// See https://github.com/posit-dev/positron/issues/7380.
+	KeybindingsRegistry.registerKeybindingRule({
+		id: '-interactive.history.focus',
+		primary: KeyMod.CtrlCmd | KeyCode.UpArrow,
+		weight: KeybindingWeight.WorkbenchContrib,
+	});
 }
 
 
