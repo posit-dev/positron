@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as l10n from '@vscode/l10n';
-import { commands, env, ExtensionContext, ExtensionMode, l10n as vscodeL10n, workspace } from 'vscode';
+import { commands, env, ExtensionContext, ExtensionMode, l10n as vscodeL10n } from 'vscode';
 import { isScenarioAutomation } from '../../../platform/env/common/envService';
 import { isProduction } from '../../../platform/env/common/packagejson';
 import { IIgnoreService } from '../../../platform/ignore/common/ignoreService';
@@ -39,14 +39,6 @@ export async function baseActivate(configuration: IExtensionActivationConfigurat
 		// Avoid bundling the extension code in the test bundle
 		return context;
 	}
-
-	// --- Start Positron ---
-	// Don't enable the extension when Positron Assistant is disabled
-	const enabled = workspace.getConfiguration('positron.assistant').get('enable');
-	if (!enabled) {
-		return context;
-	}
-	// --- End Positron ---
 
 	// Check if the extension is running in a pre-release version of VS Code
 	const isStableVsCode = !(env.appName.includes('Insiders') || env.appName.includes('Exploration') || env.appName.includes('OSS'));

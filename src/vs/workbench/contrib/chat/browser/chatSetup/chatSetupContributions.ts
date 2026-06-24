@@ -419,6 +419,16 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ContextKeyExpr.equals(`config.${ChatConfiguration.TitleBarSignInEnabled}`, true),
 							ContextKeyExpr.has('updateTitleBar').negate(),
 							InEditorZenModeContext.negate(),
+							// --- Start Positron ---
+							// Don't show the Copilot Sign In button in the title bar when AI
+							// features are disabled. Positron sets `chat.disableAIFeatures` to
+							// true by default to hide the built-in Copilot chat UI while keeping
+							// the extension's `vscode.lm` model provider registered, so the chat
+							// entitlement never resolves and `Entitlement.signedOut` stays true
+							// even though the user is signed in to GitHub. Match the guard used
+							// on the other Copilot sign-in surfaces in this file.
+							ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+							// --- End Positron ---
 						),
 					}]
 				});

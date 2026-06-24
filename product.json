@@ -339,24 +339,24 @@
 		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
-		"extensionId": "positron.positron-assistant",
-		"chatExtensionId": "positron.positron-assistant",
+		"extensionId": "GitHub.copilot-chat",
+		"chatExtensionId": "GitHub.copilot-chat",
 		"provider": {
 			"default": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github",
+				"name": "GitHub"
 			},
 			"enterprise": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github-enterprise",
+				"name": "GHE"
 			},
 			"google": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "google",
+				"name": "Google"
 			},
 			"apple": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "apple",
+				"name": "Apple"
 			}
 		},
 		"providerExtensionId": "vscode.github-authentication",
