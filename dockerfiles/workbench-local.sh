@@ -62,7 +62,10 @@ wb_pick_positron() {
 		echo "  $i) $tag   ($date)" >&2; tags+=("$tag"); i=$((i+1))
 	done <<< "$lines"
 	echo "  $i) Local source build (current repo)" >&2
-	local choice; read -r -p "Choice [1]: " choice; choice="${choice:-1}"
+	local choice; read -r -p "Choice [1]: " choice || true; choice="${choice:-1}"
+	if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$i" ]; then
+		echo "Invalid choice: $choice" >&2; return 1
+	fi
 	if [ "$choice" = "$i" ]; then
 		WB_SOURCE_LOCAL=1; POSITRON_TAG=""
 	else
@@ -77,11 +80,11 @@ wb_pick_workbench() {
 	echo "  1) Stable (latest released)" >&2
 	echo "  2) Daily (latest preview)" >&2
 	echo "  3) Custom .deb URL" >&2
-	local choice; read -r -p "Choice [1]: " choice; choice="${choice:-1}"
+	local choice; read -r -p "Choice [1]: " choice || true; choice="${choice:-1}"
 	case "$choice" in
 		1) WB_URL="$(wb_resolve_stable_url "${WB_ARCH}")" ;;
 		2) WB_URL="$(wb_resolve_daily_url "${WB_ARCH}")" ;;
-		3) read -r -p "Workbench .deb URL: " WB_URL ;;
+		3) read -r -p "Workbench .deb URL: " WB_URL || true ;;
 		*) echo "Invalid choice" >&2; return 1 ;;
 	esac
 	export WB_URL
@@ -94,13 +97,17 @@ cmd_install() {
 	wb_pick_workbench
 	wb_pick_positron
 	echo "Installing Workbench from: ${WB_URL}"
-	echo "Positron: ${POSITRON_TAG:-${WB_SOURCE_LOCAL:+LOCAL SOURCE}${WB_SOURCE_LOCAL:-LATEST}}"
+	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
+		echo "Positron: LOCAL SOURCE"
+	else
+		echo "Positron: ${POSITRON_TAG:-LATEST}"
+	fi
 	docker exec -it \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
-		-e WB_PASSWORD="${WB_PASSWORD}" \
+		-e WB_PASSWORD="${WB_PASSWORD:-}" \
 		test /bin/bash -c "/tmp/install-workbench.sh ${creds}"
 	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
 		echo "Overlaying local source build..."
