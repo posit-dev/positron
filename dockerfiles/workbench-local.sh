@@ -123,16 +123,31 @@ wb_installed() {
 	docker exec pwb bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
-# The container's command is a sleep loop, and rstudio-server is started by the
-# installer -- not the container entrypoint. After a stop/start (or any restart)
-# the container comes back up but rserver does not, so :8787 is dead. Start it if
-# it isn't running and wait briefly for it to come up.
-wb_ensure_rserver() {
-	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && return 0
-	docker exec pwb bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
+# The container's command is a sleep loop, and the rstudio services are started
+# by the installer -- not the container entrypoint. After a stop/start the
+# container comes back up but none of them do, so :8787 is dead (or, with only
+# rserver up, "Unable to contact session launcher"). Bring them back in the
+# order rserver requires: the launcher must be running first, or rserver can't
+# reach it and shuts itself down. No-op when both are already healthy (a plain
+# re-run of `npm run pwb`).
+wb_ensure_workbench() {
+	local launcher rserver
+	docker exec pwb bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && launcher=1 || launcher=0
+	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && rserver=1 || rserver=0
+	[ "$launcher" = 1 ] && [ "$rserver" = 1 ] && return 0
+	# Clean ordered (re)start: stop rserver, bring up the launcher, then rserver.
+	docker exec pwb bash -c 'sudo rstudio-server stop' >/dev/null 2>&1 || true
+	docker exec pwb bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
 	local i
 	for i in $(seq 1 10); do
-		docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && return 0
+		docker exec pwb bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && break
+		sleep 1
+	done
+	docker exec pwb bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
+	# Wait until :8787 actually accepts connections, not just until the process
+	# exists -- rserver binds the port a few seconds after it starts.
+	for i in $(seq 1 20); do
+		docker exec pwb bash -c 'curl -s -o /dev/null http://localhost:8787' >/dev/null 2>&1 && return 0
 		sleep 1
 	done
 }
@@ -375,7 +390,7 @@ cmd_up() {
 	done
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
-		wb_ensure_rserver
+		wb_ensure_workbench
 		wb_print_ready
 		echo "Wrong version? run 'npm run pwb -- --reinstall' to switch versions"
 		wb_schedule_ttl "$ttl"
