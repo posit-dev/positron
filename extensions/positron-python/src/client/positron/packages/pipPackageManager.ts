@@ -65,11 +65,19 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        const packageSpecs = this._formatPackageSpecs(packages);
-        const flags = await this._getInstallFlags();
-        const args = ['install', ...flags, ...packageSpecs];
-
-        await this._executePipInTerminal(args, token);
+        // Re-resolve against the full installed set so the new package can't break
+        // the environment: name every installed package (bare) plus the new
+        // package(s); an inconsistent install fails atomically.
+        const freezeLines = await this._getInstalledFreeze(token);
+        const content = buildRequirementsFile(freezeLines, packages);
+        const tempFile = await this._writeRequirementsTempFile(content);
+        try {
+            const flags = await this._getInstallFlags();
+            const args = ['install', '-r', tempFile.filePath, ...flags];
+            await this._executePipInTerminal(args, token);
+        } finally {
+            tempFile.dispose();
+        }
     }
 
     async uninstallPackages(packages: string[], token?: vscode.CancellationToken): Promise<void> {

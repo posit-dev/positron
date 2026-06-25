@@ -342,5 +342,17 @@ version = "0.1.0"`;
             const [, args] = terminalService.sendCommand.firstCall.args;
             expect(args).to.include.members(['pip', 'install', '--upgrade', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
         });
+
+        test('installPackages names the full installed set and adds the new package', async () => {
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const written = (fileSystem as any).getWritten();
+            expect(written).to.contain('cowsay==6.1');
+            expect(written).to.contain('flask');
+            const [uvBin, args] = terminalService.sendCommand.firstCall.args;
+            expect(uvBin).to.equal('uv');
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+            expect(args).to.not.include('--upgrade');
+        });
     });
 });

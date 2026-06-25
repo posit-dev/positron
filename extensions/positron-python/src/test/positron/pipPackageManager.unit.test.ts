@@ -150,4 +150,21 @@ suite('PipPackageManager update Tests', () => {
 
         expect(terminalService.sendCommand.called).to.equal(false);
     });
+
+    test('installPackages names the full installed set and adds the new package', async () => {
+        await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+        expect(writtenContent).to.contain('cowsay==6.1');                 // new package pinned
+        expect(writtenContent).to.contain('flask');                       // installed -> bare
+        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+        expect(args).to.not.include('--upgrade');
+    });
+
+    test('installPackages adds a versionless new package as a bare name', async () => {
+        await manager.installPackages([{ name: 'cowsay' }]);
+        expect(writtenContent).to.contain('cowsay');
+        expect(writtenContent).to.not.contain('cowsay==');
+    });
 });

@@ -75,9 +75,18 @@ export class UvPackageManager implements IPackageManager {
             const args = ['add', '--active', '--python', this._pythonPath, ...packageSpecs];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: uv pip install --python <path> <packages>
-            const args = ['pip', 'install', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, token);
+            // Re-resolve against the full installed set: name every installed
+            // package (bare) plus the new package(s) so an inconsistent install
+            // fails atomically instead of breaking the environment.
+            const freezeLines = await this._getInstalledFreeze(token);
+            const content = buildRequirementsFile(freezeLines, packages);
+            const tempFile = await this._writeRequirementsTempFile(content);
+            try {
+                const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                await this._executeUvInTerminal(args, token);
+            } finally {
+                tempFile.dispose();
+            }
         }
     }
 
