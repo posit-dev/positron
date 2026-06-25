@@ -123,6 +123,20 @@ wb_installed() {
 	docker exec pwb bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
+# The container's command is a sleep loop, and rstudio-server is started by the
+# installer -- not the container entrypoint. After a stop/start (or any restart)
+# the container comes back up but rserver does not, so :8787 is dead. Start it if
+# it isn't running and wait briefly for it to come up.
+wb_ensure_rserver() {
+	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && return 0
+	docker exec pwb bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
+	local i
+	for i in $(seq 1 10); do
+		docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && return 0
+		sleep 1
+	done
+}
+
 wb_bootstrap_env() {
 	local env_file="${SCRIPT_DIR}/.env"
 	[ -f "$env_file" ] || cp "${SCRIPT_DIR}/.env.example" "$env_file"
@@ -361,6 +375,7 @@ cmd_up() {
 	done
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
+		wb_ensure_rserver
 		wb_print_ready
 		echo "Wrong version? run 'npm run pwb -- --reinstall' to switch versions"
 		wb_schedule_ttl "$ttl"
