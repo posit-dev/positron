@@ -56,6 +56,7 @@ check "dailies exclude release tags" "" "$(wb_list_positron_dailies 5 | grep '20
 check "deb version with pro" "2026.05.1-225.pro10" \
 	"$(wb_deb_version "https://download2.rstudio.org/server/noble/arm64/rstudio-workbench-2026.05.1-225.pro10-arm64.deb")"
 check "deb version empty url" "" "$(wb_deb_version "")"
+wb_deb_version "" >/dev/null; check "deb version empty url exits non-zero" "1" "$?"
 
 # deb URL format validation
 wb_is_deb_url "https://example.com/x.deb"     && check "deb url valid https"  "0" "0" || check "deb url valid https"  "0" "1"
