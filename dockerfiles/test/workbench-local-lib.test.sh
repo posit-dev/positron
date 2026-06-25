@@ -35,8 +35,10 @@ check "daily arm64" \
 	"https://s3.amazonaws.com/rstudio-ide-build/server/noble/arm64/rstudio-workbench-2026.06.0-242.pro7-arm64.deb" \
 	"$(wb_resolve_daily_url arm64)"
 
-# release list includes prereleases, newest first, capped
-check "releases newest tag" "2026.06.1-6" "$(wb_list_positron_releases 5 | head -1 | cut -f1)"
+# release list: releases only (prerelease=false), newest first, capped.
+# The 2026.07.0-230 daily is the newest entry but prerelease=true -> must be excluded.
+check "releases newest is a release, not the daily" "2026.06.1-6" "$(wb_list_positron_releases 5 | head -1 | cut -f1)"
+check "releases exclude daily/prerelease" "" "$(wb_list_positron_releases 5 | grep '2026.07.0-230' || true)"
 check "releases count capped" "2" "$(wb_list_positron_releases 2 | wc -l | tr -d ' ')"
 
 # deb version extraction (incl .proN), and empty-in/empty-out

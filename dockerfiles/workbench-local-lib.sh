@@ -25,7 +25,10 @@ wb_deb_version() {
 
 _wb_fetch_downloads_json() { curl -sL "https://posit.co/wp-content/uploads/downloads.json"; }
 _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/latest/index.json"; }
-_wb_fetch_releases_json()  { gh api "repos/posit-dev/positron-builds/releases?per_page=30"; }
+# Use posit-dev/positron (the definitive release list) for the version menu, not
+# positron-builds (which also contains dailies). The Workbench tarball for each
+# release tag is still downloaded from positron-builds by positronDownload.sh.
+_wb_fetch_releases_json()  { gh api "repos/posit-dev/positron/releases?per_page=30"; }
 
 wb_resolve_stable_url() {
 	local wb_arch="$1" url
@@ -45,10 +48,11 @@ wb_resolve_daily_url() {
 
 wb_list_positron_releases() {
 	local count="${1:-5}"
-	# Include prereleases (every positron-builds release is prerelease=true).
+	# Releases only: posit-dev/positron marks actual releases prerelease=false and
+	# daily/dev builds prerelease=true, so exclude prereleases.
 	_wb_fetch_releases_json \
 		| jq -r --argjson n "$count" '
-			[ .[] | select(any(.assets[]?; .name | test("^positron-workbench-linux-(x64|arm64)-"))) ]
+			[ .[] | select(.prerelease == false) ]
 			| sort_by(.published_at) | reverse | .[:$n]
 			| .[] | "\(.tag_name)\t\(.published_at[:10])"'
 }

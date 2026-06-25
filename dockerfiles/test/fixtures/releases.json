@@ -1,8 +1,6 @@
 [
-  { "tag_name": "2026.06.1-6",   "published_at": "2026-06-23T21:21:28Z", "prerelease": true,
-    "assets": [ { "name": "positron-workbench-linux-arm64-2026.06.1-6.tar.gz" } ] },
-  { "tag_name": "2026.06.0-211", "published_at": "2026-06-01T15:25:38Z", "prerelease": true,
-    "assets": [ { "name": "positron-workbench-linux-arm64-2026.06.0-211.tar.gz" } ] },
-  { "tag_name": "2026.05.2-3",   "published_at": "2026-05-14T15:33:42Z", "prerelease": true,
-    "assets": [ { "name": "positron-workbench-linux-x64-2026.05.2-3.tar.gz" } ] }
+  { "tag_name": "2026.07.0-230", "published_at": "2026-06-24T00:00:00Z", "prerelease": true },
+  { "tag_name": "2026.06.1-6",   "published_at": "2026-06-23T21:21:28Z", "prerelease": false },
+  { "tag_name": "2026.06.0-211", "published_at": "2026-06-01T15:25:38Z", "prerelease": false },
+  { "tag_name": "2026.05.2-3",   "published_at": "2026-05-14T15:33:42Z", "prerelease": false }
 ]
