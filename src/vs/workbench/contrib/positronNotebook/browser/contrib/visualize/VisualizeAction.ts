@@ -7,14 +7,17 @@ import { CancellationTokenSource } from '../../../../../../base/common/cancellat
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { localize } from '../../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
-import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import type { PositronNotebookCodeCell } from '../../PositronNotebookCells/PositronNotebookCodeCell.js';
 import type { IInlineDataExplorerActionContext } from '../../notebookCells/InlineDataExplorerActions.js';
 import { applyVisualizeResult } from './applyVisualizeResult.js';
+import { VISUALIZE_MODEL_KEY } from './config.js';
 import { generateVizCode, isValidDataFrameExpr } from './generateVizCode.js';
-import { showVisualizeModalDialog, validateVisualizationSuggestion, DataFrameColumn } from './visualizeModalDialog.js';
+import { generateVisualizationSuggestion } from './visualizationSuggestion.js';
+import { showVisualizeModalDialog, DataFrameColumn } from './visualizeModalDialog.js';
 
 /**
  * Decode one segment of a `variablePath` array. The kernel encodes each
@@ -71,7 +74,8 @@ export class VisualizeDataFrameAction extends Action2 {
 		// can host this action.
 		if (!ctx.cell || !ctx.notebookInstance) { return; }
 
-		const commandService = accessor.get(ICommandService);
+		const headlessLmService = accessor.get(IHeadlessLanguageModelService);
+		const configurationService = accessor.get(IConfigurationService);
 		const notificationService = accessor.get(INotificationService);
 
 		const columns: DataFrameColumn[] = [];
@@ -105,17 +109,16 @@ export class VisualizeDataFrameAction extends Action2 {
 		// closes before the request resolves.
 		const suggestionCts = new CancellationTokenSource();
 		try {
-			const suggestionPromise = commandService
-				.executeCommand<unknown>(
-					'positron-assistant.suggestVisualization',
-					ctx.documentUri.toString(),
-					ctx.cell.index,
-					initialDfName,
-					columns,
-					suggestionCts.token,
-				)
-				.then((r) => validateVisualizationSuggestion(r))
-				.catch(() => null);
+			const modelSetting = configurationService.getValue<string[]>(VISUALIZE_MODEL_KEY);
+			const suggestionPromise = generateVisualizationSuggestion(
+				headlessLmService,
+				ctx.notebookInstance.cells.get(),
+				ctx.cell.index,
+				initialDfName,
+				columns,
+				modelSetting,
+				suggestionCts.token,
+			).catch(() => null);
 
 			const result = await showVisualizeModalDialog(initialDfName, columns, suggestionPromise, ctx.documentUri);
 			if (!result) { return; }
