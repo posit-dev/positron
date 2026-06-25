@@ -83,6 +83,7 @@ wb_menu() {
 	local prompt="$1"; shift
 	local opts=("$@") n=$# i=1 sel choice o
 	WB_MENU_INDEX=0
+	echo >&2  # blank line to separate the menu from preceding output
 	if command -v fzf >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; then
 		sel="$(printf '%s\n' "${opts[@]}" | fzf --height=40% --layout=reverse --no-multi --prompt="${prompt}: ")" || return 1
 		for o in "${opts[@]}"; do [ "$o" = "$sel" ] && { WB_MENU_INDEX=$i; break; }; i=$((i+1)); done
