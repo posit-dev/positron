@@ -8,7 +8,6 @@
 import { Event } from '../../../../../../../base/common/event.js';
 import { observableValue } from '../../../../../../../base/common/observable.js';
 import { URI } from '../../../../../../../base/common/uri.js';
-import { ICommandService } from '../../../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILogService, NullLogService } from '../../../../../../../platform/log/common/log.js';
@@ -18,13 +17,13 @@ import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js
 import { INotebookExecutionStateService } from '../../../../../notebook/common/notebookExecutionStateService.js';
 import { NotebookTextModel } from '../../../../../notebook/common/model/notebookTextModel.js';
 import { AI_ENABLED_KEY } from '../../../../../positronAssistant/common/positronAIConfiguration.js';
+import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../../../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../../../IPositronNotebookInstance.js';
 import { GhostCellController } from '../controller.js';
 
 describe('GhostCellController ai.enabled gate', () => {
 	const config = new TestConfigurationService();
 	const ctx = createTestContainer()
-		.stub(ICommandService, { executeCommand: () => Promise.resolve(undefined) })
 		.stub(IConfigurationService, config)
 		.stub(INotebookExecutionStateService, stubInterface<INotebookExecutionStateService>({ onDidChangeExecution: Event.None }))
 		.stub(INotificationService, stubInterface<INotificationService>())
@@ -35,12 +34,19 @@ describe('GhostCellController ai.enabled gate', () => {
 	// variable across the two tests: with it off the controller must still stay
 	// hidden; with it on the gate lets the suggestion through.
 	function createController(): GhostCellController {
+		const mockCell = stubInterface<IPositronNotebookCell>({
+			isCodeCell: function (this: IPositronNotebookCell): this is IPositronNotebookCodeCell { return true; },
+			getContent: () => '',
+			outputs: observableValue('outputs', []),
+		});
 		const notebook = stubInterface<IPositronNotebookInstance>({
 			uri: URI.parse('file:///test.ipynb'),
-			cells: observableValue('cells', []),
+			cells: observableValue('cells', [mockCell]),
 			container: observableValue<HTMLElement | undefined>('container', undefined),
+			runtimeSession: observableValue('runtimeSession', undefined),
 			textModel: stubInterface<NotebookTextModel>({
 				metadata: { metadata: { positron: { assistant: { ghostCellSuggestions: 'enabled' } } } },
+				cells: undefined,
 			}),
 		});
 		return ctx.instantiationService.createInstance(GhostCellController, notebook);
