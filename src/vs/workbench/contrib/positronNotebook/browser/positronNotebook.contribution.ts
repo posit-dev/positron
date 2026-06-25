@@ -2337,7 +2337,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.addCodeCell',
 			title: localize2('addCodeCell', 'Code'),
 			tooltip: localize2('addCodeCell.tooltip', 'New Code Cell'),
-			icon: ThemeIcon.fromId('add-small'),
+			icon: ThemeIcon.fromId('add'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			positronActionBarOptions: {
@@ -2374,7 +2374,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.addMarkdownCell',
 			title: localize2('addMarkdownCell', 'Markdown'),
 			tooltip: localize2('addMarkdownCell.tooltip', 'New Markdown Cell'),
-			icon: ThemeIcon.fromId('add-small'),
+			icon: ThemeIcon.fromId('add'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			positronActionBarOptions: {

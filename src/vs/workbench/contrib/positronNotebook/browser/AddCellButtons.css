@@ -96,33 +96,24 @@
  * weight, so numeric font-weights are no-ops; `-webkit-text-stroke` strokes the
  * glyph outline at a width we control (unlike the browser-decided amount of
  * `font-weight: bold`) and defaults to currentColor, so it still tracks the
- * theme. Tune the stroke width to taste. Three selectors share this: the inline
- * split button and Markdown button (this group), and the notebook's editor
- * action bar Code/Markdown buttons, which are plain action-bar buttons
- * (registered as Action2s) rather than React buttons. The `codicon-add-small`
- * class only appears on these buttons within an editor action bar, so other
- * editors' action bars are untouched. Selectors stay specific enough to win
- * over the 16px codicon base rule.
+ * theme. Tune the stroke width to taste. Two selectors share this: the inline
+ * split button and Markdown button (this group). The notebook's editor action
+ * bar Code/Markdown buttons use the standard `add` codicon instead, which
+ * matches the weight of the other action-bar icons on its own. Selectors stay
+ * specific enough to win over the 16px codicon base rule.
  */
 .positron-add-cell-buttons .add-cell-split-button .button-icon.codicon-add-small,
-.positron-add-cell-buttons .positron-iconed-button .button-icon.codicon-add-small,
-.editor-action-bar-container .action-bar-button-icon.codicon-add-small {
+.positron-add-cell-buttons .positron-iconed-button .button-icon.codicon-add-small {
 	font-size: 11px;
 	-webkit-text-stroke: 0.35px currentColor;
 }
 
 /*
- * Nudge each plus a sub-pixel to optically center it. The amount differs by
- * box: the inline buttons and the action-bar buttons size their glyph slots
- * differently.
+ * Nudge each plus a sub-pixel to optically center it within its glyph slot.
  */
 .positron-add-cell-buttons .add-cell-split-button .button-icon.codicon-add-small,
 .positron-add-cell-buttons .positron-iconed-button .button-icon.codicon-add-small {
 	transform: translate(1px, 0.7px);
-}
-
-.editor-action-bar-container .action-bar-button-icon.codicon-add-small {
-	transform: translate(0, 0.5px);
 }
 
 /*
