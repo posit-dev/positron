@@ -362,8 +362,8 @@ cmd_up() {
 	done
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
-		echo "Stack already up with Positron + Workbench installed. (Use --reinstall to change versions.)"
-		cmd_status
+		wb_print_ready
+		echo "(Use --reinstall to switch Positron/Workbench versions.)"
 		wb_schedule_ttl "$ttl"
 		wb_print_ttl "$ttl"
 		return 0
@@ -399,18 +399,37 @@ wb_source_build() {
 	docker exec pwb bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
+# Clean post-startup summary, with the same labels install-workbench.sh prints
+# so a resume reads the same as a fresh install. The header reflects real
+# readiness: this image's init script has no 'status' verb, so we check for the
+# running rserver process directly.
+wb_print_ready() {
+	local v wb pos src
+	v="$(wb_versions)"
+	wb="$(printf '%s' "$v" | cut -f1)"
+	pos="$(printf '%s' "$v" | cut -f2)"
+	src="$(wb_source_build)"
+	if docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
+		# allow-any-unicode-next-line
+		echo "Workbench ready ✅"
+	else
+		echo "Workbench installed -- rstudio-server not running (run: npm run wb -- restart)"
+	fi
+	printf 'Positron version:    %s\n' "$pos"
+	printf 'Workbench version:   %s\n' "$wb"
+	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
+	printf 'Workbench URL:       %s  (user1 / WB_PASSWORD)\n' "http://localhost:8787"
+	printf 'Connect URL:         %s\n' "http://localhost:3939"
+}
+
 cmd_status() {
 	echo "=== Workbench Local Status ==="
 	if ! wb_stack_up; then echo "Containers: not running. Start with: npm run wb"; return 0; fi
-	docker ps --format '  {{.Names}}: {{.Status}}' | grep -E 'pwb|postgres|connect' || true
-	local v; v="$(wb_versions)"
-	echo "  Workbench: $(echo "$v" | cut -f1)"
-	local src; src="$(wb_source_build)"; [ -n "$src" ] && echo "  WB build:  $src"
-	echo "  Positron:  $(echo "$v" | cut -f2)"
-	echo "  Access:    http://localhost:8787 (user1 / WB_PASSWORD)   Connect: http://localhost:3939"
-	# This image's init script has no 'status' verb, so check for the running
-	# rserver process directly.
-	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
+	echo "Containers:"
+	docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '^(pwb|postgres|connect)[[:space:]]' \
+		| awk -F'\t' '{ printf "  %-9s %s\n", $1, $2 }'
+	echo
+	wb_print_ready
 }
 
 cmd_report() {
