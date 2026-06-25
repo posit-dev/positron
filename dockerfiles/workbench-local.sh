@@ -102,6 +102,18 @@ wb_menu() {
 # True if the URL responds successfully to a HEAD request (follows redirects).
 wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
 
+# Validate a Workbench .deb URL: format, architecture match, and reachability.
+# Prints the reason on failure.
+wb_validate_wb_url() {
+	local url="${1:-}" a
+	wb_is_deb_url "$url" || { echo "Not a valid .deb URL (expected https://....deb)." >&2; return 1; }
+	a="$(wb_deb_arch "$url")"
+	if [ -n "$a" ] && [ "$a" != "${WB_ARCH}" ]; then
+		echo "That .deb is for ${a}, but this machine is ${WB_ARCH}. Choose a ${WB_ARCH} build." >&2; return 1
+	fi
+	wb_url_reachable "$url" || { echo "URL not reachable (HTTP check failed): $url" >&2; return 1; }
+}
+
 wb_pick_workbench() {
 	echo "Resolving Workbench versions..." >&2
 	local stable_url daily_url
@@ -114,16 +126,13 @@ wb_pick_workbench() {
 		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
 		"Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$stable_url"
-		   wb_url_reachable "$WB_URL" || { echo "Resolved Release URL is not reachable: ${WB_URL:-<empty>}" >&2; return 1; } ;;
-		2) WB_URL="$daily_url"
-		   wb_url_reachable "$WB_URL" || { echo "Resolved Daily URL is not reachable: ${WB_URL:-<empty>}" >&2; return 1; } ;;
+		1) WB_URL="$stable_url"; wb_validate_wb_url "$WB_URL" || return 1 ;;
+		2) WB_URL="$daily_url";  wb_validate_wb_url "$WB_URL" || return 1 ;;
 		3) while :; do
 			read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true
 			[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
-			wb_is_deb_url "$WB_URL" || { echo "Not a valid .deb URL (expected https://....deb). Try again." >&2; continue; }
-			wb_url_reachable "$WB_URL" || { echo "URL not reachable (HTTP check failed): $WB_URL. Try again." >&2; continue; }
-			break
+			wb_validate_wb_url "$WB_URL" && break
+			echo "Try again." >&2
 		   done ;;
 	esac
 	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }

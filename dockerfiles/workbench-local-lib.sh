@@ -29,6 +29,14 @@ wb_is_deb_url() {
 	[[ "$url" =~ ^https?://.+\.deb$ ]]
 }
 
+# Architecture token from a .deb URL/filename (amd64|arm64), or empty if unknown.
+wb_deb_arch() {
+	case "$(basename "${1:-}")" in
+		*-arm64.deb) printf arm64 ;;
+		*-amd64.deb) printf amd64 ;;
+	esac
+}
+
 _wb_fetch_downloads_json() { curl -sL "https://posit.co/wp-content/uploads/downloads.json"; }
 _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/latest/index.json"; }
 # posit-dev/positron = definitive Positron release list (prerelease=false).

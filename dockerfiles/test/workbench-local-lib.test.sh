@@ -59,4 +59,9 @@ wb_is_deb_url "https://example.com/x.tar.gz"  && check "deb url not .deb"     "1
 wb_is_deb_url "ftp://example.com/x.deb"       && check "deb url bad scheme"   "1" "0" || check "deb url bad scheme"   "1" "1"
 wb_is_deb_url ""                              && check "deb url empty"        "1" "0" || check "deb url empty"        "1" "1"
 
+# deb arch extraction
+check "deb arch arm64" "arm64" "$(wb_deb_arch "https://x/rstudio-workbench-2026.07.0-daily-48.pro2-arm64.deb")"
+check "deb arch amd64" "amd64" "$(wb_deb_arch "https://x/rstudio-workbench-2026.07.0-daily-48.pro2-amd64.deb")"
+check "deb arch unknown" "" "$(wb_deb_arch "https://x/something.deb")"
+
 exit $fail
