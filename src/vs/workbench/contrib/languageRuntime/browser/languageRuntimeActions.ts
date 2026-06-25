@@ -580,6 +580,22 @@ export const selectNewLanguageRuntime = async (
 	quickPick.title = options?.title || localize('positron.languageRuntime.startSession', 'Start New Interpreter Session');
 	quickPick.canSelectMany = false;
 
+	// Reflect discovery state in the picker: a busy spinner while runtimes are
+	// still being discovered, and an explanatory placeholder for an empty list.
+	// Phase is read from ILanguageRuntimeService -- the same service the rebuild
+	// subscription below uses.
+	const updateDiscoveryProgress = () => {
+		const discovering = languageRuntimeService.startupPhase !== RuntimeStartupPhase.Complete;
+		quickPick.busy = discovering;
+		if (discovering) {
+			quickPick.placeholder = localize('positron.languageRuntime.discoveringInterpreters', "Discovering interpreters...");
+		} else if (!quickPick.items.some(item => item.type !== 'separator')) {
+			quickPick.placeholder = localize('positron.languageRuntime.noInterpretersFound', "No interpreters found");
+		} else {
+			quickPick.placeholder = undefined;
+		}
+	};
+
 	// Reassigning quickPick.items resets activeItems to the first row, so
 	// rebuilds via this helper preserve the previously focused item (whether
 	// it was the caller's currentRuntimeId or a row the user keyboard-
@@ -596,6 +612,7 @@ export const selectNewLanguageRuntime = async (
 				quickPick.activeItems = [stillPresent];
 			}
 		}
+		updateDiscoveryProgress();
 	};
 
 	quickPick.items = buildItems();
@@ -611,6 +628,9 @@ export const selectNewLanguageRuntime = async (
 		}
 	}
 
+	// Set the initial busy/placeholder state for the phase the picker opened in.
+	updateDiscoveryProgress();
+
 	// Rebuild when a new runtime registers - covers late initial discovery
 	// and post-startup rediscovery.
 	disposables.add(languageRuntimeService.onDidRegisterRuntime(() => {
@@ -621,8 +641,14 @@ export const selectNewLanguageRuntime = async (
 	// (which we previously skipped) and rebuild.
 	disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(async phase => {
 		if (phase === RuntimeStartupPhase.Complete) {
+			// Discovery finished: pick up contributions we skipped, rebuild (which
+			// also clears the spinner via updateDiscoveryProgress), and we're done.
 			await fetchContributedItems();
 			rebuildItems();
+		} else {
+			// Any other transition (e.g. into Discovering): refresh the spinner /
+			// placeholder.
+			updateDiscoveryProgress();
 		}
 	}));
 

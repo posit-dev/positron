@@ -11,10 +11,7 @@ import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { Schemas } from '../../../../../base/common/network.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { HistoryNavigator2 } from '../../../../../base/common/history.js';
 import { ISelection } from '../../../../../editor/common/core/selection.js';
@@ -49,6 +46,7 @@ import { IInputHistoryEntry } from '../../../../services/positronHistory/common/
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
 import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
+import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 
@@ -692,21 +690,21 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Provide a reference to the code editor.
 		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
-		// Attach the text model. Use a different URI path prefix for
-		// notebook console inputs so that the notebook LSP can match
-		// them via document selectors, while the console LSP skips them.
+		// Create the text model that backs the input editor. This also holds a
+		// model reference for the editor's lifetime so the model can't be disposed
+		// out from under the editor and blank the prompt; see createConsoleInputModel.
 		const languageId = props.positronConsoleInstance.runtimeMetadata.languageId;
 		const isNotebook = props.positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
-		const replPrefix = isNotebook ? 'notebook-repl' : 'repl';
-		codeEditorWidget.setModel(services.modelService.createModel(
-			'',
-			services.languageService.createById(languageId),
-			URI.from({
-				scheme: Schemas.inMemory,
-				path: `/${replPrefix}-${languageId}-${generateUuid()}`
-			}),
-			false
-		));
+		const inputModel = createConsoleInputModel(
+			services.modelService,
+			services.textModelService,
+			services.languageService,
+			languageId,
+			isNotebook,
+			disposableStore
+		);
+
+		codeEditorWidget.setModel(inputModel);
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(

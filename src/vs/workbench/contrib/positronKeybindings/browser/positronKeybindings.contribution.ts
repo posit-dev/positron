@@ -14,6 +14,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keyb
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { registerPositronKeybindingRemovals } from './positronKeybindingRemovals.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -339,3 +340,6 @@ class PositronKeybindingsContribution extends Disposable {
 }
 
 registerWorkbenchContribution2(PositronKeybindingsContribution.ID, PositronKeybindingsContribution, WorkbenchPhase.BlockRestore);
+
+// Strip leaked upstream keybindings for commands Positron cannot run.
+registerPositronKeybindingRemovals();
