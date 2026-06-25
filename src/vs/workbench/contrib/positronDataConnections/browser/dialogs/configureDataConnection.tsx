@@ -267,7 +267,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
-				"Configure Database"
+				"Configure Data Connection"
 			)}
 			titleBarSize='large'
 			width={492}
