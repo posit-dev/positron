@@ -16,7 +16,8 @@ wb_detect_arch() {
 # .../rstudio-workbench-2026.05.1-225.pro10-amd64.deb -> 2026.05.1-225.pro10
 wb_deb_version() {
 	local url="${1:-}" base
-	[ -n "$url" ] || return 0
+	# Non-zero on empty so callers' `|| echo unavailable` fallback fires.
+	[ -n "$url" ] || return 1
 	base="$(basename "$url")"
 	base="${base#rstudio-workbench-}"
 	base="${base%-*.deb}"

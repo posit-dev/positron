@@ -35,8 +35,11 @@ wb_bootstrap_env() {
 }
 
 wb_fetch_scripts() {
-	local src="${QA_CONTENT_DIR:-}"
-	local tmpdir
+	local src="${QA_CONTENT_DIR:-}" tmpdir
+	# One scratch dir for the whole function, cleaned up on return (even if a
+	# curl/docker cp fails under set -e) instead of leaking per-iteration tmpdirs.
+	tmpdir="$(mktemp -d)"
+	trap 'rm -rf "$tmpdir"' RETURN
 	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
 		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
 	fi
@@ -44,10 +47,8 @@ wb_fetch_scripts() {
 		if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
 			docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
 		else
-			tmpdir="$(mktemp -d)"
 			curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
 			docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
-			rm -rf "${tmpdir}"
 		fi
 		docker exec test sed -i 's/\r$//' "/tmp/${s}"
 		docker exec test chmod +x "/tmp/${s}"
@@ -150,13 +151,17 @@ cmd_install() {
 	wb_pick_positron
 	echo "Installing Workbench from: ${WB_URL}"
 	echo "Positron: ${POSITRON_TAG:-LATEST}"
-	docker exec -it \
+	# Allocate a TTY only when stdout is one, so non-interactive/scripted runs
+	# don't fail with "the input device is not a TTY". Pass creds as a real arg
+	# (not interpolated into a bash -c string) so it can't be word-split/injected.
+	local ti="-i"; [ -t 1 ] && ti="-it"
+	docker exec "$ti" \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
-		test /bin/bash -c "/tmp/install-workbench.sh ${creds}"
+		test /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"}
 	# Record the exact Workbench package URL so status/report can show the
 	# .proN build (not present in the runtime version string).
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
@@ -189,6 +194,13 @@ cmd_up() {
 	mkdir -p "${SCRIPT_DIR}/connect"
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
+	fi
+	# 'test' depends on connect being healthy; without a license connect exits and
+	# the wait loop below just times out. Warn clearly up front instead.
+	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
+		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
+		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
+		echo "         Add connect.lic (see dockerfiles/README-workbench-local.md)." >&2
 	fi
 	wb_compose up -d
 	echo "Waiting for containers to become healthy..."

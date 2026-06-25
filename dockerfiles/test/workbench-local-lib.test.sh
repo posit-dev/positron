@@ -32,10 +32,15 @@ check "stable arm64 rewrite" \
 	"https://download2.rstudio.org/server/noble/arm64/rstudio-workbench-2026.05.1-225.pro10-arm64.deb" \
 	"$(wb_resolve_stable_url arm64)"
 
-# daily url for arm64 must resolve the WORKBENCH product (pro), not server (OSS)
+# daily url must resolve the WORKBENCH product (pro), not server (OSS).
+# Note: the dailies feed keys platforms as noble-<arch> but the URL path is
+# server/jammy/<arch> -- that mismatch reflects the real feed, not a fixture bug.
 check "daily arm64 is workbench (pro), not server" \
 	"https://s3.amazonaws.com/rstudio-ide-build/server/jammy/arm64/rstudio-workbench-2026.06.0-242.pro13-arm64.deb" \
 	"$(wb_resolve_daily_url arm64)"
+check "daily amd64 is workbench (pro), not server" \
+	"https://s3.amazonaws.com/rstudio-ide-build/server/jammy/amd64/rstudio-workbench-2026.06.0-242.pro13-amd64.deb" \
+	"$(wb_resolve_daily_url amd64)"
 
 # release list: releases only (prerelease=false), newest first, capped.
 # The 2026.07.0-230 daily is the newest entry but prerelease=true -> must be excluded.
