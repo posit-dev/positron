@@ -97,6 +97,13 @@
 	font-size: 14px;
 }
 
+/* The external-link glyph reads heavier than the book at the same size; nudge
+ * it down 2px so the Website and Help icon buttons look balanced (the Packages
+ * list does the same). */
+.package-detail-action-icon .codicon-link-external {
+	font-size: 12px;
+}
+
 .package-detail-banner {
 	margin-top: 12px;
 	padding: 8px 12px;
