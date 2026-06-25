@@ -29,16 +29,6 @@ wb_is_deb_url() {
 	[[ "$url" =~ ^https?://.+\.deb$ ]]
 }
 
-# Build-free Workbench .deb URL for a YYYY.MM.PATCH version (Posit's documented
-# pattern, served from the jammy path for all Debian-family distros). Empty if
-# the version doesn't look like YYYY.MM.PATCH. Note: Posit keeps the build-free
-# alias only for the current release; older versions 404 (use a full S3 URL).
-wb_build_free_url() {
-	local ver="${1:-}" arch="${2:-}"
-	[[ "$ver" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]+$ ]] || return 0
-	printf 'https://download2.rstudio.org/server/jammy/%s/rstudio-workbench-%s-%s.deb' "$arch" "$ver" "$arch"
-}
-
 # Architecture token from a .deb URL/filename (amd64|arm64), or empty if unknown.
 wb_deb_arch() {
 	case "$(basename "${1:-}")" in
