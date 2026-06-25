@@ -101,7 +101,9 @@ def detach_library_figures() -> None:
             and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
         ):
             # Removes the manager from the registry and invokes our no-op `destroy`.
-            Gcf.destroy(manager.num)
+            # Pass the manager rather than its number: numbers freed here can be reused
+            # by matplotlib, so destroying by number could hit a different figure.
+            Gcf.destroy(manager)
 
 
 class FigureManagerPositron(FigureManagerBase):
