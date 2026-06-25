@@ -204,6 +204,10 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
 		const { notebooksPositron } = app.workbench;
 
+		// clear any sessions left by prior tests (e.g. a terminated notebook
+		// console) so the Untitled-1.ipynb tab lookup is unambiguous
+		await sessions.deleteAll();
+
 		// start standalone sessions that should survive the notebook closing
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
