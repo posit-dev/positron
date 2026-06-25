@@ -121,6 +121,16 @@ cmd_up() {
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
 	wb_bootstrap_env
+	# The amd64 and arm64 images have independent tag sequences, so a single
+	# default tag cannot serve both arches. Pick the arch-correct default unless
+	# the user pinned one in .env (sourced above by wb_bootstrap_env).
+	if [ "${WB_ARCH}" = "arm64" ]; then
+		export WB_IMAGE_TAG="${WB_IMAGE_TAG:-127}"
+		export PG_IMAGE_TAG="${PG_IMAGE_TAG:-143}"
+	else
+		export WB_IMAGE_TAG="${WB_IMAGE_TAG:-141}"
+		export PG_IMAGE_TAG="${PG_IMAGE_TAG:-142}"
+	fi
 	mkdir -p "${SCRIPT_DIR}/connect"
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
