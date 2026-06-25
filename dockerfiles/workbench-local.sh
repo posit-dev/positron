@@ -157,6 +157,54 @@ cmd_overlay() {
 	echo "Source build overlaid. Reload http://localhost:8787"
 }
 
+wb_versions() {
+	local wb pos
+	wb="$(docker exec test bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
+	pos="$(docker exec test bash -c '
+		d=/usr/lib/rstudio-server/bin/positron-server/new
+		if [ -f "$d/product.json" ]; then
+			v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
+			b=$(grep positronBuildNumber "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
+			echo "${v}-${b}"
+		fi' 2>/dev/null || true)"
+	printf '%s\t%s\n' "${wb:-not installed}" "${pos:-not installed}"
+}
+
+cmd_status() {
+	echo "=== Workbench Local Status ==="
+	if ! wb_stack_up; then echo "Containers: not running. Start with: npm run wb"; return 0; fi
+	docker ps --format '  {{.Names}}: {{.Status}}' | grep -E 'test|postgres|connect' || true
+	local v; v="$(wb_versions)"
+	echo "  Workbench: $(echo "$v" | cut -f1)"
+	echo "  Positron:  $(echo "$v" | cut -f2)"
+	echo "  Access:    http://localhost:8787 (user1 / WB_PASSWORD)   Connect: http://localhost:3939"
+	docker exec test bash -c 'rstudio-server status >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
+}
+
+cmd_report() {
+	local v; v="$(wb_versions)"; wb_detect_arch
+	cat <<EOF
+Environment:
+- Positron: $(echo "$v" | cut -f2)  (under Workbench)
+- Workbench: $(echo "$v" | cut -f1)
+- Arch: POSITRON_ARCH=${POSITRON_ARCH}, WB_ARCH=${WB_ARCH}
+- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'test|postgres|connect' | paste -sd', ' -)
+EOF
+}
+
+cmd_logs() {
+	case "${1:-rserver}" in
+		rserver|workbench) docker exec test bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
+		connect)           docker logs -f connect ;;
+		*)                 docker logs -f "${1}" ;;
+	esac
+}
+
+cmd_test() {
+	local grep_arg="${1:-}"
+	( cd "${REPO_ROOT}" && npx playwright test --project e2e-workbench ${grep_arg:+--grep "$grep_arg"} )
+}
+
 main() {
 	local sub="${1:-up}"; shift || true
 	case "$sub" in
