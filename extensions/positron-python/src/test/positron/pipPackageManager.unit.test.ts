@@ -38,12 +38,10 @@ suite('PipPackageManager update Tests', () => {
             execModule: sinon.stub(),
         };
         // Default freeze output; individual tests can override.
-        pythonService.execModule
-            .withArgs('pip', sinon.match.array.startsWith(['freeze']))
-            .resolves({
-                stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
-                stderr: '',
-            });
+        pythonService.execModule.withArgs('pip', sinon.match.array.startsWith(['freeze'])).resolves({
+            stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
+            stderr: '',
+        });
 
         terminalService = {
             show: sinon.stub().resolves(),
@@ -92,9 +90,9 @@ suite('PipPackageManager update Tests', () => {
     test('updatePackages writes a bare-names requirements file with the target pinned', async () => {
         await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
 
-        expect(writtenContent).to.contain('werkzeug==3.1.8');        // target pinned
-        expect(writtenContent).to.contain('flask');                 // other PyPI -> bare
-        expect(writtenContent).to.not.contain('flask==2.2.0');      // not pinned
+        expect(writtenContent).to.contain('werkzeug==3.1.8'); // target pinned
+        expect(writtenContent).to.contain('flask'); // other PyPI -> bare
+        expect(writtenContent).to.not.contain('flask==2.2.0'); // not pinned
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
 
         const [pythonPath, args] = terminalService.sendCommand.firstCall.args;
@@ -134,7 +132,7 @@ suite('PipPackageManager update Tests', () => {
 
         await manager.updateAllPackages();
 
-        expect(writtenContent).to.contain('werkzeug');                 // bare, no pin
+        expect(writtenContent).to.contain('werkzeug'); // bare, no pin
         expect(writtenContent).to.not.contain('werkzeug==');
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
         const [, args] = terminalService.sendCommand.firstCall.args;
@@ -154,8 +152,8 @@ suite('PipPackageManager update Tests', () => {
     test('installPackages names the full installed set and adds the new package', async () => {
         await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
 
-        expect(writtenContent).to.contain('cowsay==6.1');                 // new package pinned
-        expect(writtenContent).to.contain('flask');                       // installed -> bare
+        expect(writtenContent).to.contain('cowsay==6.1'); // new package pinned
+        expect(writtenContent).to.contain('flask'); // installed -> bare
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
         const [, args] = terminalService.sendCommand.firstCall.args;
         expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);

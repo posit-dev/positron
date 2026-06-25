@@ -28,9 +28,7 @@ suite('requirementsFile Tests', () => {
         });
 
         test('reads the name from a direct-reference spec', () => {
-            expect(extractRequirementName('positron-update-demo @ file:///tmp/demo')).to.equal(
-                'positron-update-demo',
-            );
+            expect(extractRequirementName('positron-update-demo @ file:///tmp/demo')).to.equal('positron-update-demo');
         });
 
         test('ignores comments, blanks, options, and editables', () => {

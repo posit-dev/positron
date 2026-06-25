@@ -276,12 +276,10 @@ version = "0.1.0"`;
 
             processService = { exec: sinon.stub() };
             // uv pip freeze -- includes a plain PyPI package so bare-naming is observable
-            processService.exec
-                .withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze']))
-                .resolves({
-                    stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
-                    stderr: '',
-                });
+            processService.exec.withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze'])).resolves({
+                stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
+                stderr: '',
+            });
             const processFactory = { create: sinon.stub().resolves(processService) };
 
             terminalService = {
@@ -340,7 +338,15 @@ version = "0.1.0"`;
             expect(written).to.contain('werkzeug');
             expect(written).to.not.contain('werkzeug==');
             const [, args] = terminalService.sendCommand.firstCall.args;
-            expect(args).to.include.members(['pip', 'install', '--upgrade', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+            expect(args).to.include.members([
+                'pip',
+                'install',
+                '--upgrade',
+                '-r',
+                '/tmp/reqs.txt',
+                '--python',
+                '/path/to/python',
+            ]);
         });
 
         test('installPackages names the full installed set and adds the new package', async () => {

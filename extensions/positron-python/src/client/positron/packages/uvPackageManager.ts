@@ -274,11 +274,10 @@ export class UvPackageManager implements IPackageManager {
         const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
         const processService = await processServiceFactory.create();
         const proxyEnv = this._getProxyEnv();
-        const result = await processService.exec(
-            'uv',
-            ['pip', 'freeze', '--python', this._pythonPath],
-            { extraVariables: proxyEnv, token },
-        );
+        const result = await processService.exec('uv', ['pip', 'freeze', '--python', this._pythonPath], {
+            extraVariables: proxyEnv,
+            token,
+        });
         if (!result.stdout || result.stdout.trim() === '') {
             throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
         }
