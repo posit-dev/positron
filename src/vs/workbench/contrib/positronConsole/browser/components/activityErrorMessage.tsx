@@ -16,6 +16,7 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -35,6 +36,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const [showTraceback, setShowTraceback] = useState(false);
 
 	// Configuration hooks.
+	// Main switch for Positron's AI features.
+	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
 	// Set by the Posit Assistant extension when it has at least one usable model
@@ -43,7 +46,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// string is mirrored in the Posit Assistant extension (the two repositories
 	// cannot share a module).
 	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
-	const showAssistantActions = enableAssistantActions && positAssistantInstalled && !!hasChatModels;
+	const showAssistantActions = aiEnabled && enableAssistantActions && positAssistantInstalled && !!hasChatModels;
 
 	// Traceback useEffect.
 	useEffect(() => {
