@@ -9,7 +9,7 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
+import { HtmlRenderMode, htmlRenderMode, pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';
 
 function makeOutputItem(mime: string, text: string) {
@@ -214,6 +214,29 @@ describe('Notebook Output Utils', () => {
 			const result = parseOutputData(makeOutputItem(uppercaseMime, validPayload));
 			expect(result.type).toBe('dataExplorer');
 		});
+	});
+
+	describe('htmlRenderMode', () => {
+		const cases: [HtmlRenderMode, string, string][] = [
+			// Active content is isolated in a webview.
+			['webview', 'script', '<div><script>alert(1)</script></div>'],
+			['webview', 'iframe', '<iframe src="https://example.com"></iframe>'],
+			['webview', 'event handler', '<img src="x" onerror="alert(1)">'],
+			['webview', 'full document with a script', '<!DOCTYPE html><html><body><script>x()</script></body></html>'],
+			// Inert full documents render inline in a shadow root.
+			['shadowRoot', 'doctype', '<!DOCTYPE html><html></html>'],
+			['shadowRoot', 'html tag', '<html><p>Hello</p></html>'],
+			['shadowRoot', 'body tag', '<body><p>Hello</p></body>'],
+			// Inert fragments render inline via renderHtml.
+			['fragment', 'simple fragment', '<p>Hello world</p>'],
+			['fragment', 'data attribute with "on" prefix', '<div data-onclick="value">test</div>'],
+		];
+
+		for (const [mode, label, html] of cases) {
+			it(`routes ${label} to ${mode}`, () => {
+				expect(htmlRenderMode(html)).toBe(mode);
+			});
+		}
 	});
 
 	describe('parseVariablePath', () => {

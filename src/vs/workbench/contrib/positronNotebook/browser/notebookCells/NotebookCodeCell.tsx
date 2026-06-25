@@ -19,7 +19,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
-import { hasWebviewOutput } from '../PositronNotebookCells/notebookOutputUtils.js';
+import { hasWebviewOutput, htmlRenderMode } from '../PositronNotebookCells/notebookOutputUtils.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
@@ -343,16 +343,11 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			</div>;
 		case 'image':
 			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
-		case 'html': {
+		case 'html':
 			// Full HTML documents go in a shadow root; renderHtml only handles fragments.
-			const lower = parsed.content.toLowerCase();
-			const isFullDocument = lower.includes('<!doctype') ||
-				lower.includes('<html') ||
-				lower.includes('<body');
-			return isFullDocument
+			return htmlRenderMode(parsed.content) === 'shadowRoot'
 				? <ShadowDomContent content={parsed.content} trustedTypesPolicy={htmlOutputTTPolicy} />
 				: renderHtml(parsed.content);
-		}
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'latex':

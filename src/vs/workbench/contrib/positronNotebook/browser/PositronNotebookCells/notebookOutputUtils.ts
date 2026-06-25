@@ -5,6 +5,7 @@
 
 import { NotebookCellOutputItem, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { isDataExplorerMimeType } from '../getOutputContents.js';
+import { isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
 /**
  * Get the priority of a mime type for sorting purposes
@@ -87,4 +88,36 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): 
  */
 export function hasWebviewOutput(outputs: NotebookCellOutputs[]): boolean {
 	return outputs.some(output => output.preloadMessageResult !== undefined);
+}
+
+/**
+ * Where a piece of `text/html` output should be rendered:
+ * - `webview`: active content (scripts, iframes, embeds, `javascript:` URLs, or
+ *   inline event handlers) that must be isolated in a sandboxed webview overlay.
+ * - `shadowRoot`: an inert full HTML document (`<!doctype>`, `<html>`, `<body>`)
+ *   that renders inline in a shadow root so its document-level styles stay scoped.
+ * - `fragment`: an inert HTML fragment that renders inline via `renderHtml`.
+ */
+export type HtmlRenderMode = 'webview' | 'shadowRoot' | 'fragment';
+
+/**
+ * Decide how to render a piece of `text/html` output. This is the single source of
+ * truth for the routing both the model (webview vs inline) and the renderer
+ * (shadow root vs fragment) depend on.
+ *
+ * Uses substring matching rather than a parser intentionally: a false positive only
+ * routes to a webview (safe, still renders), while a false negative for active
+ * content would be a security gap, so we prefer conservative detection.
+ */
+export function htmlRenderMode(html: string): HtmlRenderMode {
+	if (isComplexHtml(html)) {
+		return 'webview';
+	}
+
+	const lower = html.toLowerCase();
+	const isFullDocument = lower.includes('<!doctype') ||
+		lower.includes('<html') ||
+		lower.includes('<body');
+
+	return isFullDocument ? 'shadowRoot' : 'fragment';
 }
