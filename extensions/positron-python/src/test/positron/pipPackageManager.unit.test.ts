@@ -40,7 +40,10 @@ suite('PipPackageManager update Tests', () => {
         // Default freeze output; individual tests can override.
         pythonService.execModule
             .withArgs('pip', sinon.match.array.startsWith(['freeze']))
-            .resolves({ stdout: 'werkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n', stderr: '' });
+            .resolves({
+                stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
+                stderr: '',
+            });
 
         terminalService = {
             show: sinon.stub().resolves(),
@@ -86,19 +89,29 @@ suite('PipPackageManager update Tests', () => {
         vscode.workspace.getConfiguration = originalGetConfiguration;
     });
 
-    test('updatePackages installs a pinned requirements file naming all packages', async () => {
+    test('updatePackages writes a bare-names requirements file with the target pinned', async () => {
         await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
 
-        // The freeze line for the target is replaced; constraining package is kept.
-        expect(writtenContent).to.contain('werkzeug==3.1.8');
-        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
-        expect(writtenContent).to.not.contain('werkzeug==2.0.3');
+        expect(writtenContent).to.contain('werkzeug==3.1.8');        // target pinned
+        expect(writtenContent).to.contain('flask');                 // other PyPI -> bare
+        expect(writtenContent).to.not.contain('flask==2.2.0');      // not pinned
+        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
 
-        // The terminal runs `pip install -r <tempfile>`, not a bare --upgrade.
         const [pythonPath, args] = terminalService.sendCommand.firstCall.args;
         expect(pythonPath).to.equal('/path/to/python');
         expect(args).to.include.members(['-m', 'pip', 'install', '-r', '/tmp/reqs.txt']);
         expect(args).to.not.include('--upgrade');
+    });
+
+    test('updatePackages throws when a target has no version', async () => {
+        let threw = false;
+        try {
+            await manager.updatePackages([{ name: 'werkzeug' }]);
+        } catch {
+            threw = true;
+        }
+        expect(threw).to.equal(true);
+        expect(terminalService.sendCommand.called).to.equal(false);
     });
 
     test('updatePackages propagates a resolver failure (no silent success)', async () => {
@@ -113,21 +126,18 @@ suite('PipPackageManager update Tests', () => {
         expect(threw).to.equal(true);
     });
 
-    test('updateAllPackages pins outdated packages to latest in the requirements file', async () => {
+    test('updateAllPackages writes a bare requirements file and runs install --upgrade -r', async () => {
         pythonService.execModule
             .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
-            .resolves({
-                stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]),
-                stderr: '',
-            });
+            .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
 
         await manager.updateAllPackages();
 
-        expect(writtenContent).to.contain('werkzeug==3.1.8');
+        expect(writtenContent).to.contain('werkzeug');                 // bare, no pin
+        expect(writtenContent).to.not.contain('werkzeug==');
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
         const [, args] = terminalService.sendCommand.firstCall.args;
-        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
-        expect(args).to.not.include('--upgrade');
+        expect(args).to.include.members(['install', '--upgrade', '-r', '/tmp/reqs.txt']);
     });
 
     test('updateAllPackages does nothing when no packages are outdated', async () => {

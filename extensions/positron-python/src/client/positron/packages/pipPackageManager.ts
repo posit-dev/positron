@@ -97,14 +97,20 @@ export class PipPackageManager implements IPackageManager {
             throw new vscode.CancellationError();
         }
 
+        const missing = packages.find((pkg) => !pkg.version);
+        if (missing) {
+            throw new Error(`A version is required to update '${missing.name}'.`);
+        }
+
         await this._ensurePip();
 
-        // Re-resolve against the full installed set so all constraints are
-        // honored: pin everything at its current version and move only the
-        // targets. An inconsistent update fails atomically instead of silently
-        // breaking the environment.
+        // Re-resolve against the full installed set: name every package so all
+        // constraints are honored, but only the target is pinned (others are bare
+        // and stay put unless the update forces a change). An inconsistent update
+        // fails atomically instead of silently breaking the environment.
+        const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
         const freezeLines = await this._getInstalledFreeze(token);
-        const content = buildRequirementsFile(freezeLines, packages);
+        const content = buildRequirementsFile(freezeLines, targets);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
@@ -134,16 +140,15 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        // All-or-nothing: pin every installed package and bump the outdated ones
-        // to latest in a single resolve. If the batch is inconsistent it fails
-        // and nothing changes.
+        // Upgrade every installed package to its latest mutually-compatible
+        // version: name them all (bare) and let pip resolve. All constraints are
+        // honored; an impossible set fails atomically.
         const freezeLines = await this._getInstalledFreeze(token);
-        const targets = outdatedPackages.map((pkg) => ({ name: pkg.name, version: pkg.latest_version }));
-        const content = buildRequirementsFile(freezeLines, targets);
+        const content = buildRequirementsFile(freezeLines, []);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
-            const args = ['install', '-r', tempFile.filePath, ...flags];
+            const args = ['install', '--upgrade', '-r', tempFile.filePath, ...flags];
             await this._executePipInTerminal(args, token);
         } finally {
             tempFile.dispose();
