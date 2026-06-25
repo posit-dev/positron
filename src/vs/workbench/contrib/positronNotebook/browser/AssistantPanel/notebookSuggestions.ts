@@ -168,7 +168,7 @@ const MAX_CELL_CONTENT = 1000;
  * materially different context, give it its own builder rather than widening
  * this one or the DTO.
  */
-export function buildSuggestionsContext(context: INotebookContextDTO, maxCells: number = MAX_CONTEXT_CELLS): string {
+export function buildSuggestionsContext(context: INotebookContextDTO): string {
 	const parts: string[] = [];
 
 	parts.push('## Notebook Context');
@@ -186,11 +186,11 @@ export function buildSuggestionsContext(context: INotebookContextDTO, maxCells: 
 	}
 
 	parts.push('## Cells');
-	for (const cell of cells.slice(0, maxCells)) {
+	for (const cell of cells.slice(0, MAX_CONTEXT_CELLS)) {
 		parts.push(formatCell(cell));
 	}
-	if (cells.length > maxCells) {
-		parts.push(`... and ${cells.length - maxCells} more cells.`);
+	if (cells.length > MAX_CONTEXT_CELLS) {
+		parts.push(`... and ${cells.length - MAX_CONTEXT_CELLS} more cells.`);
 	}
 
 	parts.push('');
