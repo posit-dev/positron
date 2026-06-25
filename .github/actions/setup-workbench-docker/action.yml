@@ -121,7 +121,7 @@ runs:
           # Remove the default Positron installation
           rm -rf /usr/lib/rstudio-server/bin/positron-server/new &&
           # Install our custom build
-          cp -r vscode-reh-web-test-linux-x64 /usr/lib/rstudio-server/bin/positron-server/new &&
+          cp -r vscode-reh-web-pwb-linux-x64 /usr/lib/rstudio-server/bin/positron-server/new &&
           chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new &&
           # Restart so rserver re-scans installs and picks up our build
           sudo rstudio-server restart
