@@ -200,6 +200,7 @@ suite('ChatAgents', function () {
 		const contextKeys = () => ({
 			enabled: ChatContextKeys.enabled.getValue(contextKeyService),
 			panelParticipantRegistered: ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService),
+			aiFeaturesEnabled: ChatContextKeys.aiFeaturesEnabled.getValue(contextKeyService),
 		});
 
 		const fireConfigChange = (changedKey: string) => {
@@ -216,7 +217,7 @@ suite('ChatAgents', function () {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true });
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true });
 		});
 
 		test('chat context keys are cleared when AI features are disabled', () => {
@@ -224,7 +225,7 @@ suite('ChatAgents', function () {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
 		});
 
 		test('config listener recomputes chat context keys when the setting flips', () => {
@@ -233,11 +234,11 @@ suite('ChatAgents', function () {
 
 			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, true);
 			fireAIDisabledChange();
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false }, 'keys hide when AI is disabled at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false }, 'keys hide when AI is disabled at runtime');
 
 			configurationService.setUserConfiguration(ChatConfiguration.AIDisabled, false);
 			fireAIDisabledChange();
-			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true }, 'keys return when AI is re-enabled at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when AI is re-enabled at runtime');
 		});
 
 		test('API test agent registers the panel participant regardless of positron.assistant.enable', () => {
@@ -286,7 +287,7 @@ suite('ChatAgents', function () {
 			store.add(chatAgentService.registerAgent(inlineAgentId, inlineAgentData));
 			store.add(chatAgentService.registerAgentImplementation(inlineAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
 			assert.strictEqual(chatAgentService.getDefaultAgent(ChatAgentLocation.EditorInline), undefined);
 		});
 
@@ -296,7 +297,7 @@ suite('ChatAgents', function () {
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 			store.add(chatAgentService.registerAgentImplementation(defaultAgentId, agentImpl));
 
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false });
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false });
 		});
 
 		test('config listener recomputes chat context keys when ai.enabled flips', () => {
@@ -305,11 +306,11 @@ suite('ChatAgents', function () {
 
 			configurationService.setUserConfiguration('ai.enabled', false);
 			fireConfigChange('ai.enabled');
-			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false }, 'keys hide when the master switch is off at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: false, panelParticipantRegistered: false, aiFeaturesEnabled: false }, 'keys hide when the master switch is off at runtime');
 
 			configurationService.setUserConfiguration('ai.enabled', true);
 			fireConfigChange('ai.enabled');
-			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true }, 'keys return when the master switch is back on at runtime');
+			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when the master switch is back on at runtime');
 		});
 	});
 	// --- End Positron ---

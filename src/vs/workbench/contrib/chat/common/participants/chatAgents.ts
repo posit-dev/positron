@@ -306,6 +306,9 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private readonly _hasDefaultAgent: IContextKey<boolean>;
 	private readonly _extensionAgentRegistered: IContextKey<boolean>;
 	private readonly _defaultAgentRegistered: IContextKey<boolean>;
+	// --- Start Positron ---
+	private readonly _aiFeaturesEnabled: IContextKey<boolean>;
+	// --- End Positron ---
 	private _hasToolsAgent = false;
 
 	private _chatParticipantDetectionProviders = new Map<number, IChatParticipantDetectionProvider>();
@@ -329,6 +332,10 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);
 		this._extensionAgentRegistered = ChatContextKeys.extensionParticipantRegistered.bindTo(this.contextKeyService);
 		this._defaultAgentRegistered = ChatContextKeys.panelParticipantRegistered.bindTo(this.contextKeyService);
+		// --- Start Positron ---
+		this._aiFeaturesEnabled = ChatContextKeys.aiFeaturesEnabled.bindTo(this.contextKeyService);
+		this._aiFeaturesEnabled.set(!this._isAIDisabled());
+		// --- End Positron ---
 		this._register(contextKeyService.onDidChangeContext((e) => {
 			if (e.affectsSome(this._agentsContextKeys)) {
 				this._updateContextKeys();
@@ -452,6 +459,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
 			this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		}
+		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.
+		this._aiFeaturesEnabled.set(!this._isAIDisabled());
 		// --- End Positron ---
 		this._extensionAgentRegistered.set(extensionAgentRegistered);
 		if (toolsAgentRegistered !== this._hasToolsAgent) {

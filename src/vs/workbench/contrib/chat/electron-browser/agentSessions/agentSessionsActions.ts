@@ -12,6 +12,7 @@ import { IWorkbenchEnvironmentService } from '../../../../services/environment/c
 import { OPEN_AGENTS_WINDOW_COMMAND_ID, OPEN_AGENTS_WINDOW_PRECONDITION } from '../../common/constants.js';
 // --- Start Positron ---
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 // --- End Positron ---
 
 export class OpenAgentsWindowAction extends Action2 {
@@ -22,7 +23,7 @@ export class OpenAgentsWindowAction extends Action2 {
 			category: CHAT_CATEGORY,
 			// --- Start Positron ---
 			// Hide when AI features are disabled.
-			precondition: ContextKeyExpr.and(OPEN_AGENTS_WINDOW_PRECONDITION, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true)),
+			precondition: ContextKeyExpr.and(OPEN_AGENTS_WINDOW_PRECONDITION, ChatContextKeys.aiFeaturesEnabled),
 			// --- End Positron ---
 			f1: true,
 			menu: [{
