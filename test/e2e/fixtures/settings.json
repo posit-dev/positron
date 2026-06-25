@@ -21,6 +21,5 @@
 	"assistant.sidebarView": true,
 	"shiny.previewType": "internal",
 	"terminal.integrated.gpuAcceleration": "off",
-	"console.showNotebookConsoleActions": true,
-	"positron.notebook.enabled": true
+	"console.showNotebookConsoleActions": true
 }

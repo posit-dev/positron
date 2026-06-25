@@ -82,8 +82,16 @@ jobs:
           fi
           case "$INPUT" in
             latest-prerelease)
+              # positron-builds flags EVERY tag as prerelease=true, including
+              # stable releases mirrored in from posit-dev/positron. A mirrored
+              # stable build can be the newest entry by created_at, so a plain
+              # ".[0]" would pick stable instead of the dev pre-release we want.
+              # Exclude any tag that exists as a release on posit-dev/positron
+              # (those are the stable ones) and take the newest dev build left.
+              STABLE_TAGS=$(gh api "repos/posit-dev/positron/releases?per_page=100" --jq '[.[].tag_name]')
               VERSION=$(gh api "repos/posit-dev/positron-builds/releases?per_page=100" \
-                --jq '[.[] | select(.prerelease == true)] | .[0].tag_name')
+                --jq '[.[] | select(.prerelease == true) | .tag_name]' \
+                | jq -r --argjson stable "$STABLE_TAGS" '(. - $stable) | .[0]')
               ;;
             latest-release)
               # Stable releases are flagged on posit-dev/positron; positron-builds
