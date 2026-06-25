@@ -72,21 +72,21 @@ runs:
         curl -L -o configure-datasources.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/configure-datasources.sh
 
         # Copy scripts into the container
-        docker cp install-workbench.sh test:/tmp/install-workbench.sh
-        docker cp positronDownload.sh test:/tmp/positronDownload.sh
-        docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
-        docker cp configure-datasources.sh test:/tmp/configure-datasources.sh
+        docker cp install-workbench.sh pwb:/tmp/install-workbench.sh
+        docker cp positronDownload.sh pwb:/tmp/positronDownload.sh
+        docker cp get-latest-wb-noble-url.sh pwb:/tmp/get-latest-wb-noble-url.sh
+        docker cp configure-datasources.sh pwb:/tmp/configure-datasources.sh
 
-        # Copy Workbench license into test container if it exists
+        # Copy Workbench license into pwb container if it exists
         if [ -f "${{ inputs.workbench-license-path }}" ]; then
-          docker cp "${{ inputs.workbench-license-path }}" test:/tmp/workbench.lic
+          docker cp "${{ inputs.workbench-license-path }}" pwb:/tmp/workbench.lic
         fi
 
         # Make scripts executable
-        docker exec test chmod +x /tmp/install-workbench.sh
-        docker exec test chmod +x /tmp/positronDownload.sh
-        docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
-        docker exec test chmod +x /tmp/configure-datasources.sh
+        docker exec pwb chmod +x /tmp/install-workbench.sh
+        docker exec pwb chmod +x /tmp/positronDownload.sh
+        docker exec pwb chmod +x /tmp/get-latest-wb-noble-url.sh
+        docker exec pwb chmod +x /tmp/configure-datasources.sh
 
     - name: Install Workbench in container
       shell: bash
@@ -105,17 +105,17 @@ runs:
           -e SNOWFLAKE_CLIENT_ID_="${SNOWFLAKE_CLIENT_ID}" \
           -e SNOWFLAKE_CLIENT_SECRET_="${SNOWFLAKE_CLIENT_SECRET}" \
           -e AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_="${AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET}" \
-          test /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }} $CREDENTIALS_FLAG"
+          pwb /bin/bash -c "/tmp/install-workbench.sh --${{ inputs.install-mode }} $CREDENTIALS_FLAG"
 
     - name: Install custom Positron build (if provided)
       if: inputs.custom-positron-tarball != ''
       shell: bash
       run: |
         # Copy the custom workbench tar.gz into container
-        docker cp "${{ inputs.custom-positron-tarball }}" test:/tmp/positron-custom.tar.gz
+        docker cp "${{ inputs.custom-positron-tarball }}" pwb:/tmp/positron-custom.tar.gz
 
         # Extract and replace the Positron installation
-        docker exec test /bin/bash -c "
+        docker exec pwb /bin/bash -c "
           cd /tmp &&
           tar -xzf positron-custom.tar.gz &&
           # Remove the default Positron installation

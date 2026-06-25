@@ -1,7 +1,7 @@
 services:
-  test:
+  pwb:
     image: ghcr.io/posit-dev/positron-ubuntu24-${ARCH_SUFFIX:-amd64}:${WB_IMAGE_TAG:-141}
-    container_name: test
+    container_name: pwb
     init: true
     ports:
       - "8080:8080"

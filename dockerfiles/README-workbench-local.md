@@ -28,5 +28,5 @@ Bring up Workbench + a chosen Positron build in one command.
 If `http://localhost:8787` shows Forbidden, clear the `vscode-tkn` cookie for `localhost` and refresh.
 
 ## Known limits
-- One stack at a time (`container_name: test`). Comparing two WB versions = `down` then bring up the other.
+- One stack at a time (`container_name: pwb`). Comparing two WB versions = `down` then bring up the other.
 - On Apple Silicon the Connect service runs emulated (amd64) and starts slowly.

@@ -12,13 +12,13 @@ WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh 
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
-# Scope to this compose project's services, not any container named "test".
-wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^test$'; }
+# Scope to this compose project's services, not a stray container of the same name.
+wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^pwb$'; }
 
 wb_installed() {
 	# install-workbench.sh may install Positron either into the "new" upgrade
 	# slot or directly at the positron-server root; accept either.
-	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
+	docker exec pwb bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
 wb_bootstrap_env() {
@@ -46,15 +46,15 @@ wb_fetch_scripts() {
 	fi
 	for s in "${WB_SCRIPTS[@]}"; do
 		if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
-			docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
+			docker cp "${src}/dockerfiles/wb-local/${s}" "pwb:/tmp/${s}" >/dev/null
 		else
 			curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
-			docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
+			docker cp "${tmpdir}/${s}" "pwb:/tmp/${s}" >/dev/null
 		fi
-		docker exec test sed -i 's/\r$//' "/tmp/${s}"
-		docker exec test chmod +x "/tmp/${s}"
+		docker exec pwb sed -i 's/\r$//' "/tmp/${s}"
+		docker exec pwb chmod +x "/tmp/${s}"
 	done
-	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
+	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" pwb:/tmp/workbench.lic >/dev/null || true
 }
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
@@ -162,10 +162,10 @@ cmd_install() {
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
-		test /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"}
+		pwb /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"}
 	# Record the exact Workbench package URL so status/report can show the
 	# .proN build (not present in the runtime version string).
-	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
+	docker exec -e WB_URL="${WB_URL}" pwb bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
 	# install-workbench.sh already prints Positron/Workbench versions + URL; just
 	# add the exact .deb build it installed. (Run `npm run wb -- status` for more.)
 	echo "Workbench build:     $(basename "$WB_URL")" >&2
@@ -231,14 +231,14 @@ cmd_up() {
 }
 
 cmd_stop() { wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
-cmd_down() { wb_compose down; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
+cmd_down() { wb_compose down --remove-orphans; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
-cmd_restart() { docker exec test bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
+cmd_restart() { docker exec pwb bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
 
 wb_versions() {
 	local wb pos
-	wb="$(docker exec test bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
-	pos="$(docker exec test bash -c '
+	wb="$(docker exec pwb bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
+	pos="$(docker exec pwb bash -c '
 		for d in /usr/lib/rstudio-server/bin/positron-server/new /usr/lib/rstudio-server/bin/positron-server; do
 			if [ -f "$d/product.json" ]; then
 				v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
@@ -253,7 +253,7 @@ wb_versions() {
 # runtime version, so report the exact Workbench package we installed (recorded
 # at install time). Empty if unknown (e.g. installed outside this tool).
 wb_source_build() {
-	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
+	docker exec pwb bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
 cmd_status() {
@@ -267,7 +267,7 @@ cmd_status() {
 	echo "  Access:    http://localhost:8787 (user1 / WB_PASSWORD)   Connect: http://localhost:3939"
 	# This image's init script has no 'status' verb, so check for the running
 	# rserver process directly.
-	docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
+	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
 }
 
 cmd_report() {
@@ -284,7 +284,7 @@ EOF
 
 cmd_logs() {
 	case "${1:-rserver}" in
-		rserver|workbench) docker exec test bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
+		rserver|workbench) docker exec pwb bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
 		connect)           docker logs -f connect ;;
 		*)                 docker logs -f "${1}" ;;
 	esac
