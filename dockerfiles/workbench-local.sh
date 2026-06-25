@@ -128,8 +128,11 @@ wb_pick_workbench() {
 	case "$WB_MENU_INDEX" in
 		1) WB_URL="$stable_url"; wb_validate_wb_url "$WB_URL" || return 1 ;;
 		2) WB_URL="$daily_url";  wb_validate_wb_url "$WB_URL" || return 1 ;;
-		3) while :; do
-			read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true
+		3) echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
+		   echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
+		   echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
+		   while :; do
+			read -r -p "Workbench .deb URL (blank to cancel): " WB_URL </dev/tty || true
 			[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
 			wb_validate_wb_url "$WB_URL" && break
 			echo "Try again." >&2
@@ -272,6 +275,37 @@ cmd_test() {
 	( cd "${REPO_ROOT}" && npx playwright test --project e2e-workbench ${grep_arg:+--grep "$grep_arg"} )
 }
 
+cmd_help() {
+	cat >&2 <<'EOF'
+workbench-local.sh -- run Positron + Posit Workbench together, locally, for QA.
+
+USAGE
+  npm run wb                 Bring the stack up. First run: pick versions + install.
+                             Already installed: (re)start the stack and show status.
+  npm run wb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
+  npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
+  npm run wb -- report       Paste-able environment block for bug reports.
+  npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
+  npm run wb -- test [grep]  Run the e2e-workbench Playwright suite against :8787.
+  npm run wb -- restart      Restart rstudio-server inside the container.
+  npm run wb -- stop         Pause the stack (containers stopped, volumes kept).
+  npm run wb -- down         Tear the stack down (removes containers).
+
+VERSION PICKERS
+  Positron:  Release / Daily channel, then choose a version.
+  Workbench: Release / Daily (current build each), or Custom .deb URL to pin a
+             specific build (e.g. an n-1/n-2 release for compatibility testing).
+
+ACCESS
+  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from dockerfiles/.env)
+  Connect    http://localhost:3939
+
+SETUP  (details: dockerfiles/README-workbench-local.md)
+  docker login ghcr.io   GITHUB_TOKEN set   workbench.lic + connect.lic in dockerfiles/
+  optional: fzf (arrow-key pickers; falls back to a numbered prompt)
+EOF
+}
+
 main() {
 	local sub="${1:-up}"; shift || true
 	case "$sub" in
@@ -284,8 +318,8 @@ main() {
 		restart)     cmd_restart "$@" ;;
 		stop)        cmd_stop ;;
 		down)        cmd_down ;;
-		-h|--help)   echo "Usage: workbench-local.sh [up|--reinstall|status|report|logs|test|restart|stop|down]" ;;
-		*) echo "Unknown subcommand: $sub" >&2; exit 1 ;;
+		-h|--help)   cmd_help ;;
+		*) echo "Unknown subcommand: $sub" >&2; echo "Run 'npm run wb -- --help' for usage." >&2; exit 1 ;;
 	esac
 }
 main "$@"

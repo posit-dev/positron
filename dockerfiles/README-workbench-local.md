@@ -23,7 +23,6 @@ Bring up Workbench + a chosen Positron build in one command.
 - `npm run wb -- report` -- paste-able environment block for bug reports
 - `npm run wb -- test @:workbench` -- run e2e against the live stack (the `e2e-workbench` Playwright project is already pinned to `@:workbench`, so passing an extra `@:tag` further-narrows within the workbench suite -- it is ANDed, not ORed)
 - `npm run wb -- stop` -- pause (volumes preserved); `npm run wb -- down` -- tear down
-- Or open `positron.workbench.code-workspace` and use the task buttons.
 
 ## First-login "Forbidden"
 If `http://localhost:8787` shows Forbidden, clear the `vscode-tkn` cookie for `localhost` and refresh.
