@@ -1,6 +1,6 @@
 ---
 name: author-vitest-tests
-description: Use when writing, generating, or adding Vitest tests for Positron source code in src/vs/. Load this skill when analyzing a branch or PR for test coverage gaps, when the user asks to write tests using createTestContainer(), or when testing React components with RTL.
+description: Use when writing or adding Vitest tests for Positron source in src/vs/, checking a branch/PR for coverage gaps, using createTestContainer(), or testing React components with RTL.
 ---
 
 # Positron Vitest Test Authoring

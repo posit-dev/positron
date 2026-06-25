@@ -1,5 +1,6 @@
 ---
 name: positron-abstract-svg
+disable-model-invocation: true
 description: >
   Create or update abstract SVG illustrations for the Positron IDE -- for use in
   documentation, walkthrough steps, onboarding images, and feature previews.
