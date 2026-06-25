@@ -357,15 +357,6 @@ cmd_logs() {
 	esac
 }
 
-cmd_test() {
-	local grep_arg="${1:-}"
-	# Build the arg list as an array so a multi-word grep pattern stays one arg.
-	# Seed with the base args so "${args[@]}" is never an empty expansion.
-	local args=(test --project e2e-workbench)
-	[ -n "$grep_arg" ] && args+=(--grep "$grep_arg")
-	( cd "${REPO_ROOT}" && npx playwright "${args[@]}" )
-}
-
 cmd_help() {
 	cat >&2 <<'EOF'
 workbench-local.sh -- run Positron + Posit Workbench together, locally, for QA.
@@ -377,7 +368,6 @@ USAGE
   npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
   npm run wb -- report       Paste-able environment block for bug reports.
   npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
-  npm run wb -- test [grep]  Run the e2e-workbench Playwright suite against :8787.
   npm run wb -- restart      Restart rstudio-server inside the container.
   npm run wb -- stop         Pause the stack (containers stopped, volumes kept).
   npm run wb -- down         Tear the stack down (removes containers).
@@ -406,7 +396,6 @@ main() {
 		status)      cmd_status "$@" ;;
 		report)      cmd_report "$@" ;;
 		logs)        cmd_logs "$@" ;;
-		test)        cmd_test "$@" ;;
 		restart)     cmd_restart "$@" ;;
 		stop)        cmd_stop ;;
 		down)        cmd_down ;;
