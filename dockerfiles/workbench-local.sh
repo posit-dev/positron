@@ -50,7 +50,7 @@ wb_schedule_ttl() {
 # Tell the user about the scheduled auto-stop (or stay quiet if disabled).
 wb_print_ttl() {
 	[ "${1:-0}" -gt 0 ] 2>/dev/null || return 0
-	echo "FYI: The stack will auto-stop in ${1} min"
+	echo "FYI: The stack auto-stops in ${1} min ('npm run wb' resets, '--no-ttl' disables)."
 }
 
 # Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
@@ -373,7 +373,7 @@ cmd_up() {
 }
 
 cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with: npm run wb"; }
-cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo "";echo "Stack torn down. Next 'npm run wb' will reinstall."; }
+cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
 cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo ""; echo "rstudio-server restarted."; }
 
