@@ -124,11 +124,22 @@ wb_pick_workbench() {
 	wb_menu "Workbench build" \
 		"Release build ($(wb_deb_version "$stable_url" || echo unavailable))" \
 		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
+		"Release by version (enter YYYY.MM.PATCH)" \
 		"Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
 		1) WB_URL="$stable_url"; wb_validate_wb_url "$WB_URL" || return 1 ;;
 		2) WB_URL="$daily_url";  wb_validate_wb_url "$WB_URL" || return 1 ;;
-		3) echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
+		3) local ver
+		   while :; do
+			read -r -p "Workbench version (YYYY.MM.PATCH, e.g. 2026.05.1; blank to cancel): " ver </dev/tty || true
+			[ -n "${ver:-}" ] || { echo "Cancelled." >&2; return 1; }
+			WB_URL="$(wb_build_free_url "$ver" "${WB_ARCH}")"
+			[ -n "${WB_URL:-}" ] || { echo "Not a valid version (expected YYYY.MM.PATCH like 2026.05.1)." >&2; continue; }
+			if wb_validate_wb_url "$WB_URL"; then break; fi
+			echo "Build-free URL not available for $ver (Posit keeps it only for the current release)." >&2
+			echo "For an older release, use 'Custom .deb URL' with a full S3 build from https://dailies.rstudio.com/rstudio/" >&2
+		   done ;;
+		4) echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
 		   echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
 		   echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
 		   while :; do
@@ -293,8 +304,8 @@ USAGE
 
 VERSION PICKERS
   Positron:  Release / Daily channel, then choose a version.
-  Workbench: Release / Daily (current build each), or Custom .deb URL to pin a
-             specific build (e.g. an n-1/n-2 release for compatibility testing).
+  Workbench: Release / Daily (current build each), Release by version (type
+             YYYY.MM.PATCH), or Custom .deb URL for a specific n-1/n-2 build.
 
 ACCESS
   Workbench  http://localhost:8787   (user1 / WB_PASSWORD from dockerfiles/.env)

@@ -64,4 +64,14 @@ check "deb arch arm64" "arm64" "$(wb_deb_arch "https://x/rstudio-workbench-2026.
 check "deb arch amd64" "amd64" "$(wb_deb_arch "https://x/rstudio-workbench-2026.07.0-daily-48.pro2-amd64.deb")"
 check "deb arch unknown" "" "$(wb_deb_arch "https://x/something.deb")"
 
+# build-free URL construction
+check "build-free url arm64" \
+	"https://download2.rstudio.org/server/jammy/arm64/rstudio-workbench-2026.05.1-arm64.deb" \
+	"$(wb_build_free_url "2026.05.1" "arm64")"
+check "build-free url amd64" \
+	"https://download2.rstudio.org/server/jammy/amd64/rstudio-workbench-2026.05.1-amd64.deb" \
+	"$(wb_build_free_url "2026.05.1" "amd64")"
+check "build-free rejects no-patch" "" "$(wb_build_free_url "2026.05" "arm64")"
+check "build-free rejects junk"     "" "$(wb_build_free_url "latest" "arm64")"
+
 exit $fail
