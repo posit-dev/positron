@@ -19,7 +19,7 @@ suite('extension / inline completion provider', () => {
 	let provider: vscode.InlineCompletionItemProvider;
 	let sendFeedback: sinon.SinonStub;
 
-	setup(() => {
+	setup(async () => {
 		// Isolate activate() from global state: capture the registered provider and
 		// neutralize the other registrations so repeated activations don't conflict.
 		sinon.stub(vscode.commands, 'registerCommand').returns(noopDisposable);
@@ -41,7 +41,7 @@ suite('extension / inline completion provider', () => {
 			asAbsolutePath: (p: string) => p,
 		} as unknown as vscode.ExtensionContext;
 
-		activate(context);
+		await activate(context);
 		assert.ok(register.calledOnce, 'expected an inline completion provider to be registered');
 	});
 

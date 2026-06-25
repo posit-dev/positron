@@ -15,7 +15,7 @@ import { debounceDelayMs, generateSuggestion } from './suggestions.js';
 
 export const log = vscode.window.createOutputChannel('Next Edit Suggestions', { log: true });
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	context.subscriptions.push(log);
 
 	log.info('Next Edit Suggestions extension is now activating...');
@@ -158,14 +158,13 @@ export function activate(context: vscode.ExtensionContext): void {
 		},
 	};
 
-	void enabledSettingMigration.then(() => {
-		context.subscriptions.push(
-			vscode.languages.registerInlineCompletionItemProvider('*', providerImpl as vscode.InlineCompletionItemProvider, {
-				displayName: 'Next Edit Suggestions',
-				debounceDelayMs,
-			}),
-		);
-	});
+	await enabledSettingMigration;
+	context.subscriptions.push(
+		vscode.languages.registerInlineCompletionItemProvider('*', providerImpl as vscode.InlineCompletionItemProvider, {
+			displayName: 'Next Edit Suggestions',
+			debounceDelayMs,
+		}),
+	);
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
