@@ -256,14 +256,6 @@ export class PipPackageManager implements IPackageManager {
     }
 
     /**
-     * Format package install requests into pip package specifiers.
-     * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0"
-     */
-    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
-        return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
-    }
-
-    /**
      * Get proxy flags if a proxy is configured.
      */
     private _getProxyFlags(): string[] {

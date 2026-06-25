@@ -167,4 +167,16 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.contain('cowsay');
         expect(writtenContent).to.not.contain('cowsay==');
     });
+
+    test('installPackages propagates a resolver failure (no silent success)', async () => {
+        terminalService.sendCommand.rejects(new Error('Command failed with errors'));
+
+        let threw = false;
+        try {
+            await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+        } catch {
+            threw = true;
+        }
+        expect(threw).to.equal(true);
+    });
 });
