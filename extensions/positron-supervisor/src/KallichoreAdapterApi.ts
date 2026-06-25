@@ -907,7 +907,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		const state: KallichoreServerState = {
 			// Save the constructed basePath for API usage
-			// @ts-ignore
 			base_path: this._api.basePath,
 			port: serverPort,
 			server_path: shellPath,
