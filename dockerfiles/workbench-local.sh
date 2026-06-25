@@ -15,7 +15,9 @@ wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 wb_stack_up() { docker ps --format '{{.Names}}' | grep -q '^test$'; }
 
 wb_installed() {
-	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json' 2>/dev/null
+	# install-workbench.sh may install Positron either into the "new" upgrade
+	# slot or directly at the positron-server root; accept either.
+	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
 wb_bootstrap_env() {
@@ -110,6 +112,9 @@ cmd_install() {
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
 		test /bin/bash -c "/tmp/install-workbench.sh ${creds}"
+	# Record the exact Workbench package URL so status/report can show the
+	# .proN build (not present in the runtime version string).
+	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
 	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
 		echo "Overlaying local source build..."
 		cmd_overlay
@@ -193,13 +198,21 @@ wb_versions() {
 	local wb pos
 	wb="$(docker exec test bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
 	pos="$(docker exec test bash -c '
-		d=/usr/lib/rstudio-server/bin/positron-server/new
-		if [ -f "$d/product.json" ]; then
-			v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
-			b=$(grep positronBuildNumber "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
-			[ -n "$v" ] && [ -n "$b" ] && echo "${v}-${b}"
-		fi' 2>/dev/null || true)"
+		for d in /usr/lib/rstudio-server/bin/positron-server/new /usr/lib/rstudio-server/bin/positron-server; do
+			if [ -f "$d/product.json" ]; then
+				v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
+				b=$(grep positronBuildNumber "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
+				[ -n "$v" ] && [ -n "$b" ] && { echo "${v}-${b}"; break; }
+			fi
+		done' 2>/dev/null || true)"
 	printf '%s\t%s\n' "${wb:-not installed}" "${pos:-not installed}"
+}
+
+# The .proN build suffix lives only in the installed .deb filename, not in the
+# runtime version, so report the exact Workbench package we installed (recorded
+# at install time). Empty if unknown (e.g. installed outside this tool).
+wb_source_build() {
+	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
 cmd_status() {
@@ -208,9 +221,12 @@ cmd_status() {
 	docker ps --format '  {{.Names}}: {{.Status}}' | grep -E 'test|postgres|connect' || true
 	local v; v="$(wb_versions)"
 	echo "  Workbench: $(echo "$v" | cut -f1)"
+	local src; src="$(wb_source_build)"; [ -n "$src" ] && echo "  WB build:  $src"
 	echo "  Positron:  $(echo "$v" | cut -f2)"
 	echo "  Access:    http://localhost:8787 (user1 / WB_PASSWORD)   Connect: http://localhost:3939"
-	docker exec test bash -c 'rstudio-server status >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
+	# This image's init script has no 'status' verb, so check for the running
+	# rserver process directly.
+	docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1' || echo "  NOTE: rstudio-server not running -- try: npm run wb restart"
 }
 
 cmd_report() {
@@ -219,6 +235,7 @@ cmd_report() {
 Environment:
 - Positron: $(echo "$v" | cut -f2)  (under Workbench)
 - Workbench: $(echo "$v" | cut -f1)
+- WB build: $(wb_source_build || true)
 - Arch: POSITRON_ARCH=${POSITRON_ARCH}, WB_ARCH=${WB_ARCH}
 - Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'test|postgres|connect' | paste -sd', ' - || echo 'none')
 EOF
