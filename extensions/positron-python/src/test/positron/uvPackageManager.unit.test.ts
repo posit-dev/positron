@@ -42,7 +42,7 @@ suite('UvPackageManager Tests', () => {
     let fileSystem: IFileSystem;
     let messageEmitter: MessageEmitter;
     let session: PackageSession;
-    let uvSandbox: sinon.SinonStub;
+    // let uvSandbox: sinon.SinonStub;
 
     setup(() => {
         // Capture requirements written to the temp file.
@@ -272,13 +272,16 @@ version = "0.1.0"`;
                 ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
 
             // uv available.
-            uvSandbox = sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+            sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
 
             processService = { exec: sinon.stub() };
-            // uv pip freeze
+            // uv pip freeze -- includes a plain PyPI package so bare-naming is observable
             processService.exec
                 .withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze']))
-                .resolves({ stdout: 'werkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n', stderr: '' });
+                .resolves({
+                    stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
+                    stderr: '',
+                });
             const processFactory = { create: sinon.stub().resolves(processService) };
 
             terminalService = {
@@ -299,28 +302,45 @@ version = "0.1.0"`;
             vscode.workspace.getConfiguration = originalGetConfiguration;
         });
 
-        test('updatePackages installs a pinned requirements file', async () => {
+        test('updatePackages writes a bare-names requirements file with the target pinned', async () => {
             await uvPackageManager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
 
-            expect((fileSystem as any).getWritten()).to.contain('werkzeug==3.1.8');
-            expect((fileSystem as any).getWritten()).to.contain('positron-update-demo @ file:///tmp/demo');
+            const written = (fileSystem as any).getWritten();
+            expect(written).to.contain('werkzeug==3.1.8');
+            expect(written).to.contain('flask');
+            expect(written).to.not.contain('flask==2.2.0');
+            expect(written).to.contain('positron-update-demo @ file:///tmp/demo');
+
             const [uvBin, args] = terminalService.sendCommand.firstCall.args;
             expect(uvBin).to.equal('uv');
             expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
             expect(args).to.not.include('--upgrade');
         });
 
-        test('updateAllPackages pins outdated packages to latest', async () => {
+        test('updatePackages throws when a target has no version', async () => {
+            let caughtError: unknown;
+            try {
+                await uvPackageManager.updatePackages([{ name: 'werkzeug' }]);
+            } catch (e) {
+                caughtError = e;
+            }
+            expect(caughtError).to.be.instanceOf(Error);
+            expect((caughtError as Error).message).to.contain('werkzeug');
+            expect(terminalService.sendCommand.called).to.equal(false);
+        });
+
+        test('updateAllPackages writes a bare file and runs pip install --upgrade -r', async () => {
             processService.exec
                 .withArgs('uv', sinon.match.array.startsWith(['pip', 'list', '--outdated']))
                 .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
 
             await uvPackageManager.updateAllPackages();
 
-            expect((fileSystem as any).getWritten()).to.contain('werkzeug==3.1.8');
+            const written = (fileSystem as any).getWritten();
+            expect(written).to.contain('werkzeug');
+            expect(written).to.not.contain('werkzeug==');
             const [, args] = terminalService.sendCommand.firstCall.args;
-            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt']);
-            expect(args).to.not.include('--upgrade');
+            expect(args).to.include.members(['pip', 'install', '--upgrade', '-r', '/tmp/reqs.txt']);
         });
     });
 });

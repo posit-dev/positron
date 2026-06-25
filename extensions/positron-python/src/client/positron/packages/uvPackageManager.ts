@@ -124,11 +124,15 @@ export class UvPackageManager implements IPackageManager {
             const args = ['add', '--upgrade', '--active', '--python', this._pythonPath, ...packageSpecs];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: re-resolve against the full installed set by
-            // pinning everything and moving only the targets, so an inconsistent
-            // update fails atomically instead of breaking the environment.
+            const missing = packages.find((pkg) => !pkg.version);
+            if (missing) {
+                throw new Error(`A version is required to update '${missing.name}'.`);
+            }
+            // Re-resolve against the full installed set: name every package (bare),
+            // pin only the target, so an inconsistent update fails atomically.
+            const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
             const freezeLines = await this._getInstalledFreeze(token);
-            const content = buildRequirementsFile(freezeLines, packages);
+            const content = buildRequirementsFile(freezeLines, targets);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
                 const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
@@ -153,8 +157,6 @@ export class UvPackageManager implements IPackageManager {
             const args = ['sync', '--upgrade', '--active', '--python', this._pythonPath];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: all-or-nothing re-resolve. Pin every installed
-            // package and bump the outdated ones to latest in a single resolve.
             const outdatedPackages = await this._getOutdatedPackages(token);
 
             if (outdatedPackages.length === 0) {
@@ -162,12 +164,13 @@ export class UvPackageManager implements IPackageManager {
                 return;
             }
 
+            // Upgrade every installed package to its latest mutually-compatible
+            // version: name them all (bare) and let uv resolve.
             const freezeLines = await this._getInstalledFreeze(token);
-            const targets = outdatedPackages.map((pkg) => ({ name: pkg.name, version: pkg.latest_version }));
-            const content = buildRequirementsFile(freezeLines, targets);
+            const content = buildRequirementsFile(freezeLines, []);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
-                const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                const args = ['pip', 'install', '--upgrade', '-r', tempFile.filePath, '--python', this._pythonPath];
                 await this._executeUvInTerminal(args, token);
             } finally {
                 tempFile.dispose();
