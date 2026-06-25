@@ -171,7 +171,9 @@ cmd_install() {
 	# Record the exact Workbench package URL so status/report can show the
 	# .proN build (not present in the runtime version string).
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
-	cmd_status
+	# install-workbench.sh already prints Positron/Workbench versions + URL; just
+	# add the exact .deb build it installed. (Run `npm run wb -- status` for more.)
+	echo "Workbench build:     $(basename "$WB_URL")" >&2
 }
 
 cmd_up() {
