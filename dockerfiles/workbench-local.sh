@@ -165,7 +165,7 @@ wb_versions() {
 		if [ -f "$d/product.json" ]; then
 			v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
 			b=$(grep positronBuildNumber "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
-			echo "${v}-${b}"
+			[ -n "$v" ] && [ -n "$b" ] && echo "${v}-${b}"
 		fi' 2>/dev/null || true)"
 	printf '%s\t%s\n' "${wb:-not installed}" "${pos:-not installed}"
 }
@@ -188,7 +188,7 @@ Environment:
 - Positron: $(echo "$v" | cut -f2)  (under Workbench)
 - Workbench: $(echo "$v" | cut -f1)
 - Arch: POSITRON_ARCH=${POSITRON_ARCH}, WB_ARCH=${WB_ARCH}
-- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'test|postgres|connect' | paste -sd', ' -)
+- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'test|postgres|connect' | paste -sd', ' - || echo 'none')
 EOF
 }
 
