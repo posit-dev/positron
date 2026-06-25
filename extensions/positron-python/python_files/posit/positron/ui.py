@@ -8,6 +8,7 @@ import importlib.metadata
 import inspect
 import logging
 import os
+import re
 import sys
 import types
 import webbrowser
@@ -248,16 +249,29 @@ def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
     return None
 
 
+def _primary_spdx(expr: str) -> str:
+    """The primary license id from a (possibly compound) SPDX expression.
+
+    e.g. "BSD-3-Clause AND 0BSD AND MIT" -> "BSD-3-Clause",
+    "(MIT OR Apache-2.0)" -> "MIT", "Apache-2.0 WITH LLVM-exception" -> "Apache-2.0".
+    """
+    first = re.split(r"\s+(?:AND|OR|WITH)\s+", expr.strip(), maxsplit=1)[0]
+    return first.strip().strip("()").strip()
+
+
 def _best_license(metadata: Any) -> Optional[str]:
     """Best-effort short license string.
 
-    Prefers the SPDX `License-Expression`, then a one-line legacy `License`
-    field, then an OSI license `Classifier`. Skips the legacy `License` field
-    when it holds the full multi-line license text rather than a short name.
+    Prefers the primary id of the SPDX `License-Expression`, then a one-line
+    legacy `License` field, then an OSI license `Classifier`. Skips the legacy
+    `License` field when it holds the full multi-line license text rather than a
+    short name.
     """
     expr = metadata.get("License-Expression")
     if expr and expr.strip():
-        return expr.strip()
+        primary = _primary_spdx(expr)
+        if primary:
+            return primary
     legacy = metadata.get("License")
     if legacy and legacy.strip() and legacy.strip() != "UNKNOWN" and "\n" not in legacy:
         return legacy.strip()
