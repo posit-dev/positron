@@ -89,25 +89,28 @@ wb_bootstrap_env() {
 }
 
 wb_fetch_scripts() {
-	local src="${QA_CONTENT_DIR:-}" tmpdir
-	# One scratch dir for the whole function, cleaned up on return (even if a
-	# curl/docker cp fails under set -e) instead of leaking per-iteration tmpdirs.
-	tmpdir="$(mktemp -d)"
-	trap 'rm -rf "$tmpdir"' RETURN
+	local src="${QA_CONTENT_DIR:-}"
 	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
 		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
 	fi
-	for s in "${WB_SCRIPTS[@]}"; do
-		if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
-			docker cp "${src}/dockerfiles/wb-local/${s}" "pwb:/tmp/${s}" >/dev/null
-		else
-			curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
-			docker cp "${tmpdir}/${s}" "pwb:/tmp/${s}" >/dev/null
-		fi
-		docker exec pwb sed -i 's/\r$//' "/tmp/${s}"
-		docker exec pwb chmod +x "/tmp/${s}"
-	done
-	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" pwb:/tmp/workbench.lic >/dev/null || true
+	# Run in a subshell with one scratch dir cleaned up on EXIT (even if a
+	# curl/docker cp fails under set -e). A subshell EXIT trap stays contained;
+	# a function RETURN trap would leak and re-fire on later function returns.
+	(
+		tmpdir="$(mktemp -d)"
+		trap 'rm -rf "$tmpdir"' EXIT
+		for s in "${WB_SCRIPTS[@]}"; do
+			if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
+				docker cp "${src}/dockerfiles/wb-local/${s}" "pwb:/tmp/${s}" >/dev/null
+			else
+				curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
+				docker cp "${tmpdir}/${s}" "pwb:/tmp/${s}" >/dev/null
+			fi
+			docker exec pwb sed -i 's/\r$//' "/tmp/${s}"
+			docker exec pwb chmod +x "/tmp/${s}"
+		done
+		[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" pwb:/tmp/workbench.lic >/dev/null || true
+	)
 }
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
@@ -205,23 +208,26 @@ cmd_install() {
 	wb_pick_positron
 	echo "Installing Workbench from: ${WB_URL}"
 	echo "Positron: ${POSITRON_TAG:-LATEST}"
-	# Allocate a TTY only when stdout is one, so non-interactive/scripted runs
-	# don't fail with "the input device is not a TTY". Pass creds as a real arg
-	# (not interpolated into a bash -c string) so it can't be word-split/injected.
-	local ti="-i"; [ -t 1 ] && ti="-it"
-	docker exec "$ti" \
+	# The .proN build lives only in the .deb filename, not the runtime version
+	# the installer prints. Stream the installer output through awk to slot our
+	# exact build line right after its "Workbench version:" line. Pass creds as a
+	# real arg (not interpolated into bash -c) so it can't be word-split/injected.
+	# DOCKER_CLI_HINTS=false drops Docker's "What's next / Try Docker Debug" hint;
+	# -i (no -t) because piping the output precludes a usable container TTY.
+	local wb_build; wb_build="$(basename "$WB_URL")"
+	DOCKER_CLI_HINTS=false docker exec -i \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
-		pwb /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"}
-	# Record the exact Workbench package URL so status/report can show the
-	# .proN build (not present in the runtime version string).
+		pwb /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"} 2>&1 \
+		| awk -v build="$wb_build" '
+			{ print }
+			/[Ww]orkbench version:/ { print "Workbench build:     " build }
+		'
+	# Record the exact Workbench package URL so status/report can show the build.
 	docker exec -e WB_URL="${WB_URL}" pwb bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
-	# install-workbench.sh already prints Positron/Workbench versions + URL; just
-	# add the exact .deb build it installed. (Run `npm run wb -- status` for more.)
-	echo "Workbench build:     $(basename "$WB_URL")" >&2
 }
 
 cmd_up() {
