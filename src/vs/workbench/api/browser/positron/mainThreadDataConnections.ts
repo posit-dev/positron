@@ -15,7 +15,7 @@ import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContex
  * IDataConnectionParameter discriminated union, picking up only the fields each variant carries.
  */
 function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectionParameter {
-	const base = { id: dto.id, label: dto.label, required: dto.required };
+	const base = { id: dto.id, label: dto.label, description: dto.description, required: dto.required };
 	switch (dto.type) {
 		case 'boolean':
 			return { ...base, type: 'boolean', defaultValue: dto.defaultValue as boolean | undefined };

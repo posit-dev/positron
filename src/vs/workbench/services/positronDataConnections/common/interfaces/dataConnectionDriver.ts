@@ -53,6 +53,7 @@ export interface IDataConnectionProfile {
 export interface IDataConnectionParameterBase {
 	id: string;
 	label: string;
+	description?: string;
 	required?: boolean;
 }
 

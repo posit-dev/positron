@@ -1854,6 +1854,13 @@ declare module 'positron' {
 		label: string;
 
 		/**
+		 * An optional, longer help text shown beneath the field to explain the parameter's purpose or
+		 * its behavior when left blank (e.g. "Defaults to your operating system account if empty").
+		 * Distinct from `placeholder`, which shows an example of the expected value.
+		 */
+		description?: string;
+
+		/**
 		 * Whether this parameter is required.
 		 */
 		required?: boolean;
@@ -1913,7 +1920,7 @@ declare module 'positron' {
 	/**
 	 * A configuration mechanism for a data connection driver. A driver exposes one or more
 	 * mechanisms, each describing a distinct way to configure a connection (for example, a
-	 * PostgreSQL driver may offer separate mechanisms for username/password and certificate-based
+	 * PostgreSQL driver may offer separate mechanisms for user/password and certificate-based
 	 * authentication). Each mechanism carries its own set of parameters.
 	 */
 	export interface DataConnectionMechanism {

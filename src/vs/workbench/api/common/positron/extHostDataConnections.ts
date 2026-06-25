@@ -302,6 +302,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		const dto: IDataConnectionParameterDTO = {
 			id: p.id,
 			label: p.label,
+			description: p.description,
 			required: p.required,
 			type: p.type,
 		};

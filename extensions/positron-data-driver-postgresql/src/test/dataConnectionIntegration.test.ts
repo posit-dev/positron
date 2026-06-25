@@ -212,15 +212,28 @@ suite('PostgreSQL Data Connection Integration', () => {
 			assert.ok(sslParam);
 			assert.strictEqual(sslParam.type, 'boolean');
 
-			// The peer mechanism is offered only on Unix (it uses a local socket); Windows has no
-			// equivalent.
-			const peerMechanism = pg.mechanisms.find(m => m.id === 'peer');
+			// The local-server mechanism is offered only on Unix (it uses a local socket); Windows has
+			// no equivalent.
+			const localServerMechanism = pg.mechanisms.find(m => m.id === 'localServer');
 			if (process.platform === 'win32') {
-				assert.strictEqual(peerMechanism, undefined);
+				assert.strictEqual(localServerMechanism, undefined);
 			} else {
-				assert.ok(peerMechanism);
-				assert.deepStrictEqual(peerMechanism.parameters.map(p => p.id), ['database', 'user', 'socketDirectory']);
+				assert.ok(localServerMechanism);
+				assert.deepStrictEqual(localServerMechanism.parameters.map(p => p.id), ['database', 'user', 'socketDirectory']);
 			}
+
+			// The connection-string mechanism takes a single secret parameter and is offered on all
+			// platforms.
+			const connectionStringMechanism = pg.mechanisms.find(m => m.id === 'connectionString');
+			assert.ok(connectionStringMechanism);
+			assert.deepStrictEqual(connectionStringMechanism.parameters.map(p => p.id), ['connectionString']);
+			const csParam = connectionStringMechanism.parameters[0];
+			assert.ok(csParam.type === 'string' && csParam.secret === true);
+
+			// The client-certificate mechanism is offered on all platforms (it runs over TCP/TLS).
+			const certMechanism = pg.mechanisms.find(m => m.id === 'clientCert');
+			assert.ok(certMechanism);
+			assert.deepStrictEqual(certMechanism.parameters.map(p => p.id), ['host', 'port', 'database', 'user', 'sslrootcert', 'sslcert', 'sslkey']);
 		});
 	});
 

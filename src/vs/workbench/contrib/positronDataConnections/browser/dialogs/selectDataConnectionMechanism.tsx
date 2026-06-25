@@ -54,18 +54,24 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 		renderer.dispose();
 	}, [renderer]);
 
-	// Next handler.
-	const nextHandler = useCallback(() => {
-		// Get the selected mechanism. This can't fail since the selection is always one of the
-		// driver's mechanisms.
-		const mechanism = driver.metadata.mechanisms.find(_ => _.id === selectedMechanismId);
+	// Resolves the given mechanism id and advances to the next step. Takes the id explicitly (rather
+	// than reading selectedMechanismId) so callers like double-click can advance in the same tick they
+	// select, without waiting for the selection state update to flush.
+	const proceedWithMechanism = useCallback((mechanismId: string) => {
+		// Get the mechanism. This can't fail since the id is always one of the driver's mechanisms.
+		const mechanism = driver.metadata.mechanisms.find(_ => _.id === mechanismId);
 		if (!mechanism) {
 			return;
 		}
 
 		// Proceed to the next step with the selected mechanism.
 		onNext(mechanism);
-	}, [driver.metadata.mechanisms, onNext, selectedMechanismId]);
+	}, [driver.metadata.mechanisms, onNext]);
+
+	// Next handler.
+	const nextHandler = useCallback(() => {
+		proceedWithMechanism(selectedMechanismId);
+	}, [proceedWithMechanism, selectedMechanismId]);
 
 	// Render.
 	return (
@@ -89,6 +95,11 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 										{ 'selected': selectedMechanismId === mechanism.id }
 									)}
 									htmlFor={mechanismCardId}
+									onDoubleClick={() => {
+										// Double-click selects the mechanism and advances, mirroring Next.
+										setSelectedMechanismId(mechanism.id);
+										proceedWithMechanism(mechanism.id);
+									}}
 								>
 									<input
 										checked={selectedMechanismId === mechanism.id}
@@ -120,7 +131,8 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 			renderer={props.renderer}
 			title={localize(
 				'positron.selectDataConnectionMechanism.title',
-				"Add Database"
+				"Add Data Connection \u00B7 {0}",
+				driver.metadata.name
 			)}
 			titleBarSize='large'
 			width={492}

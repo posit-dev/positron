@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 // The focus command for the Data Connections view (gated behind `databases.enabled`).
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
-// The "Add Database" / "Configure Database" dialog and its surrounding modal.
+// The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
 const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
@@ -65,7 +65,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Selects a provider in the "Add Database" dialog and advances to the configure step.
+	 * Selects a provider in the "Add Data Connection" dialog and advances to the configure step.
 	 * @param providerName The driver name shown on the provider card, e.g. 'PostgreSQL'.
 	 */
 	async selectProvider(providerName: string): Promise<void> {
