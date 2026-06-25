@@ -32,6 +32,7 @@ wb_bootstrap_env() {
 
 wb_fetch_scripts() {
 	local src="${QA_CONTENT_DIR:-}"
+	local tmpdir
 	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
 		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
 	fi
@@ -39,8 +40,10 @@ wb_fetch_scripts() {
 		if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
 			docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
 		else
-			curl -fsSL "${WB_URL_BASE}/${s}" -o "/tmp/${s}"
-			docker cp "/tmp/${s}" "test:/tmp/${s}" >/dev/null
+			tmpdir="$(mktemp -d)"
+			curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
+			docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
+			rm -rf "${tmpdir}"
 		fi
 		docker exec test sed -i 's/\r$//' "/tmp/${s}"
 		docker exec test chmod +x "/tmp/${s}"
