@@ -52,4 +52,11 @@ check "deb version with pro" "2026.05.1-225.pro10" \
 	"$(wb_deb_version "https://download2.rstudio.org/server/noble/arm64/rstudio-workbench-2026.05.1-225.pro10-arm64.deb")"
 check "deb version empty url" "" "$(wb_deb_version "")"
 
+# deb URL format validation
+wb_is_deb_url "https://example.com/x.deb"     && check "deb url valid https"  "0" "0" || check "deb url valid https"  "0" "1"
+wb_is_deb_url "http://example.com/x.deb"      && check "deb url valid http"   "0" "0" || check "deb url valid http"   "0" "1"
+wb_is_deb_url "https://example.com/x.tar.gz"  && check "deb url not .deb"     "1" "0" || check "deb url not .deb"     "1" "1"
+wb_is_deb_url "ftp://example.com/x.deb"       && check "deb url bad scheme"   "1" "0" || check "deb url bad scheme"   "1" "1"
+wb_is_deb_url ""                              && check "deb url empty"        "1" "0" || check "deb url empty"        "1" "1"
+
 exit $fail

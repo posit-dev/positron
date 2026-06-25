@@ -99,6 +99,9 @@ wb_menu() {
 # Workbench has no listable version history (Posit publishes only the current
 # stable and current daily -- same as Positron's workbench-nightly CI), so each
 # channel resolves to a single current build; Custom URL pins a specific .deb.
+# True if the URL responds successfully to a HEAD request (follows redirects).
+wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
+
 wb_pick_workbench() {
 	echo "Resolving Workbench versions..." >&2
 	local stable_url daily_url
@@ -111,9 +114,17 @@ wb_pick_workbench() {
 		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
 		"Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$stable_url" ;;
-		2) WB_URL="$daily_url" ;;
-		3) read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true ;;
+		1) WB_URL="$stable_url"
+		   wb_url_reachable "$WB_URL" || { echo "Resolved Release URL is not reachable: ${WB_URL:-<empty>}" >&2; return 1; } ;;
+		2) WB_URL="$daily_url"
+		   wb_url_reachable "$WB_URL" || { echo "Resolved Daily URL is not reachable: ${WB_URL:-<empty>}" >&2; return 1; } ;;
+		3) while :; do
+			read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true
+			[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
+			wb_is_deb_url "$WB_URL" || { echo "Not a valid .deb URL (expected https://....deb). Try again." >&2; continue; }
+			wb_url_reachable "$WB_URL" || { echo "URL not reachable (HTTP check failed): $WB_URL. Try again." >&2; continue; }
+			break
+		   done ;;
 	esac
 	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }
 	export WB_URL

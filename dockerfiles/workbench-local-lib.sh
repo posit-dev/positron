@@ -23,6 +23,12 @@ wb_deb_version() {
 	printf '%s' "$base"
 }
 
+# True if the string looks like a Workbench .deb download URL.
+wb_is_deb_url() {
+	local url="${1:-}"
+	[[ "$url" =~ ^https?://.+\.deb$ ]]
+}
+
 _wb_fetch_downloads_json() { curl -sL "https://posit.co/wp-content/uploads/downloads.json"; }
 _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/latest/index.json"; }
 # posit-dev/positron = definitive Positron release list (prerelease=false).
