@@ -49,11 +49,14 @@ export function extractRequirementName(line: string): string | undefined {
  */
 export function buildRequirementsFile(
     freezeLines: string[],
-    targets: Array<{ name: string; version: string }>,
+    targets: Array<{ name: string; version?: string }>,
 ): string {
     const targetSpecByNormName = new Map<string, string>();
     for (const target of targets) {
-        targetSpecByNormName.set(normalizePackageName(target.name), `${target.name}==${target.version}`);
+        targetSpecByNormName.set(
+            normalizePackageName(target.name),
+            target.version ? `${target.name}==${target.version}` : target.name,
+        );
     }
 
     const out: string[] = [];

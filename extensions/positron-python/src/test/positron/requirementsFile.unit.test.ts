@@ -94,5 +94,15 @@ suite('requirementsFile Tests', () => {
             const result = buildRequirementsFile(['foo @ file:///x'], [{ name: 'foo', version: '2.0' }]);
             expect(result).to.equal('foo==2.0\n');
         });
+
+        test('appends a versionless target as a bare name', () => {
+            const result = buildRequirementsFile(['flask==2.2.0'], [{ name: 'requests' }]);
+            expect(result).to.equal(['flask', 'requests'].join('\n') + '\n');
+        });
+
+        test('replaces a matching line with a bare name when the target has no version', () => {
+            const result = buildRequirementsFile(['requests==2.28.0'], [{ name: 'requests' }]);
+            expect(result).to.equal('requests\n');
+        });
     });
 });
