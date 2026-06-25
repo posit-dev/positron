@@ -516,7 +516,10 @@ def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
             "Apache Software License",
         ),
         # A compound SPDX expression is reduced to its primary (first) license.
-        ({"License-Expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"}, "BSD-3-Clause"),
+        (
+            {"License-Expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"},
+            "BSD-3-Clause",
+        ),
         ({"License-Expression": "MIT OR Apache-2.0"}, "MIT"),
         ({"License-Expression": "Apache-2.0 WITH LLVM-exception"}, "Apache-2.0"),
         ({"License-Expression": "(MIT OR Apache-2.0)"}, "MIT"),
