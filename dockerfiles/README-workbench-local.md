@@ -9,6 +9,7 @@ Bring up Workbench + a chosen Positron build in one command.
 - Docker Desktop: 8+ CPU, 16 GB RAM
 - License files: place `workbench.lic` and `connect.lic` in `dockerfiles/`
 - `.env`: auto-created from `.env.example` on first run; you'll be prompted for `WB_PASSWORD` if unset
+- Optional: `fzf` for arrow-key version pickers (falls back to a numbered prompt without it)
 
 ## Usage
 - `npm run wb` -- up + pick Positron (last 5 releases or local source) + pick Workbench (stable/daily/custom)

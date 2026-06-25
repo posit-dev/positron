@@ -39,4 +39,9 @@ check "daily arm64" \
 check "releases newest tag" "2026.06.1-6" "$(wb_list_positron_releases 5 | head -1 | cut -f1)"
 check "releases count capped" "2" "$(wb_list_positron_releases 2 | wc -l | tr -d ' ')"
 
+# deb version extraction (incl .proN), and empty-in/empty-out
+check "deb version with pro" "2026.05.1-225.pro10" \
+	"$(wb_deb_version "https://download2.rstudio.org/server/noble/arm64/rstudio-workbench-2026.05.1-225.pro10-arm64.deb")"
+check "deb version empty url" "" "$(wb_deb_version "")"
+
 exit $fail

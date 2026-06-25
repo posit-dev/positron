@@ -57,39 +57,57 @@ wb_fetch_scripts() {
 
 # Sets POSITRON_TAG (empty => latest/local). Sets WB_SOURCE_LOCAL=1 for source build.
 wb_pick_positron() {
-	echo "Select Positron build:" >&2
-	local i=1 tags=() lines
+	local tags=() opts=() lines tag date
 	lines="$(wb_list_positron_releases 5)"
 	while IFS=$'\t' read -r tag date; do
 		[ -n "$tag" ] || continue
-		echo "  $i) $tag   ($date)" >&2; tags+=("$tag"); i=$((i+1))
+		tags+=("$tag"); opts+=("$tag   ($date)")
 	done <<< "$lines"
-	echo "  $i) Local source build (current repo)" >&2
-	local choice; read -r -p "Choice [1]: " choice || true; choice="${choice:-1}"
-	if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$i" ]; then
-		echo "Invalid choice: $choice" >&2; return 1
-	fi
-	if [ "$choice" = "$i" ]; then
+	opts+=("Local source build (current repo)")
+	wb_menu "Select Positron build" "${opts[@]}" || return 1
+	if [ "$WB_MENU_INDEX" -eq "${#opts[@]}" ]; then
 		WB_SOURCE_LOCAL=1; POSITRON_TAG=""
 	else
-		WB_SOURCE_LOCAL=0; POSITRON_TAG="${tags[$((choice-1))]}"
+		WB_SOURCE_LOCAL=0; POSITRON_TAG="${tags[$((WB_MENU_INDEX-1))]}"
 	fi
 	export POSITRON_TAG WB_SOURCE_LOCAL
 }
 
 # Sets WB_URL.
+# Present a menu and set WB_MENU_INDEX (1-based). Uses fzf for arrow-key
+# selection when available and interactive; otherwise falls back to a numbered
+# prompt (which also keeps --ci/non-tty usage working).
+wb_menu() {
+	local prompt="$1"; shift
+	local opts=("$@") n=$# i=1 sel choice o
+	WB_MENU_INDEX=0
+	if command -v fzf >/dev/null 2>&1 && [ -t 0 ] && [ -t 1 ]; then
+		sel="$(printf '%s\n' "${opts[@]}" | fzf --height=40% --layout=reverse --no-multi --prompt="${prompt}: ")" || return 1
+		for o in "${opts[@]}"; do [ "$o" = "$sel" ] && { WB_MENU_INDEX=$i; break; }; i=$((i+1)); done
+	else
+		echo "${prompt}:" >&2
+		for o in "${opts[@]}"; do printf '  %d) %s\n' "$i" "$o" >&2; i=$((i+1)); done
+		read -r -p "Choice [1]: " choice </dev/tty 2>/dev/tty || true
+		WB_MENU_INDEX="${choice:-1}"
+	fi
+	[[ "$WB_MENU_INDEX" =~ ^[0-9]+$ ]] && [ "$WB_MENU_INDEX" -ge 1 ] && [ "$WB_MENU_INDEX" -le "$n" ] || { echo "Invalid choice" >&2; return 1; }
+}
+
 wb_pick_workbench() {
-	echo "Select Workbench version:" >&2
-	echo "  1) Stable (latest released)" >&2
-	echo "  2) Daily (latest preview)" >&2
-	echo "  3) Custom .deb URL" >&2
-	local choice; read -r -p "Choice [1]: " choice || true; choice="${choice:-1}"
-	case "$choice" in
-		1) WB_URL="$(wb_resolve_stable_url "${WB_ARCH}")" ;;
-		2) WB_URL="$(wb_resolve_daily_url "${WB_ARCH}")" ;;
-		3) read -r -p "Workbench .deb URL: " WB_URL || true ;;
-		*) echo "Invalid choice" >&2; return 1 ;;
+	echo "Resolving Workbench versions..." >&2
+	local stable_url daily_url
+	stable_url="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
+	daily_url="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
+	wb_menu "Select Workbench version" \
+		"Stable ($(wb_deb_version "$stable_url" || echo latest))" \
+		"Daily ($(wb_deb_version "$daily_url" || echo latest))" \
+		"Custom .deb URL" || return 1
+	case "$WB_MENU_INDEX" in
+		1) WB_URL="$stable_url" ;;
+		2) WB_URL="$daily_url" ;;
+		3) read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true ;;
 	esac
+	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }
 	export WB_URL
 }
 

@@ -12,6 +12,17 @@ wb_detect_arch() {
 	export POSITRON_ARCH WB_ARCH
 }
 
+# Extract the Workbench version (incl .proN) from a .deb URL/filename, e.g.
+# .../rstudio-workbench-2026.05.1-225.pro10-amd64.deb -> 2026.05.1-225.pro10
+wb_deb_version() {
+	local url="${1:-}" base
+	[ -n "$url" ] || return 0
+	base="$(basename "$url")"
+	base="${base#rstudio-workbench-}"
+	base="${base%-*.deb}"
+	printf '%s' "$base"
+}
+
 _wb_fetch_downloads_json() { curl -sL "https://posit.co/wp-content/uploads/downloads.json"; }
 _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/latest/index.json"; }
 _wb_fetch_releases_json()  { gh api "repos/posit-dev/positron-builds/releases?per_page=30"; }
