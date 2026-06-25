@@ -15,6 +15,38 @@ wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 # Scope to this compose project's services, not a stray container of the same name.
 wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^pwb$'; }
 
+# Fail fast with a friendly message when a command needs a running stack.
+wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run wb" >&2; exit 1; }; }
+
+# Derive auth from the gh CLI so the only one-time step is `gh auth login`.
+# Borrows gh's token for GITHUB_TOKEN (used for positron-builds + image pulls)
+# and logs Docker into ghcr.io non-interactively. An explicit GITHUB_TOKEN in
+# the environment or .env always wins over the gh-derived one.
+wb_ensure_auth() {
+	if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+		GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+		export GITHUB_TOKEN
+	fi
+	if [ -z "${GITHUB_TOKEN:-}" ]; then
+		echo "Not authenticated. Run 'gh auth login' once, then re-run 'npm run wb'." >&2
+		echo "(Or export GITHUB_TOKEN with a PAT that has the repo + read:packages scopes.)" >&2
+		exit 1
+	fi
+	# gh's default login omits read:packages, which the ghcr.io image pulls need.
+	# Detect the gap and print the exact fix instead of failing cryptically later.
+	if command -v gh >/dev/null 2>&1 && gh auth status 2>&1 | grep -q 'Token scopes' \
+		&& ! gh auth status 2>&1 | grep -q 'read:packages'; then
+		echo "NOTE: your gh token lacks the 'read:packages' scope (needed to pull images)." >&2
+		echo "      Add it once with: gh auth refresh -h github.com -s read:packages" >&2
+	fi
+	# Log Docker into ghcr.io with the token (idempotent; refreshes the cred each
+	# run). ghcr.io wants the GitHub username; fall back to a placeholder if gh
+	# can't resolve it (the token still authenticates).
+	local ghuser; ghuser="$(gh api user -q .login 2>/dev/null || echo token)"
+	printf '%s\n' "$GITHUB_TOKEN" | docker login ghcr.io -u "$ghuser" --password-stdin >/dev/null 2>&1 \
+		|| echo "WARNING: 'docker login ghcr.io' failed; image pulls may fail (check read:packages scope)." >&2
+}
+
 wb_installed() {
 	# install-workbench.sh may install Positron either into the "new" upgrade
 	# slot or directly at the positron-server root; accept either.
@@ -147,7 +179,7 @@ wb_pick_workbench() {
 }
 
 cmd_install() {
-	[ -n "${GITHUB_TOKEN:-}" ] || { echo "GITHUB_TOKEN is required (export it first)." >&2; exit 1; }
+	# GITHUB_TOKEN is guaranteed set by wb_ensure_auth (called in cmd_up before us).
 	local creds=""
 	for a in "$@"; do case "$a" in --credentials=*) creds="$a" ;; esac; done
 	wb_pick_workbench
@@ -177,6 +209,9 @@ cmd_up() {
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
 	wb_bootstrap_env
+	# Sources .env first (may set GITHUB_TOKEN), then fills auth gaps from gh and
+	# logs into ghcr.io -- must run before the image pull below.
+	wb_ensure_auth
 	# The amd64 and arm64 images have independent tag sequences, so a single
 	# default tag cannot serve both arches. Pick the arch-correct default unless
 	# the user pinned one in .env (sourced above by wb_bootstrap_env).
@@ -238,7 +273,7 @@ cmd_up() {
 cmd_stop() { wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
 cmd_down() { wb_compose down --remove-orphans; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
-cmd_restart() { docker exec pwb bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
+cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
 
 wb_versions() {
 	local wb pos
@@ -288,6 +323,7 @@ EOF
 }
 
 cmd_logs() {
+	wb_require_stack
 	case "${1:-rserver}" in
 		rserver|workbench) docker exec pwb bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
 		connect)           docker logs -f connect ;;
@@ -330,7 +366,8 @@ ACCESS
   Connect    http://localhost:3939
 
 SETUP  (details: dockerfiles/README-workbench-local.md)
-  docker login ghcr.io   GITHUB_TOKEN set   workbench.lic + connect.lic in dockerfiles/
+  gh auth login (once, include read:packages)   workbench.lic + connect.lic in dockerfiles/
+  GITHUB_TOKEN and docker login ghcr.io are derived from gh automatically.
   optional: fzf (arrow-key pickers; falls back to a numbered prompt)
 EOF
 }
