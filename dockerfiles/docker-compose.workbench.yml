@@ -59,6 +59,7 @@ services:
 
   connect:
     image: rstudio/rstudio-connect-preview:dev-jammy-daily
+    platform: linux/amd64
     container_name: connect
     networks:
       - mynetwork

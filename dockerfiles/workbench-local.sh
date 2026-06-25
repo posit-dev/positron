@@ -21,8 +21,10 @@ wb_installed() {
 wb_bootstrap_env() {
 	local env_file="${SCRIPT_DIR}/.env"
 	[ -f "$env_file" ] || cp "${SCRIPT_DIR}/.env.example" "$env_file"
+	set -a
 	# shellcheck source=/dev/null
-	set -a; source "$env_file"; set +a
+	source "$env_file"
+	set +a
 	if [ -z "${WB_PASSWORD:-}" ]; then
 		read -r -p "Workbench password for user1: " WB_PASSWORD; export WB_PASSWORD
 	fi
@@ -49,7 +51,6 @@ wb_fetch_scripts() {
 		docker exec test chmod +x "/tmp/${s}"
 	done
 	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
-	[ -f "${SCRIPT_DIR}/connect.lic" ] && docker cp "${SCRIPT_DIR}/connect.lic" test:/tmp/connect.lic >/dev/null || true
 }
 
 # Sets POSITRON_TAG (empty => latest/local). Sets WB_SOURCE_LOCAL=1 for source build.
@@ -120,9 +121,23 @@ cmd_up() {
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
 	wb_bootstrap_env
+	mkdir -p "${SCRIPT_DIR}/connect"
+	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
+		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
+	fi
 	wb_compose up -d
 	echo "Waiting for containers to become healthy..."
-	until wb_stack_up; do sleep 1; done
+	local tries=0
+	until wb_stack_up; do
+		tries=$((tries+1))
+		if [ "$tries" -ge 120 ]; then
+			echo "Timed out waiting for the 'test' container to start." >&2
+			echo "Check service health: docker compose -f ${COMPOSE_FILE} ps" >&2
+			wb_compose ps >&2 || true
+			exit 1
+		fi
+		sleep 1
+	done
 	wb_fetch_scripts
 	if wb_installed && [ "${1:-}" != "--reinstall" ]; then
 		echo "Stack already up with Positron + Workbench installed. (Use --reinstall to change versions, 'overlay' for source.)"
