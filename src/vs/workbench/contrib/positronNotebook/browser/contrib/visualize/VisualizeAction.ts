@@ -10,6 +10,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../../../platform/act
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import type { PositronNotebookCodeCell } from '../../PositronNotebookCells/PositronNotebookCodeCell.js';
 import type { IInlineDataExplorerActionContext } from '../../notebookCells/InlineDataExplorerActions.js';
@@ -109,16 +110,19 @@ export class VisualizeDataFrameAction extends Action2 {
 		// closes before the request resolves.
 		const suggestionCts = new CancellationTokenSource();
 		try {
-			const modelSetting = configurationService.getValue<string[]>(VISUALIZE_MODEL_KEY);
-			const suggestionPromise = generateVisualizationSuggestion(
-				headlessLmService,
-				ctx.notebookInstance.cells.get(),
-				ctx.cell.index,
-				initialDfName,
-				columns,
-				modelSetting,
-				suggestionCts.token,
-			).catch(() => null);
+			// Honor the per-file AI exclusion: never send an excluded notebook to
+			// a model. The wizard still opens for manual selection (null prefill).
+			const suggestionPromise = isFileExcludedFromAI(configurationService, ctx.documentUri.path)
+				? Promise.resolve(null)
+				: generateVisualizationSuggestion(
+					headlessLmService,
+					ctx.notebookInstance.cells.get(),
+					ctx.cell.index,
+					initialDfName,
+					columns,
+					configurationService.getValue<string[]>(VISUALIZE_MODEL_KEY),
+					suggestionCts.token,
+				).catch(() => null);
 
 			const result = await showVisualizeModalDialog(initialDfName, columns, suggestionPromise, ctx.documentUri);
 			if (!result) { return; }

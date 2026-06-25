@@ -7,6 +7,8 @@
 
 import { URI } from '../../../../../../../base/common/uri.js';
 import { observableValue } from '../../../../../../../base/common/observable.js';
+import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IHeadlessLanguageModelService } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
@@ -46,10 +48,15 @@ describe('VisualizeDataFrameAction', () => {
 		.stub(IHeadlessLanguageModelService, {})
 		.build();
 
+	let configurationService: TestConfigurationService;
+
 	beforeEach(() => {
+		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		mockShowVisualizeModalDialog.mockReset();
 		mockApplyVisualizeResult.mockReset();
 		mockGenerateVisualizationSuggestion.mockReset().mockResolvedValue(null);
+		// Reset the AI exclusion the shared describe-scope container carries.
+		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
 	function fakeGrid(): InlineTableDataGridInstance {
@@ -160,6 +167,16 @@ describe('VisualizeDataFrameAction', () => {
 			undefined,
 			expect.anything(),
 		);
+	});
+
+	it('does not request a suggestion for a notebook excluded from AI, but still opens the dialog', async () => {
+		configurationService.setUserConfiguration('positron.assistant.aiExcludes', ['**/*.ipynb']);
+		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
+
+		await run(buildContext());
+
+		expect(mockGenerateVisualizationSuggestion).not.toHaveBeenCalled();
+		expect(mockShowVisualizeModalDialog).toHaveBeenCalledTimes(1);
 	});
 
 	describe('dataframe prefill', () => {
