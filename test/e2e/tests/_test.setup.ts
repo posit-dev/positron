@@ -120,7 +120,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				// setting, which requires a reload to take effect. Enable it before the
 				// app starts so no reload is needed. Suites opt in with
 				// `test.use({ enableDataConnections: true })`.
-				await settingsFile.append({ 'databases.enabled': true });
+				await settingsFile.append({ 'dataConnections.enabled': true });
 			}
 
 			if (enableFoundryAssistant) {

@@ -7,7 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
-// The focus command for the Data Connections view (gated behind `databases.enabled`).
+// The focus command for the Data Connections view (gated behind `dataConnections.enabled`).
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
 // The "Add Data Connection" -> "Configure Data Connection" dialog and its surrounding modal.
@@ -27,7 +27,7 @@ const TREE_WAFFLE = '#data-connection-profiles-list .data-grid-waffle';
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
  *
- * Covers the panel gated behind the `databases.enabled` setting: opening the view, adding a
+ * Covers the panel gated behind the `dataConnections.enabled` setting: opening the view, adding a
  * connection through the new-connection flow (select provider -> configure -> save), and asserting
  * the resulting profile shows up in the tree.
  */
@@ -49,7 +49,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Focuses the Data Connections view. Requires `databases.enabled` to be true.
+	 * Focuses the Data Connections view. Requires `dataConnections.enabled` to be true.
 	 */
 	async openDataConnectionsView(): Promise<void> {
 		await this.quickaccess.runCommand(DATA_CONNECTIONS_VIEW_FOCUS_COMMAND);

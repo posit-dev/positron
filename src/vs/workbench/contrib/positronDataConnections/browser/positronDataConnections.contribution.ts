@@ -19,7 +19,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
 // Configuration key that gates the Positron Data Connections feature.
-const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'databases.enabled';
+const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
 
 // Register the configuration setting.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
@@ -32,8 +32,8 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'databases.enabled',
-				'Enable the Databases panel. Requires a reload to take effect.'
+				'positron.dataConnections.enabled',
+				'Enable the Data Connections panel. Requires a reload to take effect.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.APPLICATION,
