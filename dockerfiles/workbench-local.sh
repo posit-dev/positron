@@ -338,7 +338,7 @@ cmd_up() {
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'pwb' won't start (startup will time out)." >&2
-		echo "         Add connect.lic (see dockerfiles/README-workbench-local.md)." >&2
+		echo "         Add connect.lic (see dockerfiles/README-positron-workbench.md)." >&2
 	fi
 	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
 		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
@@ -462,7 +462,7 @@ ACCESS
   Workbench  http://localhost:8787   (user1 / WB_PASSWORD from dockerfiles/.env)
   Connect    http://localhost:3939
 
-SETUP  (details: dockerfiles/README-workbench-local.md)
+SETUP  (details: dockerfiles/README-positron-workbench.md)
   gh auth login (once, include read:packages)   workbench.lic + connect.lic in dockerfiles/
   GITHUB_TOKEN and docker login ghcr.io are derived from gh automatically.
   optional: fzf (arrow-key pickers; falls back to a numbered prompt)

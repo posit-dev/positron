@@ -1,4 +1,4 @@
-# Local Workbench QA (`npm run pwb`)
+# Local Positron & Workbench environment (`npm run pwb`)
 
 Run Positron and Posit Workbench together on your machine, against versions you
 pick, in one command.
