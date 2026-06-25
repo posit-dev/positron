@@ -16,6 +16,8 @@ _wb_fetch_downloads_json() { cat "${HERE}/fixtures/downloads.json"; }
 _wb_fetch_dailies_json()   { cat "${HERE}/fixtures/dailies.json"; }
 # shellcheck disable=SC2329
 _wb_fetch_releases_json()  { cat "${HERE}/fixtures/releases.json"; }
+# shellcheck disable=SC2329
+_wb_fetch_builds_json()    { cat "${HERE}/fixtures/builds.json"; }
 
 # arch detection
 wb_detect_arch "x86_64"; check "x86_64 -> POSITRON_ARCH" "x64" "$POSITRON_ARCH"; check "x86_64 -> WB_ARCH" "amd64" "$WB_ARCH"
@@ -30,9 +32,9 @@ check "stable arm64 rewrite" \
 	"https://download2.rstudio.org/server/noble/arm64/rstudio-workbench-2026.05.1-225.pro10-arm64.deb" \
 	"$(wb_resolve_stable_url arm64)"
 
-# daily url for arm64
-check "daily arm64" \
-	"https://s3.amazonaws.com/rstudio-ide-build/server/noble/arm64/rstudio-workbench-2026.06.0-242.pro7-arm64.deb" \
+# daily url for arm64 must resolve the WORKBENCH product (pro), not server (OSS)
+check "daily arm64 is workbench (pro), not server" \
+	"https://s3.amazonaws.com/rstudio-ide-build/server/jammy/arm64/rstudio-workbench-2026.06.0-242.pro13-arm64.deb" \
 	"$(wb_resolve_daily_url arm64)"
 
 # release list: releases only (prerelease=false), newest first, capped.
@@ -40,6 +42,10 @@ check "daily arm64" \
 check "releases newest is a release, not the daily" "2026.06.1-6" "$(wb_list_positron_releases 5 | head -1 | cut -f1)"
 check "releases exclude daily/prerelease" "" "$(wb_list_positron_releases 5 | grep '2026.07.0-230' || true)"
 check "releases count capped" "2" "$(wb_list_positron_releases 2 | wc -l | tr -d ' ')"
+
+# daily list = positron-builds tags minus release tags, newest first
+check "dailies newest tag" "2026.07.0-230" "$(wb_list_positron_dailies 5 | head -1 | cut -f1)"
+check "dailies exclude release tags" "" "$(wb_list_positron_dailies 5 | grep '2026.06.1-6' || true)"
 
 # deb version extraction (incl .proN), and empty-in/empty-out
 check "deb version with pro" "2026.05.1-225.pro10" \

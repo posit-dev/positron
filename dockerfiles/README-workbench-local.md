@@ -12,7 +12,7 @@ Bring up Workbench + a chosen Positron build in one command.
 - Optional: `fzf` for arrow-key version pickers (falls back to a numbered prompt without it)
 
 ## Usage
-- `npm run wb` -- up + pick Positron (last 5 releases) + pick Workbench (stable/daily/custom)
+- `npm run wb` -- up, then pick Positron (Release/Daily channel -> choose a version) and Workbench (Release/Daily/Custom; each resolves to the current build, matching the workbench-nightly CI)
 - `npm run wb -- --reinstall` -- re-run the pickers and reinstall (change versions on an existing stack)
 - `npm run wb -- status` -- doctor: containers, versions, URLs
 - `npm run wb -- report` -- paste-able environment block for bug reports

@@ -25,10 +25,11 @@ wb_deb_version() {
 
 _wb_fetch_downloads_json() { curl -sL "https://posit.co/wp-content/uploads/downloads.json"; }
 _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/latest/index.json"; }
-# Use posit-dev/positron (the definitive release list) for the version menu, not
-# positron-builds (which also contains dailies). The Workbench tarball for each
-# release tag is still downloaded from positron-builds by positronDownload.sh.
+# posit-dev/positron = definitive Positron release list (prerelease=false).
+# posit-dev/positron-builds = all builds incl. dailies (the Workbench tarball for
+# any tag is downloaded from here by positronDownload.sh).
 _wb_fetch_releases_json()  { gh api "repos/posit-dev/positron/releases?per_page=30"; }
+_wb_fetch_builds_json()    { gh api "repos/posit-dev/positron-builds/releases?per_page=30"; }
 
 wb_resolve_stable_url() {
 	local wb_arch="$1" url
@@ -40,9 +41,10 @@ wb_resolve_stable_url() {
 
 wb_resolve_daily_url() {
 	local wb_arch="$1" url
-	# Prefer noble for the arch; the index keys platforms as "<distro>-<arch>".
-	url="$(_wb_fetch_dailies_json | jq -r --arg k "noble-${wb_arch}" '.products.server.platforms[$k].link // empty')"
-	[ -n "$url" ] || { echo "No daily build for noble-${wb_arch}" >&2; return 1; }
+	# Use the "workbench" product (Pro), not "server" (open-source RStudio Server).
+	# noble-<arch> key matches install-workbench.sh's fetch_latest_wb_url (CI).
+	url="$(_wb_fetch_dailies_json | jq -r --arg k "noble-${wb_arch}" '.products.workbench.platforms[$k].link // empty')"
+	[ -n "$url" ] || { echo "No daily Workbench build for noble-${wb_arch}" >&2; return 1; }
 	echo "$url"
 }
 
@@ -53,6 +55,17 @@ wb_list_positron_releases() {
 	_wb_fetch_releases_json \
 		| jq -r --argjson n "$count" '
 			[ .[] | select(.prerelease == false) ]
+			| sort_by(.published_at) | reverse | .[:$n]
+			| .[] | "\(.tag_name)\t\(.published_at[:10])"'
+}
+
+wb_list_positron_dailies() {
+	local count="${1:-5}" reltags
+	# Dailies = positron-builds tags that are NOT posit-dev/positron releases.
+	reltags="$(_wb_fetch_releases_json | jq '[ .[] | select(.prerelease == false) | .tag_name ]')"
+	_wb_fetch_builds_json \
+		| jq -r --argjson rel "$reltags" --argjson n "$count" '
+			[ .[] | select(.tag_name as $t | ($rel | index($t)) == null) ]
 			| sort_by(.published_at) | reverse | .[:$n]
 			| .[] | "\(.tag_name)\t\(.published_at[:10])"'
 }

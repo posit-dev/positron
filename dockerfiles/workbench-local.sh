@@ -55,15 +55,22 @@ wb_fetch_scripts() {
 	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
 }
 
-# Sets POSITRON_TAG to the chosen release tag.
+# Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
+# positron-builds by tag, which holds both release and daily tarballs).
 wb_pick_positron() {
 	local tags=() opts=() lines tag date
-	lines="$(wb_list_positron_releases 5)"
+	wb_menu "Positron build" "Release build" "Daily build" || return 1
+	if [ "$WB_MENU_INDEX" -eq 1 ]; then
+		lines="$(wb_list_positron_releases 5)"
+	else
+		lines="$(wb_list_positron_dailies 5)"
+	fi
 	while IFS=$'\t' read -r tag date; do
 		[ -n "$tag" ] || continue
 		tags+=("$tag"); opts+=("$tag   ($date)")
 	done <<< "$lines"
-	wb_menu "Select Positron build" "${opts[@]}" || return 1
+	[ "${#opts[@]}" -gt 0 ] || { echo "No Positron builds found." >&2; return 1; }
+	wb_menu "Select version" "${opts[@]}" || return 1
 	POSITRON_TAG="${tags[$((WB_MENU_INDEX-1))]}"
 	export POSITRON_TAG
 }
@@ -88,18 +95,16 @@ wb_menu() {
 	[[ "$WB_MENU_INDEX" =~ ^[0-9]+$ ]] && [ "$WB_MENU_INDEX" -ge 1 ] && [ "$WB_MENU_INDEX" -le "$n" ] || { echo "Invalid choice" >&2; return 1; }
 }
 
+# Workbench has no listable version history (Posit publishes only the current
+# stable and current daily -- same as Positron's workbench-nightly CI), so each
+# channel resolves to a single current build; Custom URL pins a specific .deb.
 wb_pick_workbench() {
-	echo "Resolving Workbench versions..." >&2
-	local stable_url daily_url
-	stable_url="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
-	daily_url="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
-	wb_menu "Select Workbench version" \
-		"Stable ($(wb_deb_version "$stable_url" || echo latest))" \
-		"Daily ($(wb_deb_version "$daily_url" || echo latest))" \
-		"Custom .deb URL" || return 1
+	wb_menu "Workbench build" "Release build" "Daily build" "Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$stable_url" ;;
-		2) WB_URL="$daily_url" ;;
+		1) WB_URL="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
+		   echo "Workbench Release: $(wb_deb_version "$WB_URL" || echo "$WB_URL")" >&2 ;;
+		2) WB_URL="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
+		   echo "Workbench Daily: $(wb_deb_version "$WB_URL" || echo "$WB_URL")" >&2 ;;
 		3) read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true ;;
 	esac
 	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }
