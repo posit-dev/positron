@@ -23,11 +23,25 @@ export interface IPositronPackagesInstance {
 	installPackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
 	uninstallPackages(packageNames: string[], token?: CancellationToken): Promise<void>;
 	updatePackages(packages: IPackageSpec[], token?: CancellationToken): Promise<void>;
-	updateAllPackages(token?: CancellationToken): Promise<void>;
+	/**
+	 * Updates all outdated packages.
+	 *
+	 * @returns The names of the packages whose installed version actually
+	 * changed, sorted alphabetically. Empty when nothing was updated.
+	 */
+	updateAllPackages(token?: CancellationToken): Promise<string[]>;
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
+
+	/**
+	 * Fires after a successful install or update with the names of the packages
+	 * the operation added or changed, so the view can scroll to and highlight
+	 * them. For install/update these are the requested packages; for update-all
+	 * they are the packages whose version actually changed.
+	 */
+	readonly onDidChangePackages: Event<string[]>;
 
 	readonly onDidChangeRefreshState: Event<boolean>;
 
@@ -67,6 +81,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	private readonly _onDidRefreshPackagesInstance = this._register(new Emitter<ILanguageRuntimePackage[]>());
 
+	private readonly _onDidChangePackages = this._register(new Emitter<string[]>());
+
 	private readonly _onDidChangeRefreshState = this._register(new Emitter<boolean>());
 
 	private readonly _onDidChangeInstallState = this._register(new Emitter<boolean>());
@@ -99,6 +115,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 	}
 
 	readonly onDidRefreshPackagesInstance = this._onDidRefreshPackagesInstance.event;
+
+	readonly onDidChangePackages = this._onDidChangePackages.event;
 
 	readonly onDidChangeRefreshState = this._onDidChangeRefreshState.event;
 
@@ -310,6 +328,11 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// Highlight the requested packages in the view. Dependencies the
+			// package manager pulled in are not in `packages`, so they are
+			// intentionally excluded.
+			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -354,15 +377,24 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 			// Refresh packages with two-stage metadata fetch
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// Highlight the updated packages in the view.
+			this._onDidChangePackages.fire(packages.map((pkg) => pkg.name));
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
 		}
 	}
 
-	async updateAllPackages(token?: CancellationToken): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<string[]> {
 		const packageManager = this.getPackageManagerOrThrow();
 		const effectiveToken = token ?? CancellationToken.None;
+
+		// Snapshot installed versions before the update. The backend's
+		// updateAllPackages returns void and base R / conda don't report which
+		// packages they touched, so a before/after version diff is the only
+		// backend-agnostic way to know what actually changed.
+		const versionsBefore = new Map(this._packages.map((pkg) => [pkg.name, pkg.version]));
 
 		// Loading
 		this._onDidChangeUpdateAllState.fire(true);
@@ -370,15 +402,33 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		try {
 			await packageManager.updateAllPackages(effectiveToken);
 			if (effectiveToken.isCancellationRequested) {
-				return;
+				return [];
 			}
 
 			// Update-all potentially touched every installed package; evict
 			// every cached entry so Stage 2 refetches them all.
 			this._evictPackagesFromCache(Array.from(this._metadataCache.keys()));
 
-			// Refresh packages with two-stage metadata fetch
+			// Refresh packages with two-stage metadata fetch. Stage 1 repopulates
+			// this._packages with fresh versions synchronously before returning.
 			await this._refreshPackagesInternal(packageManager, effectiveToken);
+
+			// A package was updated if its installed version changed from the
+			// snapshot. Sort for a stable, predictable message.
+			const updated = this._packages
+				.filter((pkg) => {
+					const previousVersion = versionsBefore.get(pkg.name);
+					return previousVersion !== undefined && previousVersion !== pkg.version;
+				})
+				.map((pkg) => pkg.name)
+				.sort((a, b) => a.localeCompare(b));
+
+			// Highlight every package whose version changed. Update-all may
+			// leave many packages untouched (already current), so diffing
+			// against the pre-update snapshot avoids flashing the whole list.
+			this._onDidChangePackages.fire(updated);
+
+			return updated;
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);

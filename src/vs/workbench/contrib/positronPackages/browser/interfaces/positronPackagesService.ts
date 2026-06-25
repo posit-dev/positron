@@ -97,8 +97,10 @@ export interface IPositronPackagesService {
 	/**
 	 * Update all packages in the active session.
 	 * @param token Optional cancellation token
+	 * @returns The names of the packages whose installed version actually
+	 * changed, sorted alphabetically. Empty when nothing was updated.
 	 */
-	updateAllPackages(token?: CancellationToken): Promise<void>;
+	updateAllPackages(token?: CancellationToken): Promise<string[]>;
 
 	/**
 	 * Search for packages matching a query.

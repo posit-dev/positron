@@ -1,5 +1,6 @@
 ---
 name: positron-pull-vscode-server
+disable-model-invocation: true
 description: Use when pulling changes from rstudio/vscode-server into Positron — fetching upstream, triaging commits, and applying diffs
 ---
 

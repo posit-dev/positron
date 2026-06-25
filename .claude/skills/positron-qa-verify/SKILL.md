@@ -1,5 +1,6 @@
 ---
 name: positron-qa-verify
+disable-model-invocation: true
 description: Generates clear, actionable verification guides for QA testing of Positron bug fixes and features
 ---
 

@@ -20,6 +20,7 @@ import { ScreenReaderOnly } from '../../../../../../base/browser/ui/positronComp
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
+import { SELECT_GHOST_CELL_MODEL_COMMAND_ID } from './config.js';
 import { IAction } from '../../../../../../base/common/actions.js';
 import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { SegmentedToggle } from '../../../../../../base/browser/ui/positronComponents/segmentedToggle/segmentedToggle.js';
@@ -588,8 +589,9 @@ export const GhostCell: React.FC = () => {
 
 	// Model picker handler
 	const handleChangeModel = React.useCallback(() => {
-		services.commandService.executeCommand('positron-assistant.selectGhostCellModel');
-	}, [services.commandService]);
+		services.commandService.executeCommand(SELECT_GHOST_CELL_MODEL_COMMAND_ID)
+			.catch(error => services.logService.error('[ghost-cell] Selecting a model failed:', error));
+	}, [services.commandService, services.logService]);
 
 	// Get automatic mode from state (for immediate UI feedback) or fall back to controller method
 	const automatic = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
