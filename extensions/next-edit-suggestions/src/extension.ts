@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 
 import type { SubmitCompletionFeedbackParams } from './types.js';
+import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
 import { isCompletionEnabled } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
@@ -19,9 +20,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	log.info('Next Edit Suggestions extension is now activating...');
 
+	// Gates whether the Next Edit Suggestions status bar item is shown. It is true while the
+	// extension is activated, independent of authentication or the global enable setting.
+	// TODO: gate this behind the planned `ai.enabled` configuration setting once it exists,
+	// so that if `ai.enabled` is `false`, no status bar item is shown.
+	void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.enabled', true);
+
 	// Start the language server only when an auth token is available
 	async function ensureLanguageServer() {
-		if (await getLLMConfiguration()) {
+		const config = await getLLMConfiguration();
+		const signedIn = !!config;
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', signedIn);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config.providerDisplayName);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.model',
+			config ? { id: config.modelId, displayName: config.modelDisplayName } : undefined);
+		if (signedIn) {
 			if (!getLanguageClientManager()) {
 				startLanguageServer(context, log);
 				log.info('Language server started.');
@@ -73,6 +86,9 @@ export function activate(context: vscode.ExtensionContext): void {
 		}),
 	);
 
+	// Reflects in-flight completion requests in the `nextEditSuggestions.busy` context key.
+	const busyState = new CompletionBusyState();
+
 	const providerImpl = {
 		displayName: 'Next Edit Suggestions',
 		_onDidChangeEmitter: new vscode.EventEmitter<void>(),
@@ -99,7 +115,9 @@ export function activate(context: vscode.ExtensionContext): void {
 				token.onCancellationRequested(() => resolve(null));
 			});
 
-			const result = await Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise]);
+			const result = await busyState.track(
+				() => Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise])
+			);
 			if (!result) {
 				return new vscode.InlineCompletionList([]);
 			}

@@ -10,6 +10,8 @@ import { getGatewayBaseUrl, getSelectedCompletionModelId } from './config.js';
 import { getUserAgent } from './utils.js';
 import { log } from './extension.js';
 
+const PROVIDER_NAME = 'Posit AI';
+
 const DEFAULT_COMPLETION_MODEL: CompletionModel = {
 	id: 'qwen3-8b',
 	displayName: 'Qwen3-8B',
@@ -138,7 +140,9 @@ export async function getLLMConfiguration(): Promise<LLMConfig | null> {
 	}
 
 	return {
+		providerDisplayName: PROVIDER_NAME,
 		modelId: model?.id ?? DEFAULT_COMPLETION_MODEL.id,
+		modelDisplayName: model?.displayName ?? DEFAULT_COMPLETION_MODEL.displayName,
 		endpointPath: model?.endpointPath ?? DEFAULT_COMPLETION_MODEL.endpointPath,
 		accessToken: session.accessToken,
 		baseUrl,
