@@ -1,9 +1,0 @@
-{ "products": {
-  "server": { "platforms": {
-    "noble-arm64": { "link": "https://s3.amazonaws.com/rstudio-ide-build/server/noble/arm64/rstudio-server-2026.06.0-242-arm64.deb" }
-  } },
-  "workbench": { "platforms": {
-    "noble-amd64": { "link": "https://s3.amazonaws.com/rstudio-ide-build/server/jammy/amd64/rstudio-workbench-2026.06.0-242.pro13-amd64.deb" },
-    "noble-arm64": { "link": "https://s3.amazonaws.com/rstudio-ide-build/server/jammy/arm64/rstudio-workbench-2026.06.0-242.pro13-arm64.deb" }
-  } }
-} }
