@@ -100,12 +100,19 @@ wb_menu() {
 # stable and current daily -- same as Positron's workbench-nightly CI), so each
 # channel resolves to a single current build; Custom URL pins a specific .deb.
 wb_pick_workbench() {
-	wb_menu "Workbench build" "Release build" "Daily build" "Custom .deb URL" || return 1
+	echo "Resolving Workbench versions..." >&2
+	local stable_url daily_url
+	stable_url="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
+	daily_url="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
+	# No second menu (WB has one current build per channel), so show the resolved
+	# version right in the labels.
+	wb_menu "Workbench build" \
+		"Release build ($(wb_deb_version "$stable_url" || echo unavailable))" \
+		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
+		"Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$(wb_resolve_stable_url "${WB_ARCH}" 2>/dev/null || true)"
-		   echo "Workbench Release: $(wb_deb_version "$WB_URL" || echo "$WB_URL")" >&2 ;;
-		2) WB_URL="$(wb_resolve_daily_url "${WB_ARCH}" 2>/dev/null || true)"
-		   echo "Workbench Daily: $(wb_deb_version "$WB_URL" || echo "$WB_URL")" >&2 ;;
+		1) WB_URL="$stable_url" ;;
+		2) WB_URL="$daily_url" ;;
 		3) read -r -p "Workbench .deb URL: " WB_URL </dev/tty || true ;;
 	esac
 	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }
