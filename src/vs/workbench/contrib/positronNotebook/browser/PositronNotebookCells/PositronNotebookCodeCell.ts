@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -164,9 +164,8 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 					return;
 				}
 			} else if (preferredOutputItem.mime === 'text/html' && isComplexHtml(rawOutput)) {
-				// Complex HTML (scripts, iframes, full documents) can't render
-				// inline due to Trusted Types / CSP restrictions. Route through
-				// an overlay webview where scripts execute in an isolated process.
+				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
+				// documents (e.g. Great Tables) fall through and render inline.
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
 					instance: this.instance,
 					outputId: output.outputId,

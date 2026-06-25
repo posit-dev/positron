@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
+import { NotebookCellOutputItem, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { isDataExplorerMimeType } from '../getOutputContents.js';
 
 /**
@@ -77,4 +77,14 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[]): 
 	}
 
 	return preferredOutput;
+}
+
+/**
+ * Whether any of the given outputs renders through a webview (i.e. has a preload
+ * message result). A webview output is a position:fixed overlay that is not
+ * clipped by the output container, so the scrolling max-height must not be
+ * applied to cells that contain one (it would overflow into neighboring cells).
+ */
+export function hasWebviewOutput(outputs: NotebookCellOutputs[]): boolean {
+	return outputs.some(output => output.preloadMessageResult !== undefined);
 }
