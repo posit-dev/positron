@@ -41,6 +41,11 @@ export class TestExplorer extends Explorer {
 		}
 	}
 
+	async expectNoTestItem(label: string, timeout = 3000): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		await expect(tree.getByLabel(label)).toHaveCount(0, { timeout });
+	}
+
 	async runAllTests(): Promise<void> {
 		await this.code.driver.currentPage.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
 	}
