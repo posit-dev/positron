@@ -102,7 +102,7 @@ export function registerGettingStartedPositronNotebook(
 						Button(
 							localize(
 								'gettingStarted.notebooksWelcome.interpreter.button',
-								"Interpreter Documentation"
+								"Read the Interpreter Documentation"
 							),
 							'https://positron.posit.co/positron-notebook-editor.html#selecting-a-notebook-kernel'
 						)

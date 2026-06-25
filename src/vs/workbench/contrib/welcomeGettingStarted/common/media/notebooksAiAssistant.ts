@@ -9,9 +9,9 @@ Unlike general-purpose AI assistants, Posit Assistant is specifically designed f
 
 ## What Assistant can do
 
-- **Context-aware conversations** - Ask questions about your data, get help understanding errors and more.
-- **Code generation and refactoring** - Get help writing new analysis code, refactoring existing notebooks, or exploring alternative data analysis approaches.
-- **Smart quick actions** - Use AI-powered actions to explain code blocks, fix errors, or suggest improvements to your analysis.
+- **Context-aware conversations:** Ask questions about your data, get help understanding errors and more.
+- **Code generation and refactoring:** Get help writing new analysis code, refactoring existing notebooks, or exploring alternative data analysis approaches.
+- **Smart quick actions:** Use AI-powered actions to explain code blocks, fix errors, or suggest improvements to your analysis.
 
 <div align="center">
 <img src="./notebook-ai-context-abstract.svg" alt="Positron Notebook Editor" width="400">
