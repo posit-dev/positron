@@ -17,7 +17,7 @@ wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^pwb$'; }
 
 # Fail fast with a friendly message when a command needs a running stack.
-wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run wb" >&2; exit 1; }; }
+wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run pwb" >&2; exit 1; }; }
 
 # Cancel a pending auto-stop timer from a previous run, if any.
 wb_cancel_ttl() {
@@ -50,7 +50,7 @@ wb_schedule_ttl() {
 # Tell the user about the scheduled auto-stop (or stay quiet if disabled).
 wb_print_ttl() {
 	[ "${1:-0}" -gt 0 ] 2>/dev/null || return 0
-	echo "FYI: The stack auto-stops in ${1} min ('npm run wb' resets, '--no-ttl' disables)."
+	echo "FYI: The stack auto-stops in ${1} min ('npm run pwb' resets, '--no-ttl' disables)."
 }
 
 # Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
@@ -88,7 +88,7 @@ wb_ensure_auth() {
 		token_source="gh"
 	fi
 	if [ -z "${GITHUB_TOKEN:-}" ]; then
-		echo "Not authenticated. Run 'gh auth login' once, then re-run 'npm run wb'." >&2
+		echo "Not authenticated. Run 'gh auth login' once, then re-run 'npm run pwb'." >&2
 		echo "(Or export GITHUB_TOKEN with a PAT that has the repo + read:packages scopes.)" >&2
 		exit 1
 	fi
@@ -362,7 +362,7 @@ cmd_up() {
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
 		wb_print_ready
-		echo "Wrong version? run 'npm run wb -- --reinstall' to switch versions"
+		echo "Wrong version? run 'npm run pwb -- --reinstall' to switch versions"
 		wb_schedule_ttl "$ttl"
 		wb_print_ttl "$ttl"
 		return 0
@@ -372,8 +372,8 @@ cmd_up() {
 	wb_print_ttl "$ttl"
 }
 
-cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with: npm run wb"; }
-cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
+cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with 'npm run pwb'"; }
+cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Stack torn down. Next 'npm run pwb' will reinstall."; }
 
 wb_versions() {
 	local wb pos
@@ -422,11 +422,10 @@ wb_print_ready() {
 }
 
 cmd_status() {
-	if ! wb_stack_up; then echo "Containers: not running. Start with: npm run wb"; return 0; fi
+	if ! wb_stack_up; then echo "Containers are not running. Start with: npm run pwb"; return 0; fi
 	echo "Containers:"
 	docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '^(pwb|postgres|connect)[[:space:]]' \
 		| awk -F'\t' '{ printf "  %-9s %s\n", $1, $2 }'
-	echo
 	wb_print_ready
 }
 
@@ -444,15 +443,15 @@ cmd_help() {
 workbench-local.sh -- run Positron + Posit Workbench together, locally, for QA.
 
 USAGE
-  npm run wb                 Bring the stack up. First run: pick versions + install.
+  npm run pwb                 Bring the stack up. First run: pick versions + install.
                              Already installed: (re)start the stack and show status.
                              Auto-stops after 60 min; resets each time you run it.
-  npm run wb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
-  npm run wb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
-  npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
-  npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
-  npm run wb -- stop         Pause the stack (containers stopped, volumes kept).
-  npm run wb -- down         Tear the stack down (removes containers).
+  npm run pwb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
+  npm run pwb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
+  npm run pwb -- status       Containers, installed Positron + Workbench versions, URLs.
+  npm run pwb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
+  npm run pwb -- stop         Pause the stack (containers stopped, volumes kept).
+  npm run pwb -- down         Tear the stack down (removes containers).
 
 VERSION PICKERS
   Positron:  Release / Daily channel, then choose a version.
@@ -481,7 +480,7 @@ main() {
 		stop)        cmd_stop ;;
 		down)        cmd_down ;;
 		-h|--help)   cmd_help ;;
-		*) echo "Unknown subcommand: $sub" >&2; echo "Run 'npm run wb -- --help' for usage." >&2; exit 1 ;;
+		*) echo "Unknown subcommand: $sub" >&2; echo "Run 'npm run pwb -- --help' for usage." >&2; exit 1 ;;
 	esac
 }
 main "$@"
