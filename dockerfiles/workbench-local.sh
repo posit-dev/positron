@@ -18,9 +18,13 @@ wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | g
 # Fail fast with a friendly message when a command needs a running stack.
 wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run wb" >&2; exit 1; }; }
 
-# True when Docker already has a credential for ghcr.io (a prior `docker login`,
-# possibly with a dedicated read:packages PAT). The registry key is recorded in
-# the Docker config even when a credential helper (credsStore) holds the secret.
+# Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
+# entry from a prior `docker login`, or a `credHelpers` entry). It is broad on
+# purpose -- a false positive only makes us SKIP the auto-login (at worst an
+# image pull later fails with a plain Docker error), whereas being too strict
+# risks the opposite: re-running docker login and clobbering a dedicated
+# read:packages PAT with the gh token. We deliberately err toward not touching
+# an existing credential.
 wb_ghcr_logged_in() {
 	local cfg="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
 	[ -f "$cfg" ] && grep -q '"ghcr.io"' "$cfg" 2>/dev/null
@@ -46,8 +50,11 @@ wb_ensure_auth() {
 	wb_ghcr_logged_in && return 0
 	# Fresh setup: the gh default login omits read:packages, which the ghcr.io
 	# pulls need. Flag the gap with the exact fix instead of failing cryptically.
-	if command -v gh >/dev/null 2>&1 && gh auth status 2>&1 | grep -q 'Token scopes' \
-		&& ! gh auth status 2>&1 | grep -q 'read:packages'; then
+	# (Capture gh auth status once -- it can be slow.)
+	local gh_status=""
+	command -v gh >/dev/null 2>&1 && gh_status="$(gh auth status 2>&1 || true)"
+	if printf '%s' "$gh_status" | grep -q 'Token scopes' \
+		&& ! printf '%s' "$gh_status" | grep -q 'read:packages'; then
 		echo "NOTE: your gh token lacks the 'read:packages' scope (needed to pull images)." >&2
 		echo "      Add it once with: gh auth refresh -h github.com -s read:packages" >&2
 		echo "      (or run 'docker login ghcr.io' with a PAT that has read:packages)." >&2
@@ -174,8 +181,8 @@ wb_pick_workbench() {
 		"Daily build ($(wb_deb_version "$daily_url" || echo unavailable))" \
 		"Custom .deb URL" || return 1
 	case "$WB_MENU_INDEX" in
-		1) WB_URL="$stable_url"; wb_validate_wb_url "$WB_URL" || return 1 ;;
-		2) WB_URL="$daily_url";  wb_validate_wb_url "$WB_URL" || return 1 ;;
+		1) WB_URL="$stable_url"; [ -n "$WB_URL" ] || { echo "Release URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
+		2) WB_URL="$daily_url";  [ -n "$WB_URL" ] || { echo "Daily URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
 		3) echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
 		   echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
 		   echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
