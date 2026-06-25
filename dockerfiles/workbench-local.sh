@@ -186,15 +186,16 @@ wb_pick_workbench() {
 	case "$WB_MENU_INDEX" in
 		1) WB_URL="$stable_url"; [ -n "$WB_URL" ] || { echo "Release URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
 		2) WB_URL="$daily_url";  [ -n "$WB_URL" ] || { echo "Daily URL could not be resolved (check network)." >&2; return 1; }; wb_validate_wb_url "$WB_URL" || return 1 ;;
-		3) echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
-		   echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
-		   echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
-		   while :; do
-			read -r -p "Workbench .deb URL (blank to cancel): " WB_URL </dev/tty || true
-			[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
-			wb_validate_wb_url "$WB_URL" && break
-			echo "Try again." >&2
-		   done ;;
+		3)
+			echo "Pin a specific ${WB_ARCH} Workbench .deb (e.g. an n-1/n-2 release):" >&2
+			echo "  Dailies: https://dailies.rstudio.com/rstudio/  (pick a branch -> workbench -> noble-${WB_ARCH})" >&2
+			echo "  Stable:  https://docs.posit.co/ide/server-pro/admin/getting_started/installation/installation.html" >&2
+			while :; do
+				read -r -p "Workbench .deb URL (blank to cancel): " WB_URL </dev/tty || true
+				[ -n "${WB_URL:-}" ] || { echo "Cancelled (no URL entered)." >&2; return 1; }
+				wb_validate_wb_url "$WB_URL" && break
+				echo "Try again." >&2
+			done ;;
 	esac
 	[ -n "${WB_URL:-}" ] || { echo "No Workbench URL resolved." >&2; return 1; }
 	export WB_URL
