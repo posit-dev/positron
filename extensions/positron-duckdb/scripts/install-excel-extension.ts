@@ -9,24 +9,67 @@
  * disk at runtime (rather than via DuckDB's network autoload). Bundling the
  * extension is what makes `.xlsx` support work in offline / airgapped installs.
  *
- * The extension is a signed core DuckDB extension, so it loads from disk without
- * weakening signature verification. It must match the DuckDB engine exactly in
- * both version and platform; this script pins the version in package.json and
- * asserts it against the installed `@duckdb/node-api` so a binding bump can't
- * silently ship an unloadable extension.
+ * It must match the DuckDB engine exactly in both version and platform; this
+ * script pins the version in package.json and asserts it against the installed
+ * `@duckdb/node-api` so a binding bump can't silently ship an unloadable
+ * extension.
+ *
+ * Integrity and signing. DuckDB ships these extensions with a trailing footer
+ * appended past the end of the Mach-O image. That footer is NOT just a signature:
+ * it carries DuckDB's required metadata (platform, engine version, ABI type, and
+ * a format-version magic) followed by a 256-byte signature. DuckDB reads that
+ * metadata from the end of the file to recognize the artifact as one of its
+ * extensions, independent of whether the signature is trusted. We don't rely on
+ * the signature for trust; instead we pin a SHA-256 of each platform's artifact
+ * in package.json and verify the download against it (see `assertHash`), which
+ * guards against a compromised CDN or a corrupted download.
+ *
+ * On macOS the trailing footer is a problem at signing time: it sits past the end
+ * of the Mach-O image, and Apple's `codesign --options runtime` strict validation
+ * rejects any such trailing data ("main executable failed strict validation"),
+ * which would block notarization. But the footer is *required* by DuckDB at load
+ * time, so we can't simply drop it -- and we can't keep it either: these two
+ * requirements conflict on the same bytes. We also can't re-attach the footer
+ * after signing, because the extension lives inside the signed, sealed app bundle
+ * and modifying it would invalidate the app signature. So we split the work:
+ *
+ *   1. Here (install time), for macOS targets we truncate the file to the end of
+ *      the Mach-O image (see `stripMachOTrailingData`), leaving a clean Mach-O
+ *      that codesign accepts, and we save the removed footer alongside it as a
+ *      sidecar (`excel.duckdb_extension.footer`). Both ship inside the bundle and
+ *      are sealed normally.
+ *   2. At runtime, the extension reconstructs the full file (stripped Mach-O +
+ *      footer) once into a writable cache outside the bundle and loads it from
+ *      there (see `resolveExcelExtensionPath` in src/extension.ts).
+ *
+ * Apple's signing rewrites the Mach-O image, so DuckDB's own signature (computed
+ * over the original image) no longer matches the reconstructed file; it is
+ * therefore loaded with `allow_unsigned_extensions` at runtime (see
+ * `duckdbWorker.ts`), and the pinned hash above is what backs its integrity.
+ *
+ * Pass `--print-hashes` to download every supported platform and print the
+ * SHA-256 map to paste into package.json when bumping the pinned version.
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
 import { arch, platform } from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
+import { stripMachOTrailingData, verifyExtensionHash } from '../src/excelExtensionInstallUtils';
 
 /** Directory holding the vendored extension (packaged into the .vsix). */
 const RESOURCES_DIR = path.join(__dirname, '..', 'resources');
 /** The vendored, decompressed extension file loaded at runtime. */
 const EXTENSION_FILE = path.join(RESOURCES_DIR, 'excel.duckdb_extension');
+/**
+ * macOS only: DuckDB's trailing footer, stripped from `EXTENSION_FILE` so the
+ * Mach-O can be Apple-signed, saved here to be re-attached at runtime (see the
+ * file header and `resolveExcelExtensionPath` in src/extension.ts).
+ */
+const FOOTER_FILE = path.join(RESOURCES_DIR, 'excel.duckdb_extension.footer');
 /** Records the version that was downloaded, to skip redundant downloads. */
 const VERSION_FILE = path.join(RESOURCES_DIR, 'EXCEL_VERSION');
 
@@ -83,6 +126,27 @@ function assertVersionMatchesEngine(pinnedVersion: string): void {
 	}
 }
 
+/**
+ * The DuckDB platform names we ship an extension for. Used by `--print-hashes`
+ * to regenerate the pinned SHA-256 map when bumping the version.
+ */
+const SUPPORTED_PLATFORMS = ['osx_arm64', 'osx_amd64', 'linux_arm64', 'linux_amd64', 'windows_amd64'] as const;
+
+/**
+ * Assert the downloaded (decompressed) extension matches the SHA-256 pinned for
+ * its platform in package.json. This is our integrity anchor: we strip DuckDB's
+ * own signature on macOS, so the pin is what protects against a tampered or
+ * corrupted download. Verify before any stripping, so the pin matches the
+ * canonical artifact DuckDB publishes. The byte-level comparison lives in
+ * `verifyExtensionHash` (see excelExtensionInstallUtils.ts) so it can be tested;
+ * this wrapper just supplies the pinned hash from package.json.
+ */
+function assertHash(bytes: Buffer, duckdbPlatformName: string): void {
+	const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+	const expected = packageJson.positron?.duckdbExcelExtensionHashes?.[duckdbPlatformName];
+	verifyExtensionHash(bytes, expected, duckdbPlatformName);
+}
+
 /** GET a URL, following redirects, resolving with the final response. */
 function httpsGet(url: string): Promise<IncomingMessage> {
 	return new Promise((resolve, reject) => {
@@ -118,22 +182,80 @@ async function downloadExtension(version: string, duckdbPlatformName: string): P
 	return zlib.gunzipSync(compressed);
 }
 
+/**
+ * Download every supported platform's extension and print the SHA-256 map to
+ * paste into `positron.duckdbExcelExtensionHashes` in package.json. Run this
+ * (via `npm run print-excel-hashes`) whenever the pinned version changes.
+ */
+async function printHashes(): Promise<void> {
+	const version = pinnedDuckDBVersion();
+	const hashes: Record<string, string> = {};
+	for (const duckdbPlatformName of SUPPORTED_PLATFORMS) {
+		const bytes = await downloadExtension(version, duckdbPlatformName);
+		hashes[duckdbPlatformName] = crypto.createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
+	}
+	console.log(`\nPaste into positron.duckdbExcelExtensionHashes in package.json for ${version}:`);
+	console.log(JSON.stringify(hashes, null, 2));
+}
+
 async function main(): Promise<void> {
+	if (process.argv.includes('--print-hashes')) {
+		await printHashes();
+		return;
+	}
+
 	const version = pinnedDuckDBVersion();
 	assertVersionMatchesEngine(version);
 	const duckdbPlatformName = duckdbPlatform();
 	const tag = `${version}/${duckdbPlatformName}`;
 
-	// Skip the download if we already have the matching extension.
+	// Skip the download if we already have the matching extension. On macOS we
+	// also require the sidecar footer to be present, since signing depends on it.
+	const isMacOS = duckdbPlatformName.startsWith('osx_');
 	if (fs.existsSync(EXTENSION_FILE) && fs.existsSync(VERSION_FILE) &&
-		fs.readFileSync(VERSION_FILE, 'utf-8') === tag) {
+		fs.readFileSync(VERSION_FILE, 'utf-8') === tag &&
+		(!isMacOS || fs.existsSync(FOOTER_FILE))) {
 		console.log(`DuckDB Excel extension ${tag} already present; nothing to do.`);
 		return;
 	}
 
-	const extensionBytes = await downloadExtension(version, duckdbPlatformName);
+	let extensionBytes = await downloadExtension(version, duckdbPlatformName);
+
+	// Verify integrity against the pinned hash before any further processing, so
+	// the check covers the canonical artifact DuckDB published.
+	assertHash(extensionBytes, duckdbPlatformName);
+
+	// On macOS, strip DuckDB's trailing footer so codesign's strict validation
+	// passes and the app can be notarized, and save the footer so it can be
+	// re-attached at runtime (see the file header for the full rationale). Fail
+	// loudly if there was nothing to strip: shipping a file with DuckDB's footer
+	// still attached would break signing later in the pipeline with the opaque
+	// "main executable failed strict validation", far from this root cause.
+	let footer: Buffer | undefined;
+	if (isMacOS) {
+		const stripped = stripMachOTrailingData(extensionBytes);
+		if (!stripped) {
+			throw new Error(
+				`Expected to strip DuckDB's trailing footer from the macOS Excel extension ` +
+				`(${duckdbPlatformName}), but found no trailing data past the Mach-O image. The ` +
+				'artifact format may have changed; signing would fail strict validation. Inspect ' +
+				'the download and update stripMachOTrailingData before shipping.'
+			);
+		}
+		footer = extensionBytes.subarray(stripped.length);
+		console.log(`Stripped ${footer.length} trailing bytes (DuckDB footer) for macOS signing; saved for runtime re-attach.`);
+		extensionBytes = stripped;
+	}
+
 	fs.mkdirSync(RESOURCES_DIR, { recursive: true });
 	fs.writeFileSync(EXTENSION_FILE, new Uint8Array(extensionBytes));
+	if (footer) {
+		fs.writeFileSync(FOOTER_FILE, new Uint8Array(footer));
+	} else if (fs.existsSync(FOOTER_FILE)) {
+		// Non-macOS target: drop any stale footer from a previous macOS install so
+		// we never ship an orphaned sidecar.
+		fs.rmSync(FOOTER_FILE);
+	}
 	fs.writeFileSync(VERSION_FILE, tag);
 	console.log(`Installed DuckDB Excel extension ${tag} (${extensionBytes.length} bytes).`);
 }
