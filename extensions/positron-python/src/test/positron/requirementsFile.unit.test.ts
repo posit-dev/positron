@@ -89,5 +89,10 @@ suite('requirementsFile Tests', () => {
             const result = buildRequirementsFile(lines, [{ name: 'requests', version: '2.31.0' }]);
             expect(result).to.equal(['flask', 'requests==2.31.0'].join('\n') + '\n');
         });
+
+        test('pins a target even when its freeze line is a direct reference', () => {
+            const result = buildRequirementsFile(['foo @ file:///x'], [{ name: 'foo', version: '2.0' }]);
+            expect(result).to.equal('foo==2.0\n');
+        });
     });
 });

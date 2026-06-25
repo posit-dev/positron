@@ -340,7 +340,7 @@ version = "0.1.0"`;
             expect(written).to.contain('werkzeug');
             expect(written).to.not.contain('werkzeug==');
             const [, args] = terminalService.sendCommand.firstCall.args;
-            expect(args).to.include.members(['pip', 'install', '--upgrade', '-r', '/tmp/reqs.txt']);
+            expect(args).to.include.members(['pip', 'install', '--upgrade', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
         });
     });
 });

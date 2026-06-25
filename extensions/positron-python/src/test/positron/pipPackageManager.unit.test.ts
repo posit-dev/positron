@@ -104,13 +104,14 @@ suite('PipPackageManager update Tests', () => {
     });
 
     test('updatePackages throws when a target has no version', async () => {
-        let threw = false;
+        let caughtError: unknown;
         try {
             await manager.updatePackages([{ name: 'werkzeug' }]);
-        } catch {
-            threw = true;
+        } catch (e) {
+            caughtError = e;
         }
-        expect(threw).to.equal(true);
+        expect(caughtError).to.be.instanceOf(Error);
+        expect((caughtError as Error).message).to.contain('werkzeug');
         expect(terminalService.sendCommand.called).to.equal(false);
     });
 
