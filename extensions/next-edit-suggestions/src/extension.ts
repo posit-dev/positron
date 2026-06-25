@@ -123,6 +123,11 @@ export function activate(context: vscode.ExtensionContext): void {
 					feedback = 'rejected';
 					break;
 				case vscode.InlineCompletionEndOfLifeReasonKind.Ignored:
+					// A superseded suggestion was replaced by a newer request,
+					// not dismissed by the user.
+					if (reason.supersededBy) {
+						return;
+					}
 					feedback = 'ignored';
 					break;
 				default:

@@ -145,6 +145,14 @@ export class Packages {
 	}
 
 	/**
+	 * Locates the external-link button on a package row.
+	 * @param packageName The exact package name whose URL button to return.
+	 */
+	urlButton(packageName: string): Locator {
+		return this.packagesContainer.getByRole('button', { name: `Open website for ${packageName}` });
+	}
+
+	/**
 	 * Click the filter funnel to open the Filter/Sort options menu.
 	 * Asserts the top-level menu is visible.
 	 */
@@ -184,11 +192,10 @@ export class Packages {
 	 * Waits for the Help pane to render content for a package, retrying past the
 	 * help-frame load delay.
 	 * @param expectedText Substring that must appear in the help frame body
-	 * @param helpFrameIndex Index of the help webview to check (0 for the first opened, etc.)
 	 */
-	async expectHelpPaneToContainText(expectedText: string, helpFrameIndex: number): Promise<void> {
+	async expectHelpPaneToContainText(expectedText: string): Promise<void> {
 		await expect(async () => {
-			const helpFrame = await this.help.getHelpFrame(helpFrameIndex);
+			const helpFrame = await this.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText(expectedText);
 		}).toPass();
 	}
@@ -257,7 +264,7 @@ export class Packages {
 		await this.quickInput.waitForQuickInputClosed();
 
 		// Wait for the "Installing packages..." toast to appear and then disappear
-		await this.toasts.waitForAppear('Installing packages...', { timeout: 10000 });
+		await this.toasts.waitForAppear('Installing packages...', { timeout: 30000 });
 		await this.toasts.waitForDisappear('Installing packages...', { timeout: 60000 });
 	}
 

@@ -186,6 +186,77 @@ def test_get_packages_installed_attached(
     assert numpy_entry["attached"] is expected_attached
 
 
+class _StubMetadata:
+    """Minimal `Distribution.metadata` stand-in (only the accessors we use)."""
+
+    def __init__(self, headers: Dict[str, Any]) -> None:
+        self._headers = headers
+
+    def get(self, key: str, default: Any = None) -> Any:
+        value = self._headers.get(key, default)
+        if isinstance(value, list):
+            return value[0] if value else default
+        return value
+
+    def get_all(self, key: str) -> Any:
+        value = self._headers.get(key)
+        if value is None:
+            return None
+        return value if isinstance(value, list) else [value]
+
+
+class _StubDist:
+    def __init__(self, **headers: Any) -> None:
+        self.metadata = _StubMetadata(headers)
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected_url"),
+    [
+        # A Project-URL homepage is the top choice.
+        ({"Project-URL": ["Homepage, https://home"]}, "https://home"),
+        # The legacy singular Home-page header counts as a homepage.
+        ({"Home-page": "https://legacy"}, "https://legacy"),
+        # Repository wins as a fallback when there's no homepage.
+        ({"Project-URL": ["Repository, https://repo"]}, "https://repo"),
+        # Homepage outranks repository regardless of order.
+        (
+            {"Project-URL": ["Repository, https://repo", "Homepage, https://home"]},
+            "https://home",
+        ),
+        # Free-form labels normalize ("Source Code" -> repository).
+        ({"Project-URL": ["Source Code, https://src"]}, "https://src"),
+        # A Project-URL homepage outranks the legacy Home-page header.
+        (
+            {"Project-URL": ["Homepage, https://home"], "Home-page": "https://legacy"},
+            "https://home",
+        ),
+        # An unrecognized label still beats having no URL at all.
+        ({"Project-URL": ["Funding, https://fund"]}, "https://fund"),
+        # No URL metadata of any kind.
+        ({}, None),
+    ],
+    ids=[
+        "project-url-homepage",
+        "legacy-home-page",
+        "repository-only",
+        "homepage-beats-repository",
+        "normalized-label",
+        "project-url-beats-legacy",
+        "unrecognized-fallback",
+        "none",
+    ],
+)
+def test_best_package_url(headers: Dict[str, Any], expected_url: Any) -> None:
+    """Rank homepage > repository > docs > other.
+
+    The legacy `Home-page` header acts as a homepage fallback.
+    """
+    from positron.ui import _best_package_url
+
+    assert _best_package_url(_StubDist(**headers)) == expected_url  # type: ignore[arg-type]
+
+
 def test_is_module_loaded(ui_comm: DummyComm) -> None:
     """Test the `isModuleLoaded` RPC method called from Positron."""
     module = "fallingStars"

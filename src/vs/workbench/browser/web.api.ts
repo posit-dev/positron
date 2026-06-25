@@ -347,6 +347,15 @@ export interface IWorkbenchConstructionOptions {
 	 * This is typically set by Posit Workbench to point to locally-hosted docs.
 	 */
 	readonly positronDocsUrl?: string;
+
+	/**
+	 * Raw value of the server's EXTENSIONS_GALLERY environment variable, if set.
+	 * The browser cannot read the server process environment, so the server
+	 * forwards it here. This lets the web extension gallery manifest service
+	 * apply the same env-var-over-setting precedence and reporting as the
+	 * desktop build. Undefined when the variable is unset on the server.
+	 */
+	readonly extensionsGalleryEnv?: string;
 	// --- End Positron ---
 
 	//#endregion

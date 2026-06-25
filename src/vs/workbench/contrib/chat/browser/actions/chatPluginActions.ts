@@ -30,7 +30,10 @@ export class ManagePluginsAction extends Action2 {
 			id: ManagePluginsAction.ID,
 			title: localize2('plugins', 'Plugins'),
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			menu: [{
 				id: CHAT_CONFIG_MENU_ID,
 				group: '2_plugins',
@@ -53,7 +56,10 @@ class InstallFromSourceAction extends Action2 {
 			title: localize2('installPluginFromSource', 'Install Plugin from Source'),
 			category: CHAT_CATEGORY,
 			icon: Codicon.add,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			menu: [{
 				id: MenuId.ViewTitle,
@@ -150,7 +156,10 @@ class ManagePluginMarketplacesAction extends Action2 {
 			title: localize2('managePluginMarketplaces', 'Manage Plugin Marketplaces'),
 			icon: Codicon.globe,
 			category: CHAT_CATEGORY,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			menu: [{
 				id: MenuId.ViewTitle,

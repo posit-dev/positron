@@ -135,6 +135,72 @@ def _import_names_for_dist(dist: importlib.metadata.Distribution, canonical: str
     return [canonical.replace("-", "_")]
 
 
+# `Project-URL` labels are free-form author text with no official vocabulary
+# (you see "Homepage", "Home", "Repository", "Source", "GitHub", ... with varied
+# casing), so we normalize each label and match it against this synonym table to
+# rank candidates when choosing the single best URL to surface.
+_URL_CATEGORY_BY_LABEL: Dict[str, str] = {
+    "home": "homepage",
+    "homepage": "homepage",
+    "repository": "repository",
+    "repo": "repository",
+    "source": "repository",
+    "sourcecode": "repository",
+    "code": "repository",
+    "github": "repository",
+    "gitlab": "repository",
+    "doc": "documentation",
+    "docs": "documentation",
+    "documentation": "documentation",
+}
+
+# Lower number = higher priority. Any URL that doesn't match a known category
+# still beats no URL at all, hence the fallback rank below.
+_URL_CATEGORY_PRIORITY: Dict[str, int] = {"homepage": 0, "repository": 1, "documentation": 2}
+_URL_FALLBACK_PRIORITY = 3
+
+
+def _normalize_url_label(label: str) -> str:
+    """Lowercase a Project-URL label and strip everything but alphanumerics."""
+    return "".join(char for char in label.lower() if char.isalnum())
+
+
+def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Pick the single best external URL from a distribution's metadata.
+
+    Prefers the homepage, then the repository/source, then documentation, then
+    any other `Project-URL`. The legacy singular `Home-page` header counts as a
+    homepage candidate. Returns None when the distribution advertises no URL.
+    Core (the Packages pane) validates the scheme before opening it.
+    """
+    # PackageMetadata (the 3.14 protocol) doesn't expose .get(), but the runtime
+    # object (email.message.Message) always has it -- mirror the cast used by
+    # _get_packages_installed so both accessors type-check across Python versions.
+    metadata: Any = dist.metadata
+    best_url: Optional[str] = None
+    best_priority = _URL_FALLBACK_PRIORITY + 1
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        url = url.strip()
+        if not url:
+            continue
+        category = _URL_CATEGORY_BY_LABEL.get(_normalize_url_label(label))
+        # Every value in `_URL_CATEGORY_BY_LABEL` is a key in `_URL_CATEGORY_PRIORITY`,
+        # so a recognized category always resolves; anything else is the fallback.
+        priority = _URL_CATEGORY_PRIORITY[category] if category else _URL_FALLBACK_PRIORITY
+        # Strict `<` keeps the first URL seen at a given priority (so the first
+        # repository wins over a later one, etc.).
+        if priority < best_priority:
+            best_url, best_priority = url, priority
+    # Only let the legacy `Home-page` win if no homepage-priority URL was already
+    # found in `Project-URL`; a homepage outranks a repository/other we may hold.
+    if best_priority > _URL_CATEGORY_PRIORITY["homepage"]:
+        home_page = metadata.get("Home-page")
+        if home_page and home_page.strip():
+            best_url = home_page.strip()
+    return best_url
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -164,7 +230,7 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
             # runtime object (email.message.Message) always has it.
             metadata: Any = dist.metadata
             summary = metadata.get("Summary")
-            packages_dict[canonical] = {
+            entry: Dict[str, JsonData] = {
                 "id": f"{canonical}-{dist.version}",
                 "name": name,
                 "displayName": canonical,
@@ -172,6 +238,10 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
                 "attached": attached,
                 "description": summary if summary and summary != "UNKNOWN" else "",
             }
+            url = _best_package_url(dist)
+            if url:
+                entry["url"] = url
+            packages_dict[canonical] = entry
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
 

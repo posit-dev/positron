@@ -152,5 +152,9 @@
     {
         "key": "cmd+j e",
         "command": "workbench.action.showCommands" // Show Command Palette
+    },
+    {
+        "key": "cmd+l b",
+        "command": "workbench.panel.positronPreview.focus"
     }
 ]

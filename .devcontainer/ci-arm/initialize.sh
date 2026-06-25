@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Runs on the HOST before the container is created (devcontainer initializeCommand).
+# Detects the checkout path and the git common dir so docker-compose can bind-mount both
+# at their real host paths — which is what makes a git *worktree* work inside the container
+# (worktree git metadata uses absolute host paths). Harmless for a normal clone.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"   # .devcontainer/ci-arm
+ROOT="$(cd "$HERE/../.." && pwd)"       # the checkout root (worktree or clone)
+ENV="$HERE/.env"
+
+GITCOMMON="$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null || echo "$ROOT/.git")"
+case "$GITCOMMON" in
+  /*) : ;;                                                  # already absolute
+  *)  GITCOMMON="$(cd "$ROOT" && cd "$(dirname "$GITCOMMON")" && pwd)/$(basename "$GITCOMMON")" ;;
+esac
+
+[ -f "$ENV" ] || cp "$HERE/.env.example" "$ENV"
+
+upsert() {  # key value file — replace the line if present, else append
+  local k="$1" v="$2" f="$3" tmp
+  if grep -qE "^${k}=" "$f"; then
+    tmp="$(mktemp)"; grep -vE "^${k}=" "$f" > "$tmp"; mv "$tmp" "$f"
+  fi
+  printf '%s=%s\n' "$k" "$v" >> "$f"
+}
+upsert POSITRON_WORKSPACE_PATH "$ROOT" "$ENV"
+upsert POSITRON_GIT_COMMON_DIR "$GITCOMMON" "$ENV"
+echo "ci-arm initialize: workspace=$ROOT git-common=$GITCOMMON"

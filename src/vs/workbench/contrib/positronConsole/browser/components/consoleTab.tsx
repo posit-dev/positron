@@ -11,7 +11,7 @@ import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'r
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleSessionStatusIcon } from './consoleSessionStatusIcon.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -20,13 +20,12 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ILanguageRuntimeResourceUsage, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { RuntimeIcon } from './runtimeIcon.js';
 import { getSessionDisplayName } from '../../common/sessionDisplayUtils.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { MAX_RESOURCE_USAGE_HISTORY } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { useResourceUsageHistory } from './useResourceUsageHistory.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -62,7 +61,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
-	const [resourceUsageHistory, setResourceUsageHistory] = useState<ILanguageRuntimeResourceUsage[]>([]);
+	const resourceUsageHistory = useResourceUsageHistory(positronConsoleInstance);
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 	const [showResourceMonitor, setShowResourceMonitor] = useState(
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
@@ -78,30 +77,6 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
-
-		// Track whether we've been cancelled (for async operations)
-		let cancelled = false;
-
-		// Function to add resource usage listener to a session
-		const addResourceUsageListener = (session: ILanguageRuntimeSession): IDisposable => {
-			return session.onDidUpdateResourceUsage((usage) => {
-				setResourceUsageHistory(prev => {
-					// Add new data point and keep only the most recent entries
-					const updated = [...prev, usage];
-					if (updated.length > MAX_RESOURCE_USAGE_HISTORY) {
-						return updated.slice(-MAX_RESOURCE_USAGE_HISTORY);
-					}
-					return updated;
-				});
-			});
-		};
-
-		// Load historical resource usage data from the service
-		services.resourceUsageHistoryService.getHistory(positronConsoleInstance.sessionId).then(history => {
-			if (!cancelled && history.length > 0) {
-				setResourceUsageHistory(history);
-			}
-		});
 
 		// Add listener for showResourceMonitor configuration changes
 		disposableStore.add(
@@ -152,27 +127,11 @@ export const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: 
 			})
 		);
 
-		// Add resource usage listener to the session if it exists
-		const session = services.runtimeSessionService.getSession(positronConsoleInstance.sessionId);
-		if (session) {
-			// We have a session, add the resource usage listener now.
-			disposableStore.add(addResourceUsageListener(session));
-		} else {
-			// Add the listener once the session starts.
-			disposableStore.add(
-				services.runtimeSessionService.onDidStartRuntime(e => {
-					if (e.sessionId === positronConsoleInstance.sessionId) {
-						disposableStore.add(addResourceUsageListener(e));
-					}
-				}));
-		}
-
 		// Return cleanup function to dispose of the store when effect cleans up.
 		return () => {
-			cancelled = true;
 			disposableStore.dispose();
 		};
-	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance]);
+	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance]);
 
 	// When entering rename mode, focus the input and select its text.
 	useEffect(() => {

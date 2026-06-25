@@ -17,10 +17,7 @@ import { ExtensionIdentifier, IExtensionManifest } from '../../../../platform/ex
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-// --- Start Positron ---
-// Positron uses Codicon.positronAssistant instead of registerIcon for the chat view icon
-// import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
-// --- End Positron ---
+import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainer, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
@@ -38,18 +35,12 @@ import { ChatViewPane } from './widgetHosts/viewPane/chatViewPane.js';
 
 // --- Chat Container &  View Registration
 
-// --- Start Positron ---
-// Upstream uses chatViewIcon; Positron overrides with its own icon.
-// const chatViewIcon = registerIcon('chat-view-icon', Codicon.chatSparkle, localize('chatViewIcon', 'View icon of the chat view.'));
-// --- End Positron ---
+const chatViewIcon = registerIcon('chat-view-icon', Codicon.chatSparkle, localize('chatViewIcon', 'View icon of the chat view.'));
 
 const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
 	id: ChatViewContainerId,
 	title: localize2('chat.viewContainer.label', "Chat"),
-	// --- Start Positron ---
-	// icon: chatViewIcon,
-	icon: Codicon.positronAssistant,
-	// --- End Positron ---
+	icon: chatViewIcon,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [ChatViewContainerId, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: ChatViewContainerId,
 	hideIfEmpty: true,
@@ -85,6 +76,11 @@ const chatViewDescriptor: IViewDescriptor = {
 	ctorDescriptor: new SyncDescriptor(ChatViewPane),
 	when: ContextKeyExpr.and(
 		ChatContextKeys.accountPolicyGateActive.negate(),
+		// --- Start Positron ---
+		// Hide the Chat view (and its auto-generated "Focus on Chat View" command)
+		// when AI features are disabled.
+		ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+		// --- End Positron ---
 		ContextKeyExpr.or(
 			ContextKeyExpr.and(
 				ChatContextKeys.Setup.hidden.negate(),

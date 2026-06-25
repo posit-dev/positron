@@ -53,7 +53,7 @@ test.describe('Console ANSI styling', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] 
 			await link.click();
 			await app.code.wait(200);
 
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText('Arithmetic Mean');
 		}).toPass({ timeout: 60000 });
 	});

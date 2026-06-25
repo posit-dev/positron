@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import {
 	ArraySelection,
@@ -68,7 +69,7 @@ import {
 	TableSchema,
 	TableSelectionKind,
 	TextSearchType
-} from './interfaces';
+} from 'positron-data-explorer-protocol';
 
 /**
  * Type guard to check if an ArraySelection is a DataSelectionRange (has first_index/last_index).
@@ -81,6 +82,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
+import * as yauzl from 'yauzl';
 import { WorkerQueryRequest, WorkerQueryResponse } from './duckdbWorkerProtocol';
 import { createWorkerEnv } from './workerEnv.js';
 
@@ -434,6 +436,263 @@ function decompress(data: Uint8Array, compression: 'gzip' | 'zstd'): Uint8Array 
 		throw new Error('Zstandard decompression is not supported by this runtime');
 	}
 	return zstd(data);
+}
+
+/**
+ * Absolute path to the bundled DuckDB `excel` extension. It is vendored under
+ * `resources/` for the platform this build targets by the `install-excel-extension`
+ * postinstall step. `__dirname` is the compiled output directory (e.g. `out/`),
+ * which sits one level below the extension root alongside `resources/`. Reading
+ * `.xlsx` files requires this extension; we load it from disk so the feature
+ * works offline / airgapped rather than relying on DuckDB's network autoload.
+ */
+const EXCEL_EXTENSION_PATH = path.join(__dirname, '..', 'resources', 'excel.duckdb_extension');
+
+/**
+ * Read a single entry from a `.zip`/`.xlsx` archive as UTF-8 text. Resolves to
+ * `undefined` if the archive or entry cannot be read. When `maxBytes` is given,
+ * reading stops once that many bytes have been buffered -- enough for callers
+ * that only need an element near the head of an otherwise large part (e.g. a
+ * worksheet's `<dimension>`, which precedes the bulk `<sheetData>`).
+ * @param filePath Path to the archive on disk.
+ * @param entryName The exact archive-relative entry name to read.
+ * @param maxBytes Optional cap on how many bytes to buffer before stopping.
+ * @returns The entry's text, or undefined if it could not be read.
+ */
+function readZipEntryText(filePath: string, entryName: string, maxBytes?: number): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		yauzl.open(filePath, { lazyEntries: true }, (err, zipfile) => {
+			if (err || !zipfile) {
+				resolve(undefined);
+				return;
+			}
+			let settled = false;
+			const finish = (value: string | undefined) => {
+				if (!settled) {
+					settled = true;
+					resolve(value);
+				}
+				zipfile.close();
+			};
+			zipfile.on('entry', (entry) => {
+				if (entry.fileName !== entryName) {
+					zipfile.readEntry();
+					return;
+				}
+				zipfile.openReadStream(entry, (streamErr, stream) => {
+					if (streamErr || !stream) {
+						finish(undefined);
+						return;
+					}
+					const chunks: Buffer[] = [];
+					let total = 0;
+					const done = () => finish(Buffer.concat(chunks).toString('utf8'));
+					stream.on('data', (chunk: Buffer) => {
+						chunks.push(chunk);
+						total += chunk.length;
+						if (maxBytes !== undefined && total >= maxBytes) {
+							// Enough for the caller; stop early. 'close' resolves below.
+							stream.destroy();
+						}
+					});
+					stream.on('error', () => finish(undefined));
+					stream.on('end', done);
+					stream.on('close', done);
+				});
+			});
+			// Reached the end of the archive without finding the entry.
+			zipfile.on('end', () => finish(undefined));
+			zipfile.on('error', () => finish(undefined));
+			zipfile.readEntry();
+		});
+	});
+}
+
+/**
+ * Read the worksheet names from an `.xlsx` workbook, in workbook order.
+ *
+ * An `.xlsx` file is a ZIP archive whose sheet names live in the small, stable
+ * `xl/workbook.xml` entry. We read just that entry rather than depending on a
+ * full spreadsheet parser. Resolves to `undefined` if the names cannot be
+ * determined (e.g. the archive is unreadable); callers fall back to opening the
+ * default sheet rather than failing the whole import.
+ * @param filePath Path to the .xlsx file on disk.
+ * @returns The sheet names, or undefined if they could not be read.
+ */
+async function readXlsxSheetNames(filePath: string): Promise<string[] | undefined> {
+	const workbookXml = await readZipEntryText(filePath, 'xl/workbook.xml');
+	return workbookXml === undefined ? undefined : parseSheetNames(workbookXml);
+}
+
+/**
+ * Read the declared used-cell range (the `ref` of a worksheet's `<dimension>`
+ * element) for a sheet in an `.xlsx` workbook, e.g. `"A2:W65"`.
+ *
+ * `<dimension>` is an *advisory* hint in the OOXML format -- writers may omit
+ * it or leave it stale -- so callers must treat it only as a recovery aid, never
+ * as the authoritative range. Resolves to `undefined` if it cannot be
+ * determined.
+ * @param filePath Path to the .xlsx file on disk.
+ * @param sheetName The worksheet to read; defaults to the first sheet in the
+ * workbook when omitted.
+ * @returns The dimension ref string, or undefined if it could not be read.
+ */
+async function readXlsxSheetDimension(filePath: string, sheetName?: string): Promise<string | undefined> {
+	const workbookXml = await readZipEntryText(filePath, 'xl/workbook.xml');
+	if (workbookXml === undefined) {
+		return undefined;
+	}
+
+	// Map each <sheet> to its relationship id, in workbook order. Attribute order
+	// is not guaranteed, so pull `name` and `r:id` out of each element separately.
+	const sheets: Array<{ name: string; rId: string }> = [];
+	const sheetRegex = /<sheet\b[^>]*?>/g;
+	let sheetMatch: RegExpExecArray | null;
+	while ((sheetMatch = sheetRegex.exec(workbookXml)) !== null) {
+		const tag = sheetMatch[0];
+		const name = /\bname="([^"]*)"/.exec(tag)?.[1];
+		const rId = /\br:id="([^"]*)"/.exec(tag)?.[1];
+		if (name !== undefined && rId !== undefined) {
+			sheets.push({ name: decodeXmlEntities(name), rId });
+		}
+	}
+	const target = sheetName !== undefined
+		? sheets.find(sheet => sheet.name === sheetName)
+		: sheets[0];
+	if (target === undefined) {
+		return undefined;
+	}
+
+	// Resolve the relationship id to the worksheet part path.
+	const relsXml = await readZipEntryText(filePath, 'xl/_rels/workbook.xml.rels');
+	if (relsXml === undefined) {
+		return undefined;
+	}
+	let worksheetEntry: string | undefined;
+	const relRegex = /<Relationship\b[^>]*?>/g;
+	let relMatch: RegExpExecArray | null;
+	while ((relMatch = relRegex.exec(relsXml)) !== null) {
+		const tag = relMatch[0];
+		if (/\bId="([^"]*)"/.exec(tag)?.[1] !== target.rId) {
+			continue;
+		}
+		const rawTarget = /\bTarget="([^"]*)"/.exec(tag)?.[1];
+		if (rawTarget !== undefined) {
+			const decoded = decodeXmlEntities(rawTarget);
+			// Targets are usually relative to xl/; an absolute target (leading
+			// slash) is rooted at the package.
+			worksheetEntry = decoded.startsWith('/')
+				? decoded.slice(1)
+				: decoded.startsWith('xl/') ? decoded : `xl/${decoded}`;
+		}
+		break;
+	}
+	if (worksheetEntry === undefined) {
+		return undefined;
+	}
+
+	// <dimension> precedes the bulk <sheetData>, so the head of the part is enough.
+	const head = await readZipEntryText(filePath, worksheetEntry, 64 * 1024);
+	if (head === undefined) {
+		return undefined;
+	}
+	return /<dimension\b[^>]*\bref="([^"]*)"/.exec(head)?.[1];
+}
+
+/**
+ * Parse an `.xlsx` cell-range reference (e.g. `"A2:W65"`, or a single cell
+ * `"A1"`) into its width and height in cells. Returns `undefined` for a ref that
+ * cannot be parsed.
+ * @param ref The range reference string.
+ * @returns The range's width and height, or undefined if unparseable.
+ */
+function parseXlsxRange(ref: string): { width: number; height: number } | undefined {
+	const match = /^([A-Za-z]+)(\d+)(?::([A-Za-z]+)(\d+))?$/.exec(ref.trim());
+	if (!match) {
+		return undefined;
+	}
+	const columnToIndex = (letters: string): number => {
+		let index = 0;
+		for (const ch of letters.toUpperCase()) {
+			index = index * 26 + (ch.charCodeAt(0) - 64);
+		}
+		return index;
+	};
+	const startCol = columnToIndex(match[1]);
+	const startRow = parseInt(match[2], 10);
+	const endCol = match[3] ? columnToIndex(match[3]) : startCol;
+	const endRow = match[4] ? parseInt(match[4], 10) : startRow;
+	return {
+		width: Math.abs(endCol - startCol) + 1,
+		height: Math.abs(endRow - startRow) + 1
+	};
+}
+
+/**
+ * Extract sheet names from the contents of an `xl/workbook.xml` entry. The
+ * `<sheet>` elements are flat (attributes only), so a targeted scan over the
+ * `name` attribute is sufficient and avoids a full XML-parser dependency.
+ * @param workbookXml The UTF-8 contents of xl/workbook.xml.
+ * @returns The decoded sheet names, in document order.
+ */
+export function parseSheetNames(workbookXml: string): string[] {
+	const names: string[] = [];
+	const regex = /<sheet\b[^>]*\bname="([^"]*)"/g;
+	let match: RegExpExecArray | null;
+	while ((match = regex.exec(workbookXml)) !== null) {
+		names.push(decodeXmlEntities(match[1]));
+	}
+	return names;
+}
+
+/** Decode the five predefined XML entities. `&amp;` is decoded last so that an
+ * encoded entity such as `&amp;lt;` round-trips to `&lt;` rather than `<`. */
+function decodeXmlEntities(text: string): string {
+	return text
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"')
+		.replace(/&apos;/g, '\'')
+		.replace(/&amp;/g, '&');
+}
+
+/**
+ * Translate a raw error thrown while reading an `.xlsx` file into a message
+ * suitable for display in the data explorer. The data explorer surfaces this
+ * text verbatim when an import fails, so it must read as a complete sentence
+ * rather than a raw DuckDB diagnostic.
+ * @param error The error thrown by the read query.
+ * @param uri The URI of the workbook being read.
+ * @param sheetName The sheet that was requested, if any.
+ * @param availableSheets The sheet names known for the workbook, if any.
+ * @returns An Error with a user-facing message.
+ */
+function translateXlsxError(
+	error: unknown,
+	uri: vscode.Uri,
+	sheetName: string | undefined,
+	availableSheets: string[] | undefined
+): Error {
+	const raw = error instanceof Error ? error.message : String(error);
+	const fileName = path.basename(uri.path);
+
+	// A requested sheet that isn't in the workbook. DuckDB reports e.g.
+	// 'Binder Error: Sheet "X" not found in xlsx file "..."'.
+	if (sheetName && /sheet\b.*\bnot found/i.test(raw)) {
+		const sheets = availableSheets?.length
+			? availableSheets.join(', ')
+			: 'none could be read';
+		return new Error(
+			`The sheet "${sheetName}" was not found in "${fileName}". Available sheets: ${sheets}.`
+		);
+	}
+
+	// Anything else (corrupt archive, unsupported feature, unreadable file).
+	// Keep the raw diagnostic in the log for debugging, but show a plain message.
+	console.error(`Failed to read xlsx "${uri.toString()}": ${raw}`);
+	return new Error(
+		`Could not read "${fileName}". The file may be corrupt or use an unsupported Excel feature.`
+	);
 }
 
 function anyValue(unquotedName: string) {
@@ -948,16 +1207,24 @@ export class DuckDBTableView {
 	private _whereClause: string = '';
 
 	/**
-	 * Import options for delimited files. Can be modified to reimport
-	 * the file with different settings.
+	 * Import options for delimited files and Excel workbooks. Can be modified to
+	 * reimport the file with different settings.
 	 */
 	importOptions?: DatasetImportOptions;
+
+	/**
+	 * For Excel workbooks, the names of the worksheets available to read, in
+	 * workbook order. Undefined for other data sources (and for workbooks whose
+	 * sheet names could not be read).
+	 */
+	availableSheets?: string[];
 
 	constructor(
 		readonly uri: vscode.Uri,
 		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
 	) {
@@ -983,17 +1250,15 @@ export class DuckDBTableView {
 		await this._applyRowFilters();
 
 		// When the file changes, refuse to guess and send SchemaUpdate event
-		return vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.SchemaUpdate,
-				params: {}
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.SchemaUpdate,
+			params: {}
+		});
 	}
 
-	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance) {
-		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
+	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance, sendUiEvent: (event: DataExplorerUiEvent) => void) {
+		return new DuckDBTableView(uri, 'disconnected', [], db, sendUiEvent, false, errorMessage);
 	}
 
 	async getSchema(params: GetSchemaParams): RpcResponse<TableSchema> {
@@ -1414,6 +1679,9 @@ END`;
 				num_columns: unfilteredNumCols
 			},
 			has_row_labels: false,
+			// Only present for Excel workbooks; omitted entirely otherwise so the
+			// state shape is unchanged for CSV/TSV/Parquet sources.
+			...(this.availableSheets ? { available_sheets: this.availableSheets } : {}),
 			column_filters: this.columnFilters,
 			row_filters: this.rowFilters,
 			sort_keys: this.sortKeys,
@@ -1644,13 +1912,11 @@ END`;
 			}
 		}
 
-		await vscode.commands.executeCommand(
-			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri.toString(),
-				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
-				params: outParams
-			} satisfies DataExplorerUiEvent
-		);
+		this.sendUiEvent({
+			uri: this.uri.toString(),
+			method: DataExplorerFrontendEvent.ReturnColumnProfiles,
+			params: outParams
+		});
 	}
 
 	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
@@ -1916,6 +2182,14 @@ END`;
 }
 
 /**
+ * Metadata returned from importing a file into the DuckDB catalog.
+ */
+interface CreateTableResult {
+	/** For Excel workbooks, the worksheet names (if they could be read). */
+	availableSheets?: string[];
+}
+
+/**
  * Implementation of Data Explorer backend protocol using native DuckDB,
  * for serving requests coming in through the vscode command.
  */
@@ -1925,7 +2199,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	private _watchers: vscode.Disposable[] = [];
 	private readonly _crashListener: vscode.Disposable;
 
-	constructor(private readonly db: DuckDBInstance) {
+	constructor(
+		private readonly db: DuckDBInstance,
+		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
+	) {
 		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
 		// are gone with it. Drop the cached table views so the next request for a
 		// dataset re-imports it into the freshly respawned worker.
@@ -1938,21 +2215,27 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	}
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
-		let scanQuery, tableName;
 		const uri = vscode.Uri.parse(params.uri);
-		if (uri.scheme === 'duckdb') {
-			// We are querying a table in the transient in-memory database. We can modify this later
-			// to read from different .duckb database files
-			tableName = uri.path;
-		} else {
-			tableName = `positron_${this._tableIndex++}`;
-			await this.createTableFromUri(uri, tableName);
-		}
-
 		let tableView: DuckDBTableView;
 		try {
+			let tableName: string;
+			let createResult: CreateTableResult | undefined;
+			if (uri.scheme === 'duckdb') {
+				// We are querying a table in the transient in-memory database. We can modify this later
+				// to read from different .duckb database files
+				tableName = uri.path;
+			} else {
+				tableName = `positron_${this._tableIndex++}`;
+				// Importing inside this try is deliberate: a failed import (e.g. an
+				// unreadable file or a missing Excel sheet) becomes a disconnected
+				// table view whose error message the data explorer displays, rather
+				// than rejecting open_dataset and leaving the explorer blank.
+				createResult = await this.createTableFromUri(uri, tableName);
+			}
+
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db, this.sendUiEvent);
+			tableView.availableSheets = createResult?.availableSheets;
 
 			if (uri.scheme !== 'duckdb') {
 				// Watch this dataset's file for changes. Scope the pattern to the
@@ -1963,12 +2246,28 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				const watcher = vscode.workspace.createFileSystemWatcher(watchPattern, true);
 				watcher.onDidChange(async () => {
 					try {
-						const newTableName = `positron_${this._tableIndex++}`;
+						const reload = async (importOptions?: DatasetImportOptions) => {
+							const newTableName = `positron_${this._tableIndex++}`;
+							const createResult = await this.createTableFromUri(uri, newTableName, importOptions);
+							const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+							tableView.importOptions = importOptions;
+							tableView.availableSheets = createResult.availableSheets;
+							await tableView.onFileUpdated(newTableName, newSchema);
+						};
 
-						await this.createTableFromUri(uri, newTableName);
-
-						const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
-						await tableView.onFileUpdated(newTableName, newSchema);
+						try {
+							await reload(tableView.importOptions);
+						} catch (error) {
+							// A workbook edited on disk may have had its selected sheet
+							// renamed or removed, leaving a stale sheet_name that fails
+							// every reload and strands the explorer on old data. Recover
+							// by retrying once with the default (first) sheet so the
+							// explorer reconnects to on-disk truth.
+							if (tableView.importOptions?.sheet_name === undefined) {
+								throw error;
+							}
+							await reload({ ...tableView.importOptions, sheet_name: undefined });
+						}
 					} catch (error) {
 						// The file may have been changed-then-deleted, or otherwise
 						// become unreadable, between the change event firing and the
@@ -1986,7 +2285,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
 				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db);
+			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db, this.sendUiEvent);
 
 		}
 		this._uriToTableView.set(params.uri.toString(), tableView);
@@ -1997,10 +2296,14 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 * Import data file into DuckDB by creating table or view
 	 * @param uri A URI, usually for a file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
-	 * @param importOptions Optional import options for delimited files.
+	 * @param importOptions Optional import options for delimited files and Excel workbooks.
+	 * @returns Metadata about the imported table (e.g. the Excel sheet names).
 	 */
-	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions) {
-		let fileExt = path.extname(uri.path);
+	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions): Promise<CreateTableResult> {
+		// Lower-case the extension for all format detection below. The editor
+		// resolver routes files case-insensitively (e.g. REPORT.XLSX opens here),
+		// so the backend must recognize uppercase/mixed-case extensions too.
+		let fileExt = path.extname(uri.path).toLowerCase();
 		// DuckDB transparently decompresses gzip/zstd-wrapped CSV/TSV by file
 		// extension, so we strip the compression extension to detect the inner
 		// format. Parquet is handled separately below (its reader can't unwrap an
@@ -2008,9 +2311,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		const compressionExt = fileExt === '.gz' || fileExt === '.zst' ? fileExt : '';
 		const compression = fileExt === '.gz' ? 'gzip' : fileExt === '.zst' ? 'zstd' : undefined;
 		if (compression) {
-			fileExt = path.extname(uri.path.slice(0, -compressionExt.length));
+			fileExt = path.extname(uri.path.slice(0, -compressionExt.length)).toLowerCase();
 		}
 		const isParquet = fileExt === '.parquet' || fileExt === '.parq';
+		const isXlsx = fileExt === '.xlsx';
 
 		const getCsvImportQuery = (_filePath: string, options: Array<string>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
@@ -2070,6 +2374,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			spillContents = fileContents;
 		}
 
+		let availableSheets: string[] | undefined;
 		try {
 			if (spillContents !== undefined) {
 				await fs.promises.writeFile(filePath, spillContents);
@@ -2078,6 +2383,8 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
 				SELECT * FROM parquet_scan('${quoteLiteral(filePath)}');`;
 				await this.db.runQuery(query);
+			} else if (isXlsx) {
+				availableSheets = await this.importXlsx(filePath, catalogName, uri, importOptions);
 			} else {
 				await importDelimited(filePath);
 			}
@@ -2088,6 +2395,137 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				await fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => { });
 			}
 		}
+		return { availableSheets };
+	}
+
+	/**
+	 * Whether the bundled DuckDB `excel` extension has been loaded into the
+	 * worker. Loading is deferred until the first `.xlsx` import so that CSV and
+	 * Parquet sessions never pay for it, and so that a problem loading Excel
+	 * support can never break those formats.
+	 */
+	private _excelExtensionLoaded = false;
+
+	/**
+	 * Ensure the bundled `excel` extension is loaded. Loads it from disk (rather
+	 * than DuckDB's network autoload) so `.xlsx` support works offline. Throws a
+	 * user-facing error if the bundled extension cannot be loaded.
+	 */
+	private async ensureExcelExtension(): Promise<void> {
+		if (this._excelExtensionLoaded) {
+			return;
+		}
+		try {
+			await this.db.runQuery(`LOAD '${quoteLiteral(EXCEL_EXTENSION_PATH)}';`);
+			this._excelExtensionLoaded = true;
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			console.error(`Failed to load bundled DuckDB Excel extension (${EXCEL_EXTENSION_PATH}): ${detail}`);
+			throw new Error('Could not load Excel support. Please report this issue if it persists.');
+		}
+	}
+
+	/**
+	 * Import an `.xlsx` worksheet into DuckDB.
+	 * @param filePath Resolved local path to the workbook.
+	 * @param catalogName The table name to use in the DuckDB catalog.
+	 * @param uri The original URI (for error messages).
+	 * @param importOptions Optional header / sheet selection.
+	 * @returns The worksheet names, or undefined if they could not be read.
+	 */
+	private async importXlsx(
+		filePath: string,
+		catalogName: string,
+		uri: vscode.Uri,
+		importOptions?: DatasetImportOptions
+	): Promise<string[] | undefined> {
+		await this.ensureExcelExtension();
+
+		// Enumerate sheet names so the UI can offer a sheet picker and so we can
+		// list valid sheets if the requested one is missing. A failure here must
+		// not block the import: fall back to reading the default (first) sheet.
+		const availableSheets = await readXlsxSheetNames(filePath);
+
+		const hasHeader = importOptions?.has_header_row ?? true;
+		const sheetName = importOptions?.sheet_name;
+
+		// Build the import query. `extraOptions` lets the dimension-based recovery
+		// path below append a range / error tolerance without duplicating the
+		// header and sheet handling.
+		const buildQuery = (extraOptions: string[]) => {
+			const options = [`header=${hasHeader}`];
+			if (sheetName) {
+				options.push(`sheet='${quoteLiteral(sheetName)}'`);
+			}
+			options.push(...extraOptions);
+			return `CREATE OR REPLACE TABLE ${catalogName} AS
+			SELECT * FROM read_xlsx('${quoteLiteral(filePath)}', ${options.join(', ')});`;
+		};
+
+		// First attempt: let DuckDB auto-detect the used range from the cell data.
+		// This is correct for well-formed sheets and never trusts the workbook's
+		// advisory metadata.
+		let firstError: unknown;
+		try {
+			await this.db.runQuery(buildQuery([]));
+		} catch (error) {
+			firstError = error;
+		}
+
+		// DuckDB derives the used range by anchoring on the first non-empty row. A
+		// sheet with a sparse leading row -- e.g. a merged title cell spanning a
+		// single column above the real table -- collapses to one column, or the
+		// read fails outright on a type clash. When the read failed or the result
+		// looks degenerate (<= 1 column, or no rows) AND the sheet's declared
+		// <dimension> says the grid is genuinely larger, re-read with that explicit
+		// range so the full grid is captured. <dimension> is only an advisory hint,
+		// so we reach for it strictly as a recovery path, never on the happy path.
+		const shape = firstError === undefined
+			? await this._getTableShape(catalogName)
+			: undefined;
+		const looksDegenerate = shape === undefined || shape.numColumns <= 1 || shape.numRows === 0;
+
+		if (looksDegenerate) {
+			const dimensionRef = await readXlsxSheetDimension(filePath, sheetName);
+			const dimension = dimensionRef ? parseXlsxRange(dimensionRef) : undefined;
+			const dimensionImpliesMore = dimension !== undefined && (
+				shape === undefined ||
+				shape.numColumns < dimension.width ||
+				shape.numRows === 0
+			);
+			if (dimensionImpliesMore) {
+				try {
+					// ignore_errors nulls cells that don't match the inferred column
+					// type (common when header or footnote text shares a column with
+					// numeric data) rather than failing the whole import.
+					await this.db.runQuery(buildQuery([`range='${quoteLiteral(dimensionRef!)}'`, 'ignore_errors=true']));
+					return availableSheets;
+				} catch {
+					// Recovery failed; fall through to surface the original error if
+					// the first read also failed, otherwise keep the first result.
+				}
+			}
+		}
+
+		if (firstError !== undefined) {
+			throw translateXlsxError(firstError, uri, sheetName, availableSheets);
+		}
+		return availableSheets;
+	}
+
+	/**
+	 * Return the column and row counts of a table already present in the DuckDB
+	 * catalog. Used to detect a degenerate `.xlsx` read.
+	 * @param tableName The catalog table name.
+	 * @returns The table's column and row counts.
+	 */
+	private async _getTableShape(tableName: string): Promise<{ numColumns: number; numRows: number }> {
+		const describe = await this.db.runQuery(`DESCRIBE ${tableName};`);
+		const count = await this.db.runQuery(`SELECT COUNT(*) AS n FROM ${tableName};`);
+		return {
+			numColumns: describe.numRows,
+			numRows: Number(count.columnByName('n')[0])
+		};
 	}
 
 	/**
@@ -2101,21 +2539,26 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			return { error_message: `No table view found for URI: ${uri}` };
 		}
 
-		// Store the import options on the table view
-		tableView.importOptions = params.options;
-
 		// Reimport the file with the new options
 		const newTableName = `positron_${this._tableIndex++}`;
 		const parsedUri = vscode.Uri.parse(uri);
 
 		try {
-			await this.createTableFromUri(parsedUri, newTableName, tableView.importOptions);
+			const createResult = await this.createTableFromUri(parsedUri, newTableName, params.options);
 			const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+			// Only commit the new options once the reimport has succeeded. Storing
+			// them before validation would leave a bad selection (e.g. a sheet that
+			// doesn't exist) persisted on the table view, so the next file-change
+			// auto-reload would reuse it and fail again.
+			tableView.importOptions = params.options;
+			tableView.availableSheets = createResult.availableSheets;
 			await tableView.onFileUpdated(newTableName, newSchema);
 			return {};
 		} catch (error) {
+			// createTableFromUri already translates xlsx failures into user-facing
+			// messages; surface the message directly rather than wrapping it.
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			return { error_message: `Failed to reimport with new options: ${errorMessage}` };
+			return { error_message: errorMessage };
 		}
 	}
 
@@ -2210,14 +2653,17 @@ export async function activate(context: vscode.ExtensionContext) {
 			})
 	);
 
-	const dataExplorerHandler = new DataExplorerRpcHandler(db);
-	context.subscriptions.push(
-		dataExplorerHandler,
-		vscode.commands.registerCommand('positron-duckdb.dataExplorerRpc',
-			async (rpc: DataExplorerRpc): Promise<DataExplorerResponse> => {
-				return dataExplorerHandler.handleRequest(rpc);
-			})
-	);
+	// Register as a Data Explorer backend provider over the typed channel. The session lets the
+	// handler push async frontend events (schema updates, column profiles) back to the UI.
+	// Forward reference: the handler's closure captures `session`, which is only assigned once
+	// registerRpcHandler returns below, so this must be `let` despite the single assignment.
+	// eslint-disable-next-line prefer-const
+	let session: positron.DataExplorerRpcSession | undefined;
+	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event));
+	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
+		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc)
+	});
+	context.subscriptions.push(dataExplorerHandler, session);
 }
 
 export function deactivate() { }

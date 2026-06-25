@@ -21,6 +21,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 
 /**
@@ -85,6 +86,7 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 	) {
 		super(
 			options,
@@ -104,6 +106,13 @@ export class PositronDataViewPane extends PositronViewPane implements IReactComp
 				this._onSaveScrollPositionEmitter.fire();
 			} else {
 				this._onRestoreScrollPositionEmitter.fire();
+
+				// Activate extensions that register data connection drivers. Driver-providing
+				// extensions declare an `onView:<this view id>` activation event so they only load
+				// when the user actually opens this view. Unlike upstream tree/webview view panes,
+				// Positron's custom React pane has to fire this activation itself. The call is
+				// cached by the extension service, so re-firing on every visibility change is cheap.
+				this._extensionService.activateByEvent(`onView:${this.id}`);
 			}
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));

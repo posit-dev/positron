@@ -32,11 +32,7 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	/* Begin Positron */
-	/* Immediately override the overflow: hidden so we can get scrollable
-	content on small screens */
-	overflow: auto;
-	/* End Positron */
+	overflow: hidden;
 	flex: 1;
 	position: relative; /* Allow absolute positioning of prompts */
 }
@@ -51,14 +47,6 @@
 }
 
 div.chat-welcome-view {
-	/* Begin Positron */
-	/* Because the content is flex-centered, we need the content to have auto
-	margins to avoid not being able to see the top of the content. See
-	https://www.w3.org/TR/css-flexbox-1/#auto-margins  and
-	https://css-tricks.com/the-peculiar-magic-of-flexbox-and-auto-margins/ for
-	more info. */
-	margin: auto;
-	/* End Positron */
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -106,18 +94,6 @@ div.chat-welcome-view {
 		line-height: normal;
 		padding: 0 8px;
 	}
-
-	/* --- Start Positron --- */
-	/* Copied styling from .setting-indicator.setting-item-preview src/vs/workbench/contrib/preferences/browser/media/settingsEditor2.css */
-	& > .chat-welcome-view-preview-badge {
-		color: var(--vscode-badge-foreground);
-		background: var(--vscode-badge-background);
-		font-style: italic;
-		margin: 8px 0; /* The margin was adapted for better spacing in the Chat pane */
-		padding: 0px 4px 2px;
-		border-radius: 4px;
-	}
-	/* --- End Positron --- */
 
 	& > .chat-welcome-view-message {
 		position: relative;
@@ -170,22 +146,12 @@ div.chat-welcome-view {
 		}
 
 		.rendered-markdown p {
-			/* --- Start Positron ---
-			Disable flexbox since it breaks normal text flow when tips are longer than one line.
-			The intention was probably to format codicons which we handle in a different way below.
 			display: flex;
 			gap: 6px;
-			--- End Positron --- */
 			margin: 6px 0 0 0;
 
 			.codicon {
-				/* --- Start Positron ---
-				Instead of making the parent a flex container, vertically align the codicon
-				with a slight offset to match the text baseline.
 				padding-top: 1px;
-				--- End Positron ---*/
-				vertical-align: middle;
-				margin-bottom: 2px;
 			}
 		}
 	}
@@ -265,10 +231,3 @@ div.chat-welcome-view {
 		background-color: var(--vscode-list-hoverBackground);
 	}
 }
-
-/* --- Start Positron --- */
-div.chat-welcome-view-container div.chat-welcome-view-message .rendered-markdown .codicon {
-	vertical-align: middle;
-	margin-bottom: 2px;
-}
-/* --- End Positron --- */

@@ -23,7 +23,11 @@ import {
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+import {
+    ModuleMetadata,
+    moduleMetadataMap,
+    whenModuleMetadataReady,
+} from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 import { getShortVersionString, parseVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { EnvironmentType, virtualEnvTypes } from '../pythonEnvironments/info';
 import { isParentPath } from '../pythonEnvironments/common/externalDependencies';
@@ -90,6 +94,61 @@ function isPythonRuntimeCacheable(interpreter: PythonEnvironment, workspaceFolde
     }
 
     return true;
+}
+
+/**
+ * Compute the display source and short name for a Python runtime (e.g. source
+ * `Venv` and short name `3.10.17 (Venv: my-project)`).
+ *
+ * When module metadata is present it is authoritative for both: a module-managed
+ * Python is often also visible to the native locator as a bare global, so the
+ * interpreter's `envType` can be `Unknown` even though the runtime is
+ * module-provided. Keying off the metadata keeps it labelled as `Module`
+ * (mirroring classifyRRuntimeSource on the R side).
+ *
+ * @param interpreterPath The interpreter's executable path.
+ * @param envType The environment type reported by discovery.
+ * @param envName The environment name reported by discovery, if any.
+ * @param pythonVersion The formatted Python version (e.g. '3.10.17').
+ * @param moduleMetadata Module metadata for this interpreter, if module-provided.
+ * @returns The runtime source and the short display name.
+ */
+export function getRuntimeSourceAndShortName(
+    interpreterPath: string,
+    envType: EnvironmentType,
+    envName: string | undefined,
+    pythonVersion: string,
+    moduleMetadata: ModuleMetadata | undefined,
+): { runtimeSource: EnvironmentType; runtimeShortName: string } {
+    // Get the environment name, using parent directory name for .venv/.conda
+    // folders (like uv does). Module environments use their configured name.
+    let resolvedEnvName = envName ?? '';
+    if (moduleMetadata) {
+        resolvedEnvName = moduleMetadata.environmentName;
+    } else if ((resolvedEnvName === '.venv' || resolvedEnvName === '.conda') && interpreterPath) {
+        // interpreterPath is like /project/.venv/bin/python (Unix) or
+        // /project/.venv/Scripts/python.exe (Windows); extract "project".
+        const venvDir = path.dirname(path.dirname(interpreterPath)); // up from python to bin/Scripts, then to .venv
+        const projectDir = path.dirname(venvDir); // up from .venv to project
+        const projectName = path.basename(projectDir);
+        if (projectName) {
+            resolvedEnvName = projectName;
+        }
+    }
+
+    const runtimeSource = moduleMetadata ? EnvironmentType.Module : envType;
+
+    // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.
+    let runtimeShortName = pythonVersion;
+    // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
+    runtimeShortName += ` (${runtimeSource}`;
+    // Add the environment name if it's not the same as the Python version
+    if (resolvedEnvName.length > 0 && resolvedEnvName !== pythonVersion) {
+        runtimeShortName += `: ${resolvedEnvName}`;
+    }
+    runtimeShortName += ')';
+
+    return { runtimeSource, runtimeShortName };
 }
 
 export async function createPythonRuntimeMetadata(
@@ -161,33 +220,22 @@ export async function createPythonRuntimeMetadata(
     const rawVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
     const pythonVersion = getShortVersionString(parseVersion(rawVersion));
 
-    // Get the environment name, using parent directory name for .venv/.conda folders (like uv does)
-    let envName = interpreter.envName ?? '';
-    if ((envName === '.venv' || envName === '.conda') && interpreter.path) {
-        // For .venv or .conda folders, use the parent directory name instead
-        // interpreter.path is like /project/.venv/bin/python (Unix) or /project/.venv/Scripts/python.exe (Windows)
-        // We want to extract "project" from this path
-        const venvDir = path.dirname(path.dirname(interpreter.path)); // Go up from python to bin/Scripts, then to .venv
-        const projectDir = path.dirname(venvDir); // Go up from .venv to project
-        const projectName = path.basename(projectDir);
-        if (projectName) {
-            envName = projectName;
-        }
-    }
+    // Check if this interpreter was discovered via environment modules. Module
+    // discovery runs asynchronously, so wait for it to settle before reading the
+    // path-keyed map: this function can run before discovery completes (e.g. via
+    // the eager onDidChangeInterpreters registration), and reading the map too
+    // early would mislabel a module-managed interpreter as a plain global.
+    await whenModuleMetadataReady();
+    const moduleMetadata = moduleMetadataMap.get(interpreter.path);
 
-    const runtimeSource = interpreter.envType;
-
-    // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.
-    let runtimeShortName = pythonVersion;
-
-    // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
-    runtimeShortName += ` (${runtimeSource}`;
-
-    // Add the environment name if it's not the same as the Python version
-    if (envName.length > 0 && envName !== pythonVersion) {
-        runtimeShortName += `: ${envName}`;
-    }
-    runtimeShortName += ')';
+    // Determine the display source (e.g. 'Venv', 'Module') and short name.
+    const { runtimeSource, runtimeShortName } = getRuntimeSourceAndShortName(
+        interpreter.path,
+        interpreter.envType,
+        interpreter.envName,
+        pythonVersion,
+        moduleMetadata,
+    );
 
     let supportedFlag = '';
     if (!isVersionSupported(interpreter.version)) {
@@ -218,8 +266,8 @@ export async function createPythonRuntimeMetadata(
         supported: isVersionSupported(interpreter.version),
     };
 
-    // Check if this interpreter was discovered via environment modules
-    const moduleMetadata = moduleMetadataMap.get(interpreter.path);
+    // Record the module metadata (looked up above) so the session launches with
+    // the module environment loaded.
     if (moduleMetadata) {
         extraRuntimeData.moduleMetadata = moduleMetadata;
         traceInfo(`createPythonRuntime: interpreter from module environment "${moduleMetadata.environmentName}"`);

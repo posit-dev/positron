@@ -262,14 +262,14 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronRefreshObjects}
-					icon={ThemeIcon.fromId('positron-refresh')}
+					icon={ThemeIcon.fromId('refresh')}
 					tooltip={positronRefreshObjects}
 					onPressed={refreshObjectsHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.refreshObjects',
-				icon: 'positron-refresh',
+				icon: 'refresh',
 				label: positronRefreshObjects,
 				onSelected: refreshObjectsHandler
 			}

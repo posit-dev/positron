@@ -6,10 +6,14 @@
 /// <reference types="vitest/globals" />
 
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { PackageMetadataCache } from '../../browser/packageMetadataCache.js';
 import { PositronPackagesInstance } from '../../browser/positronPackagesInstance.js';
 
 function pkg(name: string, version: string): ILanguageRuntimePackage {
@@ -32,9 +36,12 @@ function makeInstance(store: DisposableStore, before: ILanguageRuntimePackage[],
 		getPackageMetadata: undefined,
 	});
 	const session = stubInterface<ILanguageRuntimeSession>({
+		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ runtimeId: 'test-runtime' }),
 		getPackageManager: () => packageManager,
 	});
-	return store.add(new PositronPackagesInstance(session, new NullLogService()));
+	const storage = store.add(new InMemoryStorageService());
+	const cache = new PackageMetadataCache(storage, new NullLogService(), new TestConfigurationService());
+	return store.add(new PositronPackagesInstance(session, new NullLogService(), cache));
 }
 
 describe('PositronPackagesInstance.updateAllPackages', () => {

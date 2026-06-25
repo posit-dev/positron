@@ -105,7 +105,6 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 
 	//#region Private Properties
 	private _instanceById = new Map<string, IPositronNotebookInstance>();
-	private _activeInstance: IPositronNotebookInstance | null = null;
 	private _clipboardCells: ICellDto2[] = [];
 	//#endregion Private Properties
 
@@ -140,18 +139,19 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
-		if (!this._instanceById.has(instance.getId())) {
-			this._instanceById.set(instance.getId(), instance);
-			this._onDidAddNotebookInstance.fire(instance);
+		const id = instance.getId();
+		if (this._instanceById.has(id)) {
+			throw new Error(
+				`Could not register notebook instance with id '${id}' ` +
+				`because one is already registered`
+			);
 		}
-		this._activeInstance = instance;
+		this._instanceById.set(id, instance);
+		this._onDidAddNotebookInstance.fire(instance);
 	}
 
 	public unregisterInstance(instance: IPositronNotebookInstance): void {
 		if (this._instanceById.delete(instance.getId())) {
-			if (this._activeInstance === instance) {
-				this._activeInstance = null;
-			}
 			this._onDidRemoveNotebookInstance.fire(instance);
 		}
 	}
@@ -178,5 +178,4 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 	//#endregion Public Methods
 }
 
-// Register the Positron data explorer service.
 registerSingleton(IPositronNotebookService, PositronNotebookService, InstantiationType.Delayed);

@@ -48,7 +48,12 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
 import { arePathsSame, isParentPath, resolveSymbolicLink } from './common/externalDependencies';
-import { ModuleEnvironmentLocator, moduleMetadataMap } from './base/locators/lowLevel/moduleEnvironmentLocator';
+import {
+    ModuleEnvironmentLocator,
+    moduleMetadataMap,
+    pendingModuleRuntimeRegistrations,
+    setModuleDiscoveryInFlight,
+} from './base/locators/lowLevel/moduleEnvironmentLocator';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -792,6 +797,7 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     return native;
 }
 
+// --- Start Positron ---
 /**
  * Wrapper that combines the native Python environments API with module environments.
  * Module environments are discovered using the ModuleEnvironmentLocator and merged
@@ -848,11 +854,21 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
         this._refreshPromise = createDeferred();
 
         try {
-            // Trigger both native and module discovery in parallel
-            const [, moduleEnvs] = await Promise.all([
-                this.nativeApi.triggerRefresh(query, options),
-                this.discoverModuleEnvironments(),
-            ]);
+            // Trigger native discovery and module discovery in parallel, then
+            // reconcile the two: a module-managed interpreter that the native
+            // locator also finds must not be shown twice. Publish the combined
+            // pass via setModuleDiscoveryInFlight so that runtime creation (which
+            // reads the path-keyed module metadata map) waits for reconciliation
+            // to finish; otherwise an interpreter could be registered before its
+            // module metadata is keyed onto the native path and gets mislabeled.
+            const nativeRefresh = this.nativeApi.triggerRefresh(query, options);
+            const moduleDiscovery = this.discoverModuleEnvironments();
+            const discoveryPass = (async () => {
+                const [, rawModuleEnvs] = await Promise.all([nativeRefresh, moduleDiscovery]);
+                return this.reconcileModuleEnvsWithNative(rawModuleEnvs);
+            })();
+            setModuleDiscoveryInFlight(discoveryPass);
+            const moduleEnvs = await discoveryPass;
 
             // Update module environments and fire change events for new ones
             const oldModuleEnvPaths = new Set(this._moduleEnvs.map((e) => e.executable.filename));
@@ -883,7 +899,11 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
 
     getEnvs(query?: PythonLocatorQuery): PythonEnvInfo[] {
         const nativeEnvs = this.nativeApi.getEnvs(query);
-        // Combine native envs with module envs, avoiding duplicates by executable path
+        // Combine native envs with module envs. Module envs that resolve to the
+        // same physical interpreter as a native env are already removed during
+        // reconciliation (see reconcileModuleEnvsWithNative), with their module
+        // metadata re-keyed onto the native path. The exact-filename filter below
+        // is a cheap guard against any remaining same-path overlap.
         const nativeEnvPaths = new Set(nativeEnvs.map((e) => e.executable.filename));
         const uniqueModuleEnvs = this._moduleEnvs.filter((e) => !nativeEnvPaths.has(e.executable.filename));
         return [...nativeEnvs, ...uniqueModuleEnvs];
@@ -897,6 +917,55 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
         }
         // Fall back to native resolution
         return this.nativeApi.resolveEnv(envPath);
+    }
+
+    /**
+     * Reconcile module-discovered environments against the native environments.
+     *
+     * The native locator and the module locator can surface the *same* physical
+     * interpreter under different executable paths: the native locator collapses
+     * symlinked siblings to the shortest path (e.g. `.../bin/python`), while the
+     * module locator resolves `python3` first (e.g. `.../bin/python3`). A plain
+     * filename comparison treats these as distinct, so the interpreter shows up
+     * twice -- once labelled by its native env type (e.g. Unknown) and once as a
+     * Module.
+     *
+     * For each module env that resolves (via symlink) to the same interpreter as
+     * a native env, drop the separate module entry and re-key its module metadata
+     * (and pending registration) onto the native interpreter's path. The single
+     * remaining native entry is then labelled Module and launches with the module
+     * environment loaded (see createPythonRuntimeMetadata). Module envs with no
+     * native equivalent are kept as their own entries.
+     *
+     * @param moduleEnvs The freshly discovered module environments.
+     * @returns The module environments that have no native equivalent.
+     */
+    private async reconcileModuleEnvsWithNative(moduleEnvs: PythonEnvInfo[]): Promise<PythonEnvInfo[]> {
+        const { uniqueModuleEnvs, reKeys } = await partitionModuleEnvsByNative(
+            moduleEnvs,
+            this.nativeApi.getEnvs(),
+            (p) => resolveSymbolicLink(p),
+        );
+
+        // Apply the re-keys: move each duplicate's module metadata and pending
+        // registration from the module path to the native path so the surviving
+        // native entry is labelled Module and launches with the module loaded.
+        for (const { from, to } of reKeys) {
+            const metadata = moduleMetadataMap.get(from);
+            if (metadata) {
+                moduleMetadataMap.set(to, metadata);
+                moduleMetadataMap.delete(from);
+            }
+            const pending = pendingModuleRuntimeRegistrations.get(from);
+            if (pending) {
+                pendingModuleRuntimeRegistrations.set(to, { ...pending, interpreterPath: to });
+                pendingModuleRuntimeRegistrations.delete(from);
+            }
+            traceInfo(
+                `[NativeWithModulesApi] Module interpreter ${from} matches native interpreter ${to}; attaching module metadata to the native entry to avoid a duplicate.`,
+            );
+        }
+        return uniqueModuleEnvs;
     }
 
     /**
@@ -974,7 +1043,68 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
     }
 }
 
-// --- Start Positron ---
+/**
+ * Partition module-discovered environments into those that duplicate a native
+ * environment and those that are standalone.
+ *
+ * The native locator and the module locator can surface the *same* physical
+ * interpreter under different executable paths: the native locator collapses
+ * symlinked siblings to the shortest path (e.g. `.../bin/python`), while the
+ * module locator resolves `python3` first (e.g. `.../bin/python3`). Comparing
+ * raw filenames treats these as distinct, so the interpreter shows up twice.
+ * Resolving symlinks reveals that they point at the same target.
+ *
+ * @param moduleEnvs The freshly discovered module environments.
+ * @param nativeEnvs The environments found by the native locator.
+ * @param resolveSymlink Resolves an executable path to its canonical (symlink)
+ *        target. Injected so callers/tests can supply a real or fake resolver.
+ * @returns `uniqueModuleEnvs` (module envs with no native equivalent, kept as
+ *          their own entries) and `reKeys` (module-path -> native-path moves the
+ *          caller should apply to the module metadata maps so the surviving
+ *          native entry is labelled Module). A module env whose path is identical
+ *          to its native equivalent is neither kept nor re-keyed: the native
+ *          entry already represents it and its metadata is already keyed there.
+ */
+export async function partitionModuleEnvsByNative(
+    moduleEnvs: PythonEnvInfo[],
+    nativeEnvs: PythonEnvInfo[],
+    resolveSymlink: (executablePath: string) => Promise<string>,
+): Promise<{ uniqueModuleEnvs: PythonEnvInfo[]; reKeys: { from: string; to: string }[] }> {
+    const reKeys: { from: string; to: string }[] = [];
+    if (moduleEnvs.length === 0 || nativeEnvs.length === 0) {
+        return { uniqueModuleEnvs: moduleEnvs, reKeys };
+    }
+
+    // Map each native interpreter's canonical (symlink-resolved) target to the
+    // path Positron registers it under. Native discovery already collapses
+    // equivalents to the shortest path, so the first match per target wins.
+    const nativePathByResolved = new Map<string, string>();
+    await Promise.all(
+        nativeEnvs.map(async (e) => {
+            const resolved = await resolveSymlink(e.executable.filename);
+            if (!nativePathByResolved.has(resolved)) {
+                nativePathByResolved.set(resolved, e.executable.filename);
+            }
+        }),
+    );
+
+    const uniqueModuleEnvs: PythonEnvInfo[] = [];
+    for (const moduleEnv of moduleEnvs) {
+        const modulePath = moduleEnv.executable.filename;
+        const resolved = await resolveSymlink(modulePath);
+        const nativePath = nativePathByResolved.get(resolved);
+        if (!nativePath) {
+            // No native equivalent: keep the module env as its own entry.
+            uniqueModuleEnvs.push(moduleEnv);
+        } else if (!arePathsSame(nativePath, modulePath)) {
+            reKeys.push({ from: modulePath, to: nativePath });
+        }
+        // else: same path; the native entry already represents this interpreter
+        // and its metadata is already keyed there, so drop the module duplicate.
+    }
+    return { uniqueModuleEnvs, reKeys };
+}
+
 /**
  * Checks for an equivalent environment if the new environment to be added is one of
  * the additional environment directories.

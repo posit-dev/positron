@@ -29,7 +29,7 @@ export interface CustomTestOptions {
 
 export function OptionsFixture() {
 	return async (logsPath: string, logger: any, snapshots: boolean, project: CustomTestOptions, workerInfo: playwright.WorkerInfo) => {
-		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
+		const TEST_DATA_PATH = process.env.POSITRON_TEST_DATA_PATH || join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);

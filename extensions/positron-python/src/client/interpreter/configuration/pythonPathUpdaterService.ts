@@ -1,5 +1,8 @@
 import { inject, injectable } from 'inversify';
 import { ConfigurationTarget, l10n, Uri, window } from 'vscode';
+// --- Start Positron ---
+import { InterpreterPathUpdateOptions } from '../../common/types';
+// --- End Positron ---
 import { StopWatch } from '../../common/utils/stopWatch';
 import { SystemVariables } from '../../common/variables/systemVariables';
 import { traceError } from '../../logging';
@@ -27,12 +30,24 @@ export class PythonPathUpdaterService implements IPythonPathUpdaterServiceManage
         configTarget: ConfigurationTarget,
         trigger: 'ui' | 'shebang' | 'load',
         wkspace?: Uri,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
     ): Promise<void> {
         const stopWatch = new StopWatch();
         const pythonPathUpdater = this.getPythonUpdaterService(configTarget, wkspace);
         let failed = false;
         try {
-            await pythonPathUpdater.updatePythonPath(pythonPath);
+            // --- Start Positron ---
+            // Default the fire classification from `trigger`: 'load' is storage-only (activation
+            // path, session not wanted yet), 'ui'/'shebang' are user-driven. Explicit caller-passed
+            // `options` override this default.
+            const resolvedOptions: InterpreterPathUpdateOptions = {
+                startSession: options?.startSession ?? (trigger === 'load' ? false : true),
+                source: options?.source ?? `path-updater-${trigger}`,
+            };
+            await pythonPathUpdater.updatePythonPath(pythonPath, resolvedOptions);
+            // --- End Positron ---
             if (trigger === 'ui') {
                 this.preferredEnvService.trackUserSelectedEnvironment(pythonPath, wkspace);
             }

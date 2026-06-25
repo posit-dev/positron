@@ -1,0 +1,109 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connect-data-connection-with {
+	height: 360px;
+	display: grid;
+	gap: 4px 10px;
+	grid-template-rows: auto 1fr;
+	grid-template-columns: auto;
+	grid-template-areas:
+		"code-header"
+		"code";
+}
+
+.connect-data-connection-with.has-variants {
+	grid-template-columns: 160px auto;
+	grid-template-areas:
+		"library-header code-header"
+		"variants       code";
+}
+
+.connect-data-connection-with .library-header {
+	grid-area: library-header;
+	display: flex;
+	align-items: center;
+}
+
+.connect-data-connection-with .code-header {
+	grid-area: code-header;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.connect-data-connection-with .code-actions {
+	display: flex;
+	gap: 6px;
+}
+
+/* Variant listbox (master). */
+.connect-data-connection-with .variant-list {
+	grid-area: variants;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 4px;
+	overflow-y: auto;
+	border-radius: 5px;
+	border: 1px solid var(--vscode-positronModalDialog-border);
+}
+
+.connect-data-connection-with .variant-list-item {
+	width: 100%;
+	height: 28px;
+	display: flex;
+	cursor: pointer;
+	padding: 0 8px;
+	border-radius: 4px;
+	align-items: center;
+	justify-content: flex-start;
+	color: var(--vscode-foreground);
+	background: transparent;
+}
+
+.connect-data-connection-with .variant-list-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.connect-data-connection-with .variant-list-item.selected {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.connect-data-connection-with .variant-list-item:focus-visible {
+	outline-offset: -1px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+/*
+ * Compact variant for the Create Script/Copy buttons in the code header. The shared button treatment comes
+ * from `.positron-dynamic-modal-dialog-box .dialog-button` (positronDynamicModalDialog.css);
+ * this only overrides the size.
+ */
+.connect-data-connection-with .dialog-button.small {
+	height: 22px;
+	padding: 0 8px;
+	font-size: 11px;
+	border-radius: 4px;
+}
+
+/*
+ * Code preview (detail). Only left padding here: the editor fills the top, right, and bottom edges
+ * so its vertical scrollbar spans the full height and sits flush against the border. Vertical
+ * breathing room for the code comes from the editor's own padding option, not this container.
+ */
+.connect-data-connection-with .code {
+	grid-area: code;
+	overflow: auto;
+	padding: 0 0 0 10px;
+	border-radius: 5px;
+	border: solid 1px var(--vscode-positronModalDialog-border);
+}
+
+.connect-data-connection-with .code code {
+	white-space: pre;
+}

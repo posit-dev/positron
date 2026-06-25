@@ -146,13 +146,33 @@ export class PositAssistant {
 	/**
 	 * Starts a new conversation by clicking the new chat button.
 	 * If the button is disabled (already on landing page), this is a no-op.
+	 *
+	 * The new-conversation button is disabled both while a response is streaming
+	 * and when the conversation is already empty (`isNewConversation`). That
+	 * disabled state is derived from async-loaded webview state (messages-loaded +
+	 * streaming), so immediately after the chat input renders the button can be
+	 * transiently enabled while messages are still loading, then flip to disabled
+	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
+	 * followed by `click()` races that flip and fails with a 30s click timeout on
+	 * a now-disabled button, so guard the click and treat a disabled flip as the
+	 * desired "already on a fresh conversation" end state.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
 		if (await button.isDisabled()) {
+			// Already on a fresh conversation (or streaming) -- nothing to start.
 			return;
 		}
-		await button.click();
+		try {
+			await button.click({ timeout: 5000 });
+		} catch (e) {
+			// If the button flipped to disabled mid-click we're already on a fresh
+			// conversation, which is the desired end state; otherwise re-throw.
+			if (await button.isDisabled()) {
+				return;
+			}
+			throw e;
+		}
 		await this.waitForReady();
 	}
 
@@ -227,6 +247,42 @@ export class PositAssistant {
 	}
 
 	/**
+	 * Sends a message and waits for the response to complete, automatically
+	 * clicking "Allow for this session" whenever a tool confirmation dialog
+	 * appears. Handles multiple tool calls and dialogs that appear before or
+	 * after streaming begins.
+	 */
+	async sendMessageAndWait(message: string, options: { timeout?: number; newConversation?: boolean } = {}): Promise<void> {
+		const { timeout = 90000, newConversation = true } = options;
+		if (newConversation) {
+			await this.startNewConversation();
+		}
+		await this.enterMessage(message);
+		await this.clickSend();
+
+		const stopButton = this.frame.locator(STOP_BUTTON);
+		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
+		const deadline = Date.now() + timeout;
+
+		// Wait for streaming to start
+		await stopButton.waitFor({ state: 'visible', timeout });
+
+		// Loop while streaming: click "Allow for this session" whenever the
+		// tool confirmation dropdown appears, then wait for it to clear.
+		while (await stopButton.isVisible()) {
+			if (Date.now() > deadline) {
+				throw new Error(`Response did not complete within ${timeout}ms`);
+			}
+			if (await trigger.isVisible().catch(() => false)) {
+				await trigger.click();
+				await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+			} else {
+				await this.code.driver.currentPage.waitForTimeout(200);
+			}
+		}
+	}
+
+	/**
 	 * Waits for the chat response to complete by waiting for the stop button
 	 * to appear (busy) and then disappear (done).
 	 * @param timeout Maximum time to wait in milliseconds (default: 60000)
@@ -253,9 +309,10 @@ export class PositAssistant {
 	 * includes decorations (check icon column, trailing note/multiplier),
 	 * so we match on the span text instead.
 	 *
-	 * Some providers auto-pick a default and do not need this call. Models
-	 * beyond the initial slice are hidden behind a "More models" inline
-	 * disclosure — add that fallback when a test needs a non-top-tier model.
+	 * Some providers auto-pick a default and do not need this call. Only
+	 * top-tier models appear in the initial slice; the rest are hidden behind a
+	 * "More models" disclosure, which this method expands automatically when the
+	 * requested model isn't already shown.
 	 *
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
@@ -268,9 +325,22 @@ export class PositAssistant {
 		//    "Model" label span; that label is stable across states.
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
-		// 3. Click the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini".
-		await this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`).click();
+		// 3. Locate the desired model. `:text-is()` is exact-match so
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
+		//    group, less-preferred models (e.g. those flagged with a warning note,
+		//    like Microsoft Foundry's "model-router") are collapsed under a "More
+		//    models" inline disclosure -- a plain <button>, not a menuitem. Wait
+		//    for the submenu to render (the model itself or the disclosure), then
+		//    expand the disclosure if the model isn't already shown.
+		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		const moreModels = this.frame.locator('button:has-text("More models")');
+		await expect(model.or(moreModels).first()).toBeVisible();
+		if (!(await model.isVisible())) {
+			await moreModels.click();
+		}
+
+		// 4. Click the model.
+		await model.click();
 
 		// Menu closes on selection; wait for the trigger to collapse so
 		// subsequent actions (e.g. Send) don't race an open overlay.
@@ -465,6 +535,24 @@ export class PositAssistant {
 	async allowToolForSession(): Promise<void> {
 		await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
 		await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+	}
+
+	/**
+	 * Selects "Allow for this session" if the tool confirmation dropdown appears
+	 * within the given timeout. Silently does nothing if it never shows up.
+	 *
+	 * The tool dialog can appear before OR after streaming begins, so this does
+	 * not race against the stop button — it simply waits the full timeout.
+	 */
+	async allowToolForSessionIfVisible(timeout = 30000): Promise<void> {
+		const appeared = await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER)
+			.waitFor({ state: 'visible', timeout })
+			.then(() => true)
+			.catch(() => false);
+		if (appeared) {
+			await this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER).click();
+			await this.frame.locator(TOOL_ALLOW_SESSION_MENU_ITEM).click();
+		}
 	}
 
 	/**

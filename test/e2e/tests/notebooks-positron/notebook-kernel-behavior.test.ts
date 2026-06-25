@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { expect } from '@playwright/test';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -200,6 +199,30 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'R',
 			status: 'disconnected'
 		});
+	});
+
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
+		const { notebooksPositron } = app.workbench;
+
+		// start standalone sessions that should survive the notebook closing
+		const [, rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
+		const sessionCountBefore = await sessions.getSessionCount();
+
+		// create a notebook and open its console (adds a notebook session)
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'idle'
+		});
+		await notebooksPositron.kernel.openNotebookConsole();
+		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
+		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
+
+		// closing the notebook removes its console session while the standalone sessions remain (#12940)
+		await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
+		await runCommand('workbench.action.revertAndCloseActiveEditor');
+		await sessions.expectSessionCountToBe(sessionCountBefore);
 	});
 
 	test('Python - console accepts input after notebook cell execution', { tag: [tags.CONSOLE] }, async function ({ app, sessions }) {

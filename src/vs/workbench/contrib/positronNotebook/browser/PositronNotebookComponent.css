@@ -40,6 +40,11 @@
 	span {
 		cursor: text;
 	}
+
+	.colorpicker-color-decoration,
+	.colorpicker-header span {
+		cursor: pointer;
+	}
 }
 
 .monaco-workbench .positron-notebook-editor {
@@ -67,7 +72,8 @@
 }
 
 .positron-notebook-cells-container {
-	padding-block: var(--_positron-notebook-cells-padding-block);
+	padding-block-start: var(--_positron-notebook-cells-padding-block);
+	padding-block-end: var(--_positron-notebook-cells-padding-block);
 	padding-inline: 1rem;
 	display: flex;
 	flex-direction: column;

@@ -277,6 +277,21 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		return await kernel.ensureSessionStarted(notebook.uri, source);
 	}
 
+	public async executeCodeInCell(notebookUri: URI, cellHandle: number, code: string): Promise<void> {
+		// Get the notebook text model
+		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+		if (!notebook) {
+			throw new Error(`Could not execute code in cell for notebook without text model: ${notebookUri}`);
+		}
+		// Get the selected kernel
+		const kernel = this.getSelectedKernel(notebook);
+		if (!kernel) {
+			throw new Error(`Could not execute code in cell for notebook without selected kernel: ${notebookUri}`);
+		}
+
+		await kernel.executeCodeInCell(notebookUri, cellHandle, code);
+	}
+
 	/**
 	 * Get a runtime notebook kernel by runtime ID.
 	 *

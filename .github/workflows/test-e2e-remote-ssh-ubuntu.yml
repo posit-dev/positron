@@ -43,7 +43,7 @@ jobs:
       GH_SUMMARY_REPORT: true
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -86,7 +86,7 @@ jobs:
 
       - name: Start Docker Container
         run: |
-          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:126 \
+          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:141 \
             /bin/bash -c 'while true; do sleep 3600; done'
 
       - name: Download SSH install script
@@ -193,6 +193,7 @@ jobs:
 
       - name: Upload Playwright Report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

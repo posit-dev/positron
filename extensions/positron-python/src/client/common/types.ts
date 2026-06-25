@@ -351,12 +351,37 @@ export interface IExperimentService {
     getExperimentValue<T extends boolean | number | string>(experimentName: string): Promise<T | undefined>;
 }
 
-export type InterpreterConfigurationScope = { uri: Resource; configTarget: ConfigurationTarget };
+export type InterpreterConfigurationScope = {
+    uri: Resource;
+    configTarget: ConfigurationTarget;
+    // --- Start Positron ---
+    /**
+     * Whether a Python runtime session should be started for this fire. Threaded through to
+     * {@link InterpreterChangeEvent.startSession}. Default true (preserves existing upstream
+     * semantics when callers don't pass options).
+     */
+    startSession?: boolean;
+    /** Debug-only tag identifying which caller fired. */
+    source?: string;
+    // --- End Positron ---
+};
 export type InspectInterpreterSettingType = {
     globalValue?: string;
     workspaceValue?: string;
     workspaceFolderValue?: string;
 };
+
+// --- Start Positron ---
+/**
+ * Options controlling {@link IInterpreterPathService.update} fire semantics.
+ */
+export interface InterpreterPathUpdateOptions {
+    /** If true, a session should be started for this interpreter. Default true. */
+    startSession?: boolean;
+    /** Debug-only tag identifying the caller. Default 'unspecified'. */
+    source?: string;
+}
+// --- End Positron ---
 
 /**
  * Interface used to access current Interpreter Path
@@ -366,8 +391,20 @@ export interface IInterpreterPathService {
     onDidChange: Event<InterpreterConfigurationScope>;
     get(resource: Resource): string;
     inspect(resource: Resource): InspectInterpreterSettingType;
-    update(resource: Resource, configTarget: ConfigurationTarget, value: string | undefined): Promise<void>;
-    copyOldInterpreterStorageValuesToNew(resource: Resource): Promise<void>;
+    update(
+        resource: Resource,
+        configTarget: ConfigurationTarget,
+        value: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void>;
+    copyOldInterpreterStorageValuesToNew(
+        resource: Resource,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void>;
 }
 
 export type DefaultLSType = LanguageServerType.Jedi | LanguageServerType.Node;

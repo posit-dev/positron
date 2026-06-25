@@ -25,9 +25,9 @@ on:
         type: boolean
         default: true
       slack_notify:
-        description: "Notify #positron-test-results on nightly failure. Uncheck when triggering manually for testing."
+        description: "Notify #positron-test-results on nightly failure. Always on for scheduled runs; opt-in for manual triggers."
         type: boolean
-        default: true
+        default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
 
@@ -53,7 +53,7 @@ jobs:
     runs-on: macos-latest-xlarge
     steps:
       - name: Checkout positron
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Generate POSITRON_BOT token
         id: bot-token
@@ -108,9 +108,24 @@ jobs:
           OUTPUT=$(.github/scripts/release-screenshots/download-build.sh "${{ steps.version.outputs.version }}")
           echo "$OUTPUT" >> "$GITHUB_ENV"
 
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          POSIT_AUTH_HOST: "op://Positron/Posit-AI-Login/website"
+          POSIT_EMAIL: "op://Positron/Posit-AI-Login/username"
+          POSIT_PASSWORD: "op://Positron/Posit-AI-Login/password"
+
       - name: Setup release-screenshot runtimes
         id: runtimes
         uses: ./.github/actions/setup-release-screenshot-runtimes
+
+      - name: Pre-warm matplotlib font cache
+        run: python -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Clone positron-website (public)
         if: env.MODE == 'nightly'
@@ -147,6 +162,11 @@ jobs:
           POSITRON_R_VER_SEL: '4.5.2'
           POSITRON_PY_ALT_VER_SEL: ${{ steps.runtimes.outputs.python-alt-version }}
           POSITRON_R_ALT_VER_SEL: '4.4.2'
+          ANTHROPIC_KEY: ${{ env.ANTHROPIC_KEY }}
+          OPENAI_KEY: ${{ env.OPENAI_KEY }}
+          POSIT_AUTH_HOST: ${{ env.POSIT_AUTH_HOST }}
+          POSIT_EMAIL: ${{ env.POSIT_EMAIL }}
+          POSIT_PASSWORD: ${{ env.POSIT_PASSWORD }}
           ENABLE_CUSTOM_REPORTER: 'false'
           GH_SUMMARY_REPORT: 'true'
           # Keep Playwright traces for every test (pass or fail) — debugging
@@ -167,6 +187,7 @@ jobs:
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
@@ -179,7 +200,8 @@ jobs:
           SCREENSHOT_BASE_URL: https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/screenshots
           POSITRON_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          node .github/scripts/release-screenshots/compare-and-report.mjs \
+          DOCS_IMAGE_COMMIT_SHA=$(git -C "$RUNNER_TEMP/positron-website" rev-parse HEAD)
+          DOCS_IMAGE_COMMIT_SHA="$DOCS_IMAGE_COMMIT_SHA" node .github/scripts/release-screenshots/compare-and-report.mjs \
             test/e2e/release-screenshots/output \
             "$RUNNER_TEMP/positron-website/images" \
             "$RUNNER_TEMP/classification.json"
@@ -359,12 +381,13 @@ jobs:
               }')"
 
   slack-notify:
-    # Nightly is on a schedule; failures should page #positron-test-results.
-    # Publish is on demand, so the operator already sees the result.
-    # `inputs.slack_notify` is unset on schedule events (cron), so the
-    # `!= false` check defaults to notifying; manual runs that uncheck the
-    # box opt out.
-    if: ${{ failure() && (inputs.mode || 'nightly') == 'nightly' && inputs.slack_notify != 'false' }}
+    # Notify on cron failures always; manual runs only when the box is checked.
+    # Use github.event_name instead of comparing inputs.slack_notify to a string
+    # literal -- boolean inputs don't reliably coerce to strings in expressions.
+    if: >-
+      ${{ failure() &&
+          (inputs.mode || 'nightly') == 'nightly' &&
+          (github.event_name == 'schedule' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:

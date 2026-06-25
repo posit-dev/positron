@@ -194,9 +194,13 @@
 	background-color: var(--vscode-button-hoverBackground);
 }
 
-.packages-list-item .packages-list-item-help {
+/*
+ * The help and external-link buttons are the same icon button. They share
+ * .packages-list-item-action-button for the box, icon size, and hover so they
+ * stay identical; only their margins (which way the group right-aligns) differ.
+ */
+.packages-list-item .packages-list-item-action-button {
 	flex: 0 0 auto;
-	margin-left: auto;
 	box-sizing: border-box;
 	width: 27px;
 	height: 17px;
@@ -212,27 +216,84 @@
 }
 
 /*
- * In card mode the help button lives inside the header row, which baseline-aligns
- * the name/version text. Center the icon-only button on the text line instead of
- * letting its baseline (its bottom edge) sit on the text baseline.
+ * The workbench-global `.monaco-workbench .codicon[class*='codicon-']` forces
+ * codicons to 16px at the same specificity (0,3,0) as a plain three-class rule,
+ * so it would win on source order. Prefix with .monaco-workbench to outrank it
+ * and render both icons at the button's intended size.
  */
-.packages-list-item.item-size-card .packages-list-item-header .packages-list-item-help {
-	align-self: center;
-}
-
-.packages-list-item .packages-list-item-help .codicon {
+.monaco-workbench .packages-list-item .packages-list-item-action-button .codicon {
 	font-size: 13px;
 }
 
-.packages-list-item:hover .packages-list-item-help {
+/*
+ * The link-external glyph reads heavier than the help book at the same size, so
+ * nudge it down for optical balance. Matching both classes on the element keeps
+ * this more specific (0,5,0) than the shared rule above, so it wins regardless
+ * of order.
+ */
+.monaco-workbench .packages-list-item .packages-list-item-action-button.packages-list-item-url .codicon {
+	font-size: 11px;
+}
+
+/*
+ * In card mode the buttons live inside the header row, which baseline-aligns the
+ * name/version text. Center the icon-only button on the text line instead of
+ * letting its baseline (its bottom edge) sit on the text baseline.
+ */
+.packages-list-item.item-size-card .packages-list-item-header .packages-list-item-action-button {
+	align-self: center;
+}
+
+.packages-list-item:hover .packages-list-item-action-button {
 	opacity: 0.85;
 }
 
-.packages-list-item .packages-list-item-help:hover {
+.packages-list-item .packages-list-item-action-button:hover {
 	background: var(--vscode-toolbar-hoverBackground);
 	opacity: 1;
 }
 
+/*
+ * Right-align the action group. The external-link button sits just before the
+ * help button and owns the margin-left:auto that pushes the group to the right
+ * edge; the help button then only needs a small gap. When no URL is present the
+ * help button keeps its own margin-left:auto and right-aligns on its own.
+ */
+.packages-list-item .packages-list-item-help,
+.packages-list-item .packages-list-item-url {
+	margin-left: auto;
+}
+
+.packages-list-item .packages-list-item-url + .packages-list-item-help {
+	margin-left: 4px;
+}
+
+
+/*
+ * Transient flash applied to packages just installed or updated. The row fades
+ * from a highlight tint back to transparent so the eye lands on the change; the
+ * class is removed by a timer once the animation has run. prefers-reduced-motion
+ * holds a steady tint for the same duration instead of animating.
+ */
+.packages-list-item.recently-changed {
+	animation: packages-recently-changed 2s ease-out;
+}
+
+@keyframes packages-recently-changed {
+	from {
+		background-color: var(--vscode-positronPackages-recentlyChangedBackground);
+	}
+	to {
+		background-color: transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.packages-list-item.recently-changed {
+		animation: none;
+		background-color: var(--vscode-positronPackages-recentlyChangedBackground);
+	}
+}
 
 .positron-packages-list .positron-list-empty {
 	padding: 5px 8px;

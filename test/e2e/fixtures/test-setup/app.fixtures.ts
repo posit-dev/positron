@@ -16,6 +16,28 @@ export interface AppFixtureOptions {
 	logger: MultiLogger;
 	workerInfo: playwright.WorkerInfo;
 	managedCredentials?: 'snowflake' | 'databricks' | 'azure';
+	/**
+	 * When true, suites opt into the legacy (VS Code) notebook editor. The local
+	 * (Electron/managed) apps apply this via the host `settingsFile` in `beforeApp`,
+	 * but the Docker-based apps (Jupyter, Workbench) read settings copied into the
+	 * container, so they must merge the override in themselves.
+	 */
+	useLegacyNotebookEditor?: boolean;
+	/**
+	 * When true, suites opt into the Data Connections preview panel. As with
+	 * `useLegacyNotebookEditor`, the local apps apply this via the host `settingsFile`
+	 * in `beforeApp`, while the Docker-based apps merge the override into the settings
+	 * copied into the container.
+	 */
+	enableDataConnections?: boolean;
+	/**
+	 * When true, suites opt into the Microsoft Foundry (msFoundry) assistant
+	 * provider, authenticated via Posit Workbench managed credentials. As with
+	 * the other override flags, the local apps apply this via the host
+	 * `settingsFile` in `beforeApp`, while the Docker-based apps merge the
+	 * settings into the container settings.
+	 */
+	enableFoundryAssistant?: boolean;
 }
 
 /**

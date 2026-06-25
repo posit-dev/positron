@@ -121,24 +121,3 @@ export function resolveAutoFollow(notebook: vscode.NotebookDocument): boolean {
 
 	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('autoFollow', true);
 }
-
-/**
- * Resolve ghostCellSuggestions setting: notebook metadata first, then check if user explicitly set enabled, then global config.
- */
-export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): boolean {
-	const settings = getAssistantSettings(notebook.metadata);
-
-	if (settings.ghostCellSuggestions !== undefined) {
-		return settings.ghostCellSuggestions === 'enabled';
-	}
-
-	// Check if user has explicitly set the enabled setting using inspect()
-	// If globalValue is undefined, user hasn't made a choice yet (workbench handles showing prompt)
-	const config = vscode.workspace.getConfiguration('positron.assistant.notebook.ghostCellSuggestions');
-	const inspected = config.inspect<boolean>('enabled');
-	if (inspected?.globalValue === undefined) {
-		return false;
-	}
-
-	return config.get('enabled', false);
-}

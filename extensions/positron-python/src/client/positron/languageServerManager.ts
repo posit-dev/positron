@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 // eslint-disable-next-line import/no-unresolved
@@ -11,6 +11,7 @@ import { IServiceContainer } from '../ioc/types';
 import { IWorkspaceService } from '../common/application/types';
 import { IPythonPathUpdaterServiceManager } from '../interpreter/configuration/types';
 import { IPersistentState, IPersistentStateFactory } from '../common/types';
+import { getActiveInterpreterConfigTarget } from './util';
 
 const lastForegroundSessionIdKey = 'positron.lastForegroundSessionId';
 
@@ -85,33 +86,23 @@ class LanguageServerManager implements vscode.Disposable {
     }
 
     /**
-     * Update the Python path as required by Pyright.
-     * This behavior only applies to workspaces; non-workspace editors do not update properly yet.
+     * Update the Python path as required by language servers.
      */
     private async updatePythonPath(pythonPath: string): Promise<void> {
-        let folderUri: vscode.Uri | undefined;
-        let configTarget: vscode.ConfigurationTarget;
-
-        const { workspaceFolders } = this._workspaceService;
-
-        if (workspaceFolders === undefined || workspaceFolders.length === 0) {
-            folderUri = undefined;
-            configTarget = vscode.ConfigurationTarget.Global;
-        } else if (this._workspaceService.workspaceFile) {
-            folderUri = this._workspaceService.workspaceFile;
-            configTarget = vscode.ConfigurationTarget.Workspace;
-        } else {
-            folderUri = workspaceFolders[0].uri;
-            configTarget = vscode.ConfigurationTarget.WorkspaceFolder;
-        }
-
-        await this._pythonPathUpdaterService.updatePythonPath(pythonPath, configTarget, 'ui', folderUri);
+        const { configTarget, folderUri } = getActiveInterpreterConfigTarget(this._workspaceService);
+        // Storage-only: language servers need the path written but the session is already running.
+        // 'load' means programmatic (not a user interpreter selection), so it avoids tracking
+        // this as a user-selected environment.
+        await this._pythonPathUpdaterService.updatePythonPath(pythonPath, configTarget, 'load', folderUri, {
+            startSession: false,
+            source: 'positron-ls-manager',
+        });
     }
 
     /**
      *
      * Activates the console LSP for the given session. Deactivates all other console LSPs first.
-     * Also updates the Python path to the given session's runtime path as required by Pyright.
+     * Also updates the Python path to the given session's runtime path.
      *
      * @param session The Python runtime session to activate the language server for.
      * @param allSessions Python runtime sessions to deactivate, defaults to all non-foreground sessions.
@@ -138,7 +129,6 @@ class LanguageServerManager implements vscode.Disposable {
             // Activate the foreground session LSP.
             session.activateLsp(reason),
 
-            // Update the Python path as required by Pyright.
             this.updatePythonPath(session.runtimeMetadata.runtimePath),
         ]);
     }

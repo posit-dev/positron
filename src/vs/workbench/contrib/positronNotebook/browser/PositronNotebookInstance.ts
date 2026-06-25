@@ -16,10 +16,11 @@ import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
+import { applyTagsToNestedMetadata } from './PositronNotebookCells/cellTagsMetadata.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
-import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
+import { BaseCellEditorOptions, DEFAULT_LINE_NUMBERS_MIN_CHARS } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
@@ -36,8 +37,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
-import { ResourceMap } from '../../../../base/common/map.js';
+import { autorun, autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -92,51 +92,11 @@ function kernelStatusForStartupPhase(phase: RuntimeStartupPhase): NotebookKernel
  * - Manages the lifecycle of the notebook view
  */
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
+	/** Counter for generating globally unique instance IDs. */
+	static count = 0;
 
-	// ===== Statics =====
-	// #region Statics
-	/** Map of all active notebook instances, keyed by notebook URI */
-	static _instanceMap = new ResourceMap<PositronNotebookInstance>();
-
-	/**
-	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
-	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
-	 * @param id Unique identifier for the notebook instance
-	 * @param uri URI of the notebook resource
-	 * @param viewType The view type of the notebook
-	 * @param creationOptions Options for opening notebook
-	 * @param instantiationService Instantiation service for creating instance with proper DI.
-	 * @returns Instance of the notebook, either retrieved from existing or created.
-	 */
-	static getOrCreate(
-		id: string,
-		uri: URI,
-		viewType: string,
-		creationOptions: INotebookEditorCreationOptions | undefined,
-		instantiationService: IInstantiationService,
-	): PositronNotebookInstance {
-
-		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
-		if (existingInstance) {
-			// Do NOT detach here -- attachView's internal detachView handles
-			// any re-attachment, and the unconditional detach this used to do
-			// would tear down a render cached in PositronNotebookEditor.
-			existingInstance._creationOptions = creationOptions;
-			return existingInstance;
-		}
-
-		const instance = instantiationService.createInstance(
-			PositronNotebookInstance,
-			id,
-			uri,
-			viewType,
-			creationOptions
-		);
-		PositronNotebookInstance._instanceMap.set(uri, instance);
-		return instance;
-	}
-
-	// #endregion
+	/** Globally unique ID for this instance. */
+	private readonly _id: string = `positron-notebook-${PositronNotebookInstance.count++}`;
 
 	// =============================================================================================
 	// #region Private Properties
@@ -152,6 +112,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+
+	/**
+	 * Whether cell tags are hidden across this notebook. Transient view state (not
+	 * persisted); toggled by the "Toggle Cell Tag Visibility" command.
+	 */
+	private readonly _cellTagsHidden = observableValue<boolean>('positronNotebookCellTagsHidden', false);
+	public readonly cellTagsHidden: IObservable<boolean> = this._cellTagsHidden;
 
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
@@ -190,6 +157,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Key-value map of language to base cell editor options for cells of that language.
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+
+	private readonly _lineNumberWidthDisposable = this._register(new MutableDisposable());
 
 	/**
 	 * Cached font information for the notebook editor.
@@ -433,7 +402,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.debug(this.id, 'Generating new notebook options');
+		this._logService.debug(this._id, 'Generating new notebook options');
 
 		this._notebookOptions = this._register(
 			this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined)
@@ -474,13 +443,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	/**
-	 * @param id Unique identifier for the notebook instance. Currently just the notebook URI as a string.
 	 * @param uri URI of the notebook resource.
 	 * @param viewType The view type of the notebook.
 	 * @param creationOptions Options for opening notebook.
 	 */
 	constructor(
-		public readonly id: string,
 		public readonly uri: URI,
 		public readonly viewType: string,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
@@ -503,6 +470,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		super();
 
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
+
+		this._register(autorun(reader => {
+			this.cells.read(reader);
+			const textModel = this._textModel.read(reader);
+			this._lineNumberWidthDisposable.clear();
+			if (textModel) {
+				this._lineNumberWidthDisposable.value = textModel.onDidChangeContent(() => this._recomputeLineNumberWidth());
+			}
+			this._recomputeLineNumberWidth();
+		}));
 
 		const { startupPhase } = this._languageRuntimeService;
 		this.kernelStatus = observableValue<NotebookKernelStatus>('positronNotebookKernelStatus', kernelStatusForStartupPhase(startupPhase));
@@ -548,7 +525,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					if (selected instanceof RuntimeNotebookKernel) {
 						return selected;
 					} else {
-						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
+						this._logService.warn(this._id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
 					}
 				}
 				return;
@@ -597,7 +574,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.debug(this.id, 'constructor');
+		this._logService.debug(this._id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -991,13 +968,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.debug(this.id, 'dispose');
+		this._logService.debug(this._id, 'dispose');
 
 		this.cells.get().forEach(cell => cell.dispose());
 
 		this._positronNotebookService.unregisterInstance(this);
-		// Remove from the instance map
-		PositronNotebookInstance._instanceMap.delete(this.uri);
 
 		super.dispose();
 		this.detachView();
@@ -1009,7 +984,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Methods
 
 	getId(): string {
-		return this.id;
+		return this._id;
 	}
 
 	/**
@@ -1503,6 +1478,81 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
+	changeToHeading(level: number): void {
+		this._assertTextModel();
+		const cell = getActiveCell(this.selectionStateMachine.state.get());
+		if (!cell) {
+			return;
+		}
+
+		const cellIndex = cell.index;
+		const cellModel = this.textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		const content = cellModel.getValue();
+		const lines = content.split(/\r?\n/);
+		const firstLine = lines[0] ?? '';
+
+		// Strip existing heading prefix and apply new one
+		const stripped = firstLine.replace(/^#{1,6}\s*/, '');
+		lines[0] = '#'.repeat(level) + ' ' + stripped;
+
+		const newContent = lines.join('\n');
+		const computeUndoRedo = !this.isReadOnly || this.textModel.viewType === 'interactive';
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: cellIndex, end: cellIndex + 1 },
+			selections: [{ start: cellIndex, end: cellIndex + 1 }]
+		};
+
+		// Single atomic edit: converts to markdown (if needed) and sets heading in one operation
+		this.textModel.applyEdits([{
+			editType: CellEditType.Replace,
+			index: cellIndex,
+			count: 1,
+			cells: [{
+				cellKind: CellKind.Markup,
+				language: 'markdown',
+				mime: cellModel.mime,
+				source: newContent,
+				outputs: cellModel.outputs,
+				metadata: cellModel.metadata,
+			}]
+		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
+	}
+
+	interruptKernel(): void {
+		this._assertTextModel();
+		const cells = this.cells.get();
+		const executingCells = cells.filter(cell =>
+			this.notebookExecutionStateService.getCellExecution(cell.uri)
+		);
+		if (executingCells.length > 0) {
+			this.notebookExecutionService.cancelNotebookCells(
+				this.textModel,
+				executingCells.map(c => c.model as NotebookCellTextModel)
+			);
+		}
+	}
+
+	selectAllCells(): void {
+		const cells = this.cells.get();
+		if (cells.length === 0) {
+			return;
+		}
+		if (cells.length === 1) {
+			this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			return;
+		}
+		// Select the first cell normally, then add all remaining cells
+		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+		for (let i = 1; i < cells.length; i++) {
+			this.selectionStateMachine.selectCell(cells[i], CellSelectionType.Add);
+		}
+	}
+
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.
@@ -1939,7 +1989,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
-		this._logService.debug(this.id, 'attachView');
+		this._logService.debug(this._id, 'attachView');
 	}
 
 	/**
@@ -1954,14 +2004,47 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return existingOptions;
 		}
 
-		const options = new BaseCellEditorOptions({
+		const options = this._register(new BaseCellEditorOptions({
 			onDidChangeModel: this.onDidChangeModel,
 			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
-		}, this.notebookOptions, this.configurationService, language);
+		}, this.notebookOptions, this.configurationService, language));
 		this._baseCellEditorOptions.set(language, options);
+		this._recomputeLineNumberWidth();
 		return options;
+	}
+
+	/**
+	 * Recomputes the line number width for all cell editor options
+	 * based on the maximum line count across all the code cells for
+	 * the notebook instance. This should be called whenever cells
+	 * are added, removed, or their content changes in a way that
+	 * affects the line count, to ensure the line number width is
+	 * the same across all cells regardless of their individual line
+	 * counts.
+	 *
+	 * The line number width is determined by the number of digits in
+	 * the maximum line count, with a minimum of 2 characters.
+	 */
+	private _recomputeLineNumberWidth(): void {
+		// Figure out which cell has the longest line count in this notebook.
+		let maxLineCount = 1;
+		for (const cell of this.cells.get()) {
+			if (cell.isCodeCell()) {
+				maxLineCount = Math.max(maxLineCount, cell.getLineCount());
+			}
+		}
+
+		// Determine the new line number width based off the line count
+		// e.g. if the longest cell has 150 lines, "150" is 3 digits
+		// so every cell reserves 3 characters worth of room for the
+		// line number width.
+		const newLineNumberWidth = Math.max(DEFAULT_LINE_NUMBERS_MIN_CHARS, String(maxLineCount).length);
+		// update each cell's editor options with the new line number width.
+		for (const options of this._baseCellEditorOptions.values()) {
+			(options as BaseCellEditorOptions).setLineNumbersMinChars(newLineNumberWidth);
+		}
 	}
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
@@ -2083,7 +2166,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
-		this._logService.debug(this.id, 'detachView');
+		this._logService.debug(this._id, 'detachView');
 	}
 
 	/** Whether this instance's view is currently attached to `container`. */
@@ -2095,7 +2178,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.debug(this.id, 'Closing a notebook instance');
+		this._logService.debug(this._id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -2135,7 +2218,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const kernelRuntimeId = this.kernel.get()?.runtime.runtimeId;
 		const sessionRuntimeId = session.runtimeMetadata.runtimeId;
 		if (kernelRuntimeId !== session.runtimeMetadata.runtimeId) {
-			this._logService.warn(this.id,
+			this._logService.warn(this._id,
 				`Unexpected session started for notebook ${this.uri.fsPath}. ` +
 				`Expected runtime ${kernelRuntimeId}, found ${sessionRuntimeId}`);
 			return;
@@ -2288,13 +2371,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.debug(this.id, '_runCells');
+		this._logService.debug(this._id, '_runCells');
 
 		this._assertTextModel();
 
 		if (!this.kernel.get()) {
 			// Make sure we have a kernel to run the cells.
-			this._logService.debug(this.id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
@@ -2381,6 +2464,50 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this.currentContainer?.focus({ preventScroll: true });
 				break;
 		}
+	}
+
+	/**
+	 * Toggle whether cell tags are shown across this notebook (see
+	 * {@link cellTagsHidden}).
+	 */
+	toggleCellTagsHidden(): void {
+		this._cellTagsHidden.set(!this._cellTagsHidden.get(), undefined);
+	}
+
+	/**
+	 * Removes every tag from every cell in the notebook in a single undoable edit.
+	 * A no-op when no cell has tags or the notebook is read-only.
+	 */
+	removeAllCellTags(): void {
+		// Tag edits are document mutations, so respect a read-only notebook
+		// (mirrors the reorder guard in PositronNotebookComponent and setTags on
+		// the cell).
+		if (this.isReadOnly) {
+			return;
+		}
+		this._assertTextModel();
+		const textModel = this.textModel;
+		const cells = this.cells.get();
+		const edits: ICellEditOperation[] = [];
+		for (let index = 0; index < cells.length; index++) {
+			// `this.cells` and `textModel.cells` are index-aligned (see
+			// clearCellOutputsByIndex). Skip cells with no tags so undo only spans
+			// the cells that actually changed.
+			if (cells[index].tags.get().length === 0) {
+				continue;
+			}
+			edits.push({
+				editType: CellEditType.PartialMetadata,
+				index,
+				metadata: { metadata: applyTagsToNestedMetadata(textModel.cells[index].metadata.metadata, []) }
+			});
+		}
+		if (edits.length === 0) {
+			return;
+		}
+		// The trailing `true` is computeUndoRedo, so the removal remains undoable
+		// (the read-only guard above already excluded the non-undoable case).
+		textModel.applyEdits(edits, true, undefined, () => undefined, undefined, true);
 	}
 
 	/**

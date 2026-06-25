@@ -334,7 +334,38 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				this._updateContextKeys();
 			}
 		}));
+		// --- Start Positron ---
+		// `chat.disableAIFeatures` should hide the chat UI while keeping the chat
+		// extension's `vscode.lm` model provider available for other consumers.
+		// The chat UI is gated by the `chatIsEnabled` / `chatPanelParticipantRegistered`
+		// context keys, so recompute them when the setting changes. Fire
+		// `onDidChangeAgents` too so consumers that resolve agents lazily (e.g. the
+		// inline chat enabler, which reads `getDefaultAgent(EditorInline)`) recompute
+		// their enablement when the setting is toggled at runtime.
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ChatConfiguration.AIDisabled)) {
+				this._updateHasDefaultAgent();
+				this._updateContextKeys();
+				this._onDidChangeAgents.fire(undefined);
+			}
+		}));
+		// --- End Positron ---
 	}
+
+	// --- Start Positron ---
+	private _isAIDisabled(): boolean {
+		return this.configurationService.getValue(ChatConfiguration.AIDisabled) === true;
+	}
+
+	/**
+	 * Sets the `chatIsEnabled` context key. AI features being disabled hides the
+	 * chat UI, but does not unregister the chat extension's language model
+	 * provider (that is owned by the language models service, not this service).
+	 */
+	private _updateHasDefaultAgent(): void {
+		this._hasDefaultAgent.set(!this._isAIDisabled() && Iterable.some(this._agents.values(), agent => agent.data.isDefault && !!agent.impl));
+	}
+	// --- End Positron ---
 
 	registerAgent(id: string, data: IChatAgentData): IDisposable {
 		const existingAgent = this.getAgent(id);
@@ -407,10 +438,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		}
 		// --- Start Positron ---
 		// Do not register default agents when Assistant is disabled, except for
-		// the API test agent from upstream.
+		// the API test agent from upstream. Also treat `chat.disableAIFeatures`
+		// as "no panel participant" so the chat UI hides while leaving the chat
+		// extension's `vscode.lm` model provider available for other consumers.
 		// this._defaultAgentRegistered.set(defaultAgentRegistered);
 		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
-			this._defaultAgentRegistered.set(defaultAgentRegistered);
+			this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		}
 		// --- End Positron ---
 		this._extensionAgentRegistered.set(extensionAgentRegistered);
@@ -430,11 +463,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			throw new Error(`Agent already has implementation: ${JSON.stringify(id)}`);
 		}
 
-		if (entry.data.isDefault) {
-			this._hasDefaultAgent.set(true);
-		}
-
 		entry.impl = agentImpl;
+
+		// --- Start Positron ---
+		// Recompute after `entry.impl` is set so the new implementation counts.
+		if (entry.data.isDefault) {
+			this._updateHasDefaultAgent();
+		}
+		// --- End Positron ---
+
 		this._onDidChangeAgents.fire(new MergedChatAgent(entry.data, agentImpl));
 
 		return toDisposable(() => {
@@ -442,7 +479,9 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			this._onDidChangeAgents.fire(undefined);
 
 			if (entry.data.isDefault) {
-				this._hasDefaultAgent.set(Iterable.some(this._agents.values(), agent => agent.data.isDefault && !!agent.impl));
+				// --- Start Positron ---
+				this._updateHasDefaultAgent();
+				// --- End Positron ---
 			}
 		});
 	}
@@ -483,6 +522,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	getDefaultAgent(location: ChatAgentLocation, mode: ChatModeKind = ChatModeKind.Ask): IChatAgent | undefined {
 		// --- Start Positron ---
+		// When AI features are disabled, no default agent should resolve for any
+		// location. This gates chat surfaces that key off agent availability rather
+		// than the panel context keys -- notably inline chat, whose enablement
+		// (`inlineChatHasEditsAgent`) is driven by `getDefaultAgent(EditorInline)`.
+		// The chat extension's `vscode.lm` model provider stays registered because
+		// it is owned by the language models service, not this service.
+		if (this._isAIDisabled()) {
+			return undefined;
+		}
 		// Filter agents by mode and location first
 		const candidateAgents = this.getActivatedAgents().filter(a => {
 			if (mode && !a.modes.includes(mode)) {
@@ -711,7 +759,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	async detectAgentOrCommand(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation }, token: CancellationToken): Promise<{ agent: IChatAgentData; command?: IChatAgentCommand } | undefined> {
-
 		// TODO@joyceerhl should we have a selector to be able to narrow down which provider to use
 		// --- Start Positron ---
 		// const provider = Iterable.first(this._chatParticipantDetectionProviders.values());

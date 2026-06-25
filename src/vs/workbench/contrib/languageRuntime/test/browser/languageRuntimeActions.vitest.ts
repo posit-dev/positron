@@ -308,6 +308,95 @@ describe('selectNewLanguageRuntime', () => {
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});
+
+		it('shows a busy spinner and discovering placeholder while phase is not Complete', async () => {
+			const runtimeService = ctx.get(ILanguageRuntimeService);
+			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pick.busy).toBe(true);
+			expect(pick.placeholder).toBe('Discovering interpreters...');
+
+			runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
+			// The Complete handler is async (re-fetches contributions); poll for busy to clear.
+			await vi.waitFor(() => expect(pick.busy).toBe(false));
+			expect(pick.placeholder).toBeUndefined();
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('shows "No interpreters found" when discovery completes with no runtimes', async () => {
+			// beforeEach leaves the phase at Complete; register nothing.
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pick.busy).toBe(false);
+			expect(pick.placeholder).toBe('No interpreters found');
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('does not show a spinner when discovery is already complete on open', async () => {
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pick.busy).toBe(false);
+			expect(pick.placeholder).toBeUndefined();
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('toggles the spinner back on when phase leaves Complete while the picker is open', async () => {
+			const runtimeService = ctx.get(ILanguageRuntimeService);
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			// beforeEach leaves the phase at Complete.
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pick.busy).toBe(false);
+
+			// Phase leaving Complete (e.g. a user-triggered rediscovery) must flip
+			// the spinner back on -- the regression the broadened handler fixes.
+			runtimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
+			expect(pick.busy).toBe(true);
+			expect(pick.placeholder).toBe('Discovering interpreters...');
+
+			runtimeService.setStartupPhase(RuntimeStartupPhase.Complete);
+			await vi.waitFor(() => expect(pick.busy).toBe(false));
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('shows no empty-state placeholder when only contributed items are present at Complete', async () => {
+			const runtimeService = ctx.get(ILanguageRuntimeService);
+			// beforeEach leaves the phase at Complete; register a contribution but no runtimes.
+			const contribution: IRuntimePickerContribution = {
+				handle: 8,
+				languageId: 'python',
+				getItems: async () => [{ id: 'install-uv', label: 'Install Python via uv' }],
+				onSelect: vi.fn(),
+			};
+			ctx.disposables.add(runtimeService.registerPickerContribution(contribution));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+
+			// A contributed item counts as a selectable row, so the empty-state
+			// placeholder must NOT appear even though there are no runtimes.
+			const contributedItem = pick.items.find(
+				(item): item is IQuickPickItem => item.type !== 'separator' && item.label === 'Install Python via uv',
+			);
+			expect(contributedItem).toBeDefined();
+			expect(pick.busy).toBe(false);
+			expect(pick.placeholder).toBeUndefined();
+
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
 	});
 
 	describe('contributed items', () => {

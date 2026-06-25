@@ -36,13 +36,14 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { DidNavigateInputHistoryUpEventArgs, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
@@ -297,10 +298,29 @@ configurationRegistry.registerConfiguration({
 		'console.showResourceMonitor': {
 			type: 'boolean',
 			default: true,
-			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console tab list."),
+			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console. The monitor appears in the session list when multiple sessions are running, or in the console action bar when a single session is running."),
+		},
+		// Whether to show Assistant-powered actions (Fix, Explain) on console errors
+		'console.assistantActions.enabled': {
+			type: 'boolean',
+			default: true,
+			description: localize('positron.console.assistantActions.enabled', "Enable Assistant-powered console actions, such as Fix and Explain."),
+			tags: ['preview'],
 		}
 	}
 });
+
+// Migrate the legacy setting key (previously contributed by the built-in
+// positron-assistant extension) to the new core-owned key, preserving any
+// value the user had set.
+Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.ConfigurationMigration)
+	.registerConfigurationMigrations([{
+		key: 'positron.assistant.consoleActions.enable',
+		migrateFn: (value: boolean) => [
+			['console.assistantActions.enabled', { value }],
+			['positron.assistant.consoleActions.enable', { value: undefined }],
+		],
+	}]);
 
 /**
  * PositronConsoleService class.
@@ -1232,7 +1252,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The _onFocusInput event emitter.
 	 */
-	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
+	private readonly _onFocusInputEmitter = this._register(new Emitter<FocusInputOptions>);
 
 	/**
 	 * The find widget for this console instance.
@@ -1698,8 +1718,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Focuses the input for the console.
 	 */
-	focusInput() {
-		this._onFocusInputEmitter.fire();
+	focusInput(options: FocusInputOptions = {}) {
+		this._onFocusInputEmitter.fire(options);
 	}
 
 	requestFind() {

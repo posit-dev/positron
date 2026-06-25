@@ -533,6 +533,24 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
+	 * Whether the cell at the given line number has output that can be copied.
+	 * Used to enable/disable the "Copy Cell Output" toolbar action.
+	 */
+	hasCopiableOutputForCellAtLine(lineNumber: number): boolean {
+		const model = this._editor.getModel();
+		if (!model) {
+			return false;
+		}
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellAtLine(lineNumber);
+		if (!cell) {
+			return false;
+		}
+		const viewZone = this._viewZones.get(cell.id);
+		return !!viewZone && viewZone.hasCopiableContent();
+	}
+
+	/**
 	 * Copy output for the cell at the given line number.
 	 * Returns true if copy was initiated, false if no output exists for the cell.
 	 */

@@ -20,8 +20,21 @@ Summary:
 import * as os from 'os';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({
+				'python.createEnvironment.trigger': 'prompt',
+				'interpreters.startupBehavior': 'auto',
+				'python.defaultInterpreterPath': '/usr/bin/python3',
+			});
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
@@ -30,19 +43,10 @@ test.use({
 test.describe('Python Venv Auto-Creation', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
+	test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 	test.slow();
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'python.createEnvironment.trigger': 'prompt',
-			'interpreters.startupBehavior': 'auto',
-			'python.defaultInterpreterPath': '/usr/bin/python3',
-		}, { reload: 'web' });
-	});
-
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
-		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
-
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'qa-example-content', 'venv-creation-test');
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');

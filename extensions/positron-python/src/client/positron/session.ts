@@ -38,7 +38,7 @@ import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { Architecture } from '../common/utils/platform';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
-import { whenTimeout } from './util';
+import { getActiveInterpreterConfigTarget, whenTimeout } from './util';
 import { PackageManagerFactory } from './packages/packageManagerFactory';
 import { IPackageManager } from './packages/types';
 
@@ -512,11 +512,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {
             // Update the active environment in the Python extension.
-            this._interpreterPathService.update(
-                undefined,
-                vscode.ConfigurationTarget.WorkspaceFolder,
-                interpreter.path,
-            );
+            // Storage-only: the session is already starting here, so the listener in
+            // PythonRuntimeManager must not start another one.
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const { configTarget, folderUri } = getActiveInterpreterConfigTarget(workspaceService);
+            this._interpreterPathService.update(folderUri, configTarget, interpreter.path, {
+                startSession: false,
+                source: 'positron-session-start',
+            });
         }
 
         // Register for console width changes, if we haven't already

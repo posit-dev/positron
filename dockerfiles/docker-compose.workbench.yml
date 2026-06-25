@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:126
+    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
     container_name: test
     init: true
     ports:
@@ -24,25 +24,32 @@ services:
       # Postgres configuration
       - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
       - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
-      - E2E_POSTGRES_DB=${E2E_POSTGRES_DB:-testdb}
       - WB_PASSWORD=${WB_PASSWORD:-testpassword}
       - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY:-testkey}
     volumes:
       - connect_tokens:/tokens
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:126
+    image: ghcr.io/posit-dev/positron-postgres-amd64:142
     container_name: postgres
     ports:
       - "5432:5432"
     networks:
       - mynetwork
     environment:
-      - E2E_POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
-      - E2E_POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
-      - E2E_POSTGRES_DB=${E2E_POSTGRES_DB:-testdb}
+      # The custom postgres image is plain postgres:latest + init scripts and
+      # reads the stock POSTGRES_* names. Map the E2E_* values onto them.
+      # POSTGRES_DB stays "postgres": the init script creates "periodic" and
+      # "dvdrental" itself, so setting POSTGRES_DB=periodic would collide.
+      - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - POSTGRES_DB=postgres
+      # postgres:18+ defaults PGDATA to a version-specific subdir and refuses to
+      # start when a volume is mounted at the legacy /var/lib/postgresql/data.
+      # Pin PGDATA to the mounted path so the volume below keeps working.
+      - PGDATA=/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d ${E2E_POSTGRES_DB:-testdb}"]
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d periodic"]
       interval: 5s
       timeout: 5s
       retries: 5

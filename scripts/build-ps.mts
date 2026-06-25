@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { spawn } from 'node:child_process';
 
-const DAEMONS = ['watch-client-transpile', 'watch-client', 'watch-extensions', 'watch-e2e'];
+const DAEMONS = ['watch-client-transpile', 'watch-client', 'watch-extensions', 'watch-e2e', 'watch-copilot'];
 const DEEMON_MISSING = /\[deemon\] No daemon running/;
 
 /**

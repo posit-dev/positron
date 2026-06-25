@@ -106,7 +106,10 @@ class CreatePluginAction extends Action2 {
 			title: localize2('chat.createPlugin', "Create Plugin"),
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			icon: Codicon.save,
 			menu: [{
 				id: MenuId.ViewTitle,

@@ -174,7 +174,7 @@ jobs:
       # Only continue checking if no override found
       - name: Checkout repository
         if: steps.check_override.outputs.override_found != 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

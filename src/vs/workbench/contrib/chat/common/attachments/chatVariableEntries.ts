@@ -291,27 +291,6 @@ export interface ISCMHistoryItemVariableEntry extends IBaseChatRequestVariableEn
 	readonly historyItem: ISCMHistoryItem;
 }
 
-// --- Start Positron ---
-export interface IChatRequestRuntimeSessionEntry extends IBaseChatRequestVariableEntry {
-	readonly kind: 'runtimeSession';
-	readonly value: {
-		activeSession?: {
-			identifier: string;
-			language: string;
-			version: string;
-			mode: string;
-			notebookUri?: any;
-			executions: {
-				input: string;
-				output: string;
-				error?: any;
-			}[];
-		};
-		variables: any[];
-	};
-}
-// --- End Positron ---
-
 export interface ISCMHistoryItemChangeVariableEntry extends IBaseChatRequestVariableEntry {
 	readonly kind: 'scmHistoryItemChange';
 	readonly value: URI;
@@ -381,10 +360,6 @@ export type IChatRequestVariableEntry = IGenericChatRequestVariableEntry | IChat
 	| IChatRequestDirectoryEntry | IChatRequestFileEntry | INotebookOutputVariableEntry | IElementVariableEntry
 	| IPromptFileVariableEntry | IPromptTextVariableEntry
 	| ISCMHistoryItemVariableEntry | ISCMHistoryItemChangeVariableEntry | ISCMHistoryItemChangeRangeVariableEntry | ITerminalVariableEntry
-	// --- Start Positron ---
-	// Add Positron runtime session variable entry
-	| IChatRequestRuntimeSessionEntry
-	// --- End Positron ---
 	| IChatRequestStringVariableEntry | IChatRequestWorkspaceVariableEntry | IDebugVariableEntry | IAgentFeedbackVariableEntry
 	| IChatRequestDebugEventsVariableEntry | IChatRequestSessionReferenceVariableEntry;
 
@@ -506,12 +481,6 @@ export function isChatRequestVariableEntry(obj: unknown): obj is IChatRequestVar
 export function isSCMHistoryItemVariableEntry(obj: IChatRequestVariableEntry): obj is ISCMHistoryItemVariableEntry {
 	return obj.kind === 'scmHistoryItem';
 }
-
-// --- Start Positron ---
-export function isRuntimeSessionEntry(obj: IChatRequestVariableEntry): obj is IChatRequestRuntimeSessionEntry {
-	return obj.kind === 'runtimeSession';
-}
-// --- End Positron ---
 
 export function isSCMHistoryItemChangeVariableEntry(obj: IChatRequestVariableEntry): obj is ISCMHistoryItemChangeVariableEntry {
 	return obj.kind === 'scmHistoryItemChange';

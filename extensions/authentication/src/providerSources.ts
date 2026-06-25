@@ -28,6 +28,14 @@ export interface ProviderMetadata {
 	id: string;
 	displayName: string;
 	settingName: string;
+	/**
+	 * Maturity status of the provider, mirroring the `tags` on its
+	 * `*.enable` setting. The config modal lists stable providers (no status)
+	 * first, then 'preview', then 'experimental'. Providers that aren't ready
+	 * yet are kept out of the modal by defaulting their `*.enable` setting to
+	 * false, not by status.
+	 */
+	status?: 'preview' | 'experimental';
 }
 
 export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
@@ -50,6 +58,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: FOUNDRY_AUTH_PROVIDER_ID,
 		displayName: 'Microsoft Foundry',
 		settingName: 'msFoundry',
+		status: 'preview',
 	},
 	snowflake: {
 		id: 'snowflake-cortex',
@@ -65,26 +74,31 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		id: GEMINI_AUTH_PROVIDER_ID,
 		displayName: 'Gemini Code Assist',
 		settingName: 'google',
+		status: 'experimental',
 	},
 	googleVertex: {
 		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 		displayName: 'Google Vertex AI',
 		settingName: 'googleVertex',
+		status: 'experimental',
 	},
 	copilot: {
 		id: 'copilot-auth',
 		displayName: 'GitHub Copilot',
 		settingName: 'githubCopilot',
+		status: 'preview',
 	},
 	customProvider: {
 		id: CUSTOM_PROVIDER_AUTH_PROVIDER_ID,
 		displayName: 'Custom Provider',
 		settingName: 'customProvider',
+		status: 'experimental',
 	},
 	deepseek: {
 		id: DEEPSEEK_AUTH_PROVIDER_ID,
 		displayName: 'DeepSeek',
 		settingName: 'deepseek',
+		status: 'experimental',
 	},
 };
 

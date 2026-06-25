@@ -34,6 +34,10 @@ suite('PostgreSQL Data Connection Integration', () => {
 	// A direct pg client for test setup/teardown.
 	let setupClient: Client;
 
+	// Whether setupClient actually connected. Guards teardown from querying/closing a client that
+	// never connected (e.g. when PostgreSQL is unavailable and setup calls this.skip()).
+	let setupClientConnected: boolean;
+
 	// Unique schema name per test run to avoid collisions.
 	let testSchema: string;
 
@@ -45,6 +49,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 		this.timeout(10000);
 
 		testSchema = `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+		setupClientConnected = false;
 
 		setupClient = new Client({
 			host: pgHost,
@@ -56,6 +61,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 
 		try {
 			await setupClient.connect();
+			setupClientConnected = true;
 		} catch (err: any) {
 			this.skip(); // Skip all tests if PostgreSQL is not available.
 			return;
@@ -73,7 +79,9 @@ suite('PostgreSQL Data Connection Integration', () => {
 	 */
 	teardown(async function () {
 		this.timeout(10000);
-		if (setupClient) {
+		// Only clean up if the client actually connected; otherwise setup skipped the suite and
+		// querying/closing the unconnected client would throw.
+		if (setupClientConnected) {
 			try {
 				await setupClient.query(`DROP SCHEMA IF EXISTS "${testSchema}" CASCADE`);
 			} finally {

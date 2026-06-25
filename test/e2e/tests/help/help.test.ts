@@ -3,19 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test as base, expect, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			// Enable reduced motion so we don't have to wait for animations of expanding
+			// and collapsing the panel.
+			await settingsFile.append({ 'workbench.reduceMotion': 'on' });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		// Enable reduced motion so we don't have to wait for animations of expanding
-		// and collapsing the panel.
-		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
-	});
 
 	test('Python - Verify Help landing page', { tag: [tags.WIN] }, async function ({ app }) {
 
@@ -38,7 +44,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
 		}).toPass();
 
@@ -48,7 +54,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			const helpFrame = await app.workbench.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
 		}).toPass();
 

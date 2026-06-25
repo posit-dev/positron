@@ -15,7 +15,8 @@ import { CellExecutionState, ExecutionOutputEvent, ICellOutput } from '../../com
 import { Range } from '../../../../../editor/common/core/range.js';
 import { RuntimeOnlineState, RuntimeOutputKind, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionMode, ILanguageRuntimeMetadata, RuntimeErrorBehavior, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { QuartoExecutionManager } from '../../browser/quartoExecutionManager.js';
+import { QuartoExecutionManager, shouldSkipFirstCommandFinished } from '../../browser/quartoExecutionManager.js';
+import { PromptInputState, IPromptInputModel } from '../../../../../platform/terminal/common/capabilities/commandDetection/promptInputModel.js';
 import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { QuartoCodeCell } from '../../common/quartoTypes.js';
@@ -55,6 +56,13 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		startReason: 'Unit Test'
 	};
 }
+
+describe('shouldSkipFirstCommandFinished', () => {
+	it('returns true when state is Input and value is non-empty', () => {
+		const model = stubInterface<IPromptInputModel>({ state: PromptInputState.Input, value: 'pending' });
+		expect(shouldSkipFirstCommandFinished(model)).toBe(true);
+	});
+});
 
 describe('QuartoExecutionManager', () => {
 	const ctx = createTestContainer().build();

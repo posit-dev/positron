@@ -30,7 +30,10 @@ export function registerChatForkActions() {
 				f1: false,
 				category: CHAT_CATEGORY,
 				icon: Codicon.repoForked,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				menu: [
 					{
 						id: MenuId.ChatMessageCheckpoint,

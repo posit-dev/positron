@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:126
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -34,7 +34,7 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -58,7 +58,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         with:
-          identifier: e2e-electron
+          identifier: e2e-electron-pyrefly
 
       - name: 🧪 Run Playwright Tests - Electron
         shell: bash
@@ -71,13 +71,16 @@ jobs:
           POSITRON_HIDDEN_R: 4.4.1
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          SHARD_NAME: electron-pyrefly
           USE_KEY: true
           GH_SUMMARY_REPORT: true
         run: |
-          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp --project=e2e-electron --workers=1 --reporter=html
+          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp --project=e2e-electron --workers=1
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

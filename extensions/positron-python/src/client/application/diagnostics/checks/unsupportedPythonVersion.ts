@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -101,7 +101,7 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
     protected addPythonEnvChangedHandler(): void {
         const disposables = this.serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-        disposables.push(interpreterService.onDidChangeInterpreter((e) => this.onDidChangeEnvironment(e)));
+        disposables.push(interpreterService.onDidChangeInterpreter((e) => this.onDidChangeEnvironment(e.resource)));
     }
 
     protected async onDidChangeEnvironment(resource?: Uri): Promise<void> {

@@ -6,7 +6,7 @@
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import rimraf from 'rimraf';
+import * as rimraf from 'rimraf';
 import * as os from 'os';
 
 export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in cloneTestRepo'): void {
@@ -68,12 +68,34 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 }
 
 function copyRepo(source: string, destination: string): void {
+	// Clear any stale copy first: git pack files are read-only, so cp -R
+	// (and xcopy) cannot overwrite them on a rerun, causing "Permission denied".
+	fs.rmSync(destination, { recursive: true, force: true });
+	fs.mkdirSync(destination, { recursive: true });
 	if (process.platform === 'win32') {
 		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
 	} else {
 		cp.execSync(`cp -R "${source}/." "${destination}"`);
 	}
 	console.log(`✓ Workspace: ${destination}`);
+}
+
+/**
+ * Recursively copies a fixture folder to a destination, creating the destination
+ * if it doesn't exist. Unlike `copyFixtureFile`, the source is a caller-supplied
+ * absolute path, so the fixture can live anywhere in the repo (not just under
+ * `test/e2e/fixtures/`).
+ *
+ * @param source - Absolute path to the folder to copy.
+ * @param destination - Absolute path the folder's contents should be copied into.
+ */
+export function copyFixtureFolder(source: string, destination: string): void {
+	fs.mkdirSync(destination, { recursive: true });
+	if (process.platform === 'win32') {
+		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\"`);
+	} else {
+		cp.execSync(`cp -R "${source}/." "${destination}"`);
+	}
 }
 
 /**

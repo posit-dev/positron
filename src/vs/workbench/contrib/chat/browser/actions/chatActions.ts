@@ -203,10 +203,14 @@ abstract class OpenChatGlobalAction extends Action2 {
 			icon: Codicon.chatSparkle,
 			f1: true,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
 			precondition: ContextKeyExpr.and(
 				ChatContextKeys.Setup.hidden.negate(),
 				ChatContextKeys.Setup.disabledInWorkspace.negate(),
-			)
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 		});
 	}
 
@@ -644,7 +648,10 @@ export function registerChatActions() {
 				icon: Codicon.plus,
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.KeyN,
@@ -752,7 +759,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.openToSide', "New Chat Editor to the Side"),
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -769,7 +779,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.newChatWindow', "New Chat Window"),
 				f1: true,
 				category: CHAT_CATEGORY,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				menu: [{
 					id: MenuId.ChatTitleBarMenu,
 					group: 'b_new',
@@ -793,7 +806,10 @@ export function registerChatActions() {
 			super({
 				id: 'workbench.action.chat.clearInputHistory',
 				title: localize2('interactiveSession.clearHistory.label', "Clear Input History"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				category: CHAT_CATEGORY,
 				f1: true,
 			});
@@ -915,7 +931,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusTodosView.label', "Toggle Focus Between TODOs and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib + 1,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT,
@@ -946,7 +968,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusQuestionCarousel.label', "Chat: Toggle Focus Between Question and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.inChatSession,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyA,
@@ -974,7 +1002,14 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.previousQuestion.label', "Chat: Previous Question"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyP,
@@ -998,7 +1033,14 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.nextQuestion.label', "Chat: Next Question"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyN,
@@ -1022,7 +1064,15 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusQuestionCarouselTerminal.label', "Chat: Focus Terminal from Question Carousel"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasQuestionCarousel, ChatContextKeys.chatQuestionCarouselHasTerminal),
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ChatContextKeys.Editing.hasQuestionCarousel,
+					ChatContextKeys.chatQuestionCarouselHasTerminal,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.Alt | KeyCode.KeyT,
@@ -1046,7 +1096,13 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.focusTip.label', "Chat: Toggle Focus Between Tip and Input"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.inChatSession,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.inChatSession,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				),
+				// --- End Positron ---
 				keybinding: [{
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
@@ -1075,7 +1131,10 @@ export function registerChatActions() {
 				title: localize2('interactiveSession.showContextUsage.label', "Show Context Window Usage"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1117,6 +1176,8 @@ export function registerChatActions() {
 				title: localize2('manageChat', "Manage Chat"),
 				category: CHAT_CATEGORY,
 				f1: true,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
 				precondition: ContextKeyExpr.and(
 					ContextKeyExpr.or(
 						ChatContextKeys.Entitlement.planFree,
@@ -1124,8 +1185,10 @@ export function registerChatActions() {
 						ChatContextKeys.Entitlement.planPro,
 						ChatContextKeys.Entitlement.planProPlus
 					),
-					nonEnterpriseCopilotUsers
+					nonEnterpriseCopilotUsers,
+					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 				),
+				// --- End Positron ---
 				menu: {
 					id: MenuId.ChatTitleBarMenu,
 					group: 'y_manage',
@@ -1149,7 +1212,10 @@ export function registerChatActions() {
 				title: localize2('showCopilotUsageExtensions', "Show Extensions using Copilot"),
 				f1: true,
 				category: EXTENSIONS_CATEGORY,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1254,7 +1320,10 @@ export function registerChatActions() {
 				title: localize2('resetTrustedTools', "Reset Tool Confirmations"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 		override run(accessor: ServicesAccessor): void {
@@ -1271,7 +1340,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1293,7 +1365,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1316,7 +1391,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1339,7 +1417,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1362,7 +1443,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1385,7 +1469,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.sparkle,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1408,7 +1495,10 @@ export function registerChatActions() {
 				category: CHAT_CATEGORY,
 				icon: Codicon.repoForked,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1429,7 +1519,10 @@ export function registerChatActions() {
 				shortTitle: localize2('insertTroubleshootSlashCommand.short', "Insert /troubleshoot"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 			});
 		}
 
@@ -1450,7 +1543,10 @@ export function registerChatActions() {
 				shortTitle: localize('openChatFeatureSettings.short', "Chat Settings"),
 				category: CHAT_CATEGORY,
 				f1: true,
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide from command palette when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				menu: [{
 					id: CHAT_CONFIG_MENU_ID,
 					when: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.equals('view', ChatViewId)),
@@ -1793,7 +1889,10 @@ registerAction2(class EditToolApproval extends Action2 {
 			metadata: {
 				description: localize2('chat.editToolApproval.description', "Edit/manage the tool approval and confirmation preferences for AI chat agents."),
 			},
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide from command palette when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			category: CHAT_CATEGORY,
 		});

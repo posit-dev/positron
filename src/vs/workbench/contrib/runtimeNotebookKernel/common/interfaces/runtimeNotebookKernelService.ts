@@ -34,4 +34,16 @@ export interface IRuntimeNotebookKernelService {
 	 * @param source The source of the action for debugging purposes
 	 */
 	ensureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession>;
+
+	/**
+	 * Execute a code fragment in the context of an existing notebook cell.
+	 *
+	 * The fragment executes in the notebook's session and its output lands on
+	 * the given cell, like a regular execution of that cell.
+	 *
+	 * @param notebookUri The URI of the notebook
+	 * @param cellHandle The handle of the cell the code belongs to
+	 * @param code The code fragment to execute
+	 */
+	executeCodeInCell(notebookUri: URI, cellHandle: number, code: string): Promise<void>;
 }

@@ -142,7 +142,10 @@ export class PickAgentSessionAction extends Action2 {
 			category: AGENT_SESSIONS_CATEGORY,
 			icon: Codicon.history,
 			f1: true,
-			precondition: ChatContextKeys.enabled
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 		});
 	}
 
@@ -160,7 +163,10 @@ export class ArchiveAllAgentSessionsAction extends Action2 {
 		super({
 			id: 'workbench.action.chat.archiveAllAgentSessions',
 			title: localize2('archiveAll.label', "Archive All Workspace Agent Sessions"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: AGENT_SESSIONS_CATEGORY,
 			f1: true,
 		});
@@ -198,7 +204,10 @@ export class MarkAllAgentSessionsReadAction extends Action2 {
 		super({
 			id: 'workbench.action.chat.markAllAgentSessionsRead',
 			title: localize2('markAllRead.label', "Mark All as Read"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: AGENT_SESSIONS_CATEGORY,
 			f1: true,
 			menu: {
@@ -719,7 +728,10 @@ export class DeleteAllLocalSessionsAction extends Action2 {
 		super({
 			id: 'workbench.action.chat.clearHistory',
 			title: localize2('agentSessions.deleteAll', "Delete All Local Workspace Chat Sessions"),
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: AGENT_SESSIONS_CATEGORY,
 			f1: true,
 		});
@@ -1035,10 +1047,13 @@ export class ShowAgentSessionsSidebar extends UpdateChatViewWidthAction {
 		super({
 			id: ShowAgentSessionsSidebar.ID,
 			title: ShowAgentSessionsSidebar.TITLE,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ChatContextKeys.agentSessionsViewerOrientation.isEqualTo(AgentSessionsViewerOrientation.Stacked),
 			),
+			// --- End Positron ---
 			f1: true,
 			category: AGENT_SESSIONS_CATEGORY,
 		});
@@ -1058,10 +1073,13 @@ export class HideAgentSessionsSidebar extends UpdateChatViewWidthAction {
 		super({
 			id: HideAgentSessionsSidebar.ID,
 			title: HideAgentSessionsSidebar.TITLE,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ChatContextKeys.agentSessionsViewerOrientation.isEqualTo(AgentSessionsViewerOrientation.SideBySide),
 			),
+			// --- End Positron ---
 			f1: true,
 			category: AGENT_SESSIONS_CATEGORY,
 		});
@@ -1081,7 +1099,10 @@ export class ToggleAgentSessionsSidebar extends Action2 {
 		super({
 			id: ToggleAgentSessionsSidebar.ID,
 			title: ToggleAgentSessionsSidebar.TITLE,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			f1: true,
 			category: AGENT_SESSIONS_CATEGORY,
 		});
@@ -1110,10 +1131,13 @@ export class FocusAgentSessionsAction extends Action2 {
 		super({
 			id: FocusAgentSessionsAction.id,
 			title: localize2('chat.focusAgentSessionsViewer.label', "Focus Agent Sessions"),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
+				ChatContextKeys.available,
 				ContextKeyExpr.equals(`config.${ChatConfiguration.ChatViewSessionsEnabled}`, true)
 			),
+			// --- End Positron ---
 			category: AGENT_SESSIONS_CATEGORY,
 			f1: true,
 		});

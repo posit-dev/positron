@@ -15,3 +15,6 @@ ThirdPartyNotices.txt eol=crlf
 # test/componentFixtures/.screenshots/**/*.png filter=lfs diff=lfs merge=lfs -text
 # --- End PWB ---
 
+# --- Start Positron ---
+.devcontainer/ci-arm/*.sh text eol=lf
+# --- End Positron ---

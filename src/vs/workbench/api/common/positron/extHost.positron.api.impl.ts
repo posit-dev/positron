@@ -34,6 +34,7 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostDataConnections } from './extHostDataConnections.js';
+import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -92,6 +93,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostDataConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostDataConnections, new ExtHostDataConnections(rpcProtocol));
+	const extHostDataExplorer = rpcProtocol.set(ExtHostPositronContext.ExtHostDataExplorer, new ExtHostDataExplorer(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 	const extHostLifecycle = rpcProtocol.set(ExtHostPositronContext.ExtHostLifecycle, new ExtHostLifecycle());
@@ -331,6 +333,26 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			 */
 			connect(driverId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
 				return extHostDataConnections.connect(driverId, parameters);
+			},
+		};
+
+		const dataExplorer: typeof positron.dataExplorer = {
+			/**
+			 * Registers a Data Explorer RPC handler under a provider id.
+			 * @param providerId A stable identifier for the providing extension.
+			 * @param handler The handler that services RPC requests for this provider's datasets.
+			 * @returns A session for pushing UI events; dispose it to unregister the handler.
+			 */
+			registerRpcHandler(providerId: string, handler: positron.DataExplorerRpcHandler): positron.DataExplorerRpcSession {
+				return extHostDataExplorer.registerRpcHandler(providerId, handler);
+			},
+
+			/**
+			 * Opens (or focuses) a Data Explorer for a dataset served by a registered provider.
+			 * @param options The provider id, dataset identifier, and display name.
+			 */
+			open(options: { providerId: string; datasetId: string; displayName: string }): Thenable<void> {
+				return extHostDataExplorer.open(options);
 			},
 		};
 
@@ -597,6 +619,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			paths,
 			connections,
 			dataConnections,
+			dataExplorer,
 			ai,
 			notebooks,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,

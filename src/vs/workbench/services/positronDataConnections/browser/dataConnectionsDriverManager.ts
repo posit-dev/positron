@@ -5,18 +5,21 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { IDataConnectionDriver } from '../common/interfaces/dataConnectionDriver.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 /**
+ * Activation event fired when the Data Connections view is shown. Driver-providing extensions
+ * declare this event so they only activate when the user actually opens the view, rather than
+ * eagerly on startup. Must match the view id registered in positronDataConnections.contribution.ts.
+ */
+const DATA_CONNECTIONS_VIEW_ACTIVATION_EVENT = 'onView:workbench.panel.positronDataConnections';
+
+/**
  * DataConnectionsDriverManager class.
  */
 export class DataConnectionsDriverManager extends Disposable implements IDataConnectionsDriverManager {
-	// A value which indicates whether the drivers are loaded.
-	private _driversLoaded = false;
-
 	// The registered data connection drivers.
 	private readonly _drivers: IDataConnectionDriver[] = [];
 
@@ -27,24 +30,15 @@ export class DataConnectionsDriverManager extends Disposable implements IDataCon
 	readonly onDidChangeDrivers: Event<IDataConnectionDriver[]> = this._onDidChangeDrivers.event;
 
 	/**
-	 * Constructor. Subscribes to onStartupFinished activation so callers can tell "still loading"
-	 * from "extension is genuinely absent" when looking up a driver.
+	 * Constructor. This manager is constructed eagerly at startup (via mainThreadDataConnections and
+	 * PositronReactServices), so it deliberately does not trigger driver activation here: doing so
+	 * would force the driver extensions to load on every session even though the Data Connections
+	 * feature is off by default and most sessions never use it. Driver extensions instead activate
+	 * lazily on the view activation event (see driversLoaded).
 	 */
-	constructor(extensionService: IExtensionService) {
+	constructor(private readonly _extensionService: IExtensionService) {
 		// Call the base class constructor.
 		super();
-
-		// Subscribe to the onStartupFinished activation event. Once it resolves, any extensions
-		// registered against it have had a chance to register their drivers, so a missing driver
-		// can be reported as "genuinely absent" rather than "still loading." If activation fails,
-		// flip the flag anyway so the UI doesn't hang in "still loading" forever.
-		extensionService.activateByEvent('onStartupFinished').then(
-			() => { this._driversLoaded = true; },
-			err => {
-				this._driversLoaded = true;
-				onUnexpectedError(err);
-			}
-		);
 	}
 
 	/**
@@ -85,10 +79,15 @@ export class DataConnectionsDriverManager extends Disposable implements IDataCon
 	/**
 	 * Gets a value indicating whether the drivers have finished loading. Callers can use this to determine
 	 * whether an absent driver is still loading or genuinely not present.
+	 *
+	 * This passively observes whether the view activation event has resolved (i.e. the driver
+	 * extensions registered against it have had a chance to register their drivers) without
+	 * triggering activation itself. The Data Connections view triggers the activation when it is
+	 * shown, so by the time a user can look up a driver from the view the event has resolved.
 	 * @returns true if the drivers have finished loading; otherwise, false.
 	 */
 	get driversLoaded(): boolean {
-		return this._driversLoaded;
+		return this._extensionService.activationEventIsDone(DATA_CONNECTIONS_VIEW_ACTIVATION_EVENT);
 	}
 
 	/**

@@ -7,6 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
 import { MetricTargetType, RecordMetric } from '../utils/metrics/metric-base.js';
+import { escapeRegExp } from '../utils/strings';
 
 const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
@@ -159,7 +160,7 @@ export class Filters {
 			// at the end of the name and requires either string-start or
 			// whitespace before it - so 'dep_time' matches "<icon> dep_time"
 			// without also matching "<icon> sched_dep_time".
-			const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const escaped = escapeRegExp(value);
 			return this.code.driver.currentPage
 				.locator('.positron-modal-popup')
 				.getByRole('button', { name: new RegExp(`(?:^|\\s)${escaped}$`) });

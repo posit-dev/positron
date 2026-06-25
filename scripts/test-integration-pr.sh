@@ -48,6 +48,12 @@ npm run test-extension -- -l positron-assistant
 kill_app
 
 echo
+echo "### Authentication tests"
+echo
+npm run test-extension -- -l authentication
+kill_app
+
+echo
 echo "### Positron Catalog Explorer tests"
 echo
 npm run test-extension -- -l positron-catalog-explorer

@@ -16,8 +16,8 @@
  * - Confirm expected visibility/invisibility of the action bar based on file type
  */
 
-import { expect, Page } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { Page } from '@playwright/test';
+import { test, expect, tags } from '../_test.setup';
 import { EditorActionBar } from '../../pages/editorActionBar';
 import { Application } from '../../infra';
 

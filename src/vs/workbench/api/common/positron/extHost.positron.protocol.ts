@@ -16,7 +16,8 @@ import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -262,6 +263,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  */
 export interface ExtHostDataConnectionsShape {
 	$driverConnect(driverId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
+	$generateConnectionCode(driverId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$connectionIsReadOnly(connectionHandle: number): Promise<boolean>;
 	$connectionGetChildren(connectionHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$connectionDisconnect(connectionHandle: number): Promise<void>;
@@ -269,6 +271,26 @@ export interface ExtHostDataConnectionsShape {
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<void>;
 	$releaseConnection(connectionHandle: number): void;
+}
+
+/**
+ * Main thread side of the data explorer RPC channel. A backend-providing extension calls these to
+ * register/unregister its RPC handler, push frontend UI events, and ask Positron to open a dataset
+ * in the Data Explorer.
+ */
+export interface MainThreadDataExplorerShape extends IDisposable {
+	$registerRpcHandler(providerId: string): void;
+	$unregisterRpcHandler(providerId: string): void;
+	$sendUiEvent(event: IDataExplorerUiEventDto): void;
+	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
+}
+
+/**
+ * Extension host side of the data explorer RPC channel. The main thread calls this to service a
+ * Data Explorer request via the extension that registered `providerId`.
+ */
+export interface ExtHostDataExplorerShape {
+	$handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto>;
 }
 
 export interface MainThreadEnvironmentShape extends IDisposable {
@@ -457,6 +479,7 @@ export const ExtHostPositronContext = {
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 	ExtHostDataConnections: createProxyIdentifier<ExtHostDataConnectionsShape>('ExtHostDataConnections'),
+	ExtHostDataExplorer: createProxyIdentifier<ExtHostDataExplorerShape>('ExtHostDataExplorer'),
 	ExtHostLifecycle: createProxyIdentifier<ExtHostLifecycleShape>('ExtHostLifecycle'),
 	ExtHostFileTransfer: createProxyIdentifier<ExtHostFileTransferShape>('ExtHostFileTransfer'),
 };
@@ -481,6 +504,7 @@ export const MainPositronContext = {
 	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 	MainThreadPositronEphemeralStorage: createProxyIdentifier<MainThreadPositronEphemeralStorageShape>('MainThreadPositronEphemeralStorage'),
 	MainThreadDataConnections: createProxyIdentifier<MainThreadDataConnectionsShape>('MainThreadDataConnections'),
+	MainThreadDataExplorer: createProxyIdentifier<MainThreadDataExplorerShape>('MainThreadDataExplorer'),
 	MainThreadLifecycle: createProxyIdentifier<MainThreadLifecycleShape>('MainThreadLifecycle'),
 	MainThreadFileTransfer: createProxyIdentifier<MainThreadFileTransferShape>('MainThreadFileTransfer'),
 };

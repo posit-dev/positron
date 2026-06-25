@@ -11,7 +11,10 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [],
+	"activationEvents": [
+		"onCommand:positron.pdfServer.getViewerUrl",
+		"onCommand:positron.pdfServer.unregisterPdf"
+	],
 	"capabilities": {
 		"virtualWorkspaces": true,
 		"untrustedWorkspaces": {
@@ -44,6 +47,7 @@
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.17",
+		"@types/mocha": "^10.0.10",
 		"@types/node": "22.x",
 		"pdfjs-dist": "^5.4.624",
 		"ts-node": "^10.9.1"

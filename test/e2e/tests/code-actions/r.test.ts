@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path, { join } from 'path';
-import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
+import { test, expect, tags } from '../_test.setup';
 import { fail } from 'assert';
 
 test.use({
