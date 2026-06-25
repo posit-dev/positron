@@ -14,7 +14,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { fetchMetadataWithOutdated } from './packageMetadata';
-import { buildPinnedRequirements } from './requirementsFile';
+import { buildRequirementsFile } from './requirementsFile';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -128,7 +128,7 @@ export class UvPackageManager implements IPackageManager {
             // pinning everything and moving only the targets, so an inconsistent
             // update fails atomically instead of breaking the environment.
             const freezeLines = await this._getInstalledFreeze(token);
-            const content = buildPinnedRequirements(freezeLines, packages);
+            const content = buildRequirementsFile(freezeLines, packages);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
                 const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
@@ -164,7 +164,7 @@ export class UvPackageManager implements IPackageManager {
 
             const freezeLines = await this._getInstalledFreeze(token);
             const targets = outdatedPackages.map((pkg) => ({ name: pkg.name, version: pkg.latest_version }));
-            const content = buildPinnedRequirements(freezeLines, targets);
+            const content = buildRequirementsFile(freezeLines, targets);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
                 const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];

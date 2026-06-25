@@ -12,7 +12,7 @@ import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-import { buildPinnedRequirements } from './requirementsFile';
+import { buildRequirementsFile } from './requirementsFile';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -104,7 +104,7 @@ export class PipPackageManager implements IPackageManager {
         // targets. An inconsistent update fails atomically instead of silently
         // breaking the environment.
         const freezeLines = await this._getInstalledFreeze(token);
-        const content = buildPinnedRequirements(freezeLines, packages);
+        const content = buildRequirementsFile(freezeLines, packages);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
@@ -139,7 +139,7 @@ export class PipPackageManager implements IPackageManager {
         // and nothing changes.
         const freezeLines = await this._getInstalledFreeze(token);
         const targets = outdatedPackages.map((pkg) => ({ name: pkg.name, version: pkg.latest_version }));
-        const content = buildPinnedRequirements(freezeLines, targets);
+        const content = buildRequirementsFile(freezeLines, targets);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();

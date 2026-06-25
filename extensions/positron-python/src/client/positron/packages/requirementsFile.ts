@@ -37,20 +37,23 @@ export function extractRequirementName(line: string): string | undefined {
 }
 
 /**
- * Build pinned requirements content from `freeze` output and the set of target
- * packages being updated. Each target's existing line is replaced with
- * `name==version` (or a bare `name` when no version is given); all other lines
- * are preserved verbatim and in order; junk lines are dropped; targets absent
- * from the freeze output are appended. The result ends with a trailing newline.
+ * Build requirements content from `freeze` output and the target packages being
+ * updated. Every installed package is named so the resolver honors all
+ * constraints, but plain PyPI pins are emitted as **bare names** (no version) so
+ * the resolver keeps an already-satisfied package put unless something forces it
+ * to move. Origin lines (direct references `name @ ...`, editables `-e ...`) and
+ * comments are kept verbatim so local/VCS packages resolve without an index
+ * lookup. Each target is pinned to `name==version`; targets absent from the
+ * freeze output are appended. Junk and blank lines are dropped. Pass an empty
+ * `targets` for Update All (the caller adds `--upgrade`). Ends with a newline.
  */
-export function buildPinnedRequirements(
+export function buildRequirementsFile(
     freezeLines: string[],
-    targets: Array<{ name: string; version?: string }>,
+    targets: Array<{ name: string; version: string }>,
 ): string {
     const targetSpecByNormName = new Map<string, string>();
     for (const target of targets) {
-        const spec = target.version ? `${target.name}==${target.version}` : target.name;
-        targetSpecByNormName.set(normalizePackageName(target.name), spec);
+        targetSpecByNormName.set(normalizePackageName(target.name), `${target.name}==${target.version}`);
     }
 
     const out: string[] = [];
@@ -58,16 +61,23 @@ export function buildPinnedRequirements(
 
     for (const raw of freezeLines) {
         const line = raw.trimEnd();
-        if (line.trim() === '' || JUNK_LINES.has(line.trim())) {
+        const trimmed = line.trim();
+        if (trimmed === '' || JUNK_LINES.has(trimmed)) {
             continue;
         }
         const name = extractRequirementName(line);
         if (name) {
             const norm = normalizePackageName(name);
-            const spec = targetSpecByNormName.get(norm);
-            if (spec !== undefined) {
-                out.push(spec);
+            const targetSpec = targetSpecByNormName.get(norm);
+            if (targetSpec !== undefined) {
+                out.push(targetSpec);
                 used.add(norm);
+                continue;
+            }
+            // Plain PyPI pin -> bare name. Origin lines (containing `@`) fall
+            // through to verbatim so a local/VCS package isn't sent to the index.
+            if (!line.includes('@')) {
+                out.push(name);
                 continue;
             }
         }

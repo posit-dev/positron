@@ -7,7 +7,7 @@
 
 import { expect } from 'chai';
 import {
-    buildPinnedRequirements,
+    buildRequirementsFile,
     extractRequirementName,
     normalizePackageName,
 } from '../../client/positron/packages/requirementsFile';
@@ -42,46 +42,52 @@ suite('requirementsFile Tests', () => {
         });
     });
 
-    suite('buildPinnedRequirements', () => {
-        test('replaces only the target line and preserves the rest in order', () => {
+    suite('buildRequirementsFile', () => {
+        test('bare-names plain PyPI pins and pins the target', () => {
             const lines = ['flask==2.2.0', 'Werkzeug==2.0.3', 'positron-update-demo @ file:///tmp/demo'];
-            const result = buildPinnedRequirements(lines, [{ name: 'werkzeug', version: '3.1.8' }]);
+            const result = buildRequirementsFile(lines, [{ name: 'werkzeug', version: '3.1.8' }]);
             expect(result).to.equal(
-                ['flask==2.2.0', 'werkzeug==3.1.8', 'positron-update-demo @ file:///tmp/demo'].join('\n') + '\n',
+                ['flask', 'werkzeug==3.1.8', 'positron-update-demo @ file:///tmp/demo'].join('\n') + '\n',
             );
+        });
+
+        test('keeps origin lines (direct reference and editable) verbatim', () => {
+            const lines = ['pkg @ file:///tmp/pkg', '-e /tmp/editable', 'requests==2.28.0'];
+            const result = buildRequirementsFile(lines, []);
+            expect(result).to.equal(['pkg @ file:///tmp/pkg', '-e /tmp/editable', 'requests'].join('\n') + '\n');
+        });
+
+        test('with no targets (Update All) leaves everything bare or verbatim', () => {
+            const lines = ['flask==2.2.0', 'werkzeug==2.0.3'];
+            const result = buildRequirementsFile(lines, []);
+            expect(result).to.equal(['flask', 'werkzeug'].join('\n') + '\n');
         });
 
         test('matches the target case-insensitively on the normalized name', () => {
             const lines = ['Typing_Extensions==4.0.0'];
-            const result = buildPinnedRequirements(lines, [{ name: 'typing-extensions', version: '4.9.0' }]);
+            const result = buildRequirementsFile(lines, [{ name: 'typing-extensions', version: '4.9.0' }]);
             expect(result).to.equal('typing-extensions==4.9.0\n');
         });
 
-        test('replaces multiple targets for update-all', () => {
+        test('pins multiple targets for a multi-package update', () => {
             const lines = ['flask==2.2.0', 'werkzeug==2.0.3', 'requests==2.28.0'];
-            const result = buildPinnedRequirements(lines, [
+            const result = buildRequirementsFile(lines, [
                 { name: 'flask', version: '3.0.0' },
                 { name: 'requests', version: '2.31.0' },
             ]);
-            expect(result).to.equal(['flask==3.0.0', 'werkzeug==2.0.3', 'requests==2.31.0'].join('\n') + '\n');
+            expect(result).to.equal(['flask==3.0.0', 'werkzeug', 'requests==2.31.0'].join('\n') + '\n');
         });
 
-        test('filters the pkg-resources==0.0.0 junk line', () => {
-            const lines = ['pkg-resources==0.0.0', 'flask==2.2.0'];
-            const result = buildPinnedRequirements(lines, [{ name: 'flask', version: '3.0.0' }]);
-            expect(result).to.equal('flask==3.0.0\n');
-        });
-
-        test('appends a target that is absent from the freeze output', () => {
-            const lines = ['flask==2.2.0'];
-            const result = buildPinnedRequirements(lines, [{ name: 'requests', version: '2.31.0' }]);
-            expect(result).to.equal(['flask==2.2.0', 'requests==2.31.0'].join('\n') + '\n');
-        });
-
-        test('uses a bare name when the target has no version', () => {
-            const lines = ['flask==2.2.0'];
-            const result = buildPinnedRequirements(lines, [{ name: 'flask' }]);
+        test('filters the pkg-resources==0.0.0 junk line and blank lines', () => {
+            const lines = ['pkg-resources==0.0.0', '', 'flask==2.2.0'];
+            const result = buildRequirementsFile(lines, []);
             expect(result).to.equal('flask\n');
+        });
+
+        test('appends a target absent from the freeze output', () => {
+            const lines = ['flask==2.2.0'];
+            const result = buildRequirementsFile(lines, [{ name: 'requests', version: '2.31.0' }]);
+            expect(result).to.equal(['flask', 'requests==2.31.0'].join('\n') + '\n');
         });
     });
 });
