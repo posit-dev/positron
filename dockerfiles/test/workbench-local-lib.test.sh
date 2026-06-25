@@ -20,6 +20,7 @@ _wb_fetch_releases_json()  { cat "${HERE}/fixtures/releases.json"; }
 # arch detection
 wb_detect_arch "x86_64"; check "x86_64 -> POSITRON_ARCH" "x64" "$POSITRON_ARCH"; check "x86_64 -> WB_ARCH" "amd64" "$WB_ARCH"
 wb_detect_arch "arm64";  check "arm64 -> POSITRON_ARCH" "arm64" "$POSITRON_ARCH"; check "arm64 -> WB_ARCH" "arm64" "$WB_ARCH"
+wb_detect_arch "aarch64"; check "aarch64 -> POSITRON_ARCH" "arm64" "$POSITRON_ARCH"; check "aarch64 -> WB_ARCH" "arm64" "$WB_ARCH"
 
 # stable url: amd64 passthrough, arm64 rewrite
 check "stable amd64" \

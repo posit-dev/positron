@@ -39,5 +39,5 @@ wb_list_positron_releases() {
 		| jq -r --argjson n "$count" '
 			[ .[] | select(any(.assets[]?; .name | test("^positron-workbench-linux-(x64|arm64)-"))) ]
 			| sort_by(.published_at) | reverse | .[:$n]
-			| .[] | "\(.tag_name)\t\(.published_at)"'
+			| .[] | "\(.tag_name)\t\(.published_at[:10])"'
 }
