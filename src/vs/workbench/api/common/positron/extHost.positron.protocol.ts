@@ -13,7 +13,7 @@ import { IEditorContext } from '../../../services/frontendMethods/common/editorC
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -135,6 +135,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
 }

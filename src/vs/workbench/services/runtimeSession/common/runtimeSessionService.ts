@@ -259,6 +259,16 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * Returns undefined if the runtime does not support package management.
 	 */
 	getPackageManager?(): ILanguageRuntimePackageManager;
+
+	/**
+	 * Statically analyze code (or a file) and return packages that are
+	 * referenced but NOT installed AND that can be installed in this session's
+	 * environment. Returns undefined if the runtime does not support this.
+	 *
+	 * @param target The code or file to analyze.
+	 * @param token Optional cancellation token.
+	 */
+	listMissingPackages?(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -335,6 +345,33 @@ export interface IPackageSpec {
 	name: string;
 	/** Optional version to install (if not specified, installs latest) */
 	version?: string;
+}
+
+/**
+ * Describes a package that is referenced by code but not installed in a
+ * session's environment, and that the session knows how to install.
+ */
+export interface IRuntimeMissingPackage {
+	/** Name to pass to installPackages (the installable/repository name). */
+	readonly name: string;
+
+	/**
+	 * The symbol as referenced in code, when it differs from `name` (e.g.
+	 * python import `cv2` -> install `opencv-python`). Used for display only.
+	 */
+	readonly referencedName?: string;
+}
+
+/**
+ * Describes the code to analyze for missing packages. Callers supply either
+ * raw code or the URI of a saved file (not both).
+ */
+export interface IRuntimeMissingPackagesTarget {
+	/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+	readonly code?: string;
+
+	/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+	readonly uri?: string;
 }
 
 /**

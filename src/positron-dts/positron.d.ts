@@ -1345,6 +1345,33 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes a package that is referenced by code but not installed in a
+	 * session's environment, and that the session knows how to install.
+	 */
+	export interface RuntimeMissingPackage {
+		/** Name to pass to installPackages (the installable/repository name). */
+		readonly name: string;
+
+		/**
+		 * The symbol as referenced in code, when it differs from `name` (e.g.
+		 * python import `cv2` -> install `opencv-python`). Used for display only.
+		 */
+		readonly referencedName?: string;
+	}
+
+	/**
+	 * Describes the code to analyze for missing packages. Callers supply either
+	 * raw code or the URI of a saved file (not both).
+	 */
+	export interface RuntimeMissingPackagesTarget {
+		/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+		readonly code?: string;
+
+		/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+		readonly uri?: string;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1562,6 +1589,20 @@ declare module 'positron' {
 		 * Returns undefined if the runtime does not support package management.
 		 */
 		getPackageManager?(): LanguageRuntimePackageManager;
+
+		/**
+		 * Statically analyze code (or a file) and return packages that are
+		 * referenced but NOT installed AND that can be installed in this
+		 * session's environment.
+		 *
+		 * MUST NOT return packages that cannot be resolved/installed (e.g.
+		 * GitHub-only R packages, unknown PyPI names). SHOULD be fast and cache
+		 * internally; callers will not block UI on it.
+		 *
+		 * @param target The code or file to analyze.
+		 * @param token Optional cancellation token.
+		 */
+		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
 	}
 
 

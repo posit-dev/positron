@@ -127,6 +127,27 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			scope: ConfigurationScope.APPLICATION,
 			markdownDescription: nls.localize('positron.packages.metadataCache.maxAgeHours', "How long, in hours, cached package metadata is shown before it is refreshed in the background. Only applies when `#packages.metadataCache.enabled#` is enabled."),
 			tags: ['preview'],
+		},
+		'packages.confirmMissingOnRun': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.confirmMissingOnRun', "Before running a file or notebook, offer to install packages it references that are not installed."),
+			tags: ['preview'],
+		},
+		'packages.warnMissingInEditor': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.warnMissingInEditor', "Show a warning in the editor when the current file references packages that are not installed."),
+			tags: ['preview'],
+		},
+		'packages.suggestInstallOnError': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			description: nls.localize('positron.packages.suggestInstallOnError', "When a runtime error reports a missing package, suggest installing it beneath the error in the Console."),
+			tags: ['preview'],
 		}
 	}
 });

@@ -1,0 +1,32 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.missing-packages-preflight {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 0 16px 16px;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.missing-packages-preflight .preflight-message {
+	margin: 0;
+}
+
+.missing-packages-preflight .preflight-package-list {
+	margin: 0;
+	padding-left: 20px;
+	overflow-y: auto;
+	flex: 1;
+}
+
+.missing-packages-preflight .preflight-actions {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: auto;
+}

@@ -42,6 +42,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
@@ -466,6 +467,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
 	) {
 		super();
 
@@ -1053,6 +1055,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Runs all cells in the notebook.
 	 */
 	async runAllCells(): Promise<void> {
+		// Offer to install any missing packages before running. Aborts the run
+		// only if the user explicitly cancels.
+		if (!await this._missingPackagesPreflightService.confirmBeforeRun(this.uri)) {
+			return;
+		}
 		await this._runCells(this.cells.get());
 	}
 

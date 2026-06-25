@@ -80,6 +80,41 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
     ]
 
 
+def _get_missing_imports(
+    _kernel: "PositronIPyKernel", params: List[JsonData]
+) -> Optional[JsonData]:
+    """Return the subset of the given top-level module names that cannot be imported.
+
+    A module is considered present if it is already loaded or if an import spec
+    can be found for it (which covers standard-library modules and installed
+    distributions whose import name differs from their distribution name, e.g.
+    `sklearn` for scikit-learn). Anything else is reported as missing.
+
+    The caller (the frontend analyzer) is responsible for mapping a missing
+    import name back to an installable distribution; this method only answers
+    the per-session "is it importable here?" question.
+    """
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], list)):
+        raise _InvalidParamsError(f"Expected a list of module names, got: {params}")
+
+    import importlib.util
+
+    modules = [name for name in params[0] if isinstance(name, str)]
+    missing: List[str] = []
+    for name in modules:
+        if name in sys.modules:
+            continue
+        try:
+            spec = importlib.util.find_spec(name)
+        except (ImportError, ValueError, ModuleNotFoundError):
+            # find_spec raises (rather than returning None) when a parent
+            # package is missing; treat that as not importable.
+            spec = None
+        if spec is None:
+            missing.append(name)
+    return missing
+
+
 def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
@@ -249,6 +284,7 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getMissingImports": _get_missing_imports,
     "getPackagesInstalled": _get_packages_installed,
 }
 
