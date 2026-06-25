@@ -98,9 +98,6 @@ wb_menu() {
 	[[ "$WB_MENU_INDEX" =~ ^[0-9]+$ ]] && [ "$WB_MENU_INDEX" -ge 1 ] && [ "$WB_MENU_INDEX" -le "$n" ] || { echo "Invalid choice" >&2; return 1; }
 }
 
-# Workbench has no listable version history (Posit publishes only the current
-# stable and current daily -- same as Positron's workbench-nightly CI), so each
-# channel resolves to a single current build; Custom URL pins a specific .deb.
 # True if the URL responds successfully to a HEAD request (follows redirects).
 wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
 
@@ -116,6 +113,9 @@ wb_validate_wb_url() {
 	wb_url_reachable "$url" || { echo "URL not reachable (HTTP check failed): $url" >&2; return 1; }
 }
 
+# Workbench has no listable version history (Posit publishes only the current
+# stable and current daily -- same as Positron's workbench-nightly CI), so each
+# channel resolves to a single current build; Custom URL pins a specific .deb.
 wb_pick_workbench() {
 	echo "Resolving Workbench versions..." >&2
 	local stable_url daily_url
@@ -196,12 +196,17 @@ cmd_up() {
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
-	# 'test' depends on connect being healthy; without a license connect exits and
-	# the wait loop below just times out. Warn clearly up front instead.
+	# 'test' depends on connect being healthy; a missing license or config makes
+	# connect exit and the wait loop below just times out. Warn clearly up front.
+	# (rstudio-connect.gcfg is committed, but a missing bind-mount source becomes
+	# an empty dir and breaks connect, so check it too.)
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
 		echo "         Add connect.lic (see dockerfiles/README-workbench-local.md)." >&2
+	fi
+	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
+		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
 	fi
 	wb_compose up -d
 	echo "Waiting for containers to become healthy..."

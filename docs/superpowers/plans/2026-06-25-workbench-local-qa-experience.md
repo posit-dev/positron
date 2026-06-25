@@ -2,6 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Post-review deviations (do NOT implement the following from this plan).** These were built and then intentionally removed/changed during implementation review; the original task text below is kept for history but is superseded:
+> - **Local source build / `cmd_overlay` / `WB_SOURCE_LOCAL`** (Task 5 and the "Local source build" entry in the Positron picker, Task 4) -- **removed**. The tool installs released Positron only; the Positron picker is Release/Daily channels of *released* builds.
+> - **`positron.workbench.code-workspace` task-button file** (Task 7, Step 3) -- **removed**. Manage the stack via the CLI subcommands; there is no workspace file.
+> - **Workbench picker** is Release / Daily (each the single current build) / Custom `.deb` URL -- there is no Workbench version list.
+> - **Positron release list** comes from `posit-dev/positron` releases (`prerelease=false`), not `positron-builds`; the **Global Constraint below about `positron-builds` being all `prerelease=true` is obsolete** for the release list.
+> - Added subcommands not in the original task text: `--reinstall`, and the Workbench `.deb` arch/reachability validation.
+
 **Goal:** A single `npm run wb` front door in the Positron repo that brings up the Workbench stack and lets QA pick a Positron build (last-5 releases or the current source tree) and a Workbench version (stable/daily/custom), removing the qa-example-content two-terminal dance.
 
 **Architecture:** A bash orchestrator (`dockerfiles/workbench-local.sh`) drives the existing `dockerfiles/docker-compose.workbench.yml` stack. Pure URL/arch resolver functions live in a sourceable lib (`dockerfiles/workbench-local-lib.sh`) and are unit-tested with fixtures. The orchestrator reuses qa-example-content's `install-workbench.sh` (pulled via `curl`, as CI already does) by exporting `WB_URL` / `POSITRON_TAG` / `ARCH_SUFFIX`. A `.code-workspace` file exposes subcommands as clickable tasks.

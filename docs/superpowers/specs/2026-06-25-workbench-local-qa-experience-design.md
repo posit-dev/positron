@@ -1,8 +1,10 @@
 # Local Workbench QA Experience (`npm run wb`)
 
 **Date:** 2026-06-25
-**Status:** Design / approved for planning
-**Repos touched:** `posit-dev/positron` (new orchestration + workspace), `posit-dev/qa-example-content` (existing install scripts, unchanged source of truth)
+**Status:** Implemented, with deviations (see note below)
+**Repos touched:** `posit-dev/positron` (new orchestration), `posit-dev/qa-example-content` (existing install scripts, unchanged source of truth)
+
+> **As-built deviations from this design:** the **local source build / overlay** path and the **`.code-workspace` task buttons** were removed; the Positron picker offers **released** builds only (Release/Daily channels), the Workbench picker is Release/Daily/Custom URL (no version list), and the Positron release list is sourced from `posit-dev/positron` releases (`prerelease=false`), not `positron-builds`. This document is kept as the original design record.
 
 ## Problem
 
