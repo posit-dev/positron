@@ -29,7 +29,9 @@ wb_bootstrap_env() {
 	source "$env_file"
 	set +a
 	if [ -z "${WB_PASSWORD:-}" ]; then
-		read -r -p "Workbench password for user1: " WB_PASSWORD; export WB_PASSWORD
+		# Read from the tty (not stdin) and tolerate a closed/non-interactive
+		# stdin so set -euo pipefail does not abort silently when unset.
+		read -r -p "Workbench password for user1: " WB_PASSWORD </dev/tty || true; export WB_PASSWORD
 	fi
 	: "${E2E_POSTGRES_USER:=testuser}"; : "${E2E_POSTGRES_PASSWORD:=testpassword}"
 	export E2E_POSTGRES_USER E2E_POSTGRES_PASSWORD
@@ -196,7 +198,7 @@ cmd_up() {
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
-	# 'test' depends on connect being healthy; a missing license or config makes
+	# 'pwb' depends on connect being healthy; a missing license or config makes
 	# connect exit and the wait loop below just times out. Warn clearly up front.
 	# (rstudio-connect.gcfg is committed, but a missing bind-mount source becomes
 	# an empty dir and breaks connect, so check it too.)
