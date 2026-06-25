@@ -15,9 +15,10 @@ pick, in one command.
 
 ## Quick start
 
-1. `gh auth login` once. Pulling the container images needs the `read:packages`
-   scope, but you don't have to figure that out up front: if it's missing,
-   `npm run wb` prints the exact `gh auth refresh` command to add it.
+1. `gh auth login` once (or export a `GITHUB_TOKEN` PAT, which takes
+   precedence). Pulling the container images needs the `read:packages` scope,
+   but you don't have to figure that out up front: if the token you're using is
+   missing it, `npm run wb` tells you exactly how to add it.
 2. Drop `workbench.lic` and `connect.lic` into `dockerfiles/`.
 3. `npm run wb`.
 

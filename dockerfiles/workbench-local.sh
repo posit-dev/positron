@@ -30,14 +30,27 @@ wb_ghcr_logged_in() {
 	[ -f "$cfg" ] && grep -q '"ghcr.io"' "$cfg" 2>/dev/null
 }
 
+# Granted scopes for the given token, from GitHub's X-OAuth-Scopes response
+# header. Works for classic PATs and OAuth tokens; a fine-grained PAT (or an
+# invalid token) returns nothing, so callers must treat empty as "unknown",
+# not "no scopes".
+wb_token_scopes() {
+	curl -fsS -o /dev/null -D - -H "Authorization: Bearer ${1}" https://api.github.com 2>/dev/null \
+		| tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}'
+}
+
 # Derive auth from the gh CLI so the only one-time step is `gh auth login`.
 # Borrows gh's token for GITHUB_TOKEN (used for positron-builds + the installer)
 # and, only if you are NOT already logged into ghcr.io, logs Docker in with it.
 # An explicit GITHUB_TOKEN (env or .env) and an existing ghcr.io login both win.
 wb_ensure_auth() {
+	# Track where the token came from so the remediation hint matches: a gh-
+	# derived token can be fixed with `gh auth refresh`; an exported PAT cannot.
+	local token_source="env"
 	if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
 		GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
 		export GITHUB_TOKEN
+		token_source="gh"
 	fi
 	if [ -z "${GITHUB_TOKEN:-}" ]; then
 		echo "Not authenticated. Run 'gh auth login' once, then re-run 'npm run wb'." >&2
@@ -45,19 +58,22 @@ wb_ensure_auth() {
 		exit 1
 	fi
 	# Already logged into ghcr.io? Leave that credential alone -- it may be a PAT
-	# with read:packages, and clobbering it with the gh token (which often lacks
-	# that scope) would break image pulls.
+	# with read:packages, and clobbering it with our token (which might lack that
+	# scope) would break image pulls.
 	wb_ghcr_logged_in && return 0
-	# Fresh setup: the gh default login omits read:packages, which the ghcr.io
-	# pulls need. Flag the gap with the exact fix instead of failing cryptically.
-	# (Capture gh auth status once -- it can be slow.)
-	local gh_status=""
-	command -v gh >/dev/null 2>&1 && gh_status="$(gh auth status 2>&1 || true)"
-	if printf '%s' "$gh_status" | grep -q 'Token scopes' \
-		&& ! printf '%s' "$gh_status" | grep -q 'read:packages'; then
-		echo "NOTE: your gh token lacks the 'read:packages' scope (needed to pull images)." >&2
-		echo "      Add it once with: gh auth refresh -h github.com -s read:packages" >&2
-		echo "      (or run 'docker login ghcr.io' with a PAT that has read:packages)." >&2
+	# Check the scopes of the token we'll actually log Docker in with -- not gh's
+	# stored token, which differs when GITHUB_TOKEN is an exported PAT. Only warn
+	# when we can positively see read:packages is absent (empty == unknown, e.g. a
+	# fine-grained PAT), and tailor the fix to where the token came from.
+	local scopes; scopes="$(wb_token_scopes "$GITHUB_TOKEN")"
+	if [ -n "$scopes" ] && ! printf '%s' "$scopes" | grep -q 'read:packages'; then
+		echo "NOTE: the token in use lacks the 'read:packages' scope (needed to pull images)." >&2
+		if [ "$token_source" = "gh" ]; then
+			echo "      Add it once with: gh auth refresh -h github.com -s read:packages" >&2
+		else
+			echo "      Add 'read:packages' to the PAT in GITHUB_TOKEN, or log in separately:" >&2
+			echo "      docker login ghcr.io -u <github-user> (paste a PAT with read:packages)" >&2
+		fi
 	fi
 	# ghcr.io wants the GitHub username; fall back to a placeholder if gh can't
 	# resolve it (the token still authenticates).
