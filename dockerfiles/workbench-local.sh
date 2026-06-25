@@ -135,6 +135,28 @@ cmd_up() {
 cmd_stop() { wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
 cmd_down() { wb_compose down; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
+cmd_restart() { docker exec test bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
+
+cmd_overlay() {
+	wb_detect_arch
+	local build_dir="${REPO_ROOT}/../vscode-reh-web-pwb-linux-${POSITRON_ARCH}"
+	echo "Building Positron server from source (gulp vscode-reh-web-pwb-linux-${POSITRON_ARCH})..."
+	( cd "${REPO_ROOT}" && npm run gulp "vscode-reh-web-pwb-linux-${POSITRON_ARCH}" )
+	[ -d "${build_dir}" ] || { echo "Expected build output at ${build_dir}" >&2; exit 1; }
+	echo "Overlaying into container..."
+	tar -C "$(dirname "${build_dir}")" -czf /tmp/positron-custom.tar.gz "vscode-reh-web-pwb-linux-${POSITRON_ARCH}"
+	docker cp /tmp/positron-custom.tar.gz test:/tmp/positron-custom.tar.gz
+	docker exec test /bin/bash -c "
+		cd /tmp &&
+		tar -xzf positron-custom.tar.gz &&
+		rm -rf /usr/lib/rstudio-server/bin/positron-server/new &&
+		cp -r vscode-reh-web-pwb-linux-${POSITRON_ARCH} /usr/lib/rstudio-server/bin/positron-server/new &&
+		chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new &&
+		sudo rstudio-server restart
+	"
+	echo "Source build overlaid. Reload http://localhost:8787"
+}
+
 main() {
 	local sub="${1:-up}"; shift || true
 	case "$sub" in
