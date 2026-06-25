@@ -8,11 +8,12 @@ COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.workbench.yml"
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
 WB_URL_BASE="https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local"
-WB_SCRIPTS="install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh"
+WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
-wb_stack_up() { docker ps --format '{{.Names}}' | grep -q '^test$'; }
+# Scope to this compose project's services, not any container named "test".
+wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^test$'; }
 
 wb_installed() {
 	# install-workbench.sh may install Positron either into the "new" upgrade
@@ -43,7 +44,7 @@ wb_fetch_scripts() {
 	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
 		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
 	fi
-	for s in $WB_SCRIPTS; do
+	for s in "${WB_SCRIPTS[@]}"; do
 		if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
 			docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
 		else
@@ -286,7 +287,7 @@ cmd_logs() {
 
 cmd_test() {
 	local grep_arg="${1:-}"
-	( cd "${REPO_ROOT}" && npx playwright test --project e2e-workbench ${grep_arg:+--grep "$grep_arg"} )
+	( cd "${REPO_ROOT}" && npx playwright test --project e2e-workbench ${grep_arg:+--grep} ${grep_arg:+"$grep_arg"} )
 }
 
 cmd_help() {
