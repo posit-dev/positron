@@ -42,7 +42,7 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 	) {
 		super();
 
-		this.update();
+		this.onDidActiveEditorChange();
 		this.registerListeners();
 	}
 

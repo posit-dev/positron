@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.enabled', true);
 
 	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
-	void migrateEnabledSetting(log);
+	const enabledSettingMigration = migrateEnabledSetting(log);
 
 	// Start the language server only when an auth token is available
 	async function ensureLanguageServer() {
@@ -158,12 +158,14 @@ export function activate(context: vscode.ExtensionContext): void {
 		},
 	};
 
-	context.subscriptions.push(
-		vscode.languages.registerInlineCompletionItemProvider('*', providerImpl as vscode.InlineCompletionItemProvider, {
-			displayName: 'Next Edit Suggestions',
-			debounceDelayMs,
-		}),
-	);
+	void enabledSettingMigration.then(() => {
+		context.subscriptions.push(
+			vscode.languages.registerInlineCompletionItemProvider('*', providerImpl as vscode.InlineCompletionItemProvider, {
+				displayName: 'Next Edit Suggestions',
+				debounceDelayMs,
+			}),
+		);
+	});
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
