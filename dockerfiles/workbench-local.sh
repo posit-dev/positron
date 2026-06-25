@@ -52,6 +52,63 @@ wb_fetch_scripts() {
 	[ -f "${SCRIPT_DIR}/connect.lic" ] && docker cp "${SCRIPT_DIR}/connect.lic" test:/tmp/connect.lic >/dev/null || true
 }
 
+# Sets POSITRON_TAG (empty => latest/local). Sets WB_SOURCE_LOCAL=1 for source build.
+wb_pick_positron() {
+	echo "Select Positron build:" >&2
+	local i=1 tags=() lines
+	lines="$(wb_list_positron_releases 5)"
+	while IFS=$'\t' read -r tag date; do
+		[ -n "$tag" ] || continue
+		echo "  $i) $tag   ($date)" >&2; tags+=("$tag"); i=$((i+1))
+	done <<< "$lines"
+	echo "  $i) Local source build (current repo)" >&2
+	local choice; read -r -p "Choice [1]: " choice; choice="${choice:-1}"
+	if [ "$choice" = "$i" ]; then
+		WB_SOURCE_LOCAL=1; POSITRON_TAG=""
+	else
+		WB_SOURCE_LOCAL=0; POSITRON_TAG="${tags[$((choice-1))]}"
+	fi
+	export POSITRON_TAG WB_SOURCE_LOCAL
+}
+
+# Sets WB_URL.
+wb_pick_workbench() {
+	echo "Select Workbench version:" >&2
+	echo "  1) Stable (latest released)" >&2
+	echo "  2) Daily (latest preview)" >&2
+	echo "  3) Custom .deb URL" >&2
+	local choice; read -r -p "Choice [1]: " choice; choice="${choice:-1}"
+	case "$choice" in
+		1) WB_URL="$(wb_resolve_stable_url "${WB_ARCH}")" ;;
+		2) WB_URL="$(wb_resolve_daily_url "${WB_ARCH}")" ;;
+		3) read -r -p "Workbench .deb URL: " WB_URL ;;
+		*) echo "Invalid choice" >&2; return 1 ;;
+	esac
+	export WB_URL
+}
+
+cmd_install() {
+	[ -n "${GITHUB_TOKEN:-}" ] || { echo "GITHUB_TOKEN is required (export it first)." >&2; exit 1; }
+	local creds=""
+	for a in "$@"; do case "$a" in --credentials=*) creds="$a" ;; esac; done
+	wb_pick_workbench
+	wb_pick_positron
+	echo "Installing Workbench from: ${WB_URL}"
+	echo "Positron: ${POSITRON_TAG:-${WB_SOURCE_LOCAL:+LOCAL SOURCE}${WB_SOURCE_LOCAL:-LATEST}}"
+	docker exec -it \
+		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+		-e WB_URL="${WB_URL}" \
+		-e POSITRON_TAG="${POSITRON_TAG}" \
+		-e ARCH_SUFFIX="${WB_ARCH}" \
+		-e WB_PASSWORD="${WB_PASSWORD}" \
+		test /bin/bash -c "/tmp/install-workbench.sh ${creds}"
+	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
+		echo "Overlaying local source build..."
+		cmd_overlay
+	fi
+	cmd_status
+}
+
 cmd_up() {
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
