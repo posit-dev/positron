@@ -350,8 +350,10 @@ _library_gca_redirect_installed = False
 
 def _install_library_gca_redirect() -> None:
     """
-    Make a high-level library (e.g. seaborn) draw on a fresh figure instead of an
-    existing one created by a different library.
+    Redirect a high-level library's implicit `plt.gca()` to a fresh figure.
+
+    Make a high-level library (e.g. seaborn) draw on a fresh figure instead of an existing
+    one created by a different library.
 
     Seaborn's axes-level functions draw on `plt.gca()` when no `ax=` is given. With a
     persistent figure registry, that current figure may be a leftover from a different
