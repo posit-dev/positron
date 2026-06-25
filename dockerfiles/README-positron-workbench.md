@@ -65,7 +65,7 @@ it was scheduled for, so a manual restart is never cut short. Change it with
 
 - **"Forbidden" on first login**: clear the `vscode-tkn` cookie for `localhost`
   and refresh.
-- **One stack at a time** (`container_name: pwb`). To compare two Workbench
+- **One stack at a time** (`container_name: test`). To compare two Workbench
   versions, `down` one and bring up the other.
 - **Apple Silicon**: the Connect service runs emulated (amd64) and is slow to
   start.

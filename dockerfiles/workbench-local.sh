@@ -14,7 +14,7 @@ WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
 # Scope to this compose project's services, not a stray container of the same name.
-wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^pwb$'; }
+wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | grep -q '^test$'; }
 
 # Fail fast with a friendly message when a command needs a running stack.
 wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run pwb" >&2; exit 1; }; }
@@ -29,18 +29,18 @@ wb_cancel_ttl() {
 
 # Schedule a detached best-effort auto-stop after $1 minutes (0 disables). The
 # timer survives this script exiting and the terminal closing (nohup). At fire
-# time it only stops if the same pwb instance is still running, so a manual
+# time it only stops if the same test instance is still running, so a manual
 # restart in between is never clobbered. Re-running cmd_up resets the timer.
 wb_schedule_ttl() {
 	local minutes="${1:-0}"
 	wb_cancel_ttl
 	[ "$minutes" -gt 0 ] 2>/dev/null || return 0
-	local cid; cid="$(docker inspect -f '{{.Id}}' pwb 2>/dev/null || true)"
+	local cid; cid="$(docker inspect -f '{{.Id}}' test 2>/dev/null || true)"
 	[ -n "$cid" ] || return 0
 	# Args passed positionally to avoid quoting the values into the script body.
 	nohup bash -c '
 		sleep "$1"
-		[ "$(docker inspect -f "{{.Id}}" pwb 2>/dev/null || true)" = "$2" ] \
+		[ "$(docker inspect -f "{{.Id}}" test 2>/dev/null || true)" = "$2" ] \
 			&& docker compose -f "$3" stop >/dev/null 2>&1
 	' _ "$((minutes * 60))" "$cid" "$COMPOSE_FILE" >/dev/null 2>&1 &
 	echo $! > "$WB_TTL_PIDFILE"
@@ -120,7 +120,7 @@ wb_ensure_auth() {
 wb_installed() {
 	# install-workbench.sh may install Positron either into the "new" upgrade
 	# slot or directly at the positron-server root; accept either.
-	docker exec pwb bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
+	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
 # The container's command is a sleep loop, and the rstudio services are started
@@ -132,22 +132,22 @@ wb_installed() {
 # re-run of `npm run pwb`).
 wb_ensure_workbench() {
 	local launcher rserver
-	docker exec pwb bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && launcher=1 || launcher=0
-	docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1' && rserver=1 || rserver=0
+	docker exec test bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && launcher=1 || launcher=0
+	docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1' && rserver=1 || rserver=0
 	[ "$launcher" = 1 ] && [ "$rserver" = 1 ] && return 0
 	# Clean ordered (re)start: stop rserver, bring up the launcher, then rserver.
-	docker exec pwb bash -c 'sudo rstudio-server stop' >/dev/null 2>&1 || true
-	docker exec pwb bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
+	docker exec test bash -c 'sudo rstudio-server stop' >/dev/null 2>&1 || true
+	docker exec test bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
 	local i
 	for i in $(seq 1 10); do
-		docker exec pwb bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && break
+		docker exec test bash -c 'pgrep -f /usr/lib/rstudio-server/bin/rstudio-launcher >/dev/null 2>&1' && break
 		sleep 1
 	done
-	docker exec pwb bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
+	docker exec test bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
 	# Wait until :8787 actually accepts connections, not just until the process
 	# exists -- rserver binds the port a few seconds after it starts.
 	for i in $(seq 1 20); do
-		docker exec pwb bash -c 'curl -s -o /dev/null http://localhost:8787' >/dev/null 2>&1 && return 0
+		docker exec test bash -c 'curl -s -o /dev/null http://localhost:8787' >/dev/null 2>&1 && return 0
 		sleep 1
 	done
 }
@@ -181,15 +181,15 @@ wb_fetch_scripts() {
 		trap 'rm -rf "$tmpdir"' EXIT
 		for s in "${WB_SCRIPTS[@]}"; do
 			if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
-				docker cp "${src}/dockerfiles/wb-local/${s}" "pwb:/tmp/${s}" >/dev/null
+				docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
 			else
 				curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
-				docker cp "${tmpdir}/${s}" "pwb:/tmp/${s}" >/dev/null
+				docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
 			fi
-			docker exec pwb sed -i 's/\r$//' "/tmp/${s}"
-			docker exec pwb chmod +x "/tmp/${s}"
+			docker exec test sed -i 's/\r$//' "/tmp/${s}"
+			docker exec test chmod +x "/tmp/${s}"
 		done
-		[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" pwb:/tmp/workbench.lic >/dev/null || true
+		[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
 	)
 }
 
@@ -302,13 +302,13 @@ cmd_install() {
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
-		pwb /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"} 2>&1 \
+		test /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"} 2>&1 \
 		| awk -v build="$wb_build" '
 			{ print }
 			/[Ww]orkbench version:/ { print "Workbench build:     " build }
 		'
 	# Record the exact Workbench package URL so status can show the build.
-	docker exec -e WB_URL="${WB_URL}" pwb bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
+	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
 }
 
 cmd_up() {
@@ -346,8 +346,8 @@ cmd_up() {
 	fi
 	# Connect requires a valid base64 Bootstrap.SecretKey; the compose default
 	# ("testkey") is not valid base64 and makes the connect container exit. Mint
-	# one the first time and persist it to .env: pwb carries this var too, so a
-	# fresh value every run makes Compose recreate the pwb container and wipe the
+	# one the first time and persist it to .env: test carries this var too, so a
+	# fresh value every run makes Compose recreate the test container and wipe the
 	# in-container Positron/Workbench install (forcing a needless reinstall).
 	if [ -z "${CONNECT_BOOTSTRAP_SECRETKEY:-}" ]; then
 		CONNECT_BOOTSTRAP_SECRETKEY="$(openssl rand -base64 32)"
@@ -360,28 +360,28 @@ cmd_up() {
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
-	# 'pwb' depends on connect being healthy; a missing license or config makes
+	# 'test' depends on connect being healthy; a missing license or config makes
 	# connect exit and the wait loop below just times out. Warn clearly up front.
 	# (rstudio-connect.gcfg is committed, but a missing bind-mount source becomes
 	# an empty dir and breaks connect, so check it too.)
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
-		echo "         will not become healthy and 'pwb' won't start (startup will time out)." >&2
+		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
 		echo "         Add connect.lic (see dockerfiles/README-positron-workbench.md)." >&2
 	fi
 	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
 		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
 		echo "         It is committed to the repo; restore with: git checkout dockerfiles/connect/rstudio-connect.gcfg" >&2
 	fi
-	# --remove-orphans clears containers from a prior service name (e.g. the
-	# pre-rename 'test' container) that would otherwise hold the same ports.
+	# --remove-orphans clears a leftover container from a prior run under a
+	# different service name that would otherwise hold the same ports.
 	wb_compose up -d --remove-orphans
 	echo "Waiting for containers to become healthy..."
 	local tries=0
 	until wb_stack_up; do
 		tries=$((tries+1))
 		if [ "$tries" -ge 120 ]; then
-			echo "Timed out waiting for the 'pwb' container to start." >&2
+			echo "Timed out waiting for the 'test' container to start." >&2
 			echo "Check service health: docker compose -f ${COMPOSE_FILE} ps" >&2
 			wb_compose ps >&2 || true
 			exit 1
@@ -407,8 +407,8 @@ cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Sta
 
 wb_versions() {
 	local wb pos
-	wb="$(docker exec pwb bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
-	pos="$(docker exec pwb bash -c '
+	wb="$(docker exec test bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
+	pos="$(docker exec test bash -c '
 		for d in /usr/lib/rstudio-server/bin/positron-server/new /usr/lib/rstudio-server/bin/positron-server; do
 			if [ -f "$d/product.json" ]; then
 				v=$(grep positronVersion "$d/product.json" | sed "s/.*: *\"\([^\"]*\)\".*/\1/")
@@ -423,7 +423,7 @@ wb_versions() {
 # runtime version, so report the exact Workbench package we installed (recorded
 # at install time). Empty if unknown (e.g. installed outside this tool).
 wb_source_build() {
-	docker exec pwb bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
+	docker exec test bash -c 'if [ -f /var/lib/wb-local-source ]; then basename "$(cat /var/lib/wb-local-source)"; fi' 2>/dev/null || true
 }
 
 # Clean post-startup summary, with the same labels install-workbench.sh prints
@@ -437,11 +437,11 @@ wb_print_ready() {
 	pos="$(printf '%s' "$v" | cut -f2)"
 	src="$(wb_source_build)"
 	echo ''
-	if docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
+	if docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
 		# allow-any-unicode-next-line
 		echo "Workbench ready ✅"
 	else
-		echo "Workbench installed -- rstudio-server not running (run: docker exec pwb sudo rstudio-server restart)"
+		echo "Workbench installed -- rstudio-server not running (run: docker exec test sudo rstudio-server restart)"
 	fi
 	printf 'Positron version:    %s\n' "$pos"
 	printf 'Workbench version:   %s\n' "$wb"
@@ -454,7 +454,7 @@ wb_print_ready() {
 cmd_status() {
 	if ! wb_stack_up; then echo "Containers are not running. Start with: npm run pwb"; return 0; fi
 	echo "Containers:"
-	docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '^(pwb|postgres|connect)[[:space:]]' \
+	docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '^(test|postgres|connect)[[:space:]]' \
 		| awk -F'\t' '{ printf "  %-9s %s\n", $1, $2 }'
 	wb_print_ready
 }
@@ -462,7 +462,7 @@ cmd_status() {
 cmd_logs() {
 	wb_require_stack
 	case "${1:-rserver}" in
-		rserver|workbench) docker exec pwb bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
+		rserver|workbench) docker exec test bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
 		connect)           docker logs -f connect ;;
 		*)                 docker logs -f "${1}" ;;
 	esac
