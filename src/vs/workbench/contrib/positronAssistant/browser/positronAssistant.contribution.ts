@@ -62,7 +62,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				super({
 					id: 'workbench.action.positronAssistant.runInConsole',
 					title: localize2('interactive.runInConsole.label', "Run in Console"),
-					precondition: ChatContextKeys.enabled,
+					precondition: ChatContextKeys.available,
 					f1: true,
 					category: localize2('chat.category', 'Chat'),
 					icon: codiconsLibrary.play,

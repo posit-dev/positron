@@ -197,7 +197,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
 		});
 
-		test.skip('Python - Verify saving a Python plot', {
+		test('Python - Verify saving a Python plot', {
 			annotation: {
 				type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13066'
 			},

@@ -201,6 +201,14 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly selectionStateMachine: SelectionStateMachine;
 
 	/**
+	 * Whether cell tags are hidden across this notebook. Toggled by the "Toggle
+	 * Cell Tag Visibility" command via {@link toggleCellTagsHidden}. This is
+	 * transient view state -- it is not persisted, so reopening the notebook shows
+	 * tags again.
+	 */
+	readonly cellTagsHidden: IObservable<boolean>;
+
+	/**
 	 * Find the cell that currently has DOM focus within the notebook container.
 	 * Useful for keyboard navigation where Tab moves focus but doesn't change selection.
 	 * @returns The focused cell, or null if no cell has focus
@@ -349,6 +357,24 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param targetIndex The index to move the cells to
 	 */
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
+
+	/**
+	 * Changes the active cell to a markdown heading of the given level.
+	 * Converts to markdown if needed, then sets the heading prefix.
+	 *
+	 * @param level Heading level 1-6
+	 */
+	changeToHeading(level: number): void;
+
+	/**
+	 * Interrupts all currently executing cells in the notebook.
+	 */
+	interruptKernel(): void;
+
+	/**
+	 * Selects all cells in the notebook.
+	 */
+	selectAllCells(): void;
 
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
@@ -551,4 +577,15 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Grabs focus for this notebook based on the current selection state.
 	 */
 	grabFocus(): void;
+
+	/**
+	 * Toggle whether cell tags are shown across this notebook (see
+	 * {@link cellTagsHidden}).
+	 */
+	toggleCellTagsHidden(): void;
+
+	/**
+	 * Remove every tag from every cell in the notebook (a single undoable edit).
+	 */
+	removeAllCellTags(): void;
 }

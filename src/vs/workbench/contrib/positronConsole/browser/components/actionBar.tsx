@@ -361,11 +361,20 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 
 		setRestarting(true);
-		await services.runtimeSessionService.restartSession(
-			activePositronConsoleInstance!.sessionId,
-			'User-requested restart from console action bar'
-		);
-		setRestarting(false);
+		try {
+			await services.runtimeSessionService.restartSession(
+				activePositronConsoleInstance!.sessionId,
+				'User-requested restart from console action bar'
+			);
+		} catch (err) {
+			// A failed (or slow, timed-out) restart must still clear the
+			// restarting flag, otherwise the restart button stays disabled.
+			services.logService.error(
+				`Failed to restart session ${activePositronConsoleInstance!.sessionId}: ${err}`
+			);
+		} finally {
+			setRestarting(false);
+		}
 	};
 
 	const deleteSessionHandler = async () => {
@@ -470,14 +479,14 @@ export const ActionBar = (props: ActionBarProps) => {
 				ariaLabel={positronRestartSession}
 				dataTestId='restart-session'
 				disabled={!canShutdown || restarting}
-				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
+				icon={ThemeIcon.fromId('refresh')}
 				tooltip={(positronRestartSession)}
 				onPressed={restartConsoleHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
-			icon: 'positron-restart-runtime-thin',
+			icon: 'refresh',
 			label: positronRestartSession,
 			onSelected: restartConsoleHandler
 		}

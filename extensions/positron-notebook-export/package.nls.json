@@ -1,0 +1,6 @@
+{
+	"displayName": "Notebook Export",
+	"description": "Export Jupyter notebooks to other file formats.",
+	"category.notebook": "Notebook",
+	"command.positronNotebook.export.title": "Export..."
+}

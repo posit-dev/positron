@@ -281,4 +281,143 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(outputs[0].parsed.type).toBe('html');
 		});
 	});
+
+	// Model-level coverage for the Collapse Output, Show Hidden Output (expand),
+	// and Clear Output cell actions (#12411). The action handlers in
+	// `positronNotebook.contribution.ts` delegate to these cell/instance methods,
+	// and their menu visibility is driven by the context keys asserted below.
+	describe('output visibility and clear actions (#12411)', () => {
+		function cellWithOutputs(...outputs: { mime: string; data: VSBuffer }[][]): TestCellInput {
+			return {
+				source: 'print("hello")',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: outputs.map((items, i) => ({
+					outputId: `output-${i + 1}`,
+					outputs: items,
+				})),
+			};
+		}
+
+		// Narrowing accessor: expect(cell.isCodeCell()).toBe(true) does not
+		// narrow the union type, so output members would not typecheck.
+		function firstCodeCell(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
+			const cell = notebook.cells.get()[0];
+			if (!cell.isCodeCell()) {
+				throw new Error('expected a code cell');
+			}
+			return cell;
+		}
+
+		it('collapse output hides the output without deleting it', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+			expect(cell.outputIsCollapsed.get(), 'output should start expanded').toBe(false);
+
+			cell.collapseOutput();
+
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length, 'collapse is visibility-only; outputs must survive').toBe(1);
+			expect(outputs[0].parsed.type).toBe('stdout');
+		});
+
+		it('show hidden output (expand) restores visibility with outputs intact', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			cell.collapseOutput();
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+
+			cell.expandOutput();
+
+			expect(cell.outputIsCollapsed.get()).toBe(false);
+			const outputs = cell.outputs.get();
+			expect(outputs.length, 'outputs must be unchanged after a collapse/expand cycle').toBe(1);
+			expect(outputs[0].parsed.type).toBe('stdout');
+		});
+
+		it('toggleOutputCollapse flips the collapse state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			cell.toggleOutputCollapse();
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+
+			cell.toggleOutputCollapse();
+			expect(cell.outputIsCollapsed.get()).toBe(false);
+		});
+
+		it('collapse state initializes from cell collapseState metadata', () => {
+			const collapsedCell: TestCellInput = {
+				source: 'print("hello")',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [textOutputItem('hello')] }],
+				collapseState: { outputCollapsed: true },
+			};
+			const notebook = createTestPositronNotebookInstance([collapsedCell], ctx);
+			const cell = firstCodeCell(notebook);
+
+			expect(
+				cell.outputIsCollapsed.get(),
+				'cell saved with outputCollapsed metadata should open collapsed'
+			).toBe(true);
+		});
+
+		it('clear output removes all outputs from the cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')], [pngOutputItem()])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+			expect(cell.outputs.get().length).toBe(2);
+
+			notebook.clearCellOutput(cell);
+
+			expect(cell.outputs.get().length).toBe(0);
+		});
+
+		it('context keys driving the action buttons track output state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			// Attaching a container creates the cell's scoped context key
+			// service and CellContextKeyManager, as the view layer does.
+			cell.attachContainer(document.createElement('div'));
+			const scoped = cell.scopedContextKeyService;
+			expect(scoped).toBeDefined();
+
+			// With outputs expanded: Collapse Output is eligible
+			// (hasOutputs && !outputIsCollapsed per its menu when clause).
+			expect(scoped?.getContextKeyValue(CellContextKeys.hasOutputs.key)).toBe(true);
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(false);
+
+			// Collapsed: Show Hidden Output (expand) becomes eligible
+			// (hasOutputs && outputIsCollapsed).
+			cell.collapseOutput();
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(true);
+
+			cell.expandOutput();
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(false);
+
+			// Cleared: no output-dependent action is eligible.
+			notebook.clearCellOutput(cell);
+			expect(scoped?.getContextKeyValue(CellContextKeys.hasOutputs.key)).toBe(false);
+		});
+	});
 });

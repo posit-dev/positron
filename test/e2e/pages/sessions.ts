@@ -161,13 +161,10 @@ export class Sessions {
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
-						return;
+					} else if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
+						return; // workaround for server/workbench: session is already gone
 					} else {
-						if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
-							return; // workaround for server/workbench
-						} else {
-							throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
-						}
+						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
 					}
 				} else {
 					// More that one session: Delete via the context menu. (The trash icon
@@ -175,6 +172,10 @@ export class Sessions {
 					await this.deleteViaUI(sessionId);
 				}
 
+				// Wait for the session to actually shut down before returning. Skipping
+				// this (e.g. an early return after the trash click) lets delete() return
+				// while the instance is still visible; deleteAll()'s detach guard then
+				// passes instantly and the dying session races the next test's reuse scan.
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 				await expect(this.consoleInstance(sessionId)).not.toBeVisible();
 			}, `Delete session: ${sessionId}`).toPass();
@@ -560,9 +561,6 @@ export class Sessions {
 			await expect(this.code.driver.currentPage.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.currentPage.mouse.move(0, 0);
-			// Give startup messaging a chance to appear before asserting it's gone,
-			// so we don't pass instantly when this check runs ahead of the UI.
-			await this.page.waitForTimeout(5000);
 			await expect(this.page.locator('text=/^Waiting for extensions|^Starting|^Preparing|Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}

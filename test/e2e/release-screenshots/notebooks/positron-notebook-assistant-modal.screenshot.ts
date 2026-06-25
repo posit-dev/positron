@@ -3,21 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test as base } from '../../tests/_test.setup';
+import { test } from '../../tests/_test.setup';
 import { captureFullWindow } from '../_helpers/screenshot-utils';
 import { overrideWorkspaceName, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 import { clearAnnotations } from '../_helpers/annotate-utils';
 
-const test = base.extend({
-	beforeApp: [
-		async ({ settingsFile }, use) => {
-			settingsFile.append({ 'positron.notebook.enabled': true });
-			await use();
-		},
-		{ scope: 'worker' }
-	],
-});
-
+// The Positron notebook editor is enabled by default in the pre-release builds
+// these screenshots run against, so no settings override is needed here.
 test.use({
 	suiteId: __filename,
 });

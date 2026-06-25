@@ -45,9 +45,17 @@ import { ChatConfiguration } from '../../common/constants.js';
 abstract class ChatEditingEditorAction extends Action2 {
 
 	constructor(desc: Readonly<IAction2Options>) {
+		// --- Start Positron ---
+		// Hide all subclasses when AI features are disabled.
+		const aiDisabledGuard = ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true);
+		const precondition = desc.precondition
+			? ContextKeyExpr.and(desc.precondition, aiDisabledGuard)
+			: aiDisabledGuard;
+		// --- End Positron ---
 		super({
 			category: CHAT_CATEGORY,
-			...desc
+			...desc,
+			precondition,
 		});
 	}
 

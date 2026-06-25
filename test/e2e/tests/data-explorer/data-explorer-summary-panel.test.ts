@@ -11,8 +11,7 @@
  */
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
+import { test, expect, tags } from '../_test.setup';
 
 const columnOrder = {
 	default: ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],

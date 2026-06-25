@@ -5,8 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { observableValue } from '../../../../../../base/common/observable.js';
+import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { CodeCellStatusFooter } from '../../../browser/notebookCells/CodeCellStatusFooter.js';
@@ -19,18 +20,30 @@ interface CellState {
 	lastExecutionDuration?: number;
 	lastRunEndTime?: number;
 	lastRunSuccess?: boolean;
+	tags?: string[];
+	isAddingTag?: boolean;
+	cellTagsHidden?: boolean;
 }
 
 describe('CodeCellStatusFooter', () => {
-	const rtl = setupRTLRenderer();
+	// The footer embeds CellTagsBar, which reads the React services context, so
+	// render through the provider tree rather than the prop-only renderer.
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderFooter(state: CellState = {}, hasError = false) {
+		// Mirrors the real cell's tagUIVisible derivation (tags or an in-progress
+		// add, unless the notebook hides tags).
+		const tagUIVisible = ((state.tags?.length ?? 0) > 0 || (state.isAddingTag ?? false)) && !(state.cellTagsHidden ?? false);
 		const cell = stubInterface<PositronNotebookCodeCell>({
 			executionStatus: observableValue<ExecutionStatus>('executionStatus', state.executionStatus ?? 'idle'),
 			lastExecutionOrder: observableValue<number | undefined>('lastExecutionOrder', state.lastExecutionOrder),
 			lastExecutionDuration: observableValue<number | undefined>('lastExecutionDuration', state.lastExecutionDuration),
 			lastRunEndTime: observableValue<number | undefined>('lastRunEndTime', state.lastRunEndTime),
 			lastRunSuccess: observableValue<boolean | undefined>('lastRunSuccess', state.lastRunSuccess),
+			tags: observableValue<string[]>('tags', state.tags ?? []),
+			isAddingTag: observableValue<boolean>('isAddingTag', state.isAddingTag ?? false),
+			tagUIVisible: observableValue<boolean>('tagUIVisible', tagUIVisible),
 			isInViewport: () => true,
 		});
 
@@ -116,5 +129,54 @@ describe('CodeCellStatusFooter', () => {
 		renderFooter({ lastExecutionOrder: 1 });
 
 		expect(getFooter({ hidden: true })).toHaveClass('collapsed');
+	});
+
+	// The footer hosts the tag bar, so its collapse/stack layout depends on the
+	// cell's tag UI visibility as well as execution metadata: a visible tag UI
+	// (tags or an in-progress tag-add) keeps it open, hiding tags notebook-wide
+	// collapses it, and the execution-metadata row appears above the tags only
+	// when there is execution metadata to show (otherwise the tags are alone).
+	const tagLayoutCases: { name: string; state: CellState; collapsed: boolean; metadata: boolean }[] = [
+		{ name: 'execution metadata and tags', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, tags: ['wip'] }, collapsed: false, metadata: true },
+		{ name: 'execution metadata and a tag-add in progress', state: { ...completedState, executionStatus: 'idle', lastRunSuccess: true, isAddingTag: true }, collapsed: false, metadata: true },
+		{ name: 'tags only', state: { tags: ['wip'] }, collapsed: false, metadata: false },
+		{ name: 'tags hidden notebook-wide', state: { tags: ['wip'], cellTagsHidden: true }, collapsed: true, metadata: false },
+		{ name: 'a tag-add in progress', state: { isAddingTag: true }, collapsed: false, metadata: false },
+	];
+
+	it.each(tagLayoutCases)('tag footer layout with $name', ({ state, collapsed, metadata }) => {
+		renderFooter(state);
+		const footer = getFooter({ hidden: true });
+
+		if (collapsed) {
+			expect(footer).toHaveClass('collapsed');
+		} else {
+			expect(footer).not.toHaveClass('collapsed');
+		}
+		if (metadata) {
+			expect(screen.getByTestId('cell-footer-metadata')).toBeInTheDocument();
+		} else {
+			expect(screen.queryByTestId('cell-footer-metadata')).not.toBeInTheDocument();
+		}
+	});
+
+	it('refreshes the relative time for each footer in a one minute interval', async () => {
+		vi.useFakeTimers();
+		try {
+			const startTime = Date.now();
+			renderFooter({
+				lastExecutionDuration: 500,
+				lastRunEndTime: startTime - 60_000,
+				lastRunSuccess: true,
+			});
+
+			expect(screen.getByText('1 min ago')).toBeInTheDocument();
+			await act(async () => {
+				vi.advanceTimersByTime(60_000);
+			});
+			expect(screen.getByText('2 mins ago')).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

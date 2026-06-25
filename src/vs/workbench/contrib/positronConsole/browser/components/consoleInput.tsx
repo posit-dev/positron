@@ -11,10 +11,7 @@ import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { Schemas } from '../../../../../base/common/network.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { HistoryNavigator2 } from '../../../../../base/common/history.js';
 import { ISelection } from '../../../../../editor/common/core/selection.js';
@@ -27,7 +24,7 @@ import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { FormatOnType } from '../../../../../editor/contrib/format/browser/formatActions.js';
 import { EditorExtensionsRegistry } from '../../../../../editor/browser/editorExtensions.js';
 import { MarkerController } from '../../../../../editor/contrib/gotoError/browser/gotoError.js';
-import { IEditorOptions, LineNumbersType } from '../../../../../editor/common/config/editorOptions.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { SuggestController } from '../../../../../editor/contrib/suggest/browser/suggestController.js';
 import { SnippetController2 } from '../../../../../editor/contrib/snippet/browser/snippetController2.js';
@@ -48,7 +45,8 @@ import { ContentHoverController } from '../../../../../editor/contrib/hover/brow
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
-import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
+import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
+import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 
@@ -57,9 +55,6 @@ const enum Position {
 	First,
 	Last
 }
-
-// Utility type for just the line numbers options from IEditorOptions.
-type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinChars'>;
 
 // ConsoleInputProps interface.
 interface ConsoleInputProps {
@@ -552,16 +547,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
-			case KeyCode.KeyU: {
-				// Bind Ctrl+U to `deleteAllLeft`
-				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('deleteAllLeft');
-					break;
-				}
-				break;
-			}
-
 			// Tab processing.
 			case KeyCode.Tab: {
 				// If the history browser is active, accept the selected history entry and
@@ -569,26 +554,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (historyBrowserActiveRef.current) {
 					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
-				}
-				break;
-			}
-
-			// Bind Home key to `cursorLineStart` (same as Ctrl+A)
-			case KeyCode.Home: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineStart');
-					break;
-				}
-				break;
-			}
-
-			// Bind End key to `cursorLineEnd` (same as Ctrl+E)
-			case KeyCode.End: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineEnd');
-					break;
 				}
 				break;
 			}
@@ -673,85 +638,25 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		}
 
-		/**
-		 * Creates the ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
-		 * @returns The ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
-		 */
-		const createLineNumbersOptions = (): ILineNumbersOptions => {
-			const session = props.positronConsoleInstance.attachedRuntimeSession;
-			if (!session) {
-				return { lineNumbers: () => '', lineNumbersMinChars: 0 };
-			}
-			return {
-				lineNumbers: ((): LineNumbersType => {
-					switch (props.positronConsoleInstance.state) {
-						// When uninitialized, starting, or ready, use the show prompt line numbers
-						// function.
-						case PositronConsoleState.Uninitialized:
-						case PositronConsoleState.Starting:
-						case PositronConsoleState.Ready:
-							return (lineNumber: number) => lineNumber < 2 ?
-								session.dynState.inputPrompt :
-								session.dynState.continuationPrompt;
+		// Creates the state-driven line number (prompt) options. Thin wrapper
+		// over the pure builder so the prompt's visibility is recomputed only on
+		// console state / prompt-config changes.
+		const createLineNumbersOptions = (): ILineNumbersOptions =>
+			createConsoleInputLineNumbersOptions(props.positronConsoleInstance);
 
-						// In any other state, use the hide prompt line numbers function.
-						default:
-							return (_lineNumber: number) => '';
-					}
-				})(),
-				lineNumbersMinChars: Math.max(
-					session.dynState.inputPrompt.length,
-					session.dynState.continuationPrompt.length
-				)
-			};
-		};
+		// Creates the configuration-driven editor options. Thin wrapper over the
+		// pure builder; deliberately excludes line number (prompt) options.
+		const createEditorOptions = (): IEditorOptions =>
+			createConsoleInputEditorOptions(services.configurationService);
 
-		/**
-		 * Creates the full set of IEditorOptions for the CodeEditorWidget.
-		 * @returns The full set of IEditorOptions for the CodeEditorWidget.
-		 */
-		const createEditorOptions = (): IEditorOptions => ({
-			// Configured IEditorOptions is the base of editor options.
-			...services.configurationService.getValue<IEditorOptions>('editor'),
-			// Console-specific font options overlay the configured editor options.
-			...services.configurationService.getValue<IFontOptions>('console'),
-			// IEditorOptions we override from their configured values.
-			...{
-				readOnly: false,
-				minimap: {
-					enabled: false
-				},
-				glyphMargin: false,
-				folding: false,
-				fixedOverflowWidgets: true,
-				lineDecorationsWidth: '1.0ch',
-				renderLineHighlight: 'none',
-				renderFinalNewline: 'on',
-				wordWrap: 'bounded',
-				wordWrapColumn: 2048,
-				scrollbar: {
-					vertical: 'hidden',
-					useShadows: false
-				},
-				overviewRulerLanes: 0,
-				// This appears to disable the ruler.
-				// https://github.com/posit-dev/positron/issues/1080
-				rulers: [],
-				scrollBeyondLastLine: false,
-				// This appears to disable validations to address:
-				// https://github.com/posit-dev/positron/issues/979
-				// https://github.com/posit-dev/positron/issues/1051
-				renderValidationDecorations: 'off'
-			},
-			// The ILineNumbersOptions.
-			...createLineNumbersOptions(),
-		});
-
-		// Create the code editor widget.
+		// Create the code editor widget. The initial options combine the
+		// configuration-driven editor options with the state-driven line number
+		// (prompt) options; thereafter the two are updated independently so that
+		// configuration changes cannot affect the prompt (see createEditorOptions).
 		const codeEditorWidget = services.instantiationService.createInstance(
 			CodeEditorWidget,
 			codeEditorWidgetContainerRef.current,
-			createEditorOptions(),
+			{ ...createEditorOptions(), ...createLineNumbersOptions() },
 			{
 				// Make the console input's code editor widget a "simple" widget. This prevents the
 				// console input's code editor widget from being the active text editor (i.e. being
@@ -785,29 +690,32 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Provide a reference to the code editor.
 		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
-		// Attach the text model. Use a different URI path prefix for
-		// notebook console inputs so that the notebook LSP can match
-		// them via document selectors, while the console LSP skips them.
+		// Create the text model that backs the input editor. This also holds a
+		// model reference for the editor's lifetime so the model can't be disposed
+		// out from under the editor and blank the prompt; see createConsoleInputModel.
 		const languageId = props.positronConsoleInstance.runtimeMetadata.languageId;
 		const isNotebook = props.positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
-		const replPrefix = isNotebook ? 'notebook-repl' : 'repl';
-		codeEditorWidget.setModel(services.modelService.createModel(
-			'',
-			services.languageService.createById(languageId),
-			URI.from({
-				scheme: Schemas.inMemory,
-				path: `/${replPrefix}-${languageId}-${generateUuid()}`
-			}),
-			false
-		));
+		const inputModel = createConsoleInputModel(
+			services.modelService,
+			services.textModelService,
+			services.languageService,
+			languageId,
+			isNotebook,
+			disposableStore
+		);
+
+		codeEditorWidget.setModel(inputModel);
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
 			services.configurationService.onDidChangeConfiguration(
 				configurationChangeEvent => {
 					if (configurationChangeEvent.affectsConfiguration('editor') || configurationChangeEvent.affectsConfiguration('console')) {
-						// When the editor configuration changes, we must update ALL the options.
-						// So, in this case, use createEditorOptions() to get the full set.
+						// When the editor configuration changes, update the
+						// configuration-driven editor options. This deliberately
+						// does not touch the line number (prompt) options, which
+						// are driven by the console state instead; see
+						// createEditorOptions and issue #13925.
 						codeEditorWidget.updateOptions(createEditorOptions());
 					}
 				}
@@ -851,6 +759,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			// When the user types into the focused input while the console is scrolled up to
+			// view history, scroll the input back into view. This keeps clicking from yanking
+			// the viewport (#11772) while still bringing the cursor's context into view as soon
+			// as the user starts typing (#13991).
+			if (props.positronConsoleInstance.scrollLocked && codeEditorWidget.hasTextFocus()) {
+				codeEditorWidgetContainerRef.current?.scrollIntoView({
+					behavior: 'auto',
+					block: 'end'
+				});
+			}
+
 			// If the history browser is up, update the list of history item matches with the
 			// current match strategy.
 			if (historyBrowserActiveRef.current) {
@@ -908,10 +827,25 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		);
 
 		// Add the onFocusInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+		disposableStore.add(props.positronConsoleInstance.onFocusInput((options) => {
 			// Focus the input editor when the Console takes focus, i.e. when the
-			// user clicks somewhere on the console output
-			codeEditorWidget.focus();
+			// user clicks somewhere on the console output.
+			if (options.preventScroll) {
+				// Focus the editor's editable element directly so the browser does not scroll
+				// it into view, preserving the user's scroll position (#11772). Typing will
+				// scroll the input back into view via onDidChangeModelContent (#13991). The
+				// editable element is a <textarea> or, when the EditContext API is in use (the
+				// Electron default), a .native-edit-context div; both support focus options.
+				const editTarget = codeEditorWidget.getDomNode()
+					?.querySelector<HTMLElement>('textarea, .native-edit-context');
+				if (editTarget) {
+					editTarget.focus({ preventScroll: true });
+				} else {
+					codeEditorWidget.focus();
+				}
+			} else {
+				codeEditorWidget.focus();
+			}
 		}));
 
 		// Add the onDidChangeState event handler.

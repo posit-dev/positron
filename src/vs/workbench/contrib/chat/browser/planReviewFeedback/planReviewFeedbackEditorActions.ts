@@ -54,7 +54,13 @@ class SubmitPlanReviewFeedbackAction extends Action2 {
 			shortTitle: localize2('planReviewFeedback.submitShort', 'Submit'),
 			icon: Codicon.send,
 			category: CHAT_CATEGORY,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'a_submit',
@@ -86,7 +92,13 @@ class NavigatePlanReviewFeedbackAction extends Action2 {
 			icon: _next ? Codicon.arrowDown : Codicon.arrowUp,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'navigate',
@@ -129,7 +141,13 @@ class ClearAllPlanReviewFeedbackAction extends Action2 {
 			icon: Codicon.clearAll,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'a_submit',

@@ -7,10 +7,10 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
-// The focus command for the Data Connections view (gated behind `dataConnections.enabled`).
+// The focus command for the Data Connections view (gated behind `databases.enabled`).
 const DATA_CONNECTIONS_VIEW_FOCUS_COMMAND = 'workbench.panel.positronDataConnections.focus';
 
-// The "Configure Data Connection" / "New Data Connection" dialog and its surrounding modal.
+// The "Add Database" / "Configure Database" dialog and its surrounding modal.
 const MODAL_DIALOG = '.positron-modal-dialog';
 const PARAMETER_FIELD = '.parameter-field';
 const DATA_CONNECTION_ENTRY_ROW = '.data-connection-entry-row';
@@ -27,7 +27,7 @@ const TREE_WAFFLE = '#data-connection-profiles-list .data-grid-waffle';
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
  *
- * Covers the panel gated behind the `dataConnections.enabled` setting: opening the view, adding a
+ * Covers the panel gated behind the `databases.enabled` setting: opening the view, adding a
  * connection through the new-connection flow (select provider -> configure -> save), and asserting
  * the resulting profile shows up in the tree.
  */
@@ -49,7 +49,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Focuses the Data Connections view. Requires `dataConnections.enabled` to be true.
+	 * Focuses the Data Connections view. Requires `databases.enabled` to be true.
 	 */
 	async openDataConnectionsView(): Promise<void> {
 		await this.quickaccess.runCommand(DATA_CONNECTIONS_VIEW_FOCUS_COMMAND);
@@ -65,7 +65,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Selects a provider in the "New Data Connection" dialog and advances to the configure step.
+	 * Selects a provider in the "Add Database" dialog and advances to the configure step.
 	 * @param providerName The driver name shown on the provider card, e.g. 'PostgreSQL'.
 	 */
 	async selectProvider(providerName: string): Promise<void> {
@@ -76,9 +76,9 @@ export class DataConnections {
 	}
 
 	/**
-	 * Fills the connection form fields in the "Configure Data Connection" dialog. Keys are the
-	 * field labels (e.g. 'Connection Name', 'Host', 'Port', 'Database', 'User', 'Password') and
-	 * values are the text to enter.
+	 * Fills the connection form fields in the "Configure Database" dialog. Keys are the field
+	 * labels (e.g. 'Connection Name', 'Host', 'Port', 'Database', 'User', 'Password') and values
+	 * are the text to enter.
 	 * @param fields A map of field label to value.
 	 */
 	async fillConnectionInputs(fields: Record<string, string>): Promise<void> {
@@ -93,7 +93,7 @@ export class DataConnections {
 	}
 
 	/**
-	 * Saves the connection in the "Configure Data Connection" dialog and waits for it to close.
+	 * Saves the connection in the "Configure Database" dialog and waits for it to close.
 	 */
 	async save(): Promise<void> {
 		await this.saveButton.click();
@@ -165,6 +165,22 @@ export class DataConnections {
 	 */
 	async expandNode(label: string): Promise<void> {
 		await this.expandRow(this.treeRow(label), label);
+	}
+
+	/**
+	 * Double-clicks a previewable node (table, view, or column) to open it in the Data Explorer.
+	 * Reveals the row first so it is rendered, then dispatches the dblclick event directly on the
+	 * node row. Like {@link expandRow}, this uses `dispatchEvent` rather than a coordinate-based
+	 * click because the tree is a virtualized grid with absolutely-positioned rows.
+	 * @param label The node label, e.g. 'actor' or 'first_name'.
+	 */
+	async doubleClickNode(label: string): Promise<void> {
+		await test.step(`Double-click node: ${label}`, async () => {
+			const row = this.treeRow(label);
+			await this.revealNode(row);
+			await expect(row).toBeVisible();
+			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
+		});
 	}
 
 	/**

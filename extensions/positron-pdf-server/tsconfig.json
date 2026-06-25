@@ -18,7 +18,8 @@
 			"./node_modules/@types"
 		],
 		"types": [
-			"node"
+			"node",
+			"mocha"
 		],
 		"paths": {
 			"*": ["./node_modules/*"]

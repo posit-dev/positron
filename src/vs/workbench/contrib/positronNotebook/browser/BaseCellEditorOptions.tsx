@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,6 +15,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { deepClone } from '../../../../base/common/objects.js';
 
+export const DEFAULT_LINE_NUMBERS_MIN_CHARS = 2;
+
 export class BaseCellEditorOptions extends Disposable implements IBaseCellEditorOptions {
 	private static fixedEditorOptions: IEditorOptions = {
 		scrollBeyondLastLine: false,
@@ -28,21 +30,28 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 		},
 		renderLineHighlightOnlyWhenFocus: true,
 		overviewRulerLanes: 0,
-		lineDecorationsWidth: 0,
 		folding: true,
 		fixedOverflowWidgets: true,
 		minimap: { enabled: false },
-		renderValidationDecorations: 'on',
-		lineNumbersMinChars: 3
+		renderValidationDecorations: 'on'
 	};
 
 	private readonly _localDisposableStore = this._register(new DisposableStore());
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange: Event<void> = this._onDidChange.event;
 	private _value: IEditorOptions;
+	private _lineNumbersMinChars = DEFAULT_LINE_NUMBERS_MIN_CHARS;
 
 	get value(): Readonly<IEditorOptions> {
 		return this._value;
+	}
+
+	setLineNumbersMinChars(value: number): void {
+		if (this._lineNumbersMinChars === value) {
+			return;
+		}
+		this._lineNumbersMinChars = value;
+		this._recomputeOptions();
 	}
 
 	constructor(readonly notebookEditor: Pick<INotebookEditorDelegate, 'onDidChangeModel' | 'hasModel' | 'onDidChangeOptions' | 'isReadOnly'>, readonly notebookOptions: NotebookOptions, readonly configurationService: IConfigurationService, readonly language: string) {
@@ -87,17 +96,18 @@ export class BaseCellEditorOptions extends Disposable implements IBaseCellEditor
 
 	private _computeEditorOptions() {
 		const editorOptions = deepClone(this.configurationService.getValue<IEditorOptions>('editor', { overrideIdentifier: this.language }));
-		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {} as any;
+		const editorOptionsOverrideRaw = this.notebookOptions.getDisplayOptions().editorOptionsCustomizations ?? {};
 		const editorOptionsOverride: { [key: string]: any } = {};
-		for (const key in editorOptionsOverrideRaw) {
+		for (const [key, value] of Object.entries(editorOptionsOverrideRaw)) {
 			if (key.indexOf('editor.') === 0) {
-				editorOptionsOverride[key.substring(7)] = editorOptionsOverrideRaw[key];
+				editorOptionsOverride[key.substring(7)] = value;
 			}
 		}
 		const computed = Object.freeze({
 			...editorOptions,
 			...BaseCellEditorOptions.fixedEditorOptions,
 			...editorOptionsOverride,
+			lineNumbersMinChars: this._lineNumbersMinChars,
 			...{ padding: { top: 12, bottom: 12 } },
 			readOnly: this.notebookEditor.isReadOnly
 		});

@@ -6,8 +6,11 @@
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { CatalogNode, CatalogProvider, CatalogProviderRegistry } from '../catalog';
-import { registerSnowflakeProvider } from '../catalogs/snowflake';
+import { ensureSnowflakeLogDirectory, getSnowflakeLogFilePath, registerSnowflakeProvider } from '../catalogs/snowflake';
 import { setExtensionUri } from '../resources';
 import { SnowflakeMock, TEST_ACCOUNT_NAME, RECENT_SNOWFLAKE_ACCOUNTS_KEY, STATE_KEY_SNOWFLAKE_CONNECTIONS } from './mocks/snowflakeMock';
 import * as credentials from '../credentials';
@@ -119,6 +122,40 @@ suite('Snowflake Catalog Provider Tests', () => {
 		sandbox.restore();
 	});
 
+
+	test('Snowflake logs are placed in the extension log directory', async () => {
+		// The SDK's configure() cannot be intercepted (its module export descriptor
+		// is non-configurable), so assert on the SDK-free building blocks instead:
+		// the computed log path and the directory creation side effect.
+		// Use a real temp directory as the extension log directory so createDirectory
+		// can run for real (vscode.workspace.fs.createDirectory is also
+		// non-configurable and cannot be stubbed).
+		const logDir = vscode.Uri.file(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-explorer-logs-'))
+		);
+		// mkdtemp already created the directory; remove it so we can verify
+		// ensureSnowflakeLogDirectory recreates it.
+		fs.rmdirSync(logDir.fsPath);
+		Object.defineProperty(mockExtensionContext, 'logUri', {
+			value: logDir,
+			configurable: true,
+		});
+
+		try {
+			// The log file lives inside the extension log directory, rather than
+			// falling back to snowflake.log in the working directory.
+			assert.strictEqual(
+				getSnowflakeLogFilePath(mockExtensionContext),
+				path.join(logDir.fsPath, 'snowflake.log')
+			);
+
+			// The log directory is created before the SDK is pointed at it.
+			await ensureSnowflakeLogDirectory(mockExtensionContext);
+			assert.ok(fs.existsSync(logDir.fsPath));
+		} finally {
+			fs.rmSync(logDir.fsPath, { recursive: true, force: true });
+		}
+	});
 
 	test('registerSnowflakeCatalog uses existing connection when specified', async () => {
 		// Create a mock provider that would normally be returned by registerSnowflakeCatalog

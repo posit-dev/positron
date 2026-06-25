@@ -185,6 +185,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+C', 'Send interrupt to console');
 	}
 
+	public async focusPreviewPanel() {
+		await this.pressHotKeys('Cmd+L B', 'Focus preview panel');
+	}
+
 	// ----------------------
 	// --- Layout Views ---
 	// ----------------------

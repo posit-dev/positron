@@ -11,6 +11,8 @@ import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContain
 
 export { RunResult };
 
+const CONTAINER_NAME = 'test';
+
 /**
  * Workbench Positron session (Docker on port 8787)
  * Projects: e2e-workbench
@@ -19,8 +21,8 @@ export { RunResult };
 export async function WorkbenchApp(
 	fixtureOptions: AppFixtureOptions
 ): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
-	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections } = fixtureOptions;
-	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections);
+	const { options, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment(managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant);
 
 	const app = createApp({ ...options, workspacePath });
 
@@ -49,14 +51,35 @@ export async function WorkbenchApp(
 		// session launch), copy the workspace in and open it the same way the other shards do.
 		if (managedCredentials === 'azure') {
 			await runDockerCommand(
-				`docker exec test bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
+				`docker exec ${CONTAINER_NAME} bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
 				'Copy qa-example-content into rstudio-ide-test home (Azure JIT user)'
+			);
+			// The Azure session runs as the JIT user rstudio-ide-test, which reads
+			// settings from its own home dir (created by PAM on session launch), not
+			// user1's. Provision the same settings there so the workspace opens trusted
+			// (security.workspace.trust.enabled=false) and provider settings like the
+			// Foundry endpoint reach the session. openWorkspaceFolder reloads the window
+			// into the folder, so the freshly-written settings take effect.
+			await provisionUserSettings(
+				'/home/rstudio-ide-test/.positron-server/',
+				'rstudio-ide-test',
+				dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 			);
 			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
 		}
-
-		await app.workbench.sessions.expectNoStartUpMessaging();
-		await app.workbench.sessions.deleteAll();
+		// The Azure shard runs as a freshly-provisioned JIT user (rstudio-ide-test)
+		// whose interpreter discovery / runtime startup does not settle the way
+		// user1's warm environment does -- it sits on "Discovering interpreters"
+		// well past the 90s gate. These credential/assistant tests don't use a
+		// Python/R runtime session, so skip the session-readiness gate for this
+		// shard rather than block the fixture on a signal we never consume.
+		if (managedCredentials !== 'azure') {
+			// Give startup messaging a chance to appear before asserting it's gone,
+			// so we don't pass instantly when this check runs ahead of the UI.
+			await app.code.driver.currentPage.waitForTimeout(5000);
+			await app.workbench.sessions.expectNoStartUpMessaging();
+			await app.workbench.sessions.deleteAll();
+		}
 
 		await app.workbench.hotKeys.closeAllEditors();
 	};
@@ -83,7 +106,7 @@ export async function WorkbenchApp(
  * the CI install step. The actual credential setup happens in install-workbench.sh; the fixture
  * just records it here so tests/fixtures can make conditional decisions if needed.
  */
-async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
+async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'databricks' | 'azure', useLegacyNotebookEditor?: boolean, enableDataConnections?: boolean, enableFoundryAssistant?: boolean): Promise<{ workspacePath: string; userDataDir: string }> {
 	if (managedCredentials) {
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
@@ -93,9 +116,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	const WORKBENCH_USER_SERVER_DIR = '/home/user1/.positron-server/';
 	const WORKBENCH_USER_DATA_DIR = `${WORKBENCH_USER_SERVER_DIR}User/`;
 
-	// Create workspace and settings directories
-	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
-	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
+	// Create workspace directory (the settings directory is created by provisionUserSettings).
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
 
 	const src = DEFAULT_WORKSPACE_PATH;
 	const dst = WORKBENCH_WORKSPACE_PATH;
@@ -110,28 +132,54 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 
 	await runDockerCommand(
 		[
-			`docker exec test mkdir -p "${dst}"`,
-			`${tarFromHost} | docker exec -i test tar -C "${dst}" -xpf -`
+			`docker exec ${CONTAINER_NAME} mkdir -p "${dst}"`,
+			`${tarFromHost} | docker exec -i ${CONTAINER_NAME} tar -C "${dst}" -xpf -`
 		].join(' && '),
 		'Copy workspace to container (excluding .git)'
 	);
 
 
-	// Copy settings to container
-	await copyUserSettingsToContainer(
-		'test',
-		'/home/user1/.positron-server/User/',
-		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
-		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections })
+	// Provision user1's Positron server settings + keybindings.
+	await provisionUserSettings(
+		WORKBENCH_USER_SERVER_DIR,
+		'user1:user1g',
+		dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 	);
-	await copyKeyBindingsToContainer('test', '/home/user1/.positron-server/User/');
 
-	// Fix permissions
-	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_SERVER_DIR}`, 'Set ownership of server directory');
-	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
-	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
-	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
+	// Fix workspace permissions
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
 
 	return { workspacePath: WORKBENCH_WORKSPACE_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
+}
+
+/**
+ * Provision a user's Positron server settings directory: write the merged
+ * settings (base fixtures + Docker overrides) and keybindings, then fix
+ * ownership/permissions so the session user can read them.
+ *
+ * Used for the standard `user1` account and, on the Azure shard, for the JIT
+ * user (`rstudio-ide-test`) whose home dir only exists after PAM creates it on
+ * session launch. The Azure session reads settings from the JIT user's home, so
+ * the workspace-trust disablers and provider settings (e.g. the Foundry
+ * endpoint) must be copied there too -- otherwise the session opens in
+ * restricted mode with an unconfigured provider.
+ *
+ * @param serverDir The `.positron-server/` directory, with trailing slash.
+ * @param owner The chown target (e.g. `user1:user1g` or `rstudio-ide-test`).
+ * @param settingsOverrides Test-driven settings merged last over the fixtures.
+ */
+async function provisionUserSettings(serverDir: string, owner: string, settingsOverrides?: object): Promise<void> {
+	const userDataDir = `${serverDir}User/`;
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${userDataDir}`, 'Create user settings directory');
+	await copyUserSettingsToContainer(
+		CONTAINER_NAME,
+		userDataDir,
+		['settings.json', 'settingsDocker.json', 'settingsWorkbench.json'],
+		settingsOverrides
+	);
+	await copyKeyBindingsToContainer(CONTAINER_NAME, userDataDir);
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chown -R ${owner} ${serverDir}`, 'Set ownership of server directory');
+	await runDockerCommand(`docker exec ${CONTAINER_NAME} chmod -R 755 ${userDataDir}`, 'Set permissions of settings directory');
 }
 

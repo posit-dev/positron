@@ -146,13 +146,33 @@ export class PositAssistant {
 	/**
 	 * Starts a new conversation by clicking the new chat button.
 	 * If the button is disabled (already on landing page), this is a no-op.
+	 *
+	 * The new-conversation button is disabled both while a response is streaming
+	 * and when the conversation is already empty (`isNewConversation`). That
+	 * disabled state is derived from async-loaded webview state (messages-loaded +
+	 * streaming), so immediately after the chat input renders the button can be
+	 * transiently enabled while messages are still loading, then flip to disabled
+	 * once an empty conversation finishes loading. A bare `isDisabled()` snapshot
+	 * followed by `click()` races that flip and fails with a 30s click timeout on
+	 * a now-disabled button, so guard the click and treat a disabled flip as the
+	 * desired "already on a fresh conversation" end state.
 	 */
 	async startNewConversation(): Promise<void> {
 		const button = this.frame.locator(NEW_CHAT_BUTTON);
 		if (await button.isDisabled()) {
+			// Already on a fresh conversation (or streaming) -- nothing to start.
 			return;
 		}
-		await button.click();
+		try {
+			await button.click({ timeout: 5000 });
+		} catch (e) {
+			// If the button flipped to disabled mid-click we're already on a fresh
+			// conversation, which is the desired end state; otherwise re-throw.
+			if (await button.isDisabled()) {
+				return;
+			}
+			throw e;
+		}
 		await this.waitForReady();
 	}
 
@@ -289,9 +309,10 @@ export class PositAssistant {
 	 * includes decorations (check icon column, trailing note/multiplier),
 	 * so we match on the span text instead.
 	 *
-	 * Some providers auto-pick a default and do not need this call. Models
-	 * beyond the initial slice are hidden behind a "More models" inline
-	 * disclosure — add that fallback when a test needs a non-top-tier model.
+	 * Some providers auto-pick a default and do not need this call. Only
+	 * top-tier models appear in the initial slice; the rest are hidden behind a
+	 * "More models" disclosure, which this method expands automatically when the
+	 * requested model isn't already shown.
 	 *
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
@@ -304,9 +325,22 @@ export class PositAssistant {
 		//    "Model" label span; that label is stable across states.
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
-		// 3. Click the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini".
-		await this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`).click();
+		// 3. Locate the desired model. `:text-is()` is exact-match so
+		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
+		//    group, less-preferred models (e.g. those flagged with a warning note,
+		//    like Microsoft Foundry's "model-router") are collapsed under a "More
+		//    models" inline disclosure -- a plain <button>, not a menuitem. Wait
+		//    for the submenu to render (the model itself or the disclosure), then
+		//    expand the disclosure if the model isn't already shown.
+		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		const moreModels = this.frame.locator('button:has-text("More models")');
+		await expect(model.or(moreModels).first()).toBeVisible();
+		if (!(await model.isVisible())) {
+			await moreModels.click();
+		}
+
+		// 4. Click the model.
+		await model.click();
 
 		// Menu closes on selection; wait for the trigger to collapse so
 		// subsequent actions (e.g. Send) don't race an open overlay.

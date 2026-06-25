@@ -43,7 +43,7 @@ jobs:
       GH_SUMMARY_REPORT: true
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -193,6 +193,7 @@ jobs:
 
       - name: Upload Playwright Report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

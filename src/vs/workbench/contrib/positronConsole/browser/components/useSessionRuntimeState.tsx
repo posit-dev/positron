@@ -3,34 +3,43 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { useMemo } from 'react';
+import { Event } from '../../../../../base/common/event.js';
+import { useEventState } from '../../../../../base/browser/ui/react/useEventState.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import type { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
- * Subscribes to a runtime session state and returns its current RuntimeState.
- * Returns undefined when no session is attached so callers can render
- * pre-session fallbacks (e.g., "no kernel selected", "discovering interpreters").
+ * Returns the current display friendly RuntimeState for a session.
+ * Restart is special-cased: the state stays `Restarting` for the
+ * whole restart so a transient `idle` mid-restart isn't surfaced.
+ * Returns undefined when no session is attached.
  */
 export function useSessionRuntimeState(session: ILanguageRuntimeSession | undefined): RuntimeState | undefined {
-	const [runtimeState, setRuntimeState] = useState<RuntimeState | undefined>(() => session?.getRuntimeState());
+	const services = usePositronReactServicesContext();
 
-	useEffect(() => {
-		if (!session) {
-			setRuntimeState(undefined);
-			return;
-		}
-		const disposables = new DisposableStore();
+	// Create a new memoized event that filters out state change events for
+	// other sessions, so we only re-render when our session's state changes.
+	// This avoids unnecessary re-renders when this event fires for other sessions.
+	const onDidChangeDisplayRuntimeStateEventForSession = useMemo(
+		() => session
+			? Event.map(
+				Event.filter(
+					services.runtimeSessionService.onDidChangeDisplayRuntimeState,
+					e => e.sessionId === session.sessionId
+				),
+				e => e.state
+			)
+			: undefined,
+		[services.runtimeSessionService, session]
+	);
 
-		// Sync state in case it changed between render and effect.
-		setRuntimeState(session.getRuntimeState());
-		disposables.add(session.onDidChangeRuntimeState(state => {
-			setRuntimeState(state);
-		}));
-
-		return () => disposables.dispose();
-	}, [session]);
-
-	return runtimeState;
+	// Listen to this event and return the new state whenever it fires. If no session, return undefined.
+	return useEventState(
+		onDidChangeDisplayRuntimeStateEventForSession,
+		() => session
+			? services.runtimeSessionService.getDisplayRuntimeState(session.sessionId) ?? session.getRuntimeState()
+			: undefined,
+	);
 }

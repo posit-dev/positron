@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
 import { buildPythonPath } from './helpers/include-excludes.js';
 import path from 'path';

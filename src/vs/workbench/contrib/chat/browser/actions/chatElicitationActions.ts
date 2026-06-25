@@ -24,6 +24,10 @@ class AcceptElicitationRequestAction extends Action2 {
 			title: localize2('chat.acceptElicitation', "Accept Request"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			keybinding: {
 				when: ContextKeyExpr.and(ChatContextKeys.inChatSession, ChatContextKeys.Editing.hasElicitationRequest),
 				primary: KeyMod.CtrlCmd | KeyCode.Enter,

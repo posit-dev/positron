@@ -24,7 +24,10 @@ export function registerChatPromptNavigationActions() {
 					weight: KeybindingWeight.WorkbenchContrib,
 					when: ChatContextKeys.inChatSession,
 				},
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 			});
@@ -45,7 +48,10 @@ export function registerChatPromptNavigationActions() {
 					weight: KeybindingWeight.WorkbenchContrib,
 					when: ChatContextKeys.inChatSession,
 				},
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ChatContextKeys.available,
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 			});

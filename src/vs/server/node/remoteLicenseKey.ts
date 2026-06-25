@@ -7,8 +7,6 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
 import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
-import { activateWithManager, verifyLocalLicense } from './licenseManager.js';
-import { FileAccess } from '../../base/common/network.js';
 
 /**
  * The result of validating a license.
@@ -79,6 +77,24 @@ vAb1iFBg5jrsvhZzzZbIah1XHYAT+X43WaExwme18pzBAgMBAAE=
 -----END PUBLIC KEY-----`;
 
 /**
+ * A RSA-4096 public key used to verify license keys in Positron Server deployments
+ */
+const OrchestratorPublicKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvL/qcnvIj+A7cXhUgism
+MYfMzg6wrPgVOp3AezejarPGF+t9qwX1BRQZT176PLoujmZsD92wwh9yEK31TnVD
+YENhtUymnNLvt5UbMoWI+dlttruTOYvoiBMUMajPqTF3jr0TE39YhLgc5fKidvLR
+ZX4u0DQ0YVaJqfV7SUUAp9j6APtPuiP4SsJxIjlZo0Hvw+EZ5Y6TmgwfHhAwEBoP
+5L9CwVjRAg34HP5wGl/znipXb3drMyUgpVuhyN+GrCXz30GXbWJcfoVw7y7G46Z4
+En2Z/2Rs9P4wd6FeybSNOceit+5mnI5amvpaDrCSq1BnOm6NemdoNMYEuUI+0WSJ
+2eYAI2x36wXFE+6zPkqZYEuFxN4L8xvZvu/LYBd1qyLjSEN9yoLekRzAAa1n222n
+JKiTum02wdrvcjnBHZyB+OVLAySeM7JElh79A6OYe32ENSXvA3ZT+vUGbsptdggq
+NjfOoqWxWVO3L8Gvx+0SjiczLt8c9Wp9dW7xiiAO6CMgy8wgnQircW00ZjadYPbI
+J96J0myarwU9s46B9SbyWKzcTpEvHgD47/rRcMx64PlmtS6hxgIdyIKNFjWrGt5g
+5AzUF63cLtv+he4d4CtfPo9TCbqLbaUop0g/3aqPAOAz/7wPLPnzURJGfiUYB/gx
+jv4RUEuRUo3aePrbcc3Wfl8CAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+/**
  * Validates a license key. If any errors are encountered, they are logged to
  * the console.
  *
@@ -128,23 +144,16 @@ export async function validateLicenseKey(connectionToken: string, args: ServerPa
 		}
 	}
 
-	// Check for a .lic file next to the license-manager binary.
-	const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-	const localResult = await verifyLocalLicense(installPath);
-	if (localResult) {
-		console.log('Verified license from license-manager directory.');
-		return localResult;
-	}
-
-	// We need at least one license key to proceed.
-	console.error('No license key provided. A license key is required to use Positron in a hosted environment. Provide a license key with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
+	// We need at least one signed license token to proceed. There is no fallback
+	// to a raw license file: if no signed token is provided, validation fails closed.
+	console.error('No license key provided. A signed license token is required to use Positron in a hosted environment. Provide one with the --license-key or --license-key-file command-line arguments, or set the POSITRON_LICENSE_KEY or POSITRON_LICENSE_KEY_FILE environment variables.');
 
 	return { valid: false };
 }
 
 /**
- * Validates a license file. For RSA license files, this activates (installs)
- * the license into the system before validation.
+ * Validates a license file. The file must contain a signed JSON license token;
+ * raw license files are not accepted.
  *
  * @param connectionToken The connection token.
  * @param licenseFile The path to the license file.
@@ -158,19 +167,12 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 	// Read the contents of the license file into a string.
 	try {
 		const contents = fs.readFileSync(licenseFile, 'utf8');
-		// Check if this looks like a JSON file (trimmed content starts with '{')
-		const trimmedContents = contents.trim();
-		if (trimmedContents.startsWith('{')) {
+		// Only signed JSON license tokens are accepted; raw license files are not.
+		if (contents.trim().startsWith('{')) {
 			return validateLicense(connectionToken, contents);
-		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
-			// This is an RSA license file, let the license manager handle it.
-			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
-			return await activateWithManager(installPath, licenseFile);
-		} else {
-			// Unknown license format
-			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');
-			return { valid: false };
 		}
+		console.error('Unrecognized license file format. Expected a signed JSON license token.');
+		return { valid: false };
 	} catch (e) {
 		console.error('Error reading license file: ', licenseFile);
 		console.error(e);
@@ -185,7 +187,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
  * @param license The license key.
  * @returns A promise that resolves to the license validation result.
  */
-export async function validateLicense(connectionToken: string, license: string): Promise<ILicenseValidationResult> {
+export async function validateLicense(connectionToken: string, license: string, publicKeys?: readonly string[]): Promise<ILicenseValidationResult> {
 	// Parse the license key JSON.
 	let licenseKey: LicenseKey;
 	try {
@@ -216,26 +218,39 @@ export async function validateLicense(connectionToken: string, license: string):
 		return { valid: false };
 	}
 
-	// Parse the public key.
-	let publicKey: crypto.KeyObject;
-	try {
-		publicKey = crypto.createPublicKey({
-			key: PublicKey,
-			format: 'pem',
-		});
-	} catch (e) {
-		console.error('Error parsing public key: ', e);
-		return { valid: false };
+	// Try each supplied public key; accept the license if any key verifies.
+	const keysToTry = publicKeys ?? [PublicKey, OrchestratorPublicKey];
+	const signature = Buffer.from(licenseKey.signature, 'base64');
+	let signatureValid = false;
+	for (const keyPem of keysToTry) {
+		if (!keyPem.trim()) {
+			continue;
+		}
+		let key: crypto.KeyObject;
+		try {
+			key = crypto.createPublicKey({ key: keyPem, format: 'pem' });
+		} catch (e) {
+			// A configured key that won't parse is a deployment error, not a bad
+			// token; warn so it is not silently mistaken for an invalid signature.
+			console.warn('Skipping license public key that could not be parsed: ', e);
+			continue;
+		}
+		try {
+			const verifier = crypto.createVerify('sha256');
+			verifier.update(licenseKey.connection_token);
+			verifier.update(licenseKey.issuer);
+			verifier.update(licenseKey.licensee);
+			verifier.update(licenseKey.timestamp);
+			if (verifier.verify(key, signature)) {
+				signatureValid = true;
+				break;
+			}
+		} catch {
+			// Verification threw for this key; try next.
+		}
 	}
 
-	// Verify the signature.
-	const verifier = crypto.createVerify('sha256');
-	verifier.update(licenseKey.connection_token);
-	verifier.update(licenseKey.issuer);
-	verifier.update(licenseKey.licensee);
-	verifier.update(licenseKey.timestamp);
-	const signature = Buffer.from(licenseKey.signature, 'base64');
-	if (!verifier.verify(publicKey, signature)) {
+	if (!signatureValid) {
 		console.error('Invalid license key; signature is invalid: ', licenseKey.signature);
 		return { valid: false };
 	}

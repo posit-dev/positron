@@ -269,6 +269,32 @@
 }
 
 
+/*
+ * Transient flash applied to packages just installed or updated. The row fades
+ * from a highlight tint back to transparent so the eye lands on the change; the
+ * class is removed by a timer once the animation has run. prefers-reduced-motion
+ * holds a steady tint for the same duration instead of animating.
+ */
+.packages-list-item.recently-changed {
+	animation: packages-recently-changed 2s ease-out;
+}
+
+@keyframes packages-recently-changed {
+	from {
+		background-color: var(--vscode-positronPackages-recentlyChangedBackground);
+	}
+	to {
+		background-color: transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.packages-list-item.recently-changed {
+		animation: none;
+		background-color: var(--vscode-positronPackages-recentlyChangedBackground);
+	}
+}
+
 .positron-packages-list .positron-list-empty {
 	padding: 5px 8px;
 	cursor: default;

@@ -7,29 +7,18 @@ import { tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	extraSettings: {
+		'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
+		'positron.assistant.notebook.ghostCellSuggestions.model': ['claude'],
+		'positron.assistant.notebook.ghostCellSuggestions.automatic': false,
+	}
 });
 
 test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings, assistant, python }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-
-		// Enable ghost cell suggestions and configure Anthropic model
-		// Set automatic mode to false so only manual trigger (Cmd+Shift+G) generates suggestions
-		await settings.set({
-			'positron.assistant.notebook.ghostCellSuggestions.enabled': true,
-			'positron.assistant.notebook.ghostCellSuggestions.model': ['claude'],
-			'positron.assistant.notebook.ghostCellSuggestions.automatic': false
-		}, { keepOpen: false });
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
-
-	test('Cmd+Shift+G triggers ghost cell suggestion', async function ({ app, hotKeys, page }) {
+	test('Cmd+Shift+G triggers ghost cell suggestion', async function ({ app, hotKeys, page, python }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Create notebook - Positron will auto-select an available kernel

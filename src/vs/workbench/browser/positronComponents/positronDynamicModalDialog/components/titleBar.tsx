@@ -12,12 +12,14 @@ import { MouseEvent } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 /**
  * TitleBarProps interface.
  */
 interface TitleBarProps {
 	title: string;
+	size?: 'normal' | 'large';
 	onStartDrag: () => void;
 	onDrag: (x: number, y: number) => void;
 	onStopDrag: (x: number, y: number) => void;
@@ -104,7 +106,7 @@ export const TitleBar = (props: TitleBarProps) => {
 		// keyboard semantics (the dialog already handles Escape/Tab/Enter at a higher level).
 		// Disable jsx-a11y/no-static-element-interactions.
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
-		<div className='title-bar' onMouseDown={mouseDownHandler}>
+		<div className={positronClassNames('title-bar', { 'large': props.size === 'large' })} onMouseDown={mouseDownHandler}>
 			<div className='title-bar-title'>
 				{props.title}
 			</div>

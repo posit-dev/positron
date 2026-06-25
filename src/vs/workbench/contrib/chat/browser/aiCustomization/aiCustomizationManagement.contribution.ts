@@ -747,7 +747,10 @@ class AICustomizationManagementActionsContribution extends Disposable implements
 					title: localize2('openAICustomizations', "Open Customizations"),
 					shortTitle: localize2('aiCustomizations', "Customizations"),
 					category: CHAT_CATEGORY,
-					precondition: ChatContextKeys.enabled,
+					// --- Start Positron ---
+					// Hide when AI features are disabled.
+					precondition: ChatContextKeys.available,
+					// --- End Positron ---
 					f1: true,
 				});
 			}
@@ -783,7 +786,10 @@ class AICustomizationManagementActionsContribution extends Disposable implements
 					id: AICustomizationManagementCommands.OpenMarketplace,
 					title: localize2('openMarketplace', "Open Marketplace"),
 					category: CHAT_CATEGORY,
-					precondition: ChatContextKeys.enabled,
+					// --- Start Positron ---
+					// Hide when AI features are disabled.
+					precondition: ChatContextKeys.available,
+					// --- End Positron ---
 				});
 			}
 

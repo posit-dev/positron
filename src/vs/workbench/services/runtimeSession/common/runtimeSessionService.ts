@@ -538,6 +538,9 @@ export interface IRuntimeSessionService {
 	// back to cached session info for an exited notebook session.
 	readonly onDidChangeForegroundSessionDisplayInfo: Event<IRuntimeSessionDisplayInfo | undefined>;
 
+	// An event that fires when a session's display state changes.
+	readonly onDidChangeDisplayRuntimeState: Event<{ sessionId: string; state: RuntimeState }>;
+
 	// The current display info for the foreground session. May contain
 	// session details from an exited session if an actual session is not
 	// available to be the foreground session.
@@ -566,6 +569,11 @@ export interface IRuntimeSessionService {
 	 * Gets a specific runtime session by session identifier.
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets the display state for a session. Returns undefined if the session is not active.
+	 */
+	getDisplayRuntimeState(sessionId: string): RuntimeState | undefined;
 
 	/**
 	 * Gets a currently active session for a runtime.

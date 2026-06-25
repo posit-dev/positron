@@ -140,7 +140,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout BASE (trusted action + skill code)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: base
@@ -150,7 +150,7 @@ jobs:
             .github/actions/pr-test-checker
 
       - name: Checkout PR HEAD (untrusted source data)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr-head
@@ -204,6 +204,22 @@ jobs:
       group: pr-test-checker-${{ github.event.issue.number }}
       cancel-in-progress: true
     steps:
+      # Acknowledge the recheck command with an "eyes" reaction so the commenter
+      # gets immediate visual confirmation that PETE picked it up and is running.
+      # First step so it lands before the slower checkout/analysis steps. Capture
+      # the reaction id so the finalize step can remove it once PETE is done.
+      - name: Acknowledge recheck command
+        id: ack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Resolve PR head SHA
         id: pr
         env:
@@ -215,7 +231,7 @@ jobs:
           echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout BASE (trusted action + skill code)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: base
@@ -225,7 +241,7 @@ jobs:
             .github/actions/pr-test-checker
 
       - name: Checkout PR HEAD (untrusted source data)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           path: pr-head
@@ -250,3 +266,30 @@ jobs:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           repo-root: ${{ github.workspace }}/pr-head
           force-regrade: "true"
+
+      # Replace the "eyes" acknowledgement with a terminal reaction once PETE
+      # finishes: rocket on success, confused on failure. Runs on always() so the
+      # comment never gets stuck showing "running". Skipped if the ack step never
+      # recorded a reaction id (e.g. the initial reaction POST failed).
+      - name: Finalize recheck reaction
+        if: always() && steps.ack.outputs.reaction_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # Remove the "eyes" acknowledgement reaction.
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
+            || echo "Failed to remove eyes reaction (non-fatal)"
+          # Signal completion: rocket on success, confused otherwise.
+          if [ "$JOB_STATUS" = "success" ]; then
+            FINAL=rocket
+          else
+            FINAL=confused
+          fi
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
