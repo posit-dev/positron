@@ -437,11 +437,33 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
 
     private lastConfiguration?: ConfigurationOptions;
 
+    // --- Start Positron ---
+    // Serializes configure requests. PET (as of 2026.12) reports zero environments
+    // if a `refresh` is processed while a `configure` is still in flight. At startup
+    // the constructor fires `void this.configure()` and the first refresh
+    // (`refreshFirstTime`) concurrently; the two `configure()` calls race and the
+    // `lastConfiguration` short-circuit below let the refresh's request go out before
+    // the in-flight configure was acknowledged, so discovery came back empty. Chaining
+    // each configure() after the previous one guarantees a caller that sends `refresh`
+    // next never races an unfinished configure. See #14483.
+    private configureQueue: Promise<void> = Promise.resolve();
+    // --- End Positron ---
+
     /**
      * Configuration request, this must always be invoked before any other request.
      * Must be invoked when ever there are changes to any data related to the configuration details.
      */
-    private async configure() {
+    // --- Start Positron ---
+    private configure(): Promise<void> {
+        const next = this.configureQueue.then(() => this.configureImpl());
+        // A failed configure must not poison the queue for later callers; the
+        // returned promise still rejects so this caller observes the failure.
+        this.configureQueue = next.catch(() => undefined);
+        return next;
+    }
+
+    private async configureImpl() {
+        // --- End Positron ---
         const options: ConfigurationOptions = {
             workspaceDirectories: getWorkspaceFolderPaths(),
             // We do not want to mix this with `search_paths`
