@@ -55,7 +55,7 @@ wb_fetch_scripts() {
 	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
 }
 
-# Sets POSITRON_TAG (empty => latest/local). Sets WB_SOURCE_LOCAL=1 for source build.
+# Sets POSITRON_TAG to the chosen release tag.
 wb_pick_positron() {
 	local tags=() opts=() lines tag date
 	lines="$(wb_list_positron_releases 5)"
@@ -63,14 +63,9 @@ wb_pick_positron() {
 		[ -n "$tag" ] || continue
 		tags+=("$tag"); opts+=("$tag   ($date)")
 	done <<< "$lines"
-	opts+=("Local source build (current repo)")
 	wb_menu "Select Positron build" "${opts[@]}" || return 1
-	if [ "$WB_MENU_INDEX" -eq "${#opts[@]}" ]; then
-		WB_SOURCE_LOCAL=1; POSITRON_TAG=""
-	else
-		WB_SOURCE_LOCAL=0; POSITRON_TAG="${tags[$((WB_MENU_INDEX-1))]}"
-	fi
-	export POSITRON_TAG WB_SOURCE_LOCAL
+	POSITRON_TAG="${tags[$((WB_MENU_INDEX-1))]}"
+	export POSITRON_TAG
 }
 
 # Sets WB_URL.
@@ -118,11 +113,7 @@ cmd_install() {
 	wb_pick_workbench
 	wb_pick_positron
 	echo "Installing Workbench from: ${WB_URL}"
-	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
-		echo "Positron: LOCAL SOURCE"
-	else
-		echo "Positron: ${POSITRON_TAG:-LATEST}"
-	fi
+	echo "Positron: ${POSITRON_TAG:-LATEST}"
 	docker exec -it \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
@@ -133,10 +124,6 @@ cmd_install() {
 	# Record the exact Workbench package URL so status/report can show the
 	# .proN build (not present in the runtime version string).
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
-	if [ "${WB_SOURCE_LOCAL:-0}" = "1" ]; then
-		echo "Overlaying local source build..."
-		cmd_overlay
-	fi
 	cmd_status
 }
 
@@ -180,7 +167,7 @@ cmd_up() {
 	done
 	wb_fetch_scripts
 	if wb_installed && [ "${1:-}" != "--reinstall" ]; then
-		echo "Stack already up with Positron + Workbench installed. (Use --reinstall to change versions, 'overlay' for source.)"
+		echo "Stack already up with Positron + Workbench installed. (Use --reinstall to change versions.)"
 		cmd_status
 		return 0
 	fi
@@ -191,26 +178,6 @@ cmd_stop() { wb_compose stop; echo "Paused (volumes preserved). Resume with: npm
 cmd_down() { wb_compose down; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
 cmd_restart() { docker exec test bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
-
-cmd_overlay() {
-	wb_detect_arch
-	local build_dir="${REPO_ROOT}/../vscode-reh-web-pwb-linux-${POSITRON_ARCH}"
-	echo "Building Positron server from source (gulp vscode-reh-web-pwb-linux-${POSITRON_ARCH})..."
-	( cd "${REPO_ROOT}" && npm run gulp "vscode-reh-web-pwb-linux-${POSITRON_ARCH}" )
-	[ -d "${build_dir}" ] || { echo "Expected build output at ${build_dir}" >&2; exit 1; }
-	echo "Overlaying into container..."
-	tar -C "$(dirname "${build_dir}")" -czf /tmp/positron-custom.tar.gz "vscode-reh-web-pwb-linux-${POSITRON_ARCH}"
-	docker cp /tmp/positron-custom.tar.gz test:/tmp/positron-custom.tar.gz
-	docker exec test /bin/bash -c "
-		cd /tmp &&
-		tar -xzf positron-custom.tar.gz &&
-		rm -rf /usr/lib/rstudio-server/bin/positron-server/new &&
-		cp -r vscode-reh-web-pwb-linux-${POSITRON_ARCH} /usr/lib/rstudio-server/bin/positron-server/new &&
-		chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new &&
-		sudo rstudio-server restart
-	"
-	echo "Source build overlaid. Reload http://localhost:8787"
-}
 
 wb_versions() {
 	local wb pos
@@ -275,16 +242,16 @@ cmd_test() {
 main() {
 	local sub="${1:-up}"; shift || true
 	case "$sub" in
-		up)      cmd_up "$@" ;;
-		status)  cmd_status "$@" ;;
-		report)  cmd_report "$@" ;;
-		logs)    cmd_logs "$@" ;;
-		test)    cmd_test "$@" ;;
-		overlay) cmd_overlay "$@" ;;
-		restart) cmd_restart "$@" ;;
-		stop)    cmd_stop ;;
-		down)    cmd_down ;;
-		-h|--help) echo "Usage: workbench-local.sh [up|status|report|logs|test|overlay|restart|stop|down]" ;;
+		up)          cmd_up "$@" ;;
+		--reinstall) cmd_up --reinstall "$@" ;;
+		status)      cmd_status "$@" ;;
+		report)      cmd_report "$@" ;;
+		logs)        cmd_logs "$@" ;;
+		test)        cmd_test "$@" ;;
+		restart)     cmd_restart "$@" ;;
+		stop)        cmd_stop ;;
+		down)        cmd_down ;;
+		-h|--help)   echo "Usage: workbench-local.sh [up|--reinstall|status|report|logs|test|restart|stop|down]" ;;
 		*) echo "Unknown subcommand: $sub" >&2; exit 1 ;;
 	esac
 }

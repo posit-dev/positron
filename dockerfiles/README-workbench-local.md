@@ -12,10 +12,10 @@ Bring up Workbench + a chosen Positron build in one command.
 - Optional: `fzf` for arrow-key version pickers (falls back to a numbered prompt without it)
 
 ## Usage
-- `npm run wb` -- up + pick Positron (last 5 releases or local source) + pick Workbench (stable/daily/custom)
+- `npm run wb` -- up + pick Positron (last 5 releases) + pick Workbench (stable/daily/custom)
+- `npm run wb -- --reinstall` -- re-run the pickers and reinstall (change versions on an existing stack)
 - `npm run wb -- status` -- doctor: containers, versions, URLs
 - `npm run wb -- report` -- paste-able environment block for bug reports
-- `npm run wb -- overlay` -- rebuild current source + overlay into Workbench (fast inner loop)
 - `npm run wb -- test @:workbench` -- run e2e against the live stack (the `e2e-workbench` Playwright project is already pinned to `@:workbench`, so passing an extra `@:tag` further-narrows within the workbench suite -- it is ANDed, not ORed)
 - `npm run wb -- stop` -- pause (volumes preserved); `npm run wb -- down` -- tear down
 - Or open `positron.workbench.code-workspace` and use the task buttons.

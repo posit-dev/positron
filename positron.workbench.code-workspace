@@ -7,7 +7,6 @@
 			{ "label": "WB: Up (pick versions)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh", "problemMatcher": [] },
 			{ "label": "WB: Status (doctor)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh status", "problemMatcher": [] },
 			{ "label": "WB: Report (for bug)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh report", "problemMatcher": [] },
-			{ "label": "WB: Overlay source build", "type": "shell", "command": "bash dockerfiles/workbench-local.sh overlay", "problemMatcher": [] },
 			{ "label": "WB: Restart server", "type": "shell", "command": "bash dockerfiles/workbench-local.sh restart", "problemMatcher": [] },
 			{ "label": "WB: Run @:workbench tests", "type": "shell", "command": "bash dockerfiles/workbench-local.sh test @:workbench", "problemMatcher": [] },
 			{ "label": "WB: Logs (rserver)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh logs", "problemMatcher": [] },
