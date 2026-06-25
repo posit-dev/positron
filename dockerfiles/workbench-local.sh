@@ -50,8 +50,7 @@ wb_schedule_ttl() {
 # Tell the user about the scheduled auto-stop (or stay quiet if disabled).
 wb_print_ttl() {
 	[ "${1:-0}" -gt 0 ] 2>/dev/null || return 0
-	echo "Auto-stop: the stack will stop in ${1} min (safety net for a forgotten stack)."
-	echo "  Re-run 'npm run wb' to reset it, add '--no-ttl' to disable, or 'stop' to stop now."
+	echo "FYI: The stack will auto-stop in ${1} min"
 }
 
 # Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
@@ -363,7 +362,7 @@ cmd_up() {
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
 		wb_print_ready
-		echo "(Use --reinstall to switch Positron/Workbench versions.)"
+		echo "Wrong version? run 'npm run wb -- --reinstall' to switch versions"
 		wb_schedule_ttl "$ttl"
 		wb_print_ttl "$ttl"
 		return 0
@@ -373,10 +372,10 @@ cmd_up() {
 	wb_print_ttl "$ttl"
 }
 
-cmd_stop() { wb_cancel_ttl; wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
-cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
+cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with: npm run wb"; }
+cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo "";echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
-cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
+cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo ""; echo "rstudio-server restarted."; }
 
 wb_versions() {
 	local wb pos
@@ -409,6 +408,7 @@ wb_print_ready() {
 	wb="$(printf '%s' "$v" | cut -f1)"
 	pos="$(printf '%s' "$v" | cut -f2)"
 	src="$(wb_source_build)"
+	echo ''
 	if docker exec pwb bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
 		# allow-any-unicode-next-line
 		echo "Workbench ready ✅"
@@ -420,6 +420,7 @@ wb_print_ready() {
 	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
 	printf 'Workbench URL:       %s  (user1 / WB_PASSWORD)\n' "http://localhost:8787"
 	printf 'Connect URL:         %s\n' "http://localhost:3939"
+	echo ''
 }
 
 cmd_status() {
