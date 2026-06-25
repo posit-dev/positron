@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.workbench.yml"
+WB_TTL_PIDFILE="${SCRIPT_DIR}/.ttl.pid"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
@@ -17,6 +18,41 @@ wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | g
 
 # Fail fast with a friendly message when a command needs a running stack.
 wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run wb" >&2; exit 1; }; }
+
+# Cancel a pending auto-stop timer from a previous run, if any.
+wb_cancel_ttl() {
+	[ -f "$WB_TTL_PIDFILE" ] || return 0
+	local pid; pid="$(cat "$WB_TTL_PIDFILE" 2>/dev/null || true)"
+	[ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+	rm -f "$WB_TTL_PIDFILE"
+}
+
+# Schedule a detached best-effort auto-stop after $1 minutes (0 disables). The
+# timer survives this script exiting and the terminal closing (nohup). At fire
+# time it only stops if the same pwb instance is still running, so a manual
+# restart in between is never clobbered. Re-running cmd_up resets the timer.
+wb_schedule_ttl() {
+	local minutes="${1:-0}"
+	wb_cancel_ttl
+	[ "$minutes" -gt 0 ] 2>/dev/null || return 0
+	local cid; cid="$(docker inspect -f '{{.Id}}' pwb 2>/dev/null || true)"
+	[ -n "$cid" ] || return 0
+	# Args passed positionally to avoid quoting the values into the script body.
+	nohup bash -c '
+		sleep "$1"
+		[ "$(docker inspect -f "{{.Id}}" pwb 2>/dev/null || true)" = "$2" ] \
+			&& docker compose -f "$3" stop >/dev/null 2>&1
+	' _ "$((minutes * 60))" "$cid" "$COMPOSE_FILE" >/dev/null 2>&1 &
+	echo $! > "$WB_TTL_PIDFILE"
+	disown 2>/dev/null || true
+}
+
+# Tell the user about the scheduled auto-stop (or stay quiet if disabled).
+wb_print_ttl() {
+	[ "${1:-0}" -gt 0 ] 2>/dev/null || return 0
+	echo "Auto-stop: the stack will stop in ${1} min (safety net for a forgotten stack)."
+	echo "  Re-run 'npm run wb' to reset it, add '--no-ttl' to disable, or 'stop' to stop now."
+}
 
 # Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
 # entry from a prior `docker login`, or a `credHelpers` entry). It is broad on
@@ -248,6 +284,22 @@ cmd_install() {
 }
 
 cmd_up() {
+	# Default to a 60-minute auto-stop (override with --ttl N / WB_TTL_MINUTES,
+	# disable with --no-ttl). Collect everything else for cmd_install.
+	local ttl="${WB_TTL_MINUTES:-60}" reinstall=0
+	local passthru=()
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--reinstall) reinstall=1 ;;
+			--no-ttl)    ttl=0 ;;
+			--ttl)       shift; ttl="${1:-60}" ;;
+			--ttl=*)     ttl="${1#--ttl=}" ;;
+			*)           passthru+=("$1") ;;
+		esac
+		shift
+	done
+	case "$ttl" in ''|*[!0-9]*) ttl=60 ;; esac
+
 	wb_detect_arch
 	export ARCH_SUFFIX="${WB_ARCH}"
 	wb_bootstrap_env
@@ -307,16 +359,20 @@ cmd_up() {
 		sleep 1
 	done
 	wb_fetch_scripts
-	if wb_installed && [ "${1:-}" != "--reinstall" ]; then
+	if wb_installed && [ "$reinstall" -eq 0 ]; then
 		echo "Stack already up with Positron + Workbench installed. (Use --reinstall to change versions.)"
 		cmd_status
+		wb_schedule_ttl "$ttl"
+		wb_print_ttl "$ttl"
 		return 0
 	fi
-	cmd_install "$@"
+	cmd_install ${passthru[@]+"${passthru[@]}"}
+	wb_schedule_ttl "$ttl"
+	wb_print_ttl "$ttl"
 }
 
-cmd_stop() { wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
-cmd_down() { wb_compose down --remove-orphans; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
+cmd_stop() { wb_cancel_ttl; wb_compose stop; echo "Paused (volumes preserved). Resume with: npm run wb"; }
+cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
 cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo "rstudio-server restarted."; }
 
@@ -383,7 +439,9 @@ workbench-local.sh -- run Positron + Posit Workbench together, locally, for QA.
 USAGE
   npm run wb                 Bring the stack up. First run: pick versions + install.
                              Already installed: (re)start the stack and show status.
+                             Auto-stops after 60 min; resets each time you run it.
   npm run wb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
+  npm run wb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
   npm run wb -- report       Paste-able environment block for bug reports.
   npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.

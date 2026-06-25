@@ -1,2 +1,4 @@
 # Local workbench QA stack secrets/config -- never commit
 .env
+# Auto-stop timer bookkeeping
+.ttl.pid

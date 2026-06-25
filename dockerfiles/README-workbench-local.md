@@ -31,6 +31,7 @@ the stack up. Open http://localhost:8787 and log in as `user1`.
 | --- | --- |
 | `npm run wb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
 | `npm run wb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
+| `npm run wb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run wb -- status` | Containers, installed versions, and URLs. |
 | `npm run wb -- report` | Paste-able environment block for bug reports. |
 | `npm run wb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
@@ -39,6 +40,14 @@ the stack up. Open http://localhost:8787 and log in as `user1`.
 | `npm run wb -- down` | Tear the stack down (removes containers). |
 
 `npm run wb -- --help` prints the same reference in your terminal.
+
+## Auto-stop
+
+The stack stops itself after 60 minutes so a forgotten one doesn't sit there
+burning CPU (you're working in a browser, not the container, so it's easy to
+lose track). Each `npm run wb` resets the timer, and it only stops the instance
+it was scheduled for, so a manual restart is never cut short. Change it with
+`--ttl N` or turn it off with `--no-ttl` (or set `WB_TTL_MINUTES`).
 
 ## Version pickers
 
