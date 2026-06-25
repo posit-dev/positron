@@ -202,19 +202,22 @@ cmd_up() {
 	# an empty dir and breaks connect, so check it too.)
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
-		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
+		echo "         will not become healthy and 'pwb' won't start (startup will time out)." >&2
 		echo "         Add connect.lic (see dockerfiles/README-workbench-local.md)." >&2
 	fi
 	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
 		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
+		echo "         It is committed to the repo; restore with: git checkout dockerfiles/connect/rstudio-connect.gcfg" >&2
 	fi
-	wb_compose up -d
+	# --remove-orphans clears containers from a prior service name (e.g. the
+	# pre-rename 'test' container) that would otherwise hold the same ports.
+	wb_compose up -d --remove-orphans
 	echo "Waiting for containers to become healthy..."
 	local tries=0
 	until wb_stack_up; do
 		tries=$((tries+1))
 		if [ "$tries" -ge 120 ]; then
-			echo "Timed out waiting for the 'test' container to start." >&2
+			echo "Timed out waiting for the 'pwb' container to start." >&2
 			echo "Check service health: docker compose -f ${COMPOSE_FILE} ps" >&2
 			wb_compose ps >&2 || true
 			exit 1
@@ -259,7 +262,7 @@ wb_source_build() {
 cmd_status() {
 	echo "=== Workbench Local Status ==="
 	if ! wb_stack_up; then echo "Containers: not running. Start with: npm run wb"; return 0; fi
-	docker ps --format '  {{.Names}}: {{.Status}}' | grep -E 'test|postgres|connect' || true
+	docker ps --format '  {{.Names}}: {{.Status}}' | grep -E 'pwb|postgres|connect' || true
 	local v; v="$(wb_versions)"
 	echo "  Workbench: $(echo "$v" | cut -f1)"
 	local src; src="$(wb_source_build)"; [ -n "$src" ] && echo "  WB build:  $src"
@@ -278,7 +281,7 @@ Environment:
 - Workbench: $(echo "$v" | cut -f1)
 - WB build: $(wb_source_build || true)
 - Arch: POSITRON_ARCH=${POSITRON_ARCH}, WB_ARCH=${WB_ARCH}
-- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'test|postgres|connect' | paste -sd', ' - || echo 'none')
+- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'pwb|postgres|connect' | paste -sd', ' - || echo 'none')
 EOF
 }
 
