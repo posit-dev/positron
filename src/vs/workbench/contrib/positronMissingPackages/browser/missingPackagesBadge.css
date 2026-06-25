@@ -68,32 +68,55 @@
 	row-gap: 2px;
 }
 
+/*
+ * Action bar: a secondary "Don't Show Again" button pinned to the left and the
+ * primary install action on the right, matching the convention used by the
+ * modal dialog action bars.
+ */
 .missing-packages-dialog-actions {
 	display: flex;
-	justify-content: flex-start;
+	align-items: center;
+	column-gap: 10px;
+	justify-content: space-between;
+	margin-top: 4px;
 }
 
 /*
- * The install button mirrors the default (primary) action button styling from
+ * The action buttons mirror the action button styling from
  * positronModalDialog.css, which is scoped to `.positron-modal-dialog-box` and
  * therefore not available inside a modal popup.
  */
-.missing-packages-dialog .missing-packages-dialog-install {
+.missing-packages-dialog .missing-packages-dialog-button {
+	height: 32px;
+	min-width: 80px;
+	padding: 0 14px;
 	display: flex;
+	white-space: nowrap;
 	align-items: center;
 	justify-content: center;
-	padding: 4px 12px;
 	border-radius: 5px;
 	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-buttonBackground);
+}
+
+.missing-packages-dialog .missing-packages-dialog-button:hover {
+	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+}
+
+/*
+ * VS Code 1.109.0 made secondary buttons borderless in dark mode; restore a
+ * visible border so the "Don't Show Again" button reads as an action.
+ */
+.vs-dark .missing-packages-dialog .missing-packages-dialog-button:not(.default) {
+	border: 1px solid var(--vscode-button-border);
+}
+
+.missing-packages-dialog .missing-packages-dialog-button.default {
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
 	background: var(--vscode-positronModalDialog-defaultButtonBackground);
 }
 
-.missing-packages-dialog .missing-packages-dialog-install:hover {
+.missing-packages-dialog .missing-packages-dialog-button.default:hover {
 	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
-}
-
-.missing-packages-dialog-footer {
-	display: flex;
-	justify-content: flex-start;
 }

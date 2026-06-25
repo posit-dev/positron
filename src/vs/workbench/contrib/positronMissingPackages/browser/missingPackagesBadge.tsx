@@ -19,7 +19,6 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../platform
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
 
@@ -208,8 +207,10 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 		}
 	};
 
-	const onWarnChanged = (checked: boolean) => {
-		configurationService.updateValue(WARN_MISSING_IN_EDITOR, checked, ConfigurationTarget.USER);
+	// Disable the badge for future documents and dismiss the dialog.
+	const dontShowAgain = () => {
+		configurationService.updateValue(WARN_MISSING_IN_EDITOR, false, ConfigurationTarget.USER);
+		renderer.dispose();
 	};
 
 	return (
@@ -242,16 +243,12 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 					)))}
 				</ul>
 				<div className='missing-packages-dialog-actions'>
-					<Button className='missing-packages-dialog-install' onPressed={install}>
+					<Button className='missing-packages-dialog-button' onPressed={dontShowAgain}>
+						{localize('positron.missingPackages.dontShowAgain', "Don't Show Again")}
+					</Button>
+					<Button className='missing-packages-dialog-button default' onPressed={install}>
 						{installPackagesLabel(result)}
 					</Button>
-				</div>
-				<div className='missing-packages-dialog-footer'>
-					<Checkbox
-						initialChecked={configurationService.getValue<boolean>(WARN_MISSING_IN_EDITOR) ?? true}
-						label={localize('positron.missingPackages.showWarning', "Show warning for missing packages")}
-						onChanged={onWarnChanged}
-					/>
 				</div>
 			</div>
 		</PositronModalPopup>
