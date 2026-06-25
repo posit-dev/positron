@@ -79,15 +79,17 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 	});
 
 	// https://github.com/posit-dev/positron/issues/2929
-	test('Deleting a test file removes it from the tree', async function ({ app }, testInfo) {
+	test('Deleting or renaming a test file updates the tree', async function ({ app }, testInfo) {
 		const { testExplorer } = app.workbench;
-		const TEST_FILE = 'test-test-that.R';
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
 
-		await testExplorer.expectTestItems([TEST_FILE]);
+		await testExplorer.expectTestItems(['test-test-that.R', 'test-describe-it.R']);
 
-		const fixtureRoot = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex));
-		fs.rmSync(path.join(fixtureRoot, 'tests', 'testthat', TEST_FILE));
+		fs.rmSync(path.join(testthatDir, 'test-test-that.R'));
+		await testExplorer.expectNoTestItem('test-test-that.R');
 
-		await testExplorer.expectNoTestItem(TEST_FILE);
+		fs.renameSync(path.join(testthatDir, 'test-describe-it.R'), path.join(testthatDir, 'test-renamed.R'));
+		await testExplorer.expectTestItems(['test-renamed.R']);
+		await testExplorer.expectNoTestItem('test-describe-it.R');
 	});
 });
