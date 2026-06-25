@@ -262,24 +262,6 @@ class FigureCanvasPositron(FigureCanvasAgg):
             frontend.
         """
         logger.debug("Drawing to canvas")
-
-        # A high-level library (e.g. seaborn) may draw onto a figure that plain
-        # matplotlib created via an implicit `plt.gca()` (for example a leftover figure
-        # from an earlier cell). Re-tag the figure here -- the library's frames are on
-        # the stack during the draw it triggers -- so it is detached after the cell like
-        # a freshly-created seaborn figure (see `detach_library_figures`). Only runs on
-        # user-initiated draws, and only upgrades the tag (a figure is never reverted to
-        # matplotlib). See https://github.com/posit-dev/positron/issues/8898.
-        manager = getattr(self, "manager", None)
-        if (
-            not is_rendering
-            and manager is not None
-            and manager.plotting_library not in _DETACH_AFTER_CELL_KINDS
-        ):
-            library = _detect_plotting_library()
-            if library in _DETACH_AFTER_CELL_KINDS:
-                manager.plotting_library = library
-
         try:
             super().draw()
         finally:
@@ -359,6 +341,52 @@ class FigureCanvasPositron(FigureCanvasAgg):
     def _hash_buffer_rgba(self) -> str:
         """Hash the canvas contents for change detection."""
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
+
+
+_library_gca_redirect_installed = False
+
+
+def _install_library_gca_redirect() -> None:
+    """
+    Make a high-level library (e.g. seaborn) draw on a fresh figure instead of an
+    existing one created by a different library.
+
+    Seaborn's axes-level functions draw on `plt.gca()` when no `ax=` is given. With a
+    persistent figure registry, that current figure may be a leftover from a different
+    library (for example a matplotlib plot from an earlier cell), so seaborn would draw
+    over it. We intercept `plt.gca()`: when a library on the call stack differs from the
+    library that created the active figure, return the axes of a fresh figure instead.
+
+    This only affects the implicit `plt.gca()` path -- an explicit `ax=` is untouched --
+    and only fires across libraries, so plain matplotlib figures remain reusable
+    (preserving cross-cell persistence). See https://github.com/posit-dev/positron/issues/8898.
+    """
+    global _library_gca_redirect_installed
+    if _library_gca_redirect_installed:
+        return
+
+    import matplotlib.pyplot as plt
+    from matplotlib._pylab_helpers import Gcf
+
+    original_gca = plt.gca
+
+    def gca(*args, **kwargs):
+        manager = Gcf.get_active()
+        if (
+            isinstance(manager, FigureManagerPositron)
+            and manager.plotting_library not in _DETACH_AFTER_CELL_KINDS
+            and _detect_plotting_library() in _DETACH_AFTER_CELL_KINDS
+        ):
+            # Drawing library differs from the active figure's library: start fresh so
+            # the existing figure isn't overwritten.
+            return plt.figure().gca()
+        return original_gca(*args, **kwargs)
+
+    plt.gca = gca
+    _library_gca_redirect_installed = True
+
+
+_install_library_gca_redirect()
 
 
 # Fulfill the matplotlib backend API.

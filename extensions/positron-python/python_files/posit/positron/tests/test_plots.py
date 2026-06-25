@@ -545,28 +545,29 @@ def test_mpl_seaborn_figure_detached_after_cell(
     assert "result" in _do_render(plot_comm)["data"]
 
 
-def test_mpl_seaborn_drawn_on_existing_figure_is_detached(
+def test_mpl_seaborn_does_not_overwrite_existing_matplotlib_figure(
     shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    A high-level library drawing onto a plain matplotlib figure (e.g. seaborn reusing a
-    leftover figure via implicit plt.gca()) re-tags the figure so it is detached after
-    the cell, instead of accumulating across re-runs.
+    When seaborn asks for the current axes while a matplotlib figure is active, it gets a
+    fresh figure instead of drawing over the existing one (e.g. plt then sns). The
+    matplotlib figure is left untouched.
 
     See https://github.com/posit-dev/positron/issues/8898.
     """
-    # The figure starts as plain matplotlib (created before seaborn is involved).
+    # An existing matplotlib figure is active.
     _create_mpl_plot(shell, plots_service)
     assert plt.get_fignums() == [1]
 
-    # Simulate a seaborn draw onto that existing figure: the draw re-tags it, and the
-    # post-cell detach then removes it.
+    # Simulate a seaborn call resolving its axes via plt.gca().
     monkeypatch.setattr(
         "positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn"
     )
-    shell.run_cell("plt.plot([1, 2])").raise_error()
+    axes = plt.gca()
 
-    assert plt.get_fignums() == []
+    # gca returned a new figure (2), leaving the matplotlib figure (1) intact.
+    assert axes.figure.number == 2
+    assert plt.get_fignums() == [1, 2]
 
 
 def test_mpl_matplotlib_figure_persists_after_cell(
