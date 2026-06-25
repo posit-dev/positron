@@ -278,7 +278,7 @@ cmd_install() {
 			{ print }
 			/[Ww]orkbench version:/ { print "Workbench build:     " build }
 		'
-	# Record the exact Workbench package URL so status/report can show the build.
+	# Record the exact Workbench package URL so status can show the build.
 	docker exec -e WB_URL="${WB_URL}" pwb bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
 }
 
@@ -424,25 +424,12 @@ wb_print_ready() {
 }
 
 cmd_status() {
-	echo "=== Workbench Local Status ==="
 	if ! wb_stack_up; then echo "Containers: not running. Start with: npm run wb"; return 0; fi
 	echo "Containers:"
 	docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '^(pwb|postgres|connect)[[:space:]]' \
 		| awk -F'\t' '{ printf "  %-9s %s\n", $1, $2 }'
 	echo
 	wb_print_ready
-}
-
-cmd_report() {
-	local v; v="$(wb_versions)"; wb_detect_arch
-	cat <<EOF
-Environment:
-- Positron: $(echo "$v" | cut -f2)  (under Workbench)
-- Workbench: $(echo "$v" | cut -f1)
-- WB build: $(wb_source_build || true)
-- Arch: POSITRON_ARCH=${POSITRON_ARCH}, WB_ARCH=${WB_ARCH}
-- Containers: $(docker ps --format '{{.Names}}={{.Status}}' | grep -E 'pwb|postgres|connect' | paste -sd', ' - || echo 'none')
-EOF
 }
 
 cmd_logs() {
@@ -465,7 +452,6 @@ USAGE
   npm run wb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
   npm run wb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
-  npm run wb -- report       Paste-able environment block for bug reports.
   npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
   npm run wb -- restart      Restart rstudio-server inside the container.
   npm run wb -- stop         Pause the stack (containers stopped, volumes kept).
@@ -494,7 +480,6 @@ main() {
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
 		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
-		report)      cmd_report "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		restart)     cmd_restart "$@" ;;
 		stop)        cmd_stop ;;

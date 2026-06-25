@@ -33,7 +33,6 @@ the stack up. Open http://localhost:8787 and log in as `user1`.
 | `npm run wb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
 | `npm run wb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run wb -- status` | Containers, installed versions, and URLs. |
-| `npm run wb -- report` | Paste-able environment block for bug reports. |
 | `npm run wb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
 | `npm run wb -- restart` | Restart rstudio-server inside the container. |
 | `npm run wb -- stop` | Pause the stack (containers stopped, volumes kept). |
