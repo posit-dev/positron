@@ -12,8 +12,13 @@ Bring up Workbench + a chosen Positron build in one command.
 - Optional: `fzf` for arrow-key version pickers (falls back to a numbered prompt without it)
 
 ## Usage
-- `npm run wb` -- up, then pick Positron (Release/Daily channel -> choose a version) and Workbench (Release/Daily/Custom; each resolves to the current build, matching the workbench-nightly CI)
-- `npm run wb -- --reinstall` -- re-run the pickers and reinstall (change versions on an existing stack)
+- `npm run wb` -- bring the stack up. On first run (nothing installed) it runs the
+  pickers and installs: Positron (Release/Daily channel -> choose a version) and
+  Workbench (Release/Daily/Custom; each resolves to the current build, matching the
+  workbench-nightly CI). If a combo is already installed it skips the pickers, just
+  ensures the stack is running, and prints status -- safe to re-run anytime.
+- `npm run wb -- --reinstall` -- force the pickers to run again and reinstall over the
+  existing install. Use this to switch to a different Positron/Workbench version.
 - `npm run wb -- status` -- doctor: containers, versions, URLs
 - `npm run wb -- report` -- paste-able environment block for bug reports
 - `npm run wb -- test @:workbench` -- run e2e against the live stack (the `e2e-workbench` Playwright project is already pinned to `@:workbench`, so passing an extra `@:tag` further-narrows within the workbench suite -- it is ANDed, not ORed)
