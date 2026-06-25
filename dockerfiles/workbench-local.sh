@@ -324,7 +324,9 @@ cmd_up() {
 	if [ -z "${CONNECT_BOOTSTRAP_SECRETKEY:-}" ]; then
 		CONNECT_BOOTSTRAP_SECRETKEY="$(openssl rand -base64 32)"
 		export CONNECT_BOOTSTRAP_SECRETKEY
-		printf 'CONNECT_BOOTSTRAP_SECRETKEY="%s"\n' "$CONNECT_BOOTSTRAP_SECRETKEY" >> "${SCRIPT_DIR}/.env"
+		# Leading newline so the entry can't merge onto a .env last line that
+		# lacks a trailing newline (a harmless blank line otherwise).
+		printf '\nCONNECT_BOOTSTRAP_SECRETKEY="%s"\n' "$CONNECT_BOOTSTRAP_SECRETKEY" >> "${SCRIPT_DIR}/.env"
 	fi
 	mkdir -p "${SCRIPT_DIR}/connect"
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
@@ -469,7 +471,8 @@ main() {
 	local sub="${1:-up}"; shift || true
 	case "$sub" in
 		up)          cmd_up "$@" ;;
-		--reinstall) cmd_up --reinstall "$@" ;;
+		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
+		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		report)      cmd_report "$@" ;;
 		logs)        cmd_logs "$@" ;;
