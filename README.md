@@ -19,13 +19,6 @@ Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn a
 
 Install the latest release of Positron from our [website](https://positron.posit.co/download). Currently, we are producing Positron release builds from a continuous integration (CI) system for macOS, Windows, and Linux desktop.
 
-## Developing and testing Positron locally
-
-Containerized environments for development and QA:
-
-- **[Run, debug, and test in the CI image](.devcontainer/ci-arm/README.md)** -- a dev container that runs, debugs, and tests Positron inside the actual CI image, so CI failures reproduce locally.
-- **[Local Workbench QA (`npm run wb`)](dockerfiles/README-workbench-local.md)** -- bring up Posit Workbench with a chosen Positron build in one command, for testing Positron in a Workbench environment.
-
 ## Share your feedback about Positron
 
 We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://positron.posit.co/feedback) about giving feedback and reporting bugs.
