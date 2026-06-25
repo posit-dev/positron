@@ -131,6 +131,13 @@ cmd_up() {
 		export WB_IMAGE_TAG="${WB_IMAGE_TAG:-141}"
 		export PG_IMAGE_TAG="${PG_IMAGE_TAG:-142}"
 	fi
+	# Connect requires a valid base64 Bootstrap.SecretKey; the compose default
+	# ("testkey") is not valid base64 and makes the connect container exit. Mint
+	# one per run unless the user pinned it in .env (mirrors wb-local/run.sh).
+	if [ -z "${CONNECT_BOOTSTRAP_SECRETKEY:-}" ]; then
+		CONNECT_BOOTSTRAP_SECRETKEY="$(openssl rand -base64 32)"
+		export CONNECT_BOOTSTRAP_SECRETKEY
+	fi
 	mkdir -p "${SCRIPT_DIR}/connect"
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
