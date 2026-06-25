@@ -34,7 +34,6 @@ the stack up. Open http://localhost:8787 and log in as `user1`.
 | `npm run wb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run wb -- status` | Containers, installed versions, and URLs. |
 | `npm run wb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
-| `npm run wb -- restart` | Restart rstudio-server inside the container. |
 | `npm run wb -- stop` | Pause the stack (containers stopped, volumes kept). |
 | `npm run wb -- down` | Tear the stack down (removes containers). |
 

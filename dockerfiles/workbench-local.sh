@@ -375,8 +375,6 @@ cmd_up() {
 cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with: npm run wb"; }
 cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Stack torn down. Next 'npm run wb' will reinstall."; }
 
-cmd_restart() { wb_require_stack; docker exec pwb bash -c 'sudo rstudio-server restart'; echo ""; echo "rstudio-server restarted."; }
-
 wb_versions() {
 	local wb pos
 	wb="$(docker exec pwb bash -c 'rstudio-server version 2>/dev/null | head -1 | awk "{print \$1}"' 2>/dev/null || true)"
@@ -413,7 +411,7 @@ wb_print_ready() {
 		# allow-any-unicode-next-line
 		echo "Workbench ready ✅"
 	else
-		echo "Workbench installed -- rstudio-server not running (run: npm run wb -- restart)"
+		echo "Workbench installed -- rstudio-server not running (run: docker exec pwb sudo rstudio-server restart)"
 	fi
 	printf 'Positron version:    %s\n' "$pos"
 	printf 'Workbench version:   %s\n' "$wb"
@@ -453,7 +451,6 @@ USAGE
   npm run wb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run wb -- status       Containers, installed Positron + Workbench versions, URLs.
   npm run wb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
-  npm run wb -- restart      Restart rstudio-server inside the container.
   npm run wb -- stop         Pause the stack (containers stopped, volumes kept).
   npm run wb -- down         Tear the stack down (removes containers).
 
@@ -481,7 +478,6 @@ main() {
 		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
-		restart)     cmd_restart "$@" ;;
 		stop)        cmd_stop ;;
 		down)        cmd_down ;;
 		-h|--help)   cmd_help ;;
