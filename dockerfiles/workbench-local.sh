@@ -18,10 +18,18 @@ wb_stack_up() { wb_compose ps --services --filter status=running 2>/dev/null | g
 # Fail fast with a friendly message when a command needs a running stack.
 wb_require_stack() { wb_stack_up || { echo "Stack not running. Start with: npm run wb" >&2; exit 1; }; }
 
+# True when Docker already has a credential for ghcr.io (a prior `docker login`,
+# possibly with a dedicated read:packages PAT). The registry key is recorded in
+# the Docker config even when a credential helper (credsStore) holds the secret.
+wb_ghcr_logged_in() {
+	local cfg="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
+	[ -f "$cfg" ] && grep -q '"ghcr.io"' "$cfg" 2>/dev/null
+}
+
 # Derive auth from the gh CLI so the only one-time step is `gh auth login`.
-# Borrows gh's token for GITHUB_TOKEN (used for positron-builds + image pulls)
-# and logs Docker into ghcr.io non-interactively. An explicit GITHUB_TOKEN in
-# the environment or .env always wins over the gh-derived one.
+# Borrows gh's token for GITHUB_TOKEN (used for positron-builds + the installer)
+# and, only if you are NOT already logged into ghcr.io, logs Docker in with it.
+# An explicit GITHUB_TOKEN (env or .env) and an existing ghcr.io login both win.
 wb_ensure_auth() {
 	if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
 		GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
@@ -32,16 +40,20 @@ wb_ensure_auth() {
 		echo "(Or export GITHUB_TOKEN with a PAT that has the repo + read:packages scopes.)" >&2
 		exit 1
 	fi
-	# gh's default login omits read:packages, which the ghcr.io image pulls need.
-	# Detect the gap and print the exact fix instead of failing cryptically later.
+	# Already logged into ghcr.io? Leave that credential alone -- it may be a PAT
+	# with read:packages, and clobbering it with the gh token (which often lacks
+	# that scope) would break image pulls.
+	wb_ghcr_logged_in && return 0
+	# Fresh setup: the gh default login omits read:packages, which the ghcr.io
+	# pulls need. Flag the gap with the exact fix instead of failing cryptically.
 	if command -v gh >/dev/null 2>&1 && gh auth status 2>&1 | grep -q 'Token scopes' \
 		&& ! gh auth status 2>&1 | grep -q 'read:packages'; then
 		echo "NOTE: your gh token lacks the 'read:packages' scope (needed to pull images)." >&2
 		echo "      Add it once with: gh auth refresh -h github.com -s read:packages" >&2
+		echo "      (or run 'docker login ghcr.io' with a PAT that has read:packages)." >&2
 	fi
-	# Log Docker into ghcr.io with the token (idempotent; refreshes the cred each
-	# run). ghcr.io wants the GitHub username; fall back to a placeholder if gh
-	# can't resolve it (the token still authenticates).
+	# ghcr.io wants the GitHub username; fall back to a placeholder if gh can't
+	# resolve it (the token still authenticates).
 	local ghuser; ghuser="$(gh api user -q .login 2>/dev/null || echo token)"
 	printf '%s\n' "$GITHUB_TOKEN" | docker login ghcr.io -u "$ghuser" --password-stdin >/dev/null 2>&1 \
 		|| echo "WARNING: 'docker login ghcr.io' failed; image pulls may fail (check read:packages scope)." >&2
