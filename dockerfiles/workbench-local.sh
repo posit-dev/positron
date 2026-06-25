@@ -266,10 +266,13 @@ cmd_up() {
 	fi
 	# Connect requires a valid base64 Bootstrap.SecretKey; the compose default
 	# ("testkey") is not valid base64 and makes the connect container exit. Mint
-	# one per run unless the user pinned it in .env (mirrors wb-local/run.sh).
+	# one the first time and persist it to .env: pwb carries this var too, so a
+	# fresh value every run makes Compose recreate the pwb container and wipe the
+	# in-container Positron/Workbench install (forcing a needless reinstall).
 	if [ -z "${CONNECT_BOOTSTRAP_SECRETKEY:-}" ]; then
 		CONNECT_BOOTSTRAP_SECRETKEY="$(openssl rand -base64 32)"
 		export CONNECT_BOOTSTRAP_SECRETKEY
+		printf 'CONNECT_BOOTSTRAP_SECRETKEY="%s"\n' "$CONNECT_BOOTSTRAP_SECRETKEY" >> "${SCRIPT_DIR}/.env"
 	fi
 	mkdir -p "${SCRIPT_DIR}/connect"
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
