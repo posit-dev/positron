@@ -26,7 +26,7 @@ import { DomWidget } from '../../../../platform/domWidget/browser/domWidget.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /** Setting controlling which file types receive next edit suggestions. */
-export const NES_ENABLE_SETTING = 'nextEditSuggestions.enable';
+export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
 
 /** Context key (owned by the extension) gating whether the status item is shown at all. */
 export const NES_CONTEXT_ENABLED = 'nextEditSuggestions.enabled';
@@ -66,7 +66,7 @@ export function isNextEditSuggestionsEnabled(configurationService: IConfiguratio
 
 /**
  * Writes the enablement for a single key (language id or `*`)
- * into `nextEditSuggestions.enable`.
+ * into `nextEditSuggestions.enabled`.
  * */
 export function setNextEditSuggestionsEnabled(configurationService: IConfigurationService, key: string, value: boolean): Promise<void> {
 	let current = configurationService.getValue<Record<string, boolean>>(NES_ENABLE_SETTING);
@@ -78,7 +78,7 @@ export function setNextEditSuggestionsEnabled(configurationService: IConfigurati
 
 /**
  * The hover popover for the Next Edit Suggestions status bar item: the
- * file-type checkboxes drive `nextEditSuggestions.enable`, and the Snooze
+ * file-type checkboxes drive `nextEditSuggestions.enabled`, and the Snooze
  * button reuses the global inline completions snooze.
  */
 export class NextEditSuggestionsStatusDashboard extends DomWidget {

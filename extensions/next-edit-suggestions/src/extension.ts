@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isCompletionEnabled } from './config.js';
+import { isCompletionEnabled, migrateEnabledSetting } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
@@ -26,12 +26,15 @@ export function activate(context: vscode.ExtensionContext): void {
 	// so that if `ai.enabled` is `false`, no status bar item is shown.
 	void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.enabled', true);
 
+	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
+	void migrateEnabledSetting(log);
+
 	// Start the language server only when an auth token is available
 	async function ensureLanguageServer() {
 		const config = await getLLMConfiguration();
 		const signedIn = !!config;
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', signedIn);
-		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config.providerDisplayName);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config?.providerDisplayName);
 		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.model',
 			config ? { id: config.modelId, displayName: config.modelDisplayName } : undefined);
 		if (signedIn) {

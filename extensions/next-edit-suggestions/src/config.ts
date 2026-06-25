@@ -53,7 +53,7 @@ function isFileExcludedFromAI(uri: vscode.Uri): boolean {
 function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean {
 	const enableConfig = vscode.workspace
 		.getConfiguration('nextEditSuggestions')
-		.get<Record<string, boolean>>('enable');
+		.get<Record<string, boolean>>('enabled');
 
 	if (!enableConfig) {
 		return true;
@@ -79,8 +79,8 @@ function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean 
  *
  * Checks are evaluated in order:
  * 1. `positron.assistant.aiExcludes` -- file excluded from all AI features.
- * 2. `nextEditSuggestions.enable` -- per-language ID, then filename glob.
- * 3. `nextEditSuggestions.enable` -- `*` wildcard.
+ * 2. `nextEditSuggestions.enabled` -- per-language ID, then filename glob.
+ * 3. `nextEditSuggestions.enabled` -- `*` wildcard.
  */
 export function isCompletionEnabled(document: vscode.TextDocument): boolean {
 	if (isFileExcludedFromAI(document.uri)) {
@@ -90,7 +90,40 @@ export function isCompletionEnabled(document: vscode.TextDocument): boolean {
 
 	const enabled = isCompletionEnabledForFileType(document);
 	if (!enabled) {
-		log.debug(`Inline completions are disabled for ${document.uri.fsPath} based on nextEditSuggestions.enable configuration.`);
+		log.debug(`Inline completions are disabled for ${document.uri.fsPath} based on nextEditSuggestions.enabled configuration.`);
 	}
 	return enabled;
+}
+
+/**
+ * Migrates the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
+ */
+export async function migrateEnabledSetting(log: vscode.LogOutputChannel): Promise<void> {
+	const config = vscode.workspace.getConfiguration('nextEditSuggestions');
+	const oldValue = config.inspect<Record<string, boolean>>('enable');
+	const newValue = config.inspect<Record<string, boolean>>('enabled');
+	if (!oldValue) {
+		return;
+	}
+
+	const scopes = [
+		{ old: oldValue.globalValue, current: newValue?.globalValue, target: vscode.ConfigurationTarget.Global },
+		{ old: oldValue.workspaceValue, current: newValue?.workspaceValue, target: vscode.ConfigurationTarget.Workspace },
+	];
+
+	for (const scope of scopes) {
+		if (scope.old === undefined) {
+			continue;
+		}
+		try {
+			if (scope.current === undefined) {
+				await config.update('enabled', scope.old, scope.target);
+			}
+			await config.update('enable', undefined, scope.target);
+			log.info(`Migrated nextEditSuggestions.enable to nextEditSuggestions.enabled.`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			log.warn(`Failed to migrate nextEditSuggestions.enable: ${message}`);
+		}
+	}
 }
