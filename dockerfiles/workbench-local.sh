@@ -287,7 +287,11 @@ cmd_logs() {
 
 cmd_test() {
 	local grep_arg="${1:-}"
-	( cd "${REPO_ROOT}" && npx playwright test --project e2e-workbench ${grep_arg:+--grep} ${grep_arg:+"$grep_arg"} )
+	# Build the arg list as an array so a multi-word grep pattern stays one arg.
+	# Seed with the base args so "${args[@]}" is never an empty expansion.
+	local args=(test --project e2e-workbench)
+	[ -n "$grep_arg" ] && args+=(--grep "$grep_arg")
+	( cd "${REPO_ROOT}" && npx playwright "${args[@]}" )
 }
 
 cmd_help() {
