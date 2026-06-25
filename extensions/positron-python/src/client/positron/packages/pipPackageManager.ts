@@ -10,6 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/p
 import { IFileSystem } from '../../common/platform/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
+import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
@@ -239,6 +240,9 @@ export class PipPackageManager implements IPackageManager {
         const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
         const tempFile = await fs.createTemporaryFile('.txt');
         await fs.writeFile(tempFile.filePath, content);
+        // Log the generated requirements so the resolved set passed to pip can be
+        // inspected (the temp file itself is deleted after the command runs).
+        traceVerbose(`pip package requirements file ${tempFile.filePath}:\n${content}`);
         return tempFile;
     }
 
