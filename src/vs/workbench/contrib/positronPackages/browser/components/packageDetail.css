@@ -93,14 +93,18 @@
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
-.package-detail-action-icon .codicon {
+/* Prefixed with .monaco-workbench to outrank VS Code's base
+ * `.codicon[class*='codicon-']` rule (which sets font-size via the `font`
+ * shorthand at equal specificity) regardless of stylesheet load order -- the
+ * Packages list needs the same prefix for its icon sizing. */
+.monaco-workbench .package-detail-action-icon .codicon {
 	font-size: 14px;
 }
 
 /* The external-link glyph reads heavier than the book at the same size; nudge
  * it down 2px so the Website and Help icon buttons look balanced (the Packages
  * list does the same). */
-.package-detail-action-icon .codicon-link-external {
+.monaco-workbench .package-detail-action-icon .codicon-link-external {
 	font-size: 12px;
 }
 
