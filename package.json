@@ -107,6 +107,7 @@
     "build-check": "./scripts/build-check.sh",
     "build-start": "./scripts/build-start.sh",
     "build-stop": "./scripts/build-stop.sh",
+    "wb": "bash dockerfiles/workbench-local.sh",
     "perf:chat": "node scripts/chat-simulation/test-chat-perf-regression.js",
     "perf:chat-leak": "node scripts/chat-simulation/test-chat-mem-leaks.js",
     "copilot:setup": "npm --prefix extensions/copilot run setup",

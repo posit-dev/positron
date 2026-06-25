@@ -1,0 +1,19 @@
+{
+	"folders": [{ "path": "." }],
+	"settings": {},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{ "label": "WB: Up (pick versions)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh", "problemMatcher": [] },
+			{ "label": "WB: Status (doctor)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh status", "problemMatcher": [] },
+			{ "label": "WB: Report (for bug)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh report", "problemMatcher": [] },
+			{ "label": "WB: Overlay source build", "type": "shell", "command": "bash dockerfiles/workbench-local.sh overlay", "problemMatcher": [] },
+			{ "label": "WB: Restart server", "type": "shell", "command": "bash dockerfiles/workbench-local.sh restart", "problemMatcher": [] },
+			{ "label": "WB: Run @:workbench tests", "type": "shell", "command": "bash dockerfiles/workbench-local.sh test @:workbench", "problemMatcher": [] },
+			{ "label": "WB: Logs (rserver)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh logs", "problemMatcher": [] },
+			{ "label": "WB: Stop (pause)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh stop", "problemMatcher": [] },
+			{ "label": "WB: Down (teardown)", "type": "shell", "command": "bash dockerfiles/workbench-local.sh down", "problemMatcher": [] },
+			{ "label": "WB: Open Workbench (:8787)", "type": "shell", "command": "open http://localhost:8787 || xdg-open http://localhost:8787", "problemMatcher": [] }
+		]
+	}
+}
