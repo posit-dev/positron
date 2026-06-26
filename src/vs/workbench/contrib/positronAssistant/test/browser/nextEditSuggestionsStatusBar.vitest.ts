@@ -13,13 +13,14 @@ import { IContextKeyChangeEvent, IContextKeyService } from '../../../../../platf
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IStatusbarEntry, IStatusbarService } from '../../../../services/statusbar/browser/statusbar.js';
-import { NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_ENABLE_SETTING } from '../../browser/nextEditSuggestionsDashboard.js';
+import { NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING } from '../../browser/nextEditSuggestionsDashboard.js';
 import { NextEditSuggestionsStatusBarEntry } from '../../browser/nextEditSuggestionsStatusBar.js';
 
 describe('NextEditSuggestionsStatusBarEntry', () => {
 	let snoozing: boolean;
 	let busy: boolean;
 	let enabled: boolean;
+	let fileEnabled: boolean;
 	let languageId: string | undefined;
 
 	const onDidChangeContext = new Emitter<IContextKeyChangeEvent>();
@@ -37,7 +38,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 		})
 		.stub(IContextKeyService, {
 			getContextKeyValue: <T>(key: string): T | undefined => {
-				const values: Record<string, boolean> = { [NES_CONTEXT_ENABLED]: enabled, [NES_CONTEXT_BUSY]: busy };
+				const values: Record<string, boolean> = { [NES_CONTEXT_ENABLED]: enabled, [NES_CONTEXT_BUSY]: busy, [NES_CONTEXT_FILE_ENABLED]: fileEnabled };
 				return values[key] as T | undefined;
 			},
 			onDidChangeContext: onDidChangeContext.event,
@@ -55,6 +56,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 		snoozing = false;
 		busy = false;
 		enabled = true;
+		fileEnabled = true;
 		languageId = 'python';
 		config.setUserConfiguration(NES_ENABLE_SETTING, { '*': true });
 	});
@@ -79,7 +81,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 	it.each([
 		{ name: 'snoozing', setup: () => { snoozing = true; }, text: '$(bell-slash)', ariaLabel: 'Next edit suggestions snoozed' },
 		{ name: 'busy', setup: () => { busy = true; }, text: '$(loading~spin)', ariaLabel: 'Waiting for next edit suggestion' },
-		{ name: 'language disabled', setup: () => { config.setUserConfiguration(NES_ENABLE_SETTING, { python: false }); }, text: '$(circle-slash)', ariaLabel: 'Next edit suggestions disabled' },
+		{ name: 'file disabled', setup: () => { fileEnabled = false; }, text: '$(circle-slash)', ariaLabel: 'Next edit suggestions disabled' },
 		{ name: 'enabled', setup: () => { }, text: '$(edit-sparkle)', ariaLabel: 'Next Edit Suggestions' },
 	])('renders the $name state', ({ setup, text, ariaLabel }) => {
 		setup();
@@ -98,9 +100,9 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 		expect(lastProps().text).toBe('$(bell-slash)');
 	});
 
-	it('prefers busy over language-disabled', () => {
+	it('prefers busy over file-disabled', () => {
 		busy = true;
-		config.setUserConfiguration(NES_ENABLE_SETTING, { python: false });
+		fileEnabled = false;
 		createEntry();
 		fireContextChange();
 

@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isCompletionEnabled, migrateEnabledSetting } from './config.js';
+import { isCompletionEnabled, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
@@ -50,12 +50,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	void ensureLanguageServer();
 
+	// Publishes whether NES is enabled for the active editor's file so the workbench
+	// status UI can reflect it without re-deriving the per-file logic.
+	function updateFileEnabledContext() {
+		const document = vscode.window.activeTextEditor?.document;
+		const fileEnabled = document ? isCompletionEnabledForFileType(document) : true;
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.fileEnabled', fileEnabled);
+	}
+
+	updateFileEnabledContext();
+
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions((e) => {
 			if (e.provider.id === 'posit-ai') {
 				void ensureLanguageServer();
 			}
 		}),
+		vscode.window.onDidChangeActiveTextEditor(() => updateFileEnabledContext()),
+		vscode.workspace.onDidOpenTextDocument(() => updateFileEnabledContext()),
 	);
 
 	log.info('Next Edit Suggestions extension activated successfully!');
@@ -171,6 +183,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			if (e.affectsConfiguration('nextEditSuggestions')) {
 				log.trace(`[config] Refresh configuration due to change in 'nextEditSuggestions' settings.`);
 				resetModelCache();
+				// Re-run so the model/provider context keys reflect the new selection
+				void ensureLanguageServer();
+				updateFileEnabledContext();
 				providerImpl._onDidChangeEmitter.fire();
 			}
 		}),

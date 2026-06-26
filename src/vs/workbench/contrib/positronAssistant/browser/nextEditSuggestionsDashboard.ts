@@ -43,6 +43,11 @@ export const NES_CONTEXT_MODEL = 'nextEditSuggestions.model';
 /** Context key (owned by the extension) that is true while a completion request is in flight. */
 export const NES_CONTEXT_BUSY = 'nextEditSuggestions.busy';
 
+/**
+ * Context key (owned by the extension) that is true when next edit suggestions are enabled for the active file.
+ */
+export const NES_CONTEXT_FILE_ENABLED = 'nextEditSuggestions.fileEnabled';
+
 /** Shape of the {@link NES_CONTEXT_MODEL} context key value. */
 interface INextEditSuggestionsModel {
 	readonly id: string;

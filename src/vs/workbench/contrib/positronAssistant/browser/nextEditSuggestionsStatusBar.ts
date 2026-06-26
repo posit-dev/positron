@@ -16,7 +16,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, ShowTooltipCommand, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
-import { isNextEditSuggestionsEnabled, NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_ENABLE_SETTING, NextEditSuggestionsStatusDashboard } from './nextEditSuggestionsDashboard.js';
+import { NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING, NextEditSuggestionsStatusDashboard } from './nextEditSuggestionsDashboard.js';
 
 /**
  * Status bar item for the Next Edit Suggestions extension. Shown whenever the
@@ -30,7 +30,7 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 
 	private readonly activeCodeEditorListener = this._register(new MutableDisposable());
 
-	private readonly watchedContextKeys = new Set([NES_CONTEXT_ENABLED, NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY]);
+	private readonly watchedContextKeys = new Set([NES_CONTEXT_ENABLED, NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED]);
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -94,15 +94,15 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 		let text: string;
 		let ariaLabel: string;
 
-		const languageId = this.editorService.activeTextEditorLanguageId;
 		const busy = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_BUSY) ?? false;
+		const fileEnabled = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_FILE_ENABLED) ?? true;
 		if (this.completionsService.isSnoozing()) {
 			text = '$(bell-slash)';
 			ariaLabel = localize('positron.nes.statusSnoozed', "Next edit suggestions snoozed");
 		} else if (busy) {
 			text = '$(loading~spin)';
 			ariaLabel = localize('positron.nes.statusWaiting', "Waiting for next edit suggestion");
-		} else if (languageId && !isNextEditSuggestionsEnabled(this.configurationService, languageId)) {
+		} else if (!fileEnabled) {
 			text = '$(circle-slash)';
 			ariaLabel = localize('positron.nes.statusDisabled', "Next edit suggestions disabled");
 		} else {

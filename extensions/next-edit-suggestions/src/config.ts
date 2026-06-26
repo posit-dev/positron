@@ -60,7 +60,7 @@ function isFileExcludedFromAI(uri: vscode.Uri): boolean {
 	});
 }
 
-function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean {
+export function isCompletionEnabledForFileType(document: vscode.TextDocument): boolean {
 	const enableConfig = vscode.workspace
 		.getConfiguration('nextEditSuggestions')
 		.get<Record<string, boolean>>('enabled');
