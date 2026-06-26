@@ -145,3 +145,57 @@ export function parseRequirements(content: string): RequirementEntry[] {
     }
     return entries;
 }
+
+/**
+ * Split content into lines, drop the trailing empty element produced by a
+ * final newline, and remember whether the file ended with a newline.
+ */
+function splitLines(content: string): { lines: string[]; trailingNewline: boolean } {
+    const trailingNewline = content.endsWith('\n');
+    const lines = content.split(/\r?\n/);
+    if (trailingNewline && lines[lines.length - 1] === '') {
+        lines.pop();
+    }
+    return { lines, trailingNewline };
+}
+
+function joinLines(lines: string[]): string {
+    return lines.length === 0 ? '' : lines.join('\n') + '\n';
+}
+
+/** Render the spec for a target, preserving extras: `name[extras]==version`. */
+function formatSpec(name: string, extras: string | undefined, version?: string): string {
+    const base = extras ? `${name}[${extras}]` : name;
+    return version ? `${base}==${version}` : base;
+}
+
+/** Force the target to `name==version` (or bare `name` if no version),
+ *  preserving any declared extras. Replaces the matching entry's span or
+ *  appends if absent. Used for the install-with-version and update op copy. */
+export function setRequirement(content: string, name: string, version?: string): string {
+    const { lines } = splitLines(content);
+    const entries = parseRequirements(content);
+    const norm = normalizePackageName(name);
+    const match = entries.find((e) => e.normalizedName === norm);
+    if (match) {
+        const spec = formatSpec(name, match.extras, version);
+        // Replace the entry's full span (start..end inclusive) with the single spec line.
+        lines.splice(match.startLine, match.endLine - match.startLine + 1, spec);
+        return joinLines(lines);
+    }
+    lines.push(formatSpec(name, undefined, version));
+    return joinLines(lines);
+}
+
+/** Append a bare `name` if not already declared; otherwise return content
+ *  unchanged. Used for the no-version install op copy and install write-back. */
+export function appendBareIfAbsent(content: string, name: string): string {
+    const norm = normalizePackageName(name);
+    const already = parseRequirements(content).some((e) => e.normalizedName === norm);
+    if (already) {
+        return content;
+    }
+    const { lines } = splitLines(content);
+    lines.push(name);
+    return joinLines(lines);
+}

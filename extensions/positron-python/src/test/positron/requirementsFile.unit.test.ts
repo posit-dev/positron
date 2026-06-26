@@ -7,11 +7,13 @@
 
 import { expect } from 'chai';
 import {
+    appendBareIfAbsent,
     buildRequirementsFile,
     extractRequirementName,
     normalizePackageName,
     parseRequirements,
     RequirementEntry,
+    setRequirement,
 } from '../../client/positron/packages/requirementsFile';
 
 suite('requirementsFile Tests', () => {
@@ -139,6 +141,53 @@ suite('requirementsFile Tests', () => {
             expect(entries).to.have.length(1);
             expect(entries[0].normalizedName).to.equal('flask');
             expect(entries[0].startLine).to.equal(4);
+        });
+    });
+
+    suite('setRequirement', () => {
+        test('replaces a matching entry with name==version', () => {
+            expect(setRequirement('flask==2.2.0\nrequests==2.28.0\n', 'requests', '2.31.0')).to.equal(
+                'flask==2.2.0\nrequests==2.31.0\n',
+            );
+        });
+
+        test('preserves declared extras when pinning', () => {
+            expect(setRequirement('requests[security,socks]>=2,<3\n', 'requests', '2.31.0')).to.equal(
+                'requests[security,socks]==2.31.0\n',
+            );
+        });
+
+        test('matches case-insensitively on the normalized name', () => {
+            expect(setRequirement('Typing_Extensions==4.0.0\n', 'typing-extensions', '4.9.0')).to.equal(
+                'typing-extensions==4.9.0\n',
+            );
+        });
+
+        test('appends when the target is absent', () => {
+            expect(setRequirement('flask==2.2.0\n', 'requests', '2.31.0')).to.equal('flask==2.2.0\nrequests==2.31.0\n');
+        });
+
+        test('replaces a backslash-continued entry as a single line', () => {
+            const content = 'foo==1.0 \\\n    --hash=sha256:aaa\nbar==2.0\n';
+            expect(setRequirement(content, 'foo', '1.5')).to.equal('foo==1.5\nbar==2.0\n');
+        });
+
+        test('writes a bare name when no version is given', () => {
+            expect(setRequirement('requests==2.28.0\n', 'requests')).to.equal('requests\n');
+        });
+    });
+
+    suite('appendBareIfAbsent', () => {
+        test('appends a bare name when absent', () => {
+            expect(appendBareIfAbsent('flask==2.2.0\n', 'requests')).to.equal('flask==2.2.0\nrequests\n');
+        });
+
+        test('leaves content unchanged when already declared (any form)', () => {
+            expect(appendBareIfAbsent('requests==2.28.0\n', 'Requests')).to.equal('requests==2.28.0\n');
+        });
+
+        test('appends a trailing newline if the file lacks one', () => {
+            expect(appendBareIfAbsent('flask==2.2.0', 'requests')).to.equal('flask==2.2.0\nrequests\n');
         });
     });
 });
