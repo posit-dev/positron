@@ -10,6 +10,8 @@ import {
     buildRequirementsFile,
     extractRequirementName,
     normalizePackageName,
+    parseRequirements,
+    RequirementEntry,
 } from '../../client/positron/packages/requirementsFile';
 
 suite('requirementsFile Tests', () => {
@@ -101,6 +103,42 @@ suite('requirementsFile Tests', () => {
         test('replaces a matching line with a bare name when the target has no version', () => {
             const result = buildRequirementsFile(['requests==2.28.0'], [{ name: 'requests' }]);
             expect(result).to.equal('requests\n');
+        });
+    });
+
+    suite('parseRequirements', () => {
+        test('returns normalized name, raw name, and single-line span', () => {
+            const entries = parseRequirements('Flask==2.2.0\nrequests==2.28.0\n');
+            expect(entries).to.have.length(2);
+            expect(entries[0]).to.deep.include({
+                normalizedName: 'flask',
+                rawName: 'Flask',
+                startLine: 0,
+                endLine: 0,
+            });
+            expect(entries[1].normalizedName).to.equal('requests');
+        });
+
+        test('captures extras without brackets', () => {
+            const entries = parseRequirements('requests[security,socks]==2.28.0\n');
+            expect(entries[0].normalizedName).to.equal('requests');
+            expect(entries[0].extras).to.equal('security,socks');
+        });
+
+        test('spans backslash line-continuations (hashes) into one entry', () => {
+            const content = 'foo==1.0 \\\n    --hash=sha256:aaa \\\n    --hash=sha256:bbb\nbar==2.0\n';
+            const entries = parseRequirements(content);
+            expect(entries).to.have.length(2);
+            expect(entries[0]).to.deep.include({ normalizedName: 'foo', startLine: 0, endLine: 2 });
+            expect(entries[1]).to.deep.include({ normalizedName: 'bar', startLine: 3, endLine: 3 });
+        });
+
+        test('skips comments, blanks, options, and editables', () => {
+            const content = '# comment\n\n--index-url https://x\n-e ./pkg\nflask==2.2.0\n';
+            const entries = parseRequirements(content);
+            expect(entries).to.have.length(1);
+            expect(entries[0].normalizedName).to.equal('flask');
+            expect(entries[0].startLine).to.equal(4);
         });
     });
 });

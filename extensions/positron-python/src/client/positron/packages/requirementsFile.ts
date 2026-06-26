@@ -13,6 +13,19 @@
 /** Freeze lines that are emitted by some environments but are not installable. */
 const JUNK_LINES = new Set(['pkg-resources==0.0.0']);
 
+export interface RequirementEntry {
+    /** PEP 503 normalized name (lowercased, separators collapsed). */
+    normalizedName: string;
+    /** The name token as written in the file, e.g. "Flask". */
+    rawName: string;
+    /** Extras token without brackets, e.g. "security,socks"; undefined if none. */
+    extras?: string;
+    /** 0-based index of the entry's first physical line in the split array. */
+    startLine: number;
+    /** 0-based index of the entry's last physical line (inclusive), spanning `\` continuations. */
+    endLine: number;
+}
+
 /**
  * Normalize a package name per PEP 503: lowercase and collapse any run of
  * `-`, `_`, or `.` into a single `-`. Used only for matching, not for output.
@@ -94,4 +107,41 @@ export function buildRequirementsFile(
     }
 
     return out.join('\n') + '\n';
+}
+
+/**
+ * Parse requirements content into the requirement entries it declares, each
+ * with the physical-line span it occupies (so callers can replace or remove a
+ * single entry without disturbing the rest of the file). A `\`-continued line
+ * (the form `pip freeze --require-hashes` emits) is treated as one entry whose
+ * span covers every continued physical line. Comments, blanks, global options
+ * (`--index-url` etc.), and editables (`-e ...`) are not entries and are skipped.
+ */
+export function parseRequirements(content: string): RequirementEntry[] {
+    const lines = content.split(/\r?\n/);
+    const entries: RequirementEntry[] = [];
+    let i = 0;
+    while (i < lines.length) {
+        const start = i;
+        // Consume `\`-continuations so the whole logical line is one entry.
+        while (i < lines.length && lines[i].trimEnd().endsWith('\\')) {
+            i += 1;
+        }
+        const end = i; // last physical line of this logical line
+        const firstLine = lines[start];
+        const rawName = extractRequirementName(firstLine);
+        if (rawName) {
+            const afterName = firstLine.trim().slice(rawName.length);
+            const extrasMatch = afterName.match(/^\[([^\]]*)\]/);
+            entries.push({
+                normalizedName: normalizePackageName(rawName),
+                rawName,
+                extras: extrasMatch ? extrasMatch[1].replace(/\s+/g, '') : undefined,
+                startLine: start,
+                endLine: end,
+            });
+        }
+        i = end + 1;
+    }
+    return entries;
 }
