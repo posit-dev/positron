@@ -13,7 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
-import { traceVerbose } from '../../logging';
+import { traceInfo } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
@@ -298,7 +298,7 @@ export class UvPackageManager implements IPackageManager {
         await fs.writeFile(tempFile.filePath, content);
         // Log the generated requirements so the resolved set passed to uv can be
         // inspected (the temp file itself is deleted after the command runs).
-        traceVerbose(`uv package requirements file ${tempFile.filePath}:\n${content}`);
+        traceInfo(`uv package requirements file ${tempFile.filePath}:\n${content}`);
         return tempFile;
     }
 
