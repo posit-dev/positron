@@ -7,7 +7,6 @@
 
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { observableValue } from '../../../../../../base/common/observable.js';
 import { ISize } from '../../../../../../base/browser/positronReactRenderer.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ContextKeyService } from '../../../../../../platform/contextkey/browser/contextKeyService.js';
@@ -29,6 +28,8 @@ import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { EnvironentProvider } from '../../../browser/EnvironmentProvider.js';
 import { CellEditorMonacoWidget } from '../../../browser/notebookCells/CellEditorMonacoWidget.js';
+import { IPositronNotebookCellEditorPoolService, PositronNotebookCellEditorPoolService } from '../../../browser/notebookCells/PositronNotebookCellEditorPoolService.js';
+import { POSITRON_NOTEBOOK_REUSE_CELL_EDITORS_KEY } from '../../../common/positronNotebookConfig.js';
 import { PositronNotebookCellGeneral } from '../../../browser/PositronNotebookCells/PositronNotebookCell.js';
 import { createTestPositronNotebookInstance } from '../testPositronNotebookInstance.js';
 
@@ -72,14 +73,37 @@ describe('CellEditorMonacoWidget', () => {
 	beforeEach(() => {
 		const contextKeyService = ctx.disposables.add(new ContextKeyService(new TestConfigurationService()));
 		ctx.instantiationService.stub(IContextKeyService, contextKeyService);
+
+		// Default to the production behaviour (pooled reuse). Individual tests
+		// flip this to false to exercise the construct-per-mount fallback.
+		setReuseCellEditors(true);
+
+		// Stub the workbench-global pool service the pooled widget acquires from.
+		// Created against the same (context-key-stubbed) instantiation service, and
+		// disposed in afterEach so its editors don't leak across tests.
+		currentPoolService = ctx.instantiationService.createInstance(PositronNotebookCellEditorPoolService);
+		ctx.instantiationService.stub(IPositronNotebookCellEditorPoolService, currentPoolService);
 	});
 
+	// Set the reuse setting on the config service the widget reads through.
+	function setReuseCellEditors(value: boolean) {
+		(ctx.get(IConfigurationService) as TestConfigurationService)
+			.setUserConfiguration(POSITRON_NOTEBOOK_REUSE_CELL_EDITORS_KEY, value);
+	}
+
+	// The global pool service for the current test. Disposed in afterEach so its
+	// pooled editors (which survive widget unmount) don't leak.
+	let currentPoolService: PositronNotebookCellEditorPoolService | undefined;
 	// Notebook rendered by the current test. Disposed in afterEach below.
 	let currentNotebook: { dispose(): void } | undefined;
 	// Container appended to document.body by renderWidget; removed in afterEach.
 	let currentContainer: HTMLElement | undefined;
 
 	afterEach(async () => {
+		// Dispose the pool service first so pooled editors (which survive widget
+		// unmount) detach from the cell before the notebook tears it down.
+		currentPoolService?.dispose();
+		currentPoolService = undefined;
 		// Dispose the notebook (and its cells) explicitly here so the cell
 		// releases its resolved text-model reference. The text-model resolver
 		// disposes the underlying TextFileEditorModel asynchronously, so flush a
@@ -144,8 +168,10 @@ describe('CellEditorMonacoWidget', () => {
 		// which production wires up via NotebookCellWrapper's container ref.
 		cell.attachContainer(cellContainer);
 
+		notebook.layout(size ?? { width: 800, height: 600 });
+
 		const environmentBundle = {
-			size: observableValue<ISize>('test-size', size ?? { width: 800, height: 600 }),
+			size: notebook.size,
 			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
 		};
 
@@ -284,26 +310,58 @@ describe('CellEditorMonacoWidget', () => {
 		`);
 	});
 
-	it('disposes and detaches the editor when unmounted', async () => {
-		const { cell, result } = await renderWidget();
-		const editor = cell.currentEditor!;
-		const dispose = vi.spyOn(editor, 'dispose');
+	describe('cell editor lifecycle', () => {
+		it('reuses the pooled editor across remount instead of disposing it', async () => {
+			// Pooled (default): on unmount the editor is reset and returned to the
+			// pool, not disposed -- this is what keeps it warm across tab swaps.
+			const { cell, result } = await renderWidget();
+			const editor = cell.currentEditor!;
+			const dispose = vi.spyOn(editor, 'dispose');
 
-		result.unmount();
+			result.unmount();
 
-		expect(dispose).toHaveBeenCalledTimes(1);
-		expect(cell.currentEditor).toBeUndefined();
+			// Detached from the cell but the live editor widget survives.
+			expect(dispose).not.toHaveBeenCalled();
+			expect(cell.currentEditor).toBeUndefined();
+			expect(currentPoolService!.inUse.size).toBe(0);
+		});
+
+		it('disposes the editor on unmount when reuse is disabled', async () => {
+			// Construct-per-mount fallback: the widget owns the editor and disposes it
+			// on unmount.
+			setReuseCellEditors(false);
+			const { cell, result } = await renderWidget();
+			const editor = cell.currentEditor!;
+			const dispose = vi.spyOn(editor, 'dispose');
+
+			result.unmount();
+
+			expect(dispose).toHaveBeenCalledTimes(1);
+			expect(cell.currentEditor).toBeUndefined();
+			// The fallback never touches the pool.
+			expect(currentPoolService!.inUse.size).toBe(0);
+		});
+
+		it('does not acquire from the pool when reuse is disabled', async () => {
+			setReuseCellEditors(false);
+			const get = vi.spyOn(currentPoolService!, 'get');
+
+			const { cell } = await renderWidget();
+
+			expect(cell.currentEditor).toBeDefined();
+			expect(get).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('resize', () => {
-		it('lays out the editor when the environment size changes', async () => {
-			const { cell, environmentBundle } = await renderWidget();
+		it('lays out the editor when the notebook size changes', async () => {
+			const { notebook, cell } = await renderWidget();
 			const layout = vi.spyOn(cell.currentEditor!, 'layout');
 
-			// The widget's resize autorun reads environment.size; firing a new
+			// The editor's resize autorun reads the instance size; firing a new
 			// size must re-lay out the editor so it tracks the notebook width.
 			act(() => {
-				environmentBundle.size.set({ width: 400, height: 600 }, undefined);
+				notebook.layout({ width: 400, height: 600 });
 			});
 
 			expect(layout).toHaveBeenCalled();
