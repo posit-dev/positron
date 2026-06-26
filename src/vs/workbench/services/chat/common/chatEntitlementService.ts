@@ -1055,6 +1055,12 @@ export class ChatEntitlementContext extends Disposable {
 
 	private static readonly CHAT_DISABLED_CONFIGURATION_KEY = 'chat.disableAIFeatures';
 
+	// --- Start Positron ---
+	// Positron's main AI switch. When off, it hides the chat UI (pane and status
+	// icon) just like `chat.disableAIFeatures`, so it feeds the same hidden state.
+	private static readonly AI_ENABLED_CONFIGURATION_KEY = 'ai.enabled';
+	// --- End Positron ---
+
 	private readonly canSignUpContextKey: IContextKey<boolean>;
 	private readonly signedOutContextKey: IContextKey<boolean>;
 
@@ -1142,7 +1148,12 @@ export class ChatEntitlementContext extends Disposable {
 
 	private registerListeners(): void {
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY)) {
+			// --- Start Positron ---
+			// Recompute when either Copilot's own switch or Positron's `ai.enabled`
+			// changes, so toggling `ai.enabled` at runtime hides/shows the chat UI
+			// without a reload.
+			if (e.affectsConfiguration(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY) || e.affectsConfiguration(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY)) {
+				// --- End Positron ---
 				this.updateContext();
 			}
 		}));
@@ -1151,7 +1162,11 @@ export class ChatEntitlementContext extends Disposable {
 	private _forceHidden = false;
 
 	private withConfiguration(state: IChatEntitlementContextState): IChatEntitlementContextState {
-		if (this._forceHidden || this.configurationService.getValue(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY) === true) {
+		// --- Start Positron ---
+		// `ai.enabled === false` is Positron's main switch and hides the chat UI
+		// the same way `chat.disableAIFeatures === true` does.
+		if (this._forceHidden || this.configurationService.getValue(ChatEntitlementContext.CHAT_DISABLED_CONFIGURATION_KEY) === true || this.configurationService.getValue(ChatEntitlementContext.AI_ENABLED_CONFIGURATION_KEY) === false) {
+			// --- End Positron ---
 			return {
 				...state,
 				hidden: true

@@ -1,4 +1,4 @@
-# Skill: Review Upstream Merge
+# Review Upstream Merge
 
 Review changes from an upstream VS Code merge to ensure Posit Workbench integration remains intact.
 
@@ -12,7 +12,7 @@ If no branch name is provided, reviews the current branch against `main`.
 
 ## Instructions
 
-When this skill is invoked, perform a comprehensive code review of upstream merge changes with focus on Posit Workbench (PWB) integration safety.
+When this command is invoked, perform a comprehensive code review of upstream merge changes with focus on Posit Workbench (PWB) integration safety.
 
 ### Step 1: Identify the Merge
 

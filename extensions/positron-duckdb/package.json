@@ -17,12 +17,20 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "install-excel-extension": "ts-node scripts/install-excel-extension.ts",
+    "print-excel-hashes": "ts-node scripts/install-excel-extension.ts --print-hashes",
     "postinstall": "ts-node scripts/install-excel-extension.ts"
   },
   "contributes": {},
   "positron": {
     "binaryDependencies": {
       "duckdbExcelExtension": "v1.5.3"
+    },
+    "duckdbExcelExtensionHashes": {
+      "osx_arm64": "84b5297e57d48ff758b1786f7823c8712f831b5a1e60cca529aa492ab4e2d6d1",
+      "osx_amd64": "f6c9913fa5f3d1ad20341cab34dd63857bb4324df9f9dcd8cbb9d4ccdc50bc22",
+      "linux_arm64": "4f01a7cd4647d65f76d71116a2373e9931de5d7a2f651827d2c869e038836637",
+      "linux_amd64": "73176e3d05800715757e1c35c5d75c308c8b3542d41f3c54fb490c45ec832afe",
+      "windows_amd64": "3fdcadf7cc501ab9b6cd3862a1934bc04224c497a9d98a558ee99e942e0a7a7f"
     }
   },
   "devDependencies": {

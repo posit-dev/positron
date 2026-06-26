@@ -204,7 +204,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  *     (uv project paths, Pyenv, system labels) don't leak into docs.
  *
  * Scoped to the workbench surfaces that render the runtime label:
- *   - `.top-action-bar-session-manager-face`     (top-right interpreter face)
+ *   - `.top-action-bar-session-picker-face`     (top-right interpreter face)
  *   - `.plot-session-name`                       (plots pane header)
  *   - `.tab-header .session-name`                (console session tab)
  *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
@@ -216,7 +216,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
 export async function overrideRuntimeLabel(page: Page, displayVersion: string = '3.13.5'): Promise<void> {
 	await page.evaluate(({ displayVersion }) => {
 		const SELECTORS = [
-			'.top-action-bar-session-manager-face',
+			'.top-action-bar-session-picker-face',
 			'.plot-session-name',
 			'.tab-header .session-name',
 			'.positron-notebook-kernel-status-badge',

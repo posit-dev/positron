@@ -58,6 +58,8 @@ suite('model / getLLMConfiguration', () => {
 
 		assert.ok(config);
 		assert.strictEqual(config!.modelId, 'model-a');
+		assert.strictEqual(config!.modelDisplayName, 'Model A');
+		assert.strictEqual(config!.providerDisplayName, 'Posit AI');
 		assert.strictEqual(config!.endpointPath, '/a/predict');
 		assert.strictEqual(config!.baseUrl, BASE_URL);
 		assert.strictEqual(config!.accessToken, 'tok');
@@ -75,6 +77,7 @@ suite('model / getLLMConfiguration', () => {
 		const config = await getLLMConfiguration();
 
 		assert.strictEqual(config!.modelId, 'model-b');
+		assert.strictEqual(config!.modelDisplayName, 'Model B');
 		assert.strictEqual(config!.endpointPath, '/b/predict');
 	});
 

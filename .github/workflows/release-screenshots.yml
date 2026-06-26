@@ -4,7 +4,7 @@ name: "Release Screenshots"
 # can pick publish mode to open a PR in posit-dev/positron-website with
 # changed images.
 
-run-name: "${{ inputs.mode == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
+run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ inputs.mode == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
 
 on:
   workflow_dispatch:
@@ -17,9 +17,13 @@ on:
           - publish
         default: nightly
       version:
-        description: "Positron version: a tag, 'latest-prerelease', 'latest-release', or 'auto' (default; latest-prerelease for nightly, latest-release for publish)."
+        description: "Positron version: a tag, 'latest-prerelease', 'latest-release', or 'auto' (default; latest-prerelease for nightly, latest-release for publish). Ignored when build_from_source is checked."
         type: string
         default: auto
+      build_from_source:
+        description: "Build Positron from the dispatched ref instead of downloading a release. Use to test screenshot/script changes that aren't in any published build yet."
+        type: boolean
+        default: false
       open_pr:
         description: "Publish mode: open a PR if there are changes. No-op for nightly."
         type: boolean
@@ -46,6 +50,7 @@ permissions:
 env:
   MODE: ${{ inputs.mode || 'nightly' }}
   VERSION_INPUT: ${{ inputs.version || 'auto' }}
+  BUILD_FROM_SOURCE: ${{ inputs.build_from_source || false }}
 
 jobs:
   release-screenshots:
@@ -69,6 +74,15 @@ jobs:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           INPUT: ${{ env.VERSION_INPUT }}
         run: |
+          # Building from the dispatched ref: there is no release tag to
+          # resolve. Emit a source label (used only for run output, report
+          # headings, and any publish-mode PR title) and stop here.
+          if [[ "$BUILD_FROM_SOURCE" == "true" ]]; then
+            VERSION="source-${GITHUB_SHA:0:7}"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Building from source; version label: $VERSION"
+            exit 0
+          fi
           # 'auto' picks the per-mode default: latest-prerelease for nightly,
           # latest-release for publish. Cron + the dispatch default both land
           # here so each mode gets the right build channel without the user
@@ -110,6 +124,7 @@ jobs:
           echo "Resolved version: $VERSION"
 
       - name: Download Positron build
+        if: env.BUILD_FROM_SOURCE != 'true'
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
@@ -131,6 +146,22 @@ jobs:
       - name: Setup release-screenshot runtimes
         id: runtimes
         uses: ./.github/actions/setup-release-screenshot-runtimes
+
+      # Compile the dispatched ref so the e2e infra runs the dev build out of
+      # out/ (BUILD stays unset; see test-setup.ts). setup-release-screenshot-runtimes
+      # already ran `npm ci --ignore-scripts`, which skips native modules and the
+      # Electron binary; the full `npm ci` here rebuilds native deps, and the
+      # compile + electron + prelaunch recipe mirrors test-e2e-macos-build.yml.
+      - name: Build Positron from source
+        if: env.BUILD_FROM_SOURCE == 'true'
+        env:
+          npm_config_arch: arm64  # macos-latest-xlarge is Apple silicon
+          POSITRON_BUILD_NUMBER: 0
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: |
+          npm ci --fetch-timeout 120000
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+          npm run prelaunch
 
       - name: Pre-warm matplotlib font cache
         run: python -c "import matplotlib.pyplot as plt; plt.figure()"

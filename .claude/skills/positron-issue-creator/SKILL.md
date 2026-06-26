@@ -1,5 +1,6 @@
 ---
 name: positron-issue-creator
+disable-model-invocation: true
 description: This skill should be used when drafting GitHub issues for the Positron repository. It provides workflows for searching duplicates, selecting appropriate labels, gathering complete context through questioning, and writing terse, fluff-free issues that precisely describe what is needed or wrong. The skill prepares issues for manual submission by the user. Use this skill when the user asks to draft or prepare an issue for Positron.
 ---
 
