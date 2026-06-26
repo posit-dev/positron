@@ -97,7 +97,7 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 		const busy = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_BUSY) ?? false;
 		const fileEnabled = this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_FILE_ENABLED) ?? true;
 		if (this.completionsService.isSnoozing()) {
-			text = '$(bell-slash)';
+			text = '$(skip)';
 			ariaLabel = localize('positron.nes.statusSnoozed', "Next edit suggestions snoozed");
 		} else if (busy) {
 			text = '$(loading~spin)';

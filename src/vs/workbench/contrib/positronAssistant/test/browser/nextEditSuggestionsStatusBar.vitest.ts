@@ -79,7 +79,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 	}
 
 	it.each([
-		{ name: 'snoozing', setup: () => { snoozing = true; }, text: '$(bell-slash)', ariaLabel: 'Next edit suggestions snoozed' },
+		{ name: 'snoozing', setup: () => { snoozing = true; }, text: '$(skip)', ariaLabel: 'Next edit suggestions snoozed' },
 		{ name: 'busy', setup: () => { busy = true; }, text: '$(loading~spin)', ariaLabel: 'Waiting for next edit suggestion' },
 		{ name: 'file disabled', setup: () => { fileEnabled = false; }, text: '$(circle-slash)', ariaLabel: 'Next edit suggestions disabled' },
 		{ name: 'enabled', setup: () => { }, text: '$(edit-sparkle)', ariaLabel: 'Next Edit Suggestions' },
@@ -97,7 +97,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 		createEntry();
 		fireContextChange();
 
-		expect(lastProps().text).toBe('$(bell-slash)');
+		expect(lastProps().text).toBe('$(skip)');
 	});
 
 	it('prefers busy over file-disabled', () => {
