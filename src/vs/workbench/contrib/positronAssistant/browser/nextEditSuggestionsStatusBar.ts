@@ -16,11 +16,11 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, ShowTooltipCommand, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
-import { NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING, NextEditSuggestionsStatusDashboard } from './nextEditSuggestionsDashboard.js';
+import { NES_CONTEXT_ACTIVE, NES_CONTEXT_AVAILABLE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING, NextEditSuggestionsStatusDashboard } from './nextEditSuggestionsDashboard.js';
 
 /**
  * Status bar item for the Next Edit Suggestions extension. Shown whenever the
- * `nextEditSuggestions.enabled` context key is true.
+ * `nextEditSuggestions.available` context key is true.
  */
 export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWorkbenchContribution {
 
@@ -30,7 +30,7 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 
 	private readonly activeCodeEditorListener = this._register(new MutableDisposable());
 
-	private readonly watchedContextKeys = new Set([NES_CONTEXT_ENABLED, NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED]);
+	private readonly watchedContextKeys = new Set([NES_CONTEXT_AVAILABLE, NES_CONTEXT_ACTIVE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED]);
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -47,7 +47,7 @@ export class NextEditSuggestionsStatusBarEntry extends Disposable implements IWo
 	}
 
 	private isItemEnabled(): boolean {
-		return this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_ENABLED) ?? false;
+		return this.contextKeyService.getContextKeyValue<boolean>(NES_CONTEXT_AVAILABLE) ?? false;
 	}
 
 	private update(): void {

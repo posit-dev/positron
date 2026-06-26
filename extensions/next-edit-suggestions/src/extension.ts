@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import type { SubmitCompletionFeedbackParams } from './types.js';
 import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isCompletionEnabled, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
+import { isAIEnabled, isCompletionEnabled, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
@@ -20,11 +20,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	log.info('Next Edit Suggestions extension is now activating...');
 
-	// Gates whether the Next Edit Suggestions status bar item is shown. It is true while the
-	// extension is activated, independent of authentication or the global enable setting.
-	// TODO: gate this behind the planned `ai.enabled` configuration setting once it exists,
-	// so that if `ai.enabled` is `false`, no status bar item is shown.
-	void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.enabled', true);
+	// Gates whether the Next Edit Suggestions status bar item is shown.
+	function updateAvailableContext() {
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.available', isAIEnabled());
+	}
+
+	updateAvailableContext();
 
 	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
 	const enabledSettingMigration = migrateEnabledSetting(log);
@@ -180,6 +181,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('ai.enabled')) {
+				updateAvailableContext();
+			}
 			if (e.affectsConfiguration('nextEditSuggestions')) {
 				log.trace(`[config] Refresh configuration due to change in 'nextEditSuggestions' settings.`);
 				resetModelCache();

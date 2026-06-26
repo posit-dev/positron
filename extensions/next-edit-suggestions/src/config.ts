@@ -38,7 +38,7 @@ export function getSelectedCompletionModelId(): string {
  * Whether Positron's AI features are enabled. Gated on the Positron-owned
  * `ai.enabled` main switch. Next Edit Suggestions only work when AI is enabled.
  */
-function isAIEnabled(): boolean {
+export function isAIEnabled(): boolean {
 	return vscode.workspace
 		.getConfiguration('ai')
 		.get<boolean>('enabled') === true;

@@ -13,7 +13,7 @@ import { IContextKeyChangeEvent, IContextKeyService } from '../../../../../platf
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IStatusbarEntry, IStatusbarService } from '../../../../services/statusbar/browser/statusbar.js';
-import { NES_CONTEXT_BUSY, NES_CONTEXT_ENABLED, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING } from '../../browser/nextEditSuggestionsDashboard.js';
+import { NES_CONTEXT_AVAILABLE, NES_CONTEXT_BUSY, NES_CONTEXT_FILE_ENABLED, NES_ENABLE_SETTING } from '../../browser/nextEditSuggestionsDashboard.js';
 import { NextEditSuggestionsStatusBarEntry } from '../../browser/nextEditSuggestionsStatusBar.js';
 
 describe('NextEditSuggestionsStatusBarEntry', () => {
@@ -38,7 +38,7 @@ describe('NextEditSuggestionsStatusBarEntry', () => {
 		})
 		.stub(IContextKeyService, {
 			getContextKeyValue: <T>(key: string): T | undefined => {
-				const values: Record<string, boolean> = { [NES_CONTEXT_ENABLED]: enabled, [NES_CONTEXT_BUSY]: busy, [NES_CONTEXT_FILE_ENABLED]: fileEnabled };
+				const values: Record<string, boolean> = { [NES_CONTEXT_AVAILABLE]: enabled, [NES_CONTEXT_BUSY]: busy, [NES_CONTEXT_FILE_ENABLED]: fileEnabled };
 				return values[key] as T | undefined;
 			},
 			onDidChangeContext: onDidChangeContext.event,

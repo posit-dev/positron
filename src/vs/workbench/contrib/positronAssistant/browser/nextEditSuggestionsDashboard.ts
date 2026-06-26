@@ -29,7 +29,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 export const NES_ENABLE_SETTING = 'nextEditSuggestions.enabled';
 
 /** Context key (owned by the extension) gating whether the status item is shown at all. */
-export const NES_CONTEXT_ENABLED = 'nextEditSuggestions.enabled';
+export const NES_CONTEXT_AVAILABLE = 'nextEditSuggestions.available';
 
 /** Context key (owned by the extension) that is true when signed in to Posit AI. */
 export const NES_CONTEXT_ACTIVE = 'nextEditSuggestions.active';
