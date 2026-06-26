@@ -361,4 +361,108 @@ version = "0.1.0"`;
             expect(args).to.not.include('--upgrade');
         });
     });
+
+    suite('Environment-workflow with requirements.txt', () => {
+        let processService: { exec: sinon.SinonStub };
+        let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
+        let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+        let reqExists: boolean;
+        let reqContent: string;
+
+        setup(() => {
+            originalGetConfiguration = vscode.workspace.getConfiguration;
+            vscode.workspace.getConfiguration = (_section?: string) =>
+                ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
+
+            sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+
+            reqExists = false;
+            reqContent = '';
+
+            // Wire workspace so _getRequirementsPath can find /work/requirements.txt
+            sinon.stub(workspaceService, 'workspaceFolders').value([{ uri: { fsPath: '/work' } }]);
+
+            // Path-keyed stubs: pyproject.toml absent (so project workflow is skipped),
+            // requirements.txt presence controlled per test via reqExists.
+            (fileSystem.fileExists as sinon.SinonStub).callsFake((p: string) => {
+                if (p.endsWith('requirements.txt')) {
+                    return Promise.resolve(reqExists);
+                }
+                return Promise.resolve(false);
+            });
+            (fileSystem.readFile as sinon.SinonStub).callsFake((_p: string) => Promise.resolve(reqContent));
+
+            processService = { exec: sinon.stub() };
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+            const processFactory = { create: sinon.stub().resolves(processService) };
+
+            terminalService = {
+                show: sinon.stub().resolves(),
+                sendCommand: sinon.stub().resolves(),
+                sendText: sinon.stub().resolves(),
+            };
+            const terminalFactory = { getTerminalService: sinon.stub().returns(terminalService) };
+
+            (serviceContainer.get as sinon.SinonStub)
+                .withArgs(IProcessServiceFactory)
+                .returns(processFactory)
+                .withArgs(ITerminalServiceFactory)
+                .returns(terminalFactory);
+        });
+
+        teardown(() => {
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+        });
+
+        test('env install resolves against requirements.txt', async () => {
+            reqExists = true;
+            reqContent = 'flask==2.2.0\n';
+            (session.callMethod as sinon.SinonStub).resolves([{ name: 'cowsay', version: '6.1' }]);
+
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const tempWrite = (fileSystem.writeFile as sinon.SinonStub)
+                .getCalls()
+                .find((c) => c.args[0] === '/tmp/reqs.txt');
+            expect(tempWrite!.args[1]).to.equal('flask==2.2.0\ncowsay==6.1\n');
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+            expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==2.2.0\ncowsay\n')).to.equal(true);
+        });
+
+        test('env update bumps an exact pin', async () => {
+            reqExists = true;
+            reqContent = 'werkzeug==2.0.3\n';
+            (session.callMethod as sinon.SinonStub).resolves([{ name: 'werkzeug', version: '3.1.8' }]);
+            await uvPackageManager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+            expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'werkzeug==3.1.8\n')).to.equal(true);
+        });
+
+        test('env Update All upgrades against requirements.txt directly', async () => {
+            reqExists = true;
+            // ensure outdated list is non-empty per uv's _getOutdatedPackages mock
+            await uvPackageManager.updateAllPackages();
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members([
+                'pip',
+                'install',
+                '--upgrade',
+                '-r',
+                '/work/requirements.txt',
+                '--python',
+                '/path/to/python',
+            ]);
+        });
+
+        test('env uninstall removes the requirements.txt entry', async () => {
+            reqExists = true;
+            reqContent = 'flask==2.2.0\nrequests==2.28.0\n';
+            (session.callMethod as sinon.SinonStub).resolves([{ name: 'flask', version: '2.2.0' }]);
+            await uvPackageManager.uninstallPackages(['requests']);
+            expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==2.2.0\n')).to.equal(true);
+        });
+    });
 });

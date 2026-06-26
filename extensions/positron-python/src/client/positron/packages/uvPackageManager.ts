@@ -15,7 +15,14 @@ import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
-import { buildRequirementsFile } from './requirementsFile';
+import {
+    appendBareIfAbsent,
+    buildRequirementsFile,
+    normalizePackageName,
+    recordUpdate,
+    removeRequirement,
+    setRequirement,
+} from './requirementsFile';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -76,6 +83,36 @@ export class UvPackageManager implements IPackageManager {
             const args = ['add', '--active', '--python', this._pythonPath, ...packageSpecs];
             await this._executeUvInTerminal(args, token);
         } else {
+            const reqPath = await this._getRequirementsPath();
+            if (reqPath) {
+                // Source-of-truth path: resolve against requirements.txt.
+                const base = await this._readRequirements(reqPath);
+                let copy = base;
+                for (const pkg of packages) {
+                    copy = pkg.version
+                        ? setRequirement(copy, pkg.name, pkg.version)
+                        : appendBareIfAbsent(copy, pkg.name);
+                }
+                const tempFile = await this._writeRequirementsTempFile(copy);
+                try {
+                    await this._executeUvInTerminal(
+                        ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath],
+                        token,
+                    );
+                } finally {
+                    tempFile.dispose();
+                }
+                for (const pkg of packages) {
+                    await this._confirmAndWriteBack(
+                        reqPath,
+                        pkg.name,
+                        true,
+                        (content) => appendBareIfAbsent(content, pkg.name),
+                        token,
+                    );
+                }
+                return;
+            }
             // Re-resolve against the full installed set: name every installed
             // package (bare) plus the new package(s) so an inconsistent install
             // fails atomically instead of breaking the environment.
@@ -112,6 +149,19 @@ export class UvPackageManager implements IPackageManager {
             // Environment workflow: uv pip uninstall --python <path> <packages>
             const args = ['pip', 'uninstall', '--python', this._pythonPath, ...packages];
             await this._executeUvInTerminal(args, token);
+
+            const reqPath = await this._getRequirementsPath();
+            if (reqPath) {
+                for (const name of packages) {
+                    await this._confirmAndWriteBack(
+                        reqPath,
+                        name,
+                        false, // must now be absent
+                        (content) => removeRequirement(content, name),
+                        token,
+                    );
+                }
+            }
         }
     }
 
@@ -138,6 +188,35 @@ export class UvPackageManager implements IPackageManager {
             if (missing) {
                 throw new Error(`A version is required to update '${missing.name}'.`);
             }
+
+            const reqPath = await this._getRequirementsPath();
+            if (reqPath) {
+                const base = await this._readRequirements(reqPath);
+                let copy = base;
+                for (const pkg of packages) {
+                    copy = setRequirement(copy, pkg.name, pkg.version!);
+                }
+                const tempFile = await this._writeRequirementsTempFile(copy);
+                try {
+                    await this._executeUvInTerminal(
+                        ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath],
+                        token,
+                    );
+                } finally {
+                    tempFile.dispose();
+                }
+                for (const pkg of packages) {
+                    await this._confirmAndWriteBack(
+                        reqPath,
+                        pkg.name,
+                        true,
+                        (content) => recordUpdate(content, pkg.name, pkg.version!),
+                        token,
+                    );
+                }
+                return;
+            }
+
             // Re-resolve against the full installed set: name every package (bare),
             // pin only the target, so an inconsistent update fails atomically.
             const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
@@ -171,6 +250,17 @@ export class UvPackageManager implements IPackageManager {
 
             if (outdatedPackages.length === 0) {
                 this._emitMessage('All packages are up to date.\n');
+                return;
+            }
+
+            const reqPath = await this._getRequirementsPath();
+            if (reqPath) {
+                // Upgrade the declared set to latest compatible; pins block their
+                // own upgrade and are respected. No write-back (the file stays valid).
+                await this._executeUvInTerminal(
+                    ['pip', 'install', '--upgrade', '-r', reqPath, '--python', this._pythonPath],
+                    token,
+                );
                 return;
             }
 
@@ -260,10 +350,9 @@ export class UvPackageManager implements IPackageManager {
             return false;
         }
 
-        // Check if requirements.txt exists (if so, use pip workflow to avoid sync issues)
-        const requirementsPath = path.join(workspacePath, 'requirements.txt');
-        const requirementsExists = await fileSystem.fileExists(requirementsPath);
-        if (requirementsExists) {
+        // Check if requirements.txt exists (if so, use env workflow to avoid sync issues)
+        const requirementsPath = await this._getRequirementsPath();
+        if (requirementsPath) {
             return false;
         }
 
@@ -437,5 +526,71 @@ export class UvPackageManager implements IPackageManager {
             name: positron.LanguageRuntimeStreamName.Stdout,
             text,
         } as positron.LanguageRuntimeStream);
+    }
+
+    /**
+     * Absolute path to a workspace-root `requirements.txt`, or undefined when
+     * none exists. When present, package operations resolve against it (the
+     * source-of-truth path) instead of a synthesized `uv pip freeze` file.
+     */
+    private async _getRequirementsPath(): Promise<string | undefined> {
+        const workspaceFolder = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService).workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return undefined;
+        }
+        const reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+        const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        return (await fs.fileExists(reqPath)) ? reqPath : undefined;
+    }
+
+    /** Whether write-back to requirements.txt is enabled (default true). */
+    private _isAutoSnapshotEnabled(): boolean {
+        return vscode.workspace.getConfiguration('packages.python').get<boolean>('requirementsAutoSnapshot', true);
+    }
+
+    private async _readRequirements(reqPath: string): Promise<string> {
+        try {
+            return await this._serviceContainer.get<IFileSystem>(IFileSystem).readFile(reqPath);
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * After an operation, confirm it took effect (terminal exit codes are
+     * unreliable), then apply `edit` to requirements.txt and write it back.
+     * `present` is true for install/update (target must now be installed) and
+     * false for uninstall (must now be absent). No-op when write-back is
+     * disabled, the presence check fails, or `edit` makes no change. A write
+     * failure warns but never throws.
+     */
+    private async _confirmAndWriteBack(
+        reqPath: string,
+        name: string,
+        present: boolean,
+        edit: (content: string) => string,
+        token?: vscode.CancellationToken,
+    ): Promise<void> {
+        if (!this._isAutoSnapshotEnabled()) {
+            return;
+        }
+        const installed = await this.getPackages(token);
+        const norm = normalizePackageName(name);
+        const isInstalled = installed.some((p) => normalizePackageName(p.name) === norm);
+        if (isInstalled !== present) {
+            return;
+        }
+        const before = await this._readRequirements(reqPath);
+        const after = edit(before);
+        if (after === before) {
+            return;
+        }
+        try {
+            await this._serviceContainer.get<IFileSystem>(IFileSystem).writeFile(reqPath, after);
+        } catch {
+            vscode.window.showWarningMessage(
+                `Could not update requirements.txt. Your requirements file may be out of date.`,
+            );
+        }
     }
 }
