@@ -11,10 +11,7 @@ import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { Schemas } from '../../../../../base/common/network.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { HistoryNavigator2 } from '../../../../../base/common/history.js';
 import { ISelection } from '../../../../../editor/common/core/selection.js';
@@ -49,6 +46,7 @@ import { IInputHistoryEntry } from '../../../../services/positronHistory/common/
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
 import { createConsoleInputEditorOptions, createConsoleInputLineNumbersOptions, ILineNumbersOptions } from './consoleInputOptions.js';
+import { createConsoleInputModel } from './consoleInputModel.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 
@@ -549,16 +547,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
-			case KeyCode.KeyU: {
-				// Bind Ctrl+U to `deleteAllLeft`
-				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('deleteAllLeft');
-					break;
-				}
-				break;
-			}
-
 			// Tab processing.
 			case KeyCode.Tab: {
 				// If the history browser is active, accept the selected history entry and
@@ -566,26 +554,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (historyBrowserActiveRef.current) {
 					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
-				}
-				break;
-			}
-
-			// Bind Home key to `cursorLineStart` (same as Ctrl+A)
-			case KeyCode.Home: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineStart');
-					break;
-				}
-				break;
-			}
-
-			// Bind End key to `cursorLineEnd` (same as Ctrl+E)
-			case KeyCode.End: {
-				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					consumeEvent();
-					services.commandService.executeCommand('cursorLineEnd');
-					break;
 				}
 				break;
 			}
@@ -722,21 +690,21 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Provide a reference to the code editor.
 		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
-		// Attach the text model. Use a different URI path prefix for
-		// notebook console inputs so that the notebook LSP can match
-		// them via document selectors, while the console LSP skips them.
+		// Create the text model that backs the input editor. This also holds a
+		// model reference for the editor's lifetime so the model can't be disposed
+		// out from under the editor and blank the prompt; see createConsoleInputModel.
 		const languageId = props.positronConsoleInstance.runtimeMetadata.languageId;
 		const isNotebook = props.positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
-		const replPrefix = isNotebook ? 'notebook-repl' : 'repl';
-		codeEditorWidget.setModel(services.modelService.createModel(
-			'',
-			services.languageService.createById(languageId),
-			URI.from({
-				scheme: Schemas.inMemory,
-				path: `/${replPrefix}-${languageId}-${generateUuid()}`
-			}),
-			false
-		));
+		const inputModel = createConsoleInputModel(
+			services.modelService,
+			services.textModelService,
+			services.languageService,
+			languageId,
+			isNotebook,
+			disposableStore
+		);
+
+		codeEditorWidget.setModel(inputModel);
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -791,6 +759,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			// When the user types into the focused input while the console is scrolled up to
+			// view history, scroll the input back into view. This keeps clicking from yanking
+			// the viewport (#11772) while still bringing the cursor's context into view as soon
+			// as the user starts typing (#13991).
+			if (props.positronConsoleInstance.scrollLocked && codeEditorWidget.hasTextFocus()) {
+				codeEditorWidgetContainerRef.current?.scrollIntoView({
+					behavior: 'auto',
+					block: 'end'
+				});
+			}
+
 			// If the history browser is up, update the list of history item matches with the
 			// current match strategy.
 			if (historyBrowserActiveRef.current) {
@@ -848,10 +827,25 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		);
 
 		// Add the onFocusInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+		disposableStore.add(props.positronConsoleInstance.onFocusInput((options) => {
 			// Focus the input editor when the Console takes focus, i.e. when the
-			// user clicks somewhere on the console output
-			codeEditorWidget.focus();
+			// user clicks somewhere on the console output.
+			if (options.preventScroll) {
+				// Focus the editor's editable element directly so the browser does not scroll
+				// it into view, preserving the user's scroll position (#11772). Typing will
+				// scroll the input back into view via onDidChangeModelContent (#13991). The
+				// editable element is a <textarea> or, when the EditContext API is in use (the
+				// Electron default), a .native-edit-context div; both support focus options.
+				const editTarget = codeEditorWidget.getDomNode()
+					?.querySelector<HTMLElement>('textarea, .native-edit-context');
+				if (editTarget) {
+					editTarget.focus({ preventScroll: true });
+				} else {
+					codeEditorWidget.focus();
+				}
+			} else {
+				codeEditorWidget.focus();
+			}
 		}));
 
 		// Add the onDidChangeState event handler.

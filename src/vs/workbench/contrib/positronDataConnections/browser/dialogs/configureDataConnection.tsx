@@ -17,6 +17,7 @@ import { ConfigureDataConnectionParameters } from './configureDataConnectionPara
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
+import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
@@ -243,19 +244,29 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				</div>
 			}
 			footer={
-				<TwoButtonFooter
-					primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
-					secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
-					onPrimaryButton={saveHandler}
-					onSecondaryButton={cancelHandler}
-				/>
+				props.onBack
+					? <ThreeButtonFooter
+						leftButtonTitle={localize('positron.configureDataConnection.back', "Back")}
+						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
+						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						onLeftButton={props.onBack}
+						onPrimaryButton={saveHandler}
+						onSecondaryButton={cancelHandler}
+					/>
+					: <TwoButtonFooter
+						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
+						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						onPrimaryButton={saveHandler}
+						onSecondaryButton={cancelHandler}
+					/>
 			}
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
-				"Configure Data Connection"
+				"Configure Database"
 			)}
-			width={600}
+			titleBarSize='large'
+			width={492}
 			onCancel={cancelHandler}
 			onSubmit={saveHandler}
 		/>

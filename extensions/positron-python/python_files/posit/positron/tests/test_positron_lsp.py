@@ -5,9 +5,14 @@
 
 """Tests for the Positron Language Server (positron_lsp.py)."""
 
+import contextlib
+import gc
 import os
+import socket
+import sys
+import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -1707,3 +1712,114 @@ class TestGetDocumentLine:
         )
         ctx = _get_document_line(server, params)
         assert ctx.line == ""
+
+
+@contextlib.contextmanager
+def _capture_unraisable() -> Iterator[List[str]]:
+    """Capture exceptions reported via sys.unraisablehook (e.g. during GC).
+
+    The "coroutine ignored GeneratorExit" RuntimeError that this module guards
+    against is raised when Python finalizes a suspended coroutine, and is
+    surfaced through the unraisable hook rather than as a normal exception.
+    """
+    messages: List[str] = []
+    original = sys.unraisablehook
+
+    def hook(unraisable: Any) -> None:
+        messages.append(f"{unraisable.exc_type.__name__}: {unraisable.exc_value}")
+
+    sys.unraisablehook = hook
+    try:
+        yield messages
+    finally:
+        sys.unraisablehook = original
+
+
+class TestServerLifecycle:
+    """Tests for starting, stopping, and restarting the language server thread."""
+
+    @staticmethod
+    def _start_ready_server() -> Tuple[PositronLanguageServer, int]:
+        """Start a server and block until it reports ``server_started``."""
+        server = create_server()
+        ready = threading.Event()
+        port_box: Dict[str, int] = {}
+
+        comm = Mock()
+
+        def _send(msg: Dict[str, Any]) -> None:
+            if msg.get("msg_type") == "server_started":
+                port_box["port"] = msg["content"]["port"]
+                ready.set()
+
+        comm.send.side_effect = _send
+
+        server.start(lsp_host="127.0.0.1", shell=Mock(), comm=comm)
+        assert ready.wait(timeout=10), "LSP server did not report server_started"
+        return server, port_box["port"]
+
+    def test_stop_exits_thread_cleanly(self) -> None:
+        """stop() must wake the loop so the server thread actually exits."""
+        with _capture_unraisable() as unraisables:
+            server, _ = self._start_ready_server()
+            thread = server._server_thread  # noqa: SLF001
+
+            server.stop()
+
+            assert thread is not None
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+
+            gc.collect()
+
+        assert server._loop is not None  # noqa: SLF001
+        assert server._loop.is_closed()  # noqa: SLF001
+        assert not any("GeneratorExit" in message for message in unraisables), unraisables
+
+    def test_client_disconnect_shuts_down_cleanly(self) -> None:
+        """A client disconnect tears the loop down without a stray coroutine."""
+        with _capture_unraisable() as unraisables:
+            server, port = self._start_ready_server()
+            thread = server._server_thread  # noqa: SLF001
+
+            # Connecting then closing exercises the lsp_connection teardown
+            # path (run_async returns -> _stop_serving()).
+            client = socket.create_connection(("127.0.0.1", port), timeout=10)
+            client.close()
+
+            assert thread is not None
+            thread.join(timeout=10)
+            assert not thread.is_alive()
+
+            gc.collect()
+
+        assert not any("GeneratorExit" in message for message in unraisables), unraisables
+
+    def test_restart_shuts_down_previous_thread(self) -> None:
+        """Restarting must cleanly stop the previous thread, not orphan it."""
+        with _capture_unraisable() as unraisables:
+            server, _ = self._start_ready_server()
+            first_thread = server._server_thread  # noqa: SLF001
+
+            ready = threading.Event()
+            comm = Mock()
+
+            def _send(msg: Dict[str, Any]) -> None:
+                if msg.get("msg_type") == "server_started":
+                    ready.set()
+
+            comm.send.side_effect = _send
+            server.start(lsp_host="127.0.0.1", shell=Mock(), comm=comm)
+            assert ready.wait(timeout=10), "restarted LSP server did not start"
+
+            assert first_thread is not None
+            assert not first_thread.is_alive()
+
+            server.stop()
+            second_thread = server._server_thread  # noqa: SLF001
+            if second_thread is not None:
+                second_thread.join(timeout=10)
+
+            gc.collect()
+
+        assert not any("GeneratorExit" in message for message in unraisables), unraisables

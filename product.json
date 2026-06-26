@@ -96,10 +96,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.6.5",
+			"version": "2026.7.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "b5b01d809dd07693554c71bc918590a48f07772db340c5849aa316528a0cf830",
+			"sha256": "4653f543e2eb5aa933320b99937a7fcb600ad22a5d7bbbe21cc05a94311b0a0c",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -118,7 +118,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.52.0",
+			"version": "2026.54.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -212,7 +212,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.1.0",
+			"version": "1.1.1",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -253,8 +253,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.133.0",
-			"sha256": "784b52b2bf42f2a73141c04f173d4d36530a6a4831d221c92ec2ad2a5734f068",
+			"version": "1.134.0",
+			"sha256": "df2a4f8e2e68486a9c7e108ebebe2030c098890be9486d930f2303393f5ffbe4",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -269,7 +269,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.24.0",
+			"version": "0.26.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -306,8 +306,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.6.0",
-			"sha256": "e8042fe26298ea24fbe0772079bcd400d794252886b88b889eb68aa3af4092e0",
+			"version": "0.6.1",
+			"sha256": "033bfed7b5df2f284e659508ea90ef827e3cb40dfcc5e4f92027ce31b6750505",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"

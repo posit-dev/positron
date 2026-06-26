@@ -81,6 +81,8 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 */
 	getContent(): string;
 
+	getLineCount(): number;
+
 	/**
 	 * The cell's current code editor widget.
 	 */
@@ -371,6 +373,12 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Show full cell output.
 	 */
 	showFullOutput(): void;
+
+	/**
+	 * Toggle output scrolling, resolving the effective state from the per-cell
+	 * override or the global setting.
+	 */
+	toggleOutputScroll(): void;
 
 	/**
 	 * Reset per-cell output truncation to follow the global setting.

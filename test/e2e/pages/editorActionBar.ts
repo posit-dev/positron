@@ -15,6 +15,7 @@ type EditorActionBarButton =
 	| 'Open in Viewer'
 	| 'Move into new window'
 	| 'Open as Plain Text File'
+	| 'Open as Spreadsheet'
 	| 'Deploy with Posit Publisher'
 	| 'Convert to Code'
 	| 'Clear Column Sorting'

@@ -243,6 +243,16 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 
 	private tryShowOnboarding(): void {
+		// --- Start Positron ---
+		// Never auto-show the upstream onboarding wizard; it's VS Code / Copilot
+		// content that doesn't apply to Positron. See issue #13955. (Typed as
+		// boolean so the upstream body below stays reachable for clean merges.)
+		const suppressOnboarding: boolean = true;
+		if (suppressOnboarding) {
+			return;
+		}
+		// --- End Positron ---
+
 		if (this.environmentService.skipWelcome) {
 			return; // skip welcome flag is set
 		}

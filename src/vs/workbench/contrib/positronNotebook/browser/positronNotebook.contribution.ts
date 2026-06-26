@@ -8,6 +8,7 @@ import './contrib/find/positronNotebookFind.contribution.js';
 import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
+import './contrib/help/NotebookHelpAction.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
@@ -520,7 +521,7 @@ export class AddSelectionUpAction extends NotebookAction2 {
 registerAction2(AddSelectionUpAction);
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
-registerAction2(class extends NotebookAction2 {
+export class EnterEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.edit',
@@ -539,7 +540,8 @@ registerAction2(class extends NotebookAction2 {
 			console.error('Error entering editor:', err);
 		});
 	}
-});
+}
+registerAction2(EnterEditModeAction);
 
 /**
  * Escape key: Exit edit mode when cell editor is focused.
@@ -551,7 +553,7 @@ registerAction2(class extends NotebookAction2 {
  * cell action bars. We should keep both commands in sync
  * to ensure consistent behavior.
  */
-registerAction2(class extends NotebookAction2 {
+export class ExitEditModeAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.quitEdit',
@@ -587,7 +589,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExitEditModeAction);
 
 /**
  * Escape key: Reduce multi-selection to just the active cell when in command mode.
@@ -634,6 +637,216 @@ KeybindingsRegistry.registerKeybindingRule({
 	when: POSITRON_NOTEBOOK_COMMAND_MODE,
 	primary: KeyMod.Shift | KeyCode.KeyZ
 });
+
+// Shift+L: Toggle line numbers in command mode (Jupyter-style)
+export class ToggleLineNumbersAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleLineNumbers',
+			title: localize2('positronNotebook.toggleLineNumbers', "Toggle Line Numbers"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyL
+			},
+			grabFocusOnRun: false
+		});
+	}
+	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+		const configurationService = accessor.get(IConfigurationService);
+		const current = configurationService.getValue<'on' | 'off'>('notebook.lineNumbers') === 'on';
+		configurationService.updateValue('notebook.lineNumbers', current ? 'off' : 'on');
+	}
+}
+registerAction2(ToggleLineNumbersAction);
+
+// 1-6: Change cell to heading level (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading1',
+			title: localize2('positronNotebook.cell.changeToHeading1', "Change Cell to Heading 1"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit1
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(1);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading2',
+			title: localize2('positronNotebook.cell.changeToHeading2', "Change Cell to Heading 2"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit2
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(2);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading3',
+			title: localize2('positronNotebook.cell.changeToHeading3', "Change Cell to Heading 3"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit3
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(3);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading4',
+			title: localize2('positronNotebook.cell.changeToHeading4', "Change Cell to Heading 4"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit4
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(4);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading5',
+			title: localize2('positronNotebook.cell.changeToHeading5', "Change Cell to Heading 5"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit5
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(5);
+	}
+});
+
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToHeading6',
+			title: localize2('positronNotebook.cell.changeToHeading6', "Change Cell to Heading 6"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Digit6
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeToHeading(6);
+	}
+});
+
+// I+I: Interrupt kernel in command mode (Jupyter-style)
+export class InterruptKernelAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.interruptKernel',
+			title: localize2('positronNotebook.interruptKernel', "Interrupt Kernel"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyChord(KeyCode.KeyI, KeyCode.KeyI)
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.interruptKernel();
+	}
+}
+registerAction2(InterruptKernelAction);
+
+// o: Toggle output of selected cell in command mode (Jupyter-style)
+export class ToggleOutputAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutput',
+			title: localize2('positronNotebook.cell.toggleOutput', "Toggle Cell Output"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyO
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputCollapse();
+		}
+	}
+}
+registerAction2(ToggleOutputAction);
+
+// Shift+O: Toggle cell output scrolling in command mode (Jupyter-style)
+export class ToggleOutputScrollAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.toggleOutputScroll',
+			title: localize2('positronNotebook.cell.toggleOutputScroll', "Toggle Cell Output Scrolling"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyO
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		const cell = getActiveCell(state);
+		if (cell?.isCodeCell()) {
+			cell.toggleOutputScroll();
+		}
+	}
+}
+registerAction2(ToggleOutputScrollAction);
+
+// Cmd+A / Ctrl+A: Select all cells in command mode (Jupyter-style)
+export class SelectAllCellsAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.selectAllCells',
+			title: localize2('positronNotebook.selectAllCells', "Select All Cells"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyA
+			}
+		});
+	}
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectAllCells();
+	}
+}
+registerAction2(SelectAllCellsAction);
 
 //#endregion Notebook Commands
 
@@ -1092,7 +1305,7 @@ registerAction2(ViewMarkdownAction);
 // TODO: Improve the context key support so we don't need to have a single command per
 // the keyboard shortcut and can reuse the action bar commands. Cell agnostic
 // "Execute in place" command.
-registerAction2(class extends NotebookAction2 {
+export class ExecuteOrToggleEditorAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeOrToggleEditor',
@@ -1118,7 +1331,8 @@ registerAction2(class extends NotebookAction2 {
 			}
 		}
 	}
-});
+}
+registerAction2(ExecuteOrToggleEditorAction);
 
 
 /**
@@ -1154,7 +1368,7 @@ function executeActiveCell(notebook: IPositronNotebookInstance): IPositronNotebo
 }
 
 // Execute cell and select below
-registerAction2(class extends NotebookAction2 {
+export class ExecuteAndSelectBelowAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeAndSelectBelow',
@@ -1197,7 +1411,8 @@ registerAction2(class extends NotebookAction2 {
 			notebook.selectionStateMachine.moveSelectionDown(false);
 		}
 	}
-});
+}
+registerAction2(ExecuteAndSelectBelowAction);
 
 // Execute cell, insert a new cell below, and focus it (Alt+Enter, Jupyter-style)
 export class ExecuteAndInsertBelowAction extends NotebookAction2 {
@@ -1358,7 +1573,10 @@ export class MoveCellUpAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.UpArrow
+				primary: KeyMod.Alt | KeyCode.UpArrow,
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.UpArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.UpArrow]
 			}
 		});
 	}
@@ -1385,7 +1603,10 @@ export class MoveCellDownAction extends NotebookAction2 {
 			keybinding: {
 				when: NotebookContextKeys.editorFocused,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.DownArrow
+				primary: KeyMod.Alt | KeyCode.DownArrow,
+				// WinCtrl is literal Ctrl on macOS (Cmd on Win/Linux), so both Cmd+Shift
+				// and Ctrl+Shift move cells on macOS, matching JupyterLab's Ctrl+Shift.
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.DownArrow, KeyMod.WinCtrl | KeyMod.Shift | KeyCode.DownArrow]
 			}
 		});
 	}
@@ -1972,7 +2193,7 @@ registerAction2(class extends NotebookAction2 {
 // Register notebook-level actions that appear in the editor action bar
 
 // Run All Cells - Executes all code cells in the notebook
-registerAction2(class extends NotebookAction2 {
+export class RunAllCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.runAllCells',
@@ -2007,7 +2228,7 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		return notebook.runAllCells();
 	}
-});
+}
 
 // Stop All Cells - cancels execution of every running cell.
 registerAction2(class extends NotebookAction2 {
@@ -2048,9 +2269,10 @@ registerAction2(class extends NotebookAction2 {
 		return notebook.runAllCells();
 	}
 });
+registerAction2(RunAllCellsAction);
 
 // Clear All Outputs - Clears outputs from all cells
-registerAction2(class extends NotebookAction2 {
+export class ClearAllOutputsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
@@ -2079,7 +2301,8 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.clearAllCellOutputs();
 	}
-});
+}
+registerAction2(ClearAllOutputsAction);
 
 // Show Console - Opens or focuses the notebook console
 registerAction2(class extends NotebookAction2 {

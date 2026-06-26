@@ -846,4 +846,6 @@ export const codiconsLibrary = {
 	positronDbSchemas: register('positron-db-schemas', 0xf2a4),
 	positronDbTable: register('positron-db-table', 0xf2a5),
 	positronDbTables: register('positron-db-tables', 0xf2a6),
+	positronDbView: register('positron-db-view', 0xf2a7),
+	positronDbViews: register('positron-db-views', 0xf2a8),
 } as const;

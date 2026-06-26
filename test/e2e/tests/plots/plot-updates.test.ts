@@ -52,10 +52,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}).toPass({ timeout: 15000 });
 		});
 
-		test.skip('Python - plot should not be updated after initial appearance', {
-			annotation: {
-				type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13066'
-			},
+		test('Python - plot should not be updated after initial appearance', {
 			tag: [tags.WEB]
 		}, async function ({ app, python }) {
 

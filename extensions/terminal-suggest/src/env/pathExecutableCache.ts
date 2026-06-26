@@ -98,7 +98,16 @@ export class PathExecutableCache implements vscode.Disposable {
 		}
 
 		// Extract executables from PATH
-		const paths = pathValue.split(isWindows ? ';' : ':');
+		// --- Start Positron ---
+		// Dedupe PATH directories. A directory that appears more than once
+		// (common in container PATHs) would otherwise be scanned twice
+		// concurrently below; the shared `labels` set splits that directory's
+		// executables across the two scans, but only the first scan's result is
+		// cached (see the `!this._cachedExes.has(pathDir)` guard), so the rest
+		// are dropped on later calls and the result set is nondeterministic.
+		// The merge loop already dedupes via `processedPaths`; match that here.
+		const paths = Array.from(new Set(pathValue.split(isWindows ? ';' : ':')));
+		// --- End Positron ---
 		const pathSeparator = isWindows ? '\\' : '/';
 		const promisePaths: string[] = [];
 		const promises: Promise<Set<ICompletionResource> | undefined>[] = [];

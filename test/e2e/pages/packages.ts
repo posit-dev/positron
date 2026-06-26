@@ -192,11 +192,10 @@ export class Packages {
 	 * Waits for the Help pane to render content for a package, retrying past the
 	 * help-frame load delay.
 	 * @param expectedText Substring that must appear in the help frame body
-	 * @param helpFrameIndex Index of the help webview to check (0 for the first opened, etc.)
 	 */
-	async expectHelpPaneToContainText(expectedText: string, helpFrameIndex: number): Promise<void> {
+	async expectHelpPaneToContainText(expectedText: string): Promise<void> {
 		await expect(async () => {
-			const helpFrame = await this.help.getHelpFrame(helpFrameIndex);
+			const helpFrame = await this.help.getHelpFrame();
 			await expect(helpFrame.locator('body')).toContainText(expectedText);
 		}).toPass();
 	}

@@ -20,7 +20,7 @@ import { applyTagsToNestedMetadata } from './PositronNotebookCells/cellTagsMetad
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
-import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
+import { BaseCellEditorOptions, DEFAULT_LINE_NUMBERS_MIN_CHARS } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getEditingCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
@@ -37,7 +37,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorun, autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -157,6 +157,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Key-value map of language to base cell editor options for cells of that language.
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+
+	private readonly _lineNumberWidthDisposable = this._register(new MutableDisposable());
 
 	/**
 	 * Cached font information for the notebook editor.
@@ -468,6 +470,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		super();
 
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
+
+		this._register(autorun(reader => {
+			this.cells.read(reader);
+			const textModel = this._textModel.read(reader);
+			this._lineNumberWidthDisposable.clear();
+			if (textModel) {
+				this._lineNumberWidthDisposable.value = textModel.onDidChangeContent(() => this._recomputeLineNumberWidth());
+			}
+			this._recomputeLineNumberWidth();
+		}));
 
 		const { startupPhase } = this._languageRuntimeService;
 		this.kernelStatus = observableValue<NotebookKernelStatus>('positronNotebookKernelStatus', kernelStatusForStartupPhase(startupPhase));
@@ -1466,6 +1478,81 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
+	changeToHeading(level: number): void {
+		this._assertTextModel();
+		const cell = getActiveCell(this.selectionStateMachine.state.get());
+		if (!cell) {
+			return;
+		}
+
+		const cellIndex = cell.index;
+		const cellModel = this.textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		const content = cellModel.getValue();
+		const lines = content.split(/\r?\n/);
+		const firstLine = lines[0] ?? '';
+
+		// Strip existing heading prefix and apply new one
+		const stripped = firstLine.replace(/^#{1,6}\s*/, '');
+		lines[0] = '#'.repeat(level) + ' ' + stripped;
+
+		const newContent = lines.join('\n');
+		const computeUndoRedo = !this.isReadOnly || this.textModel.viewType === 'interactive';
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: cellIndex, end: cellIndex + 1 },
+			selections: [{ start: cellIndex, end: cellIndex + 1 }]
+		};
+
+		// Single atomic edit: converts to markdown (if needed) and sets heading in one operation
+		this.textModel.applyEdits([{
+			editType: CellEditType.Replace,
+			index: cellIndex,
+			count: 1,
+			cells: [{
+				cellKind: CellKind.Markup,
+				language: 'markdown',
+				mime: cellModel.mime,
+				source: newContent,
+				outputs: cellModel.outputs,
+				metadata: cellModel.metadata,
+			}]
+		}], true, undefined, () => endSelections, undefined, computeUndoRedo);
+	}
+
+	interruptKernel(): void {
+		this._assertTextModel();
+		const cells = this.cells.get();
+		const executingCells = cells.filter(cell =>
+			this.notebookExecutionStateService.getCellExecution(cell.uri)
+		);
+		if (executingCells.length > 0) {
+			this.notebookExecutionService.cancelNotebookCells(
+				this.textModel,
+				executingCells.map(c => c.model as NotebookCellTextModel)
+			);
+		}
+	}
+
+	selectAllCells(): void {
+		const cells = this.cells.get();
+		if (cells.length === 0) {
+			return;
+		}
+		if (cells.length === 1) {
+			this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+			return;
+		}
+		// Select the first cell normally, then add all remaining cells
+		this.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
+		for (let i = 1; i < cells.length; i++) {
+			this.selectionStateMachine.selectCell(cells[i], CellSelectionType.Add);
+		}
+	}
+
 	/**
 	 * Splits the currently editing cell at the cursor position(s).
 	 * Supports multi-cursor: each cursor creates an additional split point.
@@ -1917,14 +2004,47 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return existingOptions;
 		}
 
-		const options = new BaseCellEditorOptions({
+		const options = this._register(new BaseCellEditorOptions({
 			onDidChangeModel: this.onDidChangeModel,
 			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
-		}, this.notebookOptions, this.configurationService, language);
+		}, this.notebookOptions, this.configurationService, language));
 		this._baseCellEditorOptions.set(language, options);
+		this._recomputeLineNumberWidth();
 		return options;
+	}
+
+	/**
+	 * Recomputes the line number width for all cell editor options
+	 * based on the maximum line count across all the code cells for
+	 * the notebook instance. This should be called whenever cells
+	 * are added, removed, or their content changes in a way that
+	 * affects the line count, to ensure the line number width is
+	 * the same across all cells regardless of their individual line
+	 * counts.
+	 *
+	 * The line number width is determined by the number of digits in
+	 * the maximum line count, with a minimum of 2 characters.
+	 */
+	private _recomputeLineNumberWidth(): void {
+		// Figure out which cell has the longest line count in this notebook.
+		let maxLineCount = 1;
+		for (const cell of this.cells.get()) {
+			if (cell.isCodeCell()) {
+				maxLineCount = Math.max(maxLineCount, cell.getLineCount());
+			}
+		}
+
+		// Determine the new line number width based off the line count
+		// e.g. if the longest cell has 150 lines, "150" is 3 digits
+		// so every cell reserves 3 characters worth of room for the
+		// line number width.
+		const newLineNumberWidth = Math.max(DEFAULT_LINE_NUMBERS_MIN_CHARS, String(maxLineCount).length);
+		// update each cell's editor options with the new line number width.
+		for (const options of this._baseCellEditorOptions.values()) {
+			(options as BaseCellEditorOptions).setLineNumbersMinChars(newLineNumberWidth);
+		}
 	}
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {

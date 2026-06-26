@@ -7,7 +7,7 @@ import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
+	// The Data Connections panel is a preview feature gated behind `databases.enabled`. This
 	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
 	// read settings copied in at launch rather than the host settings file written at runtime.
 	enableDataConnections: true,
@@ -41,7 +41,7 @@ const actorColumns = [
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
 test.describe('Data Connections - Postgres', {
-	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
 	// Configuring the connection is a one-time, stateful action (re-running the new-connection flow
