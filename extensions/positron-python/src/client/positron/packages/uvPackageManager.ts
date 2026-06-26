@@ -83,7 +83,7 @@ export class UvPackageManager implements IPackageManager {
             const content = buildRequirementsFile(freezeLines, packages);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
-                const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                const args = ['pip', 'install', '--python', this._pythonPath, '-r', tempFile.filePath];
                 await this._executeUvInTerminal(args, token);
             } finally {
                 tempFile.dispose();
@@ -145,7 +145,7 @@ export class UvPackageManager implements IPackageManager {
             const content = buildRequirementsFile(freezeLines, targets);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
-                const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                const args = ['pip', 'install', '--python', this._pythonPath, '-r', tempFile.filePath];
                 await this._executeUvInTerminal(args, token);
             } finally {
                 tempFile.dispose();
@@ -180,7 +180,7 @@ export class UvPackageManager implements IPackageManager {
             const content = buildRequirementsFile(freezeLines, []);
             const tempFile = await this._writeRequirementsTempFile(content);
             try {
-                const args = ['pip', 'install', '--upgrade', '-r', tempFile.filePath, '--python', this._pythonPath];
+                const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, '-r', tempFile.filePath];
                 await this._executeUvInTerminal(args, token);
             } finally {
                 tempFile.dispose();
