@@ -207,6 +207,10 @@ function aggregateFilesByVersion(versions: string[], files: PyPIFile[]): Map<str
             }
             // The character after the version must be a boundary so that, e.g.,
             // `-1.0` does not match inside `-1.05`.
+            // Only `-`, `.`, `+`, or end-of-string count as version boundaries; any
+            // other character (notably a digit) is not a boundary, so a short version
+            // like `1` cannot spuriously match inside a longer token like `-12.0`.
+            // Note: bare numeric-only versions (e.g. "1") are a known minor limitation.
             const after = lower[idx + token.length];
             if (after === undefined || after === '-' || after === '.' || after === '+') {
                 matched = version;

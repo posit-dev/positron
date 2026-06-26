@@ -191,13 +191,13 @@ suite('searchPyPIVersions', () => {
             makeVersionsResponse(
                 ['1.0'],
                 [
-                    { filename: 'pkg-1.0-cp39-none-any.whl', yanked: true },
-                    { filename: 'pkg-1.0.tar.gz', yanked: false },
+                    { filename: 'pkg-1.0-cp39-none-any.whl', yanked: true, 'requires-python': '>=3.12' },
+                    { filename: 'pkg-1.0.tar.gz', yanked: false, 'requires-python': '>=3.7' },
                 ],
             ),
         );
 
-        const result = await searchPyPIVersions('pkg', async () => ({}));
+        const result = await searchPyPIVersions('pkg', async () => ({ '>=3.12': false, '>=3.7': true }));
 
         expect(result).to.deep.equal(['1.0']);
     });
