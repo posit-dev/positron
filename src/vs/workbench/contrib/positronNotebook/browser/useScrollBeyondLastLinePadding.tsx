@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { useEnvironment } from './EnvironmentProvider.js';
+import { IObservable } from '../../../../base/common/observable.js';
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { useObservedValue } from './useObservedValue.js';
+import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 
 /**
  * Returns the paddingBlockEnd value (in pixels) needed to implement scroll-beyond-last-line
@@ -17,24 +17,10 @@ import { useObservedValue } from './useObservedValue.js';
  * Returns undefined when the setting is disabled so CSS controls the default bottom padding.
  */
 export function useScrollBeyondLastLinePadding(
-	configurationService: IConfigurationService,
+	size: IObservable<ISize>,
 ): number | undefined {
-	const { size } = useEnvironment();
 	const { height } = useObservedValue(size);
-
-	const [enabled, setEnabled] = React.useState(
-		() => configurationService.getValue<boolean>('editor.scrollBeyondLastLine')
-	);
-
-	React.useEffect(() => {
-		const disposable = configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('editor.scrollBeyondLastLine')) {
-				setEnabled(configurationService.getValue<boolean>('editor.scrollBeyondLastLine'));
-			}
-		});
-		return () => disposable.dispose();
-	}, [configurationService]);
-
+	const enabled = usePositronConfiguration('editor.scrollBeyondLastLine');
 	if (!enabled) {
 		return undefined;
 	}
