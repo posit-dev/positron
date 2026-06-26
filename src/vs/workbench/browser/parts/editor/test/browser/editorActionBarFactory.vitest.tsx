@@ -142,9 +142,8 @@ describe('EditorActionBarFactory split-button dedup', () => {
 	);
 
 	it('renders the extension preview alone as a plain button', () => {
-		// Baseline (e.g. a markdown file, where core does not contribute): the
-		// extension's editor/title/run Preview renders as a single plain button.
-		// This is what the dedup below collapses away on a .qmd.
+		// Control: with only the extension's editor/title/run contribution and no
+		// core split button, the factory renders a single plain Preview button.
 		const { container } = renderActionBar(new Map<MenuId, [string, IAction[]][]>([
 			[MenuId.EditorTitle, [['navigation', [extensionPreview()]]]],
 		]));
@@ -161,11 +160,10 @@ describe('EditorActionBarFactory split-button dedup', () => {
 	});
 
 	it('collapses the extension and core quarto.preview into a single split button', () => {
-		// On a .qmd both contribute `quarto.preview`. The factory dedups by command
-		// id, so the result is one split button (the core one, with the format
-		// dropdown), not a duplicate plain "Preview" and not a standalone "Preview
-		// Format..." button. This is the behavior Positron relies on instead of a
-		// Quarto extension change to hide its own button.
+		// On a document where both contribute the factory dedups by command id,
+		// so the result is one split button (the core one, with the format dropdown),
+		// not a duplicate plain "Preview" and not a standalone "Preview Format..."
+		// button. This is the behavior Positron relies on.
 		const { container } = renderActionBar(new Map<MenuId, [string, IAction[]][]>([
 			[MenuId.EditorTitle, [['navigation', [extensionPreview()]]]],
 			[MenuId.EditorActionsLeft, [['navigation', [corePreviewSplit()]]]],
