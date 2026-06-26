@@ -19,9 +19,9 @@ Summary:
  * |data.table        |R        |c("data.table","data.frame")               |data.table              |
  */
 
-import { MetricTargetType } from '../../utils/metrics/metric-base.js';
-import { test, tags, expect } from '../_test.setup';
-import { pandasDataFrameScript, polarsDataFrameScript, dplyrScript, normalizeCodeForDisplay } from './helpers/convert-to-code-data.js';
+import { MetricTargetType } from '../../../utils/metrics/metric-base.js';
+import { test, tags, expect } from '../../_test.setup';
+import { pandasDataFrameScript, polarsDataFrameScript, dplyrScript, normalizeCodeForDisplay } from '../helpers/convert-to-code-data.js';
 
 const testCases: {
 	environment: 'Python' | 'R' | 'DuckDB';

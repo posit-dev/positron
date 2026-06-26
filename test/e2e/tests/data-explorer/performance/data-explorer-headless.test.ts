@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
-import { TestTags } from '../../infra';
-import { MetricTargetType } from '../../utils/metrics/index.js';
+import { test, expect, tags } from '../../_test.setup';
+import { TestTags } from '../../../infra';
+import { MetricTargetType } from '../../../utils/metrics/index.js';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 

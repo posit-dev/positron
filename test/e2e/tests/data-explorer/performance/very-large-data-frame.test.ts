@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
-import { downloadFileFromS3, S3FileDownloadOptions } from '../../infra';
+import { test, tags } from '../../_test.setup';
+import { downloadFileFromS3, S3FileDownloadOptions } from '../../../infra';
 import { fail } from 'assert';
 
 test.use({
