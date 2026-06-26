@@ -75,9 +75,35 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        // Re-resolve against the full installed set so the new package can't break
-        // the environment: name every installed package (bare) plus the new
-        // package(s); an inconsistent install fails atomically.
+        const reqPath = await this._getRequirementsPath();
+        if (reqPath) {
+            // Source-of-truth path: resolve against requirements.txt.
+            const base = await this._readRequirements(reqPath);
+            let copy = base;
+            for (const pkg of packages) {
+                copy = pkg.version ? setRequirement(copy, pkg.name, pkg.version) : appendBareIfAbsent(copy, pkg.name);
+            }
+            const tempFile = await this._writeRequirementsTempFile(copy);
+            try {
+                const flags = await this._getInstallFlags();
+                await this._executePipInTerminal(['install', '-r', tempFile.filePath, ...flags], token);
+            } finally {
+                tempFile.dispose();
+            }
+            // Write-back: record each installed package as a bare name if absent.
+            for (const pkg of packages) {
+                await this._confirmAndWriteBack(
+                    reqPath,
+                    pkg.name,
+                    true,
+                    (content) => appendBareIfAbsent(content, pkg.name),
+                    token,
+                );
+            }
+            return;
+        }
+
+        // Fallback: re-resolve against the full installed set (pip freeze).
         const freezeLines = await this._getInstalledFreeze(token);
         const content = buildRequirementsFile(freezeLines, packages);
         const tempFile = await this._writeRequirementsTempFile(content);

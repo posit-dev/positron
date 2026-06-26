@@ -232,4 +232,31 @@ suite('PipPackageManager update Tests', () => {
         );
         expect((fileSystem.writeFile as sinon.SinonStub).called).to.equal(false);
     });
+
+    test('installPackages resolves against requirements.txt when present', async () => {
+        reqExists = true;
+        reqContent = 'flask==2.2.0\n';
+        (session.callMethod as sinon.SinonStub).resolves([{ name: 'cowsay', version: '6.1' }]);
+
+        await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+        // Op copy = requirements.txt with the target pinned, freeze NOT consulted.
+        const tempWrite = (fileSystem.writeFile as sinon.SinonStub)
+            .getCalls()
+            .find((c) => c.args[0] === '/tmp/reqs.txt');
+        expect(tempWrite!.args[1]).to.equal('flask==2.2.0\ncowsay==6.1\n');
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+        // Write-back records a BARE name even though a version was picked.
+        expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==2.2.0\ncowsay\n')).to.equal(true);
+    });
+
+    test('installPackages (no requirements.txt) keeps the freeze fallback', async () => {
+        reqExists = false;
+        await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+        // freeze-derived content still names flask bare + origin verbatim.
+        expect(writtenContent).to.contain('cowsay==6.1');
+        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
+        expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
+    });
 });
