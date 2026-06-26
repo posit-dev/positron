@@ -259,4 +259,46 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
         expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
     });
+
+    test('updatePackages resolves against requirements.txt and bumps an exact pin', async () => {
+        reqExists = true;
+        reqContent = 'flask==2.2.0\nwerkzeug==2.0.3\n';
+        (session.callMethod as sinon.SinonStub).resolves([{ name: 'werkzeug', version: '3.1.8' }]);
+
+        await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+        const tempWrite = (fileSystem.writeFile as sinon.SinonStub)
+            .getCalls()
+            .find((c) => c.args[0] === '/tmp/reqs.txt');
+        expect(tempWrite!.args[1]).to.equal('flask==2.2.0\nwerkzeug==3.1.8\n'); // op copy: only target re-pinned
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+        expect(args).to.not.include('--upgrade');
+        // Write-back bumps the existing exact pin.
+        expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==2.2.0\nwerkzeug==3.1.8\n')).to.equal(
+            true,
+        );
+    });
+
+    test('updatePackages leaves a declared range untouched on write-back', async () => {
+        reqExists = true;
+        reqContent = 'werkzeug>=2,<4\n';
+        (session.callMethod as sinon.SinonStub).resolves([{ name: 'werkzeug', version: '3.1.8' }]);
+
+        await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+        // No write-back edit (range still satisfied) -> requirements.txt not rewritten.
+        expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
+    });
+
+    test('updatePackages still requires a version', async () => {
+        reqExists = true;
+        let threw = false;
+        try {
+            await manager.updatePackages([{ name: 'werkzeug' }]);
+        } catch {
+            threw = true;
+        }
+        expect(threw).to.equal(true);
+    });
 });

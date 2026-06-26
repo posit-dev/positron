@@ -148,10 +148,33 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
-        // Re-resolve against the full installed set: name every package so all
-        // constraints are honored, but only the target is pinned (others are bare
-        // and stay put unless the update forces a change). An inconsistent update
-        // fails atomically instead of silently breaking the environment.
+        const reqPath = await this._getRequirementsPath();
+        if (reqPath) {
+            const base = await this._readRequirements(reqPath);
+            let copy = base;
+            for (const pkg of packages) {
+                copy = setRequirement(copy, pkg.name, pkg.version!);
+            }
+            const tempFile = await this._writeRequirementsTempFile(copy);
+            try {
+                const flags = await this._getInstallFlags();
+                await this._executePipInTerminal(['install', '-r', tempFile.filePath, ...flags], token);
+            } finally {
+                tempFile.dispose();
+            }
+            for (const pkg of packages) {
+                await this._confirmAndWriteBack(
+                    reqPath,
+                    pkg.name,
+                    true,
+                    (content) => recordUpdate(content, pkg.name, pkg.version!),
+                    token,
+                );
+            }
+            return;
+        }
+
+        // Fallback: full-set re-resolve via pip freeze (target pinned).
         const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
         const freezeLines = await this._getInstalledFreeze(token);
         const content = buildRequirementsFile(freezeLines, targets);
