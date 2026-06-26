@@ -40,11 +40,11 @@ test.describe('Posit Assistant Sign-in', {
 					await app.workbench.positAssistant.selectModel('GPT-5.4');
 					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 				} else if (provider === 'ms-foundry') {
-					// Foundry routes through its model router rather than a single
-					// named model. Select it explicitly (matching the workbench
-					// managed-credentials test); `newConversation: false` keeps the
-					// selection instead of resetting to a fresh chat.
-					await app.workbench.positAssistant.selectModel('Model Router');
+					// Foundry doesn't auto-select a default model on desktop, so pick
+					// it explicitly. In the model picker the model is listed under its
+					// provider name, "Microsoft Foundry". `newConversation: false`
+					// keeps the selection instead of resetting to a fresh chat.
+					await app.workbench.positAssistant.selectModel('Microsoft Foundry');
 					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 				} else {
 					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });
