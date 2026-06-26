@@ -208,28 +208,27 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
+        // Source-of-truth path: upgrade the declared set directly. The outdated
+        // list is not consulted here -- the resolver decides what moves.
+        const reqPath = await this._getRequirementsPath();
+        if (reqPath) {
+            const flags = await this._getInstallFlags();
+            await this._executePipInTerminal(['install', '--upgrade', '-r', reqPath, ...flags], token);
+            return;
+        }
+
+        // Fallback: upgrade every installed package (pip freeze). The outdated
+        // check provides the "all up to date" short-circuit for this path.
         let outdatedPackages: Array<{ name: string; latest_version: string }>;
         try {
             outdatedPackages = await this._getOutdatedPackages(token);
         } catch {
             throw new Error('Failed to parse outdated packages list');
         }
-
         if (outdatedPackages.length === 0) {
             this._emitMessage('All packages are up to date.\n');
             return;
         }
-
-        const reqPath = await this._getRequirementsPath();
-        if (reqPath) {
-            // Upgrade the declared set to latest compatible; pins block their own
-            // upgrade and are respected. No write-back (the file stays valid).
-            const flags = await this._getInstallFlags();
-            await this._executePipInTerminal(['install', '--upgrade', '-r', reqPath, ...flags], token);
-            return;
-        }
-
-        // Fallback: upgrade every installed package (pip freeze, bare names).
         const freezeLines = await this._getInstalledFreeze(token);
         const content = buildRequirementsFile(freezeLines, []);
         const tempFile = await this._writeRequirementsTempFile(content);

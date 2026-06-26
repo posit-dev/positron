@@ -246,21 +246,23 @@ export class UvPackageManager implements IPackageManager {
             const args = ['sync', '--upgrade', '--active', '--python', this._pythonPath];
             await this._executeUvInTerminal(args, token);
         } else {
-            const outdatedPackages = await this._getOutdatedPackages(token);
-
-            if (outdatedPackages.length === 0) {
-                this._emitMessage('All packages are up to date.\n');
-                return;
-            }
-
+            // Source-of-truth path: upgrade the declared set directly. The outdated
+            // list is not consulted here -- the resolver decides what moves.
             const reqPath = await this._getRequirementsPath();
             if (reqPath) {
-                // Upgrade the declared set to latest compatible; pins block their
-                // own upgrade and are respected. No write-back (the file stays valid).
                 await this._executeUvInTerminal(
                     ['pip', 'install', '--upgrade', '-r', reqPath, '--python', this._pythonPath],
                     token,
                 );
+                return;
+            }
+
+            // Fallback: upgrade every installed package (uv pip freeze). The outdated
+            // check provides the "all up to date" short-circuit for this path.
+            const outdatedPackages = await this._getOutdatedPackages(token);
+
+            if (outdatedPackages.length === 0) {
+                this._emitMessage('All packages are up to date.\n');
                 return;
             }
 

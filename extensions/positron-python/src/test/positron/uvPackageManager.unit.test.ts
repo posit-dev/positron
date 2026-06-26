@@ -327,7 +327,8 @@ version = "0.1.0"`;
             expect(terminalService.sendCommand.called).to.equal(false);
         });
 
-        test('updateAllPackages writes a bare file and runs pip install --upgrade -r', async () => {
+        test('updateAllPackages writes a bare file and runs pip install --upgrade -r (freeze fallback path)', async () => {
+            // reqExists defaults to false in this suite's setup -- freeze fallback path
             processService.exec
                 .withArgs('uv', sinon.match.array.startsWith(['pip', 'list', '--outdated']))
                 .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
@@ -443,7 +444,7 @@ version = "0.1.0"`;
 
         test('env Update All upgrades against requirements.txt directly', async () => {
             reqExists = true;
-            // ensure outdated list is non-empty per uv's _getOutdatedPackages mock
+            // Do NOT stub list --outdated: the requirements.txt path must skip it entirely.
             await uvPackageManager.updateAllPackages();
             const [, args] = terminalService.sendCommand.firstCall.args;
             expect(args).to.include.members([
@@ -455,6 +456,18 @@ version = "0.1.0"`;
                 '--python',
                 '/path/to/python',
             ]);
+            // _getOutdatedPackages must NOT have been called on this path.
+            const outdatedCalled = (processService.exec as sinon.SinonStub)
+                .getCalls()
+                .some(
+                    (c) =>
+                        c.args[0] === 'uv' &&
+                        Array.isArray(c.args[1]) &&
+                        c.args[1][0] === 'pip' &&
+                        c.args[1][1] === 'list' &&
+                        c.args[1][2] === '--outdated',
+                );
+            expect(outdatedCalled).to.equal(false);
         });
 
         test('env uninstall removes the requirements.txt entry', async () => {

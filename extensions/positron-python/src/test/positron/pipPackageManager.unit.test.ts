@@ -144,7 +144,8 @@ suite('PipPackageManager update Tests', () => {
         expect(threw).to.equal(true);
     });
 
-    test('updateAllPackages writes a bare requirements file and runs install --upgrade -r', async () => {
+    test('updateAllPackages writes a bare requirements file and runs install --upgrade -r (freeze fallback path)', async () => {
+        reqExists = false; // freeze fallback path
         pythonService.execModule
             .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
             .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
@@ -158,7 +159,8 @@ suite('PipPackageManager update Tests', () => {
         expect(args).to.include.members(['install', '--upgrade', '-r', '/tmp/reqs.txt']);
     });
 
-    test('updateAllPackages does nothing when no packages are outdated', async () => {
+    test('updateAllPackages does nothing when no packages are outdated (freeze fallback path)', async () => {
+        reqExists = false; // ensure freeze-fallback path is exercised (not requirements.txt path)
         pythonService.execModule
             .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
             .resolves({ stdout: '[]', stderr: '' });
@@ -170,9 +172,7 @@ suite('PipPackageManager update Tests', () => {
 
     test('updateAllPackages upgrades against requirements.txt directly when present', async () => {
         reqExists = true;
-        pythonService.execModule
-            .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
-            .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+        // Do NOT stub list --outdated: the requirements.txt path must skip it entirely.
 
         await manager.updateAllPackages();
 
@@ -181,6 +181,11 @@ suite('PipPackageManager update Tests', () => {
         // No temp file, no write-back.
         expect((fileSystem.createTemporaryFile as sinon.SinonStub).called).to.equal(false);
         expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
+        // _getOutdatedPackages must NOT have been called on this path.
+        const outdatedCalled = (pythonService.execModule as sinon.SinonStub)
+            .getCalls()
+            .some((c) => Array.isArray(c.args[1]) && c.args[1][0] === 'list' && c.args[1][1] === '--outdated');
+        expect(outdatedCalled).to.equal(false);
     });
 
     test('installPackages names the full installed set and adds the new package', async () => {
