@@ -17,7 +17,7 @@ function setupConfigStubs(values: {
 	positronAssistantGet.withArgs('aiExcludes').returns(values.aiExcludes);
 
 	const nextEditSuggestionsGet = sinon.stub();
-	nextEditSuggestionsGet.withArgs('enable').returns(values.enable);
+	nextEditSuggestionsGet.withArgs('enabled').returns(values.enable);
 
 	// Default the AI main switch on so existing cases exercise the per-file /
 	// per-language logic; the gate has its own dedicated suite. An explicit
@@ -76,7 +76,7 @@ suite('config / isCompletionEnabled', () => {
 		});
 	});
 
-	suite('aiExcludes takes precedence over nextEditSuggestions.enable', () => {
+	suite('aiExcludes takes precedence over nextEditSuggestions.enabled', () => {
 		test('path-style glob (with slash) excludes matching file', () => {
 			setupConfigStubs({
 				aiExcludes: ['**/.env'],
@@ -137,7 +137,7 @@ suite('config / isCompletionEnabled', () => {
 		});
 	});
 
-	suite('nextEditSuggestions.enable fallback ordering', () => {
+	suite('nextEditSuggestions.enabled fallback ordering', () => {
 		// Precedence: language ID > filename glob > '*' wildcard > implicit true.
 		test('aiExcludes short-circuits enable check (blocks even when enable would allow)', () => {
 			setupConfigStubs({

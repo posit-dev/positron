@@ -1,0 +1,96 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.next-edit-suggestions-status-tooltip {
+	margin-top: 4px;
+	margin-bottom: 4px;
+	max-width: 340px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.next-edit-suggestions-status-tooltip div.header {
+	display: flex;
+	align-items: center;
+	font-weight: 600;
+	margin-bottom: 2px;
+}
+
+.next-edit-suggestions-status-tooltip div.header .monaco-action-bar {
+	margin-left: auto;
+}
+
+.next-edit-suggestions-status-tooltip div.description {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.next-edit-suggestions-status-tooltip .settings {
+	display: flex;
+	flex-direction: column;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	gap: 5px;
+}
+
+.next-edit-suggestions-status-tooltip .settings .setting {
+	display: flex;
+	align-items: center;
+}
+
+.next-edit-suggestions-status-tooltip .settings .setting .monaco-checkbox {
+	height: 14px;
+	width: 14px;
+	margin-right: 5px;
+}
+
+.next-edit-suggestions-status-tooltip .settings .setting .setting-label {
+	cursor: pointer;
+}
+
+.next-edit-suggestions-status-tooltip .settings .setting.disabled .setting-label {
+	color: var(--vscode-disabledForeground);
+}
+
+.next-edit-suggestions-status-tooltip .snooze-completions {
+	margin-top: 1px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.next-edit-suggestions-status-tooltip .snooze-completions .monaco-button {
+	width: fit-content;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	text-wrap: nowrap;
+	padding: 2px 8px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.next-edit-suggestions-status-tooltip .snooze-completions .snooze-label {
+	flex: 1;
+	padding-left: 2px;
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.next-edit-suggestions-status-tooltip .snooze-completions.disabled .snooze-label {
+	color: var(--vscode-disabledForeground);
+}
+
+.next-edit-suggestions-status-tooltip .snooze-completions .snooze-action-bar {
+	margin-left: auto;
+}

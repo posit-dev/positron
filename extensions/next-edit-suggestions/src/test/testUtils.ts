@@ -29,6 +29,7 @@ export function makeFakeClientManager(): FakeClientManager {
 
 export function makeLLMConfig(overrides: Partial<LLMConfig> = {}): LLMConfig {
 	return {
+		providerDisplayName: 'Test Provider',
 		modelId: 'qwen3-8b',
 		endpointPath: '/completions/qwen3-8b/predict',
 		accessToken: 'test-token',

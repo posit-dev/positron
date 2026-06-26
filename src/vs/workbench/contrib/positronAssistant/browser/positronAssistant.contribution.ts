@@ -22,6 +22,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -110,3 +111,4 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 }
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
