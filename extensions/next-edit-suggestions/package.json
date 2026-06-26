@@ -46,6 +46,9 @@
 						"markdown": false,
 						"scminput": false
 					},
+					"additionalProperties": {
+                    	"type": "boolean"
+                    },
 					"description": "%configuration.enabled.description%",
 					"tags": [
 						"preview"
