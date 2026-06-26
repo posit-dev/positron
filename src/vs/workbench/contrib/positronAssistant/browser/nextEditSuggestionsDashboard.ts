@@ -9,9 +9,11 @@ import { Gesture, EventType as TouchEventType } from '../../../../base/browser/t
 import { ActionBar } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
 import { Checkbox } from '../../../../base/browser/ui/toggle/toggle.js';
+import { renderLabelWithIcons } from '../../../../base/browser/ui/iconLabel/iconLabels.js';
 import { toAction } from '../../../../base/common/actions.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { parseLinkedText } from '../../../../base/common/linkedText.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { isObject } from '../../../../base/common/types.js';
 import { IInlineCompletionsService } from '../../../../editor/browser/services/inlineCompletionsService.js';
@@ -21,6 +23,8 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IHoverService, nativeHoverDelegate } from '../../../../platform/hover/browser/hover.js';
+import { Link } from '../../../../platform/opener/browser/link.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { defaultButtonStyles, defaultCheckboxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { DomWidget } from '../../../../platform/domWidget/browser/domWidget.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -47,6 +51,9 @@ export const NES_CONTEXT_BUSY = 'nextEditSuggestions.busy';
  * Context key (owned by the extension) that is true when next edit suggestions are enabled for the active file.
  */
 export const NES_CONTEXT_FILE_ENABLED = 'nextEditSuggestions.fileEnabled';
+
+/** Command (owned by the authentication extension) that opens the Configure Language Model Providers modal. */
+const CONFIGURE_PROVIDERS_COMMAND = 'authentication.configureProviders';
 
 /** Shape of the {@link NES_CONTEXT_MODEL} context key value. */
 interface INextEditSuggestionsModel {
@@ -100,6 +107,7 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IHoverService private readonly hoverService: IHoverService,
+		@IOpenerService private readonly openerService: IOpenerService,
 	) {
 		super();
 
@@ -131,7 +139,20 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 		}
 
 		if (!signedIn) {
-			this.element.appendChild($('div.description', undefined, localize('positron.nes.signIn', "Sign in to Posit AI to enable Next Edit Suggestions.")));
+			const description = this.element.appendChild($('div.description'));
+			const signIn = localize('positron.nes.signIn', "[Sign in to Posit AI]({0}) to enable Next Edit Suggestions.", `command:${CONFIGURE_PROVIDERS_COMMAND}`);
+			for (const node of parseLinkedText(signIn).nodes) {
+				if (typeof node === 'string') {
+					description.append(...renderLabelWithIcons(node));
+				} else {
+					disposables.add(new Link(description, node, {
+						opener: href => {
+							void this.openerService.open(href, { allowCommands: [CONFIGURE_PROVIDERS_COMMAND] });
+							this.hoverService.hideHover(true);
+						}
+					}, this.hoverService, this.openerService));
+				}
+			}
 			return;
 		}
 
