@@ -26,6 +26,13 @@ import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
 
 /**
+ * Bound the whole generation: a stalling model (no deltas, no error -- e.g. a
+ * fast/cheap-tier model the gateway lists but can't stream) must not leave the
+ * panel generating forever. Matches the ghost-cell and visualize 30s cap.
+ */
+const GENERATE_SUGGESTIONS_TIMEOUT_MS = 30_000;
+
+/**
  * PredefinedAction interface.
  */
 interface PredefinedAction {
@@ -149,6 +156,15 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 		const cancellationTokenSource = new CancellationTokenSource();
 		cancellationTokenSourceRef.current = cancellationTokenSource;
 
+		// Cancel the request if the model stalls, so the panel fails visibly
+		// instead of spinning forever. Any suggestions that already streamed in
+		// are kept (they were reported via setAiSuggestions).
+		let timedOut = false;
+		const timeoutHandle = setTimeout(() => {
+			timedOut = true;
+			cancellationTokenSource.cancel();
+		}, GENERATE_SUGGESTIONS_TIMEOUT_MS);
+
 		try {
 			const modelSetting = configurationService.getValue<string[]>(NOTEBOOK_SUGGESTIONS_MODEL_KEY);
 			const suggestions = await generateNotebookSuggestions(
@@ -160,6 +176,11 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			);
 
 			if (cancellationTokenSource.token.isCancellationRequested) {
+				// A timeout with nothing to show is a silent stall; tell the user.
+				// A user-initiated cancel (regenerate / close) stays silent.
+				if (timedOut && suggestions.length === 0) {
+					notifyNoSuggestions();
+				}
 				return;
 			}
 
@@ -179,6 +200,8 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 				);
 			}
 		} finally {
+			clearTimeout(timeoutHandle);
+			cancellationTokenSource.dispose();
 			setIsGenerating(false);
 			cancellationTokenSourceRef.current = null;
 		}

@@ -6,8 +6,9 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CancellationToken } from '../../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -85,5 +86,36 @@ describe('AssistantPanelActions AI gate', () => {
 		await clickGenerate();
 		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();
 		expect(notificationService.info).toHaveBeenCalledTimes(1);
+	});
+
+	it('stops generating and notifies when the model stalls past the timeout', async () => {
+		vi.useFakeTimers();
+		try {
+			// Simulate a stalling model: the generator resolves with nothing only
+			// once its request token is cancelled, mirroring the parser returning
+			// what it has when the timeout fires.
+			mockGenerateNotebookSuggestions.mockImplementation(
+				(_service, _context, _model, token: CancellationToken) =>
+					new Promise(resolve => {
+						const listener = token.onCancellationRequested(() => {
+							listener.dispose();
+							resolve([]);
+						});
+					})
+			);
+			renderActions();
+			// fireEvent (not userEvent) because userEvent's internal timers do not
+			// advance cleanly under vi.useFakeTimers(), which this test needs to
+			// cross the generation timeout without a 30s real-time wait.
+			// eslint-disable-next-line testing-library/prefer-user-event -- fake timers
+			fireEvent.click(screen.getByRole('button', { name: /Generate AI Suggestions/ }));
+
+			// Cross the 30s generation cap; the timeout cancels the stalled request.
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			expect(notificationService.info).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
