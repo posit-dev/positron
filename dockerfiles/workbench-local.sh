@@ -50,7 +50,7 @@ wb_schedule_ttl() {
 # Tell the user about the scheduled auto-stop (or stay quiet if disabled).
 wb_print_ttl() {
 	[ "${1:-0}" -gt 0 ] 2>/dev/null || return 0
-	echo "FYI: The stack auto-stops in ${1} min ('npm run pwb' resets, '--no-ttl' disables)."
+	echo "FYI: The stack auto-stops in ${1} min. Run 'npm run pwb --no-ttl' to disable auto-stop."
 }
 
 # Heuristic: true when the Docker config mentions ghcr.io at all (an `auths`
@@ -398,6 +398,7 @@ cmd_up() {
 		return 0
 	fi
 	cmd_install ${passthru[@]+"${passthru[@]}"}
+	wb_ensure_workbench
 	wb_schedule_ttl "$ttl"
 	wb_print_ttl "$ttl"
 }
