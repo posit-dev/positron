@@ -14,6 +14,7 @@ import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { OneButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
@@ -697,6 +698,11 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			}
 			contentMaxHeight={600}
 			contentMinHeight={200}
+			// A footer Close button gives an explicit way out (Escape also works). onSubmit is
+			// intentionally not wired: unlike the read-only Help/Ghost Cell dialogs, this panel has
+			// interactive controls, and Enter-to-submit would dismiss it from any focused input. The
+			// autofocused Close button still closes on Enter via the Button's own key handling.
+			footer={<OneButtonFooter buttonTitle={closeButtonLabel} onButton={handleClose} />}
 			renderer={renderer}
 			title={panelTitle}
 			width={480}
