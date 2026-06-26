@@ -8,6 +8,7 @@ import { Action2, isIMenuItem, MenuId, MenuRegistry, registerAction2 } from '../
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../../platform/quickinput/common/quickInput.js';
@@ -76,12 +77,17 @@ interface INotebookCommandPickItem extends IQuickPickItem {
 
 /**
  * Collect the command ids to show: every `positronNotebook.` command in the
- * command palette, minus this picker's own command.
+ * command palette, minus this picker's own command. Commands are filtered by
+ * their palette `when` clause so the picker never surfaces (or runs) a command
+ * the palette itself would hide -- notably AI commands gated on `ai.enabled`,
+ * whose CommandPalette `when` is the action's precondition.
  */
-function collectNotebookCommandIds(): string[] {
+function collectNotebookCommandIds(contextKeyService: IContextKeyService): string[] {
 	const ids = new Set<string>();
 	for (const item of MenuRegistry.getMenuItems(MenuId.CommandPalette)) {
-		if (isIMenuItem(item) && item.command.id.startsWith(POSITRON_NOTEBOOK_COMMAND_PREFIX)) {
+		if (isIMenuItem(item)
+			&& item.command.id.startsWith(POSITRON_NOTEBOOK_COMMAND_PREFIX)
+			&& contextKeyService.contextMatchesRules(item.when)) {
 			ids.add(item.command.id);
 		}
 	}
@@ -96,9 +102,9 @@ function collectNotebookCommandIds(): string[] {
  * item, then emit them under their group's separator in `COMMAND_GROUPS` order,
  * sorted by label within each group, with any leftovers under "Other".
  */
-function buildNotebookCommandPickItems(keybindingService: IKeybindingService): QuickPickInput<INotebookCommandPickItem>[] {
+function buildNotebookCommandPickItems(keybindingService: IKeybindingService, contextKeyService: IContextKeyService): QuickPickInput<INotebookCommandPickItem>[] {
 	const itemsById = new Map<string, INotebookCommandPickItem>();
-	for (const commandId of collectNotebookCommandIds()) {
+	for (const commandId of collectNotebookCommandIds(contextKeyService)) {
 		const command = MenuRegistry.getCommand(commandId);
 		if (!command) {
 			continue;
@@ -141,13 +147,14 @@ export function showNotebookCommandsQuickPick(
 	quickInputService: IQuickInputService,
 	commandService: ICommandService,
 	keybindingService: IKeybindingService,
+	contextKeyService: IContextKeyService,
 ): void {
 	const store = new DisposableStore();
 	const quickPick = store.add(quickInputService.createQuickPick<INotebookCommandPickItem>({ useSeparators: true }));
 	// Keep our group order; the picker otherwise re-sorts items alphabetically.
 	quickPick.sortByLabel = false;
 	quickPick.placeholder = localize('positron.notebookCommands.placeholder', "Select a notebook command to run");
-	quickPick.items = buildNotebookCommandPickItems(keybindingService);
+	quickPick.items = buildNotebookCommandPickItems(keybindingService, contextKeyService);
 	store.add(quickPick.onDidAccept(() => {
 		const selected = quickPick.selectedItems[0];
 		if (selected) {
@@ -176,6 +183,7 @@ class ShowNotebookCommandsAction extends Action2 {
 			accessor.get(IQuickInputService),
 			accessor.get(ICommandService),
 			accessor.get(IKeybindingService),
+			accessor.get(IContextKeyService),
 		);
 	}
 }

@@ -8,6 +8,7 @@
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { ContextKeyExpr, ContextKeyExpression, IContext, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -25,12 +26,23 @@ describe('showNotebookCommandsQuickPick', () => {
 	let pick: TestQuickPick<ICommandPickItem>;
 	const executeCommand = vi.fn(() => Promise.resolve(undefined));
 
+	// Drives the picker's palette-`when` filtering: contextMatchesRules evaluates
+	// each item's clause against these values, so a test can flip a key (e.g.
+	// ai.enabled) and assert a gated command appears or hides.
+	const contextValues = new Map<string, unknown>();
+	const testContext: IContext = {
+		getValue: <T,>(key: string): T | undefined => contextValues.get(key) as T | undefined,
+	};
+
 	const ctx = createTestContainer()
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
 			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
 		}))
 		.stub(ICommandService, { executeCommand })
 		.stub(IKeybindingService, { lookupKeybinding: () => undefined })
+		.stub(IContextKeyService, stubInterface<IContextKeyService>({
+			contextMatchesRules: (rules?: ContextKeyExpression) => rules ? rules.evaluate(testContext) : true,
+		}))
 		.build();
 
 	let registrations: DisposableStore;
@@ -38,6 +50,7 @@ describe('showNotebookCommandsQuickPick', () => {
 	beforeEach(() => {
 		pick = ctx.disposables.add(new TestQuickPick<ICommandPickItem>());
 		registrations = new DisposableStore();
+		contextValues.clear();
 		// A palette command under the positronNotebook. prefix -> included.
 		register('positronNotebook.testAuto', 'Test Auto Command');
 		// A palette command without the prefix -> excluded.
@@ -53,13 +66,14 @@ describe('showNotebookCommandsQuickPick', () => {
 			ctx.get(IQuickInputService),
 			ctx.get(ICommandService),
 			ctx.get(IKeybindingService),
+			ctx.get(IContextKeyService),
 		);
 	}
 
-	/** Register a palette command under the test's lifecycle. */
-	function register(id: string, title: string): void {
+	/** Register a palette command under the test's lifecycle, optionally gated by a `when`. */
+	function register(id: string, title: string, when?: ContextKeyExpression): void {
 		registrations.add(MenuRegistry.addCommand({ id, title }));
-		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id, title } }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id, title }, when }));
 	}
 
 	function items(): ICommandPickItem[] {
@@ -87,6 +101,22 @@ describe('showNotebookCommandsQuickPick', () => {
 		expect(ids).toContain('positronNotebook.testAuto');
 		expect(ids).not.toContain('notebook.testOther');
 		pick.cancel(); // close the picker so its DisposableStore is released
+	});
+
+	it('hides a palette command whose `when` is unsatisfied (e.g. ai.enabled off)', () => {
+		register('positronNotebook.testGated', 'Gated Command', ContextKeyExpr.has('config.ai.enabled'));
+		contextValues.set('config.ai.enabled', false);
+		run();
+		expect(items().map(i => i.commandId)).not.toContain('positronNotebook.testGated');
+		pick.cancel();
+	});
+
+	it('shows the same command once its `when` is satisfied', () => {
+		register('positronNotebook.testGated', 'Gated Command', ContextKeyExpr.has('config.ai.enabled'));
+		contextValues.set('config.ai.enabled', true);
+		run();
+		expect(items().map(i => i.commandId)).toContain('positronNotebook.testGated');
+		pick.cancel();
 	});
 
 	it('excludes the picker\'s own command', () => {
