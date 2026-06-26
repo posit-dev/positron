@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { randomUUID } from 'crypto';
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { IWorkspaceService } from '../../common/application/types';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { IFileSystem } from '../../common/platform/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
@@ -13,7 +15,14 @@ import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
-import { buildRequirementsFile } from './requirementsFile';
+import {
+    appendBareIfAbsent,
+    buildRequirementsFile,
+    normalizePackageName,
+    recordUpdate,
+    removeRequirement,
+    setRequirement,
+} from './requirementsFile';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -354,5 +363,71 @@ export class PipPackageManager implements IPackageManager {
             name: positron.LanguageRuntimeStreamName.Stdout,
             text,
         } as positron.LanguageRuntimeStream);
+    }
+
+    /**
+     * Absolute path to a workspace-root `requirements.txt`, or undefined when
+     * none exists. When present, package operations resolve against it (the
+     * source-of-truth path) instead of a synthesized `pip freeze` file.
+     */
+    private async _getRequirementsPath(): Promise<string | undefined> {
+        const workspaceFolder = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService).workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return undefined;
+        }
+        const reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+        const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        return (await fs.fileExists(reqPath)) ? reqPath : undefined;
+    }
+
+    /** Whether write-back to requirements.txt is enabled (default true). */
+    private _isAutoSnapshotEnabled(): boolean {
+        return vscode.workspace.getConfiguration('packages.python').get<boolean>('requirementsAutoSnapshot', true);
+    }
+
+    private async _readRequirements(reqPath: string): Promise<string> {
+        try {
+            return await this._serviceContainer.get<IFileSystem>(IFileSystem).readFile(reqPath);
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * After an operation, confirm it took effect (terminal exit codes are
+     * unreliable), then apply `edit` to requirements.txt and write it back.
+     * `present` is true for install/update (target must now be installed) and
+     * false for uninstall (must now be absent). No-op when write-back is
+     * disabled, the presence check fails, or `edit` makes no change. A write
+     * failure warns but never throws.
+     */
+    private async _confirmAndWriteBack(
+        reqPath: string,
+        name: string,
+        present: boolean,
+        edit: (content: string) => string,
+        token?: vscode.CancellationToken,
+    ): Promise<void> {
+        if (!this._isAutoSnapshotEnabled()) {
+            return;
+        }
+        const installed = await this.getPackages(token);
+        const norm = normalizePackageName(name);
+        const isInstalled = installed.some((p) => normalizePackageName(p.name) === norm);
+        if (isInstalled !== present) {
+            return;
+        }
+        const before = await this._readRequirements(reqPath);
+        const after = edit(before);
+        if (after === before) {
+            return;
+        }
+        try {
+            await this._serviceContainer.get<IFileSystem>(IFileSystem).writeFile(reqPath, after);
+        } catch {
+            vscode.window.showWarningMessage(
+                `Could not update requirements.txt. Your requirements file may be out of date.`,
+            );
+        }
     }
 }

@@ -13,6 +13,7 @@ import * as positron from 'positron';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
 import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IFileSystem } from '../../client/common/platform/types';
+import { IWorkspaceService } from '../../client/common/application/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PipPackageManager } from '../../client/positron/packages/pipPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
@@ -26,8 +27,16 @@ suite('PipPackageManager update Tests', () => {
     let serviceContainer: IServiceContainer;
     let pythonService: { isModuleInstalled: sinon.SinonStub; execModule: sinon.SinonStub };
     let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
-    let fileSystem: { createTemporaryFile: sinon.SinonStub; writeFile: sinon.SinonStub };
+    let fileSystem: {
+        createTemporaryFile: sinon.SinonStub;
+        writeFile: sinon.SinonStub;
+        fileExists: sinon.SinonStub;
+        readFile: sinon.SinonStub;
+    };
     let writtenContent: string;
+    let workspaceService: { workspaceFolders: Array<{ uri: { fsPath: string } }> | undefined };
+    let reqExists: boolean;
+    let reqContent: string;
     let messageEmitter: MessageEmitter;
     let session: PackageSession;
     let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
@@ -49,6 +58,8 @@ suite('PipPackageManager update Tests', () => {
             sendText: sinon.stub().resolves(),
         };
 
+        reqExists = false;
+        reqContent = '';
         writtenContent = '';
         fileSystem = {
             createTemporaryFile: sinon.stub().resolves({ filePath: '/tmp/reqs.txt', dispose: sinon.stub() }),
@@ -56,7 +67,13 @@ suite('PipPackageManager update Tests', () => {
                 writtenContent = text;
                 return Promise.resolve();
             }),
-        };
+            fileExists: sinon
+                .stub()
+                .callsFake((p: string) => Promise.resolve(p.endsWith('requirements.txt') ? reqExists : false)),
+            readFile: sinon.stub().callsFake(() => Promise.resolve(reqContent)),
+        } as any;
+
+        workspaceService = { workspaceFolders: [{ uri: { fsPath: '/work' } }] };
 
         // Assign getConfiguration so _getProxyFlags() gets a real WorkspaceConfiguration-like
         // object (vscode.workspace is a ts-mockito instance; sinon.stub won't work on it).
@@ -75,7 +92,9 @@ suite('PipPackageManager update Tests', () => {
             .withArgs(ITerminalServiceFactory)
             .returns(terminalFactory)
             .withArgs(IFileSystem)
-            .returns(fileSystem);
+            .returns(fileSystem)
+            .withArgs(IWorkspaceService)
+            .returns(workspaceService);
 
         messageEmitter = { fire: sinon.stub() };
         session = { metadata: { sessionId: 'test' }, callMethod: sinon.stub().resolves([]) };
@@ -176,5 +195,41 @@ suite('PipPackageManager update Tests', () => {
             threw = true;
         }
         expect(threw).to.equal(true);
+    });
+
+    test('_getRequirementsPath finds a root requirements.txt when present', async () => {
+        reqExists = true;
+        // Access the private helper through an `any` cast (no public surface yet).
+        const p = await (manager as any)._getRequirementsPath();
+        expect(p).to.equal('/work/requirements.txt');
+    });
+
+    test('_getRequirementsPath returns undefined when absent', async () => {
+        reqExists = false;
+        const p = await (manager as any)._getRequirementsPath();
+        expect(p).to.equal(undefined);
+    });
+
+    test('_confirmAndWriteBack writes the edited content when the package is present', async () => {
+        reqContent = 'flask==1.0\n';
+        (session.callMethod as sinon.SinonStub).resolves([{ name: 'requests', version: '2.31.0' }]);
+        await (manager as any)._confirmAndWriteBack(
+            '/work/requirements.txt',
+            'requests',
+            true,
+            (c: string) => c + 'requests\n',
+        );
+        expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==1.0\nrequests\n')).to.equal(true);
+    });
+
+    test('_confirmAndWriteBack skips the write when presence check fails', async () => {
+        (session.callMethod as sinon.SinonStub).resolves([]); // requests not installed
+        await (manager as any)._confirmAndWriteBack(
+            '/work/requirements.txt',
+            'requests',
+            true,
+            (c: string) => c + 'requests\n',
+        );
+        expect((fileSystem.writeFile as sinon.SinonStub).called).to.equal(false);
     });
 });
