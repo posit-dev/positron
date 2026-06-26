@@ -267,19 +267,19 @@ def test_best_package_url(headers: Dict[str, Any], expected_url: Any) -> None:
         ("not-a-real-spec", True),  # malformed -> conservative, do not hide
     ],
 )
-def test_check_requires_python(spec: str, expected: bool) -> None:  # noqa: FBT001
+def test_check_requires_python(kernel: PositronIPyKernel, spec: str, expected: bool) -> None:  # noqa: FBT001
     """Each spec is evaluated against the running interpreter (any Python 3.x)."""
     from positron.ui import _check_requires_python
 
-    result = _check_requires_python(None, [[spec]])
+    result = _check_requires_python(kernel, [[spec]])
 
     assert result == {spec: expected}
 
 
-def test_check_requires_python_multiple_specs() -> None:
+def test_check_requires_python_multiple_specs(kernel: PositronIPyKernel) -> None:
     from positron.ui import _check_requires_python
 
-    result = _check_requires_python(None, [[">=3.0", ">=99.0"]])
+    result = _check_requires_python(kernel, [[">=3.0", ">=99.0"]])
 
     assert result == {">=3.0": True, ">=99.0": False}
 
