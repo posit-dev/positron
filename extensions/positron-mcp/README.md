@@ -16,6 +16,10 @@ This extension exposes Positron's runtime sessions and variable data through a s
 - **`foreground-session`** - Returns information about the active runtime session (R, Python, etc.)
 - **`get-variables`** - Returns all variables from the active session with their types, values, and metadata
 - **`get-time`** - Returns current ISO timestamp
+- **`notebook-read`** - Read cells of the active Positron notebook, optionally including text outputs
+- **`notebook-edit`** - Insert, update, or delete a cell in the active notebook (optionally running an inserted code cell)
+- **`notebook-run-cells`** - Execute cells in the active notebook and return their text outputs
+- **`notebook-create`** - Create a new `.ipynb` notebook with a Python or R kernel and open it
 
 ### Key Benefits
 

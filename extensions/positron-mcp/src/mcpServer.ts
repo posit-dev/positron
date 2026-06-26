@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import express, { Request, Response } from 'express';
 import { Server } from 'node:http';
+import * as path from 'node:path';
 import { getLogger } from './logger';
 import { MinimalSecurityMiddleware, loadSecurityConfig } from './security.positron';
 
@@ -52,6 +53,36 @@ const EXECUTION_MODES: Record<string, positron.RuntimeCodeExecutionMode> = {
 	'transient': positron.RuntimeCodeExecutionMode.Transient,
 	'silent': positron.RuntimeCodeExecutionMode.Silent,
 };
+
+/** Jupyter kernelspecs for notebooks created via the notebook-create tool. */
+const KERNELSPECS: Record<string, { display_name: string; language: string; name: string }> = {
+	python: { display_name: 'Python 3', language: 'python', name: 'python3' },
+	r: { display_name: 'R', language: 'R', name: 'ir' },
+};
+
+/** Cell-output MIME types whose data is plain text worth returning to the client. */
+const TEXT_OUTPUT_MIMES = new Set([
+	'text/plain',
+	'application/vnd.code.notebook.stdout',
+	'application/vnd.code.notebook.stderr',
+	'application/vnd.code.notebook.error',
+	'application/x.notebook.stdout',
+	'application/x.notebook.stderr',
+	'application/x.notebook.error',
+	'application/x.notebook.stream',
+]);
+
+const MAX_NOTEBOOK_OUTPUT = 8 * 1024;
+
+function isTextOutputMime(mimeType: string): boolean {
+	return TEXT_OUTPUT_MIMES.has(mimeType.split(';')[0].trim().toLowerCase());
+}
+
+function truncateOutput(text: string): string {
+	return text.length > MAX_NOTEBOOK_OUTPUT
+		? text.slice(0, MAX_NOTEBOOK_OUTPUT) + '\n\n[output truncated]'
+		: text;
+}
 
 function parsePort(): number {
 	const DEFAULT_PORT = 43123;
@@ -224,6 +255,59 @@ export class McpServer implements vscode.Disposable {
 				},
 				run: async (args) => JSON.stringify(await this.describeWorkspace(args)),
 			},
+			{
+				name: 'notebook-read',
+				description: 'Read cells of the active Positron notebook. Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						cellIndices: { type: 'array', items: { type: 'integer' }, description: '0-based cell indices to read. If omitted, reads all cells.' },
+						includeOutputs: { type: 'boolean', default: false, description: 'Include the text outputs of executed code cells.' },
+					},
+				},
+				run: (args) => this.readNotebook(args),
+			},
+			{
+				name: 'notebook-edit',
+				description: 'Edit the active Positron notebook: insert a new cell (optionally running it), update an existing cell\'s content, or delete a cell.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						editMode: { type: 'string', enum: ['insert', 'update', 'delete'], description: 'The kind of edit to make.' },
+						cellIndex: { type: 'integer', description: '0-based index. Required for update and delete. For insert, the position to insert at (omit to append at the end).' },
+						content: { type: 'string', description: 'Cell content. Required for insert and update.' },
+						cellType: { type: 'string', enum: ['code', 'markdown'], description: 'Cell type. Required for insert.' },
+						run: { type: 'boolean', default: false, description: 'If inserting a code cell, execute it immediately and return its output.' },
+					},
+					required: ['editMode'],
+				},
+				run: (args) => this.editNotebook(args),
+			},
+			{
+				name: 'notebook-run-cells',
+				description: 'Execute one or more cells in the active Positron notebook and return their text outputs.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						cellIndices: { type: 'array', items: { type: 'integer' }, description: '0-based cell indices to execute.' },
+					},
+					required: ['cellIndices'],
+				},
+				run: (args) => this.runNotebookCells(args),
+			},
+			{
+				name: 'notebook-create',
+				description: 'Create a new Jupyter notebook (.ipynb) with the given language kernel and open it in the editor. The notebook starts empty - use notebook-edit to add cells.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						path: { type: 'string', description: 'Path for the new notebook, relative to the workspace root (must end in .ipynb).' },
+						language: { type: 'string', enum: ['python', 'r'], description: 'The kernel language for the notebook.' },
+					},
+					required: ['path', 'language'],
+				},
+				run: (args) => this.createNotebook(args),
+			},
 		];
 	}
 
@@ -284,11 +368,7 @@ export class McpServer implements vscode.Disposable {
 	private async executeCodeTool(args: { languageId: string; code: string; options?: ExecOptions }): Promise<string> {
 		const { languageId, code, options = {} } = args;
 
-		const consented = await this.securityMiddleware.checkCodeExecutionConsent(languageId, code);
-		if (!consented) {
-			this.logger.warn('Security', 'Code execution denied by user');
-			throw new ToolError(-32001, 'Code execution denied by user');
-		}
+		await this.requireExecutionConsent(languageId, code);
 
 		if (!languageId?.trim()) {
 			throw new Error('languageId is required');
@@ -377,6 +457,225 @@ export class McpServer implements vscode.Disposable {
 			result.configuration = configData;
 		}
 		return result;
+	}
+
+	private async requireExecutionConsent(languageId: string, code: string): Promise<void> {
+		const consented = await this.securityMiddleware.checkCodeExecutionConsent(languageId, code);
+		if (!consented) {
+			this.logger.warn('Security', 'Code execution denied by user');
+			throw new ToolError(-32001, 'Code execution denied by user');
+		}
+	}
+
+	private async collectCellOutputText(uri: string, cellIndices: number[]): Promise<string> {
+		let text = '';
+		for (const index of cellIndices) {
+			const outputs = await positron.notebooks.getCellOutputs(uri, index);
+			if (outputs.length === 0) {
+				text += `Cell ${index}: (no output)\n`;
+				continue;
+			}
+			text += `Cell ${index}:\n`;
+			for (const output of outputs) {
+				if (output.mimeType.startsWith('image/')) {
+					text += `[image output: ${output.mimeType}]\n`;
+				} else if (isTextOutputMime(output.mimeType)) {
+					text += output.data + '\n';
+				}
+			}
+		}
+		return truncateOutput(text);
+	}
+
+	private async readNotebook(args: { cellIndices?: number[]; includeOutputs?: boolean }): Promise<string> {
+		const context = await positron.notebooks.getContext();
+		if (!context) {
+			return 'No notebook is open in the editor. Open a notebook, then try again.';
+		}
+		const { cellIndices, includeOutputs = false } = args;
+
+		const allCells = await positron.notebooks.getCells(context.uri);
+		if (allCells.length === 0) {
+			return 'The active notebook is empty (0 cells).';
+		}
+
+		const cells = cellIndices ? allCells.filter(c => cellIndices.includes(c.index)) : allCells;
+		if (cells.length === 0) {
+			return `No cells found at the requested indices. The notebook has ${allCells.length} cells (indices 0-${allCells.length - 1}).`;
+		}
+
+		let output = `Notebook: ${context.uri}\nTotal cells: ${allCells.length}`;
+		if (cellIndices) {
+			output += ` (showing ${cells.length})`;
+		}
+		output += '\n\n';
+
+		for (const cell of cells) {
+			const isCode = cell.type === positron.notebooks.NotebookCellType.Code;
+			const status = cell.executionStatus ? ` [${cell.executionStatus}]` : '';
+			output += `Cell ${cell.index} [${isCode ? 'CODE' : 'MARKDOWN'}]${status}\n${cell.content}\n\n`;
+			if (includeOutputs && isCode && cell.hasOutput) {
+				const outputs = await positron.notebooks.getCellOutputs(context.uri, cell.index);
+				for (const o of outputs) {
+					if (isTextOutputMime(o.mimeType)) {
+						output += `Output:\n${o.data}\n\n`;
+					}
+				}
+			}
+		}
+		return truncateOutput(output.trimEnd());
+	}
+
+	private async editNotebook(args: { editMode: string; cellIndex?: number; content?: string; cellType?: string; run?: boolean }): Promise<string> {
+		const context = await positron.notebooks.getContext();
+		if (!context) {
+			return 'No notebook is open in the editor. Open a notebook, then try again.';
+		}
+		const uri = context.uri;
+		const { editMode, cellIndex, content, cellType, run = false } = args;
+
+		switch (editMode) {
+			case 'insert': {
+				if (!cellType) {
+					throw new Error('cellType is required for insert mode');
+				}
+				if (content === undefined) {
+					throw new Error('content is required for insert mode');
+				}
+
+				const runCell = run && cellType === 'code';
+				if (runCell) {
+					await this.requireExecutionConsent(context.kernelLanguage ?? 'code', content);
+				}
+
+				const cells = await positron.notebooks.getCells(uri);
+				const insertIndex = cellIndex ?? cells.length;
+				const type = cellType === 'code'
+					? positron.notebooks.NotebookCellType.Code
+					: positron.notebooks.NotebookCellType.Markdown;
+
+				const newCellId = await positron.notebooks.addCell(uri, type, insertIndex, content);
+				await positron.notebooks.scrollToCellIfNeeded(uri, insertIndex);
+
+				if (runCell) {
+					try {
+						await positron.notebooks.runCells(uri, [insertIndex]);
+						const outputText = await this.collectCellOutputText(uri, [insertIndex]);
+						return `Inserted and ran code cell at index ${insertIndex} (id: ${newCellId}).\n\nOutput:\n${outputText}`;
+					} catch (error) {
+						return `Inserted code cell at index ${insertIndex} (id: ${newCellId}), but execution failed: ${error instanceof Error ? error.message : String(error)}`;
+					}
+				}
+				return `Inserted ${cellType} cell at index ${insertIndex} (id: ${newCellId}).`;
+			}
+
+			case 'update': {
+				if (cellIndex === undefined) {
+					throw new Error('cellIndex is required for update mode');
+				}
+				if (content === undefined) {
+					throw new Error('content is required for update mode');
+				}
+				await positron.notebooks.updateCellContent(uri, cellIndex, content);
+				return `Updated cell ${cellIndex}.`;
+			}
+
+			case 'delete': {
+				if (cellIndex === undefined) {
+					throw new Error('cellIndex is required for delete mode');
+				}
+				await positron.notebooks.deleteCell(uri, cellIndex);
+				return `Deleted cell ${cellIndex}.`;
+			}
+
+			default:
+				throw new Error(`Unknown editMode: ${editMode}`);
+		}
+	}
+
+	private async runNotebookCells(args: { cellIndices?: number[] }): Promise<string> {
+		const context = await positron.notebooks.getContext();
+		if (!context) {
+			return 'No notebook is open in the editor. Open a notebook, then try again.';
+		}
+		const { cellIndices } = args;
+		if (!cellIndices || cellIndices.length === 0) {
+			throw new Error('cellIndices must be a non-empty array');
+		}
+
+		const uri = context.uri;
+		const cells = await positron.notebooks.getCells(uri);
+		const code = cellIndices.map(i => cells.find(c => c.index === i)?.content ?? '').join('\n\n');
+		await this.requireExecutionConsent(context.kernelLanguage ?? 'code', code);
+
+		await positron.notebooks.runCells(uri, cellIndices);
+		const outputText = await this.collectCellOutputText(uri, cellIndices);
+		return outputText || '(no output)';
+	}
+
+	private async createNotebook(args: { path: string; language: string }): Promise<string> {
+		const { path: notebookPath, language } = args;
+		if (!notebookPath?.trim()) {
+			throw new Error('path is required');
+		}
+		if (!notebookPath.endsWith('.ipynb')) {
+			throw new Error(`File must have a .ipynb extension: ${notebookPath}`);
+		}
+		const kernelspec = KERNELSPECS[language];
+		if (!kernelspec) {
+			throw new Error(`Unsupported language: ${language}`);
+		}
+
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		const fullPath = path.isAbsolute(notebookPath)
+			? notebookPath
+			: workspaceFolder ? path.join(workspaceFolder.uri.fsPath, notebookPath) : undefined;
+		if (!fullPath) {
+			throw new Error('No workspace folder is open; provide an absolute path or open a folder.');
+		}
+
+		const fileUri = vscode.Uri.file(fullPath);
+		try {
+			await vscode.workspace.fs.stat(fileUri);
+			throw new ToolError(-32602, `File already exists: ${notebookPath}`);
+		} catch (error) {
+			if (error instanceof ToolError) {
+				throw error;
+			}
+			// stat throws when the file does not exist -- that is the expected path
+		}
+
+		await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(fullPath)));
+		const notebook = {
+			cells: [],
+			metadata: { kernelspec, language_info: { name: kernelspec.language } },
+			nbformat: 4,
+			nbformat_minor: 5,
+		};
+		await vscode.workspace.fs.writeFile(fileUri, Buffer.from(JSON.stringify(notebook, null, 2) + '\n', 'utf8'));
+
+		// Open in the Positron notebook editor and wait for it to become active.
+		// Register the listener before issuing the open command to avoid a race.
+		try {
+			const ready = new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					disposable.dispose();
+					reject(new Error('Timed out waiting for the notebook editor to become active'));
+				}, 5000);
+				const disposable = vscode.window.onDidChangeActiveNotebookEditor((editor) => {
+					if (editor?.notebook.uri.toString() === fileUri.toString()) {
+						clearTimeout(timeout);
+						disposable.dispose();
+						resolve();
+					}
+				});
+			});
+			await vscode.commands.executeCommand('vscode.openWith', fileUri, 'workbench.editor.positronNotebook');
+			await ready;
+		} catch {
+			return `Created notebook ${notebookPath}, but failed to open it in the editor. Open it manually, then use notebook-edit to add cells.`;
+		}
+		return `Created empty ${language} notebook: ${notebookPath}. It is open and active; use notebook-edit with editMode "insert" to add cells.`;
 	}
 
 	async start(): Promise<void> {
