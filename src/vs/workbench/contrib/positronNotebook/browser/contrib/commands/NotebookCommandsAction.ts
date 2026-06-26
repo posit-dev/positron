@@ -8,10 +8,11 @@ import { Action2, isIMenuItem, MenuId, MenuRegistry, registerAction2 } from '../
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { onUnexpectedError } from '../../../../../../base/common/errors.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
-import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../../platform/quickinput/common/quickInput.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 
 export const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
 
@@ -173,6 +174,10 @@ class ShowNotebookCommandsAction extends Action2 {
 			title: localize2('positron.notebookCommands.action', 'Show Notebook Commands'),
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
+			// Only meaningful with a notebook active, so gate the palette entry on
+			// it. The Help modal reaches the picker via executeCommand, which
+			// bypasses preconditions, so that path is unaffected.
+			precondition: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 			// No toolbar menu: this is surfaced from the notebook Help modal
 			// ("Browse All Notebook Commands...") and the command palette, not a toolbar button.
 		});
