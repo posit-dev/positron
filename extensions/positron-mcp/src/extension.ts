@@ -6,11 +6,9 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { McpServer } from './mcpServer';
-import { PositronApiWrapper } from './positronApiWrapper';
 import { getLogger } from './logger';
 
 let mcpServer: McpServer | undefined;
-let apiWrapper: PositronApiWrapper | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	// Check if MCP server is enabled via configuration
@@ -19,9 +17,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	const logger = getLogger();
 
-	// Always create the API wrapper so commands can use it
-	apiWrapper = new PositronApiWrapper(context);
-
 	if (!enabled) {
 		logger.info('Extension', 'Positron MCP server is disabled in configuration');
 		// Still register commands even if server is disabled
@@ -29,8 +24,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		try {
 			logger.info('Extension', 'Initializing Positron MCP extension');
 
-			// Create and start the MCP server with the API wrapper and context
-			mcpServer = new McpServer(apiWrapper, context);
+			// Create and start the MCP server
+			mcpServer = new McpServer(context);
 			await mcpServer.start();
 
 			logger.info('Extension', 'Positron MCP extension activated successfully');
@@ -52,7 +47,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		} catch (error) {
 			const logger = getLogger();
 			logger.error('Command', 'Failed to enable MCP server', error);
-			// Show error using apiWrapper if available, fallback to VS Code
 			await positron.window.showSimpleModalDialogMessage(
 				'Failed to Enable MCP Server',
 				`Failed to enable Positron MCP server: ${error}`,
