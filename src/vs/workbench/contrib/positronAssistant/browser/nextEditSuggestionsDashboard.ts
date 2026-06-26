@@ -177,7 +177,6 @@ export class NextEditSuggestionsStatusDashboard extends DomWidget {
 				if (checkbox.enabled) {
 					EventHelper.stop(e, true);
 					checkbox.checked = !checkbox.checked;
-					void setNextEditSuggestionsEnabled(this.configurationService, key, checkbox.checked);
 					checkbox.focus();
 				}
 			}));
