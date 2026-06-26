@@ -130,6 +130,19 @@ export class PipPackageManager implements IPackageManager {
         const args = ['uninstall', '-y', ...packages];
 
         await this._executePipInTerminal(args, token);
+
+        const reqPath = await this._getRequirementsPath();
+        if (reqPath) {
+            for (const name of packages) {
+                await this._confirmAndWriteBack(
+                    reqPath,
+                    name,
+                    false, // must now be absent
+                    (content) => removeRequirement(content, name),
+                    token,
+                );
+            }
+        }
     }
 
     async updatePackages(packages: positron.PackageSpec[], token?: vscode.CancellationToken): Promise<void> {

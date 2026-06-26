@@ -316,4 +316,22 @@ suite('PipPackageManager update Tests', () => {
         }
         expect(threw).to.equal(true);
     });
+
+    test('uninstallPackages removes the entry from requirements.txt', async () => {
+        reqExists = true;
+        reqContent = 'flask==2.2.0\nrequests==2.28.0\n';
+        (session.callMethod as sinon.SinonStub).resolves([{ name: 'flask', version: '2.2.0' }]); // requests gone
+
+        await manager.uninstallPackages(['requests']);
+
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['uninstall', '-y', 'requests']);
+        expect(fileSystem.writeFile.calledWith('/work/requirements.txt', 'flask==2.2.0\n')).to.equal(true);
+    });
+
+    test('uninstallPackages (no requirements.txt) does not write back', async () => {
+        reqExists = false;
+        await manager.uninstallPackages(['requests']);
+        expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
+    });
 });
