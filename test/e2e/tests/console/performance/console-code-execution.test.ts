@@ -43,14 +43,14 @@ test.describe('Console Performance: Code Execution', {
 
 			test(`${lang} - ${scenario.name}`,
 				async function ({ app, page, sessions, metric }) {
+					const { console: positronConsole } = app.workbench;
 					await sessions.start(runtime, { reuse: true });
 
 					// Pre-timer setup: ensure console is focused and idle, then stage the code.
 					// pasteCodeToConsole dispatches a ClipboardEvent directly to the input
 					// element so it doesn't need keyboard focus.
-					await app.workbench.console.waitForReady(prompt);
-					await app.workbench.console.pasteCodeToConsole(code);
-					// Brief settle after paste before pressing Enter
+					await positronConsole.waitForReady(prompt);
+					await positronConsole.pasteCodeToConsole(code);
 					await page.waitForTimeout(200);
 
 					// Metric: Enter keypress → output appears → prompt returns.
@@ -59,8 +59,8 @@ test.describe('Console Performance: Code Execution', {
 					// recording a false near-0ms result from an already-idle prompt.
 					const { duration_ms } = await metric.console.executeCode(async () => {
 						await page.keyboard.press('Enter');
-						await app.workbench.console.waitForConsoleContents(scenario.output, { timeout: 60000 });
-						await app.workbench.console.waitForReady(prompt, 60000);
+						await positronConsole.waitForConsoleContents(scenario.output, { timeout: 60000 });
+						await positronConsole.waitForReady(prompt, 60000);
 					}, target, {
 						language: lang,
 						description: `${lang}: ${scenario.name}`,
