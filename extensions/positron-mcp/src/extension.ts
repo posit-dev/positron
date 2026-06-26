@@ -104,12 +104,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					'OK'
 				);
 			} else {
-				// Create a webview panel to show the audit log
+				// Create a webview panel to show the audit log. Scripts are
+				// disabled: the audit log contains untrusted request data
+				// (origins, bodies) and needs no scripting to render.
 				const panel = vscode.window.createWebviewPanel(
 					'mcpAuditLog',
 					'MCP Security Audit Log',
 					vscode.ViewColumn.One,
-					{ enableScripts: true }
+					{ enableScripts: false }
 				);
 
 				const htmlContent = generateAuditLogHtml(auditLog);
@@ -343,6 +345,15 @@ async function createOrUpdateMcpConfig(): Promise<string | undefined> {
 	}
 }
 
+function escapeHtml(value: unknown): string {
+	return String(value)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function generateAuditLogHtml(auditLog: any[]): string {
 	return `
 		<!DOCTYPE html>
@@ -396,17 +407,17 @@ function generateAuditLogHtml(auditLog: any[]): string {
 			<div>Total entries: ${auditLog.length}</div>
 			<hr>
 			${auditLog.map(entry => `
-				<div class="entry ${entry.eventType}">
-					<div class="timestamp">${entry.timestamp}</div>
+				<div class="entry ${escapeHtml(entry.eventType)}">
+					<div class="timestamp">${escapeHtml(entry.timestamp)}</div>
 					<div>
-						<span class="method">${entry.eventType.toUpperCase()}</span>
-						${entry.method ? ` - ${entry.method}` : ''}
-						${entry.tool ? ` - Tool: ${entry.tool}` : ''}
+						<span class="method">${escapeHtml(String(entry.eventType).toUpperCase())}</span>
+						${entry.method ? ` - ${escapeHtml(entry.method)}` : ''}
+						${entry.tool ? ` - Tool: ${escapeHtml(entry.tool)}` : ''}
 						// allow-any-unicode-next-line
 						${entry.success ? ' ✓' : ' ✗'}
 					</div>
-					${entry.origin ? `<div>Origin: ${entry.origin}</div>` : ''}
-					${entry.details ? `<div class="details">${JSON.stringify(entry.details, null, 2)}</div>` : ''}
+					${entry.origin ? `<div>Origin: ${escapeHtml(entry.origin)}</div>` : ''}
+					${entry.details ? `<div class="details">${escapeHtml(JSON.stringify(entry.details, null, 2))}</div>` : ''}
 				</div>
 			`).join('')}
 		</body>
