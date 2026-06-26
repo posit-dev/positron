@@ -33,11 +33,6 @@ export interface PositronDynamicModalDialogProps {
 	footer?: ReactNode;
 	onCancel?: () => void;
 
-	// Optional click-outside handler. When provided, clicking the backdrop area outside the dialog
-	// box invokes this callback (the native <dialog> does not close on backdrop click on its own).
-	// Leave undefined to keep the dialog open on outside clicks.
-	onClickOutside?: () => void;
-
 	// Optional form submit handler. The content and footer are always wrapped in a <form>; when this
 	// is provided, pressing Enter in any input fires this callback (the dialog calls preventDefault on
 	// the underlying submit event automatically). Enter-to-submit only fires if the footer includes a
@@ -230,18 +225,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// Render.
 	return (
-		// eslint-disable-next-line jsx-a11y/no-static-element-interactions -- backdrop click-to-dismiss is a mouse-only convenience; the keyboard/AT path to close is the native <dialog>'s Escape handling.
-		<div
-			ref={dialogContainerRef}
-			className='positron-dynamic-modal-dialog-box-container'
-			onClick={(e) => {
-				// Close only when the click lands directly on the backdrop container, not on the
-				// dialog box or its descendants. Mirrors the old PositronModalDialog behavior.
-				if (props.onClickOutside && e.target === dialogContainerRef.current) {
-					props.onClickOutside();
-				}
-			}}
-		>
+		<div ref={dialogContainerRef} className='positron-dynamic-modal-dialog-box-container'>
 			<div ref={dialogBoxRef} className='positron-dynamic-modal-dialog-box' style={{
 				left: dialogBoxState.left,
 				top: dialogBoxState.top,

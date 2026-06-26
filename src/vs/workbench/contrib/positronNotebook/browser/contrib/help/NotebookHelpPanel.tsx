@@ -175,7 +175,6 @@ export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcu
 			renderer={renderer}
 			title={localize('positron.notebookHelp.title', 'Notebook Keyboard Shortcuts')}
 			width={500}
-			onClickOutside={() => renderer.dispose()}
 			onSubmit={() => renderer.dispose()}
 		/>
 	);

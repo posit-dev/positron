@@ -700,7 +700,6 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			renderer={renderer}
 			title={panelTitle}
 			width={480}
-			onClickOutside={handleClose}
 		/>
 	);
 };
