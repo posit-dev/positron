@@ -152,6 +152,26 @@ wb_ensure_workbench() {
 	done
 }
 
+# Accept the bare credential names (SNOWFLAKE_ACCOUNT) as aliases for the
+# underscore-suffixed names the installer reads (SNOWFLAKE_ACCOUNT_). The CI
+# action maps these explicitly; we mirror that locally so a .env copied from
+# 1Password / GitHub secrets works without the trailing underscore. The
+# suffixed name is the contract (the bare names collide with what the
+# Snowflake/Databricks SDKs auto-read), so an explicitly-set suffixed form wins.
+wb_map_credential_aliases() {
+	local base suffixed
+	for base in \
+		DATABRICKS_URL DATABRICKS_CLIENT_ID \
+		SNOWFLAKE_ACCOUNT SNOWFLAKE_CLIENT_ID SNOWFLAKE_CLIENT_SECRET \
+		AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET; do
+		suffixed="${base}_"
+		[ -n "${!suffixed:-}" ] && continue   # suffixed form already set: leave it
+		[ -n "${!base:-}" ] || continue        # no bare value to copy
+		printf -v "$suffixed" '%s' "${!base}"
+		export "${suffixed?}"
+	done
+}
+
 wb_bootstrap_env() {
 	local env_file="${SCRIPT_DIR}/.env"
 	[ -f "$env_file" ] || cp "${SCRIPT_DIR}/.env.example" "$env_file"
@@ -159,6 +179,7 @@ wb_bootstrap_env() {
 	# shellcheck source=/dev/null
 	source "$env_file"
 	set +a
+	wb_map_credential_aliases
 	if [ -z "${WB_PASSWORD:-}" ]; then
 		# Read from the tty (not stdin) and tolerate a closed/non-interactive
 		# stdin so set -euo pipefail does not abort silently when unset.
@@ -296,12 +317,19 @@ cmd_install() {
 	# DOCKER_CLI_HINTS=false drops Docker's "What's next / Try Docker Debug" hint;
 	# -i (no -t) because piping the output precludes a usable container TTY.
 	local wb_build; wb_build="$(basename "$WB_URL")"
+	# The credential vars below use the inherit form (-e VAR, no value): docker
+	# exec forwards them only when set. wb_bootstrap_env exported them by sourcing
+	# .env under `set -a`, so configure-datasources.sh (run by the installer when
+	# --credentials is passed) can read whichever set the chosen provider needs.
 	DOCKER_CLI_HINTS=false docker exec -i \
 		-e GITHUB_TOKEN="${GITHUB_TOKEN}" \
 		-e WB_URL="${WB_URL}" \
 		-e POSITRON_TAG="${POSITRON_TAG}" \
 		-e ARCH_SUFFIX="${WB_ARCH}" \
 		-e WB_PASSWORD="${WB_PASSWORD:-}" \
+		-e DATABRICKS_URL_ -e DATABRICKS_CLIENT_ID_ \
+		-e SNOWFLAKE_ACCOUNT_ -e SNOWFLAKE_CLIENT_ID_ -e SNOWFLAKE_CLIENT_SECRET_ \
+		-e AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_ \
 		test /bin/bash /tmp/install-workbench.sh ${creds:+"$creds"} 2>&1 \
 		| awk -v build="$wb_build" '
 			{ print }
@@ -404,7 +432,9 @@ cmd_up() {
 }
 
 cmd_stop() { wb_cancel_ttl; wb_compose stop; echo ""; echo "Paused (volumes preserved). Resume with 'npm run pwb'"; }
-cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans; echo ""; echo "Stack torn down. Next 'npm run pwb' will reinstall."; }
+# -v removes the named volumes (postgres-data, connect-data, connect_tokens)
+# too; without it they leak and a later run reuses stale Postgres/Connect state.
+cmd_down() { wb_cancel_ttl; wb_compose down --remove-orphans --volumes; echo ""; echo "Stack torn down. Next 'npm run pwb' will reinstall."; }
 
 wb_versions() {
 	local wb pos
@@ -469,6 +499,14 @@ cmd_logs() {
 	esac
 }
 
+# Drop into an interactive shell in the Workbench container, for poking at
+# rserver config (/etc/rstudio), logs, or the installed Positron build. Defaults
+# to the 'test' container; pass a name (postgres, connect) to target another.
+cmd_shell() {
+	wb_require_stack
+	docker exec -it "${1:-test}" bash
+}
+
 cmd_help() {
 	cat >&2 <<'EOF'
 workbench-local.sh -- run Positron + Posit Workbench together, locally, for QA.
@@ -478,11 +516,15 @@ USAGE
                              Already installed: (re)start the stack and show status.
                              Auto-stops after 60 min; resets each time you run it.
   npm run pwb -- --reinstall  Re-run the version pickers and reinstall (switch versions).
+  npm run pwb -- --credentials=<type>
+                             Install with a managed data source: databricks, snowflake,
+                             or azure (set the provider's vars in .env first).
   npm run pwb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run pwb -- status       Containers, installed Positron + Workbench versions, URLs.
   npm run pwb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
+  npm run pwb -- shell [svc]  Open a shell in the container: test (default), postgres, connect.
   npm run pwb -- stop         Pause the stack (containers stopped, volumes kept).
-  npm run pwb -- down         Tear the stack down (removes containers).
+  npm run pwb -- down         Tear the stack down (removes containers and volumes).
 
 VERSION PICKERS
   Positron:  Release / Daily channel, then choose a version.
@@ -508,6 +550,7 @@ main() {
 		--reinstall|--ttl|--ttl=*|--no-ttl) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
+		shell)       cmd_shell "$@" ;;
 		stop)        cmd_stop ;;
 		down)        cmd_down ;;
 		-h|--help)   cmd_help ;;

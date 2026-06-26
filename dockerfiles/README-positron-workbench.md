@@ -31,11 +31,13 @@ the stack up. Open http://localhost:8787 and log in as `user1`.
 | --- | --- |
 | `npm run pwb` | Bring the stack up. First run: pick versions and install. Already installed: (re)start and show status. Safe to re-run anytime. |
 | `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
+| `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
 | `npm run pwb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run pwb -- status` | Containers, installed versions, and URLs. |
 | `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
+| `npm run pwb -- shell [svc]` | Open a shell in a container: `test` (default), `postgres`, or `connect`. |
 | `npm run pwb -- stop` | Pause the stack (containers stopped, volumes kept). |
-| `npm run pwb -- down` | Tear the stack down (removes containers). |
+| `npm run pwb -- down` | Tear the stack down (removes containers and volumes). |
 
 `npm run pwb -- --help` prints the same reference in your terminal.
 
@@ -53,6 +55,30 @@ it was scheduled for, so a manual restart is never cut short. Change it with
 - **Workbench**: Release or Daily (each resolves to the current build, matching
   the workbench-nightly CI), or a custom `.deb` URL to pin a specific build.
   The URL is checked for format, arch, and reachability before install.
+
+## Managed credentials
+
+To test Positron's managed data-source connections (the credentials Workbench
+hands to a session), install with `--credentials=<type>`. One provider per
+install; re-run with `--reinstall --credentials=<type>` to switch.
+
+| Type | Configures | Reads from `.env` |
+| --- | --- | --- |
+| `databricks` | `/etc/rstudio/databricks.conf` + `databricks-enabled` | `DATABRICKS_URL_`, `DATABRICKS_CLIENT_ID_` |
+| `snowflake` | `/etc/rstudio/snowflake.conf` + `allow-refresh-snowflake-roles` | `SNOWFLAKE_ACCOUNT_`, `SNOWFLAKE_CLIENT_ID_`, `SNOWFLAKE_CLIENT_SECRET_` |
+| `azure` | OpenID auth in `rserver.conf` + `openid-client-secret` + JIT home dirs | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_` |
+
+1. Put the values for your provider in `dockerfiles/.env` (templated in
+   `.env.example`). They live in the team 1Password vault. Wrap each value in
+   single quotes -- `.env` is sourced by the shell, so a secret containing a `$`,
+   space, or `#` is mangled (or errors out) without them. The trailing underscore
+   on the names above is optional locally; the bare names (`SNOWFLAKE_ACCOUNT`, as
+   stored in 1Password / GitHub secrets) are accepted as aliases.
+2. Install with the flag:
+   ```bash
+   npm run pwb -- --credentials=snowflake
+   ```
+   The install fails fast if the chosen provider's variables are unset.
 
 ## Access
 
