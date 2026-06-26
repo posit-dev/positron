@@ -168,6 +168,21 @@ suite('PipPackageManager update Tests', () => {
         expect(terminalService.sendCommand.called).to.equal(false);
     });
 
+    test('updateAllPackages upgrades against requirements.txt directly when present', async () => {
+        reqExists = true;
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+            .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+        await manager.updateAllPackages();
+
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '--upgrade', '-r', '/work/requirements.txt']);
+        // No temp file, no write-back.
+        expect((fileSystem.createTemporaryFile as sinon.SinonStub).called).to.equal(false);
+        expect((fileSystem.writeFile as sinon.SinonStub).calledWith('/work/requirements.txt')).to.equal(false);
+    });
+
     test('installPackages names the full installed set and adds the new package', async () => {
         await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
 

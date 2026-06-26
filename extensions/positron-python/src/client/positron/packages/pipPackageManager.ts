@@ -207,9 +207,16 @@ export class PipPackageManager implements IPackageManager {
             return;
         }
 
-        // Upgrade every installed package to its latest mutually-compatible
-        // version: name them all (bare) and let pip resolve. All constraints are
-        // honored; an impossible set fails atomically.
+        const reqPath = await this._getRequirementsPath();
+        if (reqPath) {
+            // Upgrade the declared set to latest compatible; pins block their own
+            // upgrade and are respected. No write-back (the file stays valid).
+            const flags = await this._getInstallFlags();
+            await this._executePipInTerminal(['install', '--upgrade', '-r', reqPath, ...flags], token);
+            return;
+        }
+
+        // Fallback: upgrade every installed package (pip freeze, bare names).
         const freezeLines = await this._getInstalledFreeze(token);
         const content = buildRequirementsFile(freezeLines, []);
         const tempFile = await this._writeRequirementsTempFile(content);
