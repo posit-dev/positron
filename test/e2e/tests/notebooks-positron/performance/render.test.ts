@@ -21,9 +21,12 @@ test.describe('Positron Notebooks: Render', {
 	test('render_on_cold_open: open notebook from disk', async function ({ app, metric }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Open a notebook from disk for the first time.
+		// Stage Quick Access (Cmd+P, type, wait for results) *outside* the
+		// timed block so the metric only captures the file open + parse + render.
+		await notebooksPositron.prepareOpenNotebook(NOTEBOOK_PATH);
+
 		const { duration_ms } = await metric.notebooks.renderOnColdOpen(async () => {
-			await notebooksPositron.openNotebook(NOTEBOOK_PATH);
+			await notebooksPositron.confirmOpenNotebook();
 			await expect(notebooksPositron.cell.first()).toBeVisible();
 		}, 'file.ipynb', {
 			description: `Open ${NOTEBOOK_FILE} in Positron notebooks`,
