@@ -60,7 +60,7 @@ export async function recordExecuteCode<T>(
 ): Promise<MetricResult<T>> {
 	const { description, language, additionalContext } = options;
 
-	const context_json = language || additionalContext ? async (): Promise<MetricContext> => {
+	const context_json = language !== undefined || additionalContext ? async (): Promise<MetricContext> => {
 		const base: MetricContext = {};
 		if (language !== undefined) { base.language = language; }
 
