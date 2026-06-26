@@ -62,7 +62,7 @@ export function imageBytesFromDataUrl(dataUrl: string): Uint8Array | undefined {
 }
 
 /**
- * Build the default filename for a saved plot: `<docNameNoExt>_cell<index><ext>`.
+ * Build the default filename for a saved image: `<docNameNoExt>_cell<index><ext>`.
  */
 export function defaultImageFileName(notebookUri: URI, cellIndex: number, ext: string): string {
 	const docName = basename(notebookUri);
@@ -77,7 +77,7 @@ export interface ImageOutputTarget {
 }
 
 /**
- * Show a save dialog and write a plot image to disk. Returns `false` if the
+ * Show a save dialog and write an output image to disk. Returns `false` if the
  * user cancelled or the image could not be decoded, `true` on a successful
  * write. The optional `targetPath` bypasses the dialog (used for testing).
  */
@@ -131,7 +131,7 @@ export async function saveImageFromDataUrl(
 }
 
 /**
- * Write a plot image to a temporary file next to the notebook document and open
+ * Write an output image to a temporary file next to the notebook document and open
  * it in a new editor tab.
  */
 export async function openImageInEditorFromDataUrl(
