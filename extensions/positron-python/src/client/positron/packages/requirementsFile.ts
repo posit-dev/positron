@@ -37,18 +37,17 @@ export function extractRequirementName(line: string): string | undefined {
 }
 
 /**
- * Build requirements content from `freeze` output and the target packages being
- * updated. Every installed package is named so the resolver honors all
- * constraints, but plain PyPI pins are emitted as **bare names** (no version) so
- * the resolver keeps an already-satisfied package put unless something forces it
- * to move. Origin lines (direct references `name @ ...`, editables `-e ...`) and
- * comments are kept verbatim so local/VCS packages resolve without an index
- * lookup. Each target is pinned to `name==version`; targets absent from the
- * freeze output are appended. Junk and blank lines are dropped. Pass an empty
- * `targets` for Update All (the caller adds `--upgrade`). Ends with a newline.
+ * Build requirements content from the installed-package list and the target
+ * packages being updated. Every installed package is named so the resolver
+ * honors all constraints, but plain PyPI pins are emitted as **bare names**
+ * (no version) so the resolver keeps an already-satisfied package put unless
+ * something forces it to move. Each target is pinned to `name==version`;
+ * targets absent from the installed list are appended. Junk and blank lines
+ * are dropped. Pass an empty `targets` for Update All (the caller adds
+ * `--upgrade`). Ends with a newline.
  */
 export function buildRequirementsFile(
-    freezeLines: string[],
+    installedLines: string[],
     targets: Array<{ name: string; version?: string }>,
 ): string {
     const targetSpecByNormName = new Map<string, string>();
@@ -62,7 +61,7 @@ export function buildRequirementsFile(
     const out: string[] = [];
     const used = new Set<string>();
 
-    for (const raw of freezeLines) {
+    for (const raw of installedLines) {
         const line = raw.trimEnd();
         const trimmed = line.trim();
         if (trimmed === '' || JUNK_LINES.has(trimmed)) {

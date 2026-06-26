@@ -10,7 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/p
 import { IFileSystem } from '../../common/platform/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { traceInfo } from '../../logging';
+import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
@@ -69,8 +69,8 @@ export class PipPackageManager implements IPackageManager {
         // Re-resolve against the full installed set so the new package can't break
         // the environment: name every installed package (bare) plus the new
         // package(s); an inconsistent install fails atomically.
-        const freezeLines = await this._getInstalledFreeze(token);
-        const content = buildRequirementsFile(freezeLines, packages);
+        const installedNames = await this._getInstalledPackageNames(token);
+        const content = buildRequirementsFile(installedNames, packages);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
@@ -118,8 +118,8 @@ export class PipPackageManager implements IPackageManager {
         // and stay put unless the update forces a change). An inconsistent update
         // fails atomically instead of silently breaking the environment.
         const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
-        const freezeLines = await this._getInstalledFreeze(token);
-        const content = buildRequirementsFile(freezeLines, targets);
+        const installedNames = await this._getInstalledPackageNames(token);
+        const content = buildRequirementsFile(installedNames, targets);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
@@ -152,8 +152,8 @@ export class PipPackageManager implements IPackageManager {
         // Upgrade every installed package to its latest mutually-compatible
         // version: name them all (bare) and let pip resolve. All constraints are
         // honored; an impossible set fails atomically.
-        const freezeLines = await this._getInstalledFreeze(token);
-        const content = buildRequirementsFile(freezeLines, []);
+        const installedNames = await this._getInstalledPackageNames(token);
+        const content = buildRequirementsFile(installedNames, []);
         const tempFile = await this._writeRequirementsTempFile(content);
         try {
             const flags = await this._getInstallFlags();
@@ -230,7 +230,7 @@ export class PipPackageManager implements IPackageManager {
      * `--option`, or corrupt dist-info entries). The caller pins the update/install
      * target; everything else stays a bare name and resolves as already-satisfied.
      */
-    private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
+    private async _getInstalledPackageNames(token?: vscode.CancellationToken): Promise<string[]> {
         const packages = await this.getPackages(token);
         return packages.map((pkg) => pkg.name);
     }
@@ -245,7 +245,7 @@ export class PipPackageManager implements IPackageManager {
         await fs.writeFile(tempFile.filePath, content);
         // Log the generated requirements so the resolved set passed to pip can be
         // inspected (the temp file itself is deleted after the command runs).
-        traceInfo(`pip package requirements file ${tempFile.filePath}:\n${content}`);
+        traceVerbose(`pip package requirements file ${tempFile.filePath}:\n${content}`);
         return tempFile;
     }
 
