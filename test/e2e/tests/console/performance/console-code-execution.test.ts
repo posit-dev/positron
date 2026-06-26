@@ -19,13 +19,17 @@ const SCENARIOS = [
 		name: 'simple expression',
 		python: '2 ** 32',
 		r: '2 ^ 32',
+		// Both expressions evaluate to 4294967296
+		output: '4294967296',
 	},
 	{
 		// Output-heavy: stress the console output rendering pipeline.
 		// Regression target: posit-dev/positron#9852 (console lag after large output)
 		name: 'large output',
-		python: 'print("\\n".join(str(i) for i in range(1000)))',
+		python: 'print("\\n".join(str(i) for i in range(1, 1001)))',
 		r: 'cat(paste(seq_len(1000), collapse = "\\n"), "\\n")',
+		// '999' appears in both outputs but not in either code string
+		output: '999',
 	},
 ] as const;
 
@@ -46,11 +50,16 @@ test.describe('Console Performance: Code Execution', {
 					// element so it doesn't need keyboard focus.
 					await app.workbench.console.waitForReady(prompt);
 					await app.workbench.console.pasteCodeToConsole(code);
+					// Brief settle after paste before pressing Enter
+					await page.waitForTimeout(200);
 
-					// Metric captures only: Enter keypress → prompt returns.
-					// Avoids the 500ms artificial waitForTimeout inside sendEnterKey().
+					// Metric: Enter keypress → output appears → prompt returns.
+					// waitForConsoleContents guards against Enter missing the console —
+					// if focus was lost, no output appears and the test fails rather than
+					// recording a false near-0ms result from an already-idle prompt.
 					const { duration_ms } = await metric.console.executeCode(async () => {
 						await page.keyboard.press('Enter');
+						await app.workbench.console.waitForConsoleContents(scenario.output, { timeout: 60000 });
 						await app.workbench.console.waitForReady(prompt, 60000);
 					}, target, {
 						language: lang,
