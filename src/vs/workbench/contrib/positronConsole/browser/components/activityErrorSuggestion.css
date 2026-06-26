@@ -30,9 +30,18 @@
 	align-items: center;
 }
 
+/*
+ * Constrain the icon to the first character column and center the glyph within
+ * it so the lightbulb's optical center lands over the error's "!" marker. The
+ * codicon glyph is drawn centered in a 16px em box, so without this it renders
+ * ~1ch to the right of the "!". The link-text stays in the second grid track at
+ * 2ch, lining up with the error message text ("there is no package...").
+ */
 .activity-error-suggestion .suggestion-action .suggestion-icon {
+	width: 1ch;
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	color: var(--vscode-positronConsole-ansiYellow);
 }
 
