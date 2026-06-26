@@ -18,14 +18,25 @@ test.describe('Positron Notebooks: Render', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS, tags.PERFORMANCE]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.notebooksPositron.openNotebook(NOTEBOOK_PATH);
+	test('render_on_cold_open: open notebook from disk', async function ({ app, metric }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Open a notebook from disk for the first time.
+		const { duration_ms } = await metric.notebooks.renderOnColdOpen(async () => {
+			await notebooksPositron.openNotebook(NOTEBOOK_PATH);
+			await expect(notebooksPositron.cell.first()).toBeVisible();
+		}, 'file.ipynb', {
+			description: `Open ${NOTEBOOK_FILE} in Positron notebooks`,
+		});
+
+		if (!process.env.CI) { console.log(`[perf] render_on_cold_open: ${duration_ms} ms`); }
 	});
 
 	test('render_on_open: reopen notebook from disk', async function ({ app, hotKeys, runCommand, metric }) {
 		const { notebooksPositron } = app.workbench;
 
-		// Close the notebook tab so we can measure the reopen.
+		// Open and close the notebook tab so we can measure the reopen.
+		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 		await hotKeys.closeAllEditors();
 
 		// Use "Reopen Closed Editor" to avoid UI latency noise unrelated
@@ -43,7 +54,8 @@ test.describe('Positron Notebooks: Render', {
 	test('render_on_nav_back: switch back to notebook tab', async function ({ app, metric }) {
 		const { notebooksPositron, editors } = app.workbench;
 
-		// Background the notebook by opening a second tab
+		// Open and background the notebook by opening a second tab.
+		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 		await editors.newUntitledFile();
 
 		const { duration_ms } = await metric.notebooks.renderOnNavBack(async () => {
