@@ -169,7 +169,11 @@ export class PipPackageManager implements IPackageManager {
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        return searchPyPIVersions(name, token);
+        return searchPyPIVersions(
+            name,
+            (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
+            token,
+        );
     }
 
     // =========================================================================

@@ -169,16 +169,144 @@ export async function searchPyPI(
 }
 
 /**
- * Search PyPI for available versions of a specific package.
+ * A single distribution file as reported by the PyPI simple API. Both
+ * `Requires-Python` and yank status live on the file, not the version.
  */
-export async function searchPyPIVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
+interface PyPIFile {
+    filename: string;
+    'requires-python'?: string | null;
+    yanked?: boolean | string;
+}
+
+/** Per-version view aggregated from a package's files. */
+interface VersionFile {
+    /** The file's Requires-Python specifier, or null when unconstrained. */
+    spec: string | null;
+    /** Whether this file is yanked (true, or a string reason, both mean yanked). */
+    yanked: boolean;
+}
+
+/**
+ * Map each file to its version by matching against the authoritative `versions`
+ * list. We look for the version as a delimited token (`-{version}` followed by a
+ * separator or end) and prefer the longest match, so `pkg-1.0.1.tar.gz` maps to
+ * `1.0.1` rather than `1.0`. Files that match no known version are dropped (they
+ * cannot affect filtering, which keeps us conservative).
+ */
+function aggregateFilesByVersion(versions: string[], files: PyPIFile[]): Map<string, VersionFile[]> {
+    const longestFirst = [...versions].sort((a, b) => b.length - a.length);
+    const byVersion = new Map<string, VersionFile[]>();
+    for (const file of files) {
+        const lower = file.filename.toLowerCase();
+        let matched: string | undefined;
+        for (const version of longestFirst) {
+            const token = `-${version.toLowerCase()}`;
+            const idx = lower.indexOf(token);
+            if (idx === -1) {
+                continue;
+            }
+            // The character after the version must be a boundary so that, e.g.,
+            // `-1.0` does not match inside `-1.05`.
+            // Only `-`, `.`, `+`, or end-of-string count as version boundaries; any
+            // other character (notably a digit) is not a boundary, so a short version
+            // like `1` cannot spuriously match inside a longer token like `-12.0`.
+            // Note: bare numeric-only versions (e.g. "1") are a known minor limitation.
+            const after = lower[idx + token.length];
+            if (after === undefined || after === '-' || after === '.' || after === '+') {
+                matched = version;
+                break;
+            }
+        }
+        if (matched === undefined) {
+            continue;
+        }
+        const spec = file['requires-python'] || null;
+        const yanked = file.yanked !== undefined && file.yanked !== false;
+        const list = byVersion.get(matched) ?? [];
+        list.push({ spec, yanked });
+        byVersion.set(matched, list);
+    }
+    return byVersion;
+}
+
+/**
+ * Search PyPI for available versions of a specific package, filtered to those
+ * installable on the active interpreter.
+ *
+ * Versions are dropped when every file is yanked, or (when `resolveSpecs` is
+ * provided) when no non-yanked file's Requires-Python admits the interpreter.
+ * Filtering is conservative: any uncertainty (no file data, no resolver, a
+ * resolver failure, an unmatched filename) keeps the version visible. The
+ * returned list preserves PyPI's original ordering.
+ *
+ * @param name The package name.
+ * @param resolveSpecs Resolves distinct Requires-Python specifiers to whether
+ *   the active interpreter satisfies each. When omitted, Requires-Python is not
+ *   applied (yank filtering still is).
+ * @param token Optional cancellation token.
+ */
+export async function searchPyPIVersions(
+    name: string,
+    resolveSpecs?: (specs: string[]) => Promise<Record<string, boolean>>,
+    token?: vscode.CancellationToken,
+): Promise<string[]> {
     try {
         const response = await fetch(`https://pypi.org/simple/${name}/`, {
             headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
             signal: createAbortSignal(token),
         });
-        const json = (await response.json()) as { versions: string[] };
-        return json.versions;
+        const json = (await response.json()) as { versions?: string[]; files?: PyPIFile[] };
+        const versions = json.versions ?? [];
+        const files = json.files ?? [];
+
+        // Without file data there is nothing to filter on; return as-is.
+        if (files.length === 0) {
+            return versions;
+        }
+
+        const byVersion = aggregateFilesByVersion(versions, files);
+
+        // Resolve Requires-Python for the distinct specifiers, best-effort. A
+        // resolver failure degrades to yank-only filtering rather than breaking
+        // the picker.
+        let specResults: Record<string, boolean> | undefined;
+        if (resolveSpecs) {
+            const distinctSpecs = [
+                ...new Set(
+                    [...byVersion.values()]
+                        .flat()
+                        .map((f) => f.spec)
+                        .filter((s): s is string => s !== null),
+                ),
+            ];
+            if (distinctSpecs.length === 0) {
+                specResults = {};
+            } else {
+                try {
+                    specResults = await resolveSpecs(distinctSpecs);
+                } catch {
+                    specResults = undefined;
+                }
+            }
+        }
+
+        return versions.filter((version) => {
+            const versionFiles = byVersion.get(version);
+            if (!versionFiles || versionFiles.length === 0) {
+                // No matched files -> keep (conservative).
+                return true;
+            }
+            return versionFiles.some((file) => {
+                if (file.yanked) {
+                    return false;
+                }
+                if (!specResults) {
+                    // Requires-Python not applied; a non-yanked file is enough.
+                    return true;
+                }
+                return file.spec === null || specResults[file.spec] === true;
+            });
+        });
     } catch (e) {
         if (e instanceof Error && e.name === 'AbortError') {
             throw new vscode.CancellationError();
