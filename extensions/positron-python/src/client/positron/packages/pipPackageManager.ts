@@ -10,7 +10,7 @@ import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/p
 import { IFileSystem } from '../../common/platform/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { traceVerbose } from '../../logging';
+import { traceInfo } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
@@ -223,17 +223,16 @@ export class PipPackageManager implements IPackageManager {
     }
 
     /**
-     * Capture the full installed set as pinned `pip freeze` lines. Origins
-     * (`@ file://`, `-e`, VCS URLs) are preserved so already-installed packages
-     * resolve as satisfied without an index lookup.
+     * Capture the full installed set as bare package names from the kernel's
+     * installed-package list (the same data the Packages pane shows). Using the
+     * kernel's clean names -- rather than `pip freeze` output -- avoids feeding
+     * `pip install -r` any line its parser can't handle (e.g. `@ file://`, `-e`,
+     * `--option`, or corrupt dist-info entries). The caller pins the update/install
+     * target; everything else stays a bare name and resolves as already-satisfied.
      */
     private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
-        const pythonService = await this._getPythonService();
-        const result = await pythonService.execModule('pip', ['freeze'], { token });
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (pip freeze returned no output).');
-        }
-        return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
+        const packages = await this.getPackages(token);
+        return packages.map((pkg) => pkg.name);
     }
 
     /**
@@ -246,7 +245,7 @@ export class PipPackageManager implements IPackageManager {
         await fs.writeFile(tempFile.filePath, content);
         // Log the generated requirements so the resolved set passed to pip can be
         // inspected (the temp file itself is deleted after the command runs).
-        traceVerbose(`pip package requirements file ${tempFile.filePath}:\n${content}`);
+        traceInfo(`pip package requirements file ${tempFile.filePath}:\n${content}`);
         return tempFile;
     }
 

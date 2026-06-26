@@ -82,10 +82,13 @@ suite('UvPackageManager Tests', () => {
             fire: sinon.stub(),
         };
 
-        // Create session mock
+        // Create session mock. getPackages() (used to build the installed set)
+        // calls the kernel's 'getPackagesInstalled'; return clean names.
         session = {
             metadata: { sessionId: 'test-session-id' },
-            callMethod: sinon.stub().resolves([]),
+            callMethod: sinon
+                .stub()
+                .resolves([{ name: 'flask' }, { name: 'werkzeug' }, { name: 'positron-update-demo' }]),
         };
 
         // Create package manager instance
@@ -275,11 +278,6 @@ version = "0.1.0"`;
             sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
 
             processService = { exec: sinon.stub() };
-            // uv pip freeze -- includes a plain PyPI package so bare-naming is observable
-            processService.exec.withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze'])).resolves({
-                stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
-                stderr: '',
-            });
             const processFactory = { create: sinon.stub().resolves(processService) };
 
             terminalService = {
@@ -307,7 +305,7 @@ version = "0.1.0"`;
             expect(written).to.contain('werkzeug==3.1.8');
             expect(written).to.contain('flask');
             expect(written).to.not.contain('flask==2.2.0');
-            expect(written).to.contain('positron-update-demo @ file:///tmp/demo');
+            expect(written).to.contain('positron-update-demo'); // installed (local) -> bare name
 
             const [uvBin, args] = terminalService.sendCommand.firstCall.args;
             expect(uvBin).to.equal('uv');

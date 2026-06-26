@@ -13,7 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
-import { traceVerbose } from '../../logging';
+import { traceInfo } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
@@ -275,17 +275,8 @@ export class UvPackageManager implements IPackageManager {
      * install origins so already-installed packages resolve as satisfied.
      */
     private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
-        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
-        const processService = await processServiceFactory.create();
-        const proxyEnv = this._getProxyEnv();
-        const result = await processService.exec('uv', ['pip', 'freeze', '--python', this._pythonPath], {
-            extraVariables: proxyEnv,
-            token,
-        });
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
-        }
-        return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
+        const packages = await this.getPackages(token);
+        return packages.map((pkg) => pkg.name);
     }
 
     /**
@@ -298,7 +289,7 @@ export class UvPackageManager implements IPackageManager {
         await fs.writeFile(tempFile.filePath, content);
         // Log the generated requirements so the resolved set passed to uv can be
         // inspected (the temp file itself is deleted after the command runs).
-        traceVerbose(`uv package requirements file ${tempFile.filePath}:\n${content}`);
+        traceInfo(`uv package requirements file ${tempFile.filePath}:\n${content}`);
         return tempFile;
     }
 

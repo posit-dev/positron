@@ -37,11 +37,6 @@ suite('PipPackageManager update Tests', () => {
             isModuleInstalled: sinon.stub().resolves(true),
             execModule: sinon.stub(),
         };
-        // Default freeze output; individual tests can override.
-        pythonService.execModule.withArgs('pip', sinon.match.array.startsWith(['freeze'])).resolves({
-            stdout: 'flask==2.2.0\nwerkzeug==2.0.3\npositron-update-demo @ file:///tmp/demo\n',
-            stderr: '',
-        });
 
         terminalService = {
             show: sinon.stub().resolves(),
@@ -78,7 +73,14 @@ suite('PipPackageManager update Tests', () => {
             .returns(fileSystem);
 
         messageEmitter = { fire: sinon.stub() };
-        session = { metadata: { sessionId: 'test' }, callMethod: sinon.stub().resolves([]) };
+        // getPackages() (used to build the installed set) calls the kernel's
+        // 'getPackagesInstalled' method; return clean names like the real kernel.
+        session = {
+            metadata: { sessionId: 'test' },
+            callMethod: sinon
+                .stub()
+                .resolves([{ name: 'flask' }, { name: 'werkzeug' }, { name: 'positron-update-demo' }]),
+        };
         manager = new PipPackageManager('/path/to/python', messageEmitter, serviceContainer, session);
     });
 
@@ -93,7 +95,7 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.contain('werkzeug==3.1.8'); // target pinned
         expect(writtenContent).to.contain('flask'); // other PyPI -> bare
         expect(writtenContent).to.not.contain('flask==2.2.0'); // not pinned
-        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
+        expect(writtenContent).to.contain('positron-update-demo'); // installed (local) -> bare name
 
         const [pythonPath, args] = terminalService.sendCommand.firstCall.args;
         expect(pythonPath).to.equal('/path/to/python');
@@ -134,7 +136,7 @@ suite('PipPackageManager update Tests', () => {
 
         expect(writtenContent).to.contain('werkzeug'); // bare, no pin
         expect(writtenContent).to.not.contain('werkzeug==');
-        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo');
+        expect(writtenContent).to.contain('positron-update-demo');
         const [, args] = terminalService.sendCommand.firstCall.args;
         expect(args).to.include.members(['install', '--upgrade', '-r', '/tmp/reqs.txt']);
     });
@@ -154,7 +156,7 @@ suite('PipPackageManager update Tests', () => {
 
         expect(writtenContent).to.contain('cowsay==6.1'); // new package pinned
         expect(writtenContent).to.contain('flask'); // installed -> bare
-        expect(writtenContent).to.contain('positron-update-demo @ file:///tmp/demo'); // origin verbatim
+        expect(writtenContent).to.contain('positron-update-demo'); // installed (local) -> bare name
         const [, args] = terminalService.sendCommand.firstCall.args;
         expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
         expect(args).to.not.include('--upgrade');
