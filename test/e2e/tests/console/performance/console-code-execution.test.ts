@@ -34,13 +34,10 @@ test.describe('Console Performance: Code Execution', {
 }, () => {
 
 	for (const { lang, runtime, target, prompt } of LANGUAGES) {
-		const extraTag = runtime === 'r' ? [tags.ARK] : [];
-
 		for (const scenario of SCENARIOS) {
 			const code = lang === 'Python' ? scenario.python : scenario.r;
 
 			test(`${lang} - ${scenario.name}`,
-				{ tag: extraTag },
 				async function ({ app, page, sessions, metric }) {
 					await sessions.start(runtime, { reuse: true });
 
