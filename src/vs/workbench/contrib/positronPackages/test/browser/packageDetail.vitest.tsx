@@ -166,7 +166,6 @@ describe('PackageDetail with resolved detail fields', () => {
 	(instance.getPackageDetail as ReturnType<typeof vi.fn>).mockResolvedValue({
 		title: 'A grammar of data manipulation (extended)',
 		author: 'Hadley Wickham',
-		dependencyCount: 12,
 		sourceRepository: 'CRAN',
 		publishedDate: '2024-11-17 08:30:05 UTC',
 	});
@@ -179,14 +178,13 @@ describe('PackageDetail with resolved detail fields', () => {
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('renders the author, title, dependency count, and source repository after the fetch resolves', async () => {
+	it('renders the author, title, and source repository after the fetch resolves', async () => {
 		rtl.render(
 			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
 		expect(await screen.findByText('Hadley Wickham')).toBeInTheDocument();
 		// The fetched title (differs from the description) becomes the header subtitle.
 		expect(await screen.findByText('A grammar of data manipulation (extended)')).toBeInTheDocument();
-		expect(await screen.findByText('12')).toBeInTheDocument();     // DEPS stat
 		expect(await screen.findByText('CRAN')).toBeInTheDocument();   // Metadata: source repository
 		// The published date is normalized to YYYY-MM-DD (time/zone stripped).
 		expect(await screen.findByText('2024-11-17')).toBeInTheDocument();

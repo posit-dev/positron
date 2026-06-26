@@ -229,16 +229,6 @@ def _best_author(metadata: Any) -> Optional[str]:
     return joined or None
 
 
-def _runtime_dependency_count(dist: importlib.metadata.Distribution) -> int:
-    """Count runtime Requires-Dist, excluding requirements gated by an extra."""
-    count = 0
-    for req in dist.requires or []:
-        if "extra ==" in req:
-            continue
-        count += 1
-    return count
-
-
 def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
     """Return the Source/Repository Project-URL if present."""
     metadata: Any = dist.metadata
@@ -293,7 +283,7 @@ def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) ->
         return None
 
     metadata: Any = dist.metadata
-    detail: Dict[str, JsonData] = {"name": name, "dependencyCount": _runtime_dependency_count(dist)}
+    detail: Dict[str, JsonData] = {"name": name}
     summary = metadata.get("Summary")
     if summary and summary != "UNKNOWN":
         detail["title"] = summary

@@ -260,7 +260,7 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	};
 
 	// Merge detail fields over the list entry. Detail-only fields (author,
-	// dependencyCount, sourceRepository, title, and potentially license/publishedDate)
+	// sourceRepository, title, and potentially license/publishedDate)
 	// are undefined until the fetch resolves; the list-derived fields are present
 	// immediately.
 	const merged = { ...pkg, ...detail };
@@ -315,7 +315,6 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				<div className='package-detail-stats'>
 					<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
 					<Stat label={localize('positron.packages.detail.license', "License")} loading={detailLoading} value={merged.license} />
-					<Stat label={localize('positron.packages.detail.deps', "Deps")} loading={detailLoading} value={merged.dependencyCount} />
 				</div>
 
 				<div className='package-detail-section'>

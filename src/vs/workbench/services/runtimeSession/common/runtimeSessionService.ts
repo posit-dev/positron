@@ -332,9 +332,6 @@ export interface ILanguageRuntimePackage {
 	/** Display-ready author/maintainer string (already normalized by the runtime). */
 	author?: string;
 
-	/** Number of runtime dependencies (excludes base packages and dev/test extras). */
-	dependencyCount?: number;
-
 	/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 	sourceRepository?: string;
 }
@@ -418,7 +415,7 @@ export interface ILanguageRuntimePackageManager {
 	/**
 	 * Fetch detailed metadata for a single package, called when the package
 	 * detail editor opens. Cheap, kernel-local fields only (title, author,
-	 * dependency count, source repository, published date); never network or
+	 * source repository, published date); never network or
 	 * expensive filesystem walks. Returns a partial package to merge over the
 	 * list entry, or undefined when unsupported / not found.
 	 * @param name Package name

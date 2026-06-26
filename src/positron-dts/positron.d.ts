@@ -1270,9 +1270,6 @@ declare module 'positron' {
 		/** Display-ready author/maintainer string (already normalized by the runtime). */
 		author?: string;
 
-		/** Number of runtime dependencies (excludes base packages and dev/test extras). */
-		dependencyCount?: number;
-
 		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
 		sourceRepository?: string;
 	}

@@ -136,7 +136,7 @@
 	margin-top: 14px;
 }
 
-/* Top stat strip: VERSION / LICENSE / DEPS as labelled columns. */
+/* Top stat strip: VERSION / LICENSE as labelled columns. */
 .package-detail-stats {
 	display: flex;
 	gap: 36px;

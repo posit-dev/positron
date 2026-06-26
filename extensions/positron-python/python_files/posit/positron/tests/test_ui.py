@@ -492,8 +492,6 @@ def test_get_package_detail_installed(kernel: PositronIPyKernel) -> None:
     assert result is not None
     assert isinstance(result, dict)
     assert result["name"] == "pytest"
-    assert isinstance(result["dependencyCount"], int)
-    assert result["dependencyCount"] >= 0
     assert "title" in result
     assert isinstance(result["title"], str)
 
