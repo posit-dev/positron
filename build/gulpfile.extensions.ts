@@ -75,6 +75,7 @@ const compilations = [
 	'extensions/positron-file-transfer/tsconfig.json',
 	'extensions/positron-ipywidgets/renderer/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',
+	'extensions/positron-mcp/tsconfig.json',
 	'extensions/positron-notebooks/tsconfig.json',
 	'extensions/positron-notebook-export/tsconfig.json',
 	'extensions/positron-pdf-server/tsconfig.json',
