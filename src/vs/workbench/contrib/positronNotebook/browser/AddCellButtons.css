@@ -117,6 +117,20 @@
 }
 
 /*
+ * The editor action bar Code/Markdown buttons use the standard `add` codicon
+ * (not add-small). At the 16px codicon base size the plus reads a touch large
+ * beside the sibling action-bar icons, so drop it to 14px, then nudge it 2px
+ * right to optically center the smaller glyph in its slot. Scoped to the plus
+ * icon within the action bar container; the notebook's add-cell actions are the
+ * only `add`-icon buttons rendered there, so other action-bar icons (run-all,
+ * outline) are untouched. Specificity wins over the 16px codicon base rule.
+ */
+.editor-action-bar-container .action-bar-button-icon.codicon-add {
+	font-size: 14px;
+	transform: translateX(2px);
+}
+
+/*
  * The caret reads as a sibling of the plus (same 14px weight) and is divided
  * off by an inset rule rather than a full-height border. A 1px gutter
  * (margin-left) holds the divider between the two segments so neither side's
