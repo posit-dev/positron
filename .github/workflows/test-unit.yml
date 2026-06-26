@@ -40,7 +40,7 @@ jobs:
     # Node (matching .nvmrc), and R 4.5.2 + qa-example-content deps that this
     # job used to install at runtime. See posit-dev/positron-ci-images.
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:150
       # --shm-size: the Electron unit runner loads each test file's full module
       # graph over file://. A wide graph (>~256 parallel fetches) exhausts the
       # container's default 64MB /dev/shm and fails with "Failed to fetch
