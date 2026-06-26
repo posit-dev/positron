@@ -11,6 +11,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
+import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import type { PositronNotebookCodeCell } from '../../PositronNotebookCells/PositronNotebookCodeCell.js';
 import type { IInlineDataExplorerActionContext } from '../../notebookCells/InlineDataExplorerActions.js';
@@ -110,9 +111,11 @@ export class VisualizeDataFrameAction extends Action2 {
 		// closes before the request resolves.
 		const suggestionCts = new CancellationTokenSource();
 		try {
-			// Honor the per-file AI exclusion: never send an excluded notebook to
-			// a model. The wizard still opens for manual selection (null prefill).
-			const suggestionPromise = isFileExcludedFromAI(configurationService, ctx.documentUri.path)
+			// Honor the AI main switch and the per-file exclusion: skip the model
+			// when AI is disabled or the notebook is excluded. The wizard still
+			// opens for manual selection (null prefill).
+			const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+			const suggestionPromise = (!aiEnabled || isFileExcludedFromAI(configurationService, ctx.documentUri.path))
 				? Promise.resolve(null)
 				: generateVisualizationSuggestion(
 					headlessLmService,

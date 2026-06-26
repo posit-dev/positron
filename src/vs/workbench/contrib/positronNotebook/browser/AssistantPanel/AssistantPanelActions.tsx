@@ -16,6 +16,7 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { isFileExcludedFromAI } from '../../../chat/browser/tools/utils.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
 import { generateNotebookSuggestions, INotebookSuggestion } from './notebookSuggestions.js';
@@ -132,9 +133,12 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			)
 		);
 
-		// Honor the per-file AI exclusion the user configured: never send an
-		// excluded notebook to a model.
-		if (!notebookContext || isFileExcludedFromAI(configurationService, notebook.uri.path)) {
+		// Honor the AI main switch and the per-file exclusion the user
+		// configured: never send a notebook to a model when AI is disabled or
+		// the file is excluded. Read live, since `ai.enabled` toggles without a
+		// window reload.
+		const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+		if (!notebookContext || !aiEnabled || isFileExcludedFromAI(configurationService, notebook.uri.path)) {
 			notifyNoSuggestions();
 			return;
 		}
