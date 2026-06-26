@@ -73,6 +73,11 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 	// Anchor element for the popup.
 	const badgeRef = useRef<HTMLButtonElement>(undefined!);
 
+	// The renderer for the currently open dialog, if any. Tracked so the dialog
+	// can be torn down if the badge unmounts; otherwise an unmount (e.g. an
+	// action-bar re-render) would orphan a popup anchored to a detached button.
+	const rendererRef = useRef<PositronModalReactRenderer | undefined>(undefined);
+
 	const [result, setResult] = useState<IMissingPackagesResult | undefined>(() =>
 		resource ? missingPackagesService.getCached(resource) : undefined);
 	const [warnEnabled, setWarnEnabled] = useState<boolean>(() =>
@@ -121,6 +126,12 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		return () => disposable.dispose();
 	}, [configurationService]);
 
+	// Tear down any open dialog when the badge unmounts.
+	useEffect(() => () => {
+		rendererRef.current?.dispose();
+		rendererRef.current = undefined;
+	}, []);
+
 	// Render nothing when disabled or there is nothing to warn about.
 	if (!warnEnabled || !result || result.total === 0) {
 		return null;
@@ -137,7 +148,9 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		const renderer = new PositronModalReactRenderer({
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(badgeRef.current)),
 			parent: badgeRef.current,
+			onDisposed: () => { rendererRef.current = undefined; },
 		});
+		rendererRef.current = renderer;
 
 		renderer.render(
 			<MissingPackagesDialog
