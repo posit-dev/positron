@@ -185,6 +185,114 @@ function clearInheritedNpmrcConfig(dir: string, env: NodeJS.ProcessEnv): void {
 
 // --- Start Positron ---
 /**
+ * Reads a single key's value from an .npmrc file, stripping surrounding quotes.
+ * Returns undefined if the file or key is absent.
+ */
+function readNpmrcValue(npmrcPath: string, key: string): string | undefined {
+	if (!fs.existsSync(npmrcPath)) {
+		return undefined;
+	}
+	for (const line of fs.readFileSync(npmrcPath, 'utf8').split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#')) {
+			continue;
+		}
+		const eq = trimmed.indexOf('=');
+		if (eq <= 0 || trimmed.substring(0, eq).trim() !== key) {
+			continue;
+		}
+		return trimmed.substring(eq + 1).trim().replace(/^"(.*)"$/, '$1');
+	}
+	return undefined;
+}
+
+/**
+ * positron-data-driver-sqlite depends on the native module better-sqlite3, which
+ * the extension install compiles for Electron's ABI (the desktop extension host
+ * runs under Electron's Node; see the extension's .npmrc and the root .npmrc).
+ * The same SQLite worker also runs in the server/remote extension host, which is
+ * plain Node.js with a different ABI, so the Electron binary fails to load there
+ * with a NODE_MODULE_VERSION mismatch.
+ *
+ * Fetch a Node-ABI build of the addon and stash it next to the default Electron
+ * one as `better_sqlite3-node.node`. The worker (sqliteWorker.ts) loads this
+ * variant when it is not running under Electron. The Node target is read from
+ * remote/.npmrc so it stays in sync with the version the server build uses.
+ */
+async function buildSqliteServerBinding(): Promise<void> {
+	const dir = 'extensions/positron-data-driver-sqlite';
+	const moduleDir = path.join(root, dir, 'node_modules', 'better-sqlite3');
+	const releaseDir = path.join(moduleDir, 'build', 'Release');
+	const defaultBinary = path.join(releaseDir, 'better_sqlite3.node');
+	const serverBinary = path.join(releaseDir, 'better_sqlite3-node.node');
+
+	// Skip if the extension was not installed in this pass (e.g. a filtered
+	// POSITRON_EXTENSIONS_FILTER install that excludes it).
+	if (!fs.existsSync(defaultBinary)) {
+		return;
+	}
+
+	// The default binary is the Electron-ABI build. A correct server binding is a
+	// *distinct* (Node-ABI) build, so if a server binary already exists and differs
+	// from the default, it is already good -- skip the (network-bound) rebuild. This
+	// makes the step idempotent and cheap, so it can also run on the "up to date"
+	// path to self-heal a missing or stale (Electron-ABI) server binary. A server
+	// binary byte-identical to the default is the failure we must repair: it means a
+	// previous run copied the Electron binary without rebuilding it.
+	const electronBinary = fs.readFileSync(defaultBinary);
+	if (fs.existsSync(serverBinary) && !fs.readFileSync(serverBinary).equals(electronBinary)) {
+		return;
+	}
+
+	const nodeTarget = readNpmrcValue(path.join(root, 'remote', '.npmrc'), 'target') ?? process.versions.node;
+	log(dir, `Building Node-ABI (node ${nodeTarget}) better-sqlite3 binary for the server extension host...`);
+
+	// The postinstall runs under the root npm install, so the environment carries the
+	// root .npmrc's Electron build config (npm_config_runtime=electron, npm_config_target,
+	// npm_config_disturl) plus any nodedir/devdir npm derived from it. node-gyp and
+	// prebuild-install read those env vars and they OVERRIDE the --target/--dist-url we
+	// pass below -- node-gyp would build against the Electron headers and emit an
+	// Electron-ABI (.node) instead of the Node-ABI binary we need. Strip them so the
+	// rebuild targets plain Node via our explicit flags.
+	const childEnv: NodeJS.ProcessEnv = { ...process.env };
+	for (const key of [...rootNpmrcConfigKeys, 'nodedir', 'devdir', 'build_from_source', 'force_process_config']) {
+		delete childEnv[`npm_config_${key.replace(/-/g, '_')}`];
+	}
+
+	// prebuild-install / node-gyp both write to build/Release/better_sqlite3.node,
+	// so preserve the Electron binary, produce the Node binary, copy it aside, then
+	// restore the Electron binary as the default.
+	const requireFromModule = createRequire(path.join(moduleDir, 'package.json'));
+	try {
+		try {
+			const prebuildInstall = requireFromModule.resolve('prebuild-install/bin.js');
+			await spawnAsync(process.execPath, [prebuildInstall, '-r', 'node', '-t', nodeTarget, '--tag-prefix', 'v', '--arch', process.arch], { cwd: moduleDir, env: childEnv });
+		} catch (prebuildErr) {
+			// No prebuilt Node-ABI binary for this platform (e.g. musl): build from
+			// source against the Node headers for the target version. The postinstall
+			// process itself runs under Node, so node-gyp emits a Node-ABI binary.
+			log(dir, `prebuild-install unavailable (${prebuildErr instanceof Error ? prebuildErr.message.split('\n')[0] : prebuildErr}); building from source...`);
+			const nodeGyp = process.platform === 'win32'
+				? path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp.cmd')
+				: path.join(import.meta.dirname, 'gyp', 'node_modules', '.bin', 'node-gyp');
+			await spawnAsync(nodeGyp, ['rebuild', '--release', `--target=${nodeTarget}`, `--arch=${process.arch}`, '--dist-url=https://nodejs.org/dist'], { cwd: moduleDir, shell: true, env: childEnv });
+		}
+		// Verify the rebuild actually produced a Node-ABI binary before copying it.
+		// If the default is still byte-identical to the Electron binary, the rebuild
+		// silently no-op'd (e.g. a download that exited 0 without overwriting); fail
+		// loudly rather than ship an Electron-ABI binary that the server extension
+		// host cannot load (NODE_MODULE_VERSION mismatch).
+		if (fs.readFileSync(defaultBinary).equals(electronBinary)) {
+			throw new Error(`better-sqlite3 Node-ABI rebuild (node ${nodeTarget}) did not replace the Electron binary; refusing to write an Electron-ABI server binding. Re-run with VSCODE_FORCE_INSTALL=1 and network access.`);
+		}
+		fs.copyFileSync(defaultBinary, serverBinary);
+		log(dir, `Wrote ${path.relative(root, serverBinary)}`);
+	} finally {
+		fs.writeFileSync(defaultBinary, electronBinary);
+	}
+}
+
+/**
  * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
  * NOTE: Must be run AFTER `npm install` has been run in the `build` directory and BEFORE `npm install`
  * is run in the `remote/reh-web` directory.
@@ -388,6 +496,11 @@ async function main() {
 
 	if (!process.env['VSCODE_FORCE_INSTALL'] && isUpToDate()) {
 		log('.', 'All dependencies up to date, skipping postinstall.');
+		// Even when no dependencies changed, ensure the SQLite server (Node-ABI)
+		// binding exists and is not a stale Electron-ABI copy. This is idempotent
+		// and cheap when the binary is already correct (see buildSqliteServerBinding),
+		// so a cached/already-installed node_modules still gets repaired here.
+		await buildSqliteServerBinding();
 		child_process.execSync('git config pull.rebase merges');
 		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
 		return;
@@ -501,6 +614,12 @@ async function main() {
 	const concurrency = Math.min(os.cpus().length, 8);
 	log('.', `Running ${parallelTasks.length} npm installs with concurrency ${concurrency}...`);
 	await runWithConcurrency(parallelTasks, concurrency);
+
+	// --- Start Positron ---
+	// The SQLite data driver's native binding must also load in the server/remote
+	// extension host (plain Node, a different ABI than the desktop Electron host).
+	await buildSqliteServerBinding();
+	// --- End Positron ---
 
 	child_process.execSync('git config pull.rebase merges');
 	child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');

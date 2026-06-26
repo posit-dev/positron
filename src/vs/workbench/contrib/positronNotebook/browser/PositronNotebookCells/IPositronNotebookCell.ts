@@ -375,6 +375,12 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	showFullOutput(): void;
 
 	/**
+	 * Toggle output scrolling, resolving the effective state from the per-cell
+	 * override or the global setting.
+	 */
+	toggleOutputScroll(): void;
+
+	/**
 	 * Reset per-cell output truncation to follow the global setting.
 	 */
 	resetOutputScrolling(): void;

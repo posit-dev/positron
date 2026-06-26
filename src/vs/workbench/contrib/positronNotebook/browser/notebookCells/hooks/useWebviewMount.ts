@@ -25,6 +25,19 @@ const EMPTY_OUTPUT_HEIGHT = 150;
 const WHEEL_LINE_HEIGHT_PX = 40;
 
 /**
+ * Computes the webview container height from the body scroll height reported by
+ * the webview. When output scrolling is enabled the height is capped at
+ * {@link MAX_OUTPUT_HEIGHT} (taller content scrolls inside the webview rather
+ * than overflowing the cell); when disabled it grows to fit the content. The
+ * default 150px "empty output" height is collapsed to 0.
+ */
+export function computeBoundedHeight(bodyScrollHeight: number, outputScrolling: boolean): number {
+	const cap = outputScrolling ? MAX_OUTPUT_HEIGHT : Infinity;
+	const boundedHeight = Math.min(bodyScrollHeight, cap);
+	return boundedHeight === EMPTY_OUTPUT_HEIGHT ? 0 : boundedHeight;
+}
+
+/**
  * Convert a forwarded wheel event's vertical delta into pixels so raw
  * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by
  * a single pixel per tick.
@@ -53,6 +66,7 @@ export class WebviewMountError extends Error {
 interface WebviewMountOptions {
 	readonly onDoubleClick?: () => void;
 	readonly onFocus?: () => void;
+	readonly outputScrolling?: boolean;
 }
 
 /**
@@ -85,15 +99,12 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 	const services = usePositronReactServicesContext();
 	const onDoubleClick = options?.onDoubleClick;
 	const onFocus = options?.onFocus;
+	const outputScrolling = options?.outputScrolling ?? true;
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
 		if (isHTMLOutputWebviewMessage(message) && containerRef.current) {
-			let boundedHeight = Math.min(message.bodyScrollHeight, MAX_OUTPUT_HEIGHT);
-			// Avoid undesired default 150px "empty output" height
-			if (boundedHeight === EMPTY_OUTPUT_HEIGHT) {
-				boundedHeight = 0;
-			}
+			const boundedHeight = computeBoundedHeight(message.bodyScrollHeight, outputScrolling);
 			containerRef.current.style.height = `${boundedHeight}px`;
 			updateWebviewLayoutRef.current?.(true);
 			return;
@@ -115,7 +126,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>, option
 		if (isDoubleClickMessage(message)) {
 			onDoubleClick?.();
 		}
-	}, [notebookInstance, onDoubleClick]);
+	}, [notebookInstance, onDoubleClick, outputScrolling]);
 
 	React.useEffect(() => {
 		// Abort controller for canceling ongoing tasks if needed

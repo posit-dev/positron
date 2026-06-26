@@ -439,14 +439,84 @@ function decompress(data: Uint8Array, compression: 'gzip' | 'zstd'): Uint8Array 
 }
 
 /**
+ * Directory holding the vendored DuckDB `excel` extension. `__dirname` is the
+ * compiled output directory (e.g. `out/`), which sits one level below the
+ * extension root alongside `resources/`.
+ */
+const RESOURCES_DIR = path.join(__dirname, '..', 'resources');
+
+/**
  * Absolute path to the bundled DuckDB `excel` extension. It is vendored under
  * `resources/` for the platform this build targets by the `install-excel-extension`
- * postinstall step. `__dirname` is the compiled output directory (e.g. `out/`),
- * which sits one level below the extension root alongside `resources/`. Reading
- * `.xlsx` files requires this extension; we load it from disk so the feature
- * works offline / airgapped rather than relying on DuckDB's network autoload.
+ * postinstall step. Reading `.xlsx` files requires this extension; we load it from
+ * disk so the feature works offline / airgapped rather than relying on DuckDB's
+ * network autoload.
  */
-const EXCEL_EXTENSION_PATH = path.join(__dirname, '..', 'resources', 'excel.duckdb_extension');
+const EXCEL_EXTENSION_PATH = path.join(RESOURCES_DIR, 'excel.duckdb_extension');
+
+/**
+ * macOS only: DuckDB's trailing footer, stripped from `EXCEL_EXTENSION_PATH` at
+ * install time so the Mach-O could be Apple-signed (see
+ * scripts/install-excel-extension.ts). Re-attached at runtime by
+ * `resolveExcelExtensionPath`.
+ */
+const EXCEL_EXTENSION_FOOTER_PATH = path.join(RESOURCES_DIR, 'excel.duckdb_extension.footer');
+
+/** Records the bundled extension's version (e.g. `v1.5.3/osx_arm64`). */
+const EXCEL_VERSION_PATH = path.join(RESOURCES_DIR, 'EXCEL_VERSION');
+
+/**
+ * Resolve a filesystem path to a loadable `excel` extension, reconstructing it
+ * first if necessary.
+ *
+ * On macOS the bundled extension ships with DuckDB's trailing footer stripped --
+ * so the Mach-O can be Apple-signed without tripping codesign's strict validation
+ * -- and the footer saved alongside it (see scripts/install-excel-extension.ts).
+ * DuckDB needs that footer to recognize and load the extension, but the signed app
+ * bundle is read-only and sealed: re-attaching the footer in place would
+ * invalidate the app signature. So we reconstruct the full extension once into a
+ * writable cache directory outside the bundle and load it from there. On other
+ * platforms the bundled extension is complete and loaded in place.
+ *
+ * @param storageDir A writable directory (the extension's global storage) used to
+ *   cache the reconstructed extension on macOS.
+ */
+function resolveExcelExtensionPath(storageDir: string): string {
+	// Only macOS strips the footer; elsewhere the bundled file is complete. Also
+	// fall back to the bundled file if there's no footer to re-attach (e.g. a dev
+	// build where stripping was skipped).
+	if (process.platform !== 'darwin' || !fs.existsSync(EXCEL_EXTENSION_FOOTER_PATH)) {
+		return EXCEL_EXTENSION_PATH;
+	}
+
+	const version = fs.existsSync(EXCEL_VERSION_PATH)
+		? fs.readFileSync(EXCEL_VERSION_PATH, 'utf-8').trim()
+		: 'unknown';
+	// DuckDB derives the extension's entrypoint from the file's basename (the part
+	// before `.duckdb_extension`), so the reconstructed file MUST keep the name
+	// `excel.duckdb_extension`. Version the containing directory instead, so a
+	// build update lands in a fresh location.
+	const cacheDir = path.join(storageDir, `excel-${version.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+	const target = path.join(cacheDir, 'excel.duckdb_extension');
+
+	const expectedSize = fs.statSync(EXCEL_EXTENSION_PATH).size + fs.statSync(EXCEL_EXTENSION_FOOTER_PATH).size;
+	// Reuse a previously reconstructed file if it's intact (right total size).
+	if (fs.existsSync(target) && fs.statSync(target).size === expectedSize) {
+		return target;
+	}
+
+	fs.mkdirSync(cacheDir, { recursive: true });
+	const reconstructed = Buffer.concat([
+		fs.readFileSync(EXCEL_EXTENSION_PATH),
+		fs.readFileSync(EXCEL_EXTENSION_FOOTER_PATH),
+	]);
+	// Write to a temp file then rename so a partial write never leaves a corrupt
+	// extension at the target path.
+	const tmp = `${target}.${process.pid}.tmp`;
+	fs.writeFileSync(tmp, new Uint8Array(reconstructed));
+	fs.renameSync(tmp, target);
+	return target;
+}
 
 /**
  * Read a single entry from a `.zip`/`.xlsx` archive as UTF-8 text. Resolves to
@@ -2202,6 +2272,7 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	constructor(
 		private readonly db: DuckDBInstance,
 		private readonly sendUiEvent: (event: DataExplorerUiEvent) => void,
+		private readonly storageDir: string,
 	) {
 		// If the DuckDB worker crashes (e.g. out of memory), its in-memory tables
 		// are gone with it. Drop the cached table views so the next request for a
@@ -2408,19 +2479,22 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 	/**
 	 * Ensure the bundled `excel` extension is loaded. Loads it from disk (rather
-	 * than DuckDB's network autoload) so `.xlsx` support works offline. Throws a
-	 * user-facing error if the bundled extension cannot be loaded.
+	 * than DuckDB's network autoload) so `.xlsx` support works offline. On macOS
+	 * the loadable file is reconstructed outside the read-only app bundle; see
+	 * `resolveExcelExtensionPath`. Throws a user-facing error if the bundled
+	 * extension cannot be loaded.
 	 */
 	private async ensureExcelExtension(): Promise<void> {
 		if (this._excelExtensionLoaded) {
 			return;
 		}
+		const extensionPath = resolveExcelExtensionPath(this.storageDir);
 		try {
-			await this.db.runQuery(`LOAD '${quoteLiteral(EXCEL_EXTENSION_PATH)}';`);
+			await this.db.runQuery(`LOAD '${quoteLiteral(extensionPath)}';`);
 			this._excelExtensionLoaded = true;
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
-			console.error(`Failed to load bundled DuckDB Excel extension (${EXCEL_EXTENSION_PATH}): ${detail}`);
+			console.error(`Failed to load bundled DuckDB Excel extension (${extensionPath}): ${detail}`);
 			throw new Error('Could not load Excel support. Please report this issue if it persists.');
 		}
 	}
@@ -2659,7 +2733,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// registerRpcHandler returns below, so this must be `let` despite the single assignment.
 	// eslint-disable-next-line prefer-const
 	let session: positron.DataExplorerRpcSession | undefined;
-	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event));
+	const dataExplorerHandler = new DataExplorerRpcHandler(db, event => session?.sendUiEvent(event), context.globalStorageUri.fsPath);
 	session = positron.dataExplorer.registerRpcHandler('positron-duckdb', {
 		handleRpc: (request) => dataExplorerHandler.handleRequest(request as DataExplorerRpc)
 	});

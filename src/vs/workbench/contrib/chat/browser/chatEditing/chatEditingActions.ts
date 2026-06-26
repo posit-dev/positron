@@ -614,7 +614,7 @@ registerAction2(class RestoreLastCheckpoint extends Action2 {
 				ChatContextKeys.inChatSession,
 				ContextKeyExpr.equals(`config.${ChatConfiguration.CheckpointsEnabled}`, true),
 				ContextKeyExpr.or(ChatContextKeys.lockedToCodingAgent.negate(), ChatContextKeyExprs.isAgentHostSession),
-				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				ChatContextKeys.aiFeaturesEnabled,
 			),
 			// --- End Positron ---
 		});

@@ -12,6 +12,14 @@ inputs:
     description: 'Positron license file content'
     required: false
     default: ''
+  server-tarball:
+    description: 'Host path to a pre-built positron-server tarball to install instead of downloading a published release'
+    required: false
+    default: ''
+  signing-key:
+    description: 'License-token signing key'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -60,10 +68,46 @@ runs:
         docker exec jupyter-test chmod +x /opt/install-jupyter-positron.sh
         docker exec jupyter-test chmod +x /opt/positronDownload.sh
 
+    - name: Stage branch server tarball
+      shell: bash
+      if: inputs.server-tarball != ''
+      env:
+        SERVER_TARBALL: ${{ inputs.server-tarball }}
+      run: |
+        # Copy the branch-built server tarball into the container so the install
+        # script installs it instead of downloading a published positron-builds release.
+        docker cp "$SERVER_TARBALL" jupyter-test:/opt/positron-server-branch.tar.gz
+        echo "Staged branch server tarball at /opt/positron-server-branch.tar.gz"
+
+    - name: Stage license signing key
+      shell: bash
+      if: inputs.signing-key != ''
+      env:
+        # Pass the secret via env rather than interpolating it into the script
+        # body, so the private key is never embedded in the rendered command.
+        SIGNING_KEY: ${{ inputs.signing-key }}
+      run: |
+        # Copy the signing key into the container at the path the install script
+        # expects (/opt/signing-key.pem). The Hub minting service reads this to
+        # sign per-session license tokens; the install script fails without it.
+        # Must run before the install step below.
+        trap 'rm -f signing-key.pem' EXIT
+        printf '%s' "$SIGNING_KEY" > signing-key.pem
+        chmod 600 signing-key.pem
+        docker cp signing-key.pem jupyter-test:/opt/signing-key.pem
+        echo "Staged license signing key at /opt/signing-key.pem"
+
     - name: Install Jupyter with Positron in container
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        SERVER_TARBALL: ${{ inputs.server-tarball }}
       run: |
-        docker exec -e GITHUB_TOKEN="${{ inputs.github-token }}" -e ARCH_SUFFIX=amd64 jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
+        EXEC_ARGS=(-e GITHUB_TOKEN="$GITHUB_TOKEN" -e ARCH_SUFFIX=amd64)
+        if [ -n "$SERVER_TARBALL" ]; then
+          EXEC_ARGS+=(-e POSITRON_SERVER_TARBALL=/opt/positron-server-branch.tar.gz)
+        fi
+        docker exec "${EXEC_ARGS[@]}" jupyter-test /bin/bash -c "/opt/install-jupyter-positron.sh --ci"
 
     - name: Setup Positron license
       shell: bash

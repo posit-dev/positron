@@ -1,5 +1,6 @@
 ---
 name: pete
+disable-model-invocation: true
 description: Preview the test-coverage verdict PETE will post, locally, before a PR exists. PETE is Positron's CI "PR Test Checker": it grades whether a PR adds adequate tests for its source changes and posts a verdict comment. This skill replays the same rubric and file classification against your working tree (committed + uncommitted + untracked changes vs the merge-base with the default branch) and renders the verdict in-session -- it posts nothing and needs no network or gh. Use when asked to "run PETE" / "run PETE locally", to preview or check test coverage before opening or pushing a PR, to see whether the current branch has adequate tests, or to anticipate what PETE / the PR Test Checker will say.
 ---
 
