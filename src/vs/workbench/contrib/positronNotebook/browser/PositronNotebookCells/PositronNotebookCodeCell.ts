@@ -13,8 +13,8 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { pickPreferredOutputItem } from './notebookOutputUtils.js';
-import { getWebviewMessageType, isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { htmlRenderMode, pickPreferredOutputItem } from './notebookOutputUtils.js';
+import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -163,7 +163,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				if (parsedOutput.preloadMessageResult === undefined) {
 					return;
 				}
-			} else if (preferredOutputItem.mime === 'text/html' && isComplexHtml(rawOutput)) {
+			} else if (preferredOutputItem.mime === 'text/html' && htmlRenderMode(rawOutput) === 'webview') {
 				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
 				// documents (e.g. Great Tables) fall through and render inline.
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
