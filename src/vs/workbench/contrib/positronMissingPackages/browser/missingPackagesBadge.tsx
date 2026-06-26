@@ -207,10 +207,21 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 		}
 	};
 
-	// Disable the badge for future documents and dismiss the dialog.
+	// Disable the badge for future documents, dismiss the dialog, and let the
+	// user know how to turn the warning back on.
 	const dontShowAgain = () => {
 		configurationService.updateValue(WARN_MISSING_IN_EDITOR, false, ConfigurationTarget.USER);
 		renderer.dispose();
+
+		// Link to the setting that re-enables the warning. The notification
+		// renders markdown command links, so clicking opens the Settings editor
+		// filtered to the setting.
+		const settingLink = `command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify([WARN_MISSING_IN_EDITOR]))}`;
+		services.notificationService.info(localize(
+			'positron.missingPackages.dontShowAgainNotification',
+			"Positron won't warn you again about missing packages in your code. You can turn this behavior back on using the [{0}]({1}) setting.",
+			localize('positron.missingPackages.settingName', "Warn About Missing Packages in Editor"),
+			settingLink));
 	};
 
 	return (
