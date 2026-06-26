@@ -22,6 +22,11 @@ const QUARTO_LANG_WHEN = ContextKeyExpr.or(
 	...QUARTO_LANGUAGE_IDS.map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
 );
 
+// Preview is offered more broadly than the other Quarto actions.
+const QUARTO_PREVIEW_LANG_WHEN = ContextKeyExpr.or(
+	...[...QUARTO_LANGUAGE_IDS, 'markdown'].map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
+);
+
 // Outer submenu attached to the editor action bar's leftmost slot.
 // Group `navigation` is special-cased to render before `0_preview` (Quarto
 // extension's Render button) and `1_save` (Save button), placing this entry
@@ -173,16 +178,13 @@ registerWorkbenchContribution2(
 // "Preview Format..." picker, which lists the formats the document actually
 // supports (the extension enumerates them with `quarto inspect`).
 //
-// This replaces the Quarto extension's own Preview button in Positron. The
-// extension hides its `editor/title/run` button when the
-// `quartoCanUsePositronPreviewSplitButton` context key is set.
+// The Quarto extension also contributes a `quarto.preview` button to
+// `editor/title/run`. Both reference the same command id, and the editor action
+// bar factory deduplicates by command id.
 //
-// `isSplitButton: true` (rather than `{ togglePrimaryAction: true }`) keeps
-// "Preview" as the fixed primary; using the dropdown does not change what the
-// button does. The primary menu item below intentionally has NO icon so the
-// editor action bar factory renders the "Preview" text label rather than an
-// icon-only button (see the split-button branch in editorActionBarFactory.tsx).
-
+// The primary menu item below intentionally has no icon so the editor action
+// bar factory renders the "Preview" text label rather than an icon-only button
+//
 // Outer submenu: the Preview split button on the editor action bar, just right
 // of the Run All button.
 MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, {
@@ -190,12 +192,11 @@ MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, {
 	title: localize2('quarto.editorActionBar.preview', "Preview"),
 	group: 'navigation',
 	order: 1,
-	when: QUARTO_LANG_WHEN,
+	when: QUARTO_PREVIEW_LANG_WHEN,
 	isSplitButton: true,
 });
 
-// Primary action: preview the default format. Delegates to the extension's
-// `quarto.preview`. No icon, so the factory renders the "Preview" text label.
+// Primary action: preview the default format.
 MenuRegistry.appendMenuItem(MenuId.PositronQuartoPreviewMenu, {
 	command: {
 		id: 'quarto.preview',
