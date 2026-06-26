@@ -12,6 +12,8 @@ import {
     extractRequirementName,
     normalizePackageName,
     parseRequirements,
+    recordUpdate,
+    removeRequirement,
     RequirementEntry,
     setRequirement,
 } from '../../client/positron/packages/requirementsFile';
@@ -188,6 +190,47 @@ suite('requirementsFile Tests', () => {
 
         test('appends a trailing newline if the file lacks one', () => {
             expect(appendBareIfAbsent('flask==2.2.0', 'requests')).to.equal('flask==2.2.0\nrequests\n');
+        });
+    });
+
+    suite('recordUpdate', () => {
+        test('bumps an exact pin to the new version', () => {
+            expect(recordUpdate('flask==1.0\nrequests==2.28.0\n', 'requests', '2.31.0')).to.equal(
+                'flask==1.0\nrequests==2.31.0\n',
+            );
+        });
+
+        test('preserves extras when bumping an exact pin', () => {
+            expect(recordUpdate('requests[security]==2.28.0\n', 'requests', '2.31.0')).to.equal(
+                'requests[security]==2.31.0\n',
+            );
+        });
+
+        test('leaves a range untouched', () => {
+            expect(recordUpdate('requests>=2,<3\n', 'requests', '2.31.0')).to.equal('requests>=2,<3\n');
+        });
+
+        test('leaves a bare name untouched', () => {
+            expect(recordUpdate('requests\n', 'requests', '2.31.0')).to.equal('requests\n');
+        });
+
+        test('appends a bare name when the target is undeclared', () => {
+            expect(recordUpdate('flask==1.0\n', 'requests', '2.31.0')).to.equal('flask==1.0\nrequests\n');
+        });
+    });
+
+    suite('removeRequirement', () => {
+        test('removes a single-line entry', () => {
+            expect(removeRequirement('flask==1.0\nrequests==2.28.0\n', 'requests')).to.equal('flask==1.0\n');
+        });
+
+        test('removes a backslash-continued entry and its hash lines', () => {
+            const content = 'flask==1.0\nfoo==1.0 \\\n    --hash=sha256:aaa \\\n    --hash=sha256:bbb\n';
+            expect(removeRequirement(content, 'foo')).to.equal('flask==1.0\n');
+        });
+
+        test('leaves content unchanged when the target is not declared', () => {
+            expect(removeRequirement('flask==1.0\n', 'requests')).to.equal('flask==1.0\n');
         });
     });
 });

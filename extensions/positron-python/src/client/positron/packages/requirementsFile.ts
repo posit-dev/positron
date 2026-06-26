@@ -199,3 +199,47 @@ export function appendBareIfAbsent(content: string, name: string): string {
     lines.push(name);
     return joinLines(lines);
 }
+
+/** True when the entry's first line pins an exact version, e.g. `name==1.2.3`. */
+function isExactPin(firstLine: string, rawName: string): boolean {
+    const afterName = firstLine
+        .trim()
+        .slice(rawName.length)
+        .replace(/^\[[^\]]*\]/, '')
+        .trimStart();
+    return afterName.startsWith('==');
+}
+
+/** Write-back for update: if the target is declared as an EXACT pin
+ *  (`name==X`), rewrite it to `name==version` (preserving extras); if the
+ *  target is undeclared, append it bare; ranges and bare names are left
+ *  unchanged. Returns content unchanged when no edit applies. */
+export function recordUpdate(content: string, name: string, version: string): string {
+    const { lines } = splitLines(content);
+    const entries = parseRequirements(content);
+    const norm = normalizePackageName(name);
+    const match = entries.find((e) => e.normalizedName === norm);
+    if (!match) {
+        return appendBareIfAbsent(content, name);
+    }
+    if (!isExactPin(lines[match.startLine], match.rawName)) {
+        return content; // range or bare: env still satisfies the declared line
+    }
+    const spec = formatSpec(match.rawName, match.extras, version);
+    lines.splice(match.startLine, match.endLine - match.startLine + 1, spec);
+    return joinLines(lines);
+}
+
+/** Write-back for uninstall: remove the target's full entry span if declared;
+ *  otherwise return content unchanged. */
+export function removeRequirement(content: string, name: string): string {
+    const { lines } = splitLines(content);
+    const entries = parseRequirements(content);
+    const norm = normalizePackageName(name);
+    const match = entries.find((e) => e.normalizedName === norm);
+    if (!match) {
+        return content;
+    }
+    lines.splice(match.startLine, match.endLine - match.startLine + 1);
+    return joinLines(lines);
+}
