@@ -18,7 +18,7 @@ import { GhostCellState } from './controller.js';
 import { useGhostCellController } from './useGhostCellController.js';
 import { ScreenReaderOnly } from '../../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 import { SELECT_GHOST_CELL_MODEL_COMMAND_ID } from './config.js';
 import { IAction } from '../../../../../../base/common/actions.js';
@@ -556,7 +556,7 @@ export const GhostCell: React.FC = () => {
 	}, [controller]);
 
 	const handleShowInfo = React.useCallback(() => {
-		const renderer = new PositronModalReactRenderer({
+		const renderer = new PositronModalDialogReactRenderer({
 			container: workbenchLayoutService.getContainer(DOM.getWindow(containerRef.current))
 		});
 		// Extract modelName from state if available

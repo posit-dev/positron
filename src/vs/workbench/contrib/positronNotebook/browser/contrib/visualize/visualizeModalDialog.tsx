@@ -11,18 +11,15 @@ import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { FooterButton } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { OKCancelBackNextActionBar } from '../../../../../browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
-import { DropDownListBox, DropDownListBoxEntry } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
-import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { DropDownListBoxSeparator } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { ChartType, codeSnippetToCellSource, generateVizCode, isValidDataFrameExpr, VizAnswers, VizLibrary } from './generateVizCode.js';
 import { InsertMode } from './applyVisualizeResult.js';
+import { createSingleCallFunction } from '../../../../../../base/common/functional.js';
 import { VisualizePreview } from './visualizePreview.js';
 
 export type { InsertMode };
@@ -101,13 +98,17 @@ export const showVisualizeModalDialog = (
 	notebookUri?: URI,
 ): Promise<VisualizeResult | undefined> => {
 	return new Promise(resolve => {
-		const renderer = new PositronModalReactRenderer();
-		let resolved = false;
+		// Resolve the promise at most once across every close path. settle wraps resolve via
+		// createSingleCallFunction and is wired to the renderer's onDisposed, so Escape / click-outside
+		// settle with undefined. finish is the button path: settle with the result, then dispose -- the
+		// dispose's onDisposed -> settle(undefined) is a no-op because settle already ran.
+		const settle = createSingleCallFunction(resolve);
+		const renderer = new PositronModalDialogReactRenderer({
+			onDisposed: () => settle(undefined),
+		});
 		const finish = (r: VisualizeResult | undefined) => {
-			if (resolved) { return; }
-			resolved = true;
+			settle(r);
 			renderer.dispose();
-			resolve(r);
 		};
 		renderer.render(
 			<VisualizeModalDialog
@@ -124,7 +125,7 @@ export const showVisualizeModalDialog = (
 };
 
 interface Props {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	initialDfName: string;
 	columns: DataFrameColumn[];
 	notebookUri?: URI;
@@ -275,14 +276,8 @@ const VisualizeModalDialog = (props: Props) => {
 	const previewReady = dfNameValid && answers.x.trim().length > 0;
 
 	return (
-		<PositronModalDialog
-			height={560}
-			renderer={props.renderer}
-			title={localize('positron.notebook.visualize.title', 'Visualize dataframe')}
-			width={900}
-			onCancel={props.onCancel}
-		>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='visualize-split'>
 					<div className='visualize-modal-content'>
 						<StepIndicator currentIdx={currentIdx} total={STEP_ORDER.length} />
@@ -405,25 +400,33 @@ const VisualizeModalDialog = (props: Props) => {
 						</div>
 					)}
 				</div>
-			</ContentArea>
-
-			<OKCancelBackNextActionBar
-				backButtonConfig={{
-					disable: currentIdx === 0,
-					onClick: goBack,
-				}}
-				cancelButtonConfig={{ onClick: props.onCancel }}
-				nextButtonConfig={isLastStep ? undefined : {
-					disable: !canAdvance,
-					onClick: advanceOrSubmit,
-				}}
-				okButtonConfig={isLastStep ? {
-					title: localize('positron.notebook.visualize.insert', 'Insert'),
-					disable: !canInsert,
-					onClick: advanceOrSubmit,
-				} : undefined}
-			/>
-		</PositronModalDialog>
+			}
+			contentMaxHeight={480}
+			contentMinHeight={480}
+			footer={
+				<div className='visualize-footer'>
+					<FooterButton disabled={currentIdx === 0} onPressed={goBack}>
+						{localize('positron.notebook.visualize.back', 'Back')}
+					</FooterButton>
+					<div className='visualize-footer-right'>
+						<FooterButton onPressed={props.onCancel}>
+							{localize('positron.notebook.visualize.cancel', 'Cancel')}
+						</FooterButton>
+						{isLastStep
+							? <FooterButton default disabled={!canInsert} type='submit' onPressed={advanceOrSubmit}>
+								{localize('positron.notebook.visualize.insert', 'Insert')}
+							</FooterButton>
+							: <FooterButton default disabled={!canAdvance} type='submit' onPressed={advanceOrSubmit}>
+								{localize('positron.notebook.visualize.next', 'Next')}
+							</FooterButton>}
+					</div>
+				</div>
+			}
+			renderer={props.renderer}
+			title={localize('positron.notebook.visualize.title', 'Visualize dataframe')}
+			width={900}
+			onSubmit={advanceOrSubmit}
+		/>
 	);
 };
 
@@ -580,19 +583,7 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 }) {
 	const hasColumns = columns.length > 0;
 
-	// Dropdown autoFocus: LabeledTextInput handles its own autoFocus via
-	// the native input attribute; DropDownListBox doesn't, so focus the
-	// button ourselves on mount.
-	const dropdownRef = useRef<HTMLButtonElement>(null);
-	const didAutoFocusRef = useRef(false);
-	useEffect(() => {
-		if (autoFocus && hasColumns && !didAutoFocusRef.current) {
-			dropdownRef.current?.focus();
-			didAutoFocusRef.current = true;
-		}
-	}, [autoFocus, hasColumns]);
-
-	// Fallback when the dataframe wasn't inspectable -- the dropdown would
+	// Fallback when the dataframe wasn't inspectable -- the select would
 	// be empty, so let the user type a column name.
 	if (!hasColumns) {
 		return (
@@ -605,44 +596,33 @@ function ColumnPicker({ label, value, onChange, columns, autoFocus, allowClear }
 		);
 	}
 
-	const entries: DropDownListBoxEntry<string, string>[] = columns.map(c =>
-		new DropDownListBoxItem<string, string>({
-			identifier: c.name,
-			title: `${c.name}   ${c.type}`,
-			value: c.name,
-		})
-	);
-	// Identify the "None" / clear entry by reference rather than by
-	// identifier string, so a column literally named (e.g.) "None" can't
-	// be misinterpreted as a clear action.
-	const clearEntry = allowClear
-		? new DropDownListBoxItem<string, string>({
-			identifier: '',
-			title: localize('positron.notebook.visualize.columnPicker.none', 'None'),
-			value: '',
-		})
-		: null;
-	if (clearEntry) {
-		entries.push(new DropDownListBoxSeparator());
-		entries.push(clearEntry);
-	}
-
+	// A native <select> is used instead of the styled DropDownListBox because
+	// this dialog is a native <dialog> opened with showModal(), which lives in
+	// the browser top layer. DropDownListBox renders its popup into the normal
+	// DOM, so it would be occluded behind the dialog. Native <select> popups
+	// render in the OS layer and appear correctly above the dialog.
+	const placeholder = localize('positron.notebook.visualize.columnPicker.placeholder', 'Select a column');
 	return (
 		<div className='visualize-column-picker'>
 			<span className='visualize-column-picker-label'>{label}</span>
-			<DropDownListBox<string, string>
-				ref={dropdownRef}
-				entries={entries}
-				selectedIdentifier={value || undefined}
-				title={localize('positron.notebook.visualize.columnPicker.placeholder', 'Select a column')}
-				onSelectionChanged={(item) => {
-					if (item === clearEntry) {
-						onChange('');
-					} else {
-						onChange(item.options.value);
-					}
-				}}
-			/>
+			<select
+				autoFocus={autoFocus}
+				className='visualize-column-select'
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+			>
+				{/*
+					Empty placeholder option. When allowClear, this is the "None" choice; otherwise it's
+					the initial prompt. Selecting it sets the value to '', which the canAdvance/canInsert
+					guards treat as "no column chosen" -- so it can't be submitted either way.
+				*/}
+				<option value=''>
+					{allowClear ? localize('positron.notebook.visualize.columnPicker.none', 'None') : placeholder}
+				</option>
+				{columns.map(c => (
+					<option key={c.name} value={c.name}>{`${c.name}   ${c.type}`}</option>
+				))}
+			</select>
 		</div>
 	);
 }
