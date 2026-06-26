@@ -24,8 +24,8 @@ const SCENARIOS = [
 		// Output-heavy: stress the console output rendering pipeline.
 		// Regression target: posit-dev/positron#9852 (console lag after large output)
 		name: 'large output',
-		python: "print('\\n'.join(str(i) for i in range(1000)))",
-		r: "cat(paste(seq_len(1000), collapse = '\\n'), '\\n')",
+		python: 'print("\\n".join(str(i) for i in range(1000)))',
+		r: 'cat(paste(seq_len(1000), collapse = "\\n"), "\\n")',
 	},
 ] as const;
 
