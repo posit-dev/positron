@@ -26,6 +26,13 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	readonly dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
+	 * Gets whether this instance backs an inline/embedded view (e.g. a notebook
+	 * cell output) whose comm is shared and runtime-owned. An editor tab opened
+	 * against such a comm must not dispose it on close.
+	 */
+	readonly isInline: boolean;
+
+	/**
 	 * Gets or sets the layout.
 	 */
 	layout: PositronDataExplorerLayout;
