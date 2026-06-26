@@ -156,7 +156,7 @@ type SuggestionTag = 'suggestions' | 'suggestion' | 'label' | 'detail' | 'query'
 /** The maximum suggestions to keep; the model is asked for 3-5. */
 const MAX_SUGGESTIONS = 5;
 
-// ponytail: cap cells to bound prompt size; add sliding-window (#14479-style) if huge notebooks regress.
+// Cap cells to bound prompt size; add sliding-window (#14479-style) if huge notebooks regress.
 const MAX_CONTEXT_CELLS = 50;
 const MAX_CELL_CONTENT = 1000;
 
