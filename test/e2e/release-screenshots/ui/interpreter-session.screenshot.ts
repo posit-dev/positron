@@ -124,7 +124,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		await prepareForScreenshot(app, page);
 		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
 		await annotate(page, [
-			{ selector: 'button:has(.top-action-bar-session-manager-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
+			{ selector: 'button:has(.top-action-bar-session-picker-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);
 		await captureFullWindow(page, 'active-interpreter-session.png');
 	});
