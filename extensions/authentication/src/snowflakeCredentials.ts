@@ -226,33 +226,13 @@ export async function checkForUpdatedSnowflakeCredentials(
 }
 
 /**
- * Gets the default base URL for Snowflake Cortex, using SNOWFLAKE_ACCOUNT if available
- * @returns Base URL string with account identifier filled in if possible
+ * Reads the configured Snowflake account identifier from settings, falling
+ * back to the SNOWFLAKE_ACCOUNT environment variable.
+ * @returns The account identifier, or an empty string if not set.
  */
-export function getSnowflakeDefaultBaseUrl(): string {
-	// Prefer a baseUrl previously saved by the user via the config dialog.
-	const savedBaseUrl = vscode.workspace
-		.getConfiguration('authentication.snowflake-cortex')
-		.get<string>('baseUrl');
-	if (savedBaseUrl) {
-		return savedBaseUrl;
-	}
-
-	// Try to get the account from settings or environment variables
+export function getConfiguredSnowflakeAccount(): string {
 	const configSettings = vscode.workspace
 		.getConfiguration('authentication.snowflake')
 		.get<SnowflakeProviderVariables>('credentials', {});
-	const account = configSettings.SNOWFLAKE_ACCOUNT || process.env.SNOWFLAKE_ACCOUNT;
-
-	if (account) {
-		try {
-			return constructSnowflakeBaseUrl(account);
-		} catch (error) {
-			// If account is invalid, fall back to placeholder
-			log.debug(`[Snowflake] Invalid account identifier '${account}', using placeholder: ${error}`);
-		}
-	}
-
-	// Fallback to placeholder if no account is available
-	return 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1';
+	return configSettings.SNOWFLAKE_ACCOUNT || process.env.SNOWFLAKE_ACCOUNT || '';
 }

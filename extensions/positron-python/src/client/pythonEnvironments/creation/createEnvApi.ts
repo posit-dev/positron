@@ -220,7 +220,21 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.InstallPythonViaUv, async () => {
             try {
                 const result = await installPythonViaUv();
-                return await handleInstallPythonResult(result, pythonRuntimeManager);
+                const handled = await handleInstallPythonResult(result, pythonRuntimeManager);
+                // Start the newly installed runtime in the Console. The runtime-picker path
+                // (onDidSelectItem) lets Positron start the returned runtimeId itself, so
+                // handleInstallPythonResult only registers - the palette command must start it here.
+                if (handled?.runtimeId) {
+                    // Best-effort: start the runtime in the console. A failure here does
+                    // not mean the install failed - the runtime is still registered and
+                    // will appear in the session picker.
+                    try {
+                        await positron.runtime.selectLanguageRuntime(handled.runtimeId);
+                    } catch (startError) {
+                        traceError(`Failed to start runtime after Python install: ${startError}`);
+                    }
+                }
+                return handled;
             } catch (error) {
                 traceError(`installPythonViaUv command failed: ${error}`);
                 showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);

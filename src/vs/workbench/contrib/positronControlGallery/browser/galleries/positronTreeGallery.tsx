@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { TreeNode } from '../../../../browser/positronTree/classes/treeNode.js';
+import { SelectionCursorOptions } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { controlGalleryRegistry } from '../controlGalleryRegistry.js';
 
 const ROW_HEIGHT = 22;
@@ -71,6 +72,7 @@ const PositronTreeHarness = () => {
 	const [maxDepth, setMaxDepth] = useState(4);
 	const [fanOut, setFanOut] = useState(5);
 	const [fetchDelayMs, setFetchDelayMs] = useState(300);
+	const [selectionFollowsCursor, setSelectionFollowsCursor] = useState(false);
 
 	// Re-derive the instance from the knobs. The instance owns its own state across re-renders,
 	// so we use useRef + an explicit teardown rather than useState so that a knob change really
@@ -81,6 +83,13 @@ const PositronTreeHarness = () => {
 	const [instance, setInstance] = useState<PositronTreeInstance<DemoNode> | undefined>(undefined);
 
 	useEffect(() => {
+		// selectionFollowsCursor is a construction-time option, so the instance is recreated when
+		// it toggles. When the selection follows the cursor, Enter/Space-to-select are redundant
+		// and disallowed; otherwise opt them in.
+		const cursorOptions: SelectionCursorOptions = selectionFollowsCursor
+			? { selectionFollowsCursor: true }
+			: { selectionFollowsCursor: false, enterSelects: true, spaceSelects: true };
+
 		const tree = new PositronTreeInstance<DemoNode>({
 			rowHeight: ROW_HEIGHT,
 			getRoots: async () => {
@@ -94,10 +103,11 @@ const PositronTreeHarness = () => {
 			renderNode: (visible) => (
 				<span className='positron-tree-harness-label'>{visible.node.data.label}</span>
 			),
+			...cursorOptions,
 		});
 		setInstance(tree);
 		return () => tree.dispose();
-	}, [maxDepth, fanOut]);
+	}, [maxDepth, fanOut, selectionFollowsCursor]);
 
 	if (instance === undefined) {
 		return null;
@@ -136,6 +146,14 @@ const PositronTreeHarness = () => {
 						value={fetchDelayMs}
 						onChange={e => setFetchDelayMs(clamp(Number(e.target.value) || 0, 0, 5000))}
 					/>
+				</label>
+				<label className='positron-tree-harness-knob positron-tree-harness-checkbox'>
+					<input
+						checked={selectionFollowsCursor}
+						type='checkbox'
+						onChange={e => setSelectionFollowsCursor(e.target.checked)}
+					/>
+					<span>Selection follows cursor</span>
 				</label>
 				<button
 					className='positron-tree-harness-button'

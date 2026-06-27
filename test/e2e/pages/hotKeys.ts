@@ -139,6 +139,16 @@ export class HotKeys {
 		}
 	}
 
+	public async scrollToBottom() {
+		const platform = process.platform;
+
+		if (platform === 'win32' || platform === 'linux') {
+			await this.code.driver.currentPage.keyboard.press('End');
+		} else {
+			await this.pressHotKeys('Cmd+ArrowDown', 'Scroll to bottom');
+		}
+	}
+
 	public async switchTabLeft() {
 		await this.pressHotKeys('Cmd+Shift+[', 'Switch tab left');
 	}
@@ -173,6 +183,10 @@ export class HotKeys {
 
 	public async sendInterrupt() {
 		await this.pressHotKeys('Cmd+C', 'Send interrupt to console');
+	}
+
+	public async focusPreviewPanel() {
+		await this.pressHotKeys('Cmd+L B', 'Focus preview panel');
 	}
 
 	// ----------------------
@@ -245,7 +259,7 @@ export class HotKeys {
 	}
 
 	public async reloadWindow(waitForReady = false) {
-		await this.pressHotKeys('Cmd+R R', 'Reload window');
+		await this.pressHotKeys('Cmd+B R', 'Reload window');
 
 		// wait for workbench to disappear, reappear and be ready
 		await this.code.driver.currentPage.waitForTimeout(3000);

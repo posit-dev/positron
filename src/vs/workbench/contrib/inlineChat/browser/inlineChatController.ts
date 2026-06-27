@@ -47,11 +47,6 @@ import { continueInPanelChat, IInlineChatSession, IInlineChatSessionService, rep
 import { EditorBasedInlineChatWidget } from './inlineChatWidget.js';
 import { InlineChatZoneWidget } from './inlineChatZoneWidget.js';
 
-// --- Start Positron ---
-import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
-import { updateLocationForPositronNotebooks } from './positronNotebookUtils.js';
-// --- End Positron ---
-
 export abstract class InlineChatRunOptions {
 
 	initialSelection?: ISelection;
@@ -149,9 +144,6 @@ export class InlineChatController implements IEditorContribution {
 		@ILogService logService: ILogService,
 		@IChatEditingService chatEditingService: IChatEditingService,
 		@IChatService chatService: IChatService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 	) {
 		this.#editor = editor;
 		this.#instaService = instaService;
@@ -237,12 +229,6 @@ export class InlineChatController implements IEditorContribution {
 				}
 			}
 
-			// --- Start Positron ---
-			// Check if this editor is part of a Positron notebook
-			if (!notebookEditor) {
-				updateLocationForPositronNotebooks(this.#editor, location, this._positronNotebookService);
-			}
-			// --- End Positron ---
 			const result = this.#instaService.createInstance(InlineChatZoneWidget,
 				location,
 				{

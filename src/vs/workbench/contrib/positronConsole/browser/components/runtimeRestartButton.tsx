@@ -34,10 +34,11 @@ export const RuntimeRestartButton = memo((props: RuntimeRestartButtonProps) => {
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+		disposableStore.add(props.positronConsoleInstance.onFocusInput((options) => {
 			// Focus the button when the Console takes focus, i.e. when the
-			// user clicks somewhere on the console output
-			restartRef.current?.focus();
+			// user clicks somewhere on the console output. Honor preventScroll so
+			// focusing does not yank the viewport when scrolled up (#11772).
+			restartRef.current?.focus({ preventScroll: options.preventScroll });
 		}));
 
 		return () => disposableStore.dispose();

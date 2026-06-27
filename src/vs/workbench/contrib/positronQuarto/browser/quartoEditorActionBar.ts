@@ -22,6 +22,11 @@ const QUARTO_LANG_WHEN = ContextKeyExpr.or(
 	...QUARTO_LANGUAGE_IDS.map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
 );
 
+// Preview is offered more broadly than the other Quarto actions.
+const QUARTO_PREVIEW_LANG_WHEN = ContextKeyExpr.or(
+	...[...QUARTO_LANGUAGE_IDS, 'markdown'].map(id => ContextKeyExpr.equals(ResourceContextKey.LangId.key, id))
+);
+
 // Outer submenu attached to the editor action bar's leftmost slot.
 // Group `navigation` is special-cased to render before `0_preview` (Quarto
 // extension's Render button) and `1_save` (Save button), placing this entry
@@ -165,3 +170,49 @@ registerWorkbenchContribution2(
 	QuartoRestartMenuItemController,
 	WorkbenchPhase.AfterRestored,
 );
+
+// --- Preview split button ---------------------------------------------------
+//
+// A dedicated split button for previewing the document. The primary action
+// previews the document's default format; the dropdown opens the extension's
+// "Preview Format..." picker, which lists the formats the document actually
+// supports (the extension enumerates them with `quarto inspect`).
+//
+// The Quarto extension also contributes a `quarto.preview` button to
+// `editor/title/run`. Both reference the same command id, and the editor action
+// bar factory deduplicates by command id.
+//
+// The primary menu item below intentionally has no icon so the editor action
+// bar factory renders the "Preview" text label rather than an icon-only button
+//
+// Outer submenu: the Preview split button on the editor action bar, just right
+// of the Run All button.
+MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, {
+	submenu: MenuId.PositronQuartoPreviewMenu,
+	title: localize2('quarto.editorActionBar.preview', "Preview"),
+	group: 'navigation',
+	order: 1,
+	when: QUARTO_PREVIEW_LANG_WHEN,
+	isSplitButton: true,
+});
+
+// Primary action: preview the default format.
+MenuRegistry.appendMenuItem(MenuId.PositronQuartoPreviewMenu, {
+	command: {
+		id: 'quarto.preview',
+		title: localize2('quarto.editorActionBar.preview', "Preview"),
+	},
+	group: 'navigation',
+	order: 0,
+});
+
+// Dropdown: choose a format to preview. Delegates to the extension's
+// `quarto.previewFormat`, which prompts with the document's available formats.
+MenuRegistry.appendMenuItem(MenuId.PositronQuartoPreviewMenu, {
+	command: {
+		id: 'quarto.previewFormat',
+		title: localize2('quarto.editorActionBar.previewFormat', "Preview Format..."),
+	},
+	group: '1_formats',
+	order: 10,
+});

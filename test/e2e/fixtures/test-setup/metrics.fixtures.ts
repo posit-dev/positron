@@ -8,6 +8,7 @@ import {
 	recordRunCell,
 	recordRenderOnOpen,
 	recordRenderOnNavBack,
+	recordRenderOnColdOpen,
 	type NotebookShortcutOptions,
 } from '../../utils/metrics/metric-notebooks.js';
 import { recordAssistantEval, type AssistantEvalInput } from '../../utils/metrics/metric-assistant.js';
@@ -89,6 +90,13 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				options?: NotebookShortcutOptions
 			): Promise<MetricResult<T>> => {
 				return recordRenderOnNavBack(operation, targetType, !app.web, logger, options);
+			},
+			renderOnColdOpen: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: NotebookShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordRenderOnColdOpen(operation, targetType, !app.web, logger, options);
 			},
 		},
 		sessions: {

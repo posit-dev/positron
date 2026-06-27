@@ -1,6 +1,6 @@
 ---
 name: positron-data-grid-pattern
-description: Use when building any list, table, grid, or virtualized scrolling UI in Positron, or whenever you encounter `DataGridInstance`, `PositronDataGrid`, or files importing them. Critical for avoiding a common architectural mistake (wrapping the grid in a React component that mediates props into the instance via useEffect).
+description: Use when building a list, table, grid, or virtualized scrolling UI in Positron, or touching `DataGridInstance` / `PositronDataGrid`. Avoids the common mistake of mediating props into the instance via useEffect.
 ---
 
 # Positron Data Grid Pattern

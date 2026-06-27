@@ -5,8 +5,7 @@
 
 import { join } from 'path';
 import { Outline } from '../../pages/outline.js';
-import { test, tags } from '../_test.setup.js';
-import { expect } from '@playwright/test';
+import { test, expect, tags } from '../_test.setup.js';
 
 const R_FILE = 'basic-outline-with-vars.r';
 const PY_FILE = 'basic-outline-with-vars.py';

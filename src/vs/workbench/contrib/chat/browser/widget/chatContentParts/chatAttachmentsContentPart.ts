@@ -17,12 +17,6 @@ import { ILanguageModelsService } from '../../../common/languageModels.js';
 import { DefaultChatAttachmentWidget, ElementChatAttachmentWidget, FileAttachmentWidget, ImageAttachmentWidget, NotebookCellOutputChatAttachmentWidget, PasteAttachmentWidget, PromptFileAttachmentWidget, PromptTextAttachmentWidget, SCMHistoryItemAttachmentWidget, SCMHistoryItemChangeAttachmentWidget, SCMHistoryItemChangeRangeAttachmentWidget, TerminalCommandAttachmentWidget, ToolSetOrToolItemAttachmentWidget } from '../../attachments/chatAttachmentWidgets.js';
 import { IChatAttachmentWidgetRegistry } from '../../attachments/chatAttachmentWidgetRegistry.js';
 
-// --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { isRuntimeSessionEntry } from '../../../common/attachments/chatVariableEntries.js';
-import { RuntimeSessionAttachmentWidget } from '../../chatRuntimeAttachmentWidget.js';
-// --- End Positron ---
-
 export interface IChatAttachmentsContentPartOptions {
 	readonly variables: readonly IChatRequestVariableEntry[];
 	readonly contentReferences?: ReadonlyArray<IChatContentReference>;
@@ -230,10 +224,6 @@ export class ChatAttachmentsContentPart extends Disposable {
 		} else if (isWorkspaceVariableEntry(attachment)) {
 			// skip workspace attachments
 			return;
-			// --- Start Positron ---
-		} else if (isRuntimeSessionEntry(attachment)) {
-			widget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);
-			// --- End Positron ---
 		} else {
 			widget = this.chatAttachmentWidgetRegistry.createWidget(attachment, { shouldFocusClearButton: false, supportsDeletion: false }, container)
 				?? this.instantiationService.createInstance(DefaultChatAttachmentWidget, resource, range, attachment, correspondingContentReference, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels);

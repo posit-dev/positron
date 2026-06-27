@@ -10,7 +10,7 @@ import { NotebookRenderCache } from './notebookRenderCache.js';
 import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -42,6 +42,7 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
+import { ResourceMap } from '../../../../base/common/map.js';
 
 
 /**
@@ -52,6 +53,41 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 
 /** Maximum number of notebook renders cached per pane. */
 const MAX_CACHED_RENDERS = 3;
+
+/**
+ * A PositronNotebookInstance that is managed by a PositronNotebookEditor,
+ * editor pane and whose lifecycle is tied to an editor input.
+ */
+class ManagedNotebookInstance extends Disposable {
+	public readonly instance: PositronNotebookInstance;
+
+	constructor(
+		input: PositronNotebookEditorInput,
+		private readonly _onWillDispose: () => void,
+		@IInstantiationService instantiationService: IInstantiationService,
+	) {
+		super();
+
+		this.instance = this._register(instantiationService.createInstance(
+			PositronNotebookInstance,
+			input.resource,
+			input.viewType,
+			undefined,
+		));
+
+		// Dispose when the editor input disposes.
+		// Editor inputs are only disposed when no more editor panes reference them,
+		// so it's safe to dispose the notebook instance as well.
+		this._register(input.onWillDispose(() => {
+			this.dispose();
+		}));
+	}
+
+	override dispose(): void {
+		this._onWillDispose();
+		super.dispose();
+	}
+}
 
 
 export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositronNotebookViewState> {
@@ -93,6 +129,16 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	);
 
 	protected override _input: PositronNotebookEditorInput | undefined;
+
+	/**
+	 * Notebook instances managed by this editor pane, keyed by notebook URI.
+	 */
+	private _notebookInstanceByUri = new ResourceMap<ManagedNotebookInstance>();
+
+	/**
+	 * The active notebook instance, corresponding to the current active editor input.
+	 */
+	private _notebookInstance: PositronNotebookInstance | undefined;
 
 	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
 
@@ -221,8 +267,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	 */
 	private readonly _isVisible = observableValue<boolean>('isVisible', false);
 
-	private _notebookInstance: PositronNotebookInstance | undefined;
-
 	get notebookInstance() {
 		return this._notebookInstance;
 	}
@@ -277,21 +321,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		this._instanceDisposableStore.clear();
 
 		this._input = input;
-		const notebookInstance = PositronNotebookInstance.getOrCreate(
-			input.uniqueId,
-			input.resource,
-			input.viewType,
-			undefined,
-			this.instantiationService
-		);
-		this._notebookInstance = notebookInstance;
-
-		// Dispose the instance when the input is disposed.
-		// NOTE: This may not be the right thing to do, but we're keeping it around
-		//  for now to match behavior from when input.dispose disposed the notebook instance.
-		this._instanceDisposableStore.add(this._input.onWillDispose(() => {
-			notebookInstance.dispose();
-		}));
+		this._notebookInstance = this._getOrCreateNotebookInstance(input);
 
 		if (this._editorContainer === undefined) {
 			throw new Error(
@@ -364,10 +394,25 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		this._notebookInstance.restoreEditorViewState(viewState);
 	}
 
+	private _getOrCreateNotebookInstance(input: PositronNotebookEditorInput): PositronNotebookInstance {
+		let managedInstance = this._notebookInstanceByUri.get(input.resource);
+		if (!managedInstance) {
+			managedInstance = this.instantiationService.createInstance(
+				ManagedNotebookInstance,
+				input,
+				// Clear the notebook instance when it's disposed.
+				() => this._notebookInstanceByUri.delete(input.resource),
+			);
+			this._notebookInstanceByUri.set(input.resource, managedInstance);
+		}
+		return managedInstance.instance;
+	}
+
 	/**
 	 * Called when this composite should receive keyboard focus.
 	 */
 	override focus(): void {
+		this._logService.debug(this._identifier, 'focus');
 		super.focus();
 
 		// Drive focus into the notebook instance based on selection state
@@ -418,7 +463,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 
 	private readonly _renderCache = new NotebookRenderCache(
 		MAX_CACHED_RENDERS,
-		disposeNotebookRenderCacheEntry,
+		(entry) => disposeNotebookRenderCacheEntry(entry, this._notebookInstance),
 	);
 
 	private _renderNotebookInto(renderer: PositronReactRenderer): void {

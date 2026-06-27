@@ -330,6 +330,51 @@
 			},
 		},
 		{
+			// Loads a dev copy of Posit Assistant from a sibling assistant checkout.
+			"type": "chrome",
+			"request": "launch",
+			"name": "Launch Positron Internal (with Assistant)",
+			"windows": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
+			},
+			"osx": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh"
+			},
+			"linux": {
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.sh"
+			},
+			"port": 9222,
+			"timeout": 0,
+			"env": {
+				"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
+				"VSCODE_SKIP_PRELAUNCH": "1",
+				"VSCODE_DEV_DEBUG_OBSERVABLES": "1",
+			},
+			"cleanUp": "wholeBrowser",
+			"killBehavior": "polite",
+			"runtimeArgs": [
+				"--inspect-brk=5875",
+				"--no-cached-data",
+				"--crash-reporter-directory=${workspaceFolder}/.profile-oss/crashes",
+				"--disable-features=CalculateNativeWinOcclusion",
+				"--disable-extension=vscode.vscode-api-tests",
+				"--extensionDevelopmentPath=${workspaceFolder}/../assistant/packages/positron"
+			],
+			"userDataDir": "${userHome}/.vscode-oss-dev",
+			"webRoot": "${workspaceFolder}",
+			"cascadeTerminateToConfigurations": [
+				"Attach to Extension Host"
+			],
+			"pauseForSourceMap": false,
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"browserLaunchLocation": "workspace",
+			"presentation": {
+				"hidden": true,
+			},
+		},
+		{
 			"type": "chrome",
 			"request": "launch",
 			"name": "Launch VS Code Agents Internal",
@@ -789,6 +834,22 @@
 				"Attach to Agent Host Process"
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies",
+			"presentation": {
+				"group": "0_vscode",
+				"order": 1
+			}
+		},
+		{
+			"name": "Positron (with Assistant)",
+			"stopAll": true,
+			"configurations": [
+				"Launch Positron Internal (with Assistant)",
+				"Attach to Main Process",
+				"Attach to Extension Host",
+				"Attach to Shared Process",
+				"Attach to Agent Host Process"
+			],
+			"preLaunchTask": "Ensure Prelaunch Dependencies (with Assistant)",
 			"presentation": {
 				"group": "0_vscode",
 				"order": 1

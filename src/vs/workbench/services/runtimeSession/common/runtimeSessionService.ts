@@ -317,6 +317,14 @@ export interface ILanguageRuntimePackage {
 
 	/** Optional short description or summary. */
 	description?: string;
+
+	/**
+	 * The package's primary external URL (its homepage, falling back to its
+	 * repository, etc.). Chosen by the language runtime from whatever metadata
+	 * it has. The Packages pane validates it (http/https only) and surfaces it
+	 * via the row's external-link button.
+	 */
+	url?: string;
 }
 
 /**
@@ -504,6 +512,9 @@ export interface IRuntimeSessionService {
 	// back to cached session info for an exited notebook session.
 	readonly onDidChangeForegroundSessionDisplayInfo: Event<IRuntimeSessionDisplayInfo | undefined>;
 
+	// An event that fires when a session's display state changes.
+	readonly onDidChangeDisplayRuntimeState: Event<{ sessionId: string; state: RuntimeState }>;
+
 	// The current display info for the foreground session. May contain
 	// session details from an exited session if an actual session is not
 	// available to be the foreground session.
@@ -532,6 +543,11 @@ export interface IRuntimeSessionService {
 	 * Gets a specific runtime session by session identifier.
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets the display state for a session. Returns undefined if the session is not active.
+	 */
+	getDisplayRuntimeState(sessionId: string): RuntimeState | undefined;
 
 	/**
 	 * Gets a currently active session for a runtime.

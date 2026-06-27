@@ -39,7 +39,9 @@
 	border-radius: var(--vscode-cornerRadius-large);
 	padding: 5px;
 	flex-shrink: 0;
-	background: url('../../../../browser/media/code-icon.svg') center / contain no-repeat;
+	/* --- Start Positron --- */
+	background: url('../../../../browser/media/positron-icon.svg') center / contain no-repeat;
+	/* --- End Positron --- */
 }
 
 .update-tooltip .product-details {

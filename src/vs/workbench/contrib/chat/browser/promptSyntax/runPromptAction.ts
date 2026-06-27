@@ -100,7 +100,10 @@ abstract class RunPromptBaseAction extends Action2 {
 			id: options.id,
 			title: options.title,
 			f1: false,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: CHAT_CATEGORY,
 			icon: options.icon,
 			keybinding: {
@@ -193,7 +196,10 @@ class RunSelectedPromptAction extends Action2 {
 			title: localize2('run-prompt.capitalized.ellipses', "Run Prompt..."),
 			icon: Codicon.bookmark,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			keybinding: {
 				when: ChatContextKeys.enabled,
 				weight: KeybindingWeight.WorkbenchContrib,
@@ -249,7 +255,10 @@ class ManagePromptFilesAction extends Action2 {
 			shortTitle: localize2('configure-prompts.short', "Prompt Files"),
 			icon: Codicon.bookmark,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			category: CHAT_CATEGORY,
 			menu: {
 				id: CHAT_CONFIG_MENU_ID,

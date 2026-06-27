@@ -9,6 +9,7 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellEditType, CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
+import { hasWebviewOutput } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { createTestPositronNotebookInstance, TestCellInput } from './testPositronNotebookInstance.js';
 
 function pngOutputItem() {
@@ -239,6 +240,12 @@ describe('Positron Notebook Cell Outputs', () => {
 			return { mime: 'text/html', data: VSBuffer.fromString('<p>Hello world</p>') };
 		}
 
+		function inertFullDocumentOutputItem() {
+			// A full HTML document with styles but no active content (no scripts or
+			// iframes), e.g. Great Tables output. Must render inline, not in a webview.
+			return { mime: 'text/html', data: VSBuffer.fromString('<!DOCTYPE html><html><head><style>table { color: red; }</style></head><body><table><tr><td>1</td></tr></table></body></html>') };
+		}
+
 		it('complex HTML output produces a preloadMessageResult with display type', () => {
 			const cellWithComplexHtml: TestCellInput = {
 				source: 'display_map()',
@@ -279,6 +286,188 @@ describe('Positron Notebook Cell Outputs', () => {
 			expect(outputs.length).toBe(1);
 			expect(outputs[0].preloadMessageResult, 'simple HTML should not have preloadMessageResult').toBe(undefined);
 			expect(outputs[0].parsed.type).toBe('html');
+		});
+
+		it('inert full-document HTML renders inline without a webview', () => {
+			const cellWithFullDocument: TestCellInput = {
+				source: 'GT(df)',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{
+					outputId: 'output-1',
+					outputs: [inertFullDocumentOutputItem()],
+				}],
+			};
+			const notebook = createTestPositronNotebookInstance([cellWithFullDocument], ctx);
+			const cell = notebook.cells.get()[0];
+
+			expect(cell.isCodeCell()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length).toBe(1);
+			expect(outputs[0].preloadMessageResult, 'an inert full document must not route to a webview').toBe(undefined);
+			expect(outputs[0].parsed.type).toBe('html');
+		});
+
+		it('hasWebviewOutput is true for a webview output and false for an inline output', () => {
+			const webviewCell: TestCellInput = {
+				source: 'display_map()',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [complexHtmlOutputItem()] }],
+			};
+			const webviewNotebook = createTestPositronNotebookInstance([webviewCell], ctx);
+			expect(hasWebviewOutput(webviewNotebook.cells.get()[0].outputs.get())).toBe(true);
+
+			const inlineCell: TestCellInput = {
+				source: 'GT(df)',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [inertFullDocumentOutputItem()] }],
+			};
+			const inlineNotebook = createTestPositronNotebookInstance([inlineCell], ctx);
+			expect(hasWebviewOutput(inlineNotebook.cells.get()[0].outputs.get())).toBe(false);
+		});
+	});
+
+	// Model-level coverage for the Collapse Output, Show Hidden Output (expand),
+	// and Clear Output cell actions (#12411). The action handlers in
+	// `positronNotebook.contribution.ts` delegate to these cell/instance methods,
+	// and their menu visibility is driven by the context keys asserted below.
+	describe('output visibility and clear actions (#12411)', () => {
+		function cellWithOutputs(...outputs: { mime: string; data: VSBuffer }[][]): TestCellInput {
+			return {
+				source: 'print("hello")',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: outputs.map((items, i) => ({
+					outputId: `output-${i + 1}`,
+					outputs: items,
+				})),
+			};
+		}
+
+		// Narrowing accessor: expect(cell.isCodeCell()).toBe(true) does not
+		// narrow the union type, so output members would not typecheck.
+		function firstCodeCell(notebook: ReturnType<typeof createTestPositronNotebookInstance>) {
+			const cell = notebook.cells.get()[0];
+			if (!cell.isCodeCell()) {
+				throw new Error('expected a code cell');
+			}
+			return cell;
+		}
+
+		it('collapse output hides the output without deleting it', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+			expect(cell.outputIsCollapsed.get(), 'output should start expanded').toBe(false);
+
+			cell.collapseOutput();
+
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+			const outputs = cell.outputs.get();
+			expect(outputs.length, 'collapse is visibility-only; outputs must survive').toBe(1);
+			expect(outputs[0].parsed.type).toBe('stdout');
+		});
+
+		it('show hidden output (expand) restores visibility with outputs intact', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			cell.collapseOutput();
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+
+			cell.expandOutput();
+
+			expect(cell.outputIsCollapsed.get()).toBe(false);
+			const outputs = cell.outputs.get();
+			expect(outputs.length, 'outputs must be unchanged after a collapse/expand cycle').toBe(1);
+			expect(outputs[0].parsed.type).toBe('stdout');
+		});
+
+		it('toggleOutputCollapse flips the collapse state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			cell.toggleOutputCollapse();
+			expect(cell.outputIsCollapsed.get()).toBe(true);
+
+			cell.toggleOutputCollapse();
+			expect(cell.outputIsCollapsed.get()).toBe(false);
+		});
+
+		it('collapse state initializes from cell collapseState metadata', () => {
+			const collapsedCell: TestCellInput = {
+				source: 'print("hello")',
+				language: 'python',
+				mime: undefined,
+				cellKind: CellKind.Code,
+				outputs: [{ outputId: 'output-1', outputs: [textOutputItem('hello')] }],
+				collapseState: { outputCollapsed: true },
+			};
+			const notebook = createTestPositronNotebookInstance([collapsedCell], ctx);
+			const cell = firstCodeCell(notebook);
+
+			expect(
+				cell.outputIsCollapsed.get(),
+				'cell saved with outputCollapsed metadata should open collapsed'
+			).toBe(true);
+		});
+
+		it('clear output removes all outputs from the cell', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')], [pngOutputItem()])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+			expect(cell.outputs.get().length).toBe(2);
+
+			notebook.clearCellOutput(cell);
+
+			expect(cell.outputs.get().length).toBe(0);
+		});
+
+		it('context keys driving the action buttons track output state', () => {
+			const notebook = createTestPositronNotebookInstance(
+				[cellWithOutputs([textOutputItem('hello')])],
+				ctx
+			);
+			const cell = firstCodeCell(notebook);
+
+			// Attaching a container creates the cell's scoped context key
+			// service and CellContextKeyManager, as the view layer does.
+			cell.attachContainer(document.createElement('div'));
+			const scoped = cell.scopedContextKeyService;
+			expect(scoped).toBeDefined();
+
+			// With outputs expanded: Collapse Output is eligible
+			// (hasOutputs && !outputIsCollapsed per its menu when clause).
+			expect(scoped?.getContextKeyValue(CellContextKeys.hasOutputs.key)).toBe(true);
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(false);
+
+			// Collapsed: Show Hidden Output (expand) becomes eligible
+			// (hasOutputs && outputIsCollapsed).
+			cell.collapseOutput();
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(true);
+
+			cell.expandOutput();
+			expect(scoped?.getContextKeyValue(CellContextKeys.outputIsCollapsed.key)).toBe(false);
+
+			// Cleared: no output-dependent action is eligible.
+			notebook.clearCellOutput(cell);
+			expect(scoped?.getContextKeyValue(CellContextKeys.hasOutputs.key)).toBe(false);
 		});
 	});
 });

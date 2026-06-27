@@ -133,12 +133,7 @@ export class ChatTerminalToolConfirmationSubPart extends BaseChatToolInvocationS
 		}
 
 		const codeBlockRenderOptions: ICodeBlockRenderOptions = {
-			// --- Start Positron ---
-			// Don't hide the toolbar on code blocks, so the user can still
-			// copy/integrate the code elsewhere
-			// Original upstream: hideToolbar: true,
-			hideToolbar: false,
-			// --- End Positron ---
+			hideToolbar: true,
 			reserveWidth: 19,
 			verticalPadding: 5,
 			editorOptions: {

@@ -14,6 +14,7 @@ import { createRoot, Root } from 'react-dom/client';
 import * as DOM from './dom.js';
 import { Emitter } from '../common/event.js';
 import { Disposable } from '../common/lifecycle.js';
+import { KeyCode } from '../common/keyCodes.js';
 import { StandardKeyboardEvent } from './keyboardEvent.js';
 import { PositronReactServices } from './positronReactServices.js';
 import { PositronReactServicesProvider } from './positronReactRendererContext.js';
@@ -32,6 +33,38 @@ const ALLOWABLE_COMMANDS = [
 	'workbench.action.quit',
 	'workbench.action.reloadWindow'
 ];
+
+/**
+ * Decides how a keydown should be suppressed while a modal is open, given the command (if any) the
+ * key resolves to. Extracted from the renderer's window-level keydown handler so it can be
+ * unit-tested without a live <dialog>.
+ *
+ * - If the key resolves to no command, or to an allowable command (copy/cut/paste/etc.), it is left
+ *   alone so the modal's inputs keep working.
+ * - Escape that resolves to a non-allowable command only gets stopPropagation, so the bound command
+ *   does not run but the native <dialog>'s own close-on-Escape (a default action) still fires.
+ * - Any other non-allowable bound key gets the full stop (preventDefault + stopPropagation).
+ *
+ * @param commandId The command the key resolves to, or null when it resolves to none.
+ * @param event The keyboard event to (possibly) suppress.
+ */
+export function applyModalKeydownSuppression(
+	commandId: string | null,
+	event: { readonly keyCode: KeyCode; preventDefault(): void; stopPropagation(): void },
+): void {
+	if (commandId === null || ALLOWABLE_COMMANDS.indexOf(commandId) !== -1) {
+		return;
+	}
+	// Escape needs special handling: the native <dialog> closes itself on Escape via the keydown's
+	// default action. When Escape is bound to a command in the underlying editor (e.g. a notebook
+	// cell's exit-edit-mode binding), only stop propagation so that command does not also run -- do
+	// NOT preventDefault, which would suppress the dialog's own close and leave the modal stuck open.
+	if (event.keyCode === KeyCode.Escape) {
+		event.stopPropagation();
+	} else {
+		DOM.EventHelper.stop(event, true);
+	}
+}
 
 /**
  * Options passed to PositronModalDialogReactRenderer. `container` defaults to the active workbench
@@ -206,11 +239,8 @@ export class PositronModalDialogReactRenderer extends Disposable {
 				event,
 				PositronReactServices.services.workbenchLayoutService.activeContainer
 			);
-			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId !== null) {
-				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
-					DOM.EventHelper.stop(event, true);
-				}
-			}
+			const commandId = resolutionResult.kind === ResultKind.KbFound ? resolutionResult.commandId : null;
+			applyModalKeydownSuppression(commandId, event);
 		};
 
 		/**

@@ -26,8 +26,11 @@ if [[ -z "$PULL_REQUEST_BODY" ]]; then
 	exit 1
 fi
 
-# Sanitize the PR BODY by removing newlines and escaping double quotes
-PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr '\n' ' ' | sed 's/"/\\"/g')
+# Sanitize the PR BODY by stripping carriage returns (GitHub returns CRLF line
+# endings), collapsing newlines to spaces, and escaping double quotes. Stripping
+# CR first ensures a tag at end-of-line isn't immediately followed by a stray
+# '\r', which would defeat the boundary checks below.
+PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr -d '\r' | tr '\n' ' ' | sed 's/"/\\"/g')
 
 echo "Parsing tags from PR body..."
 
@@ -75,7 +78,10 @@ if echo "$PR_BODY" | grep -q "@:pyrefly"; then
 	echo "Found pyrefly tag in PR body. Setting to run pyrefly tests."
 	echo "pyrefly_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
-if echo "$PR_BODY" | grep -qE "@:workbench( |\$|,)"; then
+# Match a bare '@:workbench' tag but not longer variants like '@:workbench-stable'
+# or '@:workbench-snowflake'. The tag must be followed by a non-tag character
+# (anything outside [a-zA-Z0-9_-]) or the end of the string.
+if echo "$PR_BODY" | grep -qE "@:workbench([^a-zA-Z0-9_-]|\$)"; then
 	echo "Found workbench tag in PR body. Setting to run workbench tests."
 	echo "workbench_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
@@ -110,6 +116,23 @@ else
 			TAGS="@:critical,$TAGS"
 		else
 			TAGS="@:critical"
+		fi
+	fi
+
+	# Auto-inject @:ark when the ark submodule is bumped.
+	# extensions/positron-r/ark is a gitlink (submodule pointer); it appears
+	# as a single filename entry in the PR files API when the pointer changes.
+	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[].filename' || true)
+	if [[ -z "$CHANGED_FILES" ]]; then
+		echo "Warning: could not fetch changed files; skipping @:ark injection."
+	elif echo "$CHANGED_FILES" | grep -qxF "extensions/positron-r/ark"; then
+		echo "Ark submodule changed. Injecting @:ark tag."
+		if [[ -n "$TAGS" ]]; then
+			TAGS="$TAGS,@:ark"
+		else
+			TAGS="@:ark"
 		fi
 	fi
 

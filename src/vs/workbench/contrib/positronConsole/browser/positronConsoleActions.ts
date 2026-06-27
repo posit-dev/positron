@@ -28,7 +28,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IStatementRange, IStatementRangeSuccess, StatementRangeKind, StatementRangeRejectionKind, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { toAction } from '../../../../base/common/actions.js';
-import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
@@ -61,6 +61,7 @@ const enum PositronConsoleCommandId {
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	EngageHistoryInfixSearch = 'workbench.action.positronConsole.engageHistoryInfixSearch',
 	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
@@ -1393,6 +1394,54 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
+	 * Register the action to engage a reverse history search using infix matching.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.EngageHistoryInfixSearch,
+				title: {
+					value: localize('workbench.action.positronConsole.engageHistoryInfixSearch', "Reverse History Search"),
+					original: 'Reverse History Search'
+				},
+				f1: true,
+				category,
+				keybinding: {
+					// Ctrl+R on all platforms (like GNU readline's reverse-i-search).
+					// CtrlCmd is Ctrl on Windows/Linux; the mac override uses WinCtrl
+					// (raw Ctrl) so macOS gets Ctrl+R rather than Cmd+R.
+					primary: KeyMod.CtrlCmd | KeyCode.KeyR,
+					mac: { primary: KeyMod.WinCtrl | KeyCode.KeyR },
+					when: PositronConsoleFocused,
+					// Ensure reverse history search wins over "Open Recent..."
+					// while the console is focused.
+					weight: KeybindingWeight.WorkbenchContrib + 1,
+				},
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.engageHistoryInfixSearch();
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.engageHistoryInfixSearch.noActiveConsole', "Cannot search input history. A console is not active."),
+					sticky: false
+				});
+			}
+		}
+	});
+
+	/**
 	 * Register the action to show the notebook console.
 	 *
 	 * This will create a new console for the notebook if it doesn't have one,
@@ -1456,6 +1505,45 @@ export function registerPositronConsoleActions() {
 				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}
 		}
+	});
+
+	// The console input maps Home / End / Ctrl+U to the matching editor commands
+	// rather than the editor's defaults: Home and End go to the true line start /
+	// end (cursorLineStart / cursorLineEnd) instead of smart-home / cursorEnd, and
+	// Ctrl+U deletes to the start of the line (readline-style), which has no
+	// default editor binding on any platform.
+	//
+	// The `when` clause requires the console editor to actually hold text focus:
+	// PositronConsoleFocused alone is true for the whole console pane (including
+	// the find input, which is not a Monaco editor), so it is paired with
+	// EditorContextKeys.textInputFocus to avoid dispatching these editor commands
+	// when a non-editor part of the console is focused.
+	const whenConsoleInputFocused = ContextKeyExpr.and(
+		PositronConsoleFocused,
+		EditorContextKeys.textInputFocus,
+	);
+
+	KeybindingsRegistry.registerKeybindingRule({
+		id: 'cursorLineStart',
+		primary: KeyCode.Home,
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
+	});
+
+	KeybindingsRegistry.registerKeybindingRule({
+		id: 'cursorLineEnd',
+		primary: KeyCode.End,
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
+	});
+
+	KeybindingsRegistry.registerKeybindingRule({
+		// Ctrl+U on all platforms (like GNU readline's unix-line-discard):
+		id: 'deleteAllLeft',
+		primary: KeyMod.CtrlCmd | KeyCode.KeyU,
+		mac: { primary: KeyMod.WinCtrl | KeyCode.KeyU },
+		when: whenConsoleInputFocused,
+		weight: KeybindingWeight.WorkbenchContrib,
 	});
 }
 

@@ -180,46 +180,11 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 	}
 
 	private async _updateModel(): Promise<void> {
-		Promise.all([
-			// Wait for the timer service barrier so _addSystemInfo can read
-			// startupMetrics, but cap the wait. The diagnostics report's job is to
-			// surface state even when startup is wedged (which is exactly when the
-			// barrier may not open), so we render best-effort if the wait expires.
-			raceTimeout(this._timerService.whenReady(), 5000)
-		]).then(async () => {
-			if (this._model && !this._model.isDisposed()) {
-				const md = new MarkdownBuilder();
-				md.heading(1, 'Positron Runtime Startup Diagnostics');
-				md.blank();
-				this._addSystemInfo(md);
-				md.blank();
-				this._addAffiliatedRuntimes(md);
-				md.blank();
-				this._addActiveRuntimes(md);
-				md.blank();
-				this._addTimeToFirstRuntime(md);
-				md.blank();
-				this._addStartupPhaseTiming(md);
-				md.blank();
-				this._addRawPerfMarks(md);
-				md.blank();
-				this._addPerSessionTiming(md);
-				md.blank();
-				this._addInterpreterSettings(md);
-				md.blank();
-				this._addAdminEnforcedSettings(md);
-				md.blank();
-				await this._addSessionLaunchInfo(md);
-				md.blank();
-				this._addDiscoveredRuntimes(md);
-				md.blank();
-				this._addDiscoveryCache(md);
-				md.blank();
-				this._addExtensionHostStatus(md);
-				md.blank();
-				await this._addOutputChannels(md);
-			}
-		});
+		// Wait for the timer service barrier so _addSystemInfo can read
+		// startupMetrics, but cap the wait. The diagnostics report's job is to
+		// surface state even when startup is wedged (which is exactly when the
+		// barrier may not open), so we render best-effort if the wait expires.
+		await raceTimeout(this._timerService.whenReady(), 5000);
 
 		if (!this._model || this._model.isDisposed()) {
 			return;
@@ -250,11 +215,17 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 		md.blank();
 		this._addDiscoveredRuntimes(md);
 		md.blank();
+		this._addDiscoveryCache(md);
+		md.blank();
 		this._addExtensionHostStatus(md);
 		md.blank();
 		await this._addOutputChannels(md);
 
-		this._model.setValue(md.value);
+		// Re-check after the awaits above; the model may have been disposed
+		// while we were gathering data.
+		if (this._model && !this._model.isDisposed()) {
+			this._model.setValue(md.value);
+		}
 	}
 
 	private _addSystemInfo(md: MarkdownBuilder): void {

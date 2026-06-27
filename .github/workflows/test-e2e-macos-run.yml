@@ -74,7 +74,7 @@ jobs:
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       LANG: "en_US.UTF-8"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -88,6 +88,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4
@@ -185,8 +189,16 @@ jobs:
           R_VERSION="4.5.2"
           R_ALTERNATE_VERSION="4.3.0"
           echo "Installing R version $R_VERSION using Rig..."
-          brew tap r-lib/rig
-          brew install --cask rig
+          # Install rig directly from GitHub releases to avoid a broken cask in
+          # the r-lib/homebrew-rig tap (double-quote typo in rig.rb line 5).
+          RIG_VERSION="0.8.1"
+          if [ "${{ inputs.arch }}" = "x64" ]; then
+            RIG_PKG="rig-${RIG_VERSION}-macOS-x86_64.pkg"
+          else
+            RIG_PKG="rig-${RIG_VERSION}-macOS-arm64.pkg"
+          fi
+          curl -fsSL "https://github.com/r-lib/rig/releases/download/v${RIG_VERSION}/${RIG_PKG}" -o /tmp/rig.pkg
+          sudo installer -pkg /tmp/rig.pkg -target /
           rig add "$R_VERSION"
           echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
           rig add "$R_ALTERNATE_VERSION"
@@ -324,7 +336,7 @@ jobs:
     needs: [e2e-macos-run]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -335,6 +347,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Install Playwright
         run: |
@@ -411,6 +427,7 @@ jobs:
 
       - name: Upload HTML report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

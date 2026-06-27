@@ -21,6 +21,8 @@ import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/
 import { ViewsProps } from '../positronPackages.js';
 import { Separator } from '../../../../../base/common/actions.js';
 import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { matchesSomeScheme, Schemas } from '../../../../../base/common/network.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -34,7 +36,7 @@ import { addFilterToQuery, applySortToQuery, clearFiltersFromQuery, PackagesFilt
 import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
-import { usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -58,6 +60,14 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	const [packages, setPackages] = useState<ILanguageRuntimePackage[]>([]);
 
+	// Packages to flash after an install/update completes. The nonce lets the
+	// apply effect run once per operation even though the same names may arrive
+	// while filteredPackages is still settling.
+	const [highlight, setHighlight] = useState<{ names: string[]; nonce: number }>();
+
+	// IDs of packages currently showing the transient "recently changed" flash.
+	const [flashedIds, setFlashedIds] = useState<ReadonlySet<string>>(new Set());
+
 	// Item size mode ('card' or 'row'), driven by the packages service.
 	const [itemSize, setItemSize] = useState(() => services.positronPackagesService.itemSize);
 	useEffect(() => {
@@ -70,7 +80,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
 
-	const loading = usePositronContextKey<boolean>(POSITRON_PACKAGES_IS_BUSY.key);
+	const loading = useContextKey(POSITRON_PACKAGES_IS_BUSY);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -78,13 +88,22 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			return;
 		}
 
-		const disposable = activeInstance.onDidRefreshPackagesInstance((packages) => {
+		const refreshDisposable = activeInstance.onDidRefreshPackagesInstance((packages) => {
 			setPackages(packages);
+		});
+
+		// An install/update finished; record the affected packages so the apply
+		// effect below can scroll to and flash them once the list has refreshed.
+		const changeDisposable = activeInstance.onDidChangePackages((names) => {
+			setHighlight({ names, nonce: Date.now() });
 		});
 
 		setPackages(activeInstance.packages);
 
-		return () => disposable.dispose();
+		return () => {
+			refreshDisposable.dispose();
+			changeDisposable.dispose();
+		};
 	}, [activeInstance]);
 
 	useEffect(() => {
@@ -154,7 +173,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// height; the renderer is set later via setItemRenderer so it can close over the latest
 	// packages/services state without forcing another recreation.
 	const listInstance = useMemo(() => new PositronListInstance<ILanguageRuntimePackage>({
-		defaultItemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
+		itemHeight: itemSize === 'card' ? CARD_ITEM_HEIGHT : ROW_ITEM_HEIGHT,
 		itemRenderer: () => null,
 	}), [itemSize]);
 
@@ -241,6 +260,47 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		}
 	}, [listInstance, filteredPackages]);
 
+	// After an install/update, scroll to and flash the affected packages once
+	// the refreshed list reflects them. Keyed on the highlight nonce (consumed
+	// via a ref) so the asynchronous Stage 2 metadata refresh, which fires
+	// another package update, does not re-trigger the flash. Packages filtered
+	// out by an active search are skipped rather than revealed.
+	const handledHighlightNonce = useRef<number | undefined>(undefined);
+	useEffect(() => {
+		if (!highlight || highlight.nonce === handledHighlightNonce.current) {
+			return;
+		}
+		handledHighlightNonce.current = highlight.nonce;
+
+		const indices = highlight.names
+			.map(name => filteredPackages.findIndex(pkg => pkg.name === name))
+			.filter(index => index >= 0);
+		if (indices.length === 0) {
+			return;
+		}
+
+		const firstIndex = Math.min(...indices);
+		void listInstance.scrollToRow(firstIndex);
+		// A single affected package (install, single update) also becomes the
+		// selection; a bulk update has no meaningful single row to select.
+		if (highlight.names.length === 1) {
+			listInstance.selectRow(firstIndex);
+		}
+
+		setFlashedIds(new Set(indices.map(index => filteredPackages[index].id)));
+	}, [highlight, filteredPackages, listInstance]);
+
+	// Clear the flash after it has had time to play. Kept separate from the
+	// apply effect so the asynchronous Stage 2 refresh (which re-runs the apply
+	// effect via filteredPackages) cannot cancel the timer mid-flash.
+	useEffect(() => {
+		if (flashedIds.size === 0) {
+			return;
+		}
+		const timeout = setTimeout(() => setFlashedIds(new Set()), 2000);
+		return () => clearTimeout(timeout);
+	}, [flashedIds]);
+
 	// Show the help page for a package using the active session's language. Falls back to a
 	// notification if the help service can't find anything.
 	const showHelpForPackage = useCallback(async (packageName: string) => {
@@ -279,7 +339,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// instance.
 	useEffect(() => {
 		const renderItem = (pkg: ILanguageRuntimePackage, ctx: PositronListItemContext) => {
-			const { name, displayName, version, latestVersion, attached, outdated, description } = pkg;
+			const { name, displayName, version, latestVersion, attached, outdated, description, url } = pkg;
+			// Validate the kernel-provided URL in core: only surface http(s) links
+			// so a malformed or non-web scheme (file:, javascript:, ...) coming from
+			// the runtime can never reach the opener.
+			const hasValidUrl = !!url && matchesSomeScheme(url, Schemas.http, Schemas.https);
 			// Display the update indicator only when the runtime has confirmed the
 			// package is outdated *and* we know which version to advertise. The
 			// resolver-supplied `latestVersion` (or P3M as fallback) feeds the
@@ -340,7 +404,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			const helpButton = (
 				<Button
 					ariaLabel={localize('positronPackages.showHelpAriaLabel', "Show help for {0}", name)}
-					className='packages-list-item-help'
+					className='packages-list-item-action-button packages-list-item-help'
 					tooltip={localize('positronPackages.showHelpTooltip', "Show help for {0}", name)}
 					onPressed={() => { void showHelpForPackage(name); }}
 				>
@@ -348,10 +412,28 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				</Button>
 			);
 
+			const urlButton = hasValidUrl ? (
+				<Button
+					ariaLabel={localize('positronPackages.openUrlAriaLabel', "Open website for {0}", name)}
+					className='packages-list-item-action-button packages-list-item-url'
+					tooltip={localize('positronPackages.openUrlTooltip', "Open website for {0}", name)}
+					onPressed={() => { void services.openerService.open(URI.parse(url!), { openExternal: true }); }}
+				>
+					<span className='codicon codicon-link-external' />
+				</Button>
+			) : null;
+
+			const rowActions = (
+				<>
+					{urlButton}
+					{helpButton}
+				</>
+			);
+
 			return (
 				// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 				<div
-					className={positronClassNames('packages-list-item', `item-size-${itemSize}`)}
+					className={positronClassNames('packages-list-item', `item-size-${itemSize}`, { 'recently-changed': flashedIds.has(pkg.id) })}
 					onContextMenu={(e) => {
 						// Right-click. The data grid's row cell calls e.stopPropagation() on
 						// mousedown, so right-click handling lives on contextmenu instead.
@@ -384,7 +466,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 									&#x2191;
 								</div>
 							)}
-							{itemSize === 'card' && helpButton}
+							{itemSize === 'card' && rowActions}
 						</div>
 						{itemSize === 'card' && (
 							<div className='packages-list-item-description-row'>
@@ -404,13 +486,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 							</div>
 						)}
 					</div>
-					{itemSize === 'row' && helpButton}
+					{itemSize === 'row' && rowActions}
 				</div>
 			);
 		};
 
 		listInstance.setItemRenderer(renderItem);
-	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage]);
+	}, [listInstance, deduplicatedPackages, services, itemSize, showHelpForPackage, flashedIds]);
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.

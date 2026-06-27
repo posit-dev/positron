@@ -46,11 +46,6 @@ import { contrastBorder, inputValidationErrorBorder, inputValidationInfoBorder, 
 import { Color } from '../../../../../base/common/color.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
 
-// --- Start Positron ---
-import { ILanguageModelsService } from '../../common/languageModels.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-// --- End Positron ---
-
 const defaultChat = product.defaultChatAgent;
 
 interface ISettingsAccessor {
@@ -142,10 +137,6 @@ export class ChatStatusDashboard extends DomWidget {
 
 	constructor(
 		private readonly options: IChatStatusDashboardOptions | undefined,
-		// --- Start Positron ---
-		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		// --- End Positron ---
 		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IChatStatusItemService private readonly chatStatusItemService: IChatStatusItemService,
 		@ICommandService private readonly commandService: ICommandService,
@@ -295,188 +286,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}
 
-		// --- Start Positron ---
-		// Completion Providers
-		{
-			const entry = {
-				id: 'positron-assistant.completionProviders',
-				label: localize('completionProvidersLabel', "Completion Providers"),
-				description: '',
-				detail: '',
-			};
-
-			// Next Edit Suggestions not currently supported in Positron.
-			// When enabled, remove the defaultChat.nextEditSuggestionsSetting check and use the setting directly.
-			// When the NES setting is not configured (empty string), don't filter out NES providers
-			// since that would incorrectly hide valid providers like Github Copilot
-			const nesEnabled = defaultChat.nextEditSuggestionsSetting
-				? this.configurationService.getValue<boolean>(defaultChat.nextEditSuggestionsSetting) ?? false
-				: true;
-
-			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
-			const details = new Array<HTMLDivElement>();
-			providers.forEach(provider => {
-				const name = provider.displayName;
-				const shouldExclude = provider.groupId === 'nes' && !nesEnabled;
-				if (name && !shouldExclude) {
-					const span = document.createElement('div');
-					span.innerText = name;
-					details.push(span);
-				}
-			});
-
-			/*
-			 * Remove upstream code completion provider entry
-			 *
-			const chatSentiment = this.chatEntitlementService.sentiment;
-			addSeparator(localize('codeCompletions', "Code Completions"), chatSentiment.installed && !chatSentiment.disabled && !chatSentiment.untrusted ? toAction({
-				id: 'workbench.action.openChatSettings',
-				label: localize('settingsLabel', "Settings"),
-				tooltip: localize('settingsTooltip', "Open Settings"),
-				class: ThemeIcon.asClassName(Codicon.settingsGear),
-				run: () => this.runCommandAndClose(() => this.commandService.executeCommand('workbench.action.openSettings', { query: `@id:${defaultChat.completionsEnablementSetting} @id:${defaultChat.nextEditSuggestionsSetting}` })),
-			}) : undefined);
-			*/
-
-			if (details.length === 0) {
-				entry.description = localize('noCompletionProviders', "No completion providers available");
-			}
-
-			const itemDisposables = this._store.add(new MutableDisposable());
-			const rendered = this.renderContributedChatStatusItem(entry);
-
-			itemDisposables.value = rendered.disposables;
-			this.element.appendChild(rendered.element);
-			for (const detail of details) {
-				rendered.element.appendChild(detail);
-			}
-		}
-
-		// Provider token usage
-		{
-			const tokenEntry = {
-				id: 'positron-assistant.providerTokenUsage',
-				label: localize('providerTokenUsageLabel', "Provider Token Usage"),
-				description: '',
-				detail: '',
-			};
-
-			const providers = this.languageModelsService.getLanguageModelProviders();
-			const details = new Array<HTMLSpanElement>();
-			providers.forEach((provider: { id: any; displayName: any; }) => {
-				const inputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.input`);
-				const outputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.output`);
-				const cachedCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.cached`);
-				if (typeof inputCount === 'number' && typeof outputCount === 'number') {
-					const span = document.createElement('div');
-
-					span.innerText = `${provider.displayName}: ↑${inputCount} ↓${outputCount} ↩${cachedCount}`;
-					details.push(span);
-				} else {
-					// add an element to the container with the name and a message
-					const span = document.createElement('div');
-					span.innerText = `${provider.displayName}: ${localize('noTokenUsage', "No token usage available")}`;
-					details.push(span);
-				}
-			});
-
-			if (providers.length === 0) {
-				tokenEntry.description = localize('noProviderTokenUsage', "No provider token usage available");
-			}
-
-			const itemDisposables = this._store.add(new MutableDisposable());
-			const rendered = this.renderContributedChatStatusItem(tokenEntry);
-
-			itemDisposables.value = rendered.disposables;
-			this.element.appendChild(rendered.element);
-			for (const detail of details) {
-				rendered.element.appendChild(detail);
-			}
-		}
-		// --- End Positron ---
-
-		// Settings
-		{
-			// --- Start Positron ---
-			// Upstream's section here used a closure-local `addSeparator` helper that was
-			// restructured away by the 1.118.0 merge. The settings entry is rendered via
-			// createSettings(); the standalone "Inline Suggestions" header from upstream
-			// is dropped until we re-port to the new dashboard structure.
-			// --- End Positron ---
-			this.createSettings(this.element, this._store);
-		}
-
-		// Model Selection
-		{
-			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
-			const provider = providers.find(p => p.modelInfo && p.modelInfo.models.length > 0);
-
-			if (provider) {
-				const modelInfo = provider.modelInfo!;
-				const currentModel = modelInfo.models.find(m => m.id === modelInfo.currentModelId);
-
-				if (currentModel) {
-					const modelContainer = this.element.appendChild($('div.model-selection'));
-
-					modelContainer.appendChild($('span.model-text', undefined, localize('modelLabel', "Model")));
-
-					const actionBar = modelContainer.appendChild($('div.model-action-bar'));
-					const toolbar = this._store.add(new ActionBar(actionBar, { hoverDelegate: nativeHoverDelegate }));
-					toolbar.push([toAction({
-						id: 'workbench.action.selectInlineCompletionsModel',
-						label: currentModel.name,
-						tooltip: localize('selectModel', "Select Model"),
-						class: ThemeIcon.asClassName(Codicon.gear),
-						run: async () => {
-							await this.showModelPicker(provider);
-						}
-					})], { icon: false, label: true });
-				}
-			}
-		}
-
-		// Provider Options
-		{
-			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
-			for (const provider of providers) {
-				if (provider.providerOptions && provider.providerOptions.length > 0) {
-					for (const option of provider.providerOptions) {
-						const currentValue = option.values.find(v => v.id === option.currentValueId);
-						if (currentValue) {
-							const optionContainer = this.element.appendChild($('div.suggest-option-selection'));
-
-							optionContainer.appendChild($('span.suggest-option-text', undefined, option.label));
-
-							const actionBar = optionContainer.appendChild($('div.suggest-option-action-bar'));
-							const toolbar = this._store.add(new ActionBar(actionBar, { hoverDelegate: nativeHoverDelegate }));
-							toolbar.push([toAction({
-								id: `workbench.action.selectProviderOption.${option.id}`,
-								label: currentValue.label,
-								tooltip: localize('selectOption', "Select {0}", option.label),
-								run: async () => {
-									await this.showProviderOptionPicker(provider, option);
-								}
-							})], { icon: false, label: true });
-						}
-					}
-				}
-			}
-		}
-
-		// Completions Snooze
-		// --- Start Positron ---
-		// Add configuration service param to `canUseChat` call
-		if (this.canUseChat(this.configurationService, this.chatEntitlementService)) {
-			const snooze = append(this.element, $('div.snooze-completions'));
-			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), this._store);
-		}
-		// --- End Positron ---
-
 		// New to Chat / Signed out
-		// --- Start Positron ---
-		// Disable this section since we don't to prompt users to sign in or set up Copilot.
-		if (!token)
-		// --- End Positron ---
 		{
 			const newUser = isNewUser(this.chatEntitlementService);
 			const anonymousUser = this.chatEntitlementService.anonymous;
@@ -554,10 +364,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (Number(chatQuota?.percentRemaining) <= 25 || Number(completionsQuota?.percentRemaining) <= 25)) {
-				// --- Start Positron ---
-				// Pass configuration service to canUseChat
-				const upgradeProButton = this._store.add(new Button(container, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat(this.configurationService, this.chatEntitlementService) /* use secondary color when chat can still be used */ }));
-				// --- End Positron ---
+				const upgradeProButton = this._store.add(new Button(container, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat() /* use secondary color when chat can still be used */ }));
 				upgradeProButton.label = localize('upgradeToCopilotPro', "Upgrade to GitHub Copilot Pro");
 				this._store.add(upgradeProButton.onDidClick(() => this.runCommandAndClose('workbench.action.chat.upgradePlan')));
 			}
@@ -651,27 +458,15 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Completions Snooze (editor-specific)
-		// --- Start Positron ---
-		// Pass configuration service to canUseChat
-		if (!this.options?.disableCompletionsSnooze && this.canUseChat(this.configurationService, this.chatEntitlementService)) {
-			// --- End Positron ---
+		if (!this.options?.disableCompletionsSnooze && this.canUseChat()) {
 			const snooze = append(container, $('div.snooze-completions'));
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), this._store);
 		}
 	}
 
-	// --- Start Positron ---
-	// Add configuration service param and consider Positron Assistant being explicitly enabled.
-	private canUseChat(configService: IConfigurationService, chatEntitlementService: IChatEntitlementService): boolean {
-		// If Assistant is explicitly enabled, allow chat usage
-		const result = !!configService.getValue<boolean>('positron.assistant.enable');
-		if (result) {
-			return true;
-		}
-
-		if (!this.chatEntitlementService.sentiment.installed || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
-			return false; // chat not installed or not enabled
-		// --- End Positron ---
+	private canUseChat(): boolean {
+		if (!this.chatEntitlementService.sentiment.completed || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
+			return false; // chat not completed or not enabled
 		}
 
 		if (this.chatEntitlementService.entitlement === ChatEntitlement.Unknown || this.chatEntitlementService.entitlement === ChatEntitlement.Available) {
@@ -684,7 +479,6 @@ export class ChatStatusDashboard extends DomWidget {
 
 		return true;
 	}
-	// --- End Positron ---
 
 	private renderHeader(container: HTMLElement, disposables: DisposableStore, label: string, action?: IAction): void {
 		const header = container.appendChild($('div.header', undefined, label ?? ''));
@@ -870,16 +664,11 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}
 
-		// --- Start Positron ---
-		// Disable this setting since we don't currently support it in Positron Assistant
-		/*
 		// --- Next edit suggestions
 		{
 			const setting = append(settings, $('div.setting'));
 			this.createNextEditSuggestionsSetting(setting, localize('settings.nextEditSuggestions', "Next edit suggestions"), this.getCompletionsSettingAccessor(modeId), disposables);
 		}
-		*/
-		// --- End Positron ---
 
 		return settings;
 	}
@@ -912,7 +701,7 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}));
 
-		if (!this.canUseChat(this.configurationService, this.chatEntitlementService)) {
+		if (!this.canUseChat()) {
 			container.classList.add('disabled');
 			checkbox.disable();
 			checkbox.checked = false;
@@ -947,12 +736,7 @@ export class ChatStatusDashboard extends DomWidget {
 		};
 	}
 
-	// --- Start Positron ---
-	// Make this method public to prevent it from being marked unused.
-	//
-	// We don't support Next Edit Suggestions in Assistant yet.
-	// --- End Positron ---
-	public createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
+	private createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
 		const nesSettingId = defaultChat.nextEditSuggestionsSetting;
 		const completionsSettingId = defaultChat.completionsEnablementSetting;
 		const resource = EditorResourceAccessor.getOriginalUri(this.editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });
@@ -978,7 +762,7 @@ export class ChatStatusDashboard extends DomWidget {
 
 		disposables.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
-				if (completionsSettingAccessor.readSetting() && this.canUseChat(this.configurationService, this.chatEntitlementService)) {
+				if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
 					checkbox.enable();
 					container.classList.remove('disabled');
 				} else {

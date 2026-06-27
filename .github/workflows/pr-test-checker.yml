@@ -1,8 +1,18 @@
 name: "PR Test Checker"
 
 # Grades whether the PR has adequate test coverage and posts a verdict comment.
-# Pilot scope: only runs for PR authors / commenters in the allowlist below.
-# To widen the pilot, edit both ALLOWLIST refs in this file (kept in sync).
+# Scope: runs only for PR authors / commenters in the posit-dev `positron-dev`
+# team. GitHub Actions `if:` has no team-membership predicate, and the default
+# GITHUB_TOKEN cannot read org membership, so a dedicated `gate` job resolves
+# membership at runtime via the GitHub API. It mints a short-lived token from
+# the "Positron Projects" GitHub App (secrets POSITRON_PROJECTS_CLIENT_ID +
+# POSITRON_PROJECTS_PEM, shared with release-generate-sbom.yml) scoped to the
+# posit-dev org, which carries the App's `Members: read` permission, and
+# exposes an `ok` output the grading jobs depend on via `needs`. The gate
+# FAILS CLOSED: if the token can't be minted or any API call fails (e.g. the
+# App is missing `Members: read`), `ok=false` and nothing is graded. Membership
+# is always live -- there is no allowlist to maintain. To change who PETE runs
+# for, edit the `positron-dev` team on GitHub, not this file.
 #
 # Trigger recovery: we listen for `opened`, `synchronize`, AND `ready_for_review`
 # on `pull_request`, not just `opened`. GitHub occasionally drops `opened`
@@ -22,7 +32,7 @@ name: "PR Test Checker"
 # Read/Grep/Glob tools). The analyzer is invoked from the base checkout via
 # `uses: ./base/.github/actions/pr-test-checker` so that PR-head code is never
 # executed with secrets in scope. This closes the "pwn request" pattern where
-# a fork PR modifies action code, and an allowlisted user comments
+# a fork PR modifies action code, and a positron-dev member comments
 # /recheck-tests (an `issue_comment` event that runs in base context with
 # full secrets, unlike `pull_request` events which strip secrets for forks).
 
@@ -37,11 +47,89 @@ on:
       - created
 
 jobs:
+  # Resolve positron-dev team membership at runtime. This is a pure GitHub API
+  # read with a short-lived App token; it checks out no PR code, so it is safe
+  # to run in base context. Emits `ok=true` only when the relevant user(s) are
+  # *active* team members, and FAILS CLOSED (`ok=false`) on a token/API error.
+  # The grading jobs depend on this via `needs: gate`.
+  gate:
+    name: Check positron-dev membership
+    # Cheap event-shape pre-filter so we don't spin up a runner (or hit the API)
+    # for every PR comment -- only PR events and recheck-command comments on PRs
+    # reach the membership check below. Recognized recheck commands: /recheck-tests,
+    # /rePETE, /re-pete (contains() is case-insensitive, so casing doesn't matter).
+    # NOTE: keep this command list in sync with the on-recheck job's `if` below.
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        (contains(github.event.comment.body, '/recheck-tests') ||
+          contains(github.event.comment.body, '/repete') ||
+          contains(github.event.comment.body, '/re-pete')))
+    runs-on: ubuntu-latest
+    # No GITHUB_TOKEN scopes needed: the check uses the App token in GH_TOKEN.
+    permissions: {}
+    concurrency:
+      group: pr-test-checker-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: true
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Check team membership
+        id: check
+        env:
+          # Short-lived token from the Positron Projects GitHub App, scoped to
+          # the posit-dev org. Reading team membership needs the App's
+          # `Members: read` permission; without it the gh calls 404 and the gate
+          # stays ok=false -- fail closed.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+
+          # Active member -> HTTP 200 {"state":"active"}; non-member -> 404
+          # (gh exits non-zero, stdout empty). Pending invite -> "pending".
+          is_member() {
+            local state
+            state=$(gh api "orgs/posit-dev/teams/positron-dev/memberships/$1" --jq '.state' 2>/dev/null)
+            [ "$state" = "active" ]
+          }
+
+          ok=false
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # on-open: the PR author must be a team member.
+            if is_member "$PR_AUTHOR"; then
+              ok=true
+            fi
+          else
+            # on-recheck: BOTH the commenter and the PR author must be members,
+            # so an attacker can't bait /recheck-tests by commenting on a PR
+            # whose author is outside the team.
+            if is_member "$COMMENTER" && is_member "$ISSUE_AUTHOR"; then
+              ok=true
+            fi
+          fi
+
+          echo "Membership gate result: ok=$ok"
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
   on-open:
     name: Grade on PR change
+    needs: gate
     if: |
       github.event_name == 'pull_request' &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.pull_request.user.login)
+      needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,7 +140,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout BASE (trusted action + skill code)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: base
@@ -62,7 +150,7 @@ jobs:
             .github/actions/pr-test-checker
 
       - name: Checkout PR HEAD (untrusted source data)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: pr-head
@@ -88,21 +176,25 @@ jobs:
           repo-root: ${{ github.workspace }}/pr-head
 
   on-recheck:
-    name: Re-grade on /recheck-tests
-    # Fires when an allowlisted user comments `/recheck-tests` on a PR.
-    # The issue_comment event runs in base-repo context with full secrets
-    # even when the PR is from a fork, so two layers of defense:
-    #   1. BOTH the commenter AND the PR author must be allowlisted (the
-    #      PR-author check blocks comments on fork PRs by non-allowlisted
-    #      authors -- attackers can't bait /recheck-tests on their own PRs).
+    name: Re-grade on recheck command
+    needs: gate
+    # Fires when a positron-dev member comments a recheck command (/recheck-tests,
+    # /rePETE, /re-pete) on a PR. The issue_comment event runs in base-repo context
+    # with full secrets even when the PR is from a fork, so two layers of defense:
+    #   1. The `gate` job requires BOTH the commenter AND the PR author to be
+    #      positron-dev members (the PR-author check blocks comments on fork
+    #      PRs by non-members -- attackers can't bait a recheck on a PR
+    #      whose author is outside the team).
     #   2. The job checks out the base branch to RUN the action and the
     #      PR head only as READ-ONLY DATA -- PR-head code never executes.
+    # NOTE: keep the recheck-command list in sync with the gate job's `if` above.
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '/recheck-tests') &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.comment.user.login) &&
-      contains(fromJson('["jonvanausdeln", "sharon-wang", "melissa-barca", "samclark2015", "timtmok", "midleman", "testlabauto"]'), github.event.issue.user.login)
+      (contains(github.event.comment.body, '/recheck-tests') ||
+        contains(github.event.comment.body, '/repete') ||
+        contains(github.event.comment.body, '/re-pete')) &&
+      needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -112,6 +204,22 @@ jobs:
       group: pr-test-checker-${{ github.event.issue.number }}
       cancel-in-progress: true
     steps:
+      # Acknowledge the recheck command with an "eyes" reaction so the commenter
+      # gets immediate visual confirmation that PETE picked it up and is running.
+      # First step so it lands before the slower checkout/analysis steps. Capture
+      # the reaction id so the finalize step can remove it once PETE is done.
+      - name: Acknowledge recheck command
+        id: ack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Resolve PR head SHA
         id: pr
         env:
@@ -123,7 +231,7 @@ jobs:
           echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout BASE (trusted action + skill code)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           path: base
@@ -133,7 +241,7 @@ jobs:
             .github/actions/pr-test-checker
 
       - name: Checkout PR HEAD (untrusted source data)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           path: pr-head
@@ -158,3 +266,30 @@ jobs:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
           repo-root: ${{ github.workspace }}/pr-head
           force-regrade: "true"
+
+      # Replace the "eyes" acknowledgement with a terminal reaction once PETE
+      # finishes: rocket on success, confused on failure. Runs on always() so the
+      # comment never gets stuck showing "running". Skipped if the ack step never
+      # recorded a reaction id (e.g. the initial reaction POST failed).
+      - name: Finalize recheck reaction
+        if: always() && steps.ack.outputs.reaction_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REACTION_ID: ${{ steps.ack.outputs.reaction_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # Remove the "eyes" acknowledgement reaction.
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
+            || echo "Failed to remove eyes reaction (non-fatal)"
+          # Signal completion: rocket on success, confused otherwise.
+          if [ "$JOB_STATUS" = "success" ]; then
+            FINAL=rocket
+          else
+            FINAL=confused
+          fi
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"

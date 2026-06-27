@@ -13,8 +13,15 @@ import { Messaging } from './messaging';
 // Import CSS files required by the bundled widget packages.
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
+// Styles for disconnected and error widget states.
+// https://github.com/jupyter-widgets/ipywidgets/blob/main/packages/base/css/index.css
 import '@jupyter-widgets/base/css/index.css';
-import '@jupyter-widgets/controls/css/widgets.css';
+// Upstream `widgets.css` is just `@import labvariables.css` + `@import widgets-base.css`.
+// We import `widgets-base.css` (the widget styling) directly, but replace `labvariables.css`
+// with our fork that re-points Jupyter's `--jp-*` tokens at `--vscode-*` theme variables so
+// widgets inherit the active Positron theme. See ./css/jupyter-lab-variables.css.
+import '@jupyter-widgets/controls/css/widgets-base.css';
+import './css/jupyter-lab-variables.css';
 import '@lumino/widgets/style/index.css';
 import './reactable/reactable-py.esm.css';
 import './reactable/reactable-py.esm.js';

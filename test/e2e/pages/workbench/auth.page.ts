@@ -6,6 +6,7 @@
 import { expect } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 import { generateTOTP } from '../../utils/totp.js';
+import { isOktaLockedOut, otpRetryDelayMs } from '../../utils/otpRetry.js';
 
 export class AuthPage {
 	get username() { return this.code.driver.currentPage.getByRole('textbox', { name: 'username' }); }
@@ -64,8 +65,10 @@ export class AuthPage {
 		await this.typeIntoField(oktaPassword, serviceAccountPassword);
 		await page.getByRole('button', { name: /^Verify$/ }).click();
 
-		// 4. OTP prompt. TOTPs roll every 30s; if we land on a boundary the code can be rejected.
-		//    Retry up to 3 times: re-fill with a fresh code, submit again.
+		// 4. OTP prompt. The TOTP secret is shared across parallel shards, so a code can be
+		//    rejected (reused by another shard) or the account can be locked out ("too many
+		//    attempts"). Retry up to 3 times, backing off with jitter between attempts so we
+		//    fall into a different TOTP window than the competing shard. See otpRetry.ts.
 		const otpField = page.locator('input[autocomplete="one-time-code"], input[type="tel"], input[type="text"]').first();
 		const verifyOtpButton = page.getByRole('button', { name: /^Verify$/ });
 		const staySignedInYes = page.getByRole('button', { name: /^Yes$/ });
@@ -83,8 +86,10 @@ export class AuthPage {
 				if (attempt === maxAttempts) {
 					throw new Error(`OTP authentication failed after ${maxAttempts} attempts`);
 				}
-				// Wait past the TOTP window boundary, then try again.
-				await page.waitForTimeout(20000);
+				const lockedOut = await isOktaLockedOut(page);
+				const delay = otpRetryDelayMs(lockedOut);
+				this.code.logger.log(`Azure OTP not accepted (attempt ${attempt}/${maxAttempts}, lockedOut=${lockedOut}); backing off ${delay}ms before retry`);
+				await page.waitForTimeout(delay);
 			}
 		}
 

@@ -110,6 +110,7 @@ import './positron/mainThreadConsoleService.js';
 import './positron/mainThreadContextKeyService.js';
 import './positron/mainThreadConnections.js';
 import './positron/mainThreadDataConnections.js';
+import './positron/mainThreadDataExplorer.js';
 import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
 import './positron/mainThreadPlotsService.js';

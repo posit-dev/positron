@@ -261,7 +261,6 @@ suite('AgentHostClientTools', () => {
 				toToolAndToolSetEnablementMap: () => new Map(),
 				toFullReferenceNames: () => [],
 				toToolReferences: () => [],
-				isToolEnabledForModel: () => true,
 				vscodeToolSet: undefined!,
 				executeToolSet: undefined!,
 				readToolSet: undefined!,

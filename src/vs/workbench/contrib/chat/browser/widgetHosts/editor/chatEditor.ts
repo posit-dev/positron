@@ -114,14 +114,7 @@ export class ChatEditor extends AbstractEditorWithViewState<IChatEditorViewState
 							return true;
 						},
 						referencesExpandedWhenEmptyResponse: false,
-						// --- Start Positron ---
-						/*
 						progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask,
-						*/
-						// Always show progress message at bottom of response to make it more apparent
-						// in all modes.
-						progressMessageAtBottomOfResponse: true,
-						// --- End Positron ---
 					},
 					enableImplicitContext: true,
 					enableWorkingSet: 'explicit',

@@ -6,22 +6,39 @@
 import * as vscode from 'vscode';
 
 import type { SubmitCompletionFeedbackParams } from './types.js';
+import { CompletionBusyState } from './completionBusyState.js';
 import { getLanguageClientManager, startLanguageServer, stopLanguageServer } from './client.js';
-import { isCompletionEnabled } from './config.js';
+import { isAIEnabled, isCompletionEnabled, isCompletionEnabledForFileType, migrateEnabledSetting } from './config.js';
 import { getLLMConfiguration, resetModelCache } from './model.js';
 import { sendFeedback } from './feedback.js';
 import { debounceDelayMs, generateSuggestion } from './suggestions.js';
 
 export const log = vscode.window.createOutputChannel('Next Edit Suggestions', { log: true });
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	context.subscriptions.push(log);
 
 	log.info('Next Edit Suggestions extension is now activating...');
 
+	// Gates whether the Next Edit Suggestions status bar item is shown.
+	function updateAvailableContext() {
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.available', isAIEnabled());
+	}
+
+	updateAvailableContext();
+
+	// Migrate the renamed `nextEditSuggestions.enable` setting to `nextEditSuggestions.enabled`.
+	const enabledSettingMigration = migrateEnabledSetting(log);
+
 	// Start the language server only when an auth token is available
 	async function ensureLanguageServer() {
-		if (await getLLMConfiguration()) {
+		const config = await getLLMConfiguration();
+		const signedIn = !!config;
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.active', signedIn);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.provider', config?.providerDisplayName);
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.model',
+			config ? { id: config.modelId, displayName: config.modelDisplayName } : undefined);
+		if (signedIn) {
 			if (!getLanguageClientManager()) {
 				startLanguageServer(context, log);
 				log.info('Language server started.');
@@ -34,12 +51,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	void ensureLanguageServer();
 
+	// Publishes whether NES is enabled for the active editor's file so the workbench
+	// status UI can reflect it without re-deriving the per-file logic.
+	function updateFileEnabledContext() {
+		const document = vscode.window.activeTextEditor?.document;
+		const fileEnabled = document ? isCompletionEnabledForFileType(document) : true;
+		void vscode.commands.executeCommand('setContext', 'nextEditSuggestions.fileEnabled', fileEnabled);
+	}
+
+	updateFileEnabledContext();
+
 	context.subscriptions.push(
 		vscode.authentication.onDidChangeSessions((e) => {
 			if (e.provider.id === 'posit-ai') {
 				void ensureLanguageServer();
 			}
 		}),
+		vscode.window.onDidChangeActiveTextEditor(() => updateFileEnabledContext()),
+		vscode.workspace.onDidOpenTextDocument(() => updateFileEnabledContext()),
 	);
 
 	log.info('Next Edit Suggestions extension activated successfully!');
@@ -73,6 +102,9 @@ export function activate(context: vscode.ExtensionContext): void {
 		}),
 	);
 
+	// Reflects in-flight completion requests in the `nextEditSuggestions.busy` context key.
+	const busyState = new CompletionBusyState();
+
 	const providerImpl = {
 		displayName: 'Next Edit Suggestions',
 		_onDidChangeEmitter: new vscode.EventEmitter<void>(),
@@ -99,7 +131,9 @@ export function activate(context: vscode.ExtensionContext): void {
 				token.onCancellationRequested(() => resolve(null));
 			});
 
-			const result = await Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise]);
+			const result = await busyState.track(
+				() => Promise.race([generateSuggestion(document, position), timeoutPromise, cancellationPromise])
+			);
 			if (!result) {
 				return new vscode.InlineCompletionList([]);
 			}
@@ -123,6 +157,11 @@ export function activate(context: vscode.ExtensionContext): void {
 					feedback = 'rejected';
 					break;
 				case vscode.InlineCompletionEndOfLifeReasonKind.Ignored:
+					// A superseded suggestion was replaced by a newer request,
+					// not dismissed by the user.
+					if (reason.supersededBy) {
+						return;
+					}
 					feedback = 'ignored';
 					break;
 				default:
@@ -132,6 +171,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		},
 	};
 
+	await enabledSettingMigration;
 	context.subscriptions.push(
 		vscode.languages.registerInlineCompletionItemProvider('*', providerImpl as vscode.InlineCompletionItemProvider, {
 			displayName: 'Next Edit Suggestions',
@@ -141,9 +181,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('ai.enabled')) {
+				updateAvailableContext();
+			}
 			if (e.affectsConfiguration('nextEditSuggestions')) {
 				log.trace(`[config] Refresh configuration due to change in 'nextEditSuggestions' settings.`);
 				resetModelCache();
+				// Re-run so the model/provider context keys reflect the new selection
+				void ensureLanguageServer();
+				updateFileEnabledContext();
 				providerImpl._onDidChangeEmitter.fire();
 			}
 		}),

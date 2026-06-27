@@ -2,6 +2,6 @@
 	"command.learnMore.title": "Posit AI: Learn more",
 	"command.restartLsp.title": "Next Edit Suggestions: Restart LSP Server",
 	"configuration.title": "Next Edit Suggestions",
-	"configuration.enable.description": "Control which file types receive next edit suggestions. Use '*' for the default, and specify language IDs (e.g., 'python', 'markdown') to override. Set to { \"*\": false } to disable completely.",
+	"configuration.enabled.description": "Control which file types receive next edit suggestions. Use '*' for the default, and specify language IDs (e.g., 'python', 'markdown') to override. Set to { \"*\": false } to disable completely.",
 	"configuration.selectedCompletionModel.description": "Model ID to use for suggestions. Leave empty for automatic model selection."
 }

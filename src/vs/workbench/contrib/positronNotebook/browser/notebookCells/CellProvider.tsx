@@ -7,7 +7,6 @@
 import React from 'react';
 
 // Other dependencies.
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
@@ -46,14 +45,4 @@ export function useCodeCell(): IPositronNotebookCodeCell {
 		throw new Error('useCodeCell must be used within a code cell');
 	}
 	return cell;
-}
-
-/**
- * Hook to consume the cell-scoped context key service from the current cell.
- *
- * @returns The scoped context key service, or undefined if outside a CellProvider.
- */
-export function useCellScopedContextKeyService(): IScopedContextKeyService | undefined {
-	const cell = React.useContext(CellContext);
-	return cell?.scopedContextKeyService;
 }

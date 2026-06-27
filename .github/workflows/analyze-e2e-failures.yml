@@ -33,7 +33,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Need:
           # - .claude/skills/e2e-failure-analyzer/scripts (extraction helpers)
@@ -43,6 +43,8 @@ jobs:
           #   workbench/driver helpers that startup-or-teardown failures often
           #   route through.
           # - test/e2e/{CLAUDE.md,README.md} for repo-specific test conventions.
+          # - playwright.config.ts for worker/parallelism settings (e.g. workers,
+          #   fullyParallel) needed to reason about shared-workspace teardown races.
           sparse-checkout: |
             .claude/skills/e2e-failure-analyzer
             .github/actions/e2e-failure-analyzer
@@ -52,6 +54,7 @@ jobs:
             test/e2e/infra
             test/e2e/CLAUDE.md
             test/e2e/README.md
+            playwright.config.ts
 
       - name: Load secret
         uses: 1password/load-secrets-action@v4

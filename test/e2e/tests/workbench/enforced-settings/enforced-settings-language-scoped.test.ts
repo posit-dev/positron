@@ -128,18 +128,19 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		);
 
 		// `rstudio-server restart` returns before the server is accepting connections again;
-		// poll until the dashboard responds, then reconnect.
-		await waitForRStudioServerReady(runDockerCommand);
-		await reconnectDashboard(app);
+		// poll until the dashboard responds from the host.
+		await waitForRStudioServerReady();
 
-		// Quit any leftover session (from before the restart) and open a fresh one,
-		// so the new Positron process inherits POSITRON_ENFORCED_SETTINGS.
-		try {
-			await app.positWorkbench.dashboard.quitSession('qa-example-content');
-		} catch {
-			// No leftover session to quit.
-		}
-		await app.positWorkbench.dashboard.openSession('qa-example-content');
+		// The restart terminates every session, so there is nothing to quit - just open a fresh
+		// one so the new Positron process inherits POSITRON_ENFORCED_SETTINGS. We must reconnect
+		// and open without idling in between: on local Docker Desktop the homepage's websocket is
+		// reaped while idle (rserver logs "Broken pipe" on the connection upgrade), which re-raises
+		// the "Disconnected from Workbench" modal and hides the "Create new session" button. So
+		// reconnect immediately before opening, and retry the pair if the connection flaps.
+		await expect(async () => {
+			await reconnectDashboard(app);
+			await app.positWorkbench.dashboard.openSession('qa-example-content');
+		}).toPass({ timeout: 180000, intervals: [1000, 2000, 5000] });
 
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
@@ -181,7 +182,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		// warn on failure, so we don't need to reopen a session here - doing so would
 		// introduce a UI state (project shown as button after a server restart killed the
 		// session) that openSession's locator chain doesn't handle.
-		await waitForRStudioServerReady(runDockerCommand);
+		await waitForRStudioServerReady();
 	});
 
 	test.beforeAll('Wait for Air bootstrap extension to be installed', async function ({ runDockerCommand }) {
@@ -242,6 +243,13 @@ test.describe('Workbench: Language-scoped enforced settings', {
 				await runDockerCommand(
 					`docker cp "${tmpFile}" test:${USER_SETTINGS_PATH}`,
 					'Install merged user settings.json'
+				);
+				// `docker cp` writes the file as root; the Positron session runs as user1 and must
+				// be able to write settings.json (otherwise saving fails with EACCES). Restore
+				// ownership the same way writeOpenAndSave() does for files it copies in.
+				await runDockerCommand(
+					`docker exec test chown user1:user1g ${USER_SETTINGS_PATH}`,
+					'Restore ownership of user settings.json'
 				);
 			} finally {
 				await fs.promises.rm(tmpDir, { recursive: true, force: true });
@@ -317,21 +325,23 @@ async function readContainerFile(runDockerCommand: RunDockerCommand, filePath: s
 type RunDockerCommand = (command: string, description: string) => Promise<{ stdout: string; stderr: string }>;
 
 /**
- * Poll rstudio-server inside the container until it returns a 2xx/3xx for the login page.
+ * Poll rstudio-server until the login page is reachable *from the host* (the same network
+ * path the browser uses), returning a 2xx/3xx.
+ *
  * `rstudio-server restart` returns before the listener is back, so navigating immediately
- * yields ERR_CONNECTION_RESET.
+ * yields ERR_CONNECTION_RESET. Probing via `docker exec ... curl localhost:8787` only proves
+ * the in-container loopback is up; on Docker Desktop the host-side port-forward can lag that
+ * by several seconds, so the probe reports ready while the browser still hits a dead
+ * connection and shows a "Disconnected from Workbench" modal. Probing from the host (where
+ * Playwright runs) closes that gap.
  */
-async function waitForRStudioServerReady(runDockerCommand: RunDockerCommand, timeoutMs = 60000): Promise<void> {
+async function waitForRStudioServerReady(timeoutMs = 60000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	let lastError: unknown;
 	while (Date.now() < deadline) {
 		try {
-			const { stdout } = await runDockerCommand(
-				`docker exec test bash -lc 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8787/auth-sign-in || true'`,
-				'Probe rstudio-server readiness'
-			);
-			const code = parseInt(stdout.trim(), 10);
-			if (code >= 200 && code < 400) {
+			const response = await fetch('http://localhost:8787/auth-sign-in', { redirect: 'manual' });
+			if (response.status >= 200 && response.status < 400) {
 				return;
 			}
 		} catch (error) {
@@ -339,7 +349,7 @@ async function waitForRStudioServerReady(runDockerCommand: RunDockerCommand, tim
 		}
 		await new Promise(resolve => setTimeout(resolve, 1000));
 	}
-	throw new Error(`rstudio-server did not become ready within ${timeoutMs}ms${lastError ? `: ${lastError}` : ''}`);
+	throw new Error(`rstudio-server did not become reachable from the host within ${timeoutMs}ms${lastError ? `: ${lastError}` : ''}`);
 }
 
 /**
@@ -373,14 +383,32 @@ async function waitForAirExtensionInstalled(runDockerCommand: RunDockerCommand, 
 }
 
 /**
- * Navigate to the dashboard, signing in if the session was invalidated by a server restart.
+ * Re-establish a live dashboard connection after `rstudio-server restart`.
+ *
+ * The restart leaves the already-open page unable to recover on its own: the HTTP front-end
+ * answers (waitForRStudioServerReady passes) before the backend can accept the homepage's
+ * websocket, so the client enters a long reconnect backoff and shows a blocking "Disconnected
+ * from Workbench" modal. The modal's "Retry Now" button only resumes that same dead socket, and
+ * the restart can also invalidate the session cookie. So instead of retrying the stale page we
+ * fully re-navigate (which opens a fresh websocket and lands on sign-in if re-auth is needed)
+ * and loop until the dashboard is genuinely connected - no modal, header visible.
  */
 async function reconnectDashboard(app: Application): Promise<void> {
-	await app.positWorkbench.dashboard.goTo();
-	try {
-		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-	} catch {
-		await app.positWorkbench.auth.signIn();
-		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-	}
+	const page = app.code.driver.currentPage;
+	const dashboard = app.positWorkbench.dashboard;
+	const disconnected = page.getByRole('alertdialog', { name: 'Disconnected from Workbench' });
+
+	await expect(async () => {
+		// Fresh navigation: a brand-new connection, not a retry of the backed-off socket.
+		await page.goto('http://localhost:8787');
+
+		// A restart can invalidate the session cookie, so a fresh load may land on sign-in.
+		if (!(await dashboard.title.isVisible().catch(() => false))) {
+			await app.positWorkbench.auth.signIn().catch(() => { });
+		}
+
+		// The dashboard is only usable once the disconnect modal is gone and the header is up.
+		await expect(disconnected).toBeHidden({ timeout: 2000 });
+		await dashboard.expectHeaderToBeVisible();
+	}).toPass({ timeout: 120000, intervals: [2000, 5000, 5000, 10000] });
 }

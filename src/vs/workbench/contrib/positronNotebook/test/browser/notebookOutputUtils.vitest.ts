@@ -9,7 +9,7 @@ import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
+import { HtmlRenderMode, htmlRenderMode, pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';
 
 function makeOutputItem(mime: string, text: string) {
@@ -48,6 +48,66 @@ describe('Notebook Output Utils', () => {
 			expect(dataUrl, 'data URL payload should be the base64 encoding of the input buffer bytes').toBe(
 				'data:image/png;base64,aVZCT1J3MEtHZ289'
 			);
+		});
+
+		it('retina dimensions are not lost on save/reload', () => {
+			// Simulate execution: runtimeNotebookCellExecution stores the message's
+			// output-level metadata (message.outputMetadata) under a nested
+			// `metadata` key in output.metadata
+			const messageOutputMetadata = { 'image/png': { width: 320, height: 240 } };
+			const outputMetadata = {
+				outputType: 'display_data',
+				executionCount: 1,
+				metadata: messageOutputMetadata,
+			};
+
+			// Simulate save: ipynb serializer reads output.metadata.metadata
+			// (extensions/ipynb/src/serializers.ts line 183)
+			const savedToIpynb = outputMetadata.metadata;
+			expect(savedToIpynb).toEqual({ 'image/png': { width: 320, height: 240 } });
+
+			// Simulate reload: ipynb deserializer stores output.metadata under
+			// metadata.metadata (extensions/ipynb/src/deserializers.ts line 205)
+			const loadedOutputMetadata = {
+				outputType: 'display_data',
+				executionCount: 1,
+				metadata: JSON.parse(JSON.stringify(savedToIpynb)),
+			};
+
+			// Verify parseOutputData can read dimensions from the reloaded structure
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData), loadedOutputMetadata);
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBe(320);
+			expect(img.height).toBe(240);
+		});
+
+		it('images already saved in a notebook get retina sizing', () => {
+			// An ipynb file on disk has retina metadata in the Jupyter format:
+			// { "output_type": "display_data", "metadata": {"image/png": {"width": 160, "height": 80}} }
+			// After deserialization, output.metadata looks like:
+			const loadedMetadata = {
+				outputType: 'display_data',
+				metadata: { 'image/png': { width: 160, height: 80 } },
+			};
+
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData), loadedMetadata);
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBe(160);
+			expect(img.height).toBe(80);
+		});
+
+		it('parses image/png without metadata into an image with no dimensions', () => {
+			const pngData = 'iVBORw0KGgo=';
+			const result = parseOutputData(makeOutputItem('image/png', pngData));
+
+			expect(result.type).toBe('image');
+			const img = result as { type: 'image'; dataUrl: string; width?: number; height?: number };
+			expect(img.width).toBeUndefined();
+			expect(img.height).toBeUndefined();
 		});
 
 		it('parses text/plain as text output', () => {
@@ -154,6 +214,29 @@ describe('Notebook Output Utils', () => {
 			const result = parseOutputData(makeOutputItem(uppercaseMime, validPayload));
 			expect(result.type).toBe('dataExplorer');
 		});
+	});
+
+	describe('htmlRenderMode', () => {
+		const cases: [HtmlRenderMode, string, string][] = [
+			// Active content is isolated in a webview.
+			['webview', 'script', '<div><script>alert(1)</script></div>'],
+			['webview', 'iframe', '<iframe src="https://example.com"></iframe>'],
+			['webview', 'event handler', '<img src="x" onerror="alert(1)">'],
+			['webview', 'full document with a script', '<!DOCTYPE html><html><body><script>x()</script></body></html>'],
+			// Inert full documents render inline in a shadow root.
+			['shadowRoot', 'doctype', '<!DOCTYPE html><html></html>'],
+			['shadowRoot', 'html tag', '<html><p>Hello</p></html>'],
+			['shadowRoot', 'body tag', '<body><p>Hello</p></body>'],
+			// Inert fragments render inline via renderHtml.
+			['fragment', 'simple fragment', '<p>Hello world</p>'],
+			['fragment', 'data attribute with "on" prefix', '<div data-onclick="value">test</div>'],
+		];
+
+		for (const [mode, label, html] of cases) {
+			it(`routes ${label} to ${mode}`, () => {
+				expect(htmlRenderMode(html)).toBe(mode);
+			});
+		}
 	});
 
 	describe('parseVariablePath', () => {

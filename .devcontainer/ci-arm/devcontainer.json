@@ -1,0 +1,67 @@
+{
+	"name": "Positron CI (ubuntu24-arm64)",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "test",
+	// Source is bind-mounted at its own host path (see docker-compose.yml + initialize.sh),
+	// so the workspace inside the container is that same host path.
+	"workspaceFolder": "${localWorkspaceFolder}",
+	"initializeCommand": "./.devcontainer/ci-arm/initialize.sh",
+	"runServices": ["postgres"],
+	"remoteUser": "root",
+	"overrideCommand": false,
+	"forwardPorts": [8080, 9323, 6080, 5900],
+	"portsAttributes": {
+		"8080": { "label": "Positron server", "onAutoForward": "notify" },
+		"9323": { "label": "Playwright report", "onAutoForward": "silent" },
+		"6080": { "label": "Desktop (noVNC, browser)", "onAutoForward": "silent" },
+		"5900": { "label": "VNC (native viewer)", "onAutoForward": "silent" }
+	},
+	// Note: VS Code also auto-forwards Positron's many internal loopback ports (extension hosts,
+	// language servers, Jupyter kernels). They're harmless and only clutter the Ports panel;
+	// remote.autoForwardPorts / restoreForwardedPorts did not reliably suppress them in this
+	// connected-container setup, so we don't fight it. The four above are the ones you use.
+	"containerEnv": {
+		"DOCKER_CLI_HINTS": "false",
+		"DISPLAY": ":10",
+		"POSITRON_PY_VER_SEL": "3.10.12",
+		"POSITRON_R_VER_SEL": "4.5.2",
+		"POSITRON_PY_ALT_VER_SEL": "3.13.0",
+		"POSITRON_R_ALT_VER_SEL": "4.4.2",
+		"POSITRON_HIDDEN_PY": "3.12.10 (Conda)",
+		"POSITRON_HIDDEN_R": "4.4.1",
+		"PWTEST_BLOB_DO_NOT_REMOVE": "1"
+	},
+	"postCreateCommand": "./.devcontainer/ci-arm/post-create.sh",
+	"postStartCommand": "./.devcontainer/ci-arm/post-start.sh",
+	"customizations": {
+		"vscode": {
+			// Status-bar buttons for the common CI actions. Defined here (not in the .code-workspace
+			// file) so they only appear when the workspace is open inside the container — on the local
+			// host the buttons won't exist, avoiding the confusing "everything looks broken" state you'd
+			// get if you accidentally ran these scripts outside the container.
+			"settings": {
+				"VsCodeTaskButtons.tasks": [
+					{ "label": "$(pulse) Doctor", "task": "Positron CI: Doctor", "tooltip": "Build current? Services up? What's running?" },
+					{ "label": "$(server) Server (Web)", "task": "Positron CI: Start server", "tooltip": "Start the licensed Positron web server (:8080)" },
+					{ "label": "$(device-desktop) Desktop (Electron)", "task": "Positron CI: Desktop", "tooltip": "Launch the Electron desktop app; view in browser via noVNC" },
+					{ "label": "$(beaker) Report", "task": "Positron CI: Report", "tooltip": "Serve the last Playwright run's trace/report (:9323)" },
+					{ "label": "$(output) Logs", "task": "Positron CI: Logs", "tooltip": "Tail the server + desktop logs (/tmp/positron-{server,electron}.log)" },
+					{ "label": "$(stop-circle) Stop", "task": "Positron CI: Stop", "tooltip": "Stop server/desktop/report; shows how to disconnect the container if you're done" },
+					{ "label": "$(eye) Watch", "task": "Positron CI: Watch (src)", "tooltip": "Recompile src on save; reload the window after 'Finished compilation' to pick up edits" }
+				]
+			},
+			// Functional extensions for CI dev work, auto-installed into the container so they run in
+			// the remote extension host (not just the local host). task-buttons is included here so a
+			// fresh container picks up the button definitions above without a manual install step.
+			"extensions": [
+				"ms-playwright.playwright",
+				"dbaeumer.vscode-eslint",
+				"ms-vscode.vscode-selfhost-test-provider",
+				"EditorConfig.EditorConfig",
+				"GitHub.vscode-pull-request-github",
+				"spencerwmiles.vscode-task-buttons",
+				"bierner.markdown-mermaid"
+			]
+		}
+	}
+}

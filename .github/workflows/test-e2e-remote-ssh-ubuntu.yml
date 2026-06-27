@@ -43,7 +43,7 @@ jobs:
       GH_SUMMARY_REPORT: true
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -59,6 +59,10 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          # Session must outlast the full build + sharded test run so the Bedrock
+          # sign-in e2e test doesn't hit an expired STS token (must be <= role
+          # MaxSessionDuration).
+          role-duration-seconds: 21600
 
       - name: Setup test dependencies and compile tests
         uses: ./.github/actions/setup-e2e-test-dependencies
@@ -82,7 +86,7 @@ jobs:
 
       - name: Start Docker Container
         run: |
-          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:126 \
+          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:141 \
             /bin/bash -c 'while true; do sleep 3600; done'
 
       - name: Download SSH install script
@@ -189,6 +193,7 @@ jobs:
 
       - name: Upload Playwright Report to S3
         if: always()
+        continue-on-error: true
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

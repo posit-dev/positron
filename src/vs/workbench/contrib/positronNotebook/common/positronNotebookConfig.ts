@@ -47,12 +47,12 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
-				'Use Positron Notebook as the default editor for `.ipynb` files.'
+				'Use the Positron Notebook Editor for `.ipynb` files. When disabled, Positron uses the legacy notebook editor.'
 			),
-			tags: ['preview', 'positronNotebook'],
+			tags: ['positronNotebook'],
 			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY]: {

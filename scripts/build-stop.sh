@@ -20,10 +20,13 @@ run watch-extensions npx deemon -- --kill npm run watch-extensions &
 pid3=$!
 run watch-e2e npx deemon -- --kill npm run watch-e2e &
 pid4=$!
+run watch-copilot npx deemon -- --kill npm run watch-copilot &
+pid5=$!
 
 failed=0
 wait $pid1 || failed=1
 wait $pid2 || failed=1
 wait $pid3 || failed=1
 wait $pid4 || failed=1
+wait $pid5 || failed=1
 exit $failed

@@ -15,6 +15,7 @@ export type NotebooksAction =
 	| 'run_cell'
 	| 'open_notebook'
 	| 'save_notebook'
+	| 'render_on_cold_open'
 	| 'render_on_open'
 	| 'render_on_nav_back';
 
@@ -107,6 +108,21 @@ export async function recordRunCell<T>(
 }
 
 /**
+ * Shortcut for recording the time to render a notebook after opening
+ * it from disk for the first time. Measures the notebook open + parse
+ * + render path.
+ */
+export async function recordRenderOnColdOpen<T>(
+	operation: () => Promise<T>,
+	targetType: MetricTargetType,
+	isElectronApp: boolean,
+	logger: MultiLogger,
+	options: NotebookShortcutOptions = {}
+): Promise<MetricResult<T>> {
+	return recordRender('render_on_cold_open', operation, targetType, isElectronApp, logger, options);
+}
+
+/**
  * Shortcut for recording the time to render a notebook after reopening
  * it from disk (tab closed, file reopened). Measures the notebook
  * open + parse + render path, isolated from app-startup noise.
@@ -137,7 +153,7 @@ export async function recordRenderOnNavBack<T>(
 }
 
 async function recordRender<T>(
-	action: 'render_on_open' | 'render_on_nav_back',
+	action: 'render_on_cold_open' | 'render_on_open' | 'render_on_nav_back',
 	operation: () => Promise<T>,
 	targetType: MetricTargetType,
 	isElectronApp: boolean,

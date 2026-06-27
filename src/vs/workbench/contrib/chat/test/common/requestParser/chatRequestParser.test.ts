@@ -14,6 +14,10 @@ import { ILogService, NullLogService } from '../../../../../../platform/log/comm
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { IExtensionService, nullExtensionDescription } from '../../../../../services/extensions/common/extensions.js';
 import { TestExtensionService, TestStorageService } from '../../../../../test/common/workbenchTestServices.js';
+// --- Start Positron ---
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- End Positron ---
 import { ChatAgentService, IChatAgentCommand, IChatAgentData, IChatAgentService } from '../../../common/participants/chatAgents.js';
 import { ChatRequestParser } from '../../../common/requestParser/chatRequestParser.js';
 import { IChatService } from '../../../common/chatService/chatService.js';
@@ -43,6 +47,11 @@ suite('ChatRequestParser', () => {
 		instantiationService.stub(IExtensionService, new TestExtensionService());
 		instantiationService.stub(IChatService, new MockChatService());
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+		// --- Start Positron ---
+		// ChatAgentService subscribes to configuration changes in its constructor,
+		// so IConfigurationService must be stubbed before the service is created.
+		instantiationService.stub(IConfigurationService, new TestConfigurationService());
+		// --- End Positron ---
 		instantiationService.stub(IChatAgentService, testDisposables.add(instantiationService.createInstance(ChatAgentService)));
 		instantiationService.stub(IPromptsService, testDisposables.add(new MockPromptsService()));
 

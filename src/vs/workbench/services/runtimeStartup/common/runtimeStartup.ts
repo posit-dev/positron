@@ -1507,6 +1507,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					`with ${formatLanguageRuntimeMetadata(validated)}`);
 				this._languageRuntimeService.registerRuntime(validated);
 			}
+			// If the validator redirected the runtime to a different binary --
+			// e.g. R's validateMetadata re-resolves a `current: true` entry to
+			// wherever the rig `current`/`Current` symlink points right now --
+			// the cache is keyed by `runtimePath`, so an `upsert` of the new
+			// path would leave the original entry behind. Evict the old key so
+			// the cache can't accumulate stale or duplicate "current" entries
+			// across sessions.
+			if (validated.runtimePath !== task.metadata.runtimePath) {
+				this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
+			}
 			// Refresh the cache entry with the (possibly-updated) metadata
 			// and the fresh fingerprint we already captured.
 			await this._discoveryCache.upsert(validated);

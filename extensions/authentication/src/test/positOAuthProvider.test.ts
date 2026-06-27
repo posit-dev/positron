@@ -116,4 +116,15 @@ suite('PositOAuthProvider', () => {
 		});
 	});
 
+	suite('isConfigured', () => {
+		test('false when no tokens are stored', async () => {
+			assert.strictEqual(await provider.isConfigured(), false);
+		});
+
+		test('true when a refresh token is stored', async () => {
+			storeValidTokens(secrets);
+			assert.strictEqual(await provider.isConfigured(), true);
+		});
+	});
+
 });

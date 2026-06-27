@@ -3,53 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+ * Footer button sizing. The shared visual treatment (colors, borders, hover/focus/disabled states)
+ * lives on `.positron-dynamic-modal-dialog-box .dialog-button` in positronDynamicModalDialog.css;
+ * FooterButton applies both classes, so this file only carries the footer button dimensions.
+ */
 .positron-dynamic-modal-dialog-box .footer-button {
-	width: 80px;
 	height: 32px;
-	display: flex;
-	cursor: pointer;
-	border-radius: 5px;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
-	color: var(--vscode-positronModalDialog-buttonForeground);
-	background: var(--vscode-positronModalDialog-buttonBackground);
-}
-
-.positron-dynamic-modal-dialog-box .footer-button:hover {
-	background: var(--vscode-positronModalDialog-buttonHoverBackground);
-}
-
-.vs-dark .positron-dynamic-modal-dialog-box .footer-button:not(.default) {
-	border: 1px solid var(--vscode-button-border);
-}
-
-.positron-dynamic-modal-dialog-box .footer-button.default {
-	color: var(--vscode-positronModalDialog-defaultButtonForeground);
-	background: var(--vscode-positronModalDialog-defaultButtonBackground);
-}
-
-.positron-dynamic-modal-dialog-box .footer-button.default:hover {
-	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
-}
-
-.positron-dynamic-modal-dialog-box .footer-button.destructive {
-	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
-}
-
-.positron-dynamic-modal-dialog-box .footer-button:focus {
-	outline: none;
-}
-
-.positron-dynamic-modal-dialog-box .footer-button:focus-visible {
-	outline-offset: 2px !important;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-
-.positron-dynamic-modal-dialog-box .footer-button:disabled {
-	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
-	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
-	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);
-	cursor: default;
+	min-width: 80px;
+	padding: 0 12px;
 }

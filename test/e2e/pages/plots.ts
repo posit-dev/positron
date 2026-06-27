@@ -22,6 +22,7 @@ const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-dynamic-action-bar
 const OPEN_IN_EDITOR_DROPDOWN_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-drop-down-button[aria-label="Select where to open plot"]';
 const OPEN_IN_EDITOR_PRIMARY_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .action-bar-button-action-button[aria-label="Select where to open plot"]';
 const OVERFLOW_MENU_BUTTON = '.positron-plots-container .positron-dynamic-action-bar .positron-button[aria-label="overflow"]';
+const PLOTS_SECTION = '.part.auxiliarybar [aria-label="Plots Section"]';
 const SESSION_NAME_BUTTON = '.plot-session-name';
 const ORIGIN_FILE_BUTTON = '.plot-origin-file';
 const OUTER_WEBVIEW_FRAME = '.webview';
@@ -73,6 +74,18 @@ export class Plots {
 	async clickOriginFileButton() {
 		await test.step('Click origin file button', async () => {
 			await this.originFileButton.click();
+		});
+	}
+
+	async collapsePlotsPane() {
+		await test.step('Collapse the Plots pane', async () => {
+			const plotsSection = this.code.driver.currentPage.locator(PLOTS_SECTION);
+			// The header click is a toggle, so only click when expanded; otherwise a run
+			// that already left it collapsed would get re-expanded. Assert the final state.
+			if (await plotsSection.getAttribute('aria-expanded') !== 'false') {
+				await plotsSection.click();
+			}
+			await expect(plotsSection).toHaveAttribute('aria-expanded', 'false');
 		});
 	}
 

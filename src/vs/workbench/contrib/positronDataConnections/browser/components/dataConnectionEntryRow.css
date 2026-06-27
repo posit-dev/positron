@@ -14,7 +14,7 @@
 
 .data-connection-entry-icon {
 	font-size: 14px;
-	margin-right: 2px;
+	margin: 0 3px 0 2px;
 	color: var(--vscode-icon-foreground);
 }
 

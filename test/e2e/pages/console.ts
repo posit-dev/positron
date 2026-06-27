@@ -42,7 +42,7 @@ export class Console {
 	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.currentPage.getByTestId('restart-session');
-		this.clearButton = this.code.driver.currentPage.getByLabel('Clear console');
+		this.clearButton = this.code.driver.currentPage.getByRole('button', { name: 'Clear Console' });
 		this.trashButton = this.code.driver.currentPage.getByTestId('trash-session');
 
 		// `+` Add Session Split Button Locators
@@ -366,6 +366,21 @@ export class Console {
 
 			expect(await consoleInput.count()).toBeGreaterThan(0);
 		}).toPass({ timeout: 10000 });
+	}
+
+	/**
+	 * Focuses the console by clicking its panel label, bypassing the `Cmd+K F`
+	 * chord that {@link focus} relies on. That chord silently leaks `F` into the
+	 * terminal when the terminal holds focus (e.g. after a terminal-based package
+	 * install/uninstall), so use this to take focus off the terminal deterministically.
+	 * Clicks unconditionally, unlike {@link clickConsoleTab} which only clicks when
+	 * the console input is hidden.
+	 */
+	async clickConsoleLabel() {
+		await this.code.driver.currentPage
+			.locator('a.action-label[aria-label="Console"]')
+			.first()
+			.click();
 	}
 
 	async interruptExecution() {

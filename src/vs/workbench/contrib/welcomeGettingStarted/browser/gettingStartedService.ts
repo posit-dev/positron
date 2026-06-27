@@ -38,6 +38,9 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { extensionDefaultIcon } from '../../../services/extensionManagement/common/extensionsIcons.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { GettingStartedInput } from './gettingStartedInput.js';
+// --- Start Positron ---
+import { JUPYTER_EXTENSION_ID } from '../../notebook/browser/notebookBrowser.js';
+// --- End Positron ---
 
 export const HasMultipleNewFileEntries = new RawContextKey<boolean>('hasMultipleNewFileEntries', false);
 
@@ -290,6 +293,13 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 	}
 
 	private async registerExtensionWalkthroughContributions(extension: IExtensionDescription) {
+		// --- Start Positron ---
+		// Block the Jupyter extension's walkthrough; Positron has its own notebook onboarding.
+		if (extension.identifier.value === JUPYTER_EXTENSION_ID) {
+			return;
+		}
+		// --- End Positron ---
+
 		const convertExtensionPathToFileURI = (path: string) => path.startsWith('https://')
 			? URI.parse(path, true)
 			: FileAccess.uriToFileUri(joinPath(extension.extensionLocation, path));

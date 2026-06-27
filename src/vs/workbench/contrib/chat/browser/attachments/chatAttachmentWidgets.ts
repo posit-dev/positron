@@ -93,10 +93,7 @@ const KEY_ELEMENT_HOVER_COMPUTED_STYLE_PROPERTIES = [
 	'background-color'
 ];
 
-// --- Start Positron ---
-// This class is exported so it can be extended in chatRuntimeAttachmentWidget.ts
-// --- End Positron ---
-export abstract class AbstractChatAttachmentWidget extends Disposable {
+abstract class AbstractChatAttachmentWidget extends Disposable {
 	public readonly element: HTMLElement;
 	public readonly label: IResourceLabel;
 

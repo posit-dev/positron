@@ -87,8 +87,10 @@ export class ShowReleaseNotesAction extends Action2 {
 			return;
 		}
 
+		const targetVersion = version ?? productService.positronVersion;
+
 		try {
-			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
+			await showReleaseNotesInEditor(instantiationService, targetVersion, false);
 		} catch (err) {
 			throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes available", productService.nameLong));
 		}

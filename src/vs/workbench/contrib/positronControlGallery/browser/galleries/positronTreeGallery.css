@@ -30,6 +30,10 @@
 	width: 80px;
 }
 
+.positron-tree-harness-checkbox input {
+	width: auto;
+}
+
 .positron-tree-harness-button {
 	padding: 2px 10px;
 }

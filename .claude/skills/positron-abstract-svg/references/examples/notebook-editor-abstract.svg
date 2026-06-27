@@ -1,0 +1,90 @@
+<svg width="520" height="260" viewBox="0 0 530 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="520" height="250" fill="#FFFFFF"/>
+  
+  <rect x="0" y="0" width="355" height="36" fill="#FAFAFA"/>
+  <line x1="0" y1="36" x2="355" y2="36" stroke="#E0E0E0" stroke-width="1"/>
+  <g transform="translate(10, 10)" fill="#5A5A5A">
+    <path d="M2.78 2L2 2.41v12l.78.42 9-6V8l-9-6zM3 13.48V3.35l7.6 5.07L3 13.48z"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M6 14.683l8.78-5.853V8L6 2.147V3.35l7.6 5.07L6 13.48v1.203z"/>
+  </g>
+  <g transform="translate(32, 10)" fill="#5A5A5A">
+    <path d="M10 12.6l.7.7 1.6-1.6 1.6 1.6.8-.7L13 11l1.7-1.6-.8-.8-1.6 1.7-1.6-1.7-.7.8 1.6 1.6-1.6 1.6zM1 4h14V3H1v1zm0 3h14V6H1v1zm8 2.5V9H1v1h8v-.5zM9 13v-1H1v1h8z"/>
+  </g>
+  <g transform="translate(54, 13) scale(0.6875)" fill="#5A5A5A">
+    <path d="M8 1.5C8 1.22386 7.77614 1 7.5 1C7.22386 1 7 1.22386 7 1.5V7H1.5C1.22386 7 1 7.22386 1 7.5C1 7.77614 1.22386 8 1.5 8H7V13.5C7 13.7761 7.22386 14 7.5 14C7.77614 14 8 13.7761 8 13.5V8H13.5C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7H8V1.5Z"/>
+  </g>
+  <text x="66" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" fill="#5A5A5A">Code</text>
+  <g transform="translate(97, 13) scale(0.6875)" fill="#5A5A5A">
+    <path d="M8 1.5C8 1.22386 7.77614 1 7.5 1C7.22386 1 7 1.22386 7 1.5V7H1.5C1.22386 7 1 7.22386 1 7.5C1 7.77614 1.22386 8 1.5 8H7V13.5C7 13.7761 7.22386 14 7.5 14C7.77614 14 8 13.7761 8 13.5V8H13.5C13.7761 8 14 7.77614 14 7.5C14 7.22386 13.7761 7 13.5 7H8V1.5Z"/>
+  </g>
+  <text x="109" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" fill="#5A5A5A">Markdown</text>
+  <g transform="translate(242, 10)" fill="#5A5A5A">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/>
+  </g>
+  <rect x="262" y="7" width="82" height="22" rx="4" fill="#FFFFFF" stroke="#447099" stroke-width="1.5"/>
+  <circle cx="272" cy="18" r="4" fill="#3DAA6E"/>
+  <text x="280" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" fill="#333333">Python</text>
+  <g transform="translate(330, 13) scale(0.625)" fill="#5A5A5A">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/>
+  </g>
+  <line x1="355" y1="0" x2="355" y2="250" stroke="#E0E0E0" stroke-width="1"/>
+  
+  <rect x="355" y="0" width="165" height="36" fill="#F4F4F4"/>
+  <line x1="355" y1="36" x2="520" y2="36" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="365" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="500" fill="#3E4246" letter-spacing="0.8">VARIABLES</text>
+  <g transform="translate(478, 10)" fill="#5A5A5A">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M4.681 3H2V2h3.5l.5.5V6H5V4a5 5 0 1 0 4.53-.761l.302-.954A6 6 0 1 1 4.681 3z"/>
+  </g>
+  <g transform="translate(498, 10)" fill="#5A5A5A">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M10 3h3v1h-1v9l-1 1H4l-1-1V4H2V3h3V2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zM9 2H6v1h3V2zM4 13h7V4H4v9zm2-8H5v7h1V5zm1 0h1v7H7V5zm2 0h1v7H9V5z"/>
+  </g>
+  
+  <rect x="355" y="37" width="164" height="18" fill="#EEF3F8"/>
+  <text x="365" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9" fill="#5A5A5A">x</text>
+  <text x="420" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9" fill="#5A5A5A">1</text>
+  <text x="472" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9" fill="#5A5A5A">int</text>
+  <line x1="355" y1="55" x2="520" y2="55" stroke="#EEEEEE" stroke-width="1"/>
+  
+  <rect x="365" y="62" width="28" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="420" y="62" width="22" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="472" y="62" width="28" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="355" y1="73" x2="520" y2="73" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="365" y="80" width="20" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="420" y="80" width="30" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="472" y="80" width="22" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="355" y1="91" x2="520" y2="91" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="365" y="98" width="34" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="420" y="98" width="18" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="472" y="98" width="26" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="355" y1="109" x2="520" y2="109" stroke="#EEEEEE" stroke-width="1"/>
+  <rect x="365" y="116" width="24" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="420" y="116" width="28" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="472" y="116" width="20" height="4" rx="2" fill="#C8C8C8"/>
+  <line x1="355" y1="127" x2="520" y2="127" stroke="#EEEEEE" stroke-width="1"/>
+  
+  <rect x="10" y="44" width="338" height="76" rx="4" fill="#F8F8F8" stroke="#447099" stroke-width="1.5"/>
+  <text x="28" y="59" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">1</text>
+  <text x="28" y="71" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">2</text>
+  <text x="28" y="83" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">3</text>
+  <text x="28" y="95" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">4</text>
+  <text x="28" y="107" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">5</text>
+  <text x="36" y="59" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="10.5">
+    <tspan fill="#447099">x</tspan><tspan fill="#5A5A5A"> = </tspan><tspan fill="#098658">1</tspan>
+  </text>
+  <rect x="36" y="66" width="110" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="36" y="78" width="75" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="36" y="90" width="140" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="36" y="102" width="90" height="4" rx="2" fill="#C8C8C8"/>
+  
+  <rect x="10" y="130" width="338" height="58" rx="4" fill="#F8F8F8" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="28" y="148" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">1</text>
+  <text x="28" y="160" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">2</text>
+  <text x="28" y="172" font-family="'Consolas', 'SF Mono', 'Menlo', monospace" font-size="9" fill="#8DA5B8" text-anchor="end">3</text>
+  <rect x="36" y="144" width="130" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="36" y="156" width="80" height="4" rx="2" fill="#C8C8C8"/>
+  <rect x="36" y="168" width="110" height="4" rx="2" fill="#C8C8C8"/>
+  
+  <rect x="10" y="198" width="338" height="36" rx="4" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="20" y="208" width="150" height="4" rx="2" fill="#AAAAAA"/>
+  <rect x="20" y="220" width="90" height="4" rx="2" fill="#C8C8C8"/>
+</svg>

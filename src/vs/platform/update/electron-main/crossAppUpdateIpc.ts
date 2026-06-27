@@ -308,8 +308,8 @@ export class CrossAppUpdateCoordinator extends Disposable implements IUpdateServ
 		this.localUpdateService.updateActiveLanguages(languages);
 	}
 
-	getReleaseNotes(): Promise<string> {
-		return this.localUpdateService.getReleaseNotes();
+	getReleaseNotes(version?: string): Promise<string> {
+		return this.localUpdateService.getReleaseNotes(version);
 	}
 
 	resetTelemetryId(): void {

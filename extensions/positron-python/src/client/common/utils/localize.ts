@@ -292,18 +292,32 @@ export namespace InterpreterQuickPickList {
 
     export namespace UvInstall {
         export const noVersionsAvailable = l10n.t('No Python versions available for installation');
-        export const installed = l10n.t('(installed)');
+        export const alreadyInstalledSeparator = l10n.t('Already installed');
         export const selectVersion = l10n.t('Select a Python version to install');
         export const selectVersionTitle = l10n.t('Install Python via uv');
-        export const installingPython = l10n.t('Installing Python');
+        export const installingPython = l10n.t('Setting up Python');
         export const installingUv = l10n.t('Installing uv');
         export const selectingVersion = l10n.t('Loading available versions');
         export const pythonVersionLabel = (version: string) => l10n.t('Python {0}', version);
         export const installingPythonVersion = (version: string) => l10n.t('Installing Python {0}', version);
+        export const alreadyInstalledMessage = (version: string) => l10n.t('Python {0} is already installed', version);
         export const installSuccess = (version: string) => l10n.t('Python {0} installed successfully', version);
+        export const configureSuccess = (version: string) =>
+            l10n.t('Virtual environment created with Python {0}', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv');
-        export const createVenvPrompt = l10n.t('Create a virtual environment in your workspace?');
+        export const createVenvPrompt = (version: string, workspaceFolder: string) =>
+            l10n.t(
+                'Python {0} was installed. Would you like to use this version to create a virtual environment at: `{1}`?',
+                version,
+                `${workspaceFolder}/.venv`,
+            );
+        export const createVenvPromptAlreadyInstalled = (version: string, workspaceFolder: string) =>
+            l10n.t(
+                'Python {0} is installed. Would you like to use it to create a virtual environment at: `{1}`?',
+                version,
+                `${workspaceFolder}/.venv`,
+            );
         export const yesRecommended = l10n.t('Yes (recommended)');
         export const creatingVenv = l10n.t('Creating virtual environment');
         export const venvCreated = l10n.t('Virtual environment created');

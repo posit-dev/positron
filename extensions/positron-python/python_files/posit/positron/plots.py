@@ -329,22 +329,21 @@ class PlotsService:
         # Build data to send with comm_open
         open_data: dict = {}
 
-        # Generate pre-render using current render settings if available,
-        # otherwise fall back to the plot's intrinsic size (converted to pixels at 100 DPI)
+        # Generate a pre-render only when we already know the frontend's render
+        # settings (size, pixel ratio, format) from a previous render in this
+        # session. For the first plot of a session we have no settings yet, so a
+        # pre-render would be at the wrong (intrinsic) size: the frontend would
+        # display it and then immediately re-render at the actual pane size,
+        # causing a visible flash and a wasted render. Skipping it here keeps the
+        # behavior consistent with `_generate_pre_render`, which is used by the
+        # show/update events and already returns None when settings are unknown.
         render_settings = self._current_render_settings
-        if render_settings is None:
-            render_settings = PlotRenderSettings(
-                size=PlotSize(
-                    width=int(intrinsic_size[0] * 100), height=int(intrinsic_size[1] * 100)
-                ),
-                pixel_ratio=1.0,
-                format=PlotRenderFormat.Png,
-            )
-        try:
-            pre_render = _render_to_plot_result(render, render_settings)
-            open_data["pre_render"] = pre_render.dict()
-        except Exception:
-            logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
+        if render_settings is not None:
+            try:
+                pre_render = _render_to_plot_result(render, render_settings)
+                open_data["pre_render"] = pre_render.dict()
+            except Exception:
+                logger.warning("Failed to generate pre-render for comm_open", exc_info=True)
 
         plot_comm = PositronComm.create(self._target_name, comm_id, data=open_data or None)
         plot = Plot(

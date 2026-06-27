@@ -63,6 +63,10 @@ export function FileOperationsFixture(app: Application) {
 				}
 
 				await app.workbench.quickInput.clickOkButton();
+
+				// Wait for the workbench to re-render after the folder switch.
+				await app.code.driver.currentPage.waitForTimeout(3000);
+				await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
 			});
 		}
 	};

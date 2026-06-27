@@ -46,7 +46,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 	});
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
-		await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
+		await app.workbench.editorActionBar.clickButton('Preview');
 		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays
@@ -55,7 +55,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 	test('Quarto Shiny App renders correctly', async ({ app, openFile }) => {
 		await openFile(join('workspaces', 'quarto_shiny', 'mini-app.qmd'));
-		await app.code.driver.currentPage.getByRole('button', { name: 'Preview' }).click();
+		await app.workbench.editorActionBar.clickButton('Preview');
 		await app.code.driver.currentPage
 			.frameLocator('iframe[name]')
 			.frameLocator('#active-frame')

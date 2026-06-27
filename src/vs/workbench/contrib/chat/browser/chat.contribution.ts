@@ -193,8 +193,6 @@ CommandsRegistry.registerCommand('_chat.notifyQuestionCarouselAnswer', (accessor
 });
 
 // --- Start Positron ---
-import { PositronBuiltinToolsContribution } from './tools/tools.js';
-import { ChatRuntimeSessionContextContribution } from './widget/input/editor/chatRuntimeSessionContext.js';
 // eslint-disable-next-line no-duplicate-imports
 import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER, AGENTS_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 // --- End Positron ---
@@ -308,31 +306,6 @@ configurationRegistry.registerConfiguration({
 			default: true,
 		},
 		// --- Start Positron ---
-		'chat.implicitSessionContext.enabled': {
-			type: 'object',
-			tags: ['experimental'],
-			description: nls.localize('chat.implicitSessionContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
-			additionalProperties: {
-				type: 'string',
-				enum: ['never', 'first', 'always'],
-				description: nls.localize('chat.implicitSessionContext.value', "The value for the implicit runtime context."),
-				enumDescriptions: [
-					nls.localize('chat.implicitSessionContext.value.never', "Implicit session context is never enabled."),
-					nls.localize('chat.implicitSessionContext.value.first', "Implicit session context is enabled for the first interaction."),
-					nls.localize('chat.implicitSessionContext.value.always', "Implicit session context is always enabled.")
-				]
-			},
-			default: {
-				'panel': 'always',
-			}
-		},
-		'chat.runtimeSessionContext.maxExecutionHistoryCharacters': {
-			type: 'number',
-			tags: ['experimental'],
-			description: nls.localize('chat.runtimeSessionContext.maxExecutionHistoryCharacters', "The maximum character count for the runtime session execution history context. This is used to limit the size of the context that is sent to the model. The default is 8192 characters."),
-			default: 8192, // 8k characters
-			minimum: 1024,
-		},
 		'chat.useCopilotParticipantsWithOtherProviders': {
 			type: 'boolean',
 			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider when Copilot participants are used**.\n\nFor example, if you enable this setting and you are using Anthropic as a provider, GitHub Copilot participants are available. When invoked, the participants may send data to Copilot models.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
@@ -1545,7 +1518,13 @@ configurationRegistry.registerConfiguration({
 		[ChatConfiguration.AIDisabled]: {
 			type: 'boolean',
 			description: nls.localize('chat.disableAIFeatures', "Disable and hide built-in AI features provided by GitHub Copilot, including chat and inline suggestions."),
-			default: false,
+			// --- Start Positron ---
+			// default: false,
+			// Positron hides the Copilot chat UI by default. The chat extension's
+			// `vscode.lm` model provider stays registered for other consumers; see
+			// the AIDisabled gating in chatAgents.ts.
+			default: true,
+			// --- End Positron ---
 			scope: ConfigurationScope.WINDOW,
 		},
 		'chat.approvedAccountOrganizations': {
@@ -2240,11 +2219,6 @@ registerWorkbenchContribution2(PromptLanguageFeaturesProvider.ID, PromptLanguage
 registerWorkbenchContribution2(ChatWindowNotifier.ID, ChatWindowNotifier, WorkbenchPhase.AfterRestored);
 registerWorkbenchContribution2(ChatRepoInfoContribution.ID, ChatRepoInfoContribution, WorkbenchPhase.Eventually);
 registerWorkbenchContribution2(AgentPluginRecommendations.ID, AgentPluginRecommendations, WorkbenchPhase.Eventually);
-
-// --- Start Positron ---
-registerWorkbenchContribution2(PositronBuiltinToolsContribution.ID, PositronBuiltinToolsContribution, WorkbenchPhase.Eventually);
-registerWorkbenchContribution2(ChatRuntimeSessionContextContribution.ID, ChatRuntimeSessionContextContribution, WorkbenchPhase.Eventually);
-// --- End Positron ---
 
 registerChatActions();
 registerChatAccessibilityActions();

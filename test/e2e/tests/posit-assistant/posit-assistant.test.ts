@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { ModelProvider } from '../../pages/positronAssistant';
 
 test.use({
@@ -151,4 +151,44 @@ test.describe('Posit Assistant', {
 		});
 	}
 
+});
+
+/**
+ * Verifies that the "Manage Language Model Access..." action is gated by the
+ * `chat.disableAIFeatures` setting. The precondition gates command palette
+ * visibility; this test exercises that gate in both directions.
+ * @see https://github.com/posit-dev/positron/pull/14054
+ */
+test.describe('Language Model Access Gating', { tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT] }, () => {
+	const COMMAND_TITLE = 'Manage Language Model Access';
+
+	test.afterEach('Reset chat.disableAIFeatures', async function ({ settings }) {
+		await settings.remove(['chat.disableAIFeatures']);
+	});
+
+	test('Hidden from command palette when AI features are disabled', async function ({ app, settings }) {
+		await settings.set({ 'chat.disableAIFeatures': true }, { reload: true });
+
+		await app.workbench.hotKeys.openCommandPalette();
+		await app.workbench.quickInput.type(`>${COMMAND_TITLE}`);
+		// With the command gated out, the picker falls back to fuzzy "similar
+		// commands" (e.g. "Configure Language Model Providers"), so we can't rely
+		// on a "No matching commands" message. Wait for the list to render, then
+		// assert the gated command itself is absent from the results.
+		await app.workbench.quickInput.waitForQuickInputElementText();
+		await expect(
+			app.workbench.quickInput.quickInputResult.filter({ hasText: COMMAND_TITLE })
+		).toHaveCount(0);
+		await app.workbench.quickInput.closeQuickInput();
+	});
+
+	test('Visible in command palette when AI features are enabled', async function ({ app, settings }) {
+		await settings.set({ 'chat.disableAIFeatures': false }, { reload: true });
+
+		await app.workbench.hotKeys.openCommandPalette();
+		await app.workbench.quickInput.type(`>${COMMAND_TITLE}`);
+		const firstResult = await app.workbench.quickInput.waitForQuickInputElementText();
+		expect(firstResult).toContain(COMMAND_TITLE);
+		await app.workbench.quickInput.closeQuickInput();
+	});
 });

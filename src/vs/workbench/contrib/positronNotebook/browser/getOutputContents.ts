@@ -6,6 +6,7 @@
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
+import { hasKey } from '../../../../base/common/types.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
@@ -109,11 +110,21 @@ export function getPlainTextOutputContent(outputs: ReadonlyArray<{ parsed: Parse
 }
 
 /**
+ * The text content of a parsed output, ANSI escape codes stripped, or
+ * `undefined` for outputs with no text content (images, JSON, data explorer,
+ * interrupts). Broader than {@link isParsedTextOutput}: html, markdown, latex,
+ * and unknown outputs count as text here.
+ */
+export function getParsedOutputContent(parsed: ParsedOutput): string | undefined {
+	return hasKey(parsed, { content: true }) ? removeAnsiEscapeCodes(parsed.content) : undefined;
+}
+
+/**
  * Parse cell output into standard serializable js objects.
  * @param outputItem Contents of a cells output
  * @returns The output parsed to the known types.
  */
-export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
+export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<string, unknown>): ParsedOutput {
 	const { data, mime } = outputItem;
 	const message = data.toString();
 
@@ -189,9 +200,17 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 	}
 
 	if (mime === 'image/png') {
+		const nested = metadata?.['metadata'];
+		const nestedObj = typeof nested === 'object' && nested !== null ? nested as Record<string, unknown> : undefined;
+		const imgMeta = nestedObj?.[mime] ?? metadata?.[mime] ?? metadata;
+		const imgObj = typeof imgMeta === 'object' && imgMeta !== null ? imgMeta as Record<string, unknown> : undefined;
+		const width = typeof imgObj?.['width'] === 'number' ? imgObj['width'] : undefined;
+		const height = typeof imgObj?.['height'] === 'number' ? imgObj['height'] : undefined;
 		return {
 			type: 'image',
-			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`
+			dataUrl: `data:image/png;base64,${encodeBase64(VSBuffer.wrap(data.buffer))}`,
+			width,
+			height,
 		};
 	}
 

@@ -25,6 +25,19 @@ export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.e
 export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
 
 /**
+ * Configuration key for the Quarto inline equation preview setting.
+ * When enabled, display-math (`$$ ... $$`) equations are rendered inline below
+ * their block in Quarto and R Markdown documents.
+ */
+export const POSITRON_QUARTO_EQUATION_PREVIEW_KEY = 'positron.quarto.equationPreview.enabled';
+
+/**
+ * Configuration key for whether to show the cell toolbar on Quarto code cells.
+ * Some users find the always-on toolbar distracting, so it can be hidden.
+ */
+export const POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY = 'positron.quarto.inlineOutput.showCellToolbar';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -94,6 +107,23 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
+		[POSITRON_QUARTO_EQUATION_PREVIEW_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.equationPreview.enabled',
+				'Render LaTeX display equations (`$$ ... $$`) inline below their block in Quarto and R Markdown documents. The preview updates as you edit the equation.'
+			)
+		},
+		[POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.showCellToolbar',
+				'Show the floating cell toolbar (Run Cell, Run Previous, etc.) on Quarto code cells.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
 	},
 });
 
@@ -104,6 +134,16 @@ configurationRegistry.registerConfiguration({
  */
 export function usingQuartoInlineOutput(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+}
+
+/**
+ * Helper function to check if the Quarto cell toolbar should be shown.
+ * Defaults to true when the setting is unset.
+ * @param configurationService The configuration service instance
+ * @returns true if the cell toolbar should be shown
+ */
+export function usingQuartoCellToolbar(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY) ?? true;
 }
 
 /**

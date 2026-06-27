@@ -18,6 +18,8 @@ function isValidSnowflakeAccount(account: string): boolean {
 		/^[a-zA-Z0-9_-]+$/.test(account);
 }
 
+// The Cortex URL is always derived from SNOWFLAKE_ACCOUNT, never a saved
+// setting. Don't read a user-configured baseUrl here (#13750).
 function getSnowflakeDefaultBaseUrl(): string {
 	const creds = vscode.workspace
 		.getConfiguration('authentication.snowflake')
@@ -105,7 +107,9 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 
 	/**
 	 * Gets the base URL for the Snowflake Cortex API.
-	 * Overrides the parent implementation to use Snowflake-specific defaults.
+	 *
+	 * At runtime `_config.baseUrl` is the account-derived Cortex URL, not the
+	 * bare account the config modal edits, and is not user-configurable (#13750).
 	 */
 	override get baseUrl() {
 		return this._config.baseUrl || SnowflakeModelProvider.source.defaults.baseUrl!;

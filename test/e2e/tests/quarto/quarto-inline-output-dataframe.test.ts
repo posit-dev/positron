@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, tags } from '../_test.setup';
+import { test, tags } from './_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,12 +13,6 @@ test.use({
 test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
-
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.quarto.inlineOutput.enabled': true
-		}, { reload: 'web' });
-	});
 
 	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ python, app, openFile, settings }) {
 		const { editors, inlineQuarto } = app.workbench;

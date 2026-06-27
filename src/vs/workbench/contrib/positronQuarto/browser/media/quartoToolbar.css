@@ -11,7 +11,7 @@
 	flex-direction: row;
 	align-items: center;
 	gap: 2px;
-	padding: 2px 4px;
+	padding: 3px;
 	background-color: var(--vscode-editorWidget-background);
 	border: 1px solid var(--vscode-editorWidget-border);
 	border-radius: 4px;
@@ -62,8 +62,18 @@
 	outline-offset: 1px;
 }
 
-/* Run button specific styles */
-.quarto-toolbar-run .codicon-play {
+/* Vertical separator between the run button and the remaining actions */
+.quarto-toolbar-separator {
+	width: 1px;
+	align-self: stretch;
+	margin: 3px 2px;
+	background-color: var(--vscode-editorWidget-border);
+}
+
+/* Run button specific styles: distinct green to read as a "run/start" action.
+   The extra `.quarto-cell-toolbar` ancestor raises specificity above the
+   workbench's `.monaco-workbench .codicon` rule, which would otherwise win. */
+.quarto-cell-toolbar .quarto-toolbar-run .codicon-debug-start {
 	color: var(--vscode-debugIcon-startForeground, #89d185);
 }
 

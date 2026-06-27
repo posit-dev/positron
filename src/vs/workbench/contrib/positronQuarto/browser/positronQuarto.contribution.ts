@@ -25,6 +25,7 @@ import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
 import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import { QuartoImagePreviewContribution } from './quartoImagePreview.js';
+import { QuartoEquationPreviewContribution } from './quartoEquationPreview.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -56,6 +57,7 @@ import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';
 import './media/quartoToolbar.css';
 import './media/quartoImagePreview.css';
+import './media/quartoEquationPreview.css';
 
 // Register services
 registerSingleton(IQuartoDocumentModelService, QuartoDocumentModelService, InstantiationType.Delayed);
@@ -69,6 +71,7 @@ registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorat
 registerEditorContribution(QuartoOutputContribution.ID, QuartoOutputContribution, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarController, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoImagePreviewContribution.ID, QuartoImagePreviewContribution, EditorContributionInstantiation.AfterFirstRender);
+registerEditorContribution(QuartoEquationPreviewContribution.ID, QuartoEquationPreviewContribution, EditorContributionInstantiation.AfterFirstRender);
 
 /**
  * Extension ID for the Quarto extension.

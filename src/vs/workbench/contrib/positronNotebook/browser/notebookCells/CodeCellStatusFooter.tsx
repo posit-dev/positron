@@ -19,6 +19,7 @@ import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHour
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { CellTagsBar } from './CellTagsBar.js';
 
 interface CodeCellStatusFooterProps {
 	cell: PositronNotebookCodeCell;
@@ -37,6 +38,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// Debounce "clearing" transitions to prevent visual flash during fast re-executions.
 	// Only delay transitions to running/pending/undefined; new values propagate immediately.
 	const executionStatus = useDebouncedObservedValue(cell.executionStatus, isRunningOrPending);
+	const tagUIVisible = useObservedValue(cell.tagUIVisible);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 	const duration = useDebouncedObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useDebouncedObservedValue(cell.lastRunEndTime);
@@ -52,17 +54,13 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		// Only set up interval if we have a completion time to display
 		if (lastRunEndTime === undefined) {
 			return;
 		}
 
 		const targetWindow = DOM.getWindow(containerRef.current);
 		const intervalId = targetWindow.setInterval(() => {
-			// Only update if cell is visible to avoid unnecessary re-renders
-			if (cell.isInViewport()) {
-				setTick(tick => tick + 1);
-			}
+			setTick(tick => tick + 1);
 		}, 60000);
 
 		return () => targetWindow.clearInterval(intervalId);
@@ -85,10 +83,17 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	const isPending = executionStatus === 'pending';
 
+	// Whether the footer shows any execution metadata (icon and/or timing text).
+	// Gates the metadata row so a tag-only footer doesn't render an empty row
+	// above the tags.
+	const hasMetadata = isCurrentlyRunning || isPending || hasTimingInfo;
+
 	// Collapse the footer when there's no execution info to display.
 	// This covers cells that have never been run and cells only run in a previous session.
 	// isPending guard keeps the clock icon visible for queued cells.
-	const isCollapsed = !isPending && !hasCurrentSessionContent;
+	// A visible tag UI (tags or an in-progress add; the cell owns the predicate)
+	// also keeps the footer open, since the tag bar lives here.
+	const isCollapsed = !isPending && !hasCurrentSessionContent && !tagUIVisible;
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -196,8 +201,13 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 			data-execution-status={dataExecutionStatus}
 			role='status'
 		>
-			{renderIcon()}
-			{renderText()}
+			{hasMetadata &&
+				<div className='code-cell-footer-metadata' data-testid='cell-footer-metadata'>
+					{renderIcon()}
+					{renderText()}
+				</div>
+			}
+			<CellTagsBar cell={cell} />
 		</div>
 	);
 }

@@ -125,7 +125,6 @@ export function instantiateTestNotebookInstance(
 	const uri = URI.parse(`test:///test/notebook-${id}.ipynb`);
 	const notebook = disposables.add(instantiationService.createInstance(
 		TestPositronNotebookInstance,
-		`test-instance-${id}`,
 		uri,
 		viewType,
 		undefined, // creationOptions

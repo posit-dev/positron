@@ -39,6 +39,10 @@ export function registerChatTitleActions() {
 				title: localize2('interactive.helpful.label', "Helpful"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				icon: Codicon.thumbsup,
 				toggled: ChatContextKeys.responseVote.isEqualTo('up'),
 				menu: [{
@@ -84,6 +88,10 @@ export function registerChatTitleActions() {
 				title: localize2('interactive.unhelpful.label', "Unhelpful"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				icon: Codicon.thumbsdown,
 				toggled: ChatContextKeys.responseVote.isEqualTo('down'),
 				menu: [{
@@ -130,6 +138,10 @@ export function registerChatTitleActions() {
 				title: localize2('interactive.reportIssueForBug.label', "Report Issue"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				icon: Codicon.report,
 				menu: [{
 					id: MenuId.ChatMessageFooter,
@@ -172,6 +184,10 @@ export function registerChatTitleActions() {
 				title: localize2('chat.retry.label', "Retry"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				icon: Codicon.refresh,
 				menu: [
 					{
@@ -270,6 +286,10 @@ export function registerChatTitleActions() {
 				title: localize2('interactive.insertIntoNotebook.label', "Insert into Notebook"),
 				f1: false,
 				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				// Hide when AI features are disabled.
+				precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				// --- End Positron ---
 				icon: Codicon.insert,
 				menu: {
 					id: MenuId.ChatMessageFooter,
