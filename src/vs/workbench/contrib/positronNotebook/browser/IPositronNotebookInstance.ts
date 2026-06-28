@@ -20,6 +20,7 @@ import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
+import { CellEditorPool } from './CellEditorPool.js';
 
 /**
  * A resolved scroll position pointing to a live cell and an offset from that cell.
@@ -234,6 +235,8 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Used by action buttons and other interactive elements.
 	 */
 	readonly hoverManager: IHoverManager;
+
+	readonly cellEditorPool: CellEditorPool;
 
 	// ===== Methods =====
 

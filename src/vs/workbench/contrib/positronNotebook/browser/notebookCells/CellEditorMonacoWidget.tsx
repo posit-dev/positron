@@ -14,7 +14,6 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { CellEditor } from './CellEditor.js';
 
 /**
  *
@@ -34,7 +33,8 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 		}
 		const disposables = new DisposableStore();
 
-		const cellEditor = disposables.add(cell.scopedInstantiationService.createInstance(CellEditor, instance));
+		const ref = disposables.add(instance.cellEditorPool.get(cell.uri.toString()));
+		const cellEditor = ref.object;
 		containerRef.current.appendChild(cellEditor.container);
 		containerRef.current.appendChild(cellEditor.focusTarget);
 		cellEditor.setCell(cell);

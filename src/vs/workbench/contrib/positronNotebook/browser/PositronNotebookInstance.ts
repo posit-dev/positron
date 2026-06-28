@@ -62,6 +62,7 @@ import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronNotebookEditorRenderer } from './PositronNotebookEditorRenderer.js';
 import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
 import { getWindow } from '../../../../base/browser/dom.js';
+import { CellEditorPool } from './CellEditorPool.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -299,6 +300,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Language for the notebook.
 	 */
 	private _language;
+
+	public readonly cellEditorPool: CellEditorPool;
 
 	// #endregion
 
@@ -564,8 +567,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._contributions.set(desc.id, contribution);
 		}
 
-		this._positronNotebookService.registerInstance(this);
-
 		// TODO: Is there not a better way to do this?
 		// Watch for exit-editor transitions to return focus to the focus trap
 		let pendingFrame: number | undefined;
@@ -639,6 +640,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			restoreCellFocus();
 		}));
+
+		this.cellEditorPool = this._register(this.scopedInstantiationService.createInstance(
+			CellEditorPool,
+			this,
+		));
+
+		this._positronNotebookService.registerInstance(this);
 	}
 
 	//#region INotebookEditor
