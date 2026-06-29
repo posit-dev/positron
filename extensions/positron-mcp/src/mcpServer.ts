@@ -135,7 +135,7 @@ Plots: after running code that produces a plot, call get-plot to see the rendere
 
 Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
 
-Data: inspect structure with get-variables before writing code against a dataframe; do not guess column names. Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
 
 export class McpServer implements vscode.Disposable {
 	private readonly app: express.Express;
@@ -244,6 +244,20 @@ export class McpServer implements vscode.Disposable {
 				inputSchema: empty,
 				annotations: { readOnlyHint: true },
 				run: () => this.describeVariables(),
+			},
+			{
+				name: 'inspect-variable',
+				description: 'Inspect one variable in the active session in detail: its type and value, plus its children (for a dataframe, the columns and their types). Prefer this over running df.head() / df.dtypes, which mutates session state.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						name: { type: 'string', description: 'The display name of the variable to inspect, as shown by get-variables (e.g. "df").' },
+					},
+					required: ['name'],
+					additionalProperties: false,
+				},
+				annotations: { readOnlyHint: true },
+				run: (args) => this.inspectVariable(args),
 			},
 			{
 				name: 'execute-code',
@@ -431,6 +445,44 @@ export class McpServer implements vscode.Disposable {
 			text += `\n\nDataFrames: ${info.join(', ')}`;
 		}
 		return text;
+	}
+
+	private async inspectVariable(args: { name: string }): Promise<string> {
+		const { name } = args;
+		if (!name?.trim()) {
+			throw new Error('name is required');
+		}
+
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return 'No active runtime session. Start a Python/R console first.';
+		}
+
+		const groups = await positron.runtime.getSessionVariables(session.metadata.sessionId);
+		const variable = groups.flat().find(v => v.display_name === name);
+		if (!variable) {
+			return `No variable named "${name}" in the active session. Use get-variables to list what is defined.`;
+		}
+
+		const lines = [
+			`${variable.display_name}: ${variable.display_type}`,
+			variable.type_info ? `Class: ${variable.type_info}` : undefined,
+			`Value: ${variable.display_value}`,
+			`Length: ${variable.length}`,
+		].filter((line): line is string => line !== undefined);
+
+		if (variable.has_children) {
+			// Drill one level into the variable via its access key. For a dataframe
+			// this returns the columns; for an object, its fields/attributes.
+			const childGroups = await positron.runtime.getSessionVariables(session.metadata.sessionId, [[variable.access_key]]);
+			const children = childGroups[0] ?? [];
+			lines.push('', `Children (${children.length}):`);
+			for (const child of children) {
+				const value = child.display_value.length > 80 ? child.display_value.slice(0, 80) + '...' : child.display_value;
+				lines.push(`  ${child.display_name} - ${child.display_type}${value ? ` : ${value}` : ''}`);
+			}
+		}
+		return truncateOutput(lines.join('\n'));
 	}
 
 	private async executeCodeTool(args: { languageId: string; code: string; options?: ExecOptions }): Promise<string> {
