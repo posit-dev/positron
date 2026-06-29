@@ -21,6 +21,8 @@ import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { IQuartoDocumentModelService } from '../../../positronQuarto/browser/quartoDocumentModelService.js';
+import { IQuartoDocumentModel, QuartoCodeCell } from '../../../positronQuarto/common/quartoTypes.js';
 import { MissingPackagesService } from '../../browser/missingPackagesServiceImpl.js';
 import { IMissingPackagesService } from '../../common/missingPackagesService.js';
 
@@ -77,16 +79,41 @@ describe('MissingPackagesService', () => {
 		],
 	});
 
+	// Quarto fixtures: a .qmd document split into per-language code chunks, each
+	// routed to that language's console session. The R chunk goes to the R
+	// console session; the Python chunk reuses the Python console session above.
+	const quartoResource = URI.file('/workspace/notebook.qmd');
+	const rSessionId = 'r-session-1';
+	const rListMissingPackages = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
+		.mockResolvedValue([{ name: 'leaflet' }]);
+	const rSession = stubInterface<ILanguageRuntimeSession>({
+		sessionId: rSessionId,
+		listMissingPackages: rListMissingPackages,
+		getPackageManager: () => packageManager,
+	});
+	const quartoModel = stubInterface<IQuartoDocumentModel>({
+		cells: [
+			stubInterface<QuartoCodeCell>({ language: 'r' }),
+			stubInterface<QuartoCodeCell>({ language: 'python' }),
+		],
+		getCellCode: (cell: QuartoCodeCell) => (cell.language === 'r' ? 'library(leaflet)' : 'import requests'),
+	});
+
 	const ctx = createTestContainer()
 		.stub(IRuntimeSessionService, {
 			onWillStartSession: Event.None,
 			onDidChangeForegroundSession: Event.None,
 			onDidDeleteRuntimeSession: onDidDeleteRuntimeSession.event,
-			getConsoleSessionForLanguage: (languageId: string) => (languageId === 'python' ? session : undefined),
+			getConsoleSessionForLanguage: (languageId: string) => {
+				if (languageId === 'python') { return session; }
+				if (languageId === 'r') { return rSession; }
+				return undefined;
+			},
 			getNotebookSessionForNotebookUri: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookSession : undefined),
 			getSession: (id: string) => {
 				if (id === sessionId) { return session; }
 				if (id === notebookSessionId) { return notebookSession; }
+				if (id === rSessionId) { return rSession; }
 				return undefined;
 			},
 		})
@@ -102,6 +129,9 @@ describe('MissingPackagesService', () => {
 		.stub(ITextModelService, {})
 		.stub(INotebookService, {
 			getNotebookTextModel: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookModel : undefined),
+		})
+		.stub(IQuartoDocumentModelService, {
+			getModel: () => quartoModel,
 		})
 		.stub(ILogService, new NullLogService())
 		.build();
@@ -238,5 +268,43 @@ describe('MissingPackagesService', () => {
 		`);
 		// The markup cell is excluded; only the code cell's source is analyzed.
 		expect(notebookListMissingPackages).toHaveBeenCalledWith({ code: 'import plotnine' }, expect.anything());
+	});
+
+	it('analyzes a quarto document per language, routing each chunk to its session', async () => {
+		modelLanguageId = 'quarto';
+		modelContent = '```{r}\nlibrary(leaflet)\n```\n```{python}\nimport requests\n```';
+		const service = createService();
+
+		const result = await service.ensure(quartoResource);
+
+		expect({ ...result, resource: result.resource.toString() }).toMatchInlineSnapshot(`
+			{
+			  "groups": [
+			    {
+			      "languageId": "r",
+			      "packages": [
+			        {
+			          "name": "leaflet",
+			        },
+			      ],
+			      "sessionId": "r-session-1",
+			    },
+			    {
+			      "languageId": "python",
+			      "packages": [
+			        {
+			          "name": "requests",
+			        },
+			      ],
+			      "sessionId": "python-session-1",
+			    },
+			  ],
+			  "resource": "file:///workspace/notebook.qmd",
+			  "total": 2,
+			}
+		`);
+		// Each language's chunk is sent to its own session.
+		expect(rListMissingPackages).toHaveBeenCalledWith({ code: 'library(leaflet)' }, expect.anything());
+		expect(listMissingPackages).toHaveBeenCalledWith({ code: 'import requests' }, expect.anything());
 	});
 });

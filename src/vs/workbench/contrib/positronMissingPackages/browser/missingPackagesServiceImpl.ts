@@ -18,6 +18,9 @@ import { IMissingPackagesGroup, IMissingPackagesResult, IMissingPackagesService 
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellKind } from '../../notebook/common/notebookCommon.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { IQuartoDocumentModelService } from '../../positronQuarto/browser/quartoDocumentModelService.js';
+import { QUARTO_LANGUAGE_IDS } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
  * The maximum number of per-session results to retain in the cache. Old entries
@@ -69,6 +72,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		@IModelService private readonly _modelService: IModelService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IQuartoDocumentModelService private readonly _quartoDocumentModelService: IQuartoDocumentModelService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -198,12 +202,13 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 			return this._buildNotebookTargets(resource, notebook);
 		}
 
-		// Script / single-language text document: read the open text model.
+		// Script / single-language text document (or a Quarto document, which is
+		// split per-language below): read the open text model.
 		const model = this._modelService.getModel(resource);
 		if (!model) {
 			return undefined;
 		}
-		return this._buildScriptTargets(model.getLanguageId(), model.getValue());
+		return this._buildTextModelTargets(model);
 	}
 
 	/**
@@ -218,8 +223,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		try {
 			const ref = await this._textModelService.createModelReference(resource);
 			try {
-				const model = ref.object.textEditorModel;
-				return this._buildScriptTargets(model.getLanguageId(), model.getValue());
+				return this._buildTextModelTargets(ref.object.textEditorModel);
 			} finally {
 				ref.dispose();
 			}
@@ -230,8 +234,58 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	}
 
 	/**
-	 * Builds the analysis targets for a single-language chunk of code. Multi-
-	 * language documents (e.g. quarto) will produce one target per language.
+	 * Builds the analysis targets for an open text model, dispatching on its
+	 * language. Quarto documents are multi-language and produce one target per
+	 * language; everything else is treated as a single-language script.
+	 */
+	private _buildTextModelTargets(model: ITextModel): IResolvedTarget[] {
+		const languageId = model.getLanguageId();
+		if (QUARTO_LANGUAGE_IDS.includes(languageId)) {
+			return this._buildQuartoTargets(model);
+		}
+		return this._buildScriptTargets(languageId, model.getValue());
+	}
+
+	/**
+	 * Builds the analysis targets for a Quarto document. The document is parsed
+	 * into code cells, the cells are grouped by language, and each language's
+	 * concatenated code is routed to that language's console session. Languages
+	 * without a running session (or without `listMissingPackages` support) are
+	 * skipped; the cache invalidates on session start, so the badge recomputes
+	 * once a session is available.
+	 */
+	private _buildQuartoTargets(model: ITextModel): IResolvedTarget[] {
+		const quartoModel = this._quartoDocumentModelService.getModel(model);
+
+		// Group cell code by language so each language is analyzed by its own
+		// session in a single call. Languages are normalized to lower case to
+		// match runtime language ids (e.g. a `{R}` fence maps to the `r` runtime).
+		const codeByLanguage = new Map<string, string[]>();
+		for (const cell of quartoModel.cells) {
+			const languageId = cell.language.toLowerCase();
+			const chunks = codeByLanguage.get(languageId);
+			if (chunks) {
+				chunks.push(quartoModel.getCellCode(cell));
+			} else {
+				codeByLanguage.set(languageId, [quartoModel.getCellCode(cell)]);
+			}
+		}
+
+		const targets: IResolvedTarget[] = [];
+		for (const [languageId, chunks] of codeByLanguage) {
+			const session = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
+			if (!session || !session.listMissingPackages) {
+				continue;
+			}
+			const code = chunks.join('\n');
+			const cacheKey = `${session.sessionId}:${hash(code)}`;
+			targets.push({ sessionId: session.sessionId, languageId, cacheKey, target: { code } });
+		}
+		return targets;
+	}
+
+	/**
+	 * Builds the analysis targets for a single-language chunk of code.
 	 */
 	private _buildScriptTargets(languageId: string, content: string): IResolvedTarget[] {
 		const session = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);

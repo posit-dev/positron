@@ -16,6 +16,7 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } fr
 import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
+import { QUARTO_LANGUAGE_IDS } from '../../positronQuarto/common/positronQuartoConfig.js';
 import { IMissingPackagesService } from '../common/missingPackagesService.js';
 import { MissingPackagesService } from './missingPackagesServiceImpl.js';
 import { MissingPackageFollowupContribution } from './missingPackageProvider.js';
@@ -42,8 +43,10 @@ workbenchRegistry.registerWorkbenchContribution(MissingPackageFollowupContributi
 // Keep the cache warm for the active editor so the preflight check never blocks.
 workbenchRegistry.registerWorkbenchContribution(MissingPackagesPrecomputeContribution, LifecyclePhase.Restored);
 
-// Editor action bar badge (scenario 2) for Python and R scripts. The editor
-// action bar is disabled for notebooks, so notebooks get a separate mount below.
+// Editor action bar badge (scenario 2) for Python and R scripts and Quarto
+// documents. The editor action bar is disabled for notebooks, so notebooks get
+// a separate mount below. Quarto documents are multi-language; the service
+// splits them into per-language code chunks and routes each to its session.
 PositronActionBarWidgetRegistry.registerWidget({
 	id: 'positronMissingPackages.editorBadge',
 	menuId: MenuId.EditorActionsRight,
@@ -51,6 +54,7 @@ PositronActionBarWidgetRegistry.registerWidget({
 	when: ContextKeyExpr.or(
 		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'python'),
 		ContextKeyExpr.equals(ResourceContextKey.LangId.key, 'r'),
+		...QUARTO_LANGUAGE_IDS.map(langId => ContextKeyExpr.equals(ResourceContextKey.LangId.key, langId)),
 	),
 	selfContained: true,
 	componentFactory: (accessor) => () => React.createElement(MissingPackagesBadgeMount, { accessor }),
