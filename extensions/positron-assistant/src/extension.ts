@@ -112,9 +112,11 @@ function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext
 
 
 async function toggleInlineCompletions() {
-	// Get the current value of the setting
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const currentSettings = config.get<Record<string, boolean>>('inlineCompletions.enable') || {};
+	// Get the current value of the setting. Inline completions are gated on
+	// Copilot's native `github.copilot.enable` setting, shared across the
+	// Assistant, Copilot, and the chat status UI.
+	const config = vscode.workspace.getConfiguration('github.copilot');
+	const currentSettings = config.get<Record<string, boolean>>('enable') || {};
 
 	// Get the current file's language ID if there's an active text editor
 	const activeEditor = vscode.window.activeTextEditor;
@@ -139,7 +141,7 @@ async function toggleInlineCompletions() {
 	updatedSettings[keyToToggle] = newValue;
 
 	// Update the configuration
-	await config.update('inlineCompletions.enable', updatedSettings, vscode.ConfigurationTarget.Global);
+	await config.update('enable', updatedSettings, vscode.ConfigurationTarget.Global);
 }
 
 /**

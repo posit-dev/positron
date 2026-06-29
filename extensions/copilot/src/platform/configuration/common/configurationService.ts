@@ -141,15 +141,6 @@ export interface IConfigurationService {
 	 */
 	getExperimentBasedConfigObservable<T extends ExperimentBasedConfigType>(key: ExperimentBasedConfig<T>, experimentationService: IExperimentationService): IObservable<T>;
 
-	// --- Start Positron ---
-	/**
-	 * Gets an observable for a configuration value that is not in the Copilot namespace.
-	 * @param configKey The fully qualified config key to look up (e.g., 'positron.assistant.inlineCompletions.enable')
-	 * @param defaultValue The default value to use if the config is not set
-	 */
-	getNonExtensionConfigObservable<T>(configKey: string, defaultValue: T): IObservable<T>;
-	// --- End Positron ---
-
 	/**
 	 * For object values, the user config will be mixed in with the default config.
 	 */
@@ -289,25 +280,6 @@ export abstract class AbstractConfigurationService extends Disposable implements
 	public getExperimentBasedConfigObservable<T extends ExperimentBasedConfigType>(key: ExperimentBasedConfig<T>, experimentationService: IExperimentationService): IObservable<T> {
 		return this._getObservable_$show2FramesUp(key, () => this.getExperimentBasedConfig(key, experimentationService));
 	}
-
-	// --- Start Positron ---
-	public getNonExtensionConfigObservable<T>(configKey: string, defaultValue: T): IObservable<T> {
-		let observable = this.observables.get(configKey);
-		if (!observable) {
-			observable = observableFromEventOpts(
-				{ debugName: () => `Configuration Key "${configKey}"` },
-				(handleChange) => this._register(this.onDidChangeConfiguration(e => {
-					if (e.affectsConfiguration(configKey)) {
-						handleChange(e);
-					}
-				})),
-				() => this.getNonExtensionConfig<T>(configKey) ?? defaultValue
-			);
-			this.observables.set(configKey, observable);
-		}
-		return observable;
-	}
-	// --- End Positron ---
 
 	private observables = new Map<string, IObservable<any>>();
 

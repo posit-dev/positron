@@ -36,7 +36,8 @@ export async function performSettingsMigrations(): Promise<void> {
 	await Promise.all([
 		performProviderMigration(),
 		performModelPreferencesMigration(),
-		performCustomModelsMigration()
+		performCustomModelsMigration(),
+		performInlineCompletionsMigration()
 	]);
 }
 
@@ -173,5 +174,54 @@ export async function performCustomModelsMigration(): Promise<void> {
 		'hideCustomModelsMigrationNotification',
 		vscode.l10n.t(`The 'positron.assistant.models.custom' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
 		'positron.assistant.models.overrides'
+	);
+}
+
+/**
+ * Migrates the deprecated `positron.assistant.inlineCompletions.enable` setting
+ * to Copilot's native `github.copilot.enable` setting, the single source of
+ * truth for inline completion enablement.
+ *
+ * Both settings share the same `{ [languageId]: boolean }` shape. The old value
+ * is merged on top of any existing `github.copilot.enable` value (old value wins
+ * on conflicting language keys), matching the precedence rationale of
+ * `migrateSettings`. The contributed default of `github.copilot.enable` is
+ * deep-merged by VS Code automatically, so only the user's explicit keys are
+ * written. The old setting is removed once the value has been migrated.
+ */
+export async function performInlineCompletionsMigration(): Promise<void> {
+	const oldKey = 'inlineCompletions.enable';
+	const positronConfig = vscode.workspace.getConfiguration('positron.assistant');
+	const oldValue = positronConfig.inspect<Record<string, boolean>>(oldKey)?.globalValue;
+
+	// Nothing to migrate if the user never set a global value.
+	if (!oldValue || typeof oldValue !== 'object' || Object.keys(oldValue).length === 0) {
+		return;
+	}
+
+	const migrationName = `inlineCompletions_enable`;
+	log.info(`[${migrationName}] Migrating from global settings to 'github.copilot.enable'`);
+
+	const copilotConfig = vscode.workspace.getConfiguration('github.copilot');
+	const existingValue = copilotConfig.inspect<Record<string, boolean>>('enable')?.globalValue;
+	const mergedValue = { ...existingValue, ...oldValue };
+
+	try {
+		await copilotConfig.update('enable', mergedValue, vscode.ConfigurationTarget.Global);
+		log.info(`[${migrationName}] Migrated to 'github.copilot.enable': ${JSON.stringify(mergedValue)}`);
+	} catch (error) {
+		// Keep the old setting if the write failed (e.g. enforced by admin policy).
+		log.error(`[${migrationName}] Failed to migrate to 'github.copilot.enable': ${JSON.stringify(error)}`);
+		return;
+	}
+
+	log.info(`[${migrationName}] Removing old setting: ${JSON.stringify(oldValue)}`);
+	await positronConfig.update(oldKey, undefined, vscode.ConfigurationTarget.Global);
+
+	showMigrationNotification(
+		positronConfig,
+		'hideInlineCompletionsMigrationNotification',
+		vscode.l10n.t(`The 'positron.assistant.inlineCompletions.enable' setting has been deprecated, and your settings file has been updated to use 'github.copilot.enable'.`),
+		'github.copilot.enable'
 	);
 }
