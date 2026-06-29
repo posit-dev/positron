@@ -298,8 +298,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		if (!this._editorContainer) {
 			return;
 		}
-		DOM.size(this._editorContainer, dimension.width, dimension.height);
-
 		this._notebookInstance?.layout(dimension);
 	}
 
