@@ -56,14 +56,19 @@ If the user asks to pull one specific PR or issue (rather than "pull everything 
 
 The script auto-derives the baseline from the most recent "upstream merge from vscode-server" commit (searching all refs, since that merge often lives on a dedicated `pull-vscode-server` branch, not `main`). Pass an explicit `<baseline-sha>` to override.
 
-It lists every merge on `upstream/main` since the last pull and prints triage guidance. Then:
+The script already filters two classes of merge so they are never candidates:
 
-1. **Confirm the baseline is shared** using the version/distro parity check from Step 1. Matching means `Merge 1.NNN.0` / `Merge rel-*` commits are reconciliation merges (skip the merge, port the PRs around it); a mismatch means stop and sync the baseline first.
-2. **Triage the remaining merges.** `update-extension-*`, `version-bump`, and `.github/`/`Jenkinsfile`-only PRs are vscode-server tooling — skip. What's left is portable source changes.
+- **Microsoft baseline merges** (`Merge 1.NNN.0 from upstream`, `Merge rel-*`, `merge/1.NNN.0` branches). These are reconciliation merges that bring vscode-server up to a Microsoft VSCode baseline Positron tracks independently. They are not portable PRs, are never considered, and must not appear in the PR body's "Considered but not included" list.
+- **`update-extension-*` (rstudio.rstudio-workbench) bumps when Positron is not behind.** The script compares the `rstudio.rstudio-workbench` version in `product.json` on `main` vs `upstream/main`. If Positron's version is equal or newer, the bump is already covered and is dropped. Only when Positron is *behind* does the script keep `update-extension-*` as a candidate worth considering.
+
+It then lists the remaining candidate merges and prints triage guidance. For those:
+
+1. **Confirm the baseline is shared** using the version/distro parity check from Step 1. A mismatch means stop and sync the baseline first (the script's baseline-merge filter assumes a shared baseline).
+2. **Triage the remaining merges.** `version-bump` and `.github/`/`Jenkinsfile`-only PRs are vscode-server tooling — skip. What's left is portable source changes.
 3. **Check direction before assuming a PR is missing.** Some vscode-server PRs originated in posit-dev/positron and were *back*ported upstream, so they already exist in Positron. Before listing a PR as portable, confirm Positron doesn't already have the change (grep for the touched symbol/file, or check the upstream PR description for a "ported from positron" note).
 4. **Surface the full portable list to the user** and ask whether to port just the requested PR or sweep the others in too. Don't decide for them.
 
-Keep a short record of every PR you triaged but did **not** port and the one-line reason (tooling-only, back-ported and already in Positron, baseline reconciliation merge, user scoped it out, etc.). This record feeds the PR body in Step 5 — readers should see what was considered and why it was left out, not just what was included.
+Keep a short record of every *candidate* PR you triaged but did **not** port and the one-line reason (tooling-only, back-ported and already in Positron, user scoped it out, etc.). This record feeds the PR body in Step 5. Do **not** record the filtered-out baseline merges — they were never candidates.
 
 ### Step 2: Triage
 
@@ -116,7 +121,28 @@ After the commit lands and verification passes, ask the user whether to create a
 
 If they say yes, invoke `positron-pr-helper`. Always include `@:workbench @:web @:jupyter` in the QA tags. Then look at the ported diffs and add any other tags that match the affected areas — `positron-pr-helper` fetches the current list from `test/e2e/infra/test-runner/test-tags.ts` (or run `.claude/skills/positron-pr-helper/scripts/fetch-test-tags.sh list` directly). Pick tags conservatively — only add ones that genuinely match what changed. The mandatory three (`@:workbench @:web @:jupyter`) already cover the PWB surface area; additional tags are for routing extra coverage at the specific subsystem that was touched.
 
-The PR body must include a "Considered but not included" section listing the PRs from the Step 1b backlog that were triaged but left out, each with a one-line reason. If the backlog was empty (nothing portable beyond what was ported), state that explicitly rather than omitting the section. This makes the scope decision auditable — a reviewer can see the full delta was reviewed, not just the part that landed.
+Keep the PR body lean. Lead with `Fixes #<positron-issue>` and a one-line "Upstream merge from vscode-server, bringing in rstudio/vscode-server#N." Do **not** restate the problem and solution — the linked Positron issue already describes the problem and the upstream PR already describes the fix. Restating them just duplicates the issue.
+
+The PR body must include a "Considered but not included" section listing the candidate PRs from the Step 1b backlog that were triaged but left out. Format it as a two-column table: the **reason** in the first column, the vscode-server PRs as a `<ul><li>…</li></ul>` bullet list in the second (group PRs that share a reason into one row). GitHub-flavored markdown does not render native list syntax inside a table cell, so use inline `<ul>`/`<li>` tags.
+
+```markdown
+Other commits on `upstream/main` since the last pull (#<positron-merge-pr>) were triaged and left out:
+
+| Reason | Commits |
+| --- | --- |
+| Already implemented in Positron (#<positron-pr>) | <ul><li>rstudio/vscode-server#NNN (short description)</li></ul> |
+| rstudio.rstudio-workbench bumps; Positron's `product.json` already pins a newer version | <ul><li>rstudio/vscode-server#NNN</li><li>rstudio/vscode-server#NNN</li></ul> |
+| CI automation (`.github/` / `Jenkinsfile` only) | <ul><li>rstudio/vscode-server#NNN</li></ul> |
+```
+
+Reference rules for the table and the rest of the body:
+
+- Write **every** vscode-server reference fully qualified as `rstudio/vscode-server#NNN`, including each item in a bullet list — a bare `#NNN` on a posit-dev/positron PR auto-links to a Positron issue of that number, mislinking to something unrelated.
+- For a PR left out because it was back-ported from Positron, use the reason "Already implemented in Positron (#NNN)" and link the originating Positron PR. Find it in the vscode-server PR body (it usually says "Port of ... from posit-dev/positron#NNN").
+- The only bare `#NNN` that belong in the body are genuine Positron references: the issue being fixed, the prior upstream-merge PR, and any "already implemented in Positron" links.
+- When referring to "the last pull," link the prior *Positron* upstream-merge PR (e.g. `since the last pull (#13497)`), not a vscode-server PR number. Find it with `gh pr list --repo posit-dev/positron --state merged --search "upstream merge from vscode-server in:title" --limit 1`.
+
+If the backlog was empty (nothing portable beyond what was ported), state that explicitly rather than omitting the section. This makes the scope decision auditable — a reviewer can see the full delta was reviewed, not just the part that landed.
 
 ### Step 6: Ask for skill feedback
 
