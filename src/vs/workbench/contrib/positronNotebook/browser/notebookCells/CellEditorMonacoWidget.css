@@ -2,6 +2,14 @@
  *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+/* Layout-transparent wrappers: the React mount point and the CellEditor-owned
+ * root must not introduce a box of their own, so the editor part and focus
+ * target sit in the cell's flow exactly as when they were rendered directly. */
+.positron-cell-editor-mount,
+.positron-cell-editor-root {
+	display: contents;
+}
+
 .positron-cell-editor-monaco-widget {
 	/* No borders - parent container (.positron-notebook-editor-section) handles them */
 	border: none;

@@ -14,6 +14,7 @@ import { NotebookPreloadOutputResults } from '../../../../services/positronWebvi
 import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { ICellRevealOptions } from './PositronNotebookCell.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
@@ -57,6 +58,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * URI for the notebook that contains this cell
 	 */
 	get notebookUri(): URI;
+
+	/**
+	 * The notebook instance that owns this cell.
+	 */
+	readonly instance: IPositronNotebookInstance;
 
 	/**
 	 * Current execution status for this cell

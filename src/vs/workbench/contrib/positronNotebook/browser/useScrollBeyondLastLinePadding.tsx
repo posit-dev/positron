@@ -5,8 +5,8 @@
 
 import React from 'react';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { useEnvironment } from './EnvironmentProvider.js';
 import { useObservedValue } from './useObservedValue.js';
+import { useNotebookInstance } from './NotebookInstanceProvider.js';
 
 /**
  * Returns the paddingBlockEnd value (in pixels) needed to implement scroll-beyond-last-line
@@ -19,7 +19,7 @@ import { useObservedValue } from './useObservedValue.js';
 export function useScrollBeyondLastLinePadding(
 	configurationService: IConfigurationService,
 ): number | undefined {
-	const { size } = useEnvironment();
+	const { size } = useNotebookInstance();
 	const { height } = useObservedValue(size);
 
 	const [enabled, setEnabled] = React.useState(

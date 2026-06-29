@@ -35,6 +35,10 @@ export const POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY = 'positron.n
 // Configuration key that gates experimental Positron notebook features.
 export const POSITRON_NOTEBOOK_EXPERIMENTAL_KEY = 'positron.notebook.experimental';
 
+// Configuration key for reusing cell editors via a pool instead
+// of constructing a fresh editor for every cell mount.
+export const POSITRON_NOTEBOOK_REUSE_CELL_EDITORS_KEY = 'positron.notebook.reuseCellEditors';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -125,6 +129,16 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.notebook.experimental',
 				'Enable experimental features in the Positron notebook editor, such as the Visualize action for data frames. These features are under active development and may change or be removed without notice.'
+			),
+			tags: ['experimental', 'positronNotebook'],
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_REUSE_CELL_EDITORS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.notebook.reuseCellEditors',
+				'Reuse cell editors from a shared pool instead of constructing a new editor for every cell. Reuse keeps live editors warm across cell mounts, tab swaps, and separate editor panes for lower latency. Disable this if you hit cell editor issues; the change takes effect the next time a notebook is opened.'
 			),
 			tags: ['experimental', 'positronNotebook'],
 			scope: ConfigurationScope.WINDOW,

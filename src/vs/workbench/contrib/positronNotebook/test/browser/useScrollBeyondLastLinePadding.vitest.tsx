@@ -5,17 +5,16 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { act, screen } from '@testing-library/react';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { useScrollBeyondLastLinePadding } from '../../browser/useScrollBeyondLastLinePadding.js';
+import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
+import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
 
 function TestComponent({ configurationService }: {
 	configurationService: IConfigurationService;
@@ -29,12 +28,11 @@ describe('useScrollBeyondLastLinePadding', () => {
 
 	function renderWithSize(configurationService: IConfigurationService, size: ReturnType<typeof observableValue<ISize>>) {
 		return rtl.render(
-			<EnvironentProvider environmentBundle={{
+			<NotebookInstanceProvider instance={stubInterface<IPositronNotebookInstance>({
 				size,
-				scopedContextKeyProviderCallback: () => null as unknown as IScopedContextKeyService,
-			}}>
+			})}>
 				<TestComponent configurationService={configurationService} />
-			</EnvironentProvider>
+			</NotebookInstanceProvider>
 		);
 	}
 

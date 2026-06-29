@@ -5,7 +5,7 @@
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { NotebookRenderCache } from './notebookRenderCache.js';
 import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
@@ -26,7 +26,6 @@ import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.j
 import { IPositronNotebookEditorOptions, IPositronNotebookViewState } from './positronNotebookEditorTypes.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
-import { EnvironentProvider } from './EnvironmentProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -258,11 +257,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	readonly onDidChangeSelection = this._onDidChangeSelection.event;
 
 	/**
-	 * Size as an observable so it can be lazily passed into the React component.
-	 */
-	private readonly _size = observableValue<ISize>('size', { width: 0, height: 0 });
-
-	/**
 	 * Observable tracking if the editor is currently visible
 	 */
 	private readonly _isVisible = observableValue<boolean>('isVisible', false);
@@ -304,9 +298,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 		if (!this._editorContainer) {
 			return;
 		}
-		DOM.size(this._editorContainer, dimension.width, dimension.height);
-
-		this._size.set(dimension, undefined);
+		this._notebookInstance?.layout(dimension);
 	}
 
 	override async setInput(
@@ -499,12 +491,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			>
 				<NotebookVisibilityProvider isVisible={this._isVisible}>
 					<NotebookInstanceProvider instance={this._notebookInstance}>
-						<EnvironentProvider environmentBundle={{
-							size: this._size,
-							scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
-						}}>
-							<PositronNotebookComponent />
-						</EnvironentProvider>
+						<PositronNotebookComponent />
 					</NotebookInstanceProvider>
 				</NotebookVisibilityProvider>
 			</NotebookErrorBoundary>
