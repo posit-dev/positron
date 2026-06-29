@@ -107,7 +107,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
 		const { sessions, hotKeys, layouts } = app.workbench;
 
-		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
+		await setScreenshotWindowSize(app, { width: 1024, height: 700 });
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
 
