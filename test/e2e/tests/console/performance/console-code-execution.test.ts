@@ -23,19 +23,35 @@ const SCENARIOS = [
 		output: '4294967296',
 	},
 	{
-		// Output-heavy: stress the console output rendering pipeline.
-		// Regression target: posit-dev/positron#9852 (console lag after large output)
-		name: 'large output',
-		python: 'print("\\n".join(str(i) for i in range(1, 1001)))',
-		r: 'cat(paste(seq_len(1000), collapse = "\\n"), "\\n")',
-		// '999' appears in both outputs but not in either code string
-		output: '999',
+		// Scrollback-cap scenario: 3000 lines exceeds the 2000-line cap pinned in beforeAll,
+		// which forces scrollback trimming on every append batch. This directly exercises the
+		// path posit-dev/positron#13201 fixed and guards against re-render-on-append regressions
+		// (posit-dev/positron#9852). Running below the default 10,000-line cap would never
+		// trigger trimming and would leave the regression undetected.
+		name: 'scrollback trim',
+		python: 'print("\\n".join(str(i) for i in range(1, 3001)))',
+		r: 'cat(paste(seq_len(3000), collapse = "\\n"), "\\n")',
+		// '2999' appears in both outputs but not in either code string
+		output: '2999',
 	},
 ] as const;
 
 test.describe('Console Performance: Code Execution', {
 	tag: [tags.CONSOLE, tags.PERFORMANCE, tags.WIN, tags.WEB]
 }, () => {
+
+	// Pin scrollbackSize so the large-output scenario reliably exceeds the cap and exercises
+	// scrollback trimming. Without this, the default 10,000-line cap would never be reached
+	// in any scenario here, and trimming-path regressions would go undetected.
+	const SCROLLBACK_SIZE = 2000;
+
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({ 'console.scrollbackSize': SCROLLBACK_SIZE });
+	});
+
+	test.afterAll(async function ({ settings }) {
+		await settings.remove(['console.scrollbackSize']);
+	});
 
 	for (const { lang, runtime, target, prompt } of LANGUAGES) {
 		for (const scenario of SCENARIOS) {
