@@ -19,8 +19,9 @@ import { INotebookService } from '../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellKind } from '../../notebook/common/notebookCommon.js';
 import { ITextModel } from '../../../../editor/common/model.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IQuartoDocumentModelService } from '../../positronQuarto/browser/quartoDocumentModelService.js';
-import { QUARTO_LANGUAGE_IDS } from '../../positronQuarto/common/positronQuartoConfig.js';
+import { QUARTO_LANGUAGE_IDS, usingQuartoInlineOutput } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
  * The maximum number of per-session results to retain in the cache. Old entries
@@ -73,6 +74,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IQuartoDocumentModelService private readonly _quartoDocumentModelService: IQuartoDocumentModelService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -248,17 +250,25 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 
 	/**
 	 * Builds the analysis targets for a Quarto document. The document is parsed
-	 * into code cells, the cells are grouped by language, and each language's
-	 * concatenated code is routed to that language's console session. Languages
-	 * without a running session (or without `listMissingPackages` support) are
-	 * skipped; the cache invalidates on session start, so the badge recomputes
-	 * once a session is available.
+	 * into code cells grouped by language; how those groups map to sessions
+	 * depends on the execution mode:
+	 *
+	 * - With inline output, the document executes in its own per-document
+	 *   session (a notebook-mode session keyed by the document URI), exactly
+	 *   like a notebook. The chunks for that session's language are routed to it
+	 *   so packages install into the document's session, not a shared console.
+	 * - Without inline output, the chunks execute in the shared per-language
+	 *   console sessions, so each language's chunks are routed to its console
+	 *   session (the original behavior).
+	 *
+	 * Languages without a usable session (or without `listMissingPackages`
+	 * support) are skipped; the cache invalidates on session start, so the badge
+	 * recomputes once a session is available.
 	 */
 	private _buildQuartoTargets(model: ITextModel): IResolvedTarget[] {
 		const quartoModel = this._quartoDocumentModelService.getModel(model);
 
-		// Group cell code by language so each language is analyzed by its own
-		// session in a single call. Languages are normalized to lower case to
+		// Group cell code by language. Languages are normalized to lower case to
 		// match runtime language ids (e.g. a `{R}` fence maps to the `r` runtime).
 		const codeByLanguage = new Map<string, string[]>();
 		for (const cell of quartoModel.cells) {
@@ -271,6 +281,24 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 			}
 		}
 
+		// Inline output: route the document session's language to that session.
+		if (usingQuartoInlineOutput(this._configurationService)) {
+			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(model.uri);
+			if (!session || !session.listMissingPackages) {
+				// No per-document session yet; recompute once one starts.
+				return [];
+			}
+			const languageId = session.runtimeMetadata.languageId;
+			const chunks = codeByLanguage.get(languageId);
+			if (!chunks || chunks.length === 0) {
+				return [];
+			}
+			const code = chunks.join('\n');
+			const cacheKey = `${session.sessionId}:${hash(code)}`;
+			return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code } }];
+		}
+
+		// Console output: route each language's chunks to its console session.
 		const targets: IResolvedTarget[] = [];
 		for (const [languageId, chunks] of codeByLanguage) {
 			const session = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);

@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -22,6 +23,7 @@ import { NotebookTextModel } from '../../../notebook/common/model/notebookTextMo
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IQuartoDocumentModelService } from '../../../positronQuarto/browser/quartoDocumentModelService.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../../../positronQuarto/common/positronQuartoConfig.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../../../positronQuarto/common/quartoTypes.js';
 import { MissingPackagesService } from '../../browser/missingPackagesServiceImpl.js';
 import { IMissingPackagesService } from '../../common/missingPackagesService.js';
@@ -99,6 +101,21 @@ describe('MissingPackagesService', () => {
 		getCellCode: (cell: QuartoCodeCell) => (cell.language === 'r' ? 'library(leaflet)' : 'import requests'),
 	});
 
+	// With inline output, the .qmd runs in its own per-document (notebook-mode)
+	// session keyed by the document URI, rather than the shared console sessions.
+	const quartoInlineSessionId = 'quarto-inline-1';
+	const quartoInlineListMissingPackages = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
+		.mockResolvedValue([{ name: 'leaflet' }]);
+	const quartoInlineSession = stubInterface<INotebookLanguageRuntimeSession>({
+		sessionId: quartoInlineSessionId,
+		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r' }),
+		listMissingPackages: quartoInlineListMissingPackages,
+		getPackageManager: () => packageManager,
+	});
+
+	// Drives `usingQuartoInlineOutput`; flipped per test.
+	let quartoInlineOutputEnabled = false;
+
 	const ctx = createTestContainer()
 		.stub(IRuntimeSessionService, {
 			onWillStartSession: Event.None,
@@ -109,11 +126,16 @@ describe('MissingPackagesService', () => {
 				if (languageId === 'r') { return rSession; }
 				return undefined;
 			},
-			getNotebookSessionForNotebookUri: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookSession : undefined),
+			getNotebookSessionForNotebookUri: (uri: URI) => {
+				if (uri.toString() === notebookResource.toString()) { return notebookSession; }
+				if (uri.toString() === quartoResource.toString()) { return quartoInlineSession; }
+				return undefined;
+			},
 			getSession: (id: string) => {
 				if (id === sessionId) { return session; }
 				if (id === notebookSessionId) { return notebookSession; }
 				if (id === rSessionId) { return rSession; }
+				if (id === quartoInlineSessionId) { return quartoInlineSession; }
 				return undefined;
 			},
 		})
@@ -122,9 +144,9 @@ describe('MissingPackagesService', () => {
 			getInstances: () => [packagesInstance],
 		})
 		.stub(IModelService, {
-			getModel: () => (modelContent === null
+			getModel: (uri: URI) => (modelContent === null
 				? null
-				: stubInterface<ITextModel>({ getLanguageId: () => modelLanguageId, getValue: () => modelContent! })),
+				: stubInterface<ITextModel>({ uri, getLanguageId: () => modelLanguageId, getValue: () => modelContent! })),
 		})
 		.stub(ITextModelService, {})
 		.stub(INotebookService, {
@@ -132,6 +154,9 @@ describe('MissingPackagesService', () => {
 		})
 		.stub(IQuartoDocumentModelService, {
 			getModel: () => quartoModel,
+		})
+		.stub(IConfigurationService, {
+			getValue: (key?: unknown) => (key === POSITRON_QUARTO_INLINE_OUTPUT_KEY ? quartoInlineOutputEnabled : undefined),
 		})
 		.stub(ILogService, new NullLogService())
 		.build();
@@ -143,6 +168,7 @@ describe('MissingPackagesService', () => {
 	beforeEach(() => {
 		modelLanguageId = 'python';
 		modelContent = 'import requests';
+		quartoInlineOutputEnabled = false;
 	});
 
 	it('computes, caches, and serves the cached result without recomputing', async () => {
@@ -270,7 +296,7 @@ describe('MissingPackagesService', () => {
 		expect(notebookListMissingPackages).toHaveBeenCalledWith({ code: 'import plotnine' }, expect.anything());
 	});
 
-	it('analyzes a quarto document per language, routing each chunk to its session', async () => {
+	it('analyzes a console-mode quarto document per language, routing each chunk to its console session', async () => {
 		modelLanguageId = 'quarto';
 		modelContent = '```{r}\nlibrary(leaflet)\n```\n```{python}\nimport requests\n```';
 		const service = createService();
@@ -303,8 +329,40 @@ describe('MissingPackagesService', () => {
 			  "total": 2,
 			}
 		`);
-		// Each language's chunk is sent to its own session.
+		// Each language's chunk is sent to its own console session.
 		expect(rListMissingPackages).toHaveBeenCalledWith({ code: 'library(leaflet)' }, expect.anything());
 		expect(listMissingPackages).toHaveBeenCalledWith({ code: 'import requests' }, expect.anything());
+	});
+
+	it('analyzes an inline-output quarto document via its per-document session', async () => {
+		quartoInlineOutputEnabled = true;
+		modelLanguageId = 'quarto';
+		modelContent = '```{r}\nlibrary(leaflet)\n```\n```{python}\nimport requests\n```';
+		const service = createService();
+
+		const result = await service.ensure(quartoResource);
+
+		// Only the document session's language (r) is analyzed, and it is sent to
+		// the per-document session rather than the shared console sessions.
+		expect({ ...result, resource: result.resource.toString() }).toMatchInlineSnapshot(`
+			{
+			  "groups": [
+			    {
+			      "languageId": "r",
+			      "packages": [
+			        {
+			          "name": "leaflet",
+			        },
+			      ],
+			      "sessionId": "quarto-inline-1",
+			    },
+			  ],
+			  "resource": "file:///workspace/notebook.qmd",
+			  "total": 1,
+			}
+		`);
+		expect(quartoInlineListMissingPackages).toHaveBeenCalledWith({ code: 'library(leaflet)' }, expect.anything());
+		// The shared console sessions are not consulted in inline-output mode.
+		expect(rListMissingPackages).not.toHaveBeenCalled();
 	});
 });
