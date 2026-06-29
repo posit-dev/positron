@@ -314,6 +314,35 @@ export class McpServer implements vscode.Disposable {
 				},
 				run: (args) => this.createNotebook(args),
 			},
+			{
+				name: 'get-plot',
+				description: 'Get the plot currently shown in the Positron Plots pane as an image. Run plotting code with execute-code first, then call this to see the result.',
+				inputSchema: empty,
+				run: () => this.getPlot(),
+			},
+			{
+				name: 'session-interrupt',
+				description: 'Interrupt the active runtime session to stop a long-running or stuck computation.',
+				inputSchema: empty,
+				run: () => this.interruptSession(),
+			},
+			{
+				name: 'session-restart',
+				description: 'Restart the active runtime session. This clears all variables and loaded data; the user is asked to confirm first.',
+				inputSchema: empty,
+				run: () => this.restartSession(),
+			},
+			{
+				name: 'get-diagnostics',
+				description: 'Get the diagnostics (errors, warnings) the language server has reported for a file. Defaults to the active editor.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						path: { type: 'string', description: 'Absolute path or workspace-relative path of the file. If omitted, uses the active editor.' },
+					},
+				},
+				run: (args) => this.getDiagnostics(args),
+			},
 		];
 	}
 
@@ -682,6 +711,80 @@ export class McpServer implements vscode.Disposable {
 			return `Created notebook ${notebookPath}, but failed to open it in the editor. Open it manually, then use notebook-edit to add cells.`;
 		}
 		return `Created empty ${language} notebook: ${notebookPath}. It is open and active; use notebook-edit with editMode "insert" to add cells.`;
+	}
+
+	private async getPlot(): Promise<string | McpContent[]> {
+		const uri = await positron.ai.getCurrentPlotUri();
+		if (!uri) {
+			return 'No plot is currently displayed in the Plots pane. Run plotting code first, then call get-plot.';
+		}
+		const match = uri.match(/^data:([^;]+);base64,(.+)$/s);
+		if (!match) {
+			throw new ToolError(-32603, 'The active plot could not be decoded.');
+		}
+		return [{ type: 'image', data: match[2], mimeType: match[1] }];
+	}
+
+	private async interruptSession(): Promise<string> {
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return 'No active runtime session.';
+		}
+		await positron.runtime.interruptSession(session.metadata.sessionId);
+		return 'Interrupted the active session.';
+	}
+
+	private async restartSession(): Promise<string> {
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return 'No active runtime session.';
+		}
+		const dynState = await session.getDynState();
+		const confirmed = await positron.window.showSimpleModalDialogPrompt(
+			'Restart Session?',
+			`${dynState.sessionName} will restart. All variables and loaded data will be lost.`,
+			'Restart',
+			'Cancel'
+		);
+		if (!confirmed) {
+			throw new ToolError(-32001, 'Session restart declined by user');
+		}
+		try {
+			await positron.runtime.restartSession(session.metadata.sessionId);
+			return `Restarted ${dynState.sessionName}.`;
+		} catch (error) {
+			throw new ToolError(-32603, `Failed to restart session: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	private async getDiagnostics(args: { path?: string }): Promise<string> {
+		let uri: vscode.Uri | undefined;
+		if (args.path) {
+			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+			uri = path.isAbsolute(args.path)
+				? vscode.Uri.file(args.path)
+				: workspaceFolder ? vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, args.path)) : undefined;
+		} else {
+			uri = vscode.window.activeTextEditor?.document.uri;
+		}
+		if (!uri) {
+			return 'No active document; pass a path.';
+		}
+
+		const diagnostics = vscode.languages.getDiagnostics(uri);
+		if (diagnostics.length === 0) {
+			return `No diagnostics for ${uri.fsPath}.`;
+		}
+
+		const severityNames = ['Error', 'Warning', 'Information', 'Hint'];
+		const lines = diagnostics.map(d => {
+			const position = `${d.range.start.line + 1}:${d.range.start.character + 1}`;
+			const severity = severityNames[d.severity] ?? 'Unknown';
+			const source = d.source ? ` [${d.source}]` : '';
+			const code = d.code ? ` (${typeof d.code === 'object' ? d.code.value : d.code})` : '';
+			return `${position} - ${severity}${source}${code} - ${d.message}`;
+		});
+		return truncateOutput(`Diagnostics for ${uri.fsPath} (${diagnostics.length}):\n\n${lines.join('\n')}`);
 	}
 
 	async start(): Promise<void> {

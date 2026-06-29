@@ -20,6 +20,10 @@ This extension exposes Positron's runtime sessions and variable data through a s
 - **`notebook-edit`** - Insert, update, or delete a cell in the active notebook (optionally running an inserted code cell)
 - **`notebook-run-cells`** - Execute cells in the active notebook and return their text outputs
 - **`notebook-create`** - Create a new `.ipynb` notebook with a Python or R kernel and open it
+- **`get-plot`** - Returns the plot currently shown in the Plots pane as an image
+- **`session-interrupt`** - Interrupt the active session to stop a stuck or long-running computation
+- **`session-restart`** - Restart the active session (clears state; prompts the user to confirm)
+- **`get-diagnostics`** - Returns the language server's errors and warnings for a file (defaults to the active editor)
 
 ### Key Benefits
 
