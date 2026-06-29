@@ -70,8 +70,8 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airports', /^planes$/]);
 		await hotKeys.closePrimarySidebar();
-		await layouts.resizeAuxiliaryBar({ x: -300 });
-		await layouts.resizePanel({ y: -200 });
+		await layouts.resizeAuxiliaryBar({ x: -200 });
+		await layouts.resizePanel({ y: -120 });
 		await console.focus();
 
 		// capture screenshot
