@@ -15,6 +15,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronPackagesService } from '../../positronPackages/browser/interfaces/positronPackagesService.js';
 import { IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IMissingPackagesGroup, IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { CellKind } from '../../notebook/common/notebookCommon.js';
 
 /**
  * The maximum number of per-session results to retain in the cache. Old entries
@@ -59,6 +62,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		@IPositronPackagesService private readonly _packagesService: IPositronPackagesService,
 		@IModelService private readonly _modelService: IModelService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
+		@INotebookService private readonly _notebookService: INotebookService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
@@ -136,11 +140,21 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	 * available, so `getCached` callers never block.
 	 */
 	private _resolveTargetsSync(resource: URI): IResolvedTarget[] | undefined {
+		// Notebook: read code cells from the in-memory notebook model and route
+		// them to the notebook's kernel session (not the foreground console
+		// session). The model is available synchronously whenever the notebook
+		// is open, which is the only case the badge cares about.
+		const notebook = this._notebookService.getNotebookTextModel(resource);
+		if (notebook) {
+			return this._buildNotebookTargets(resource, notebook);
+		}
+
+		// Script / single-language text document: read the open text model.
 		const model = this._modelService.getModel(resource);
 		if (!model) {
 			return undefined;
 		}
-		return this._buildTargets(model.getLanguageId(), model.getValue());
+		return this._buildScriptTargets(model.getLanguageId(), model.getValue());
 	}
 
 	/**
@@ -156,7 +170,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 			const ref = await this._textModelService.createModelReference(resource);
 			try {
 				const model = ref.object.textEditorModel;
-				return this._buildTargets(model.getLanguageId(), model.getValue());
+				return this._buildScriptTargets(model.getLanguageId(), model.getValue());
 			} finally {
 				ref.dispose();
 			}
@@ -170,13 +184,38 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	 * Builds the analysis targets for a single-language chunk of code. Multi-
 	 * language documents (e.g. quarto) will produce one target per language.
 	 */
-	private _buildTargets(languageId: string, content: string): IResolvedTarget[] {
+	private _buildScriptTargets(languageId: string, content: string): IResolvedTarget[] {
 		const session = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		if (!session || !session.listMissingPackages) {
 			return [];
 		}
 		const cacheKey = `${session.sessionId}:${hash(content)}`;
 		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code: content } }];
+	}
+
+	/**
+	 * Builds the analysis target for a notebook. A notebook is analyzed by its
+	 * kernel session rather than the foreground console session: the code cells
+	 * that match the kernel's language are concatenated and sent to that
+	 * session. Returns nothing when the notebook has no running kernel session
+	 * yet (the cache invalidates on session start, so the badge recomputes once
+	 * a kernel is available).
+	 */
+	private _buildNotebookTargets(notebookUri: URI, notebook: NotebookTextModel): IResolvedTarget[] {
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session || !session.listMissingPackages) {
+			return [];
+		}
+		const languageId = session.runtimeMetadata.languageId;
+		const code = notebook.cells
+			.filter(cell => cell.cellKind === CellKind.Code && cell.language === languageId)
+			.map(cell => cell.getValue())
+			.join('\n');
+		if (!code.trim()) {
+			return [];
+		}
+		const cacheKey = `${session.sessionId}:${hash(code)}`;
+		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code } }];
 	}
 
 	/**

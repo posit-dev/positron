@@ -15,7 +15,12 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronPackagesService } from '../../../positronPackages/browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../../positronPackages/browser/positronPackagesInstance.js';
-import { ILanguageRuntimePackageManager, ILanguageRuntimeSession, IRuntimeMissingPackage, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackageManager, ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeMissingPackage, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { MissingPackagesService } from '../../browser/missingPackagesServiceImpl.js';
 import { IMissingPackagesService } from '../../common/missingPackagesService.js';
 
@@ -52,13 +57,38 @@ describe('MissingPackagesService', () => {
 		installPackages: instanceInstallPackages,
 	});
 
+	// Notebook fixtures: a notebook resource analyzed by its kernel session
+	// (not the foreground console session). The model carries one Python code
+	// cell and one markup cell; only the code cell should be analyzed.
+	const notebookResource = URI.file('/workspace/foo.ipynb');
+	const notebookSessionId = 'python-notebook-1';
+	const notebookListMissingPackages = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
+		.mockResolvedValue([{ name: 'plotnine' }]);
+	const notebookSession = stubInterface<INotebookLanguageRuntimeSession>({
+		sessionId: notebookSessionId,
+		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
+		listMissingPackages: notebookListMissingPackages,
+		getPackageManager: () => packageManager,
+	});
+	const notebookModel = stubInterface<NotebookTextModel>({
+		cells: [
+			stubInterface<NotebookCellTextModel>({ cellKind: CellKind.Code, language: 'python', getValue: () => 'import plotnine' }),
+			stubInterface<NotebookCellTextModel>({ cellKind: CellKind.Markup, language: 'markdown', getValue: () => '# heading' }),
+		],
+	});
+
 	const ctx = createTestContainer()
 		.stub(IRuntimeSessionService, {
 			onWillStartSession: Event.None,
 			onDidChangeForegroundSession: Event.None,
 			onDidDeleteRuntimeSession: onDidDeleteRuntimeSession.event,
 			getConsoleSessionForLanguage: (languageId: string) => (languageId === 'python' ? session : undefined),
-			getSession: (id: string) => (id === sessionId ? session : undefined),
+			getNotebookSessionForNotebookUri: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookSession : undefined),
+			getSession: (id: string) => {
+				if (id === sessionId) { return session; }
+				if (id === notebookSessionId) { return notebookSession; }
+				return undefined;
+			},
 		})
 		.stub(IPositronPackagesService, {
 			onDidChangeActivePackagesInstance: Event.None,
@@ -70,6 +100,9 @@ describe('MissingPackagesService', () => {
 				: stubInterface<ITextModel>({ getLanguageId: () => modelLanguageId, getValue: () => modelContent! })),
 		})
 		.stub(ITextModelService, {})
+		.stub(INotebookService, {
+			getNotebookTextModel: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookModel : undefined),
+		})
 		.stub(ILogService, new NullLogService())
 		.build();
 
@@ -157,5 +190,31 @@ describe('MissingPackagesService', () => {
 		await service.install({ sessionId, languageId: 'python', packages: [{ name: 'requests' }] });
 
 		expect(instanceInstallPackages).toHaveBeenCalledWith([{ name: 'requests' }], undefined);
+	});
+
+	it('analyzes a notebook via its kernel session, sending only code cells', async () => {
+		const service = createService();
+
+		const result = await service.ensure(notebookResource);
+
+		expect({ ...result, resource: result.resource.toString() }).toMatchInlineSnapshot(`
+			{
+			  "groups": [
+			    {
+			      "languageId": "python",
+			      "packages": [
+			        {
+			          "name": "plotnine",
+			        },
+			      ],
+			      "sessionId": "python-notebook-1",
+			    },
+			  ],
+			  "resource": "file:///workspace/foo.ipynb",
+			  "total": 1,
+			}
+		`);
+		// The markup cell is excluded; only the code cell's source is analyzed.
+		expect(notebookListMissingPackages).toHaveBeenCalledWith({ code: 'import plotnine' }, expect.anything());
 	});
 });

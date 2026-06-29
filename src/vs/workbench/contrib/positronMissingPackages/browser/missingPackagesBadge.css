@@ -8,7 +8,6 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 200px;
 	margin-right: 4px;
 	padding: 0 4px;
 	box-sizing: border-box;
@@ -18,6 +17,16 @@
 	border: none;
 	background: transparent;
 	cursor: pointer;
+}
+
+/*
+ * Hidden tier: the document references missing packages but the action bar has
+ * no room for even the icon-only badge. The badge stays in the DOM (so its
+ * available width can still be measured and it can reappear when the editor is
+ * widened) but takes up no space.
+ */
+.missing-packages-badge.missing-packages-badge-hidden {
+	display: none;
 }
 
 /*
