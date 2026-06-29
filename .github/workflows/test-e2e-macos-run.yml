@@ -190,17 +190,28 @@ jobs:
           fi
           R_VERSION="4.5.2"
           R_ALTERNATE_VERSION="4.3.0"
-          echo "Installing R version $R_VERSION using Rig..."
-          # Install rig directly from GitHub releases to avoid a broken cask in
-          # the r-lib/homebrew-rig tap (double-quote typo in rig.rb line 5).
-          RIG_VERSION="0.8.1"
-          if [ "${{ inputs.arch }}" = "x64" ]; then
-            RIG_PKG="rig-${RIG_VERSION}-macOS-x86_64.pkg"
-          else
-            RIG_PKG="rig-${RIG_VERSION}-macOS-arm64.pkg"
-          fi
-          curl -fsSL "https://github.com/r-lib/rig/releases/download/v${RIG_VERSION}/${RIG_PKG}" -o /tmp/rig.pkg
+          # Install rig from its official release .pkg rather than Homebrew.
+          # The r-lib/rig brew tap has been unreliable (third-party tap trust
+          # prompts and cask checksum mismatches); the .pkg is the method
+          # r-lib recommends for CI.
+          case "$(uname -m)" in
+            arm64) RIG_ARCH="arm64" ;;
+            *)     RIG_ARCH="x86_64" ;;
+          esac
+          # Authenticate the API call: unauthenticated requests share a 60/hr
+          # per-IP limit (shared across all jobs on the runner's egress IP) and
+          # intermittently return 403. The job-level GITHUB_TOKEN raises this to
+          # 5000/hr for this caller.
+          RIG_TAG=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/r-lib/rig/releases/latest \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+          RIG_VERSION="${RIG_TAG#v}"
+          curl -fsSL "https://github.com/r-lib/rig/releases/download/${RIG_TAG}/rig-${RIG_VERSION}-macOS-${RIG_ARCH}.pkg" -o /tmp/rig.pkg
           sudo installer -pkg /tmp/rig.pkg -target /
+          echo "Installing R version $R_VERSION using Rig..."
           rig add "$R_VERSION"
           echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
           rig add "$R_ALTERNATE_VERSION"
