@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -41,10 +42,15 @@ describe('MissingPackagesPreflightService', () => {
 			updateValue,
 		});
 		const warn = vi.fn();
-		const notificationService = stubInterface<INotificationService>({ warn });
+		const info = vi.fn();
+		const notificationService = stubInterface<INotificationService>({ warn, info });
 
-		const service = new MissingPackagesPreflightService(missingPackagesService, configurationService, notificationService);
-		return { service, getCached, ensure, install, updateValue, warn };
+		const languageService = stubInterface<ILanguageService>({
+			getLanguageName: () => 'Python',
+		});
+
+		const service = new MissingPackagesPreflightService(missingPackagesService, configurationService, notificationService, languageService);
+		return { service, getCached, ensure, install, updateValue, warn, info };
 	}
 
 	it('runs without prompting when the setting is disabled', async () => {
@@ -83,12 +89,22 @@ describe('MissingPackagesPreflightService', () => {
 		expect(install).not.toHaveBeenCalled();
 	});
 
-	it('disables the setting when "Don\'t show again" is checked', async () => {
-		const { service, updateValue } = setup();
+	it('disables the setting and notifies when "Don\'t show again" is checked and the user proceeds', async () => {
+		const { service, updateValue, info } = setup();
 		showModal.mockResolvedValue({ decision: 'run', dontShowAgain: true });
 
 		await service.confirmBeforeRun(resource);
 		expect(updateValue).toHaveBeenCalledWith(CONFIRM_MISSING_ON_RUN, false, ConfigurationTarget.USER);
+		expect(info).toHaveBeenCalled();
+	});
+
+	it('leaves the setting untouched when "Don\'t show again" is checked but the user cancels', async () => {
+		const { service, updateValue, info } = setup();
+		showModal.mockResolvedValue({ decision: 'cancel', dontShowAgain: true });
+
+		await service.confirmBeforeRun(resource);
+		expect(updateValue).not.toHaveBeenCalled();
+		expect(info).not.toHaveBeenCalled();
 	});
 
 	it('runs anyway and warns when an install fails', async () => {

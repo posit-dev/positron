@@ -6,6 +6,7 @@
 import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -45,6 +46,7 @@ export class MissingPackagesPreflightService implements IMissingPackagesPrefligh
 		@IMissingPackagesService private readonly _missingPackagesService: IMissingPackagesService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 	) { }
 
 	async confirmBeforeRun(resource: URI): Promise<boolean> {
@@ -79,11 +81,31 @@ export class MissingPackagesPreflightService implements IMissingPackagesPrefligh
 		}
 
 		const packageNames = result.groups.flatMap(group => group.packages.map(pkg => pkg.name));
-		const { decision, dontShowAgain } = await showMissingPackagesPreflightModal(basename(resource), packageNames);
 
-		if (dontShowAgain) {
+		// Name the language when the document references a single language, so the
+		// message can read "the following Python packages".
+		const languageIds = [...new Set(result.groups.map(group => group.languageId))];
+		const languageName = languageIds.length === 1
+			? this._languageService.getLanguageName(languageIds[0])
+			: null;
+
+		const { decision, dontShowAgain } = await showMissingPackagesPreflightModal(basename(resource), languageName, packageNames);
+
+		// Only act on "Don't show again" when the user actually proceeds (install or
+		// run); cancelling leaves the preflight behavior untouched.
+		if (dontShowAgain && decision !== 'cancel') {
 			// Dismissing turns preflight off everywhere.
 			await this._configurationService.updateValue(CONFIRM_MISSING_ON_RUN, false, ConfigurationTarget.USER);
+
+			// Let the user know how to turn the warning back on. The notification
+			// renders markdown command links, so clicking opens the Settings editor
+			// filtered to the setting.
+			const settingLink = `command:workbench.action.openSettings?${encodeURIComponent(JSON.stringify([CONFIRM_MISSING_ON_RUN]))}`;
+			this._notificationService.info(localize(
+				'positron.missingPackages.preflightDontShowAgainNotification',
+				"Positron won't warn you again about missing packages before running scripts. You can turn this behavior back on using the [{0}]({1}) setting.",
+				localize('positron.missingPackages.confirmMissingOnRunSettingName', "Packages: Confirm Missing on Run"),
+				settingLink));
 		}
 		return decision;
 	}

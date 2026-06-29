@@ -11,9 +11,9 @@ import { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { FooterButton } from '../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 
 /** The user's decision from the preflight modal. */
@@ -25,8 +25,9 @@ export interface PreflightModalResult {
 }
 
 interface MissingPackagesPreflightModalProps {
-	readonly renderer: PositronModalReactRenderer;
+	readonly renderer: PositronModalDialogReactRenderer;
 	readonly fileName: string;
+	readonly languageName: string | null;
 	readonly packageNames: string[];
 	readonly onDecision: (result: PreflightModalResult) => void;
 }
@@ -43,55 +44,64 @@ export const MissingPackagesPreflightModal = (props: MissingPackagesPreflightMod
 		props.onDecision({ decision, dontShowAgain });
 	};
 
-	// Grow to fit the package list, within reason.
-	const height = Math.min(440, 180 + props.packageNames.length * 22);
-
 	return (
-		<PositronModalDialog
-			height={height}
+		<PositronDynamicModalDialog
+			content={
+				<div className='missing-packages-preflight'>
+					<div className='preflight-message'>
+						{/* The filename is a non-localizable identifier rendered as a
+						    monospace element, followed by a complete localized clause. */}
+						<code className='preflight-filename'>{props.fileName}</code>
+						{' '}
+						{props.languageName
+							? localize('positron.missingPackages.preflightMessageLang', "depends on the following {0} packages, but they are not installed:", props.languageName)
+							: localize('positron.missingPackages.preflightMessage', "depends on the following packages, but they are not installed:")}
+					</div>
+					<ul className='preflight-package-list'>
+						{props.packageNames.map(name => <li key={name}>{name}</li>)}
+					</ul>
+					<div className='preflight-dont-show-again'>
+						<Checkbox
+							label={localize('positron.missingPackages.preflightDontShowAgain', "Don't show this again")}
+							onChanged={setDontShowAgain}
+						/>
+					</div>
+				</div>
+			}
+			footer={
+				<div className='preflight-footer'>
+					<FooterButton onPressed={() => decide('cancel')}>
+						{localize('positron.missingPackages.preflightCancel', "Cancel")}
+					</FooterButton>
+					<div className='preflight-footer-right'>
+						<FooterButton default type='submit' onPressed={() => decide('install-and-run')}>
+							{localize('positron.missingPackages.preflightInstallAndRun', "Install Packages and Run")}
+						</FooterButton>
+						<FooterButton onPressed={() => decide('run')}>
+							{localize('positron.missingPackages.preflightRunAnyway', "Run Without Installing")}
+						</FooterButton>
+					</div>
+				</div>
+			}
 			renderer={props.renderer}
 			title={localize('positron.missingPackages.preflightTitle', "Install Missing Packages")}
-			width={420}
+			width={480}
 			onCancel={() => decide('cancel')}
-		>
-			<div className='missing-packages-preflight'>
-				<p className='preflight-message'>
-					{localize('positron.missingPackages.preflightMessage', "{0} depends on the following packages, but they are not installed:", props.fileName)}
-				</p>
-				<ul className='preflight-package-list'>
-					{props.packageNames.map(name => <li key={name}>{name}</li>)}
-				</ul>
-				<div className='preflight-dont-show-again'>
-					<Checkbox
-						label={localize('positron.missingPackages.preflightDontShowAgain', "Don't show this again")}
-						onChanged={setDontShowAgain}
-					/>
-				</div>
-				<div className='preflight-actions'>
-					<Button className='button action-bar-button default' onPressed={() => decide('install-and-run')}>
-						{localize('positron.missingPackages.preflightInstallAndRun', "Install Packages and Run")}
-					</Button>
-					<Button className='button action-bar-button' onPressed={() => decide('run')}>
-						{localize('positron.missingPackages.preflightRunAnyway', "Run without Installing")}
-					</Button>
-					<Button className='button action-bar-button' onPressed={() => decide('cancel')}>
-						{localize('positron.missingPackages.preflightCancel', "Cancel")}
-					</Button>
-				</div>
-			</div>
-		</PositronModalDialog>
+			onSubmit={() => decide('install-and-run')}
+		/>
 	);
 };
 
 /**
  * Shows the preflight modal and resolves with the user's decision.
  */
-export function showMissingPackagesPreflightModal(fileName: string, packageNames: string[]): Promise<PreflightModalResult> {
+export function showMissingPackagesPreflightModal(fileName: string, languageName: string | null, packageNames: string[]): Promise<PreflightModalResult> {
 	return new Promise<PreflightModalResult>(resolve => {
-		const renderer = new PositronModalReactRenderer();
+		const renderer = new PositronModalDialogReactRenderer();
 		renderer.render(
 			<MissingPackagesPreflightModal
 				fileName={fileName}
+				languageName={languageName}
 				packageNames={packageNames}
 				renderer={renderer}
 				onDecision={resolve}

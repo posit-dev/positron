@@ -3,30 +3,34 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* The content-area provides the surrounding padding; this is just the vertical stack. */
 .missing-packages-preflight {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	padding: 0 16px 16px;
-	height: 100%;
-	box-sizing: border-box;
+	gap: 12px;
 }
 
 .missing-packages-preflight .preflight-message {
-	margin: 0;
+	white-space: normal;
 }
 
 .missing-packages-preflight .preflight-package-list {
 	margin: 0;
 	padding-left: 20px;
-	overflow-y: auto;
-	flex: 1;
 }
 
-.missing-packages-preflight .preflight-actions {
+/* Footer: Cancel on the left, Install + Run grouped on the right. */
+.positron-dynamic-modal-dialog-box .preflight-footer {
+	height: 48px;
 	display: flex;
-	flex-direction: row;
-	justify-content: flex-end;
-	gap: 8px;
-	margin-top: auto;
+	padding: 0 16px;
+	flex: 0 0 auto;
+	justify-content: space-between;
+	align-items: flex-start;
+}
+
+.positron-dynamic-modal-dialog-box .preflight-footer .preflight-footer-right {
+	gap: 10px;
+	display: flex;
+	align-items: flex-start;
 }
