@@ -257,7 +257,10 @@ runs:
         # thread exists, so an append would never match and the scheduler would
         # log a false "no Slack thread found" warning. Gate on run-info.json's
         # isE2e flag, which the gather step already sets per failed job.
-        E2E_FAILURES=$(jq '[.failedJobs[]? | select(.isE2e)] | length' "$WORK_DIR/run-info.json")
+        # 2>/dev/null || echo 0: fail closed (skip) on a missing/malformed
+        # run-info.json rather than letting a jq parse error abort this step
+        # under the default `bash -eo pipefail` — posting is best-effort.
+        E2E_FAILURES=$(jq '[.failedJobs[]? | select(.isE2e)] | length' "$WORK_DIR/run-info.json" 2>/dev/null || echo 0)
         if [ "${E2E_FAILURES:-0}" -eq 0 ]; then
           echo "No failed e2e jobs in this run; skipping Slack thread append (no thread registered)."
           exit 0
