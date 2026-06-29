@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { LOGGER } from '../extension';
 
 export enum ItemType {
@@ -31,6 +32,10 @@ export function encodeNodeId(
 		: testLabel
 			? `${testFile}&${testLabel}`
 			: testFile;
+}
+
+export function uriToFileNodeId(uri: vscode.Uri): string {
+	return encodeNodeId(path.basename(uri.fsPath));
 }
 
 /**

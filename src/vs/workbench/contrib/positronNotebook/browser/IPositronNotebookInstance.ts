@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
@@ -144,6 +145,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable of the DOM element that contains the entire notebook editor.
 	 */
 	readonly container: IObservable<HTMLElement | undefined>;
+
+	/**
+	 * Observable size of the notebook editor container.
+	 */
+	readonly size: IObservable<ISize>;
 
 	/**
 	 * Instantiation service scoped to this notebook instance.
