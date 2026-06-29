@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as sinon from 'sinon';
-import { anything, when, reset } from 'ts-mockito';
+import { anything, when, reset, verify } from 'ts-mockito';
 import { MultiStepAction } from '../../../../client/common/vscodeApis/windowApis';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import * as logging from '../../../../client/logging';
@@ -18,9 +18,13 @@ import * as commonCreationUtils from '../../../../client/pythonEnvironments/crea
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import * as apiInternal from '../../../../client/envExt/api.internal';
 import { getAvailablePythonVersions } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
-import { installPythonViaUv } from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
+import {
+    installPythonViaUv,
+    showUvInstallError,
+} from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import { mockedVSCodeNamespaces } from '../../../vscode-mock';
-import { InterpreterQuickPickList } from '../../../../client/common/utils/localize';
+import { Common, InterpreterQuickPickList } from '../../../../client/common/utils/localize';
+import { Commands } from '../../../../client/common/constants';
 
 // Helper to get expected global venv path
 function getExpectedGlobalVenvPython(): string {
@@ -43,6 +47,32 @@ suite('UV Python Installer Tests', () => {
 
     teardown(() => {
         sinon.restore();
+    });
+
+    suite('showUvInstallError Tests', () => {
+        setup(() => {
+            reset(mockedVSCodeNamespaces.window!);
+            reset(mockedVSCodeNamespaces.commands!);
+            when(mockedVSCodeNamespaces.commands!.executeCommand(anything())).thenResolve(undefined);
+        });
+
+        test('Opens the Python Language Pack logs when the user clicks "Show logs"', async () => {
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(
+                Common.showLogs as any,
+            );
+
+            await showUvInstallError('something went wrong');
+
+            verify(mockedVSCodeNamespaces.commands!.executeCommand(Commands.ViewOutput)).once();
+        });
+
+        test('Does not open the logs when the user dismisses the notification', async () => {
+            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(undefined);
+
+            await showUvInstallError('something went wrong');
+
+            verify(mockedVSCodeNamespaces.commands!.executeCommand(Commands.ViewOutput)).never();
+        });
     });
 
     suite('getAvailablePythonVersions Tests', () => {
