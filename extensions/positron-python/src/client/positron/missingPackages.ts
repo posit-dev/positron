@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPackageManager, PackageSession } from './packages/types';
+import { IMPORT_TO_DISTRIBUTION } from './pythonImportAliases';
 
 /**
  * Matches a single Python `import` or `from ... import` statement, capturing the
@@ -35,7 +36,10 @@ export function parsePythonImports(code: string): string[] {
         } else if (match.groups.importImport !== undefined) {
             for (const part of match.groups.importImport.split(',')) {
                 // Strip a trailing `as alias` and any submodule path.
-                const name = part.trim().split(/\s+as\s+/)[0].trim();
+                const name = part
+                    .trim()
+                    .split(/\s+as\s+/)[0]
+                    .trim();
                 if (name) {
                     modules.add(topLevelModule(name));
                 }
@@ -108,23 +112,58 @@ export async function listMissingPythonPackages(
 }
 
 /**
- * Resolves a missing import name to an installable distribution name by querying
- * the package repository for an exact (canonicalized) name match. Returns
- * undefined when no installable distribution matches, so we never offer a
- * package we cannot install.
+ * Resolves a missing import name to an installable distribution name. Tries each
+ * candidate distribution name in turn (a curated alias for the import, then the
+ * import name itself) and returns the first one the package repository confirms
+ * by an exact, canonicalized name match. Returns undefined when none resolve, so
+ * we never offer a package we cannot install.
+ *
+ * The alias is tried first so a well-known mismatch (`cv2` -> `opencv-python`)
+ * resolves to its canonical distribution even when a same-named shim also exists.
  */
 async function resolveInstallName(
     module: string,
     packageManager: IPackageManager,
     token?: vscode.CancellationToken,
 ): Promise<string | undefined> {
+    for (const candidate of candidateDistributions(module)) {
+        if (token?.isCancellationRequested) {
+            return undefined;
+        }
+        const resolved = await searchExact(candidate, packageManager, token);
+        if (resolved) {
+            return resolved;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Candidate distribution names to try for an import name: the curated alias (if
+ * any) first, then the import name itself.
+ */
+function candidateDistributions(module: string): string[] {
+    const alias = IMPORT_TO_DISTRIBUTION[module];
+    return alias ? [alias, module] : [module];
+}
+
+/**
+ * Returns the repository's exact (canonicalized) name match for a query, or
+ * undefined. A search failure (e.g. a transient network error) is treated as no
+ * match so we never offer a package we could not install.
+ */
+async function searchExact(
+    query: string,
+    packageManager: IPackageManager,
+    token?: vscode.CancellationToken,
+): Promise<string | undefined> {
     let matches: positron.LanguageRuntimePackage[];
     try {
-        matches = await packageManager.searchPackages(module, token);
+        matches = await packageManager.searchPackages(query, token);
     } catch {
         return undefined;
     }
-    const canonical = canonicalizeName(module);
+    const canonical = canonicalizeName(query);
     const exact = matches.find((pkg) => canonicalizeName(pkg.name) === canonical);
     return exact?.name;
 }

@@ -37,9 +37,9 @@ suite('listMissingPythonPackages', () => {
 
     function makeManager(searchResults: Record<string, string[]>): IPackageManager {
         return {
-            searchPackages: sinon.stub().callsFake((query: string) =>
-                Promise.resolve((searchResults[query] ?? []).map(makePackage)),
-            ),
+            searchPackages: sinon
+                .stub()
+                .callsFake((query: string) => Promise.resolve((searchResults[query] ?? []).map(makePackage))),
         } as unknown as IPackageManager;
     }
 
@@ -58,6 +58,27 @@ suite('listMissingPythonPackages', () => {
         const result = await listMissingPythonPackages(session, manager, { code: 'import requests' });
 
         expect(result).to.deep.equal([{ name: 'requests', referencedName: undefined }]);
+    });
+
+    test('resolves an import whose distribution name differs via the alias map', async () => {
+        const session = makeSession(['cv2']);
+        // There is no PyPI package named `cv2`; only the alias `opencv-python` resolves.
+        const manager = makeManager({ cv2: [], 'opencv-python': ['opencv-python'] });
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import cv2' });
+
+        // The install name is the distribution; the import is kept for display.
+        expect(result).to.deep.equal([{ name: 'opencv-python', referencedName: 'cv2' }]);
+    });
+
+    test('does not offer an aliased import when its distribution is not in the repository', async () => {
+        const session = makeSession(['cv2']);
+        // Neither the import name nor its alias resolves (e.g. offline / restricted index).
+        const manager = makeManager({ cv2: [], 'opencv-python': [] });
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import cv2' });
+
+        expect(result).to.deep.equal([]);
     });
 
     test('returns empty when there are no imports', async () => {
