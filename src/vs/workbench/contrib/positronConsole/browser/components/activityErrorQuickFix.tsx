@@ -72,7 +72,7 @@ const buildAttachment = (text: string): NewChatFile | undefined => {
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
 	const services = usePositronReactServicesContext();
-	const { commandService, notificationService } = services;
+	const { commandService, logService, notificationService } = services;
 	// --- Start Quick Chat fallback ---
 	const { quickChatService } = services;
 	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
@@ -92,11 +92,12 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 		};
 		try {
 			await commandService.executeCommand(NEW_CHAT_COMMAND, options);
-		} catch {
+		} catch (error) {
+			logService.error('Failed to open Posit Assistant chat', error);
 			notificationService.error(
 				localize(
 					'positronConsoleAssistantUnavailable',
-					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
+					"Posit Assistant is not available. Make sure the Posit Assistant extension is installed and enabled."
 				)
 			);
 		}

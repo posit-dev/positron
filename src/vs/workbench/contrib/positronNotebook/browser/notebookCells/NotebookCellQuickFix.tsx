@@ -45,7 +45,7 @@ interface NotebookCellQuickFixProps {
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const services = usePositronReactServicesContext();
-	const { commandService, contextMenuService, notificationService } = services;
+	const { commandService, contextMenuService, logService, notificationService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
@@ -79,15 +79,16 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				behavior: 'submit',
 				...(attachment && { files: [attachment] }),
 			});
-		} catch {
+		} catch (error) {
+			logService.error('Failed to open Posit Assistant chat', error);
 			notificationService.error(
 				localize(
 					'positronNotebookAssistantUnavailable',
-					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
+					"Posit Assistant is not available. Make sure the Posit Assistant extension is installed and enabled."
 				)
 			);
 		}
-	}, [commandService, notificationService, attachment]);
+	}, [commandService, logService, notificationService, attachment]);
 
 	const runQuickChat = useCallback((prompt: string, isNew: boolean) => {
 		const query = cleanError
