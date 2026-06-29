@@ -712,7 +712,7 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	// Pass the licensee info (if available) to the server services
 	const positronLicenseeInfo = licenseValidationResult?.valid ? {
 		licensee: licenseValidationResult.licensee,
-		issuer: licenseValidationResult.issuer,
+		issuer: licenseValidationResult.issuer
 	} : undefined;
 	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables, positronLicenseeInfo);
 	// --- End Positron ---

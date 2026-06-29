@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
+import { FileAccess } from '../../../../base/common/network.js';
 import { isWeb, isWorkbench } from '../../../../base/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -13,6 +14,7 @@ import { IBannerService } from '../../../services/banner/browser/bannerService.j
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import * as fs from 'fs';
 
 const BANNER_ID = 'positron.academicLicense';
 const DISMISSED_KEY = 'workbench.banner.academicLicense.dismissed';
@@ -30,8 +32,10 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 	) {
 		super();
 
-		// Only show on web builds that are not Posit Workbench.
-		if (!isWeb || isWorkbench) {
+		const hasWebUi = fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
+
+		// Only show on web builds that are not Posit Workbench, nor remote ssh (which don't have web ui)
+		if (!isWeb || isWorkbench || !hasWebUi) {
 			return;
 		}
 

@@ -58,12 +58,6 @@ interface LicenseKey {
 	 * valid Positron license issuing agent.
 	 */
 	signature: string;
-
-	/**
-	 * The type of license, e.g. "academic". Used to display appropriate notices
-	 * in the UI.
-	 */
-	license_type?: string;
 }
 
 /**
@@ -265,6 +259,6 @@ export async function validateLicense(connectionToken: string, license: string, 
 	return {
 		valid: true,
 		licensee: licenseKey.licensee,
-		issuer: licenseKey.issuer,
+		issuer: licenseKey.issuer
 	};
 }
