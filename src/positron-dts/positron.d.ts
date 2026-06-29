@@ -2051,7 +2051,7 @@ declare module 'positron' {
 		 * @param value The stored cleartext parameter value.
 		 * @returns The redacted string to display, or undefined to show no placeholder.
 		 */
-		redactParameterValue?(mechanismId: string, parameterId: string, value: string): ProviderResult<string>;
+		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
 	}
 
 	/**
