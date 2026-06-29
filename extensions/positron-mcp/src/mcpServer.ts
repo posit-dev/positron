@@ -117,7 +117,7 @@ function errorResult(id: McpRequest['id'], code: number, message: string): McpRe
  */
 const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. When a task involves running code, inspecting data, plotting, or editing notebooks, prefer these tools over your own shell or file-editing tools, so your work shares the user's live session state and stays visible to them.
 
-Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use foreground-session to see the active language/session and get-variables to inspect what is defined.
+Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use get-session to see the active language/session and get-variables to inspect what is defined.
 
 Plots: after running code that produces a plot, call get-plot to see the rendered image from the Plots pane.
 
@@ -217,16 +217,10 @@ export class McpServer implements vscode.Disposable {
 		const empty = { type: 'object', properties: {}, additionalProperties: false };
 		return [
 			{
-				name: 'get-time',
-				description: 'Get the current time in ISO format',
+				name: 'get-session',
+				description: 'Get the active runtime session: its language, name, and ID. Call this first to learn which language (Python or R) is running before running code or inspecting variables.',
 				inputSchema: empty,
-				run: async () => JSON.stringify({ time: new Date().toISOString() }),
-			},
-			{
-				name: 'foreground-session',
-				description: 'Get current runtime session - Returns active Python/R/JS console information',
-				inputSchema: empty,
-				run: () => this.describeForegroundSession(),
+				run: () => this.describeSession(),
 			},
 			{
 				name: 'get-variables',
@@ -269,15 +263,9 @@ export class McpServer implements vscode.Disposable {
 			},
 			{
 				name: 'get-workspace-info',
-				description: 'Get comprehensive workspace information',
-				inputSchema: {
-					type: 'object',
-					properties: {
-						includeConfig: { type: 'boolean', default: true },
-						configSection: { type: 'string' },
-					},
-				},
-				run: async (args) => JSON.stringify(await this.describeWorkspace(args)),
+				description: 'List the workspace folders (project roots) open in Positron. Use to resolve relative paths and understand the project layout.',
+				inputSchema: empty,
+				run: async () => JSON.stringify(this.describeWorkspace()),
 			},
 			{
 				name: 'notebook-read',
@@ -364,7 +352,7 @@ export class McpServer implements vscode.Disposable {
 		];
 	}
 
-	private async describeForegroundSession(): Promise<string> {
+	private async describeSession(): Promise<string> {
 		const session = await positron.runtime.getForegroundSession();
 		if (!session) {
 			return 'No active runtime session';
@@ -404,8 +392,8 @@ export class McpServer implements vscode.Disposable {
 			return `• ${v.name} - ${v.type} ${display ? `: ${display}` : ''}`;
 		});
 
-		// ponytail: hardcoded "Python" regardless of language -- preserved from original; the wording fix is a separate change.
-		let text = `You have ${variables.length} variable${variables.length !== 1 ? 's' : ''} in your Python workspace:\n\n${lines.join('\n')}`;
+		const languageName = session.runtimeMetadata.languageName;
+		let text = `You have ${variables.length} variable${variables.length !== 1 ? 's' : ''} in your ${languageName} workspace:\n\n${lines.join('\n')}`;
 
 		const dataframes = variables.filter(v => v.type.includes('DataFrame'));
 		if (dataframes.length > 0) {
@@ -482,34 +470,9 @@ export class McpServer implements vscode.Disposable {
 		return result;
 	}
 
-	private async describeWorkspace(args: { includeConfig?: boolean; configSection?: string }): Promise<object> {
-		const { includeConfig = true, configSection } = args;
-
+	private describeWorkspace(): object {
 		const folders = (vscode.workspace.workspaceFolders ?? []).map(f => ({ uri: f.uri.toString(), name: f.name, index: f.index }));
-		const active = await positron.runtime.getForegroundSession();
-		const sessions = await positron.runtime.getActiveSessions();
-		const activeRuntimes = await Promise.all(sessions.map(async s => ({
-			languageId: s.runtimeMetadata.languageId,
-			sessionId: s.metadata.sessionId,
-			sessionName: (await s.getDynState()).sessionName,
-			isActive: active?.metadata.sessionId === s.metadata.sessionId,
-		})));
-
-		const result: any = { folders, activeRuntimes };
-		if (includeConfig) {
-			const config = vscode.workspace.getConfiguration(configSection);
-			const configData: Record<string, any> = {};
-			if (configSection) {
-				const inspection = config.inspect('');
-				if (inspection) {
-					configData[configSection] = inspection;
-				}
-			} else {
-				configData['positron.mcp.enable'] = config.get('positron.mcp.enable');
-			}
-			result.configuration = configData;
-		}
-		return result;
+		return { folders };
 	}
 
 	private async requireExecutionConsent(languageId: string, code: string): Promise<void> {
