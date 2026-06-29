@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
-import { createAnthropic } from '@ai-sdk/anthropic';
 import { deleteConfiguration } from '../../config';
 import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from '../../constants';
@@ -48,7 +47,6 @@ interface PositModelsResponse {
  */
 export class PositModelProvider extends VercelModelProvider {
 	private _anthropicClient!: Anthropic;
-	private _useNativeSdk!: boolean;
 	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -78,32 +76,15 @@ export class PositModelProvider extends VercelModelProvider {
 
 	/**
 	 * Initializes the Posit AI provider with OAuth-authenticated Anthropic client.
-	 * Uses either native Anthropic SDK or Vercel AI SDK based on the useAnthropicSdk preference.
 	 */
 	protected override initializeProvider() {
 		const baseUrl = this.baseUrl;
-
-		// Check preference: true (default) = native SDK, false = Vercel SDK
-		this._useNativeSdk = vscode.workspace.getConfiguration('positron.assistant')
-			.get('useAnthropicSdk', true);
-
-		if (this._useNativeSdk) {
-			// Initialize native Anthropic SDK (existing behavior)
-			this._anthropicClient = new Anthropic({
-				authToken: '_', // Actual token is set in authFetch
-				apiKey: '_',   // API key is not used
-				fetch: this.authFetch.bind(this),
-				baseURL: `${baseUrl}/anthropic`,
-			});
-		} else {
-			// Initialize Vercel AI SDK provider with OAuth fetch
-			// Note: Vercel SDK expects baseURL to include /v1 (default is https://api.anthropic.com/v1)
-			this.aiProvider = createAnthropic({
-				apiKey: '_',   // API key is not used
-				baseURL: `${baseUrl}/anthropic/v1`,
-				fetch: this.authFetch.bind(this),
-			});
-		}
+		this._anthropicClient = new Anthropic({
+			authToken: '_', // Actual token is set in authFetch
+			apiKey: '_',   // API key is not used
+			fetch: this.authFetch.bind(this),
+			baseURL: `${baseUrl}/anthropic`,
+		});
 	}
 
 	/**
@@ -146,15 +127,6 @@ export class PositModelProvider extends VercelModelProvider {
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
-		// If using Vercel SDK, delegate to base class implementation
-		if (!this._useNativeSdk) {
-			return this.provideVercelResponse(model, messages, options, progress, token, {
-				toolResultExperimentalContent: true,
-				anthropicCacheBreakpoint: true
-			});
-		}
-
-		// Native SDK implementation follows
 		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
 			? options.modelOptions.cacheControl
 			: undefined;

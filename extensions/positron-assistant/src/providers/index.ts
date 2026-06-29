@@ -21,7 +21,6 @@ import { EchoModelProvider } from './test/echoProvider';
 import { OpenAIModelProvider } from './openai/openaiProvider';
 import { OpenAICompatibleModelProvider } from './openai/openaiCompatibleProvider';
 import { AnthropicModelProvider } from './anthropic/anthropicProvider';
-import { AnthropicAIModelProvider } from './anthropic/anthropicVercelProvider';
 import { FoundryModelProvider } from './foundry/foundryProvider';
 import { GoogleModelProvider } from './google/googleProvider';
 import { SnowflakeModelProvider } from './snowflake/snowflakeProvider';
@@ -142,13 +141,9 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 		ErrorModelProvider,
 	];
 
-	// Check if the user disabled the Anthropic SDK. This is for development purposes.
-	const useAnthropicSdk = vscode.workspace.getConfiguration('positron.assistant').get('useAnthropicSdk', true);
-	const anthropicClass = useAnthropicSdk ? AnthropicModelProvider : AnthropicAIModelProvider;
-
 	const providers = [
 		...testProviders,
-		anthropicClass,
+		AnthropicModelProvider,
 		AWSModelProvider,
 		FoundryModelProvider,
 		CopilotModelProvider,

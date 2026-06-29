@@ -33,7 +33,6 @@ suite('PositModelProvider', () => {
 			'scope': 'openid profile email',
 			'clientId': 'test-client-id',
 			'baseUrl': 'https://api.test.localhost',
-			'useAnthropicSdk': true // Native SDK by default
 		};
 		const mockConfig = {
 			get: (key: string, defaultValue?: any) => configValues[key] ?? defaultValue,
