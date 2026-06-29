@@ -129,7 +129,7 @@ function errorResult(id: McpRequest['id'], code: number, message: string): McpRe
  */
 const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. When a task involves running code, inspecting data, plotting, or editing notebooks, prefer these tools over your own shell or file-editing tools, so your work shares the user's live session state and stays visible to them.
 
-Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use get-session to see the active language/session and get-variables to inspect what is defined.
+Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use get-session to see the active language/session and get-variables to inspect what is defined. If no session is active, use session-start to begin one.
 
 Plots: after running code that produces a plot, call get-plot to see the rendered image from the Plots pane.
 
@@ -364,6 +364,20 @@ export class McpServer implements vscode.Disposable {
 				run: () => this.getPlot(),
 			},
 			{
+				name: 'session-start',
+				description: 'Start a runtime session for a language when none is active. Use this when another tool reports "No active runtime session". If a session for the language is already running, it is left as-is.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						language: { type: 'string', enum: ['python', 'r'], description: 'The language to start a session for.' },
+					},
+					required: ['language'],
+					additionalProperties: false,
+				},
+				annotations: { readOnlyHint: false },
+				run: (args) => this.startSession(args),
+			},
+			{
 				name: 'session-interrupt',
 				description: 'Interrupt the active runtime session to stop a long-running or stuck computation.',
 				inputSchema: empty,
@@ -396,7 +410,7 @@ export class McpServer implements vscode.Disposable {
 	private async describeSession(): Promise<string> {
 		const session = await positron.runtime.getForegroundSession();
 		if (!session) {
-			return 'No active runtime session';
+			return 'No active runtime session. Use session-start to begin one.';
 		}
 		const dynState = await session.getDynState();
 		return [
@@ -785,6 +799,30 @@ export class McpServer implements vscode.Disposable {
 		// Returned untruncated: the image is the whole point, and the server is
 		// localhost-only. Truncating base64 would corrupt it, not shrink it.
 		return [{ type: 'image', data: match[2], mimeType: match[1] }];
+	}
+
+	private async startSession(args: { language: string }): Promise<string> {
+		const { language } = args;
+		if (!language?.trim()) {
+			throw new Error('language is required');
+		}
+
+		// If a session for this language is already active, leave it alone --
+		// selecting a runtime shuts the existing one down and wipes its state.
+		const sessions = await positron.runtime.getActiveSessions();
+		const existing = sessions.find(s => s.runtimeMetadata.languageId === language);
+		if (existing) {
+			const dynState = await existing.getDynState();
+			return `A ${language} session (${dynState.sessionName}) is already running.`;
+		}
+
+		const runtime = await positron.runtime.getPreferredRuntime(language);
+		if (!runtime) {
+			return `No ${language} runtime is registered in Positron.`;
+		}
+
+		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+		return `Starting ${runtime.runtimeName}. The session is initializing; give it a moment before running code.`;
 	}
 
 	private async interruptActiveSession(): Promise<string> {
