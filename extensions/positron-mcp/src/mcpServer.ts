@@ -77,15 +77,15 @@ const TEXT_OUTPUT_MIMES = new Set([
 	'application/x.notebook.stream',
 ]);
 
-const MAX_NOTEBOOK_OUTPUT = 8 * 1024;
+const MAX_OUTPUT_LENGTH = 8 * 1024;
 
 function isTextOutputMime(mimeType: string): boolean {
 	return TEXT_OUTPUT_MIMES.has(mimeType.split(';')[0].trim().toLowerCase());
 }
 
 function truncateOutput(text: string): string {
-	return text.length > MAX_NOTEBOOK_OUTPUT
-		? text.slice(0, MAX_NOTEBOOK_OUTPUT) + '\n\n[output truncated]'
+	return text.length > MAX_OUTPUT_LENGTH
+		? text.slice(0, MAX_OUTPUT_LENGTH) + '\n\n[output truncated]'
 		: text;
 }
 
@@ -338,7 +338,7 @@ export class McpServer implements vscode.Disposable {
 				inputSchema: {
 					type: 'object',
 					properties: {
-						path: { type: 'string', description: 'Absolute path or workspace-relative path of the file. If omitted, uses the active editor.' },
+						path: { type: 'string', description: 'Absolute path, or a path relative to the first workspace folder. If omitted, uses the active editor.' },
 					},
 				},
 				run: (args) => this.getDiagnostics(args),
@@ -722,6 +722,8 @@ export class McpServer implements vscode.Disposable {
 		if (!match) {
 			throw new ToolError(-32603, 'The active plot could not be decoded.');
 		}
+		// Returned untruncated: the image is the whole point, and the server is
+		// localhost-only. Truncating base64 would corrupt it, not shrink it.
 		return [{ type: 'image', data: match[2], mimeType: match[1] }];
 	}
 
@@ -789,7 +791,7 @@ export class McpServer implements vscode.Disposable {
 
 		const diagnostics = vscode.languages.getDiagnostics(uri);
 		if (diagnostics.length === 0) {
-			return `No diagnostics for ${uri.fsPath}.`;
+			return `No diagnostics reported for ${uri.fsPath}. (If the file has not been opened in the editor, the language server may not have analyzed it yet.)`;
 		}
 
 		const severityNames = ['Error', 'Warning', 'Information', 'Hint'];
