@@ -77,6 +77,16 @@ function configChange(...changedKeys: string[]): IConfigurationChangeEvent {
 	};
 }
 
+/** A stream that rejects before its first delta (a provider error at request time). */
+function errorStream(): AsyncIterable<string> {
+	return { [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(new Error('failed before first delta')) }) };
+}
+
+/** A stream that never yields and never completes (a model that accepts but stalls). */
+function stallStream(): AsyncIterable<string> {
+	return { [Symbol.asyncIterator]: () => ({ next: () => new Promise<IteratorResult<string>>(() => { }) }) };
+}
+
 async function collect(stream: AsyncIterable<string>): Promise<string> {
 	let text = '';
 	for await (const chunk of stream) {
@@ -256,6 +266,50 @@ describe('HeadlessLanguageModelService', () => {
 			expect(result.available).toBe(true);
 			if (result.available) {
 				expect(await collect(result.text)).toBe('Hello, world');
+			}
+		});
+	});
+
+	describe('fallback on stall', () => {
+		it('falls back to the next candidate when the first fails before its first delta', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			// Both match the 'haiku' pattern; the first (in listing order) errors
+			// before any delta, so the request should land on the second.
+			const service = createService(fakeEngine({
+				models: { anthropic: [model('haiku-bad', 'Haiku Bad', 'anthropic'), model('haiku-good', 'Haiku Good', 'anthropic')] },
+				stream: (request: IEngineChatRequest) =>
+					request.modelId === 'haiku-bad' ? errorStream() : AsyncIterableObject.fromArray(['ok']),
+			}));
+			const result = await service.streamText({ systemPrompt: 's', messages: [], model: { patterns: ['haiku'] } });
+			expect(result.available && result.model.id).toBe('haiku-good');
+		});
+
+		it('reports temporarily-unavailable when every candidate fails before its first delta', async () => {
+			signedInAuthProviders.add('anthropic-api');
+			const service = createService(fakeEngine({
+				models: { anthropic: [model('haiku-1', 'Haiku One', 'anthropic'), model('haiku-2', 'Haiku Two', 'anthropic')] },
+				stream: () => errorStream(),
+			}));
+			const result = await service.streamText({ systemPrompt: 's', messages: [], model: { patterns: ['haiku'] } });
+			expect(result).toEqual({ available: false, reason: 'temporarily-unavailable' });
+		});
+
+		it('falls back to the next candidate when the first stalls past the first-delta timeout', async () => {
+			vi.useFakeTimers();
+			try {
+				signedInAuthProviders.add('anthropic-api');
+				const service = createService(fakeEngine({
+					models: { anthropic: [model('haiku-stall', 'Haiku Stall', 'anthropic'), model('haiku-ok', 'Haiku OK', 'anthropic')] },
+					stream: (request: IEngineChatRequest) =>
+						request.modelId === 'haiku-stall' ? stallStream() : AsyncIterableObject.fromArray(['ok']),
+				}));
+				const resultPromise = service.streamText({ systemPrompt: 's', messages: [], model: { patterns: ['haiku'] } });
+				// Cross the first-delta timeout so the stalled candidate is abandoned.
+				await vi.advanceTimersByTimeAsync(30_000);
+				const result = await resultPromise;
+				expect(result.available && result.model.id).toBe('haiku-ok');
+			} finally {
+				vi.useRealTimers();
 			}
 		});
 	});

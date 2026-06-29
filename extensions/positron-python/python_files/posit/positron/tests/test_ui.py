@@ -276,6 +276,33 @@ def test_best_package_url(headers: Dict[str, Any], expected_url: Any) -> None:
     assert _best_package_url(_StubDist(**headers)) == expected_url  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        (">=3.0", True),
+        ("<3.0", False),
+        (">=99.0", False),
+        ("", True),  # empty specifier -> no constraint
+        ("not-a-real-spec", True),  # malformed -> conservative, do not hide
+    ],
+)
+def test_check_requires_python(kernel: PositronIPyKernel, spec: str, expected: bool) -> None:  # noqa: FBT001
+    """Each spec is evaluated against the running interpreter (any Python 3.x)."""
+    from positron.ui import _check_requires_python
+
+    result = _check_requires_python(kernel, [[spec]])
+
+    assert result == {spec: expected}
+
+
+def test_check_requires_python_multiple_specs(kernel: PositronIPyKernel) -> None:
+    from positron.ui import _check_requires_python
+
+    result = _check_requires_python(kernel, [[">=3.0", ">=99.0"]])
+
+    assert result == {">=3.0": True, ">=99.0": False}
+
+
 def test_is_module_loaded(ui_comm: DummyComm) -> None:
     """Test the `isModuleLoaded` RPC method called from Positron."""
     module = "fallingStars"

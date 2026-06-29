@@ -535,4 +535,14 @@ export default tseslint.config(
 			'import/no-restricted-paths': 'off'
 		}
 	},
+	// --- Start Positron ---
+	// Positron-specific test files in the positron/ subdirectory are contributed
+	// by Posit and thus don't have the Microsoft header.
+	{
+		files: ['./src/extension/test/positron/**/*.test.ts', './src/extension/test/positron/**/*.test.tsx'],
+		rules: {
+			'header/header': 'off'
+		}
+	},
+	// --- End Positron ---
 );

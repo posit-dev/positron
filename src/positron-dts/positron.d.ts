@@ -3235,7 +3235,7 @@ declare module 'positron' {
 		 */
 		export interface ProviderMetadata {
 			/**
-			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot').
+			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot-auth').
 			 * Used internally to distinguish between provider implementations.
 			 */
 			id: string;
@@ -3256,6 +3256,12 @@ declare module 'positron' {
 			 * then 'preview', then 'experimental'.
 			 */
 			status?: 'preview' | 'experimental';
+			/**
+			 * Optional data URL for the provider icon shown in the configuration dialog
+			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
+			 * when not provided.
+			 */
+			logoUrl?: string;
 		}
 
 		/**
@@ -3267,25 +3273,27 @@ declare module 'positron' {
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
-			defaults: LanguageModelConfigOptions;
+			defaults: LanguageModelConfig;
 			signedIn?: boolean;
 			authMethods?: string[];
-		}
-
-		/**
-		 * Positron Language Model configuration.
-		 */
-		export interface LanguageModelConfig extends LanguageModelConfigOptions {
-			type: PositronLanguageModelType;
-			provider: string;
+			/**
+			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
+			 * problem worth surfacing, described by `statusMessage`; `null` =
+			 * nothing to report.
+			 */
+			status?: 'ok' | 'error' | null;
+			/**
+			 * Human-readable reason when `status` is `'error'`
+			 * (e.g. "Authentication expired").
+			 */
+			statusMessage?: string;
 		}
 
 		/**
 		 * Positron Language Model configuration options.
 		 */
-		export interface LanguageModelConfigOptions {
-			name: string;
-			model: string;
+		export interface LanguageModelConfig {
+			model?: string;
 			baseUrl?: string;
 			apiKey?: string;
 			oauth?: boolean;
@@ -3371,38 +3379,51 @@ declare module 'positron' {
 
 		/**
 		 * Show a modal dialog for language model configuration.
+		 * Sources are read from internal state, populated via registerProvider.
 		 */
 		export function showLanguageModelConfig(
-			sources: LanguageModelSource[],
-			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
 			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
 
 		/**
-		 * Registers provider metadata with the core service.
-		 * This allows the core to check provider enable settings without requiring sign-in.
-		 * Should be called during extension activation for all available providers.
+		 * Registers a language model provider with Positron.
 		 *
-		 * @param metadata Provider identification and settings information
+		 * Call once per provider during extension activation. This registers
+		 * everything static about the provider. Creates a toggle
+		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 *
+		 * Returns a Disposable. When disposed, the provider is removed
+		 * from the configuration service.
+		 *
+		 * @param source Provider source definition
+		 * @param onAction Optional callback invoked for user actions.
+		 * @returns A Disposable that unregisters the provider when disposed
 		 */
-		export function registerProviderMetadata(metadata: ProviderMetadata): void;
+		export function registerProvider(
+			source: LanguageModelSource,
+			onAction?: (source: LanguageModelSource, config: LanguageModelConfig, action: string) => Thenable<void>,
+		): vscode.Disposable;
 
 		/**
-		 * Adds the model to the service's known configurations and notifies its listeners.
-		 * @param id the model id
-		 * @param config the model config
+		 * Updates dynamic state for a previously registered provider.
+		 *
+		 * @param id Provider ID (must match a previously registered provider)
+		 * @param update Partial state to deep-merge
 		 */
-		export function addLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
 
 		/**
-		 * Removes the model from the service's known configurations and notifies its listeners.
-		 * @param id the model id
+		 * Returns the sources of all registered, enabled language model
+		 * providers, including their current `signedIn`, `status`, and
+		 * `statusMessage` state.
 		 */
-		export function removeLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
+
+		/**
+		 * Event that fires when a provider's configuration changes via
+		 * registerProvider, unregisterProvider, or updateProvider.
+		 */
+		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
 
 		/**
 		 * The context in which a chat request is made.

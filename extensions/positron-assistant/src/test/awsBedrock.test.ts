@@ -30,7 +30,6 @@ suite('AWSModelProvider', () => {
 		setup(() => {
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -71,7 +70,6 @@ suite('AWSModelProvider', () => {
 			// Create a minimal provider instance for testing
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -419,7 +417,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -443,7 +440,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -467,7 +463,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -491,7 +486,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -514,7 +508,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -535,7 +528,6 @@ suite('AWSModelProvider', () => {
 
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',
@@ -556,7 +548,6 @@ suite('AWSModelProvider', () => {
 		setup(() => {
 			const config: ModelConfig = {
 				id: 'test-bedrock-model',
-				name: 'Test Provider',
 				provider: 'amazon-bedrock',
 				model: 'test-model',
 				apiKey: 'test-key',

@@ -208,7 +208,7 @@ abstract class OpenChatGlobalAction extends Action2 {
 			precondition: ContextKeyExpr.and(
 				ChatContextKeys.Setup.hidden.negate(),
 				ChatContextKeys.Setup.disabledInWorkspace.negate(),
-				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				ChatContextKeys.aiFeaturesEnabled,
 			),
 			// --- End Positron ---
 		});
@@ -935,7 +935,7 @@ export function registerChatActions() {
 				// Hide from command palette when AI features are disabled.
 				precondition: ContextKeyExpr.and(
 					ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Agent),
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{
@@ -972,7 +972,7 @@ export function registerChatActions() {
 				// Hide from command palette when AI features are disabled.
 				precondition: ContextKeyExpr.and(
 					ChatContextKeys.inChatSession,
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{
@@ -1007,7 +1007,7 @@ export function registerChatActions() {
 				precondition: ContextKeyExpr.and(
 					ChatContextKeys.inChatSession,
 					ChatContextKeys.Editing.hasQuestionCarousel,
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{
@@ -1038,7 +1038,7 @@ export function registerChatActions() {
 				precondition: ContextKeyExpr.and(
 					ChatContextKeys.inChatSession,
 					ChatContextKeys.Editing.hasQuestionCarousel,
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{
@@ -1070,7 +1070,7 @@ export function registerChatActions() {
 					ChatContextKeys.inChatSession,
 					ChatContextKeys.Editing.hasQuestionCarousel,
 					ChatContextKeys.chatQuestionCarouselHasTerminal,
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{
@@ -1100,7 +1100,7 @@ export function registerChatActions() {
 				// Hide from command palette when AI features are disabled.
 				precondition: ContextKeyExpr.and(
 					ChatContextKeys.inChatSession,
-					ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+					ChatContextKeys.aiFeaturesEnabled,
 				),
 				// --- End Positron ---
 				keybinding: [{

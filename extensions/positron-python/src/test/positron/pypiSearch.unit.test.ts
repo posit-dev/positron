@@ -6,7 +6,7 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { resetPyPIIndexCacheForTests, searchPyPI } from '../../client/positron/packages/pypiSearch';
+import { resetPyPIIndexCacheForTests, searchPyPI, searchPyPIVersions } from '../../client/positron/packages/pypiSearch';
 
 function makeIndexResponse(names: string[]): Response {
     return {
@@ -118,5 +118,159 @@ suite('searchPyPI', () => {
             caught = e;
         }
         expect(caught).to.be.instanceOf(vscode.CancellationError);
+    });
+});
+
+interface FileEntry {
+    filename: string;
+    'requires-python'?: string | null;
+    yanked?: boolean | string;
+}
+
+function makeVersionsResponse(versions: string[], files: FileEntry[]): Response {
+    return {
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ versions, files }),
+    } as Response;
+}
+
+suite('searchPyPIVersions', () => {
+    let fetchStub: sinon.SinonStub;
+
+    setup(() => {
+        fetchStub = sinon.stub(global, 'fetch');
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    test('excludes versions whose Requires-Python the interpreter does not satisfy', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['1.0', '2.0'],
+                [
+                    { filename: 'pkg-1.0.tar.gz', 'requires-python': '>=3.7' },
+                    { filename: 'pkg-2.0.tar.gz', 'requires-python': '>=3.12' },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => ({ '>=3.7': true, '>=3.12': false }));
+
+        expect(result).to.deep.equal(['1.0']);
+    });
+
+    test('keeps a version whose file has no Requires-Python constraint', async () => {
+        fetchStub.resolves(makeVersionsResponse(['1.0'], [{ filename: 'pkg-1.0.tar.gz', 'requires-python': null }]));
+
+        const result = await searchPyPIVersions('pkg', async () => ({}));
+
+        expect(result).to.deep.equal(['1.0']);
+    });
+
+    test('drops a version whose every file is yanked', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['1.0', '2.0'],
+                [
+                    { filename: 'pkg-1.0.tar.gz', yanked: true },
+                    { filename: 'pkg-2.0.tar.gz', yanked: false },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => ({}));
+
+        expect(result).to.deep.equal(['2.0']);
+    });
+
+    test('keeps a version when only some of its files are yanked', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['1.0'],
+                [
+                    { filename: 'pkg-1.0-cp39-none-any.whl', yanked: true, 'requires-python': '>=3.12' },
+                    { filename: 'pkg-1.0.tar.gz', yanked: false, 'requires-python': '>=3.7' },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => ({ '>=3.12': false, '>=3.7': true }));
+
+        expect(result).to.deep.equal(['1.0']);
+    });
+
+    test('maps files to the longest matching version (1.0 vs 1.0.1)', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['1.0', '1.0.1'],
+                [
+                    { filename: 'pkg-1.0.tar.gz', 'requires-python': '>=3.12' },
+                    { filename: 'pkg-1.0.1.tar.gz', 'requires-python': '>=3.7' },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => ({ '>=3.12': false, '>=3.7': true }));
+
+        // 1.0 is excluded by >=3.12; 1.0.1 kept. Proves pkg-1.0.tar.gz mapped to
+        // 1.0, not 1.0.1.
+        expect(result).to.deep.equal(['1.0.1']);
+    });
+
+    test('preserves the original PyPI version order', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['2.0', '1.0'],
+                [
+                    { filename: 'pkg-2.0.tar.gz', 'requires-python': '>=3.7' },
+                    { filename: 'pkg-1.0.tar.gz', 'requires-python': '>=3.7' },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => ({ '>=3.7': true }));
+
+        expect(result).to.deep.equal(['2.0', '1.0']);
+    });
+
+    test('applies only yank filtering when no resolver is provided', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(['1.0'], [{ filename: 'pkg-1.0.tar.gz', 'requires-python': '>=3.99' }]),
+        );
+
+        const result = await searchPyPIVersions('pkg');
+
+        // No resolver -> Requires-Python is not applied; version stays.
+        expect(result).to.deep.equal(['1.0']);
+    });
+
+    test('degrades to yank-only filtering when the resolver rejects', async () => {
+        fetchStub.resolves(
+            makeVersionsResponse(
+                ['1.0', '2.0'],
+                [
+                    { filename: 'pkg-1.0.tar.gz', 'requires-python': '>=3.99' },
+                    { filename: 'pkg-2.0.tar.gz', yanked: true },
+                ],
+            ),
+        );
+
+        const result = await searchPyPIVersions('pkg', async () => {
+            throw new Error('kernel unavailable');
+        });
+
+        // Resolver failed: Requires-Python skipped (1.0 stays), yank still applied (2.0 dropped).
+        expect(result).to.deep.equal(['1.0']);
+    });
+
+    test('returns versions unfiltered when the response has no files', async () => {
+        fetchStub.resolves(makeVersionsResponse(['1.0', '2.0'], []));
+
+        const result = await searchPyPIVersions('pkg', async () => ({}));
+
+        expect(result).to.deep.equal(['1.0', '2.0']);
     });
 });

@@ -79,7 +79,7 @@ const chatViewDescriptor: IViewDescriptor = {
 		// --- Start Positron ---
 		// Hide the Chat view (and its auto-generated "Focus on Chat View" command)
 		// when AI features are disabled.
-		ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+		ChatContextKeys.aiFeaturesEnabled,
 		// --- End Positron ---
 		ContextKeyExpr.or(
 			ContextKeyExpr.and(

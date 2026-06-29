@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './topActionBarSessionManager.css';
+import './topActionBarSessionPicker.css';
 
 // React.
 import { useEffect, useState } from 'react';
@@ -32,7 +32,7 @@ const startSession = localize('positron.console.startSession', "Start Session");
  * - allows users to switch between console sessions
  * - allows the user to start a new console session
  */
-export const TopActionBarSessionManager = () => {
+export const TopActionBarSessionPicker = () => {
 	const services = usePositronReactServicesContext();
 
 	const [displayInfo, setDisplayInfo] = useState<IRuntimeSessionDisplayInfo | undefined>(
@@ -72,19 +72,19 @@ export const TopActionBarSessionManager = () => {
 			commandId={command}
 			height={24}
 		>
-			<div className='top-action-bar-session-manager-face show-file-icons'>
+			<div className='top-action-bar-session-picker-face show-file-icons'>
 				{runtimeStatus !== undefined &&
 					<RuntimeStatusIcon status={runtimeStatus} />
 				}
 				{displayInfo
 					? <RuntimeIcon
-						data-testid='session-manager-icon'
+						data-testid='session-picker-icon'
 						languageId={displayInfo.languageId}
 						notebookUri={displayInfo.notebookUri}
 						sessionMode={displayInfo.sessionMode}
 					/>
 					: <ActionBarButtonIcon
-						data-testid='session-manager-icon'
+						data-testid='session-picker-icon'
 						icon={Codicon.arrowSwap}
 					/>
 				}

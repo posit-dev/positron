@@ -306,7 +306,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
+				this.logger.trace(`[${model.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
 				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
 			}
 

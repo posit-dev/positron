@@ -5164,7 +5164,7 @@
 				},
 				{
 					"command": "github.copilot.interactiveSession.feedback",
-					"when": "github.copilot-chat.activated && !github.copilot.interactiveSession.disabled && !config.chat.disableAIFeatures"
+					"when": "github.copilot-chat.activated && !github.copilot.interactiveSession.disabled && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.debug.workbenchState",
@@ -5192,7 +5192,7 @@
 				},
 				{
 					"command": "github.copilot.chat.review",
-					"when": "!github.copilot.interactiveSession.disabled && !config.chat.disableAIFeatures"
+					"when": "!github.copilot.interactiveSession.disabled && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.review.apply",
@@ -5444,11 +5444,11 @@
 				},
 				{
 					"command": "github.copilot.chat.tools.memory.showMemories",
-					"when": "config.github.copilot.chat.tools.memory.enabled && !config.chat.disableAIFeatures"
+					"when": "config.github.copilot.chat.tools.memory.enabled && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.tools.memory.clearMemories",
-					"when": "config.github.copilot.chat.tools.memory.enabled && !config.chat.disableAIFeatures"
+					"when": "config.github.copilot.chat.tools.memory.enabled && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.sessions.commit",
@@ -5492,63 +5492,79 @@
 				},
 				{
 					"command": "github.copilot.cli.newSession",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.cli.newSessionToSide",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.explain.palette",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.codeReview.run",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.openUserPreferences",
-					"when": "config.github.copilot.chat.enableUserPreferences && !config.chat.disableAIFeatures"
+					"when": "config.github.copilot.chat.enableUserPreferences && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.generate",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.fix",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.terminal.explainTerminalLastCommand",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.attachFile",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.attachSelection",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.open.walkthrough",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.debug.generateInlineEditTests",
-					"when": "resourceScheme == 'ccreq' && !config.chat.disableAIFeatures"
+					"when": "resourceScheme == 'ccreq' && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.buildRemoteWorkspaceIndex",
-					"when": "github.copilot-chat.activated && !config.chat.disableAIFeatures"
+					"when": "github.copilot-chat.activated && chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.report",
-					"when": "!config.chat.disableAIFeatures"
+					"when": "chatAiFeaturesEnabled"
 				},
 				{
 					"command": "github.copilot.chat.otel.exportAgentTracesDB",
-					"when": "config.github.copilot.chat.otel.dbSpanExporter.enabled && !config.chat.disableAIFeatures"
+					"when": "config.github.copilot.chat.otel.dbSpanExporter.enabled && chatAiFeaturesEnabled"
+				},
+				{
+					"command": "github.copilot.debug.showChatLogView",
+					"when": "chatAiFeaturesEnabled"
+				},
+				{
+					"command": "github.copilot.debug.collectDiagnostics",
+					"when": "chatAiFeaturesEnabled"
+				},
+				{
+					"command": "github.copilot.chat.notebook.enableFollowCellExecution",
+					"when": "config.github.copilot.chat.notebook.followCellExecution.enabled && chatAiFeaturesEnabled"
+				},
+				{
+					"command": "github.copilot.chat.notebook.disableFollowCellExecution",
+					"when": "config.github.copilot.chat.notebook.followCellExecution.enabled && chatAiFeaturesEnabled"
 				}
 			],
 			"view/title": [

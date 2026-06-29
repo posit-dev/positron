@@ -32,18 +32,25 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function setup(options: { actionsEnabled?: boolean; hasChatModels?: boolean }) {
+	function setup(options: { aiEnabled?: boolean; actionsEnabled?: boolean; hasChatModels?: boolean }) {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		configurationService.setUserConfiguration('ai.enabled', options.aiEnabled ?? true);
 		configurationService.setUserConfiguration('console.assistantActions.enabled', options.actionsEnabled ?? true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', options.hasChatModels ?? true);
 	}
 
 	it('shows Fix and Explain when enabled, installed, and a model is available', () => {
-		setup({ actionsEnabled: true, hasChatModels: true });
+		setup({ aiEnabled: true, actionsEnabled: true, hasChatModels: true });
 		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
 		expect(screen.getByText('Fix')).toBeInTheDocument();
 		expect(screen.getByText('Explain')).toBeInTheDocument();
+	});
+
+	it('hides the actions when the AI main switch is off', () => {
+		setup({ aiEnabled: false, actionsEnabled: true, hasChatModels: true });
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 
 	it('hides the actions when no model is available', () => {
@@ -69,6 +76,7 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 	it('hides the actions when Posit Assistant is not installed', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		configurationService.setUserConfiguration('ai.enabled', true);
 		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 

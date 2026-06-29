@@ -68,7 +68,7 @@ export async function syncSessionToGlobalState(
 		// Account ID changed (e.g. user re-saved with a new key). Update it.
 		const updated = existingConfigs.map(c =>
 			c.provider === providerId
-				? { ...c, id: session.account.id, name: session.account.label }
+				? { ...c, id: session.account.id }
 				: c
 		);
 		await context.globalState.update('positron.assistant.models', updated);
@@ -89,7 +89,6 @@ export async function syncSessionToGlobalState(
 		id: session.account.id,
 		provider: providerId,
 		type: providerClass.source.type,
-		name: session.account.label,
 		model: providerClass.source.defaults.model,
 		baseUrl: savedBaseUrl,
 		toolCalls: providerClass.source.defaults.toolCalls,
@@ -118,33 +117,6 @@ export async function deleteConfigurationByProvider(context: vscode.ExtensionCon
 	}
 }
 
-/**
- * Reconstructs a LanguageModelSource from a stored model configuration.
- *
- * This function is used to recreate the LanguageModelSource object needed by positron.ai.addLanguageModelConfig()
- * from the minimal StoredModelConfig data that is persisted in globalState.
- *
- * Note: The returned LanguageModelSource is NOT the same as the original provider's static source definition.
- */
-export function expandConfigToSource(config: StoredModelConfig): positron.ai.LanguageModelSource {
-	return {
-		...config,
-		provider: {
-			id: config.provider,
-			displayName: config.name,
-			// Empty string for custom/stored configs since they're not registered via registerProviderMetadata()
-			// and don't have provider-level enable settings. This value is never accessed by addLanguageModelConfig().
-			settingName: ''
-		},
-		supportedOptions: [],
-		defaults: {
-			name: config.name,
-			model: config.model
-		},
-		type: config.type
-	};
-}
-
 export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
@@ -167,9 +139,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 
 	clearTokenUsage(targetConfig.provider);
 
-	const removedSource = expandConfigToSource(targetConfig);
-	removedSource.signedIn = false;
-	positron.ai.removeLanguageModelConfig(removedSource);
+	positron.ai.updateProvider(targetConfig.provider, { signedIn: false });
 
 	// Refresh CopilotService signed-in state if this was a copilot model
 	if (targetConfig.provider === 'copilot-auth') {
@@ -184,12 +154,10 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 export function logStoredModels(context: vscode.ExtensionContext): void {
 	const models = getStoredModels(context);
 	const chatModels = models.filter(m => m.type === 'chat').map(m => ({
-		name: m.name,
 		model: m.model,
 		provider: m.provider,
 	}));
 	const completionModels = models.filter(m => m.type === 'completion').map(m => ({
-		name: m.name,
 		model: m.model,
 		provider: m.provider,
 	}));

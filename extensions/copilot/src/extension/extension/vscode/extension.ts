@@ -41,9 +41,8 @@ export async function baseActivate(configuration: IExtensionActivationConfigurat
 	}
 
 	// --- Start Positron ---
-	// Don't enable the extension when Positron Assistant is disabled
-	const enabled = workspace.getConfiguration('positron.assistant').get('enable');
-	if (!enabled) {
+	// Don't activate when the AI switch is off.
+	if (workspace.getConfiguration().get('ai.enabled') === false) {
 		return context;
 	}
 	// --- End Positron ---

@@ -9,17 +9,28 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
-import { ICommandService, CommandsRegistry } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { ILogService } from '../../../../../platform/log/common/log.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { isFileExcludedFromAI } from '../../../chat/browser/tools/utils.js';
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
+import { generateNotebookSuggestions, INotebookSuggestion } from './notebookSuggestions.js';
+import { NOTEBOOK_SUGGESTIONS_MODEL_KEY } from './notebookSuggestionsConfig.js';
 import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
+
+/**
+ * Bound the whole generation: a stalling model (no deltas, no error -- e.g. a
+ * fast/cheap-tier model the gateway lists but can't stream) must not leave the
+ * panel generating forever. Matches the ghost-cell and visualize 30s cap.
+ */
+const GENERATE_SUGGESTIONS_TIMEOUT_MS = 30_000;
 
 /**
  * PredefinedAction interface.
@@ -64,22 +75,14 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 ];
 
 /**
- * AISuggestion interface.
- */
-interface AISuggestion {
-	label: string;
-	query: string;
-	mode: ChatModeKind;
-}
-
-/**
  * AssistantPanelActionsProps interface.
  */
 export interface AssistantPanelActionsProps {
 	notebook: IPositronNotebookInstance;
-	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	headlessLmService: IHeadlessLanguageModelService;
+	notebookContext: INotebookContextDTO | undefined;
 	notificationService: INotificationService;
-	logService: ILogService;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
 }
@@ -89,11 +92,11 @@ export interface AssistantPanelActionsProps {
  * Displays custom prompt input and predefined action buttons.
  */
 export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
-	const { notebook, commandService, notificationService, logService, onActionSelected } = props;
+	const { notebook, configurationService, headlessLmService, notebookContext, notificationService, onActionSelected } = props;
 
 	const [customPrompt, setCustomPrompt] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
-	const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+	const [aiSuggestions, setAiSuggestions] = useState<INotebookSuggestion[]>([]);
 	const cancellationTokenSourceRef = useRef<CancellationTokenSource | null>(null);
 	const suggestionsContainerRef = useRef<HTMLDivElement>(null);
 	const userHasScrolledRef = useRef(false);
@@ -130,60 +133,62 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			return;
 		}
 
+		const notifyNoSuggestions = () => notificationService.info(
+			localize(
+				'assistantPanel.noSuggestions',
+				'No suggestions available. The assistant couldn\'t identify specific actions for this notebook. Try using the pre-built actions above or enter a custom prompt.'
+			)
+		);
+
+		// Honor the AI main switch and the per-file exclusion the user
+		// configured: never send a notebook to a model when AI is disabled or
+		// the file is excluded. Read live, since `ai.enabled` toggles without a
+		// window reload.
+		const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+		if (!notebookContext || !aiEnabled || isFileExcludedFromAI(configurationService, notebook.uri.path)) {
+			notifyNoSuggestions();
+			return;
+		}
+
 		setIsGenerating(true);
 		setAiSuggestions([]);
 
 		const cancellationTokenSource = new CancellationTokenSource();
 		cancellationTokenSourceRef.current = cancellationTokenSource;
 
-		try {
-			const callbackCommandId = `positron-notebook-suggestions-callback-${generateUuid()}`;
-			const progressiveSuggestions: AISuggestion[] = [];
+		// Cancel the request if the model stalls, so the panel fails visibly
+		// instead of spinning forever. Any suggestions that already streamed in
+		// are kept (they were reported via setAiSuggestions).
+		let timedOut = false;
+		const timeoutHandle = setTimeout(() => {
+			timedOut = true;
+			cancellationTokenSource.cancel();
+		}, GENERATE_SUGGESTIONS_TIMEOUT_MS);
 
-			const callbackDisposable = CommandsRegistry.registerCommand(
-				callbackCommandId,
-				(_accessor, suggestion: { label: string; query: string; mode: ChatModeKind }) => {
-					// Check if cancelled before updating state to prevent memory leak
-					if (cancellationTokenSource.token.isCancellationRequested) {
-						return;
-					}
-					progressiveSuggestions.push(suggestion);
-					setAiSuggestions([...progressiveSuggestions]);
-				}
+		try {
+			const modelSetting = configurationService.getValue<string[]>(NOTEBOOK_SUGGESTIONS_MODEL_KEY);
+			const suggestions = await generateNotebookSuggestions(
+				headlessLmService,
+				notebookContext,
+				modelSetting,
+				cancellationTokenSource.token,
+				setAiSuggestions,
 			);
 
-			try {
-				const result = await commandService.executeCommand<{
-					suggestions: AISuggestion[];
-					rawResponseText?: string;
-				}>(
-					'positron-assistant.generateNotebookSuggestions',
-					notebook.uri.toString(),
-					callbackCommandId,
-					cancellationTokenSource.token
-				);
-
-				if (cancellationTokenSource.token.isCancellationRequested) {
-					return;
+			if (cancellationTokenSource.token.isCancellationRequested) {
+				// A timeout with nothing to show is a silent stall; tell the user.
+				// A user-initiated cancel (regenerate / close) stays silent.
+				if (timedOut && suggestions.length === 0) {
+					notifyNoSuggestions();
 				}
-
-				const suggestions = result?.suggestions || [];
-				if (suggestions.length === 0) {
-					if (result?.rawResponseText) {
-						logService.warn('[AssistantPanel] No suggestions generated. Raw LLM response:', result.rawResponseText);
-					}
-					notificationService.info(
-						localize(
-							'assistantPanel.noSuggestions',
-							'No suggestions available. The assistant couldn\'t identify specific actions for this notebook. Try using the pre-built actions above or enter a custom prompt.'
-						)
-					);
-				}
-
-				setAiSuggestions(suggestions);
-			} finally {
-				callbackDisposable.dispose();
+				return;
 			}
+
+			if (suggestions.length === 0) {
+				notifyNoSuggestions();
+			}
+
+			setAiSuggestions(suggestions);
 		} catch (error) {
 			if (!isCancellationError(error)) {
 				notificationService.error(
@@ -195,10 +200,12 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 				);
 			}
 		} finally {
+			clearTimeout(timeoutHandle);
+			cancellationTokenSource.dispose();
 			setIsGenerating(false);
 			cancellationTokenSourceRef.current = null;
 		}
-	}, [isGenerating, notebook, commandService, notificationService, logService]);
+	}, [isGenerating, notebook, notebookContext, configurationService, headlessLmService, notificationService]);
 
 	const handleActionClick = useCallback((action: PredefinedAction) => {
 		onActionSelected(action.query, action.mode);

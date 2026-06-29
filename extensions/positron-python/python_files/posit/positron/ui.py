@@ -8,6 +8,7 @@ import importlib.metadata
 import inspect
 import logging
 import os
+import platform
 import sys
 import types
 import webbrowser
@@ -16,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Unio
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
@@ -280,12 +282,35 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
 
+# Evaluate Requires-Python specifiers against this kernel's interpreter.
+def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    # params[0] is the list of distinct Requires-Python specifier strings the
+    # extension collected from a package's PyPI files. We answer, for each, whether
+    # this interpreter satisfies it, using the bundled `packaging` (the same PEP 440
+    # implementation pip relies on) against our own version. This keeps PEP 440
+    # semantics in the tool that owns them rather than re-implementing them in TS.
+    specs = params[0] if params else []
+    py_version = platform.python_version()
+    result: Dict[str, JsonData] = {}
+    if isinstance(specs, list):
+        for spec in specs:
+            if not isinstance(spec, str):
+                continue
+            try:
+                result[spec] = SpecifierSet(spec).contains(py_version, prereleases=True)
+            except Exception:
+                # Conservative: an unparseable specifier must not hide a version.
+                result[spec] = True
+    return result
+
+
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
     "getMissingImports": _get_missing_imports,
     "getPackagesInstalled": _get_packages_installed,
+    "checkRequiresPython": _check_requires_python,
 }
 
 

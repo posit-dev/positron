@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionContext, workspace } from 'vscode';
+import { ExtensionContext } from 'vscode';
 import { resolve } from '../../../util/vs/base/common/path';
 import { baseActivate } from '../vscode/extension';
 import { vscodeNodeContributions } from './contributions';
@@ -33,15 +33,6 @@ function configureDevPackages() {
 //#endregion
 
 export function activate(context: ExtensionContext, forceActivation?: boolean) {
-	// --- Start Positron ---
-	// Don't enable the extension when Positron Assistant is disabled
-	const enabled = workspace.getConfiguration('positron.assistant').get('enable');
-	if (!enabled) {
-		console.log(`[Copilot Chat] Disabling since Positron Assistant is disabled`);
-		return;
-	}
-	// --- End Positron ---
-
 	return baseActivate({
 		context,
 		registerServices,
