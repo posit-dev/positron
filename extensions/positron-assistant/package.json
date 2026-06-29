@@ -270,11 +270,6 @@
 							"minimum": 512
 						}
 					},
-					"positron.assistant.toolErrors.propagate": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "%configuration.toolErrors.propagate.description%"
-					},
 "positron.assistant.models.preference.global": {
 						"type": "string",
 						"default": "",
