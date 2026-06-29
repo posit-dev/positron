@@ -29,7 +29,7 @@ function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectio
 			return { ...base, type: 'password', secret: true, placeholder: dto.placeholder };
 		case 'string':
 			if (dto.secret) {
-				return { ...base, type: 'string', secret: true, placeholder: dto.placeholder };
+				return { ...base, type: 'string', secret: true, masked: dto.masked, placeholder: dto.placeholder };
 			}
 			return { ...base, type: 'string', secret: false, defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
 		default:
@@ -255,6 +255,17 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	async generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
 		const variants = await this._proxy.$generateConnectionCode(this.id, mechanismId, languageId, params);
 		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+	}
+
+	/**
+	 * Asks the ext host to run driver.redactParameterValue() via RPC, returning a display-safe form of
+	 * the stored secret value. Resolves to undefined when the driver does not implement redaction.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	async redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
+		return this._proxy.$redactParameterValue(this.id, mechanismId, parameterId, value);
 	}
 }
 

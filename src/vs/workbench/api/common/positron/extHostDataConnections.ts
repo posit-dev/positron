@@ -179,6 +179,24 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	/**
+	 * Calls the extension's driver.redactParameterValue() to produce a display-safe form of a stored
+	 * secret value. The cleartext value stays in the ext host; only the redacted result is returned to
+	 * the main thread. Returns undefined when the driver does not implement redaction.
+	 * @param driverId The unique identifier of the driver.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	async $redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
+		const driver = this._drivers.get(driverId);
+		if (!driver || !driver.redactParameterValue) {
+			return undefined;
+		}
+
+		return (await driver.redactParameterValue(mechanismId, parameterId, value)) ?? undefined;
+	}
+
+	/**
 	 * Returns whether the connection was opened in read-only mode.
 	 */
 	async $connectionIsReadOnly(connectionHandle: number): Promise<boolean> {
@@ -311,6 +329,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				dto.placeholder = p.placeholder;
 				if (p.secret) {
 					dto.secret = true;
+					dto.masked = p.masked;
 				} else {
 					dto.defaultValue = p.defaultValue;
 				}

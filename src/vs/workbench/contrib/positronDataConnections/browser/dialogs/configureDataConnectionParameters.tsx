@@ -25,6 +25,11 @@ interface ConfigureDataConnectionParametersProps {
 	// than clearing it.
 	storedSecretIds: ReadonlySet<string>;
 
+	// Driver-redacted previews (parameter id -> redacted string) for unmasked secret parameters with a
+	// stored value. When present for a field, the redacted preview is shown as the placeholder instead
+	// of the generic "saved" dots, so the user can see (a safe form of) what is stored.
+	redactedSecretValues?: Record<string, string>;
+
 	// The current value and error state of each parameter field, managed by the parent component.
 	parameterFieldStates: ParameterFieldStates;
 
@@ -63,6 +68,7 @@ const ParameterDescription = ({ text }: { text?: string }): JSX.Element | null =
 export const ConfigureDataConnectionParameters = ({
 	parameters,
 	storedSecretIds,
+	redactedSecretValues,
 	parameterFieldStates,
 	onParameterChanged,
 }: ConfigureDataConnectionParametersProps): JSX.Element => {
@@ -194,7 +200,17 @@ export const ConfigureDataConnectionParameters = ({
 					case 'string': {
 						// Secret-typed strings get the saved-secret placeholder treatment too.
 						const fieldValue = parameterFieldStates[parameter.id].value as string;
-						const showStoredPlaceholder = parameter.secret === true && storedSecretIds.has(parameter.id) && !fieldValue;
+						// Secret strings are masked unless the driver opts out (masked: false), which
+						// renders the value in plaintext while still storing it as a secret -- e.g. a
+						// connection string the user should be able to read back as they type.
+						const masked = parameter.secret === true && parameter.masked !== false;
+						// When editing, an unmasked secret with a stored value shows a driver-redacted
+						// preview of what is stored; a masked secret shows the generic dots. Either way,
+						// leaving the field blank keeps the stored secret.
+						const redactedValue = redactedSecretValues?.[parameter.id];
+						const placeholder = !fieldValue && parameter.secret === true && storedSecretIds.has(parameter.id)
+							? (redactedValue ?? STORED_SECRET_PLACEHOLDER)
+							: parameter.placeholder;
 						return (
 							<div key={parameter.id} className='parameter-field'>
 								<ParameterLabel htmlFor={fieldId} label={parameter.label} optional={!parameter.required} />
@@ -206,8 +222,8 @@ export const ConfigureDataConnectionParameters = ({
 										{ 'error': parameterFieldStates[parameter.id].error }
 									)}
 									id={fieldId}
-									placeholder={showStoredPlaceholder ? STORED_SECRET_PLACEHOLDER : parameter.placeholder}
-									type={parameter.secret === true ? 'password' : 'text'}
+									placeholder={placeholder}
+									type={masked ? 'password' : 'text'}
 									value={fieldValue}
 									onChange={e => onParameterChanged(parameter.id, e.target.value ?? undefined)}
 								/>

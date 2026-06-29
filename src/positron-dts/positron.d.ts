@@ -1909,6 +1909,14 @@ declare module 'positron' {
 			type: DataConnectionParameterType.String;
 			secret: true;
 			placeholder?: string;
+
+			/**
+			 * Whether the input is masked (rendered like a password field). Defaults to `true` for
+			 * secret strings. Set to `false` to render the value in plaintext while still storing it
+			 * in secret storage -- useful for values the user should be able to read back as they
+			 * type, such as a connection string.
+			 */
+			masked?: boolean;
 		}
 	);
 
@@ -2029,6 +2037,21 @@ declare module 'positron' {
 		 *   the given parameters (for example, when a required parameter is missing).
 		 */
 		generateConnectionCode?(mechanismId: string, languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+
+		/**
+		 * Produces a display-safe, redacted form of a stored secret parameter value, shown in the
+		 * configuration dialog when editing an existing connection (for example, masking the password
+		 * embedded in a connection string). Only called for secret parameters that render in plaintext
+		 * (`masked: false`); the redacted string is used as the field's placeholder. The cleartext
+		 * value never leaves the extension host -- only the returned string is sent to the dialog.
+		 *
+		 * @param mechanismId The id of the mechanism the connection was configured with. One of this
+		 *   driver's `mechanisms`.
+		 * @param parameterId The id of the parameter to redact.
+		 * @param value The stored cleartext parameter value.
+		 * @returns The redacted string to display, or undefined to show no placeholder.
+		 */
+		redactParameterValue?(mechanismId: string, parameterId: string, value: string): ProviderResult<string>;
 	}
 
 	/**

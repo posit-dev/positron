@@ -200,6 +200,47 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Gets a display-safe, redacted form of a stored secret parameter value. Resolves the cleartext
+	 * from secret storage, hands it to the driver for format-specific redaction, and returns only the
+	 * redacted result. See {@link IPositronDataConnectionsService.getRedactedParameterValue}.
+	 * @param id The data connection profile id.
+	 * @param parameterId The id of the secret parameter to redact.
+	 */
+	async getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined> {
+		// Resolve the profile with its secret values pulled from secret storage.
+		const profile = await this.getProfileWithSecrets(id);
+		if (!profile) {
+			return undefined;
+		}
+
+		// Only string secret values can be redacted for display.
+		const value = profile.parameterValues[parameterId];
+		if (typeof value !== 'string') {
+			return undefined;
+		}
+
+		// Resolve the driver, and the mechanism the connection was configured with (falling back for
+		// profiles persisted before mechanisms existed).
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		if (!driver) {
+			return undefined;
+		}
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		if (!mechanism) {
+			return undefined;
+		}
+
+		// Ask the driver to redact the value. The cleartext stays within the service/driver; only the
+		// redacted string is returned to the caller.
+		try {
+			return await driver.redactParameterValue(mechanism.id, parameterId, value);
+		} catch (err) {
+			this._logService.error(`[DataConnections] Failed to redact ${id}/${parameterId}: ${err}`);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Removes a data connection profile.
 	 * @param id The data connection profile id to remove.
 	 */

@@ -154,12 +154,15 @@ function clientCertParams(): positron.DataConnectionParameter[] {
 function connectionStringParam(): positron.DataConnectionParameter {
 	return {
 		// Secret: a connection string typically embeds a password, so it must go to secret storage
-		// rather than plain settings. This also masks the field in the dialog.
+		// rather than plain settings.
 		id: 'connectionString',
 		label: vscode.l10n.t('Connection String'),
 		description: vscode.l10n.t('The connection string (URL) from your database provider.'),
 		type: positron.DataConnectionParameterType.String,
 		secret: true,
+		// Render in plaintext so the user can read back the string they paste. It still goes to
+		// secret storage because it typically embeds a password.
+		masked: false,
 		required: true,
 		placeholder: 'postgresql://user:password@host:5432/database',
 	};
@@ -367,6 +370,39 @@ function parseConnectionString(connectionString: string): PostgresConnectionFiel
 		sslcert: url.searchParams.get('sslcert') ?? undefined,
 		sslkey: url.searchParams.get('sslkey') ?? undefined,
 	};
+}
+
+/** The mask substituted for a password when redacting a connection string for display. */
+const REDACTED_PASSWORD = '****';
+
+/**
+ * Produces a display-safe form of a connection string by masking the embedded password, used as the
+ * field placeholder when editing an existing connection-string connection. Handles the URL form
+ * (postgresql://user:password@host/db) by parsing and re-serializing with the password masked, and
+ * the key=value DSN form (password=secret) by masking the password value in place. Returns the input
+ * unchanged when no password is present.
+ */
+function redactConnectionString(connectionString: string): string {
+	// URL form: mask the password component, then re-serialize. Re-encoding is acceptable here since
+	// the result is only ever shown as a read-only placeholder, never used to connect.
+	try {
+		const url = new URL(connectionString);
+		if (url.protocol === 'postgresql:' || url.protocol === 'postgres:') {
+			if (!url.password) {
+				return connectionString;
+			}
+			url.password = REDACTED_PASSWORD;
+			return url.toString();
+		}
+	} catch {
+		// Not a URL; fall through to DSN handling.
+	}
+
+	// key=value DSN form: mask the value of any password / pgpassword key, preserving the rest.
+	return connectionString.replace(
+		/\b(password|pgpassword)(\s*=\s*)('[^']*'|"[^"]*"|\S+)/gi,
+		`$1$2${REDACTED_PASSWORD}`
+	);
 }
 
 // --- Connect-time validators ---
@@ -594,6 +630,14 @@ export function createPostgreSQLDriver(
 				default:
 					return [];
 			}
+		},
+		redactParameterValue(mechanismId: string, parameterId: string, value: string): string | undefined {
+			// The connection string is the only parameter shown in plaintext while embedding a
+			// secret, so it is the only one with a meaningful redacted preview.
+			if (mechanismId === CONNECTION_STRING_MECHANISM_ID && parameterId === 'connectionString') {
+				return redactConnectionString(value);
+			}
+			return undefined;
 		},
 	};
 }

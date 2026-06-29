@@ -89,6 +89,38 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		props.profile ? positronDataConnectionsService.getProfileSecretIds(props.profile.id) : []
 	));
 
+	// Redacted previews (parameter id -> redacted string) for unmasked secret parameters that have a
+	// stored value, shown as the field placeholder when editing (e.g. a connection string with its
+	// password masked). The cleartext is redacted by the driver and never loaded into this component.
+	const [redactedSecretValues, setRedactedSecretValues] = useState<Record<string, string>>({});
+
+	// On mount, fetch redacted previews for any unmasked secret parameters with a stored value.
+	useEffect(() => {
+		const profileId = props.profile?.id;
+		if (!profileId) {
+			return;
+		}
+
+		// Unmasked secret string parameters render in plaintext, so a "saved" dots placeholder would be
+		// misleading; show a driver-redacted preview of the stored value instead.
+		const unmaskedSecretIds = props.mechanism.parameters
+			.filter(parameter => parameter.type === 'string' && parameter.secret === true && parameter.masked === false && storedSecretIds.has(parameter.id))
+			.map(parameter => parameter.id);
+
+		let disposed = false;
+		Promise.all(unmaskedSecretIds.map(async parameterId => {
+			const redacted = await positronDataConnectionsService.getRedactedParameterValue(profileId, parameterId);
+			return [parameterId, redacted] as const;
+		})).then(entries => {
+			if (disposed) {
+				return;
+			}
+			setRedactedSecretValues(Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined)));
+		});
+
+		return () => { disposed = true; };
+	}, [positronDataConnectionsService, props.profile?.id, props.mechanism.parameters, storedSecretIds]);
+
 	// State.
 	const [connectionName, setConnectionName] = useState(props.profile?.connectionName ?? '');
 	const [connectionNameError, setConnectionNameError] = useState(false);
@@ -240,6 +272,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						<ConfigureDataConnectionParameters
 							parameterFieldStates={parameterFieldStates}
 							parameters={props.mechanism.parameters}
+							redactedSecretValues={redactedSecretValues}
 							storedSecretIds={storedSecretIds}
 							onParameterChanged={setParameterFieldState}
 						/>

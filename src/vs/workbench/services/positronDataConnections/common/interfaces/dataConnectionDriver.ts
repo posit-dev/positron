@@ -70,7 +70,7 @@ export type IDataConnectionParameter = IDataConnectionParameterBase & (
 	| { type: 'option'; options: string[]; defaultValue?: string; placeholder?: string }
 	| { type: 'password'; secret: true; placeholder?: string }
 	| { type: 'string'; secret?: false; defaultValue?: string; placeholder?: string }
-	| { type: 'string'; secret: true; placeholder?: string }
+	| { type: 'string'; secret: true; masked?: boolean; placeholder?: string }
 );
 
 /**
@@ -155,6 +155,17 @@ export interface IDataConnectionDriver {
 	 * @param params The current connection parameter values.
 	 */
 	generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]>;
+
+	/**
+	 * Produces a display-safe, redacted form of a stored secret parameter value (e.g. masking the
+	 * password embedded in a connection string) for display in the configuration dialog. The cleartext
+	 * value is passed to the driver in the ext host; only the redacted result returns. Resolves to
+	 * undefined when the driver does not implement redaction.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
 }
 
 /**
