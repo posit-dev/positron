@@ -336,11 +336,6 @@
 							}
 						},
 						"additionalProperties": false
-					},
-					"positron.assistant.alwaysEnableApplyInEditorAction": {
-						"type": "boolean",
-						"default": false,
-						"description": "%configuration.alwaysEnableApplyInEditorAction.description%"
 					}
 				}
 			},

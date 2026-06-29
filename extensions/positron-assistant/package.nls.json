@@ -48,8 +48,7 @@
 	"configuration.models.preference.google.description": "Preferred model for Google Gemini provider in Positron Assistant.\n\nMatching is case-insensitive and supports partial matches on model ID or name. Requires a restart to take effect.",
 	"configuration.models.preference.echo.description": "Preferred model for Echo test provider in Positron Assistant.\n\nMatching is case-insensitive and supports partial matches on model ID or name. Requires a restart to take effect.",
 	"configuration.models.preference.error.description": "Preferred model for Error test provider in Positron Assistant.\n\nMatching is case-insensitive and supports partial matches on model ID or name. Requires a restart to take effect.",
-	"configuration.alwaysEnableApplyInEditorAction.description": "Always enable the 'Apply in Editor' action for code blocks in Positron Assistant chats, regardless of the current language model provider.\n\nBy default, 'Apply in Editor' is only available for Copilot models.",
-	"configuration.modelPreferences.title": "Positron Assistant Model Preferences",
+"configuration.modelPreferences.title": "Positron Assistant Model Preferences",
 	"configuration.models.preference.byProvider.deprecated.markdownDeprecationMessage": "This setting has been deprecated. Please use the [individual provider settings](command:workbench.action.openSettings?%5B%22positron.assistant.models.preference%22%5D) instead.",
 	"configuration.models.preference.byProvider.deprecated.description": "Deprecated. Use 'positron.assistant.models.preference' settings instead."
 }
