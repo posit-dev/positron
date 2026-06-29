@@ -538,10 +538,50 @@ export class McpServer implements vscode.Disposable {
 		const executionMode = EXECUTION_MODES[mode] ?? positron.RuntimeCodeExecutionMode.Interactive;
 		const errorMode = errorBehavior === 'continue' ? positron.RuntimeErrorBehavior.Continue : positron.RuntimeErrorBehavior.Stop;
 
+		// Guard against a console that hangs on incomplete code. The runtime's own
+		// completeness check (isCodeFragmentComplete) lives on the provider-side
+		// session interface and isn't reachable here, so we instead observe whether
+		// execution actually starts and race the call against a timeout.
+		const timeoutMs = vscode.workspace.getConfiguration('positron.mcp').get<number>('executionTimeout', 30000);
+		const cts = new vscode.CancellationTokenSource();
+		let started = false;
+		let streamed = '';
+		const observer: positron.runtime.ExecutionObserver = {
+			token: cts.token,
+			onStarted: () => { started = true; },
+			onOutput: (message) => { streamed += message; },
+			onError: (message) => { streamed += message; },
+		};
+
+		// Settle to {ok}/{error} so the abandoned promise never rejects unhandled
+		// after a timeout.
+		const execution = positron.runtime.executeCode(languageId, code, focus, allowIncomplete, executionMode, errorMode, observer)
+			.then(
+				(data): { ok: true; data: Record<string, any> } => ({ ok: true, data }),
+				(error): { ok: false; error: unknown } => ({ ok: false, error }),
+			);
+
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<'timeout'>((resolve) => {
+			timer = setTimeout(() => resolve('timeout'), timeoutMs);
+		});
+
 		try {
-			const data = await positron.runtime.executeCode(languageId, code, focus, allowIncomplete, executionMode, errorMode);
-			return truncateOutput(JSON.stringify({ success: true, data, metadata: { timestamp: new Date().toISOString() } }));
-		} catch (error) {
+			const outcome = await Promise.race([execution, timeout]);
+
+			if (outcome === 'timeout') {
+				// Abandon this attempt; do not interrupt anything already running.
+				cts.cancel();
+				const message = started
+					? `Code is still running after ${timeoutMs} ms. It may be a long computation -- wait and re-check with get-variables, or call session-interrupt to stop it.`
+					: `Execution did not start within ${timeoutMs} ms. Either the submitted code is incomplete (an unclosed block, bracket, or string) and the console is waiting for more input, or a previous statement is still running and this one is queued. If you suspect incomplete code, call session-interrupt and resubmit complete code.`;
+				return truncateOutput(JSON.stringify({ success: false, timedOut: true, started, partialOutput: streamed || undefined, error: { message } }));
+			}
+
+			if (outcome.ok) {
+				return truncateOutput(JSON.stringify({ success: true, data: outcome.data, metadata: { timestamp: new Date().toISOString() } }));
+			}
+			const error = outcome.error;
 			return truncateOutput(JSON.stringify({
 				success: false,
 				error: {
@@ -550,6 +590,11 @@ export class McpServer implements vscode.Disposable {
 					traceback: error instanceof Error && error.stack ? [error.stack] : [],
 				},
 			}));
+		} finally {
+			if (timer) {
+				clearTimeout(timer);
+			}
+			cts.dispose();
 		}
 	}
 
