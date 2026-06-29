@@ -32,12 +32,17 @@ interface ExecOptions {
 	errorBehavior?: 'stop' | 'continue';
 }
 
-/** One MCP tool: its advertised schema plus a handler returning the text payload. */
+/** A block of MCP tool-result content (the wire shape sent to the client). */
+type McpContent =
+	| { type: 'text'; text: string }
+	| { type: 'image'; data: string; mimeType: string };
+
+/** One MCP tool: its advertised schema plus a handler returning the result payload. */
 interface Tool {
 	name: string;
 	description: string;
 	inputSchema: object;
-	run: (args: any) => Promise<string>;
+	run: (args: any) => Promise<string | McpContent[]>;
 }
 
 /** A tool failure that carries a specific JSON-RPC error code. */
@@ -94,8 +99,9 @@ function parsePort(): number {
 	return Number.isInteger(parsed) && parsed >= 1024 && parsed <= 65535 ? parsed : DEFAULT_PORT;
 }
 
-function textResult(id: McpRequest['id'], text: string): McpResponse {
-	return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } };
+function toolResult(id: McpRequest['id'], value: string | McpContent[]): McpResponse {
+	const content = typeof value === 'string' ? [{ type: 'text', text: value }] : value;
+	return { jsonrpc: '2.0', id, result: { content } };
 }
 
 function errorResult(id: McpRequest['id'], code: number, message: string): McpResponse {
@@ -180,7 +186,7 @@ export class McpServer implements vscode.Disposable {
 
 		this.logger.debug('MCP.Tool', `Executing tool: ${toolName}`, request.params?.arguments);
 		try {
-			return textResult(request.id, await tool.run(request.params?.arguments ?? {}));
+			return toolResult(request.id, await tool.run(request.params?.arguments ?? {}));
 		} catch (error) {
 			if (error instanceof ToolError) {
 				return errorResult(request.id, error.code, error.message);
