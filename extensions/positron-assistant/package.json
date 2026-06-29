@@ -288,13 +288,7 @@
 						"default": false,
 						"markdownDescription": "%configuration.toolErrors.propagate.description%"
 					},
-					"positron.assistant.providerTimeout": {
-						"type": "number",
-						"default": 60,
-						"markdownDescription": "%configuration.providerTimeout.description%",
-						"minimum": 1
-					},
-					"positron.assistant.models.preference.global": {
+"positron.assistant.models.preference.global": {
 						"type": "string",
 						"default": "",
 						"markdownDescription": "%configuration.models.preference.global.description%",

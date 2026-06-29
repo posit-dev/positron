@@ -9,7 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
-import { getProviderTimeoutMs } from '../../providerConfig.js';
+import { DEFAULT_PROVIDER_TIMEOUT_SEC } from '../../constants.js';
 import {
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
@@ -111,7 +111,7 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	}
 
 	override async resolveConnection(token: vscode.CancellationToken) {
-		const timeoutMs = getProviderTimeoutMs();
+		const timeoutMs = DEFAULT_PROVIDER_TIMEOUT_SEC * 1000;
 		try {
 			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {

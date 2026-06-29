@@ -7,10 +7,9 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { ModelConfig } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
+import { DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_PROVIDER_TIMEOUT_SEC } from '../../constants.js';
 import { log } from '../../log.js';
 import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
@@ -112,7 +111,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 
 	override async resolveConnection(token: vscode.CancellationToken) {
 		// Keep custom implementation for API-specific connection testing
-		const timeoutMs = getProviderTimeoutMs();
+		const timeoutMs = DEFAULT_PROVIDER_TIMEOUT_SEC * 1000;
 		try {
 			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {
