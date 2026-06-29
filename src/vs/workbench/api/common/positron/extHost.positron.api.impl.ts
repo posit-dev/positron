@@ -37,7 +37,7 @@ import { ExtHostDataConnections } from './extHostDataConnections.js';
 import { ExtHostDataExplorer } from './extHostDataExplorer.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
-import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles, formatPathForCode, ResolvedBase } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
@@ -466,8 +466,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(sources, onAction, options);
+			showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(options);
 			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
@@ -482,14 +482,21 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},
-			registerProviderMetadata(metadata: { id: string; displayName: string; settingName: string }): void {
-				return extHostAiFeatures.registerProviderMetadata(metadata);
+			registerProvider(source: positron.ai.LanguageModelSource, onAction?: (source: positron.ai.LanguageModelSource, config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): vscode.Disposable {
+				return extHostAiFeatures.registerProvider(extension, source as IPositronLanguageModelSource, onAction as (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Thenable<void>);
 			},
-			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
-				return extHostAiFeatures.addLanguageModelConfig(source);
+			updateProvider(id: string, update: Partial<positron.ai.LanguageModelSource>): void {
+				return extHostAiFeatures.updateProvider(id, update as Partial<IPositronLanguageModelSource>);
 			},
-			removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
-				return extHostAiFeatures.removeLanguageModelConfig(source);
+			getRegisteredProviders(): Thenable<positron.ai.LanguageModelSource[]> {
+				return extHostAiFeatures.getRegisteredProviders() as Thenable<positron.ai.LanguageModelSource[]>;
+			},
+			onDidChangeProviderConfig: (listener, thisArgs?, disposables?) => {
+				return extHostAiFeatures.onDidChangeProviderConfig(
+					source => listener.call(thisArgs, source as positron.ai.LanguageModelSource),
+					undefined,
+					disposables
+				);
 			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);

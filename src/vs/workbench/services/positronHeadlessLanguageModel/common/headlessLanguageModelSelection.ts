@@ -45,58 +45,68 @@ export function byPriority(models: readonly IModelDescriptor[]): IModelDescripto
  */
 export type ResolvedModelSelection = Exclude<ModelSelection, { readonly tier: ModelTier }>;
 
-/**
- * Resolve a model selection against the available models, applying the
- * provider-priority policy.
- *
- * An exact id returns precisely that model, or `undefined` if it is gone -- a
- * pinned model must not silently become a different one. A pattern selection,
- * being best-effort, falls back to the highest-priority available model when
- * nothing matches, so a background feature always lands a model if any exists.
- */
-export interface IModelSelectionResult {
-	/** The chosen model, or `undefined` when nothing is available. */
-	readonly model: IModelDescriptor | undefined;
+/** One model to try, in preference order, with how it was chosen. */
+export interface IModelCandidate {
+	/** The model to attempt. */
+	readonly model: IModelDescriptor;
 	/**
-	 * True when a tier/pattern selection matched nothing and fell back to the
-	 * top-priority model. Always false for an exact `{ id }` selection.
+	 * True when this candidate is a priority fallback the selection did not ask
+	 * for (its patterns matched nothing, or every match was tried first). Always
+	 * false for an exact `{ id }` selection and for pattern matches themselves.
 	 */
 	readonly usedFallback: boolean;
 }
 
-export function selectModel(
+/**
+ * Resolve a model selection against the available models into an ordered list
+ * of candidates to try, applying the provider-priority policy.
+ *
+ * An exact id returns precisely that model (one candidate) or none if it is
+ * gone -- a pinned model must not silently become a different one. A pattern or
+ * tier selection returns every match first (in preference order), then the
+ * remaining models by priority as last-resort fallbacks, so a stalling preferred
+ * model can be bypassed and a background feature still lands a working model if
+ * any exists.
+ */
+export function selectModelCandidates(
 	available: readonly IModelDescriptor[],
 	selection: ResolvedModelSelection,
-): IModelSelectionResult {
+): IModelCandidate[] {
 	const ordered = byPriority(available);
 	if (hasKey(selection, { id: true })) {
-		return { model: ordered.find(model => model.id === selection.id), usedFallback: false }; // exact: no fallback
+		const exact = ordered.find(model => model.id === selection.id);
+		return exact ? [{ model: exact, usedFallback: false }] : []; // exact: no fallback
 	}
 	const matched = matchPatterns(ordered, selection.patterns);
-	if (matched) {
-		return { model: matched, usedFallback: false };
-	}
-	return { model: ordered[0], usedFallback: ordered.length > 0 }; // patterns: fall back to top-priority
+	const matchedIds = new Set(matched.map(model => model.id));
+	const fallback = ordered.filter(model => !matchedIds.has(model.id));
+	return [
+		...matched.map(model => ({ model, usedFallback: false })),
+		...fallback.map(model => ({ model, usedFallback: true })),
+	];
 }
 
 /**
- * Try each pattern in order until one matches an available model. For a
- * given pattern an exact id match wins over a substring match, so a pinned id
- * passed as a pattern resolves precisely. Matching is case-insensitive across
- * the model id and display name.
+ * Collect every model matching the patterns, in preference order: patterns
+ * tried in order, and within a pattern an exact id match wins over substring
+ * matches (so a pinned id passed as a pattern resolves first). Matching is
+ * case-insensitive across the model id and display name; each model appears at
+ * most once.
  */
-function matchPatterns(ordered: readonly IModelDescriptor[], patterns: readonly string[]): IModelDescriptor | undefined {
+function matchPatterns(ordered: readonly IModelDescriptor[], patterns: readonly string[]): IModelDescriptor[] {
+	const result: IModelDescriptor[] = [];
+	const seen = new Set<string>();
+	const take = (model: IModelDescriptor) => {
+		if (!seen.has(model.id)) {
+			seen.add(model.id);
+			result.push(model);
+		}
+	};
 	for (const pattern of patterns) {
 		const needle = pattern.toLowerCase();
-		const exact = ordered.find(model => model.id.toLowerCase() === needle);
-		if (exact) {
-			return exact;
-		}
-		const partial = ordered.find(model =>
-			model.id.toLowerCase().includes(needle) || model.name.toLowerCase().includes(needle));
-		if (partial) {
-			return partial;
-		}
+		ordered.filter(model => model.id.toLowerCase() === needle).forEach(take);
+		ordered.filter(model =>
+			model.id.toLowerCase().includes(needle) || model.name.toLowerCase().includes(needle)).forEach(take);
 	}
-	return undefined;
+	return result;
 }

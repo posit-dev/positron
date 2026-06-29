@@ -155,7 +155,10 @@ export function instantiateTestNotebookInstance(
 	const overlayContainer = document.createElement('div');
 	editorContainer.appendChild(notebookContainer);
 	editorContainer.appendChild(overlayContainer);
-	const scopedContextKeyService = instantiationService.invokeFunction(accessor => accessor.get(IContextKeyService)).createScoped(editorContainer);
+	const scopedContextKeyService = disposables.add(
+		instantiationService.invokeFunction(accessor =>
+			accessor.get(IContextKeyService)).createScoped(editorContainer)
+	);
 	notebook.attachView(editorContainer, scopedContextKeyService, notebookContainer, overlayContainer);
 
 	// Auto-attach test editors to all cells (initial and dynamically added).

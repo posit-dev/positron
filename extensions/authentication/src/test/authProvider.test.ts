@@ -627,6 +627,21 @@ suite('AuthProvider - configured provider state', () => {
 		assert.strictEqual(await provider.isConfigured(), false);
 	});
 
+	test('explicit API-key sign-out clears the persisted configured flag', async () => {
+		// For a provider carrying the persisted "configured" flag plus a
+		// stored API key, removing the key must also forget the flag, so a
+		// later empty session list reads as signed-out, not expired.
+		const context = createMockContext();
+		await context.globalState.update('authentication.previouslySignedIn.test', true);
+		const provider = track(new AuthProvider('test', 'Test', context));
+		await provider.storeKey('acc-1', 'Account', 'sk-key');
+		assert.strictEqual(await provider.isConfigured(), true);
+
+		await provider.removeSession('acc-1');
+
+		assert.strictEqual(await provider.isConfigured(), false);
+	});
+
 	test('failed resolution for a configured provider logs at warn', async () => {
 		const warnSpy = sinon.spy(log, 'warn');
 		let count = 0;

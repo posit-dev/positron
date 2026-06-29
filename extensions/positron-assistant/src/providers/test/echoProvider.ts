@@ -34,10 +34,7 @@ export class EchoModelProvider extends ModelProvider {
 		signedIn: false,
 		provider: PROVIDER_METADATA.echo,
 		supportedOptions: [],
-		defaults: {
-			name: 'Echo Language Model',
-			model: 'echo',
-		},
+		defaults: {},
 	};
 
 	capabilities = DEFAULT_MODEL_CAPABILITIES;

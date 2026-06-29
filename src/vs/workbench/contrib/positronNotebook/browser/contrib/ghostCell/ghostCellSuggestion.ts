@@ -9,10 +9,8 @@ import { StreamingTagLexer } from '../../../../../common/positron/streamingTagLe
 import { getParsedOutputContent } from '../../getOutputContents.js';
 import { IPositronNotebookCell, NotebookCellOutputs } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import {
-	FastCheap,
 	IHeadlessLanguageModelService,
 	IStreamTextRequest,
-	ModelSelection,
 	UnavailableReason,
 } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 
@@ -136,20 +134,6 @@ export type GhostCellOutcome =
 	| { readonly kind: 'empty' }
 	| { readonly kind: 'unavailable'; readonly reason: UnavailableReason }
 	| { readonly kind: 'error'; readonly message: string };
-
-/**
- * Map the consumer's stored model setting to a service model selection:
- * empty/unset means the default fast/cheap tier; anything else is ordered
- * preference patterns. A picker-written exact model id still resolves
- * precisely -- pattern matching prefers exact-id matches -- and if it is gone
- * the service falls back to the top-priority model and reports `usedFallback`.
- */
-export function intentFromSetting(value: readonly string[] | undefined): ModelSelection {
-	if (!value || value.length === 0) {
-		return FastCheap;
-	}
-	return { patterns: value };
-}
 
 /**
  * Build the context message sent to the model: the same structure the existing

@@ -16,9 +16,10 @@ import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
@@ -73,6 +74,7 @@ export class AskAssistantAction extends Action2 {
 		const layoutService = accessor.get(ILayoutService);
 		const chatEditingService = accessor.get(IChatEditingService);
 		const dialogService = accessor.get(IDialogService);
+		const headlessLmService = accessor.get(IHeadlessLanguageModelService);
 
 		// Get the initial notebook instance (may be undefined during the timing gap
 		// between editor activation and setInput() completion)
@@ -86,7 +88,7 @@ export class AskAssistantAction extends Action2 {
 
 		// Create the modal renderer for a centered dialog
 		// Hook up cancellation so polling stops if the modal is closed early
-		const renderer = new PositronModalReactRenderer({
+		const renderer = new PositronModalDialogReactRenderer({
 			container: layoutService.activeContainer,
 			onDisposed: () => {
 				notebookPromise?.cancel();
@@ -119,6 +121,7 @@ export class AskAssistantAction extends Action2 {
 				commandService={commandService}
 				configurationService={configurationService}
 				dialogService={dialogService}
+				headlessLmService={headlessLmService}
 				initialNotebook={initialNotebook}
 				logService={logService}
 				notebookPromise={notebookPromise}

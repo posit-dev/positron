@@ -56,8 +56,6 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 		provider: PROVIDER_METADATA.customProvider,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'Custom Provider',
-			model: 'openai-compatible',
 			baseUrl: 'https://localhost:1337/v1',
 			toolCalls: true
 		},

@@ -83,6 +83,21 @@ export type ModelSelection =
 /** The default fast/cheap tier, used when no preference is given. */
 export const FastCheap: ModelSelection = { tier: 'fast-cheap' };
 
+/**
+ * Map a consumer's stored model setting (an ordered list of preference patterns)
+ * to a {@link ModelSelection}: empty/unset means the default fast/cheap tier;
+ * anything else is ordered preference patterns. A picker-written exact model id
+ * still resolves precisely -- pattern matching prefers exact-id matches -- and if
+ * it is gone the service falls back to the top-priority model and reports
+ * `usedFallback`.
+ */
+export function intentFromSetting(value: readonly string[] | undefined): ModelSelection {
+	if (!value || value.length === 0) {
+		return FastCheap;
+	}
+	return { patterns: value };
+}
+
 /** The result of {@link IHeadlessLanguageModelService.streamText}. */
 export type StreamTextResult =
 	| {
