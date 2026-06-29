@@ -14,7 +14,6 @@ import { PositronAssistantToolName } from './types.js';
 import path = require('path');
 import fs = require('fs');
 import { log } from './log.js';
-import { CopilotService } from './copilot.js';
 import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
 
 /**
@@ -391,8 +390,6 @@ export function getEnabledTools(
 
 		// Check that the request is using a Copilot model.
 		const usingCopilotModel = request.model.vendor === 'copilot';
-		// Check if the user has opted-in to always include Copilot tools.
-		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.
 		const copilotTool = tool.name.startsWith('copilot_');
 
@@ -409,18 +406,7 @@ export function getEnabledTools(
 			}
 		}
 
-		// Check if the user is signed into Copilot.
-		let copilotEnabled;
-		try {
-			copilotEnabled = CopilotService.instance().isSignedIn;
-		} catch {
-			// Ignore errors
-			copilotEnabled = false;
-		}
-		// We should include Copilot tools if we're using a Copilot model,
-		// or if the user is signed into Copilot and has opted-in to always
-		// include Copilot tools.
-		const shouldIncludeCopilotTools = (usingCopilotModel || copilotEnabled && alwaysIncludeCopilotTools);
+		const shouldIncludeCopilotTools = usingCopilotModel;
 
 		// Special filtering for Copilot tools in Ask mode.
 		if (copilotTool && isAskMode && !tool.tags.includes('vscode_codesearch')) {
