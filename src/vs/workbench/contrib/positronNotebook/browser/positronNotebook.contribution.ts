@@ -2196,6 +2196,13 @@ export class RunAllCellsAction extends NotebookAction2 {
 			icon: ThemeIcon.fromId('notebook-execute-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while nothing is running, matching
+			// the run/stop toolbar toggle (stopAllCells gates on the inverse).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
@@ -2234,6 +2241,15 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('primitive-square'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while something is running. Without
+			// it the picker showed "Stop Execution" when idle, and selecting it ran
+			// all cells (runNotebookAction delegates to runAllCells, which only
+			// cancels when there are live executions to see).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
