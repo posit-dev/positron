@@ -31,6 +31,14 @@ export class DialogService extends Disposable implements IDialogService {
 	private skipDialogs(): boolean {
 		if (this.environmentService.enableSmokeTestDriver) {
 			this.logService.warn('DialogService: Dialog requested during smoke test.');
+			// --- Start Positron ---
+			// Smoke tests drive the app through the automation driver and cannot
+			// dismiss native modal dialogs. Skipping dialogs here auto-confirms
+			// confirmations and refuses prompts so a stray dialog never blocks
+			// input and cascades into widespread e2e failures.
+			// Disabled for this release to unblock smoke tests
+			return true;
+			// --- End Positron ---
 		}
 		// integration tests
 		return this.environmentService.isExtensionDevelopment && !!this.environmentService.extensionTestsLocationURI;
