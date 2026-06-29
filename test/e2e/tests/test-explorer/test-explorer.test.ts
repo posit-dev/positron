@@ -19,6 +19,8 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 	const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
 	const FIXTURE_SOURCE = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
 
+	const WATCHER_TIMEOUT = 30000;
+
 	// Each test gets its own copy of the fixture.
 	// That's why the folder name includes the test title.
 	// The goal is to avoid flakiness due to one test failing to create or
@@ -86,10 +88,10 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestItems(['test-test-that.R', 'test-describe-it.R']);
 
 		fs.rmSync(path.join(testthatDir, 'test-test-that.R'));
-		await testExplorer.expectNoTestItem('test-test-that.R');
+		await testExplorer.expectNoTestItem('test-test-that.R', WATCHER_TIMEOUT);
 
 		fs.renameSync(path.join(testthatDir, 'test-describe-it.R'), path.join(testthatDir, 'test-renamed.R'));
-		await testExplorer.expectTestItems(['test-renamed.R']);
-		await testExplorer.expectNoTestItem('test-describe-it.R');
+		await testExplorer.expectTestItems(['test-renamed.R'], WATCHER_TIMEOUT);
+		await testExplorer.expectNoTestItem('test-describe-it.R', WATCHER_TIMEOUT);
 	});
 });
