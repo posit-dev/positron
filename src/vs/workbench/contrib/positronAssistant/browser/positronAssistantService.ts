@@ -8,7 +8,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -18,6 +18,9 @@ import { IChatService } from '../../chat/common/chatService/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { localize } from '../../../../nls.js';
 
 /**
  * Returns the candidate config keys for a provider's enable setting, in
@@ -44,24 +47,33 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	private _copilotEnabled = false;
 	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
 	private _enabledProvidersEmitter = this._register(new Emitter<void>());
+	private _onChangeProviderConfigEmitter = this._register(new Emitter<IPositronLanguageModelSource>());
 
-	// Tracks registered provider metadata for checking enable settings
-	// This is populated during extension activation, independent of sign-in state
-	private _providerMetadata = new Map<string, IPositronProviderMetadata>();
+	// Tracks provider registrations. This is populated during extension
+	// activation, independent of sign-in state.
+	private _providerRegistrations = new Map<string, IPositronLanguageModelSource>();
+
+	// Providers already notified about an 'error' status. Prevents repeat
+	// notifications until the provider returns to 'ok'/null or is
+	// unregistered.
+	private _statusErrorNotified = new Set<string>();
 
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
 	readonly onChangeEnabledProviders = this._enabledProvidersEmitter.event;
+	readonly onChangeProviderConfig = this._onChangeProviderConfigEmitter.event;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super();
 
 		// Listen for configuration changes to provider enablement settings
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			// Check individual provider enable settings
-			for (const metadata of this._providerMetadata.values()) {
-				for (const settingKey of enableSettingKeys(metadata.settingName)) {
+			for (const source of this._providerRegistrations.values()) {
+				for (const settingKey of enableSettingKeys(source.provider.settingName)) {
 					if (e.affectsConfiguration(settingKey)) {
 						this._enabledProvidersEmitter.fire();
 						return;
@@ -71,8 +83,105 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		}));
 	}
 
-	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
-		this._providerMetadata.set(metadata.id, metadata);
+	registerProvider(source: IPositronLanguageModelSource): void {
+		this._providerRegistrations.set(source.provider.id, source);
+	}
+
+	unregisterProvider(id: string): void {
+		const source = this._providerRegistrations.get(id);
+		this._providerRegistrations.delete(id);
+		this._statusErrorNotified.delete(id);
+		if (source) {
+			this._onChangeProviderConfigEmitter.fire(source);
+		}
+	}
+
+	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
+		const source = this._providerRegistrations.get(id);
+		if (!source) {
+			console.warn(`Cannot update unknown provider: ${id}`);
+			return;
+		}
+
+		if (update.signedIn !== undefined) {
+			source.signedIn = update.signedIn;
+			// A fresh sign-in invalidates prior health observations.
+			if (update.signedIn && update.status === undefined) {
+				source.status = 'ok';
+				source.statusMessage = undefined;
+			}
+		}
+		if (update.statusMessage !== undefined) {
+			source.statusMessage = update.statusMessage;
+		}
+		if (update.status !== undefined) {
+			// An explicit null is stored; only undefined means "leave untouched".
+			source.status = update.status;
+			if (update.status !== 'error') {
+				source.statusMessage = undefined;
+			}
+		}
+		if (update.authMethods !== undefined) {
+			source.authMethods = update.authMethods;
+		}
+		if (update.defaults !== undefined) {
+			for (const [key, value] of Object.entries(update.defaults)) {
+				if (value !== undefined) {
+					(source.defaults as Record<string, unknown>)[key] = value;
+				}
+			}
+		}
+
+		this._onChangeProviderConfigEmitter.fire(source);
+
+		if (id === 'copilot-auth' && update.signedIn !== undefined) {
+			this.copilotEnabled = !!update.signedIn;
+		}
+
+		this.notifyProviderStatusError(source);
+	}
+
+	/**
+	 * Surface a provider's 'error' status as a notification, once per
+	 * provider until the status returns to 'ok'/null.
+	 */
+	private notifyProviderStatusError(source: IPositronLanguageModelSource): void {
+		const id = source.provider.id;
+
+		if (source.status !== 'error') {
+			this._statusErrorNotified.delete(id);
+			return;
+		}
+		if (this._statusErrorNotified.has(id) || !this.isProviderEnabled(id)) {
+			return;
+		}
+		this._statusErrorNotified.add(id);
+
+		const message = source.statusMessage
+			? localize('positron.providerStatusError', "{0}: {1}", source.provider.displayName, source.statusMessage)
+			: localize('positron.providerStatusErrorGeneric', "{0} reported a problem with its configuration or credentials.", source.provider.displayName);
+		this._notificationService.prompt(
+			Severity.Info,
+			message,
+			[{
+				label: localize('positron.configureProvider', "Configure"),
+				run: () => this._commandService.executeCommand('authentication.configureProviders', { preselectedProviderId: id }),
+			}]
+		);
+	}
+
+	getRegisteredSources(): IPositronLanguageModelSource[] {
+		const enabledProviders = this.getEnabledProviders();
+		const sources: IPositronLanguageModelSource[] = [];
+
+		for (const [id, source] of this._providerRegistrations.entries()) {
+			if (!enabledProviders.includes(id)) {
+				continue;
+			}
+			sources.push(source);
+		}
+
+		return sources;
 	}
 
 	get copilotEnabled(): boolean {
@@ -87,8 +196,8 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	getEnabledProviders(): string[] {
 		const enabledProviders: string[] = [];
 
-		for (const [providerId, metadata] of this._providerMetadata.entries()) {
-			const isEnabled = enableSettingKeys(metadata.settingName).some(
+		for (const [providerId, source] of this._providerRegistrations.entries()) {
+			const isEnabled = enableSettingKeys(source.provider.settingName).some(
 				key => this._configurationService.getValue<boolean>(key)
 			);
 			if (isEnabled) {
@@ -114,13 +223,6 @@ export class PositronAssistantConfigurationService extends Disposable implements
 export class PositronAssistantService extends Disposable implements IPositronAssistantService {
 	declare readonly _serviceBrand: undefined;
 
-	// Tracks the models that have been added and signed in
-	private _languageModelRegistry = new Set<string>();
-
-	// event emmitter for language model configuration
-	private _onLanguageModelConfigEmitter = new Emitter<IPositronLanguageModelSource>();
-	readonly onChangeLanguageModelConfig = this._onLanguageModelConfigEmitter.event;
-
 	//#region Constructor
 
 	constructor(
@@ -132,6 +234,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IProductService protected readonly _productService: IProductService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IPositronAssistantConfigurationService private readonly _assistantConfigurationService: PositronAssistantConfigurationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super();
 	}
@@ -182,26 +286,6 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		return isPlotVisible ? plot.lastRender.uri : undefined;
 	}
 
-	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		this._languageModelRegistry.add(source.provider.id);
-
-		if (source.provider.id === 'copilot') {
-			this._assistantConfigurationService.copilotEnabled = !!source.signedIn;
-		}
-
-		this._onLanguageModelConfigEmitter.fire(source);
-	}
-
-	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
-		this._languageModelRegistry.delete(source.provider.id);
-
-		if (source.provider.id === 'copilot') {
-			this._assistantConfigurationService.copilotEnabled = false;
-		}
-
-		this._onLanguageModelConfigEmitter.fire(source);
-	}
-
 	areCompletionsEnabled(uri: URI): boolean {
 		// First, check the language-specific enable setting
 		const enableSettings = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.inlineCompletions.enable');
@@ -233,11 +317,23 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	//#region Language Model UI
 
 	showLanguageModelModalDialog(
-		sources: IPositronLanguageModelSource[],
-		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
+		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
 		options?: IShowLanguageModelConfigOptions,
 	): void {
+		const sources = this._assistantConfigurationService.getRegisteredSources();
+		if (sources.length === 0) {
+			this._notificationService.prompt(
+				Severity.Info,
+				localize('positron.noProvidersEnabled', "No language model providers are enabled. Enable at least one provider in Settings."),
+				[{
+					label: localize('positron.openSettings', "Open Settings"),
+					run: () => this._commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable'),
+				}]
+			);
+			onClose();
+			return;
+		}
 		showLanguageModelModalDialog(
 			sources,
 			onAction,

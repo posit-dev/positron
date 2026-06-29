@@ -39,15 +39,17 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 		// registered below are filtered out, no model is available, and the chat
 		// request never reaches the participant, causing the test to time out.
 		// `copilot` is enabled via the `copilot-auth` provider id (default: true).
-		positron.ai.registerProviderMetadata({
-			id: 'test-lm-vendor',
-			displayName: 'Test LM Vendor',
-			settingName: 'testLmVendor'
+		positron.ai.registerProvider({
+			provider: { id: 'test-lm-vendor', displayName: 'Test LM Vendor', settingName: 'testLmVendor' },
+			type: positron.PositronLanguageModelType.Chat,
+			supportedOptions: [],
+			defaults: {},
 		});
-		positron.ai.registerProviderMetadata({
-			id: 'copilot-auth',
-			displayName: 'Test Copilot',
-			settingName: 'githubCopilot'
+		positron.ai.registerProvider({
+			provider: { id: 'copilot-auth', displayName: 'Test Copilot', settingName: 'githubCopilot' },
+			type: positron.PositronLanguageModelType.Chat,
+			supportedOptions: [],
+			defaults: {},
 		});
 		// --- End Positron ---
 

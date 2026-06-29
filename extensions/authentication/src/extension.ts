@@ -19,8 +19,8 @@ import {
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
 import { AuthProvider } from './authProvider';
-import { registerAuthProvider, showConfigurationDialog } from './configDialog';
-import { PROVIDER_METADATA } from './providerSources';
+import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
+import { getProviderSources } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
@@ -29,7 +29,7 @@ import {
 	validateFoundryApiKey,
 	validateGeminiApiKey,
 	validateOpenaiApiKey,
-	validateSnowflakeApiKey,
+	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
@@ -56,7 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	await migrateSnowflakeSettings().catch(err =>
 		log.error(`Snowflake settings migration failed: ${err}`)
 	);
-	registerSnowflakeProvider(context);
+	await registerSnowflakeProvider(context);
 
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
@@ -64,21 +64,76 @@ export async function activate(context: vscode.ExtensionContext) {
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
-	// Register provider metadata so the Settings UI shows per-provider
+	// Register providers so the Settings UI shows per-provider
 	// enable toggles (positron.assistant.provider.<settingName>.enable).
-	for (const metadata of Object.values(PROVIDER_METADATA)) {
-		positron.ai.registerProviderMetadata(metadata);
+	for (const source of getProviderSources()) {
+		const disposable = positron.ai.registerProvider(source, providerAction);
+		context.subscriptions.push(disposable);
 	}
+
+	// Reactive updates: send all auth session changes through updateProvider
+	// so the dialog and other listeners see updated signedIn state immediately.
+	context.subscriptions.push(
+		vscode.authentication.onDidChangeSessions(async (e) => {
+			const provider = authProviders.get(e.provider.id);
+			if (provider) {
+				const sessions = await provider.getSessions();
+				await updateProviderFromSessions(e.provider.id, sessions);
+			}
+			// Copilot uses GitHub's built-in auth, not a registered AuthProvider
+			if (e.provider.id === 'github') {
+				const session = await vscode.authentication.getSession('github', [], { silent: true });
+				await updateProviderFromSessions('copilot-auth', session ? [session] : []);
+			}
+		})
+	);
+
+	// Push initial state: credentials resolved during activation (env-var or
+	// chain credentials) fire their session-change event before the listener
+	// above is registered, so sweep current sessions once to reflect them.
+	for (const source of getProviderSources()) {
+		const provider = authProviders.get(source.provider.id);
+		if (provider) {
+			const sessions = await provider.getSessions();
+			await updateProviderFromSessions(source.provider.id, sessions);
+		}
+	}
+	const githubSession = await vscode.authentication.getSession('github', [], { silent: true });
+	await updateProviderFromSessions('copilot-auth', githubSession ? [githubSession] : []);
+
+	// Remove auth sessions when a provider is disabled in settings.
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(async (e) => {
+			for (const source of getProviderSources()) {
+				const settingKeys = [
+					`assistant.provider.${source.provider.settingName}.enabled`,
+					`positron.assistant.provider.${source.provider.settingName}.enable`,
+				];
+				if (settingKeys.some(key => e.affectsConfiguration(key))) {
+					const isEnabled = settingKeys.some(
+						key => vscode.workspace.getConfiguration().get<boolean>(key)
+					);
+					if (!isEnabled) {
+						const provider = authProviders.get(source.provider.id);
+						if (provider) {
+							const sessions = await provider.getSessions();
+							for (const session of sessions) {
+								await provider.removeSession(session.id);
+							}
+						}
+					}
+				}
+			}
+		})
+	);
 
 	log.info('Authentication extension activated');
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'authentication.configureProviders',
-			async (
-				options?: positron.ai.ShowLanguageModelConfigOptions
-			) => {
-				return showConfigurationDialog(options);
+			async (options?: positron.ai.ShowLanguageModelConfigOptions) => {
+				return positron.ai.showLanguageModelConfig(options);
 			}
 		),
 	);
@@ -118,13 +173,7 @@ async function registerAnthropicProvider(
 				const baseUrl = vscode.workspace
 					.getConfiguration('authentication.anthropic')
 					.get<string>('baseUrl') || undefined;
-				await validateAnthropicApiKey(apiKey, {
-					provider: ANTHROPIC_AUTH_PROVIDER_ID,
-					name: 'Anthropic',
-					model: '',
-					type: positron.PositronLanguageModelType.Chat,
-					...(baseUrl && { baseUrl }),
-				});
+				await validateAnthropicApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
 			preventSignOut: true,
@@ -230,7 +279,7 @@ async function registerAwsProvider(
 		provider
 	);
 	registerAuthProvider(AWS_AUTH_PROVIDER_ID, provider);
-	provider.resolveChainCredentials().catch(err =>
+	await provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(
 			'failed',
 			`Initial credential resolution failed: ${err}`
@@ -296,7 +345,7 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 	}
 }
 
-function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
+async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {
 	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
@@ -386,7 +435,7 @@ function registerSnowflakeProvider(context: vscode.ExtensionContext): void {
 			}
 		},
 	});
-	provider.resolveChainCredentials().catch(err =>
+	await provider.resolveChainCredentials().catch(err =>
 		logger.logCredentialResolution(
 			'failed',
 			`Initial credential resolution failed: ${err}`
@@ -422,13 +471,7 @@ async function registerOpenaiProvider(
 				const baseUrl = vscode.workspace
 					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
 					.get<string>('baseUrl') || undefined;
-				await validateOpenaiApiKey(apiKey, {
-					provider: OPENAI_AUTH_PROVIDER_ID,
-					name: 'OpenAI',
-					model: '',
-					type: positron.PositronLanguageModelType.Chat,
-					...(baseUrl && { baseUrl }),
-				});
+				await validateOpenaiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
 			preventSignOut: true,
@@ -492,13 +535,7 @@ async function registerGeminiProvider(
 				const baseUrl = vscode.workspace
 					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
 					.get<string>('baseUrl') || undefined;
-				await validateGeminiApiKey(apiKey, {
-					provider: GEMINI_AUTH_PROVIDER_ID,
-					name: 'Gemini Code Assist',
-					model: '',
-					type: positron.PositronLanguageModelType.Chat,
-					...(baseUrl && { baseUrl }),
-				});
+				await validateGeminiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
 			preventSignOut: true,
@@ -610,13 +647,7 @@ async function registerDeepSeekProvider(
 				const baseUrl = vscode.workspace
 					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
 					.get<string>('baseUrl') || undefined;
-				await validateDeepSeekApiKey(apiKey, {
-					provider: DEEPSEEK_AUTH_PROVIDER_ID,
-					name: 'DeepSeek',
-					model: '',
-					type: positron.PositronLanguageModelType.Chat,
-					...(baseUrl && { baseUrl }),
-				});
+				await validateDeepSeekApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
 			preventSignOut: true,

@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, logStoredModels, expandConfigToSource, syncSessionToGlobalState } from './config';
+import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, logStoredModels, syncSessionToGlobalState } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -512,7 +512,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const storedModels = getStoredModels(context);
 			if (storedModels.length) {
 				storedModels.forEach(stored => {
-					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
+					positron.ai.updateProvider(stored.provider, { signedIn: true });
 				});
 			}
 		} catch (error) {

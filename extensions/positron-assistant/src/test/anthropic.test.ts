@@ -99,7 +99,6 @@ suite('AnthropicModelProvider', () => {
 		// Create a mock configuration
 		const config: ModelConfig = {
 			id: 'test-model',
-			name: 'Test Model',
 			provider: 'anthropic-api',
 			model: 'claude-test',
 			apiKey: 'test-api-key',
@@ -908,7 +907,7 @@ suite('AnthropicModelProvider', () => {
 	suite('baseUrl support', () => {
 		test('baseUrl getter strips trailing slashes', () => {
 			const config: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: 'sk-ant-test',
 				type: positron.PositronLanguageModelType.Chat,
 				baseUrl: 'https://proxy.example.com/',
@@ -921,7 +920,7 @@ suite('AnthropicModelProvider', () => {
 
 		test('baseUrl getter strips trailing /v1 suffix', () => {
 			const config: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: 'sk-ant-test',
 				type: positron.PositronLanguageModelType.Chat,
 				baseUrl: 'https://proxy.example.com/v1',
@@ -934,7 +933,7 @@ suite('AnthropicModelProvider', () => {
 
 		test('baseUrl getter strips trailing /v1/ with slash', () => {
 			const config: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: 'sk-ant-test',
 				type: positron.PositronLanguageModelType.Chat,
 				baseUrl: 'https://proxy.example.com/v1/',
@@ -947,7 +946,7 @@ suite('AnthropicModelProvider', () => {
 
 		test('baseUrl getter falls back to default', () => {
 			const config: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: 'sk-ant-test',
 				type: positron.PositronLanguageModelType.Chat,
 			};
@@ -959,7 +958,7 @@ suite('AnthropicModelProvider', () => {
 
 		test('baseUrl getter preserves path components', () => {
 			const config: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: 'sk-ant-test',
 				type: positron.PositronLanguageModelType.Chat,
 				baseUrl: 'https://proxy.example.com/anthropic',
@@ -976,7 +975,7 @@ suite('AnthropicModelProvider', () => {
 			config: Partial<ModelConfig>
 		): Promise<boolean> {
 			const fullConfig: ModelConfig = {
-				id: 'test', name: 'Test', provider: 'anthropic-api',
+				id: 'test', provider: 'anthropic-api',
 				model: 'claude-test', apiKey: '',
 				type: positron.PositronLanguageModelType.Chat,
 				...config,

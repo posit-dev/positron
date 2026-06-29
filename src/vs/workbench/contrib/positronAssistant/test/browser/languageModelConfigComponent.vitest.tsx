@@ -21,14 +21,14 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 			type: PositronLanguageModelType.Chat,
 			provider: { ...provider, settingName: provider.id },
 			supportedOptions: [],
-			defaults: { name: '', model: '' },
+			defaults: { model: '' },
 		};
 		rtl.render(
 			<LanguageModelConfigComponent
 				authMethod={AuthMethod.NONE}
 				authStatus={AuthStatus.SIGNED_OUT}
 				closeDialog={() => { }}
-				config={{ type: PositronLanguageModelType.Chat, provider: provider.id, name: '', model: '' }}
+				config={{ model: '' }}
 				source={source}
 				onCancel={() => { }}
 				onChange={() => { }}

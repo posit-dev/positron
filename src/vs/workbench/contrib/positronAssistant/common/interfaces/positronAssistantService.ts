@@ -45,7 +45,7 @@ export type PositronLanguageModelOptions = Exclude<{
  * Registered during extension activation, independent of sign-in state.
  */
 export interface IPositronProviderMetadata {
-	/** Provider ID (e.g., 'anthropic-api', 'copilot') */
+	/** Provider ID (e.g., 'anthropic-api', 'copilot-auth') */
 	id: string;
 	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
 	displayName: string;
@@ -64,6 +64,8 @@ export interface IPositronProviderMetadata {
 	 * 'preview', then 'experimental'.
 	 */
 	status?: 'preview' | 'experimental';
+	/** Optional data URL for the provider icon (e.g., data:image/svg+xml;base64,...) */
+	logoUrl?: string;
 }
 
 // Equivalent in positron.d.ts API: LanguageModelSource
@@ -71,9 +73,11 @@ export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
 	provider: IPositronProviderMetadata;
 	supportedOptions: PositronLanguageModelOptions[];
-	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
+	defaults: IPositronLanguageModelConfig;
 	signedIn?: boolean;
 	authMethods?: string[];
+	status?: 'ok' | 'error' | null;
+	statusMessage?: string;
 }
 
 // Equivalent in positron.d.ts API: LanguageModelAutoconfigureType
@@ -98,10 +102,7 @@ export type IPositronLanguageModelAutoconfigure = (
 
 // Equivalent in positron.d.ts API: LanguageModelConfig
 export interface IPositronLanguageModelConfig {
-	type: PositronLanguageModelType;
-	provider: string;
-	name: string;
-	model: string;
+	model?: string;
 	baseUrl?: string;
 	apiKey?: string;
 	oauth?: boolean;
@@ -154,13 +155,41 @@ export interface IPositronAssistantConfigurationService {
 	readonly onChangeEnabledProviders: Event<void>;
 
 	/**
-	 * Registers provider metadata with the configuration service.
-	 * This allows the service to check provider enable settings without requiring sign-in.
-	 * Should be called during extension activation for all available providers.
+	 * Registers a language model provider with the configuration service.
+	 * Call once per provider during extension activation with all static config.
+	 * Creates a positron.assistant.provider.<settingName>.enable toggle in Settings.
 	 *
-	 * @param metadata Provider identification and settings information
+	 * @param source Provider source definition
 	 */
-	registerProviderMetadata(metadata: IPositronProviderMetadata): void;
+	registerProvider(source: IPositronLanguageModelSource): void;
+
+	/**
+	 * Unregisters a provider, removing its registration and dynamic state.
+	 * Fires onChangeProviderConfig so open dialogs update immediately.
+	 *
+	 * @param id Provider ID to unregister
+	 */
+	unregisterProvider(id: string): void;
+
+	/**
+	 * Updates dynamic state for a previously registered provider.
+	 * Fires onChangeProviderConfig so listeners react immediately.
+	 *
+	 * @param id Provider ID (must match a previously registered provider)
+	 * @param update Partial state to deep-merge
+	 */
+	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void;
+
+	/**
+	 * Returns sources for all registered, enabled providers.
+	 */
+	getRegisteredSources(): IPositronLanguageModelSource[];
+
+	/**
+	 * Event that fires when a provider's configuration changes via
+	 * registerProvider, unregisterProvider, or updateProvider.
+	 */
+	readonly onChangeProviderConfig: Event<IPositronLanguageModelSource>;
 
 	/**
 	 * Gets the list of enabled provider IDs from configuration.
@@ -199,11 +228,6 @@ export interface IPositronAssistantService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Event that fires when a language model configuration is added or deleted.
-	 */
-	readonly onChangeLanguageModelConfig: Event<IPositronLanguageModelSource>;
-
-	/**
 	 * Build positron specific context object to be attached to chat requests.
 	 */
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext;
@@ -215,10 +239,10 @@ export interface IPositronAssistantService {
 
 	/**
 	 * Show the language model configuration modal.
+	 * Sources are read from the configuration service's internal state.
 	 */
 	showLanguageModelModalDialog(
-		sources: IPositronLanguageModelSource[],
-		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
+		onAction: (source: IPositronLanguageModelSource, config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
 		options?: IShowLanguageModelConfigOptions,
 	): void;
@@ -227,16 +251,6 @@ export interface IPositronAssistantService {
 	 * Get the chat export as a JSON object (IExportableChatData).
 	 */
 	getChatExport(): IExportableChatData | undefined;
-
-	/**
-	 * Add a language model configuration.
-	 */
-	addLanguageModelConfig(source: IPositronLanguageModelSource): void;
-
-	/**
-	 * Remove a language model configuration.
-	 */
-	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 
 	/**
 	 * Checks if completions are enabled for the given file.
