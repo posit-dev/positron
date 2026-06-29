@@ -39,6 +39,7 @@ describe('MissingPackagesService', () => {
 	// Describe-level emitters so the builder captures their `.event` references.
 	const onDidChangePackages = new Emitter<string[]>();
 	const onDidDeleteRuntimeSession = new Emitter<string>();
+	const onDidChangeForegroundSession = new Emitter<string | undefined>();
 
 	// The session's package manager (also the install fallback path).
 	const installPackages = vi.fn().mockResolvedValue(undefined);
@@ -119,7 +120,7 @@ describe('MissingPackagesService', () => {
 	const ctx = createTestContainer()
 		.stub(IRuntimeSessionService, {
 			onWillStartSession: Event.None,
-			onDidChangeForegroundSession: Event.None,
+			onDidChangeForegroundSession: onDidChangeForegroundSession.event,
 			onDidDeleteRuntimeSession: onDidDeleteRuntimeSession.event,
 			getConsoleSessionForLanguage: (languageId: string) => {
 				if (languageId === 'python') { return session; }
@@ -225,6 +226,23 @@ describe('MissingPackagesService', () => {
 
 		expect(changed.map(uri => uri.toString())).toEqual([resource.toString()]);
 		expect(service.getCached(resource)).toBeUndefined();
+	});
+
+	it('keeps cached results on a foreground-session change, notifying without re-analyzing', async () => {
+		const service = createService();
+		await service.ensure(resource);
+		expect(listMissingPackages).toHaveBeenCalledTimes(1);
+
+		const changed: URI[] = [];
+		ctx.disposables.add(service.onDidChangeMissingPackages(uri => changed.push(uri)));
+
+		onDidChangeForegroundSession.fire('some-other-session');
+
+		// The resource is notified to re-resolve, but its cached per-session
+		// result survives -- flipping sessions must not re-run the analyzer.
+		expect(changed.map(uri => uri.toString())).toEqual([resource.toString()]);
+		expect(service.getCached(resource)?.total).toBe(1);
+		expect(listMissingPackages).toHaveBeenCalledTimes(1);
 	});
 
 	it('recomputes when the content hash changes', async () => {

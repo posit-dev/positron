@@ -83,12 +83,19 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		this._syncPackageListeners();
 		this._register(this._packagesService.onDidChangeActivePackagesInstance(() => this._syncPackageListeners()));
 
-		// A new or removed session, or a foreground-session change, can change
-		// which session analyzes a resource; invalidate broadly so the next
-		// request recomputes against the right session.
+		// A new or removed session can change which session analyzes a resource;
+		// invalidate broadly so the next request recomputes against the right
+		// session.
 		this._register(this._runtimeSessionService.onWillStartSession(() => this._invalidateAll()));
-		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => this._invalidateAll()));
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => this._invalidateSession(sessionId)));
+
+		// A foreground-session change reroutes a resource to a different session,
+		// but the cached results for each session are still valid (a session's
+		// package set doesn't change because focus moved). Only notify resources
+		// to re-resolve their targets -- re-resolution hits the cache for the now-
+		// foreground session, so flipping between sessions doesn't re-run the
+		// (RPC-backed) analysis every time.
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => this._notifyAllResources()));
 	}
 
 	getCached(resource: URI): IMissingPackagesResult | undefined {
@@ -417,6 +424,16 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	/** Clears the entire cache and notifies every tracked resource. */
 	private _invalidateAll(): void {
 		this._cache.clear();
+		this._notifyAllResources();
+	}
+
+	/**
+	 * Notifies every tracked resource to re-read its result without clearing the
+	 * cache. Used when the mapping from resource to session may have changed (a
+	 * foreground-session switch) but the cached per-session results are still
+	 * valid.
+	 */
+	private _notifyAllResources(): void {
 		for (const [resource] of this._resources) {
 			this._onDidChangeMissingPackages.fire(resource);
 		}
