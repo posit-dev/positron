@@ -12,6 +12,7 @@ import { useState } from 'react';
 // Other dependencies.
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActivityItemErrorSuggestion } from '../../../../services/positronConsole/browser/classes/activityItemErrorSuggestion.js';
 
 // ActivityErrorSuggestionProps interface.
@@ -26,6 +27,8 @@ export interface ActivityErrorSuggestionProps {
  * @returns The rendered component.
  */
 export const ActivityErrorSuggestion = (props: ActivityErrorSuggestionProps) => {
+	const { logService } = usePositronReactServicesContext();
+
 	// Track which suggestion is currently running so its link disables while it works.
 	const [runningIndex, setRunningIndex] = useState<number | undefined>(undefined);
 
@@ -36,6 +39,11 @@ export const ActivityErrorSuggestion = (props: ActivityErrorSuggestionProps) => 
 		setRunningIndex(index);
 		try {
 			await props.activityItemErrorSuggestion.suggestions[index].run();
+		} catch (err) {
+			// A suggestion's `run` is expected to surface its own user-facing
+			// error; catch here as a backstop so a rejection can't escape as an
+			// unhandled promise rejection and the button still resets below.
+			logService.error(`[ActivityErrorSuggestion] suggestion action failed: ${err}`);
 		} finally {
 			setRunningIndex(undefined);
 		}

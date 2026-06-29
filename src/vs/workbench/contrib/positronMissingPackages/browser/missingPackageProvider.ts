@@ -8,6 +8,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConsoleError, IConsoleErrorFollowupService, IConsoleErrorSuggestion, IConsoleErrorSuggestionProvider } from '../../../services/positronConsole/common/consoleErrorFollowup.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IMissingPackagesService } from '../common/missingPackagesService.js';
@@ -37,6 +38,7 @@ export class MissingPackageErrorProvider implements IConsoleErrorSuggestionProvi
 		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _missingPackagesService: IMissingPackagesService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _notificationService: INotificationService,
 	) { }
 
 	async provideSuggestions(error: IConsoleError, token: CancellationToken): Promise<IConsoleErrorSuggestion[]> {
@@ -72,11 +74,21 @@ export class MissingPackageErrorProvider implements IConsoleErrorSuggestionProvi
 			icon: Codicon.lightBulb,
 			label: localize('positron.missingPackages.installSuggestion', "Install {0}", pkg.name),
 			run: async () => {
-				await this._missingPackagesService.install({
-					sessionId: error.sessionId,
-					languageId: error.languageId,
-					packages: [pkg],
-				});
+				try {
+					await this._missingPackagesService.install({
+						sessionId: error.sessionId,
+						languageId: error.languageId,
+						packages: [pkg],
+					});
+				} catch (err) {
+					// Surface the failure so a click that does nothing visible
+					// (network / package-manager error) isn't silently swallowed.
+					this._notificationService.error(localize(
+						'positron.missingPackages.installFailed',
+						"Failed to install '{0}': {1}",
+						pkg.name,
+						err instanceof Error ? err.message : String(err)));
+				}
 			},
 		}));
 	}
@@ -116,12 +128,14 @@ export class MissingPackageFollowupContribution extends Disposable {
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 		@IMissingPackagesService missingPackagesService: IMissingPackagesService,
 		@IConfigurationService configurationService: IConfigurationService,
+		@INotificationService notificationService: INotificationService,
 	) {
 		super();
 		const provider = new MissingPackageErrorProvider(
 			runtimeSessionService,
 			missingPackagesService,
 			configurationService,
+			notificationService,
 		);
 		this._register(consoleErrorFollowupService.registerProvider(provider));
 	}

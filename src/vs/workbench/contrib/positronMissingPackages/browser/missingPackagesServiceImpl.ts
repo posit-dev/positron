@@ -52,6 +52,16 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	/** In-flight computations, deduped by cache key. */
 	private readonly _inFlight = new Map<string, Promise<IRuntimeMissingPackage[]>>();
 
+	/**
+	 * Invalidation generations. A compute captures these when it starts and only
+	 * commits its result to the cache if they are unchanged when it finishes, so a
+	 * computation that was in flight across an invalidation cannot repopulate the
+	 * cache with a now-stale result. `_globalGeneration` bumps on a full
+	 * invalidation; `_sessionGenerations` bump per session.
+	 */
+	private _globalGeneration = 0;
+	private readonly _sessionGenerations = new Map<string, number>();
+
 	/** The last-resolved targets per resource, so invalidation can find affected resources. */
 	private readonly _resources = new ResourceMap<IResolvedTarget[]>();
 
@@ -87,7 +97,19 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		// invalidate broadly so the next request recomputes against the right
 		// session.
 		this._register(this._runtimeSessionService.onWillStartSession(() => this._invalidateAll()));
-		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => this._invalidateSession(sessionId)));
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
+			this._invalidateSession(sessionId);
+			// Drop the now-dead session's package listener and generation entry so
+			// per-session bookkeeping doesn't grow across many session start/stops.
+			this._packageListeners.deleteAndDispose(sessionId);
+			this._sessionGenerations.delete(sessionId);
+		}));
+
+		// Prune a resource's tracked targets when its model goes away (editor
+		// closed / notebook removed), so resource bookkeeping and the invalidation
+		// fan-out don't grow without bound over a long-lived window.
+		this._register(this._modelService.onModelRemoved(model => this._resources.delete(model.uri)));
+		this._register(this._notebookService.onDidRemoveNotebookDocument(notebook => this._resources.delete(notebook.uri)));
 
 		// A foreground-session change reroutes a resource to a different session,
 		// but the cached results for each session are still valid (a session's
@@ -374,6 +396,13 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	}
 
 	private async _doCompute(target: IResolvedTarget): Promise<IRuntimeMissingPackage[]> {
+		// Capture the invalidation generations at the start. If either changes
+		// while the (RPC-backed) analysis is in flight, the result is stale and
+		// must not be cached -- otherwise an invalidation that happened mid-flight
+		// (e.g. a package was installed) would be silently undone by this late
+		// write under the same content-keyed cache entry.
+		const globalGeneration = this._globalGeneration;
+		const sessionGeneration = this._sessionGeneration(target.sessionId);
 		try {
 			const session = this._runtimeSessionService.getSession(target.sessionId);
 			// Use no cancellation here: the result is shared across callers, so a
@@ -381,7 +410,10 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 			const result = session?.listMissingPackages
 				? await session.listMissingPackages(target.target, CancellationToken.None)
 				: [];
-			this._cache.set(target.cacheKey, result);
+			if (this._globalGeneration === globalGeneration &&
+				this._sessionGeneration(target.sessionId) === sessionGeneration) {
+				this._cache.set(target.cacheKey, result);
+			}
 			return result;
 		} catch (err) {
 			this._logService.warn(`[MissingPackages] listMissingPackages failed for session '${target.sessionId}': ${err}`);
@@ -406,8 +438,17 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		}
 	}
 
+	/** The current invalidation generation for a session (0 if never invalidated). */
+	private _sessionGeneration(sessionId: string): number {
+		return this._sessionGenerations.get(sessionId) ?? 0;
+	}
+
 	/** Clears cached results for a session and notifies affected resources. */
 	private _invalidateSession(sessionId: string): void {
+		// Bump the session's generation so any in-flight compute for it discards
+		// its (now-stale) result rather than re-caching it after this clear.
+		this._sessionGenerations.set(sessionId, this._sessionGeneration(sessionId) + 1);
+
 		const prefix = `${sessionId}:`;
 		for (const key of [...this._cache.keys()]) {
 			if (key.startsWith(prefix)) {
@@ -423,6 +464,9 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 
 	/** Clears the entire cache and notifies every tracked resource. */
 	private _invalidateAll(): void {
+		// Bump the global generation so any in-flight compute discards its result
+		// rather than re-caching it after this clear.
+		this._globalGeneration++;
 		this._cache.clear();
 		this._notifyAllResources();
 	}

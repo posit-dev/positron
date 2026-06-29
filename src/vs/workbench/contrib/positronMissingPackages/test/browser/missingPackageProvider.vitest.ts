@@ -8,6 +8,7 @@
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ConsoleErrorFollowupService, IConsoleError, IConsoleErrorSuggestion } from '../../../../services/positronConsole/common/consoleErrorFollowup.js';
 import { ILanguageRuntimeSession, IRuntimeMissingPackage, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -55,8 +56,10 @@ describe('MissingPackageErrorProvider', () => {
 		const install = vi.fn().mockResolvedValue(undefined);
 		const missingPackagesService = stubInterface<IMissingPackagesService>({ install });
 		const configurationService = stubInterface<IConfigurationService>({ getValue: () => options.enabled ?? true });
-		const provider = new MissingPackageErrorProvider(runtimeSessionService, missingPackagesService, configurationService);
-		return { provider, listMissingPackages, install };
+		const notificationError = vi.fn();
+		const notificationService = stubInterface<INotificationService>({ error: notificationError });
+		const provider = new MissingPackageErrorProvider(runtimeSessionService, missingPackagesService, configurationService, notificationService);
+		return { provider, listMissingPackages, install, notificationError };
 	}
 
 	it('offers an install action for a Python missing-module error', async () => {
@@ -99,5 +102,18 @@ describe('MissingPackageErrorProvider', () => {
 		const error = makeError({ message: `No module named 'garfblatz'` });
 
 		expect(await provider.provideSuggestions(error, CancellationToken.None)).toEqual([]);
+	});
+
+	it('surfaces a notification when the install fails, without rejecting', async () => {
+		const { provider, install, notificationError } = setup();
+		install.mockRejectedValueOnce(new Error('network down'));
+		const error = makeError({ languageId: 'python', message: `No module named 'requests'` });
+
+		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
+
+		// `run` swallows the install failure after surfacing it to the user, so the
+		// click handler never sees an unhandled rejection.
+		await expect(suggestions[0].run()).resolves.toBeUndefined();
+		expect(notificationError).toHaveBeenCalledWith(`Failed to install 'requests': network down`);
 	});
 });

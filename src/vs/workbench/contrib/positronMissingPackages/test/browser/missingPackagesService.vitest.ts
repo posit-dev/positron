@@ -40,6 +40,8 @@ describe('MissingPackagesService', () => {
 	const onDidChangePackages = new Emitter<string[]>();
 	const onDidDeleteRuntimeSession = new Emitter<string>();
 	const onDidChangeForegroundSession = new Emitter<string | undefined>();
+	const onModelRemoved = new Emitter<ITextModel>();
+	const onDidRemoveNotebookDocument = new Emitter<NotebookTextModel>();
 
 	// The session's package manager (also the install fallback path).
 	const installPackages = vi.fn().mockResolvedValue(undefined);
@@ -145,12 +147,14 @@ describe('MissingPackagesService', () => {
 			getInstances: () => [packagesInstance],
 		})
 		.stub(IModelService, {
+			onModelRemoved: onModelRemoved.event,
 			getModel: (uri: URI) => (modelContent === null
 				? null
 				: stubInterface<ITextModel>({ uri, getLanguageId: () => modelLanguageId, getValue: () => modelContent! })),
 		})
 		.stub(ITextModelService, {})
 		.stub(INotebookService, {
+			onDidRemoveNotebookDocument: onDidRemoveNotebookDocument.event,
 			getNotebookTextModel: (uri: URI) => (uri.toString() === notebookResource.toString() ? notebookModel : undefined),
 		})
 		.stub(IQuartoDocumentModelService, {
@@ -226,6 +230,50 @@ describe('MissingPackagesService', () => {
 
 		expect(changed.map(uri => uri.toString())).toEqual([resource.toString()]);
 		expect(service.getCached(resource)).toBeUndefined();
+	});
+
+	it('does not re-cache a stale in-flight result after invalidation', async () => {
+		const service = createService();
+
+		// Hold the analyzer open so an invalidation can race the in-flight compute,
+		// signalling once it has started (so the compute has captured the current
+		// generation before the invalidation bumps it).
+		let resolveAnalysis!: (pkgs: IRuntimeMissingPackage[]) => void;
+		let analysisStarted!: () => void;
+		const started = new Promise<void>(resolve => { analysisStarted = resolve; });
+		listMissingPackages.mockImplementationOnce(() => {
+			analysisStarted();
+			return new Promise(resolve => { resolveAnalysis = resolve; });
+		});
+
+		const pending = service.ensure(resource);
+		await started;
+
+		// The session's packages change (e.g. the package was installed) while the
+		// analysis is still in flight, invalidating the session's cache.
+		onDidChangePackages.fire(['requests']);
+
+		// The in-flight analysis now completes with its now-stale "still missing"
+		// result; it must not be committed back to the freshly-invalidated cache.
+		resolveAnalysis([{ name: 'requests' }]);
+		await pending;
+
+		expect(service.getCached(resource)).toBeUndefined();
+	});
+
+	it('stops tracking a resource for invalidation once its model is removed', async () => {
+		const service = createService();
+		await service.ensure(resource);
+
+		// The editor for the resource closes; its model is removed.
+		onModelRemoved.fire(stubInterface<ITextModel>({ uri: resource }));
+
+		// A later package change must no longer fan out to the untracked resource.
+		const changed: URI[] = [];
+		ctx.disposables.add(service.onDidChangeMissingPackages(uri => changed.push(uri)));
+		onDidChangePackages.fire(['requests']);
+
+		expect(changed).toEqual([]);
 	});
 
 	it('keeps cached results on a foreground-session change, notifying without re-analyzing', async () => {
