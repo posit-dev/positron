@@ -88,14 +88,17 @@ export class DataConnections {
 	}
 
 	/**
-	 * Fills the connection form fields in the "Configure Database" dialog. Keys are the field
-	 * labels (e.g. 'Connection Name', 'Host', 'Port', 'Database', 'User', 'Password') and values
-	 * are the text to enter.
-	 * @param fields A map of field label to value.
+	 * Fills the connection form fields in the "Configure Database" dialog. Labels (e.g. 'Connection
+	 * Name', 'Host', 'Port', 'Database', 'User', 'Password') map to the text to enter. Pass an object
+	 * for plain string labels, or an array of `[label, value]` entries when a label needs a RegExp
+	 * (e.g. `/^User/` to match a field rendered with an "(optional)" suffix). Note that `exact` is
+	 * ignored for RegExp matchers, so anchor the pattern yourself.
+	 * @param fields A map of field label to value, as an object or an array of entries.
 	 */
-	async fillConnectionInputs(fields: Record<string, string>): Promise<void> {
+	async fillConnectionInputs(fields: Record<string, string> | [string | RegExp, string][]): Promise<void> {
+		const entries = Array.isArray(fields) ? fields : Object.entries(fields);
 		await test.step('Fill connection inputs', async () => {
-			for (const [label, value] of Object.entries(fields)) {
+			for (const [label, value] of entries) {
 				const field = this.dialog.locator(PARAMETER_FIELD).filter({
 					has: this.code.driver.currentPage.getByText(label, { exact: true })
 				});
