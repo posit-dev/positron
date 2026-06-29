@@ -237,12 +237,7 @@
 							"preview"
 						]
 					},
-"positron.assistant.streamingEdits.enable": {
-						"type": "boolean",
-						"default": true,
-						"description": "%configuration.streamingEdits.enable%"
-					},
-					"positron.assistant.inlineCompletions.enable": {
+"positron.assistant.inlineCompletions.enable": {
 						"type": "object",
 						"default": {
 							"*": true

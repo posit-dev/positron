@@ -6,7 +6,7 @@
 import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
+import { ParticipantID } from './participants.js';
 import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext, isNotebookModeEnabled } from './tools/notebookUtils.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
@@ -52,12 +52,10 @@ export class PositronAssistantApi {
 		// Start with the system prompt
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const streamingEdits = isStreamingEditsEnabled();
-
 		// Get notebook context if available
 		const notebookContext = await getAttachedNotebookContext(request);
 
-		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits, notebookContext }).content;
+		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits: true, notebookContext }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -212,8 +210,7 @@ export function getEnabledTools(
 	const isAgentMode = positronParticipantId === ParticipantID.Agent ||
 		positronParticipantId === undefined;
 	const isAskMode = positronParticipantId === ParticipantID.Chat;
-	const isStreamingInlineEditor = isStreamingEditsEnabled() &&
-		(positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook);
+	const isStreamingInlineEditor = positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook;
 
 	for (const tool of tools) {
 		// Check if the user has explicitly disabled this tool via the Configure Tools picker,

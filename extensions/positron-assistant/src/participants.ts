@@ -766,8 +766,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor {
 		const defaultTextProcessor = new DefaultTextProcessor(response);
 
-		// Check if streaming edits are enabled and we're in an editor context
-		if (isStreamingEditsEnabled() && isTextEditRequest(request)) {
+		// Check if we're in an editor context
+		if (isTextEditRequest(request)) {
 			if (request.location2.selection.isEmpty) {
 				// Process streaming edits to the whole document
 				return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
@@ -880,11 +880,10 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
-		const streamingEdits = isStreamingEditsEnabled();
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatAgentLocation.Editor,
 			request,
-			streamingEdits
+			streamingEdits: true
 		});
 		return prompt.content;
 	}
@@ -993,12 +992,6 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 	return llmsDocument;
 }
 
-/**
- * Whether the experimental streaming edit mode is enabled.
- */
-export function isStreamingEditsEnabled(): boolean {
-	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', true);
-}
 
 /** Processes streaming text. */
 export interface TextProcessor {

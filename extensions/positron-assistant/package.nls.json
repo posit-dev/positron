@@ -25,7 +25,6 @@
 	"configuration.title": "Positron Assistant",
 	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.\n\nRequires a restart to take effect.",
 	"configuration.enable.markdownDeprecationMessage": "Positron Assistant is being superseded by Posit Assistant. Use `#assistant.enabled#` instead.",
-"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
 	"configuration.inlineCompletions.enable.description": "Languages for which inline completions in the editor are enabled.\n\nBy default, the setting is configured with item `*` and value `true` to enable completions for all languages. To disable completions for all languages, set the entry to item `*` and value `false`.\n\nExample: to disable completions for R files, add an item using language identifier `r` and value `false`.\n\nSee the [known language identifiers](https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers) documentation for additional language identifiers.",
 	"configuration.gitIntegration.description": "Enable Positron Assistant git integration.",
 	"configuration.getTableSummary.description": "Enable Positron Assistant get table summary tool.",
