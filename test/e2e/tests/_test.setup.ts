@@ -16,7 +16,7 @@ import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
-	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
+	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
@@ -140,6 +140,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await start();
+
+			// Open the first trace chunk now -- before `beforeAll` and the first
+			// test's per-test fixtures run -- so their activity is captured. Each
+			// test's tracing fixture then exports the current chunk and opens the
+			// next one (see TracingFixture).
+			if (shouldUseCustomTracing(workerInfo.project)) {
+				await app.startTracing('suite-start');
+			}
 
 			await use(app);
 		} catch (error) {

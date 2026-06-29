@@ -221,29 +221,48 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 	}
 }
 
+/**
+ * Whether we manage Playwright tracing ourselves via per-test chunks (Positron
+ * desktop runs and all command-line runs), as opposed to letting Playwright's
+ * built-in tracing handle it (browser-based runs in UI mode or the VS Code
+ * extension). The continuous recording is started once per worker when the app
+ * context is created; we slice it into per-test chunks (see `TracingFixture`).
+ */
+export function shouldUseCustomTracing(project: playwright.FullProject): boolean {
+	const isCommandLineRun = !!process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
+	// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
+	return !(project.use.browserName && !isCommandLineRun);
+}
+
 export function TracingFixture() {
 	return async (options: TracingOptions, use: (arg0: Application) => Promise<void>) => {
 		const { app, testInfo } = options;
 
-		// Determine execution mode
-		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
-		// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
-		// Use custom tracing for Positron desktop runs or CLI runs.
-		if (
-			testInfo.project.use.browserName &&
-			!isCommandLineRun
-		) {
+		if (!shouldUseCustomTracing(testInfo.project)) {
+			// Playwright's built-in tracing manages the trace for this run.
 			await use(app);
-		} else {
-			// start tracing
-			await app.startTracing(testInfo.titlePath.join(' › '));
+			return;
+		}
 
+		// The trace chunk we export below was opened *before* this test's per-test
+		// fixtures ran -- either by the `app` worker fixture (for the first test in
+		// the worker, which also captures `beforeAll`) or by the previous test's
+		// teardown in this same fixture. So failures in pre-test fixtures and
+		// `beforeEach` hooks are already inside the trace. The try/finally ensures
+		// we always export and re-open, even when `use()` rejects.
+		try {
 			await use(app);
-
-			// stop tracing
+		} finally {
+			// Export the chunk for this test.
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 			const tracePath = testInfo.outputPath(`${title}.zip`);
 			await app.stopTracing(title, true, tracePath);
+
+			// Immediately open a fresh chunk so the *next* test's pre-test fixtures
+			// and `beforeEach` hooks are captured from the very start. (For the last
+			// test in the worker this chunk is simply discarded when the context's
+			// tracing is stopped on close.)
+			await app.startTracing(testInfo.titlePath.join(' › '));
 
 			// attach the trace to the report if CI and test failed or not in CI
 			const isCI = process.env.CI === 'true';
