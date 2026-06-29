@@ -79,6 +79,7 @@ claude mcp add --transport http positron http://localhost:43123
   - Can be disabled without restart via command
 - **`positron.mcp.logLevel`** (default: `info`) - Set logging verbosity
   - Options: `off`, `error`, `warning`, `info`, `debug`, `trace`
+- **`positron.mcp.executionTimeout`** (default: `30000`) - Milliseconds before an `execute-code` call is reported as still running or not yet started (e.g. the console stuck on incomplete code). Does not stop running code.
 
 ### Security Settings
 

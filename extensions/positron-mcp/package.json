@@ -40,6 +40,11 @@
             "Log everything including internal trace information"
           ]
         },
+        "positron.mcp.executionTimeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Timeout in milliseconds for a single execute-code call before the MCP server reports it as still running or not yet started (for example, the console waiting on incomplete code). Does not stop code that is genuinely running."
+        },
         "positron.mcp.security.enableCors": {
           "type": "boolean",
           "default": true,
