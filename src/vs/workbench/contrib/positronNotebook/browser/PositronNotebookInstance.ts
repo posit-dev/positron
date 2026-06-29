@@ -38,6 +38,7 @@ import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../.
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -113,6 +114,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+
+	/**
+	 * Observable size of the notebook editor container.
+	 */
+	private readonly _size = observableValue<ISize>('positronNotebookSize', { width: 0, height: 0 });
+	public readonly size: IObservable<ISize> = this._size;
 
 	/**
 	 * Whether cell tags are hidden across this notebook. Transient view state (not
@@ -247,6 +254,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// =============================================================================================
 	// #region Public Properties
+
+	/**
+	 * Notify the notebook instance that its container size has changed.
+	 */
+	layout(size: ISize): void {
+		this._size.set(size, undefined);
+	}
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.

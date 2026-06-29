@@ -17,6 +17,7 @@ import { CellEditType, CellKind, NotebookCellExecutionState } from '../../../not
 import { IPositronNotebookCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs, TagWriteResult } from './IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { derived, IObservable, IObservableSignal, observableFromEvent, observableFromEventOpts, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 import { equals as arraysEqual } from '../../../../../base/common/arrays.js';
 import { applyTagsToNestedMetadata } from './cellTagsMetadata.js';
@@ -195,6 +196,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	get notebookUri(): URI {
 		return this._instance.uri;
+	}
+
+	get instance(): IPositronNotebookInstance {
+		return this._instance;
 	}
 
 	/**

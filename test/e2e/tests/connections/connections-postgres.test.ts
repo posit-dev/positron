@@ -18,6 +18,13 @@ test.describe('Postgres DB Connection', {
 	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
+	// These tests require a running Postgres container, which is only available on the Windows
+	// and web CI rigs. The macOS CI project runs @:win-tagged tests too (see playwright.config.ts),
+	// but has no Postgres container, so skip the whole suite there.
+	test.beforeEach(function () {
+		test.skip(process.platform === 'darwin', 'No Postgres container available on macOS CI');
+	});
+
 	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
 
 		await app.workbench.connections.openConnectionPane();

@@ -57,11 +57,23 @@ export async function runDockerCommand(command: string, description: string): Pr
  * so no interactive sign-in is required. positAI is disabled so the Foundry
  * model is the one exercised. Shared by the host-side `beforeApp` fixture and
  * `dockerSettingsOverrides` so the two paths cannot drift.
+ *
+ * `positron.assistant.models.overrides.msFoundry` declares the models the
+ * provider exposes in the picker: `model-router` (the virtual routing model) and
+ * the concrete `claude-sonnet-4-6` model. The foundry workbench suite exercises
+ * both -- one test selects the router, the other the concrete model -- to cover
+ * the model-overrides auth path for GA.
+ *
+ * NOTE: the `positron.assistant.models.overrides.msFoundry` key is expected to
+ * change in the future; update this override (and the foundry suite) when it does.
  */
 export const FOUNDRY_ASSISTANT_SETTINGS = {
 	'positron.assistant.enable': true,
 	'positron.assistant.provider.positAI.enable': false,
-	'positron.assistant.models.overrides.msFoundry': [{ name: 'model-router', identifier: 'model-router' }],
+	'positron.assistant.models.overrides.msFoundry': [
+		{ name: 'model-router', identifier: 'model-router' },
+		{ name: 'claude-sonnet-4-6', identifier: 'claude-sonnet-4-6' },
+	],
 	'positron.assistant.provider.msFoundry.enable': true,
 	'posit.workbench.foundry.endpoint': 'https://east2testai.services.ai.azure.com/',
 	'authentication.foundry.baseUrl': 'https://east2testai.services.ai.azure.com/openai/v1',
