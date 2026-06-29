@@ -98,7 +98,8 @@ function routeUiEvent(event: DataExplorerUiEvent) {
 async function ensureTestHandler(): Promise<DataExplorerRpcHandler> {
 	if (!testHandler) {
 		testDb = await DuckDBInstance.create();
-		testHandler = new DataExplorerRpcHandler(testDb, routeUiEvent);
+		const storageDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-excel-cache-'));
+		testHandler = new DataExplorerRpcHandler(testDb, routeUiEvent, storageDir);
 	}
 	return testHandler;
 }

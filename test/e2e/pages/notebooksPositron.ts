@@ -259,7 +259,28 @@ export class PositronNotebooks extends Notebooks {
 	 * @param path - The path to the notebook to open.
 	 */
 	async openNotebook(path: string): Promise<void> {
+		await this.prepareOpenNotebook(path);
+		await this.confirmOpenNotebook();
+	}
+
+	/**
+	 * Action: Open Quick Access and surface the notebook so a subsequent
+	 * {@link confirmOpenNotebook} call only needs to confirm the selection.
+	 *
+	 * Splitting the open this way lets perf tests exclude Quick Access UI
+	 * latency (Cmd+P, clearEditorHistory, the result-polling retry loop)
+	 * from the measured open + parse + render time.
+	 * @param path - The path to the notebook to open.
+	 */
+	async prepareOpenNotebook(path: string): Promise<void> {
 		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+	}
+
+	/**
+	 * Action: Confirm the Quick Access selection staged by
+	 * {@link prepareOpenNotebook} and wait for the notebook to render.
+	 */
+	async confirmOpenNotebook(): Promise<void> {
 		await this.quickinput.selectQuickInputElement(0);
 		await this.expectToBeVisible();
 	}

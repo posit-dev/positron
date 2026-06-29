@@ -26,13 +26,7 @@ suite('validateDeepSeekApiKey', () => {
 	});
 
 	function makeConfig(baseUrl?: string): positron.ai.LanguageModelConfig {
-		return {
-			provider: 'deepseek-api',
-			name: 'DeepSeek',
-			model: '',
-			type: positron.PositronLanguageModelType.Chat,
-			...(baseUrl !== undefined && { baseUrl }),
-		};
+		return { baseUrl };
 	}
 
 	test('uses https://api.deepseek.com when no baseUrl is provided', async () => {

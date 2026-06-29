@@ -645,7 +645,10 @@ export class Sessions {
 	 */
 	async getCurrentSessionId(): Promise<string> {
 		return await test.step('Get current session ID', async () => {
-			const infoButton = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+			// Notebook console sessions carry an extra `-notebook` segment
+			// (e.g. `info-r-notebook-f77090bb`), so allow it in addition to
+			// standalone sessions (`info-r-f77090bb`).
+			const infoButton = this.page.getByTestId(/info-(python|r)(-notebook)?-[a-z0-9]+/i);
 			const infoButtonCount = await infoButton.count();
 
 			if (infoButtonCount === 0) {
@@ -654,7 +657,7 @@ export class Sessions {
 
 			const testId = await infoButton.getAttribute('data-testid');
 
-			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+			if (!testId || !/^info-((python|r)(-notebook)?-[a-z0-9]+)$/i.test(testId)) {
 				throw new Error('No active session or unexpected session ID format');
 			}
 

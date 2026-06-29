@@ -38,6 +38,7 @@ const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 
 // Configure Providers modal controls
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
+const BASEURL_INPUT = '#base-url-input input.text-input[type="text"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
@@ -49,6 +50,7 @@ const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anth
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#amazon-bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
+const MS_FOUNDRY_BUTTON = 'button.positron-button.language-model.button:has(#ms-foundry-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const POSIT_AI_BUTTON = 'button.positron-button.language-model.button:has(#posit-ai-provider-button)';
 
@@ -66,6 +68,7 @@ export type ModelProvider =
 	| 'amazon-bedrock'
 	| 'echo'
 	| 'error'
+	| 'ms-foundry'
 	| 'openai-api'
 	| 'posit-ai';
 
@@ -103,6 +106,8 @@ export interface OAuthDeviceCodeConfig {
 export interface LoginModelProviderOptions {
 	/** API key for providers that support API key authentication */
 	apiKey?: string;
+	/** Base URL for providers that require one (e.g. ms-foundry); falls back to *_BASE_URL env var */
+	baseUrl?: string;
 	/** Timeout for verifying sign-in success (default: 15000ms) */
 	timeout?: number;
 	/** Whether to run the OAuth browser in headless mode (default: false) */
@@ -116,6 +121,7 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 			return 'none';
 		case 'anthropic-api':
 		case 'openai-api':
+		case 'ms-foundry':
 			return 'apiKey';
 		case 'amazon-bedrock':
 			return 'aws';
@@ -124,6 +130,19 @@ function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 		default:
 			throw new Error(`Unknown provider: ${provider}`);
 	}
+}
+
+/**
+ * Whether the provider requires a Base URL alongside its API key (e.g.
+ * Microsoft Foundry's Azure endpoint). These providers expose a "Base URL"
+ * field in the Configure Providers modal in addition to the API key field.
+ */
+function providerRequiresBaseUrl(provider: ModelProvider): boolean {
+	return provider.toLowerCase() === 'ms-foundry';
+}
+
+function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
+	return `${provider.toUpperCase().replace(/-/g, '_')}_BASE_URL`;
 }
 
 function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
@@ -211,6 +230,9 @@ export class ModelProviderAuth {
 			case 'error':
 				await this.code.driver.currentPage.locator(ERROR_MODEL_BUTTON).click();
 				break;
+			case 'ms-foundry':
+				await this.code.driver.currentPage.locator(MS_FOUNDRY_BUTTON).click();
+				break;
 			case 'openai-api':
 				await this.code.driver.currentPage.locator(OPENAI_BUTTON).click();
 				break;
@@ -266,6 +288,20 @@ export class ModelProviderAuth {
 						);
 					}
 					await this.enterApiKey(apiKey);
+
+					// Some providers (e.g. ms-foundry) also require a Base URL.
+					if (providerRequiresBaseUrl(provider)) {
+						const baseUrlEnvVar = getProviderBaseUrlEnvVarName(provider);
+						const baseUrl = options.baseUrl ?? process.env[baseUrlEnvVar];
+						if (!baseUrl) {
+							throw new Error(
+								`No base URL provided for ${provider}. ` +
+								`Set the ${baseUrlEnvVar} environment variable or pass baseUrl in options.`
+							);
+						}
+						await this.enterBaseUrl(baseUrl);
+					}
+
 					await this.clickSignInButton();
 					break;
 				}
@@ -325,6 +361,13 @@ export class ModelProviderAuth {
 		await this.code.driver.currentPage.locator(APIKEY_RADIO).check();
 		const apiKeyInput = this.code.driver.currentPage.locator(APIKEY_INPUT);
 		await fillSecretValue(apiKeyInput, apiKey);
+	}
+
+	async enterBaseUrl(baseUrl: string) {
+		// Filled via the secret-value helper so the endpoint URL isn't recorded
+		// in Playwright traces.
+		const baseUrlInput = this.code.driver.currentPage.locator(BASEURL_INPUT);
+		await fillSecretValue(baseUrlInput, baseUrl);
 	}
 
 	async clickSignInButton() {

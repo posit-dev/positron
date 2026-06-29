@@ -11,15 +11,12 @@ import { isComplexHtml } from '../../common/webviewPreloadUtils.js';
 describe('isComplexHtml', () => {
 	ensureNoLeakedDisposables();
 
-	// Each entry exercises a distinct detection branch in isComplexHtml().
+	// Active content is complex and must be isolated in a webview.
 	const complexCases: [string, string][] = [
 		['script', '<div><script>alert(1)</script></div>'],
 		['iframe', '<iframe src="https://example.com"></iframe>'],
 		['object', '<object data="file.swf"></object>'],
 		['embed', '<embed src="file.pdf">'],
-		['body', '<body><p>Hello</p></body>'],
-		['html', '<html><p>Hello</p></html>'],
-		['doctype', '<!DOCTYPE html><html></html>'],
 		['javascript: URL', '<a href="javascript:alert(1)">click</a>'],
 		['event handler', '<img src="x" onerror="alert(1)">'],
 	];
@@ -29,11 +26,18 @@ describe('isComplexHtml', () => {
 		});
 	}
 
-	it('data attributes containing "on" prefix are not complex', () => {
-		expect(isComplexHtml('<div data-onclick="value">test</div>')).toBe(false);
-	});
-
-	it('simple HTML is not complex', () => {
-		expect(isComplexHtml('<p>Hello world</p>')).toBe(false);
-	});
+	// Document structure and fragments are inert and render inline.
+	const simpleCases: [string, string][] = [
+		['doctype', '<!DOCTYPE html><html></html>'],
+		['html', '<html><p>Hello</p></html>'],
+		['body', '<body><p>Hello</p></body>'],
+		['style block', '<html><head><style>p { color: red; }</style></head><body><p>x</p></body></html>'],
+		['simple fragment', '<p>Hello world</p>'],
+		['data attribute with "on" prefix', '<div data-onclick="value">test</div>'],
+	];
+	for (const [label, html] of simpleCases) {
+		it(`treats ${label} as simple`, () => {
+			expect(isComplexHtml(html)).toBe(false);
+		});
+	}
 });

@@ -191,6 +191,9 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
 	'!extensions/positron-r/src/test/snapshots/*.R',
+	// Vendored from JupyterLab (a fork of their labvariables.css); keeps JupyterLab's
+	// 2-space indentation to ease future diffs against the JupyterLab original.
+	'!extensions/positron-ipywidgets/renderer/src/css/jupyter-lab-variables.css',
 	// --- End Positron ---
 ]);
 

@@ -138,6 +138,9 @@ export const config = {
 		darwinBundleDocumentType(['json'], 'JSON'),
 		darwinBundleDocumentType(['less'], 'Less'),
 		darwinBundleDocumentType(['markdown', 'md', 'mdoc', 'mdown', 'mdtext', 'mdtxt', 'mdwn', 'mkd', 'mkdn'], 'Markdown'),
+		// --- Start Positron ---
+		darwinBundleDocumentType(['qmd'], 'Quarto'),
+		// --- End Positron ---
 		darwinBundleDocumentType(['php'], 'PHP', 'source code'),
 		darwinBundleDocumentType(['ps1', 'psd1', 'psm1'], 'Powershell', 'script'),
 		darwinBundleDocumentType(['py', 'pyi'], 'Python', 'script'),

@@ -17,6 +17,7 @@ import { INotebookExecutionStateService, NotebookExecutionType } from '../../../
 import { CellEditType } from '../../../../notebook/common/notebookCommon.js';
 import { CellKind as PositronCellKind } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getAssistantSettings, setAssistantSettings } from '../../../common/notebookAssistantMetadata.js';
+import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
 import {
 	POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY,
@@ -24,7 +25,7 @@ import {
 	POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY,
 } from './config.js';
-import { IHeadlessLanguageModelService, IStreamTextRequest } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { IHeadlessLanguageModelService, IStreamTextRequest, intentFromSetting } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IPositronVariablesService } from '../../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
 import {
@@ -34,7 +35,6 @@ import {
 	IGhostCellVariable,
 	buildGhostCellContext,
 	generateGhostCellSuggestion,
-	intentFromSetting,
 	snapshotCells,
 } from './ghostCellSuggestion.js';
 
@@ -670,9 +670,22 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	// ===== Private Helpers =====
 
 	/**
+	 * Main switch for Positron's AI features. Ghost cell suggestions only work
+	 * when AI is enabled.
+	 */
+	private _isAIEnabled(): boolean {
+		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+	}
+
+	/**
 	 * Check if ghost cell suggestions are enabled for this notebook.
 	 */
 	private _isGhostCellEnabled(): boolean {
+		// Gated on the AI main switch.
+		if (!this._isAIEnabled()) {
+			return false;
+		}
+
 		// Check per-notebook override first
 		const settings = getAssistantSettings(this._notebook.textModel?.metadata);
 		if (settings.ghostCellSuggestions !== undefined) {
@@ -710,6 +723,11 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * Returns true if: user hasn't explicitly set enabled, no per-notebook override, and not dismissed this open.
 	 */
 	private _shouldShowOptInPrompt(): boolean {
+		// Don't prompt to opt in when AI is disabled.
+		if (!this._isAIEnabled()) {
+			return false;
+		}
+
 		// Check per-notebook override first - if set, no prompt needed
 		const settings = getAssistantSettings(this._notebook.textModel?.metadata);
 		if (settings.ghostCellSuggestions !== undefined) {
