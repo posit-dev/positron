@@ -12,8 +12,6 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
-import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
@@ -29,6 +27,9 @@ import { CancelablePromise } from '../../../../base/common/async.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
+
+// Command exposed by the Posit Assistant extension to start/continue a chat.
+const POSIT_NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 
 /**
  * Action that opens the assistant panel with predefined prompt options for the notebook.
@@ -95,19 +96,24 @@ export class AskAssistantAction extends Action2 {
 			}
 		});
 
-		// Handle action selection - open the chat with the selected query
-		const handleActionSelected = async (query: string, mode: ChatModeKind) => {
+		// Handle action selection - send the query to Posit Assistant. Route through
+		// posit-assistant.newChat (the standalone assistant) rather than the built-in
+		// chat, which has no Posit Assistant agent behind it and so does nothing.
+		// newChat opens the assistant in whichever surface the user configured
+		// (sidebar or editor panel).
+		const handleActionSelected = async (query: string) => {
 			try {
-				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-					query,
-					mode
+				await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, {
+					prompt: query,
+					target: 'new',
+					behavior: 'submit',
 				});
 			} catch (error) {
+				logService.error('Failed to open Posit Assistant chat', error);
 				notificationService.error(
 					localize(
-						'positronNotebook.assistant.error',
-						'Failed to open assistant chat: {0}',
-						error instanceof Error ? error.message : String(error)
+						'positronNotebook.assistant.unavailable',
+						"Posit Assistant is not available. Install the Posit Assistant extension to ask about this notebook."
 					)
 				);
 			}
