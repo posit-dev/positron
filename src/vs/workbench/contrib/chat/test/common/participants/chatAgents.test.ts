@@ -15,7 +15,6 @@ import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModels
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { NullLogService } from '../../../../../../platform/log/common/log.js';
 import { Disposable, IDisposable } from '../../../../../../base/common/lifecycle.js';
-import { TestPositronAssistantConfigurationService } from '../../../../../test/common/positronWorkbenchTestServices.js';
 import { observableValue } from '../../../../../../base/common/observable.js';
 import { ChatContextKeys } from '../../../common/actions/chatContextKeys.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../../../common/constants.js';
@@ -106,9 +105,7 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
-		const positronAssistantConfigurationService = new TestPositronAssistantConfigurationService();
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
-		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService, positronAssistantConfigurationService));
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
 		// --- End Positron ---
 	});
 
