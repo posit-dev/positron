@@ -45,6 +45,13 @@ export class PipPackageManager implements IPackageManager {
         return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
     }
 
+    async getPackageDetail(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+        return this._callMethod<Partial<positron.LanguageRuntimePackage> | undefined>('getPackageDetail', token, name);
+    }
+
     /**
      * Check if pip is available in the current Python environment.
      */
