@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { FileAccess } from '../../../../base/common/network.js';
@@ -14,7 +15,6 @@ import { IBannerService } from '../../../services/banner/browser/bannerService.j
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import * as fs from 'fs';
 
 const BANNER_ID = 'positron.academicLicense';
 const DISMISSED_KEY = 'workbench.banner.academicLicense.dismissed';
