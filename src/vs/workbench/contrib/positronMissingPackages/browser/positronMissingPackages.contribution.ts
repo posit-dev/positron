@@ -57,11 +57,14 @@ PositronActionBarWidgetRegistry.registerWidget({
 });
 
 // Positron notebook toolbar badge (scenario 2). Same component, scoped to the
-// Positron notebook editor.
+// Positron notebook editor. Placed before the menu's action buttons so the
+// badge sits to the left of the restart button, rather than between it and the
+// kernel status indicator (which is a trailing, default-placement widget).
 PositronActionBarWidgetRegistry.registerWidget({
 	id: 'positronMissingPackages.notebookBadge',
 	menuId: MenuId.EditorActionsRight,
 	order: 95,
+	placement: 'before',
 	when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 	selfContained: true,
 	componentFactory: (accessor) => () => React.createElement(MissingPackagesBadgeMount, { accessor }),
