@@ -12,7 +12,9 @@ import { ContextKeyExpr, IContextKeyService } from '../../../../../../platform/c
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem, QuickPickInput } from '../../../../../../platform/quickinput/common/quickInput.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
+import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 
 export const SHOW_NOTEBOOK_COMMANDS_ACTION_ID = 'positronNotebook.showCommands';
 
@@ -167,7 +169,8 @@ export function showNotebookCommandsQuickPick(
 	quickPick.show();
 }
 
-class ShowNotebookCommandsAction extends Action2 {
+/** Exported for testing. */
+export class ShowNotebookCommandsAction extends Action2 {
 	constructor() {
 		super({
 			id: SHOW_NOTEBOOK_COMMANDS_ACTION_ID,
@@ -184,11 +187,19 @@ class ShowNotebookCommandsAction extends Action2 {
 	}
 
 	override run(accessor: ServicesAccessor): void {
+		// Evaluate command `when` clauses through the active notebook's scoped
+		// context key service, the same scope the F1 command palette uses. Editor-
+		// scoped keys -- notably NOTEBOOK_HAS_SOMETHING_RUNNING, which gates the
+		// runAllCells/stopAllCells toggle -- are only visible through that scope;
+		// the global service leaves them at their default, which wrongly hid
+		// "Stop Execution" while a cell ran (and showed it, running all cells, when
+		// idle).
+		const notebook = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 		showNotebookCommandsQuickPick(
 			accessor.get(IQuickInputService),
 			accessor.get(ICommandService),
 			accessor.get(IKeybindingService),
-			accessor.get(IContextKeyService),
+			notebook?.scopedContextKeyService ?? accessor.get(IContextKeyService),
 		);
 	}
 }

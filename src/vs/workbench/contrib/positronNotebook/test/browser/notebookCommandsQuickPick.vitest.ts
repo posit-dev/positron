@@ -11,10 +11,14 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { ContextKeyExpr, ContextKeyExpression, IContext, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
-import { showNotebookCommandsQuickPick } from '../../browser/contrib/commands/NotebookCommandsAction.js';
+import { ShowNotebookCommandsAction, showNotebookCommandsQuickPick } from '../../browser/contrib/commands/NotebookCommandsAction.js';
+import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
+import { IVisibleEditorPane } from '../../../../common/editor.js';
 
 interface ICommandPickItem extends IQuickPickItem {
 	readonly commandId: string;
@@ -208,6 +212,53 @@ describe('showNotebookCommandsQuickPick', () => {
 			.filter(i => i.commandId === 'positronNotebook.runAllCells' || i.commandId === 'positronNotebook.executeSelectionInConsole')
 			.map(i => i.label);
 		expect(runGroup).toEqual(['Execute Selection in Console', 'Run All Cells']);
+		pick.cancel();
+	});
+});
+
+describe('ShowNotebookCommandsAction', () => {
+	let pick: TestQuickPick<ICommandPickItem>;
+	let registrations: DisposableStore;
+
+	// run() must evaluate command `when` clauses through the active notebook's
+	// scoped context key service, not the global one -- editor-scoped keys like
+	// NOTEBOOK_HAS_SOMETHING_RUNNING are invisible globally. Sentinel: the global
+	// service rejects everything while the notebook's scoped service accepts
+	// everything, so a prefixed command appearing proves run() consulted the
+	// scoped service.
+	const scopedContextKeyService = stubInterface<IContextKeyService>({ contextMatchesRules: () => true });
+	const notebook = stubInterface<IPositronNotebookInstance>({ scopedContextKeyService });
+	// `notebookInstance` is not on the editor-pane interface; production code at
+	// notebookUtils.ts:80 widens via the same cast to read it off PositronNotebookEditor.
+	// eslint-disable-next-line local/code-no-dangerous-type-assertions -- modeling PositronNotebookEditor's `notebookInstance` field on a structurally-stubbed pane (production code casts the same way)
+	const paneOverrides = { getId: () => POSITRON_NOTEBOOK_EDITOR_ID, notebookInstance: notebook } as unknown as Partial<IVisibleEditorPane>;
+	const activeEditorPane = stubInterface<IVisibleEditorPane>(paneOverrides);
+
+	const ctx = createTestContainer()
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			createQuickPick: (() => pick.asQuickPick()) as IQuickInputService['createQuickPick'],
+		}))
+		.stub(ICommandService, { executeCommand: vi.fn(() => Promise.resolve(undefined)) })
+		.stub(IKeybindingService, { lookupKeybinding: () => undefined })
+		.stub(IContextKeyService, stubInterface<IContextKeyService>({ contextMatchesRules: () => false }))
+		.stub(IEditorService, stubInterface<IEditorService>({ activeEditorPane }))
+		.build();
+
+	beforeEach(() => {
+		pick = ctx.disposables.add(new TestQuickPick<ICommandPickItem>());
+		registrations = new DisposableStore();
+		registrations.add(MenuRegistry.addCommand({ id: 'positronNotebook.testScoped', title: 'Scoped Command' }));
+		registrations.add(MenuRegistry.appendMenuItem(MenuId.CommandPalette, { command: { id: 'positronNotebook.testScoped', title: 'Scoped Command' } }));
+	});
+
+	afterEach(() => {
+		registrations.dispose();
+	});
+
+	it('evaluates command visibility through the active notebook scoped context', () => {
+		ctx.instantiationService.invokeFunction(accessor => new ShowNotebookCommandsAction().run(accessor));
+		const ids = pick.items.filter((i): i is ICommandPickItem => i.type !== 'separator').map(i => i.commandId);
+		expect(ids).toContain('positronNotebook.testScoped');
 		pick.cancel();
 	});
 });
