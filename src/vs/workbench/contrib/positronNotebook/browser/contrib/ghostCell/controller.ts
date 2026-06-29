@@ -18,6 +18,7 @@ import { CellEditType } from '../../../../notebook/common/notebookCommon.js';
 import { CellKind as PositronCellKind } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getAssistantSettings, setAssistantSettings } from '../../../common/notebookAssistantMetadata.js';
 import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
+import { NOTEBOOK_AI_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import {
 	POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY,
@@ -670,19 +671,22 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	// ===== Private Helpers =====
 
 	/**
-	 * Main switch for Positron's AI features. Ghost cell suggestions only work
-	 * when AI is enabled.
+	 * Whether AI is enabled for notebooks. Both switches must be on: the global
+	 * `ai.enabled` and the notebooks-only `notebook.ai.enabled`. The latter
+	 * defaults to true, so only an explicit `false` disables notebook AI.
+	 * Ghost cell suggestions only work when notebook AI is enabled.
 	 */
-	private _isAIEnabled(): boolean {
-		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+	private _isNotebookAIEnabled(): boolean {
+		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true
+			&& this._configurationService.getValue<boolean>(NOTEBOOK_AI_ENABLED_KEY) !== false;
 	}
 
 	/**
 	 * Check if ghost cell suggestions are enabled for this notebook.
 	 */
 	private _isGhostCellEnabled(): boolean {
-		// Gated on the AI main switch.
-		if (!this._isAIEnabled()) {
+		// Gated on the AI switches (global + notebooks).
+		if (!this._isNotebookAIEnabled()) {
 			return false;
 		}
 
@@ -723,8 +727,8 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * Returns true if: user hasn't explicitly set enabled, no per-notebook override, and not dismissed this open.
 	 */
 	private _shouldShowOptInPrompt(): boolean {
-		// Don't prompt to opt in when AI is disabled.
-		if (!this._isAIEnabled()) {
+		// Don't prompt to opt in when AI is disabled (global or notebooks).
+		if (!this._isNotebookAIEnabled()) {
 			return false;
 		}
 

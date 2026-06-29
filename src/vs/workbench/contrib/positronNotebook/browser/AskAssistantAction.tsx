@@ -18,6 +18,7 @@ import { IHeadlessLanguageModelService } from '../../../services/positronHeadles
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { openPositAssistantChat } from '../../positronAssistant/browser/positAssistantChat.js';
+import { NOTEBOOK_AI_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
@@ -42,9 +43,13 @@ export class AskAssistantAction extends Action2 {
 			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
 			icon: ThemeIcon.fromId('positron-assistant'),
 			f1: true,
-			// Gate the command palette entry and command execution on the AI main switch.
+			// Gate the command palette entry and command execution on the AI switches:
+			// the global `ai.enabled` and the notebooks-only `notebook.ai.enabled`.
 			// The menu `when` below hides the toolbar button; precondition covers the rest.
-			precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+				ContextKeyExpr.has(`config.${NOTEBOOK_AI_ENABLED_KEY}`),
+			),
 			category: localize2('positronNotebook.category', 'Notebook'),
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -57,6 +62,7 @@ export class AskAssistantAction extends Action2 {
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 					ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+					ContextKeyExpr.has(`config.${NOTEBOOK_AI_ENABLED_KEY}`),
 				)
 			}
 		});

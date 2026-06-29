@@ -8,7 +8,8 @@
 import { AskAssistantAction } from '../../browser/AskAssistantAction.js';
 
 /**
- * The Ask Assistant action is gated on the AI main switch (`config.ai.enabled`).
+ * The Ask Assistant action is gated on both AI switches: the global
+ * `config.ai.enabled` and the notebooks-only `config.notebook.ai.enabled`.
  * The menu `when` clause hides the editor toolbar button, but the action also
  * sets `f1: true`, so it gets a command palette entry whose visibility is driven
  * by the action's `precondition`. Without a precondition the command stayed in
@@ -18,11 +19,15 @@ describe('AskAssistantAction', () => {
 	const desc = new AskAssistantAction().desc;
 
 	it('gates the command palette entry and execution via precondition', () => {
-		expect(desc.precondition?.serialize()).toBe('config.ai.enabled');
+		const serialized = desc.precondition?.serialize();
+		expect(serialized).toContain('config.ai.enabled');
+		expect(serialized).toContain('config.notebook.ai.enabled');
 	});
 
 	it('gates the editor toolbar button via the menu when clause', () => {
 		const menu = Array.isArray(desc.menu) ? desc.menu[0] : desc.menu;
-		expect(menu?.when?.serialize()).toContain('config.ai.enabled');
+		const serialized = menu?.when?.serialize();
+		expect(serialized).toContain('config.ai.enabled');
+		expect(serialized).toContain('config.notebook.ai.enabled');
 	});
 });

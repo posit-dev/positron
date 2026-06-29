@@ -16,7 +16,7 @@ import { usePositronConfiguration, useContextKeyFromString } from '../../../../.
 import { IAction } from '../../../../../base/common/actions.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
-import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { NOTEBOOK_AI_ENABLED_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
@@ -46,13 +46,16 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
+	// notebook.ai.enabled defaults to true, so only an explicit `false` hides the buttons.
+	const notebookAiEnabled = usePositronConfiguration<boolean>(NOTEBOOK_AI_ENABLED_KEY);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	// Set by the Posit Assistant extension when it has at least one usable model.
 	// The old positron-assistant.hasChatModels key is going away this milestone.
 	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
 
-	// Only show buttons if AI is enabled, notebook mode is enabled, and chat models are available
-	const showQuickFix = aiEnabled && enableNotebookMode && hasChatModels;
+	// Only show buttons if AI is enabled (global + notebooks), notebook mode is
+	// enabled, and chat models are available
+	const showQuickFix = aiEnabled && notebookAiEnabled !== false && enableNotebookMode && hasChatModels;
 
 	const cleanError = useMemo(
 		() => removeAnsiEscapeCodes(props.errorContent).trim(),
