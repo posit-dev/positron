@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../../nls.js';
+import { localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -17,6 +17,7 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
+import { openPositAssistantChat } from '../../positronAssistant/browser/positAssistantChat.js';
 import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
@@ -27,40 +28,6 @@ import { CancelablePromise } from '../../../../base/common/async.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
-
-// Command exposed by the Posit Assistant extension to start/continue a chat.
-const POSIT_NEW_CHAT_COMMAND = 'posit-assistant.newChat';
-
-/**
- * Send a query to Posit Assistant. Routes through the standalone assistant's
- * posit-assistant.newChat command rather than the built-in chat, which has no
- * Posit Assistant agent behind it and so does nothing. newChat opens the
- * assistant in whichever surface the user configured (sidebar or editor panel).
- *
- * Exported so the command routing can be unit tested without the modal.
- */
-export async function openAssistantChat(
-	commandService: ICommandService,
-	notificationService: INotificationService,
-	logService: ILogService,
-	query: string,
-): Promise<void> {
-	try {
-		await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, {
-			prompt: query,
-			target: 'new',
-			behavior: 'submit',
-		});
-	} catch (error) {
-		logService.error('Failed to open Posit Assistant chat', error);
-		notificationService.error(
-			localize(
-				'positronNotebook.assistant.unavailable',
-				"Posit Assistant is not available. Make sure the Posit Assistant extension is installed and enabled."
-			)
-		);
-	}
-}
 
 /**
  * Action that opens the assistant panel with predefined prompt options for the notebook.
@@ -127,9 +94,14 @@ export class AskAssistantAction extends Action2 {
 			}
 		});
 
-		// Handle action selection - send the query to Posit Assistant (see openAssistantChat).
+		// Handle action selection - send the query to Posit Assistant. Always starts a
+		// fresh conversation, since the panel is a deliberate "ask about this notebook" entry.
 		const handleActionSelected = (query: string) =>
-			openAssistantChat(commandService, notificationService, logService, query);
+			openPositAssistantChat(commandService, notificationService, logService, {
+				prompt: query,
+				target: 'new',
+				behavior: 'submit',
+			});
 
 		// Render the assistant panel immediately (optimistic loading)
 		// Pass the notebook directly if available, otherwise pass the promise
