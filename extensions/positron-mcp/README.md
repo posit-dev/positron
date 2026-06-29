@@ -10,17 +10,18 @@ This extension exposes Positron's runtime sessions and variable data through a s
 
 ### Available MCP Tools
 
-- **`execute-code`** - Execute code in active runtime sessions (Python, R, JavaScript, TypeScript)
-- **`get-active-document`** - Get information about the currently active document
-- **`get-workspace-info`** - Get comprehensive workspace information including folders and runtime sessions
-- **`foreground-session`** - Returns information about the active runtime session (R, Python, etc.)
-- **`get-variables`** - Returns all variables from the active session with their types, values, and metadata
-- **`get-time`** - Returns current ISO timestamp
+- **`execute-code`** - Execute code in the active runtime session (Python or R)
+- **`get-session`** - Returns information about the active runtime session (its language, name, and ID)
+- **`get-variables`** - Returns all variables from the active session with their types and values
+- **`inspect-variable`** - Inspect one variable in detail, including a dataframe's columns and their types
+- **`get-active-document`** - Get information about the currently active editor document
+- **`get-workspace-info`** - List the workspace folders (project roots) open in Positron
 - **`notebook-read`** - Read cells of the active Positron notebook, optionally including text outputs
 - **`notebook-edit`** - Insert, update, or delete a cell in the active notebook (optionally running an inserted code cell)
 - **`notebook-run-cells`** - Execute cells in the active notebook and return their text outputs
 - **`notebook-create`** - Create a new `.ipynb` notebook with a Python or R kernel and open it
 - **`get-plot`** - Returns the plot currently shown in the Plots pane as an image
+- **`session-start`** - Start a runtime session for a language when none is active
 - **`session-interrupt`** - Interrupt the active session to stop a stuck or long-running computation
 - **`session-restart`** - Restart the active session (clears state; prompts the user to confirm)
 - **`get-diagnostics`** - Returns the language server's errors and warnings for a file (defaults to the active editor)
@@ -29,7 +30,7 @@ This extension exposes Positron's runtime sessions and variable data through a s
 
 - ✅ **Direct API access** - Uses `positron.runtime` API for real-time data
 - ✅ **No IPC complexity** - Runs in same process as Positron UI
-- ✅ **Standard protocol** - Implements MCP 2024-11-05 specification
+- ✅ **Standard protocol** - Implements the MCP 2025-06-18 specification
 - ✅ **Easy integration** - Works with Claude Desktop and other MCP clients
 
 ## Installation & Setup
@@ -145,7 +146,7 @@ curl -X POST http://localhost:43123 \
 ```bash
 curl -X POST http://localhost:43123 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"foreground-session"}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get-session"}}'
 ```
 
 ### Get Variables (requires active session)
@@ -163,7 +164,7 @@ curl -X POST http://localhost:43123 \
 - **Process**: Runs in renderer/browser process (same as other Positron extensions)
 - **HTTP Server**: Express.js server (same pattern as `positron-proxy`)
 - **Data Access**: Direct `positron.runtime` API calls
-- **Protocol**: MCP 2024-11-05 over HTTP POST
+- **Protocol**: MCP 2025-06-18 over HTTP POST
 
 ### Data Flow
 
@@ -200,7 +201,7 @@ to drive the Positron session (run code in the live session, view plots with
 `get-plot`, use the notebook tools instead of hand-editing `.ipynb`, etc.):
 ```json
 {
-  "protocolVersion": "2024-11-05",
+  "protocolVersion": "2025-06-18",
   "capabilities": { "tools": {} },
   "serverInfo": { "name": "positron-mcp-server", "version": "1.0.0" },
   "instructions": "These tools connect to a live Positron IDE session ..."
@@ -212,9 +213,9 @@ Returns available tools with schemas:
 ```json
 {
   "tools": [
-    { "name": "get-time", "description": "Get current time in ISO format" },
-    { "name": "foreground-session", "description": "Get active runtime session info" },
-    { "name": "get-variables", "description": "Get variables from active session" }
+    { "name": "get-session", "description": "Get active runtime session info" },
+    { "name": "get-variables", "description": "Get variables from active session" },
+    { "name": "execute-code", "description": "Execute code in the active session" }
   ]
 }
 ```
