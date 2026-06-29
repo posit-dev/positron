@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
+import fs = require('fs');
 import { copyFixtureFolder } from '../../infra/test-runner';
 import { test, tags } from '../_test.setup';
 
@@ -16,20 +17,29 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 	// resources) to avoid cross-repo coordination with qa-example-content while the
 	// test explorer e2e stabilizes.
 	const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
+	const FIXTURE_SOURCE = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
 
-	test.beforeAll(async function ({ app }) {
-		const source = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
-		const destination = path.join(path.dirname(app.workspacePathOrFolder), FIXTURE_NAME);
-		copyFixtureFolder(source, destination);
-	});
+	const WATCHER_TIMEOUT = 30000;
 
-	test.beforeEach(async function ({ app, openFolder }) {
+	// Each test gets its own copy of the fixture.
+	// That's why the folder name includes the test title.
+	// The goal is to avoid flakiness due to one test failing to create or
+	// delete something, thereby causing spurious failure of other tests.
+	// The folder name also includes worker index, so it's possible to use
+	// `--repeat-each` during development to check for flakiness, without
+	// creating file system crosstalk between concurrent runs of a single test.
+	function fixtureFolderFor(title: string, workerIndex: number): string {
+		const slug = title.replace(/[^a-z0-9]+/gi, '-');
+		return `${FIXTURE_NAME}.${slug}.w${workerIndex}`;
+	}
+
+	test.beforeEach(async function ({ app, openFolder }, testInfo) {
 		const { testExplorer, sessions } = app.workbench;
-		await openFolder(FIXTURE_NAME);
+		const fixtureFolder = fixtureFolderFor(testInfo.title, testInfo.workerIndex);
+		copyFixtureFolder(FIXTURE_SOURCE, path.join(path.dirname(app.workspacePathOrFolder), fixtureFolder));
+
+		await openFolder(fixtureFolder);
 		await testExplorer.openTestExplorer();
-		// Tests share one app instance; reset to a known state.
-		await testExplorer.collapseAllTests();
-		await testExplorer.clearAllTestResults();
 		await sessions.start('r');
 	});
 
@@ -68,5 +78,20 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 
 		await testExplorer.runTest(MULTI_LINE_LABEL);
 		await testExplorer.expectTestStatus(MULTI_LINE_LABEL, 'Passed', 60000);
+	});
+
+	// https://github.com/posit-dev/positron/issues/2929
+	test('Deleting or renaming a test file updates the tree', async function ({ app }, testInfo) {
+		const { testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+
+		await testExplorer.expectTestItems(['test-test-that.R', 'test-describe-it.R']);
+
+		fs.rmSync(path.join(testthatDir, 'test-test-that.R'));
+		await testExplorer.expectNoTestItem('test-test-that.R', WATCHER_TIMEOUT);
+
+		fs.renameSync(path.join(testthatDir, 'test-describe-it.R'), path.join(testthatDir, 'test-renamed.R'));
+		await testExplorer.expectTestItems(['test-renamed.R'], WATCHER_TIMEOUT);
+		await testExplorer.expectNoTestItem('test-describe-it.R', WATCHER_TIMEOUT);
 	});
 });
