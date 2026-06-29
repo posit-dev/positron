@@ -135,6 +135,8 @@ Plots: after running code that produces a plot, call get-plot to see the rendere
 
 Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
 
+Files: after writing a script or other file to disk, call open-document to open it in the user's editor so your work is visible to them.
+
 Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
 
 export class McpServer implements vscode.Disposable {
@@ -287,6 +289,20 @@ export class McpServer implements vscode.Disposable {
 				},
 				annotations: { readOnlyHint: true },
 				run: async (args) => JSON.stringify(this.describeActiveDocument(args)),
+			},
+			{
+				name: 'open-document',
+				description: 'Open a file in the Positron editor so the user can see it. Use this after writing or modifying a script file to bring it up in front of the user.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						path: { type: 'string', description: 'Absolute path, or a path relative to the first workspace folder.' },
+					},
+					required: ['path'],
+					additionalProperties: false,
+				},
+				annotations: { readOnlyHint: false },
+				run: (args) => this.openDocument(args),
 			},
 			{
 				name: 'get-workspace-info',
@@ -528,6 +544,32 @@ export class McpServer implements vscode.Disposable {
 				},
 			}));
 		}
+	}
+
+	/** Resolve a user-supplied path (absolute, or relative to the first workspace folder) to a URI. */
+	private resolveWorkspacePath(inputPath: string): vscode.Uri {
+		if (path.isAbsolute(inputPath)) {
+			return vscode.Uri.file(inputPath);
+		}
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		if (!workspaceFolder) {
+			throw new ToolError(-32602, 'No workspace folder is open; provide an absolute path.');
+		}
+		return vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, inputPath));
+	}
+
+	private async openDocument(args: { path: string }): Promise<string> {
+		const { path: inputPath } = args;
+		if (!inputPath?.trim()) {
+			throw new Error('path is required');
+		}
+		const uri = this.resolveWorkspacePath(inputPath);
+		try {
+			await vscode.window.showTextDocument(uri, { preview: false });
+		} catch (error) {
+			throw new ToolError(-32603, `Failed to open ${inputPath}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+		return `Opened ${uri.fsPath} in the editor.`;
 	}
 
 	private describeActiveDocument(args: { includeContent?: boolean; includeSelection?: boolean }): object {

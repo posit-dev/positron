@@ -15,6 +15,7 @@ This extension exposes Positron's runtime sessions and variable data through a s
 - **`get-variables`** - Returns all variables from the active session with their types and values
 - **`inspect-variable`** - Inspect one variable in detail, including a dataframe's columns and their types
 - **`get-active-document`** - Get information about the currently active editor document
+- **`open-document`** - Open a file in the Positron editor (e.g. a script just written to disk)
 - **`get-workspace-info`** - List the workspace folders (project roots) open in Positron
 - **`notebook-read`** - Read cells of the active Positron notebook, optionally including text outputs
 - **`notebook-edit`** - Insert, update, or delete a cell in the active notebook (optionally running an inserted code cell)
