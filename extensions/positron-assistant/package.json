@@ -265,11 +265,6 @@
 						"default": true,
 						"description": "%configuration.gitIntegration.description%"
 					},
-					"positron.assistant.showTokenUsage.enable": {
-						"type": "boolean",
-						"default": false,
-						"description": "%configuration.showTokenUsage.description%"
-					},
 					"positron.assistant.maxInputTokens": {
 						"type": "object",
 						"default": {},
