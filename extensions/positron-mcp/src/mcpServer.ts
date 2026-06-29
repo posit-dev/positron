@@ -380,6 +380,13 @@ export class McpServer implements vscode.Disposable {
 				run: () => this.getPlot(),
 			},
 			{
+				name: 'enlarge-plots-pane',
+				description: 'Focus and enlarge the Positron Plots pane so plots render at a usable size. If a plot looks squished in a small pane, call this and then re-run the plotting code so it re-renders larger.',
+				inputSchema: empty,
+				annotations: { readOnlyHint: false },
+				run: () => this.enlargePlotsPane(),
+			},
+			{
 				name: 'session-start',
 				description: 'Start a runtime session for a language when none is active. Use this when another tool reports "No active runtime session". If a session for the language is already running, it is left as-is.',
 				inputSchema: {
@@ -841,6 +848,16 @@ export class McpServer implements vscode.Disposable {
 		// Returned untruncated: the image is the whole point, and the server is
 		// localhost-only. Truncating base64 would corrupt it, not shrink it.
 		return [{ type: 'image', data: match[2], mimeType: match[1] }];
+	}
+
+	private async enlargePlotsPane(): Promise<string> {
+		// Reveal the Plots view, then grow it with the workbench view-size command.
+		// The API exposes no absolute pane sizing, so this is a coarse, stepwise enlarge.
+		await vscode.commands.executeCommand('workbench.panel.positronPlots.focus');
+		for (let i = 0; i < 6; i++) {
+			await vscode.commands.executeCommand('workbench.action.increaseViewSize');
+		}
+		return 'Focused and enlarged the Plots pane. Re-run your plotting code so the plot re-renders at the larger size.';
 	}
 
 	private async startSession(args: { language: string }): Promise<string> {

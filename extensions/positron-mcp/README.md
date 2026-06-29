@@ -22,6 +22,7 @@ This extension exposes Positron's runtime sessions and variable data through a s
 - **`notebook-run-cells`** - Execute cells in the active notebook and return their text outputs
 - **`notebook-create`** - Create a new `.ipynb` notebook with a Python or R kernel and open it
 - **`get-plot`** - Returns the plot currently shown in the Plots pane as an image
+- **`enlarge-plots-pane`** - Focus and enlarge the Plots pane so plots render at a usable size
 - **`session-start`** - Start a runtime session for a language when none is active
 - **`session-interrupt`** - Interrupt the active session to stop a stuck or long-running computation
 - **`session-restart`** - Restart the active session (clears state; prompts the user to confirm)
