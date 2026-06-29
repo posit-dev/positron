@@ -37,11 +37,23 @@ type McpContent =
 	| { type: 'text'; text: string }
 	| { type: 'image'; data: string; mimeType: string };
 
+/**
+ * MCP tool annotations: optional hints clients use to gate and parallelize
+ * tool calls (e.g. auto-approving read-only tools, confirming destructive ones).
+ */
+interface ToolAnnotations {
+	readOnlyHint?: boolean;
+	destructiveHint?: boolean;
+	idempotentHint?: boolean;
+	openWorldHint?: boolean;
+}
+
 /** One MCP tool: its advertised schema plus a handler returning the result payload. */
 interface Tool {
 	name: string;
 	description: string;
 	inputSchema: object;
+	annotations?: ToolAnnotations;
 	run: (args: any) => Promise<string | McpContent[]>;
 }
 
@@ -176,7 +188,7 @@ export class McpServer implements vscode.Disposable {
 					jsonrpc: '2.0',
 					id: request.id,
 					result: {
-						protocolVersion: '2024-11-05',
+						protocolVersion: '2025-06-18',
 						capabilities: { tools: {} },
 						serverInfo: { name: 'positron-mcp-server', version: '1.0.0' },
 						instructions: SERVER_INSTRUCTIONS,
@@ -186,7 +198,10 @@ export class McpServer implements vscode.Disposable {
 				return {
 					jsonrpc: '2.0',
 					id: request.id,
-					result: { tools: this.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) },
+					result: {
+						tools: this.tools.map(({ name, description, inputSchema, annotations }) =>
+							annotations ? { name, description, inputSchema, annotations } : { name, description, inputSchema }),
+					},
 				};
 			case 'tools/call':
 				return await this.handleToolCall(request);
@@ -220,12 +235,14 @@ export class McpServer implements vscode.Disposable {
 				name: 'get-session',
 				description: 'Get the active runtime session: its language, name, and ID. Call this first to learn which language (Python or R) is running before running code or inspecting variables.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: true },
 				run: () => this.describeSession(),
 			},
 			{
 				name: 'get-variables',
-				description: 'Get the current variables state for the active runtime session',
+				description: 'List the variables defined in the active runtime session with their types and values. Check this before writing code against a dataframe so you don\'t guess column names.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: true },
 				run: () => this.describeVariables(),
 			},
 			{
@@ -240,24 +257,28 @@ export class McpServer implements vscode.Disposable {
 					required: ['languageId', 'code'],
 					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: false, openWorldHint: true },
 				run: (args) => this.executeCodeTool(args),
 			},
 			{
 				name: 'get-active-document',
-				description: 'Get information about the currently active document',
+				description: 'Get information about the editor document the user is currently focused on: its path, language, and optionally its content or selected text.',
 				inputSchema: {
 					type: 'object',
 					properties: {
-						includeContent: { type: 'boolean', default: false },
-						includeSelection: { type: 'boolean', default: true },
+						includeContent: { type: 'boolean', default: false, description: 'Include the full document text.' },
+						includeSelection: { type: 'boolean', default: true, description: 'Include the currently selected text and its range.' },
 					},
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: true },
 				run: async (args) => JSON.stringify(this.describeActiveDocument(args)),
 			},
 			{
 				name: 'get-workspace-info',
 				description: 'List the workspace folders (project roots) open in Positron. Use to resolve relative paths and understand the project layout.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: true },
 				run: async () => JSON.stringify(this.describeWorkspace()),
 			},
 			{
@@ -269,7 +290,9 @@ export class McpServer implements vscode.Disposable {
 						cellIndices: { type: 'array', items: { type: 'integer' }, description: '0-based cell indices to read. If omitted, reads all cells.' },
 						includeOutputs: { type: 'boolean', default: false, description: 'Include the text outputs of executed code cells.' },
 					},
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: true },
 				run: (args) => this.readNotebook(args),
 			},
 			{
@@ -285,7 +308,9 @@ export class McpServer implements vscode.Disposable {
 						run: { type: 'boolean', default: false, description: 'If inserting a code cell, execute it immediately and return its output.' },
 					},
 					required: ['editMode'],
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: false },
 				run: (args) => this.editNotebook(args),
 			},
 			{
@@ -297,7 +322,9 @@ export class McpServer implements vscode.Disposable {
 						cellIndices: { type: 'array', items: { type: 'integer' }, description: '0-based cell indices to execute.' },
 					},
 					required: ['cellIndices'],
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: false },
 				run: (args) => this.runNotebookCells(args),
 			},
 			{
@@ -310,25 +337,30 @@ export class McpServer implements vscode.Disposable {
 						language: { type: 'string', enum: ['python', 'r'], description: 'The kernel language for the notebook.' },
 					},
 					required: ['path', 'language'],
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: false },
 				run: (args) => this.createNotebook(args),
 			},
 			{
 				name: 'get-plot',
 				description: 'Get the plot currently shown in the Positron Plots pane as an image. Run plotting code with execute-code first, then call this to see the result.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: true },
 				run: () => this.getPlot(),
 			},
 			{
 				name: 'session-interrupt',
 				description: 'Interrupt the active runtime session to stop a long-running or stuck computation.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: false },
 				run: () => this.interruptActiveSession(),
 			},
 			{
 				name: 'session-restart',
 				description: 'Restart the active runtime session. This clears all variables and loaded data; the user is asked to confirm first.',
 				inputSchema: empty,
+				annotations: { readOnlyHint: false, destructiveHint: true },
 				run: () => this.restartActiveSession(),
 			},
 			{
@@ -339,7 +371,9 @@ export class McpServer implements vscode.Disposable {
 					properties: {
 						path: { type: 'string', description: 'Absolute path, or a path relative to the first workspace folder. If omitted, uses the active editor.' },
 					},
+					additionalProperties: false,
 				},
+				annotations: { readOnlyHint: true },
 				run: (args) => this.getDiagnostics(args),
 			},
 		];
