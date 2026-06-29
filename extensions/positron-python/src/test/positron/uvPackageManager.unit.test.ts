@@ -361,4 +361,99 @@ version = "0.1.0"`;
             expect(args).to.not.include('--upgrade');
         });
     });
+
+    suite('Environment-workflow with requirements.txt', () => {
+        let processService: { exec: sinon.SinonStub };
+        let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
+        let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+        let reqPath: string;
+
+        setup(() => {
+            originalGetConfiguration = vscode.workspace.getConfiguration;
+            vscode.workspace.getConfiguration = (_section?: string) =>
+                ({ get: (_key: string, defaultValue?: unknown) => defaultValue } as any);
+
+            sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+
+            // Workspace folder with a requirements.txt present (no pyproject -> env workflow).
+            const workspaceFolder = { uri: Uri.file('/workspace'), name: 'ws', index: 0 };
+            reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(reqPath).resolves(true);
+
+            processService = { exec: sinon.stub() };
+            const processFactory = { create: sinon.stub().resolves(processService) };
+            terminalService = {
+                show: sinon.stub().resolves(),
+                sendCommand: sinon.stub().resolves(),
+                sendText: sinon.stub().resolves(),
+            };
+            const terminalFactory = { getTerminalService: sinon.stub().returns(terminalService) };
+            (serviceContainer.get as sinon.SinonStub)
+                .withArgs(IProcessServiceFactory)
+                .returns(processFactory)
+                .withArgs(ITerminalServiceFactory)
+                .returns(terminalFactory);
+        });
+
+        teardown(() => {
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+        });
+
+        test('installPackages passes the target on the command line plus -r requirements.txt', async () => {
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const [uvBin, args] = terminalService.sendCommand.firstCall.args;
+            expect(uvBin).to.equal('uv');
+            expect(args).to.include.members([
+                'pip',
+                'install',
+                'cowsay==6.1',
+                '-r',
+                reqPath,
+                '--python',
+                '/path/to/python',
+            ]);
+            expect(args).to.not.include('--upgrade');
+            // Did not synthesize a freeze temp file.
+            expect(processService.exec.calledWithMatch('uv', sinon.match.array.startsWith(['pip', 'freeze']))).to.equal(
+                false,
+            );
+        });
+
+        test('updatePackages pins the target on the command line plus -r requirements.txt (no --upgrade)', async () => {
+            await uvPackageManager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members([
+                'pip',
+                'install',
+                'werkzeug==3.1.8',
+                '-r',
+                reqPath,
+                '--python',
+                '/path/to/python',
+            ]);
+            expect(args).to.not.include('--upgrade');
+        });
+
+        test('updateAllPackages runs pip install --upgrade -r requirements.txt with no targets', async () => {
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+            await uvPackageManager.updateAllPackages();
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members([
+                'pip',
+                'install',
+                '--upgrade',
+                '-r',
+                reqPath,
+                '--python',
+                '/path/to/python',
+            ]);
+        });
+    });
 });

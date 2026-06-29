@@ -8,12 +8,14 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPythonExecutionFactory, IPythonExecutionService } from '../../common/process/types';
 import { IFileSystem } from '../../common/platform/types';
+import { IWorkspaceService } from '../../common/application/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
+import { findWorkspaceRequirementsFile } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -66,6 +68,18 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // requirements.txt is the source of truth: pass the target on the
+            // command line plus -r <file> (verbatim). The resolver intersects the
+            // target with the file; a conflict fails atomically.
+            const specs = this._formatPackageSpecs(packages);
+            const flags = await this._getInstallFlags();
+            const args = ['install', ...specs, '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
+            return;
+        }
+
         // Re-resolve against the full installed set so the new package can't break
         // the environment: name every installed package (bare) plus the new
         // package(s); an inconsistent install fails atomically.
@@ -113,6 +127,17 @@ export class PipPackageManager implements IPackageManager {
 
         await this._ensurePip();
 
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // Pin the target(s) on the command line plus -r <file> (verbatim). No
+            // --upgrade: an exact pin moves only the named target.
+            const specs = this._formatPackageSpecs(packages);
+            const flags = await this._getInstallFlags();
+            const args = ['install', ...specs, '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
+            return;
+        }
+
         // Re-resolve against the full installed set: name every package so all
         // constraints are honored, but only the target is pinned (others are bare
         // and stay put unless the update forces a change). An inconsistent update
@@ -146,6 +171,16 @@ export class PipPackageManager implements IPackageManager {
 
         if (outdatedPackages.length === 0) {
             this._emitMessage('All packages are up to date.\n');
+            return;
+        }
+
+        const requirementsPath = await this._getWorkspaceRequirementsPath();
+        if (requirementsPath) {
+            // Upgrade everything DECLARED to latest compatible; the file is the
+            // source of truth (declared pins block their own upgrade).
+            const flags = await this._getInstallFlags();
+            const args = ['install', '--upgrade', '-r', requirementsPath, ...flags];
+            await this._executePipInTerminal(args, token);
             return;
         }
 
@@ -224,6 +259,23 @@ export class PipPackageManager implements IPackageManager {
             },
         );
         return JSON.parse(result.stdout) as Array<{ name: string; latest_version: string }>;
+    }
+
+    /**
+     * Format package install requests into pip package specifiers.
+     * e.g., { name: "requests", version: "2.28.0" } becomes "requests==2.28.0".
+     */
+    private _formatPackageSpecs(packages: positron.PackageSpec[]): string[] {
+        return packages.map((pkg) => (pkg.version ? `${pkg.name}==${pkg.version}` : pkg.name));
+    }
+
+    /**
+     * Path to the workspace-root `requirements.txt` if present, else undefined.
+     */
+    private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        return findWorkspaceRequirementsFile(workspaceService, fileSystem);
     }
 
     /**
