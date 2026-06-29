@@ -299,6 +299,14 @@ export async function installPythonViaUv(): Promise<InstallPythonResult> {
                         // User declined or installation failed - exit silently
                         return { success: false };
                     }
+                    // Verify uv is now reachable. The installer drops the binary at a known
+                    // location and updates shell rc files, but those PATH changes don't reach
+                    // the running extension host. isUvInstalled() also probes uv's known
+                    // install locations; if it still can't be found, surface an actionable
+                    // message instead of the misleading "no versions available" error later.
+                    if (!(await isUvInstalled())) {
+                        return { success: false, error: InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall };
+                    }
                 }
 
                 // Select and install Python version

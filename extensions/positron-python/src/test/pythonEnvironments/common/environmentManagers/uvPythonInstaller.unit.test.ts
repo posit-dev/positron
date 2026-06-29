@@ -434,6 +434,8 @@ suite('UV Python Installer Tests', () => {
         test('Continues after uv installation even if PATH not updated in current process', async () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
+            // After install, uv is located (e.g. via its known install location)
+            isUvInstalledStub.resolves(true);
             // uv install succeeds
             execStub.onCall(0).resolves({ stdout: '' }); // uv install
             // After install, getAvailablePythonVersions returns versions
@@ -454,6 +456,20 @@ suite('UV Python Installer Tests', () => {
             const result = await installPythonViaUv();
 
             assert.strictEqual(result.success, true);
+        });
+
+        test('Returns actionable error when uv cannot be found after installation', async () => {
+            // uv not installed initially, install command succeeds...
+            isUvInstalledStub.onFirstCall().resolves(false);
+            execStub.resolves({ stdout: '' });
+            // ...but uv still cannot be located afterwards (e.g. installed outside any
+            // known location and not on the current process PATH).
+            isUvInstalledStub.resolves(false);
+
+            const result = await installPythonViaUv();
+
+            assert.strictEqual(result.success, false);
+            assert.strictEqual(result.error, InterpreterQuickPickList.UvInstall.uvNotFoundAfterInstall);
         });
 
         test('Returns error when Python installation fails', async () => {
@@ -890,6 +906,8 @@ suite('UV Python Installer Tests', () => {
         test('Installs uv when not present and continues', async () => {
             // uv not installed initially
             isUvInstalledStub.onFirstCall().resolves(false);
+            // After install, uv is located (e.g. via its known install location)
+            isUvInstalledStub.resolves(true);
             // uv install succeeds (sh command)
             execStub.onCall(0).resolves({ stdout: '' });
             // After install, getAvailablePythonVersions returns versions
