@@ -12,8 +12,9 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { isMacintosh } from '../../../../../../base/common/platform.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
-import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { OneButtonFooter } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
 import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID } from './config.js';
 
 // Localized strings.
@@ -44,7 +45,7 @@ const openModelSettingLabel = localize('ghostCellInfo.openModelSetting', 'Open m
  * GhostCellInfoModalDialogProps interface.
  */
 interface GhostCellInfoModalDialogProps {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	modelName?: string;
 }
 
@@ -78,64 +79,66 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 	}, [renderer, commandService]);
 
 	return (
-		<OKModalDialog
-			height={modelName ? 520 : 490}
-			okButtonTitle={gotItButtonLabel}
+		<PositronDynamicModalDialog
+			content={
+				<div className='ghost-cell-info-content'>
+					<div className='ghost-cell-info-section'>
+						<h3 className='ghost-cell-info-heading'>{whatAreGhostCellsHeading}</h3>
+						<p className='ghost-cell-info-text'>{whatAreGhostCellsText}</p>
+					</div>
+					<div className='ghost-cell-info-section'>
+						<h3 className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</h3>
+						<p className='ghost-cell-info-text'>{howDoTheyWorkText}</p>
+						<p className='ghost-cell-info-text'>
+							{keyboardShortcutPrefix}{' '}
+							<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
+						</p>
+					</div>
+					<div className='ghost-cell-info-section'>
+						<h3 className='ghost-cell-info-heading'>{modelSelectionHeading}</h3>
+						{modelName && (
+							<p className='ghost-cell-info-text'>
+								{currentModelText} <strong>{modelName}</strong>.
+							</p>
+						)}
+						<p className='ghost-cell-info-text'>
+							{modelExplanationTextPart1}
+							<a
+								aria-label={openModelSettingLabel}
+								className='ghost-cell-info-settings-link'
+								href=''
+								onClick={handleOpenModelSetting}
+							>
+								{modelSettingsLinkText}
+							</a>
+							{modelExplanationTextPart2}
+						</p>
+					</div>
+					<div className='ghost-cell-info-section'>
+						<h3 className='ghost-cell-info-heading'>{howToDisableHeading}</h3>
+						<p className='ghost-cell-info-text'>
+							{howToDisableTextPart1}
+							<a
+								aria-label={openSettingLabel}
+								className='ghost-cell-info-settings-link'
+								href=''
+								onClick={handleOpenSetting}
+							>
+								{settingsLinkText}
+							</a>
+							{howToDisableTextPart2}
+						</p>
+					</div>
+				</div>
+			}
+			contentMaxHeight={600}
+			footer={
+				<OneButtonFooter buttonTitle={gotItButtonLabel} onButton={handleClose} />
+			}
 			renderer={renderer}
 			title={dialogTitle}
 			width={480}
-			onAccept={handleClose}
-			onCancel={handleClose}
-		>
-			<div className='ghost-cell-info-content'>
-				<div className='ghost-cell-info-section'>
-					<h3 className='ghost-cell-info-heading'>{whatAreGhostCellsHeading}</h3>
-					<p className='ghost-cell-info-text'>{whatAreGhostCellsText}</p>
-				</div>
-				<div className='ghost-cell-info-section'>
-					<h3 className='ghost-cell-info-heading'>{howDoTheyWorkHeading}</h3>
-					<p className='ghost-cell-info-text'>{howDoTheyWorkText}</p>
-					<p className='ghost-cell-info-text'>
-						{keyboardShortcutPrefix}{' '}
-						<kbd className='ghost-cell-info-kbd'>{shortcutLabel}</kbd>.
-					</p>
-				</div>
-				<div className='ghost-cell-info-section'>
-					<h3 className='ghost-cell-info-heading'>{modelSelectionHeading}</h3>
-					{modelName && (
-						<p className='ghost-cell-info-text'>
-							{currentModelText} <strong>{modelName}</strong>.
-						</p>
-					)}
-					<p className='ghost-cell-info-text'>
-						{modelExplanationTextPart1}
-						<a
-							aria-label={openModelSettingLabel}
-							className='ghost-cell-info-settings-link'
-							href=''
-							onClick={handleOpenModelSetting}
-						>
-							{modelSettingsLinkText}
-						</a>
-						{modelExplanationTextPart2}
-					</p>
-				</div>
-				<div className='ghost-cell-info-section'>
-					<h3 className='ghost-cell-info-heading'>{howToDisableHeading}</h3>
-					<p className='ghost-cell-info-text'>
-						{howToDisableTextPart1}
-						<a
-							aria-label={openSettingLabel}
-							className='ghost-cell-info-settings-link'
-							href=''
-							onClick={handleOpenSetting}
-						>
-							{settingsLinkText}
-						</a>
-						{howToDisableTextPart2}
-					</p>
-				</div>
-			</div>
-		</OKModalDialog>
+			onSubmit={handleClose}
+		/>
 	);
 };

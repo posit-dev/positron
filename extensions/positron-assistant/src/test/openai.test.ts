@@ -29,7 +29,6 @@ suite('OpenAIModelProvider', () => {
 			id: 'openai-test',
 			provider: 'openai-api',
 			type: positron.PositronLanguageModelType.Chat,
-			name: 'OpenAI Test',
 			model: 'gpt-4',
 			apiKey: 'test-api-key',
 			baseUrl: 'https://api.openai.com/v1',

@@ -5,75 +5,69 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { act, screen } from '@testing-library/react';
-import { observableValue } from '../../../../../base/common/observable.js';
+import { IObservable, observableValue } from '../../../../../base/common/observable.js';
 import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { useScrollBeyondLastLinePadding } from '../../browser/useScrollBeyondLastLinePadding.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
-function TestComponent({ configurationService }: {
-	configurationService: IConfigurationService;
+function TestComponent({ size }: {
+	size: IObservable<ISize>;
 }) {
-	const padding = useScrollBeyondLastLinePadding(configurationService);
+	const padding = useScrollBeyondLastLinePadding(size);
 	return <div data-testid='container' style={{ paddingBottom: padding }} />;
 }
 
 describe('useScrollBeyondLastLinePadding', () => {
-	const rtl = setupRTLRenderer();
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderWithSize(configurationService: IConfigurationService, size: ReturnType<typeof observableValue<ISize>>) {
+	function renderWithSize(size: ReturnType<typeof observableValue<ISize>>) {
 		return rtl.render(
-			<EnvironentProvider environmentBundle={{
-				size,
-				scopedContextKeyProviderCallback: () => null as unknown as IScopedContextKeyService,
-			}}>
-				<TestComponent configurationService={configurationService} />
-			</EnvironentProvider>
+			<TestComponent size={size} />
 		);
 	}
 
 	it('returns undefined when scrollBeyondLastLine is false', () => {
-		const configurationService = new TestConfigurationService();
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		configurationService.setUserConfiguration('editor.scrollBeyondLastLine', false);
 		const size = observableValue<ISize>('size', { width: 800, height: 600 });
 
-		renderWithSize(configurationService, size);
+		renderWithSize(size);
 
 		expect(screen.getByTestId('container')).not.toHaveAttribute('style');
 	});
 
 	it('returns height minus 50 when scrollBeyondLastLine is true', () => {
-		const configurationService = new TestConfigurationService();
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		configurationService.setUserConfiguration('editor.scrollBeyondLastLine', true);
 		const size = observableValue<ISize>('size', { width: 800, height: 600 });
 
-		renderWithSize(configurationService, size);
+		renderWithSize(size);
 
 		expect(screen.getByTestId('container')).toHaveStyle({ paddingBottom: '550px' });
 	});
 
 	it('clamps to 0 when height is less than 50', () => {
-		const configurationService = new TestConfigurationService();
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		configurationService.setUserConfiguration('editor.scrollBeyondLastLine', true);
 		const size = observableValue<ISize>('size', { width: 800, height: 30 });
 
-		renderWithSize(configurationService, size);
+		renderWithSize(size);
 
 		expect(screen.getByTestId('container')).toHaveStyle({ paddingBottom: '0px' });
 	});
 
 	it('updates when scrollBeyondLastLine changes from false to true', async () => {
-		const configurationService = new TestConfigurationService();
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		configurationService.setUserConfiguration('editor.scrollBeyondLastLine', false);
 		const size = observableValue<ISize>('size', { width: 800, height: 600 });
 
-		renderWithSize(configurationService, size);
+		renderWithSize(size);
 		expect(screen.getByTestId('container')).not.toHaveAttribute('style');
 
 		await act(async () => {
@@ -89,11 +83,11 @@ describe('useScrollBeyondLastLinePadding', () => {
 	});
 
 	it('updates when the editor size changes', async () => {
-		const configurationService = new TestConfigurationService();
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		configurationService.setUserConfiguration('editor.scrollBeyondLastLine', true);
 		const size = observableValue<ISize>('size', { width: 800, height: 600 });
 
-		renderWithSize(configurationService, size);
+		renderWithSize(size);
 		expect(screen.getByTestId('container')).toHaveStyle({ paddingBottom: '550px' });
 
 		await act(async () => {

@@ -30,10 +30,7 @@ export class ErrorModelProvider extends ModelProvider {
 		signedIn: false,
 		provider: PROVIDER_METADATA.error,
 		supportedOptions: [],
-		defaults: {
-			name: 'Error Language Model',
-			model: 'error',
-		},
+		defaults: {},
 	};
 
 	/**

@@ -51,6 +51,10 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           npm_config_arch: ${{ inputs.arch }}
+          # postinstall downloads PET from the GitHub API; authenticate so we
+          # get the per-repo rate limit instead of the anonymous per-IP one
+          # (which the shared runner IPs routinely exhaust -> HTTP 403).
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         run: |
           npm ci --fetch-timeout 120000
 

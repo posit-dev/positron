@@ -223,9 +223,13 @@ export class PipPackageManager implements IPackageManager {
     ): Promise<Array<{ name: string; latest_version: string }>> {
         const pythonService = await this._getPythonService();
         const proxyFlags = this._getProxyFlags();
-        const result = await pythonService.execModule('pip', ['list', '--outdated', '--format=json', ...proxyFlags], {
-            token,
-        });
+        const result = await pythonService.execModule(
+            'pip',
+            ['list', '--outdated', '--format=json', '--no-color', ...proxyFlags],
+            {
+                token,
+            },
+        );
         return JSON.parse(result.stdout) as Array<{ name: string; latest_version: string }>;
     }
 
@@ -236,7 +240,10 @@ export class PipPackageManager implements IPackageManager {
      */
     private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
         const pythonService = await this._getPythonService();
-        const result = await pythonService.execModule('pip', ['freeze'], { token });
+        // --no-color defensively: pip doesn't colorize `freeze` today, but
+        // FORCE_COLOR/CLICOLOR_FORCE could lead to ANSI codes that would corrupt
+        // the requirements file fed to `pip install -r` (as uv does -- see #14328).
+        const result = await pythonService.execModule('pip', ['freeze', '--no-color'], { token });
         if (!result.stdout || result.stdout.trim() === '') {
             throw new Error('Failed to read the installed package list (pip freeze returned no output).');
         }

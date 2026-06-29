@@ -13,7 +13,7 @@ import { ICommandService } from '../../../../../../platform/commands/common/comm
 import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookHelpPanel, resolveShortcutBindings } from './NotebookHelpPanel.js';
@@ -52,7 +52,7 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 		// before the modal steals it and changes the active context.
 		const resolvedBindings = resolveShortcutBindings(keybindingService);
 
-		const renderer = new PositronModalReactRenderer({
+		const renderer = new PositronModalDialogReactRenderer({
 			container: layoutService.activeContainer,
 		});
 

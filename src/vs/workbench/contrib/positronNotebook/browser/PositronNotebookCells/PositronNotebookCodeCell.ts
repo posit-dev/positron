@@ -36,7 +36,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		private instance: PositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
@@ -121,7 +121,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	toggleOutputScroll(): void {
 		const effective = this._outputScrolling.get()
-			?? this.instance.notebookOptions.getLayoutConfiguration().outputScrolling;
+			?? this._instance.notebookOptions.getLayoutConfiguration().outputScrolling;
 		this._outputScrolling.set(!effective, undefined);
 	}
 
@@ -154,7 +154,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
-					instance: this.instance,
+					instance: this._instance,
 					outputId: output.outputId,
 					outputs: outputItems,
 				});
@@ -167,7 +167,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
 				// documents (e.g. Great Tables) fall through and render inline.
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
-					instance: this.instance,
+					instance: this._instance,
 					outputId: output.outputId,
 					outputs: outputItems,
 					rawHtml: rawOutput,

@@ -6,6 +6,8 @@ import * as positron from 'positron';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
+	provider: string;
+	type: positron.PositronLanguageModelType;
 }
 
 export interface ModelConfig extends StoredModelConfig {

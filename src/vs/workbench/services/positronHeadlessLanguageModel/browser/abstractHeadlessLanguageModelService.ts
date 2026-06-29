@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { distinct } from '../../../../base/common/arrays.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { raceCancellation } from '../../../../base/common/async.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { raceCancellation, raceTimeout } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { SelfHealingLazyPromise } from '../../../../base/common/positron/async.js';
@@ -23,7 +23,7 @@ import {
 	StreamTextResult,
 	UnavailableReason,
 } from '../common/headlessLanguageModelService.js';
-import { byPriority, ResolvedModelSelection, selectModel } from '../common/headlessLanguageModelSelection.js';
+import { byPriority, IModelCandidate, ResolvedModelSelection, selectModelCandidates } from '../common/headlessLanguageModelSelection.js';
 import { type CredentialConfig, shapeCredentials } from 'ai-provider-bridge/credential-shaping';
 
 interface IResolvedState {
@@ -38,6 +38,14 @@ interface IResolvedState {
  * ai-provider-bridge / providers.json owns model selection (PR #13730 review).
  */
 const FAST_CHEAP_DEFAULT_PATTERNS: readonly string[] = ['haiku', 'mini', 'flash', 'gemma'];
+
+/**
+ * How long to wait for a candidate model's first delta before treating it as a
+ * stall and moving to the next candidate. Short relative to a consumer's overall
+ * budget so a fallback can still complete: a model the gateway lists but can't
+ * stream often accepts the request and then never sends anything.
+ */
+const FIRST_DELTA_TIMEOUT_MS = 10_000;
 
 /**
  * All of the headless-LM policy: model selection, provider priority,
@@ -173,35 +181,86 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		}
 
 		const token = params.cancellationToken ?? CancellationToken.None;
-		const prepared = await this.prepareRequest(params.model ?? FastCheap, token);
+		const prepared = await this.prepareCandidates(params.model ?? FastCheap, token);
 		if (!prepared.ok) {
 			return { available: false, reason: prepared.reason };
 		}
 
-		// streamChat returns its iterable synchronously, so it stays outside the
-		// pre-check's transient-failure guard and its mid-flight failures still
-		// surface through `text`.
-		const text = engine.streamChat({
-			providerId: prepared.model.providerId,
-			modelId: prepared.model.id,
-			credentials: prepared.credentials,
-			systemPrompt: params.systemPrompt,
-			messages: params.messages,
-			maxOutputTokens: params.maxOutputTokens,
-		}, token);
+		// Try candidates in preference order. A candidate that stalls (accepts the
+		// request but streams no first delta before FIRST_DELTA_TIMEOUT_MS) or
+		// fails before its first delta is abandoned and the next is tried -- this
+		// is what makes the default tier robust to a model the gateway lists but
+		// can't actually serve. Each attempt streams under its own token linked to
+		// the caller's, so abandoning one cancels just that stream.
+		for (const candidate of prepared.candidates) {
+			if (token.isCancellationRequested) {
+				break;
+			}
+			const text = await this.attemptStream(engine, candidate.model, params, token);
+			if (text) {
+				return { available: true, model: { id: candidate.model.id, name: candidate.model.name }, usedFallback: candidate.usedFallback, text };
+			}
+		}
 
-		return { available: true, model: { id: prepared.model.id, name: prepared.model.name }, usedFallback: prepared.usedFallback, text };
+		// Every candidate stalled or failed before its first delta (or the caller
+		// cancelled mid-sweep): retryable rather than a hard no-model-matched.
+		return { available: false, reason: 'temporarily-unavailable' };
 	}
 
 	/**
-	 * The availability pre-check: resolve the listing state, select a model, and
-	 * freshly resolve its credentials. It can fail transiently (IPC/bridge
-	 * startup); that surfaces as the distinct, retryable `temporarily-unavailable`
-	 * reason rather than a throw -- the service's contract is that only the
-	 * returned `text` iterable throws mid-stream.
+	 * Stream one candidate model: resolve its credentials freshly, start the
+	 * engine stream under a child token linked to the caller's, and wait for the
+	 * first delta with a timeout. Returns the stream (first delta re-emitted then
+	 * the rest, with the child token source disposed when iteration ends) when a
+	 * delta arrives, or `undefined` when the candidate stalls, fails before its
+	 * first delta, has no credentials, or the caller cancels -- the caller then
+	 * tries the next candidate. Mid-stream failures after the first delta still
+	 * surface through the returned iterable.
 	 */
-	private async prepareRequest(selection: ModelSelection, token: CancellationToken): Promise<
-		| { readonly ok: true; readonly model: IModelDescriptor; readonly credentials: ICredentials; readonly usedFallback: boolean }
+	private async attemptStream(
+		engine: IHeadlessLanguageModelEngine,
+		model: IModelDescriptor,
+		params: IStreamTextRequest,
+		token: CancellationToken,
+	): Promise<AsyncIterable<string> | undefined> {
+		// Resolve credentials freshly for the chosen provider so short-lived tokens
+		// stay valid; the model list is from credentialed providers, but a token
+		// may have lapsed since listing.
+		const credentials = await raceCancellation(this.resolveCredentialFor(model.providerId), token);
+		if (token.isCancellationRequested || !credentials) {
+			return undefined;
+		}
+
+		const attemptCts = new CancellationTokenSource(token);
+		const stream = engine.streamChat({
+			providerId: model.providerId,
+			modelId: model.id,
+			credentials,
+			systemPrompt: params.systemPrompt,
+			messages: params.messages,
+			maxOutputTokens: params.maxOutputTokens,
+		}, attemptCts.token);
+
+		const ready = await peekFirstDelta(stream, FIRST_DELTA_TIMEOUT_MS);
+		if (!ready) {
+			this._logService.warn(`[headless-lm] Model ${model.id} produced no first delta; trying the next candidate.`);
+			attemptCts.cancel();
+			attemptCts.dispose();
+			return undefined;
+		}
+		return disposeWhenDone(ready, attemptCts);
+	}
+
+	/**
+	 * The availability pre-check: resolve the listing state and the ordered model
+	 * candidates. It can fail transiently (IPC/bridge startup); that surfaces as
+	 * the distinct, retryable `temporarily-unavailable` reason rather than a throw
+	 * -- the service's contract is that only the returned `text` iterable throws
+	 * mid-stream. Credentials are resolved per attempt (in {@link attemptStream}),
+	 * not here, so a stalling candidate can be bypassed without re-listing.
+	 */
+	private async prepareCandidates(selection: ModelSelection, token: CancellationToken): Promise<
+		| { readonly ok: true; readonly candidates: readonly IModelCandidate[] }
 		| { readonly ok: false; readonly reason: UnavailableReason }
 	> {
 		try {
@@ -218,28 +277,18 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 				return { ok: false, reason: 'sign-in-required' };
 			}
 
-			const { model, usedFallback } = selectModel(state.models, this.resolveSelection(selection));
-			if (!model) {
+			const candidates = selectModelCandidates(state.models, this.resolveSelection(selection));
+			if (candidates.length === 0) {
 				return { ok: false, reason: 'no-model-matched' };
 			}
-			// A configured pattern set that matched nothing still lands the
-			// top-priority model, but warn so a misconfigured pattern is
-			// diagnosable rather than silently ignored. Keyed on the original
-			// selection: a tier's default patterns missing is not a misconfiguration.
-			if (usedFallback && hasKey(selection, { patterns: true }) && selection.patterns.length > 0) {
+			// A configured pattern set that matched nothing still lands a fallback
+			// model, but warn so a misconfigured pattern is diagnosable rather than
+			// silently ignored. Keyed on the original selection: a tier's default
+			// patterns missing is not a misconfiguration.
+			if (candidates[0].usedFallback && hasKey(selection, { patterns: true }) && selection.patterns.length > 0) {
 				this._logService.warn(`[headless-lm] Configured model patterns not found: ${JSON.stringify(selection.patterns)}`);
 			}
-
-			// Resolve credentials freshly for the chosen provider so short-lived
-			// tokens stay valid. The token may have lapsed since listing.
-			const credentials = await raceCancellation(this.resolveCredentialFor(model.providerId), token);
-			if (token.isCancellationRequested) {
-				return { ok: false, reason: 'temporarily-unavailable' };
-			}
-			if (!credentials) {
-				return { ok: false, reason: 'sign-in-required' };
-			}
-			return { ok: true, model, credentials, usedFallback };
+			return { ok: true, candidates };
 		} catch (error) {
 			this._logService.warn(`[headless-lm] Availability check failed: ${error}`);
 			return { ok: false, reason: 'temporarily-unavailable' };
@@ -382,4 +431,52 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			},
 		};
 	}
+}
+
+/**
+ * Start consuming a stream and wait for its first delta, bounded by `timeoutMs`.
+ * Returns a stream that re-emits that first delta and then the rest when one
+ * arrives (or an empty stream if the model completes with no delta -- a valid
+ * empty response). Returns `undefined` when no first delta arrives in time (a
+ * stall) or the stream fails before producing one. A failure *after* the first
+ * delta is left to surface through the returned iterable.
+ */
+async function peekFirstDelta(stream: AsyncIterable<string>, timeoutMs: number): Promise<AsyncIterable<string> | undefined> {
+	const iterator = stream[Symbol.asyncIterator]();
+	let first: IteratorResult<string>;
+	try {
+		// iterator.next() always resolves to an IteratorResult, never undefined,
+		// so an undefined race result unambiguously means the timeout won.
+		const result = await raceTimeout(Promise.resolve(iterator.next()), timeoutMs);
+		if (result === undefined) {
+			return undefined;
+		}
+		first = result;
+	} catch {
+		return undefined;
+	}
+	return (async function* () {
+		if (first.done) {
+			return;
+		}
+		yield first.value;
+		while (true) {
+			const next = await iterator.next();
+			if (next.done) {
+				return;
+			}
+			yield next.value;
+		}
+	})();
+}
+
+/** Re-yield a stream, disposing `cts` once iteration ends (completes, throws, or is abandoned). */
+function disposeWhenDone(stream: AsyncIterable<string>, cts: CancellationTokenSource): AsyncIterable<string> {
+	return (async function* () {
+		try {
+			yield* stream;
+		} finally {
+			cts.dispose();
+		}
+	})();
 }

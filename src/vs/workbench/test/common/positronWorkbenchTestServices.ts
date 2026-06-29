@@ -295,8 +295,12 @@ export class TestPositronAssistantConfigurationService implements IPositronAssis
 	copilotEnabled = true;
 	onChangeCopilotEnabled = Event.None;
 	onChangeEnabledProviders = Event.None;
+	onChangeProviderConfig = Event.None;
 
-	registerProviderMetadata(): void { }
+	registerProvider(): void { }
+	unregisterProvider(): void { }
+	updateProvider(): void { }
+	getRegisteredSources() { return []; }
 
 	getEnabledProviders(): string[] {
 		return [];

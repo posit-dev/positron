@@ -6,24 +6,28 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../../../base/common/uri.js';
-import { ICommandService } from '../../../../../../../platform/commands/common/commands.js';
+import { observableValue } from '../../../../../../../base/common/observable.js';
+import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
+import { IHeadlessLanguageModelService } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { AI_ENABLED_KEY } from '../../../../../positronAssistant/common/positronAIConfiguration.js';
 import { VisualizeDataFrameAction } from '../../../../browser/contrib/visualize/VisualizeAction.js';
 import type { IInlineDataExplorerActionContext } from '../../../../browser/notebookCells/InlineDataExplorerActions.js';
 import type { InlineTableDataGridInstance } from '../../../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
-import type { IPositronNotebookCodeCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
+import type { IPositronNotebookCell, IPositronNotebookCodeCell } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import type { IPositronNotebookInstance } from '../../../../browser/IPositronNotebookInstance.js';
 
-const { mockShowVisualizeModalDialog, mockApplyVisualizeResult, mockGenerateVizCode } = vi.hoisted(() => ({
+const { mockShowVisualizeModalDialog, mockApplyVisualizeResult, mockGenerateVizCode, mockGenerateVisualizationSuggestion } = vi.hoisted(() => ({
 	mockShowVisualizeModalDialog: vi.fn(),
 	mockApplyVisualizeResult: vi.fn(),
 	mockGenerateVizCode: vi.fn(() => ({ imports: '', body: '' })),
+	mockGenerateVisualizationSuggestion: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('../../../../browser/contrib/visualize/visualizeModalDialog.js', () => ({
 	showVisualizeModalDialog: mockShowVisualizeModalDialog,
-	validateVisualizationSuggestion: (v: unknown) => v,
 }));
 
 vi.mock('../../../../browser/contrib/visualize/applyVisualizeResult.js', () => ({
@@ -35,18 +39,27 @@ vi.mock('../../../../browser/contrib/visualize/generateVizCode.js', () => ({
 	isValidDataFrameExpr: (s: string) => /^[A-Za-z_][\w.[\]'"]*$/.test(s),
 }));
 
+vi.mock('../../../../browser/contrib/visualize/visualizationSuggestion.js', () => ({
+	generateVisualizationSuggestion: mockGenerateVisualizationSuggestion,
+}));
+
 describe('VisualizeDataFrameAction', () => {
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
+		.stub(IHeadlessLanguageModelService, {})
 		.build();
 
-	let executeCommand: ReturnType<typeof vi.fn>;
+	let configurationService: TestConfigurationService;
 
 	beforeEach(() => {
-		executeCommand = vi.fn().mockResolvedValue(null);
-		ctx.instantiationService.stub(ICommandService, { executeCommand });
+		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		mockShowVisualizeModalDialog.mockReset();
 		mockApplyVisualizeResult.mockReset();
+		mockGenerateVisualizationSuggestion.mockReset().mockResolvedValue(null);
+		// Reset the AI state the shared describe-scope container carries: AI on
+		// (matching the registered default) and nothing excluded.
+		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
 	function fakeGrid(): InlineTableDataGridInstance {
@@ -67,7 +80,9 @@ describe('VisualizeDataFrameAction', () => {
 	}
 
 	function fakeNotebook(): IPositronNotebookInstance {
-		return stubInterface<IPositronNotebookInstance>({});
+		return stubInterface<IPositronNotebookInstance>({
+			cells: observableValue<IPositronNotebookCell[]>('cells', []),
+		});
 	}
 
 	function encodeAccessKey(name: string): string {
@@ -140,20 +155,41 @@ describe('VisualizeDataFrameAction', () => {
 		expect(mockApplyVisualizeResult).not.toHaveBeenCalled();
 	});
 
-	it('forwards the suggestion request to positron-assistant.suggestVisualization', async () => {
+	it('requests a suggestion from the headless visualization consumer', async () => {
 		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
 
 		const actionCtx = buildContext();
 		await run(actionCtx);
 
-		expect(executeCommand).toHaveBeenCalledWith(
-			'positron-assistant.suggestVisualization',
-			actionCtx.documentUri.toString(),
+		expect(mockGenerateVisualizationSuggestion).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
 			actionCtx.cell!.index,
 			'df',
 			[{ name: 'col0', type: 'int' }, { name: 'col1', type: 'int' }],
+			undefined,
 			expect.anything(),
 		);
+	});
+
+	it('does not request a suggestion for a notebook excluded from AI, but still opens the dialog', async () => {
+		configurationService.setUserConfiguration('positron.assistant.aiExcludes', ['**/*.ipynb']);
+		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
+
+		await run(buildContext());
+
+		expect(mockGenerateVisualizationSuggestion).not.toHaveBeenCalled();
+		expect(mockShowVisualizeModalDialog).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not request a suggestion when AI is disabled, but still opens the dialog', async () => {
+		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
+		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
+
+		await run(buildContext());
+
+		expect(mockGenerateVisualizationSuggestion).not.toHaveBeenCalled();
+		expect(mockShowVisualizeModalDialog).toHaveBeenCalledTimes(1);
 	});
 
 	describe('dataframe prefill', () => {

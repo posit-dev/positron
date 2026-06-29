@@ -10,13 +10,12 @@ import { CancellationToken, CancellationTokenSource } from '../../../../../../..
 import { Event } from '../../../../../../../base/common/event.js';
 import { observableValue } from '../../../../../../../base/common/observable.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
-import { IHeadlessLanguageModelService, IStreamTextRequest, StreamTextResult } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { IHeadlessLanguageModelService, IStreamTextRequest, StreamTextResult, intentFromSetting } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IPositronNotebookCell, NotebookCellOutputs, ParsedOutput } from '../../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import {
 	IGhostCellSnapshot,
 	buildGhostCellContext,
 	generateGhostCellSuggestion,
-	intentFromSetting,
 	parseGhostCellSuggestion,
 	snapshotCells,
 } from '../../../../browser/contrib/ghostCell/ghostCellSuggestion.js';

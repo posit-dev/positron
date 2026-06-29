@@ -117,10 +117,65 @@ interface NativeLog {
     message: string;
 }
 
+// --- Start Positron ---
+/**
+ * Bridges PET's push-based `discovered` event into a pull-based async generator.
+ *
+ * Subscribes to `discovered` eagerly (when called, not when first iterated) so
+ * environments emitted between starting a refresh and consuming the generator
+ * are buffered rather than lost. Yields buffered environments as the consumer
+ * pulls them, and finishes only once `completed` has resolved AND every buffered
+ * environment has been drained -- a consumer that is slow to pull (e.g. resolving
+ * symlinks per environment) must not cause environments buffered during that work
+ * to be dropped when the refresh completes. See #14483.
+ *
+ * @param discovered Event fired once per discovered environment.
+ * @param completed Resolves when the underlying refresh has finished; after it
+ *   resolves the caller is expected to stop firing `discovered`.
+ */
+export function bufferedEvents<T>(discovered: Event<T>, completed: Promise<void>): AsyncGenerator<T> {
+    const done = createDeferredFrom(completed);
+    const buffer: T[] = [];
+    let signal = createDeferred<void>();
+    const sub = discovered((item) => {
+        buffer.push(item);
+        signal.resolve();
+    });
+
+    async function* drain(): AsyncGenerator<T> {
+        try {
+            for (;;) {
+                if (buffer.length > 0) {
+                    const toSend = buffer.splice(0, buffer.length);
+                    for (const item of toSend) {
+                        yield item;
+                    }
+                    // Items may have been buffered while the yields above were
+                    // suspended on a slow consumer; re-check before waiting/exiting.
+                    continue;
+                }
+                if (done.completed) {
+                    return;
+                }
+                await Promise.race([done.promise, signal.promise]);
+                signal = createDeferred<void>();
+            }
+        } finally {
+            sub.dispose();
+        }
+    }
+
+    return drain();
+}
+// --- End Positron ---
+
 class NativePythonFinderImpl extends DisposableBase implements NativePythonFinder {
     private readonly connection: rpc.MessageConnection;
 
-    private firstRefreshResults: undefined | (() => AsyncGenerator<NativeEnvInfo, void, unknown>);
+    // --- Start Positron ---
+    // private firstRefreshResults: undefined | (() => AsyncGenerator<NativeEnvInfo, void, unknown>);
+    private firstRefreshResults: undefined | (() => AsyncGenerator<NativeEnvInfo | NativeEnvManagerInfo>);
+    // --- End Positron ---
 
     private readonly outputChannel = this._register(createLogOutputChannel('Python Locator', { log: true }));
 
@@ -152,7 +207,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         return environment;
     }
 
-    async *refresh(options?: NativePythonEnvironmentKind | Uri[]): AsyncIterable<NativeEnvInfo> {
+    // --- Start Positron ---
+    // async *refresh(options?: NativePythonEnvironmentKind | Uri[]): AsyncIterable<NativeEnvInfo> {
+    async *refresh(options?: NativePythonEnvironmentKind | Uri[]): AsyncIterable<NativeEnvInfo | NativeEnvManagerInfo> {
+        // --- End Positron ---
         if (this.firstRefreshResults) {
             // If this is the first time we are refreshing,
             // Then get the results from the first refresh.
@@ -162,65 +220,23 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             yield* results;
         } else {
             const result = this.doRefresh(options);
-            let completed = false;
-            void result.completed.finally(() => {
-                completed = true;
-            });
-            const envs: (NativeEnvInfo | NativeEnvManagerInfo)[] = [];
-            let discovered = createDeferred();
-            const disposable = result.discovered((data) => {
-                envs.push(data);
-                discovered.resolve();
-            });
-            do {
-                if (!envs.length) {
-                    await Promise.race([result.completed, discovered.promise]);
-                }
-                if (envs.length) {
-                    const dataToSend = [...envs];
-                    envs.length = 0;
-                    for (const data of dataToSend) {
-                        yield data;
-                    }
-                }
-                if (!completed) {
-                    discovered = createDeferred();
-                }
-            } while (!completed);
-            disposable.dispose();
+            // --- Start Positron ---
+            // Use the shared buffering bridge so environments discovered while the
+            // consumer is busy are not dropped when the refresh completes (#14483).
+            yield* bufferedEvents(result.discovered, result.completed);
+            // --- End Positron ---
         }
     }
 
     refreshFirstTime() {
         const result = this.doRefresh();
-        const completed = createDeferredFrom(result.completed);
-        const envs: NativeEnvInfo[] = [];
-        let discovered = createDeferred();
-        const disposable = result.discovered((data) => {
-            envs.push(data);
-            discovered.resolve();
-        });
-
-        const iterable = async function* () {
-            do {
-                if (!envs.length) {
-                    await Promise.race([completed.promise, discovered.promise]);
-                }
-                if (envs.length) {
-                    const dataToSend = [...envs];
-                    envs.length = 0;
-                    for (const data of dataToSend) {
-                        yield data;
-                    }
-                }
-                if (!completed.completed) {
-                    discovered = createDeferred();
-                }
-            } while (!completed.completed);
-            disposable.dispose();
-        };
-
-        return iterable.bind(this);
+        // --- Start Positron ---
+        // Subscribe eagerly (now, in the constructor's call) so environments PET
+        // emits before the first consumer pulls are buffered rather than lost;
+        // bufferedEvents drains them when the returned generator is iterated (#14483).
+        const generator = bufferedEvents(result.discovered, result.completed);
+        return () => generator;
+        // --- End Positron ---
     }
 
     // eslint-disable-next-line class-methods-use-this
@@ -421,11 +437,33 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
 
     private lastConfiguration?: ConfigurationOptions;
 
+    // --- Start Positron ---
+    // Serializes configure requests. PET (as of 2026.12) reports zero environments
+    // if a `refresh` is processed while a `configure` is still in flight. At startup
+    // the constructor fires `void this.configure()` and the first refresh
+    // (`refreshFirstTime`) concurrently; the two `configure()` calls race and the
+    // `lastConfiguration` short-circuit below let the refresh's request go out before
+    // the in-flight configure was acknowledged, so discovery came back empty. Chaining
+    // each configure() after the previous one guarantees a caller that sends `refresh`
+    // next never races an unfinished configure. See #14483.
+    private configureQueue: Promise<void> = Promise.resolve();
+    // --- End Positron ---
+
     /**
      * Configuration request, this must always be invoked before any other request.
      * Must be invoked when ever there are changes to any data related to the configuration details.
      */
-    private async configure() {
+    // --- Start Positron ---
+    private configure(): Promise<void> {
+        const next = this.configureQueue.then(() => this.configureImpl());
+        // A failed configure must not poison the queue for later callers; the
+        // returned promise still rejects so this caller observes the failure.
+        this.configureQueue = next.catch(() => undefined);
+        return next;
+    }
+
+    private async configureImpl() {
+        // --- End Positron ---
         const options: ConfigurationOptions = {
             workspaceDirectories: getWorkspaceFolderPaths(),
             // We do not want to mix this with `search_paths`
