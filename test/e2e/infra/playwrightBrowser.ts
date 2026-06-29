@@ -143,7 +143,7 @@ async function startServer(
 }
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
-	const { logger, workspacePath, tracing, snapshots, headless } = options;
+	const { logger, workspacePath, tracing, customTracing, snapshots, headless } = options;
 	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
 	// WebKit doesn't support --disable-popup-blocking, but Chromium/Firefox do
 	const args = browserType === 'webkit' ? [] : ['--disable-popup-blocking'];
@@ -167,6 +167,12 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots }), 'context.tracing.start()', logger);
 			// --- Start Positron ---
+			// Open the first chunk now so startup is captured. A failure during startup
+			// lands in the trace exported by the app fixture; otherwise the per-test
+			// tracing fixture re-slices from here.
+			if (customTracing) {
+				await context.tracing.startChunk({ title: 'startup' });
+			}
 			// Yes, this is hacky, but we are unable to disable default tracing in Playwright browser tests
 			// See related discussion: https://github.com/microsoft/playwright/issues/33303#issuecomment-2442096479
 			context.tracing.start = async (...args) => {
