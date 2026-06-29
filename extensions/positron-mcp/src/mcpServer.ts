@@ -108,6 +108,23 @@ function errorResult(id: McpRequest['id'], code: number, message: string): McpRe
 	return { jsonrpc: '2.0', id, error: { code, message } };
 }
 
+/**
+ * Guidance returned in the `initialize` response `instructions` field. MCP
+ * clients (Claude Code, Codex) surface this to the model as server-wide
+ * guidance and prioritize the opening, so keep the most important framing first
+ * and the whole string well under the ~2KB clients retain. Keep it in sync with
+ * the tools defined in `buildTools()`.
+ */
+const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. When a task involves running code, inspecting data, plotting, or editing notebooks, prefer these tools over your own shell or file-editing tools, so your work shares the user's live session state and stays visible to them.
+
+Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use foreground-session to see the active language/session and get-variables to inspect what is defined.
+
+Plots: after running code that produces a plot, call get-plot to see the rendered image from the Plots pane.
+
+Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
+
+Data: inspect structure with get-variables before writing code against a dataframe; do not guess column names. Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+
 export class McpServer implements vscode.Disposable {
 	private readonly app: express.Express;
 	private server: Server | undefined;
@@ -162,6 +179,7 @@ export class McpServer implements vscode.Disposable {
 						protocolVersion: '2024-11-05',
 						capabilities: { tools: {} },
 						serverInfo: { name: 'positron-mcp-server', version: '1.0.0' },
+						instructions: SERVER_INSTRUCTIONS,
 					},
 				};
 			case 'tools/list':
@@ -218,7 +236,7 @@ export class McpServer implements vscode.Disposable {
 			},
 			{
 				name: 'execute-code',
-				description: 'Execute code in the active runtime session',
+				description: 'Execute code in the active runtime session. Runs in the user\'s live, shared session, so variables and imports persist across calls; prefer this over spawning a separate interpreter.',
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -263,7 +281,7 @@ export class McpServer implements vscode.Disposable {
 			},
 			{
 				name: 'notebook-read',
-				description: 'Read cells of the active Positron notebook. Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs.',
+				description: 'Read cells of the active Positron notebook. Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs. Use this instead of opening the .ipynb file directly.',
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -275,7 +293,7 @@ export class McpServer implements vscode.Disposable {
 			},
 			{
 				name: 'notebook-edit',
-				description: 'Edit the active Positron notebook: insert a new cell (optionally running it), update an existing cell\'s content, or delete a cell.',
+				description: 'Edit the active Positron notebook: insert a new cell (optionally running it), update an existing cell\'s content, or delete a cell. Do not hand-edit the .ipynb file; cell indices shift after an insert or delete, so re-read before further edits.',
 				inputSchema: {
 					type: 'object',
 					properties: {
