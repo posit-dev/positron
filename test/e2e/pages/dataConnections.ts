@@ -76,6 +76,18 @@ export class DataConnections {
 	}
 
 	/**
+	 * Selects a connection mechanism in the "Select how to connect" dialog and advances to the
+	 * configure step. This dialog only appears for providers that expose more than one mechanism.
+	 * @param mechanismLabel The label shown on the mechanism card, e.g. 'User & Password'.
+	 */
+	async selectConnectionMechanism(mechanismLabel: string): Promise<void> {
+		await test.step(`Select connection mechanism: ${mechanismLabel}`, async () => {
+			await this.dialog.locator('.mechanism-card').filter({ hasText: mechanismLabel }).click();
+			await this.nextButton.click();
+		});
+	}
+
+	/**
 	 * Fills the connection form fields in the "Configure Database" dialog. Keys are the field
 	 * labels (e.g. 'Connection Name', 'Host', 'Port', 'Database', 'User', 'Password') and values
 	 * are the text to enter.

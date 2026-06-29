@@ -54,7 +54,7 @@ test.describe('Data Connections - Postgres', {
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
 		await dataConnections.selectProvider('PostgreSQL');
-
+		await dataConnections.selectConnectionMechanism('User & Password');
 		await dataConnections.fillConnectionInputs({
 			'Connection Name': connectionName,
 			'Host': host,
