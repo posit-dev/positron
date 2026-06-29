@@ -90,7 +90,7 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('ai.enabled', true);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey('positron-assistant.hasChatModels', true);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 

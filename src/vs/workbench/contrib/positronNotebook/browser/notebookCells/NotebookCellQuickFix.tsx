@@ -50,7 +50,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
-	const hasChatModels = useContextKeyFromString<boolean>('positron-assistant.hasChatModels');
+	// Set by the Posit Assistant extension when it has at least one usable model.
+	// The old positron-assistant.hasChatModels key is going away this milestone.
+	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
 	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
 
 	// Only show buttons if AI is enabled, notebook mode is enabled, and chat models are available
