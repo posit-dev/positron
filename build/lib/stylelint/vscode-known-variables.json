@@ -757,6 +757,7 @@
 		"--vscode-positronPackages-background",
 		"--vscode-positronPackages-border",
 		"--vscode-positronPackages-foreground",
+		"--vscode-positronPackages-recentlyChangedBackground",
 		"--vscode-positronPlots-background",
 		"--vscode-positronScrollBar-border",
 		"--vscode-positronSplitterExpandCollapseButton-background",

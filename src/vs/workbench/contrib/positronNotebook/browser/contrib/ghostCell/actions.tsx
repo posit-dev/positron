@@ -3,19 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../../../nls.js';
+import { localize, localize2 } from '../../../../../../nls.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { IAction2Options, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
+import { Action2, IAction2Options, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { IQuickInputService } from '../../../../../../platform/quickinput/common/quickInput.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
+import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { showHeadlessModelPicker } from '../../../../../services/positronHeadlessLanguageModel/browser/headlessModelPicker.js';
 import { GhostCellController } from './controller.js';
-import { REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID, SHOW_GHOST_CELL_INFO_COMMAND_ID } from './config.js';
+import { POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY, REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID, SELECT_GHOST_CELL_MODEL_COMMAND_ID, SHOW_GHOST_CELL_INFO_COMMAND_ID } from './config.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 
 // Helper function matching the FindController pattern (contrib/find/actions.ts)
@@ -64,6 +68,32 @@ registerGhostCellAction({
 	run: (controller) => controller.enableGhostCellSuggestionsForNotebook(),
 });
 
+// Select the model used for ghost cell suggestions, via the reusable picker.
+// Not notebook-scoped: it edits a setting and is available from the palette and
+// the setting's "Select a model" link.
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: SELECT_GHOST_CELL_MODEL_COMMAND_ID,
+			title: localize2('positronNotebook.selectGhostCellModel', 'Select Ghost Cell Model'),
+			f1: true,
+			category: localize2('positronNotebook.category', 'Positron Notebook'),
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		await showHeadlessModelPicker(
+			accessor.get(IHeadlessLanguageModelService),
+			accessor.get(IQuickInputService),
+			accessor.get(IConfigurationService),
+			{
+				settingKey: POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY,
+				title: localize('positronNotebook.selectGhostCellModel.title', "Select Model for Ghost Cell Suggestions"),
+			},
+		);
+	}
+});
+
 // Show ghost cell info dialog - opens the informational dialog about ghost cell suggestions
 registerGhostCellAction({
 	id: SHOW_GHOST_CELL_INFO_COMMAND_ID,
@@ -74,7 +104,7 @@ registerGhostCellAction({
 	run: (controller) => {
 		const state = controller.ghostCellState.get();
 		const modelName = state.status === 'ready' ? state.modelName : undefined;
-		const renderer = new PositronModalReactRenderer();
+		const renderer = new PositronModalDialogReactRenderer();
 		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
 	},
 });

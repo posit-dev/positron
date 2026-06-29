@@ -23,6 +23,11 @@ import { ChecksumService } from '../../../platform/checksum/node/checksumService
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { ConfigurationService } from '../../../platform/configuration/common/configurationService.js';
 import { IDiagnosticsService } from '../../../platform/diagnostics/common/diagnostics.js';
+// --- Start Positron ---
+import { HEADLESS_LM_ENGINE_CHANNEL } from '../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { HeadlessLanguageModelEngine } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngine.js';
+import { HeadlessLanguageModelEngineChannel } from '../../../platform/positronHeadlessLanguageModel/node/headlessLanguageModelEngineChannel.js';
+// --- End Positron ---
 import { DiagnosticsService } from '../../../platform/diagnostics/node/diagnosticsService.js';
 import { IDownloadService } from '../../../platform/download/common/download.js';
 import { DownloadService } from '../../../platform/download/common/downloadService.js';
@@ -493,6 +498,13 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Custom Endpoint Telemetry
 		const customEndpointTelemetryChannel = ProxyChannel.fromService(accessor.get(ICustomEndpointTelemetryService), this._store);
 		this.server.registerChannel('customEndpointTelemetry', customEndpointTelemetryChannel);
+
+		// --- Start Positron ---
+		// Headless Language Model engine: local-desktop egress runs here in the
+		// shared process; the workbench reaches it over this channel.
+		const headlessLmEngine = new HeadlessLanguageModelEngine(accessor.get(ILogService));
+		this.server.registerChannel(HEADLESS_LM_ENGINE_CHANNEL, new HeadlessLanguageModelEngineChannel(headlessLmEngine));
+		// --- End Positron ---
 
 		const userDataSyncAccountChannel = new UserDataSyncAccountServiceChannel(accessor.get(IUserDataSyncAccountService));
 		this.server.registerChannel('userDataSyncAccount', userDataSyncAccountChannel);

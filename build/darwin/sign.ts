@@ -80,17 +80,6 @@ async function main(buildDir?: string): Promise<void> {
 	const appOpts: SignOptions = {
 		app: path.join(appRoot, appName),
 		platform: 'darwin',
-		// --- Start Positron ---
-		// The bundled DuckDB excel extension (used by the data explorer to read
-		// .xlsx files) carries DuckDB's own signature appended past the end of the
-		// Mach-O image. codesign's strict validation rejects that trailing data
-		// with "main executable failed strict validation", so skip Apple signing
-		// for it. DuckDB's signature stays intact and the extension still loads at
-		// runtime (the app entitlements allow loading libraries that are not signed
-		// by our Team ID). Scoped to the exact vendored path; if another DuckDB
-		// extension is bundled, add it here too.
-		ignore: (filePath) => filePath.endsWith('/positron-duckdb/resources/excel.duckdb_extension'),
-		// --- End Positron ---
 		optionsForFile: (filePath) => ({
 			entitlements: getEntitlementsForFile(filePath),
 			hardenedRuntime: true,

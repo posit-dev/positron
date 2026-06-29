@@ -454,6 +454,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 				// --- End Positron ---
 				'resources/win32/powershell.ico',
 				'resources/win32/python.ico',
+				// --- Start Positron ---
+				'resources/win32/quarto.ico',
+				// --- End Positron ---
 				'resources/win32/react.ico',
 				'resources/win32/ruby.ico',
 				'resources/win32/sass.ico',

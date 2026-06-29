@@ -309,6 +309,9 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private readonly _hasDefaultAgent: IContextKey<boolean>;
 	private readonly _extensionAgentRegistered: IContextKey<boolean>;
 	private readonly _defaultAgentRegistered: IContextKey<boolean>;
+	// --- Start Positron ---
+	private readonly _aiFeaturesEnabled: IContextKey<boolean>;
+	// --- End Positron ---
 	private _hasToolsAgent = false;
 
 	private _chatParticipantDetectionProviders = new Map<number, IChatParticipantDetectionProvider>();
@@ -331,6 +334,10 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);
 		this._extensionAgentRegistered = ChatContextKeys.extensionParticipantRegistered.bindTo(this.contextKeyService);
 		this._defaultAgentRegistered = ChatContextKeys.panelParticipantRegistered.bindTo(this.contextKeyService);
+		// --- Start Positron ---
+		this._aiFeaturesEnabled = ChatContextKeys.aiFeaturesEnabled.bindTo(this.contextKeyService);
+		this._aiFeaturesEnabled.set(!this._isAIDisabled());
+		// --- End Positron ---
 		this._register(contextKeyService.onDidChangeContext((e) => {
 			if (e.affectsSome(this._agentsContextKeys)) {
 				this._updateContextKeys();
@@ -339,13 +346,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// --- Start Positron ---
 		// `chat.disableAIFeatures` should hide the chat UI while keeping the chat
 		// extension's `vscode.lm` model provider available for other consumers.
+		// `ai.enabled` is Positron's main AI switch and sits above it: turning it
+		// off also hides the chat UI.
 		// The chat UI is gated by the `chatIsEnabled` / `chatPanelParticipantRegistered`
-		// context keys, so recompute them when the setting changes. Fire
+		// context keys, so recompute them when either setting changes. Fire
 		// `onDidChangeAgents` too so consumers that resolve agents lazily (e.g. the
 		// inline chat enabler, which reads `getDefaultAgent(EditorInline)`) recompute
-		// their enablement when the setting is toggled at runtime.
+		// their enablement when a setting is toggled at runtime.
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(ChatConfiguration.AIDisabled)) {
+			if (e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration('ai.enabled')) {
 				this._updateHasDefaultAgent();
 				this._updateContextKeys();
 				this._onDidChangeAgents.fire(undefined);
@@ -356,7 +365,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	// --- Start Positron ---
 	private _isAIDisabled(): boolean {
-		return this.configurationService.getValue(ChatConfiguration.AIDisabled) === true;
+		// `chat.disableAIFeatures` is Copilot's own switch. Positron's `ai.enabled`
+		// is the main switch on top: if it's off, AI is off no matter what
+		// `chat.disableAIFeatures` says. When `ai.enabled` is on, Copilot is back to
+		// being governed by `chat.disableAIFeatures` alone.
+		return this.configurationService.getValue(ChatConfiguration.AIDisabled) === true
+			|| this.configurationService.getValue('ai.enabled') === false;
 	}
 
 	/**
@@ -438,6 +452,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// Positron Assistant extension being enabled; removed so a default chat
 		// agent such as GitHub Copilot can register on its own.)
 		this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
+		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.
+		this._aiFeaturesEnabled.set(!this._isAIDisabled());
 		// --- End Positron ---
 		this._extensionAgentRegistered.set(extensionAgentRegistered);
 		if (toolsAgentRegistered !== this._hasToolsAgent) {

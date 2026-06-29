@@ -15,6 +15,10 @@ import { IInstantiationService } from '../../../util/vs/platform/instantiation/c
 import { CopilotExtensionApi } from '../../api/vscode/extensionApi';
 import { ContributionCollection, IExtensionContributionFactory } from '../../common/contributions';
 
+// --- Start Positron ---
+import { workspace } from 'vscode';
+// --- End Positron ---
+
 // ##################################################################################
 // ###                                                                            ###
 // ###  Shared extension activation code for both web and node.js extension host. ###
@@ -39,6 +43,13 @@ export async function baseActivate(configuration: IExtensionActivationConfigurat
 		// Avoid bundling the extension code in the test bundle
 		return context;
 	}
+
+	// --- Start Positron ---
+	// Don't activate when the AI switch is off.
+	if (workspace.getConfiguration().get('ai.enabled') === false) {
+		return context;
+	}
+	// --- End Positron ---
 
 	// Check if the extension is running in a pre-release version of VS Code
 	const isStableVsCode = !(env.appName.includes('Insiders') || env.appName.includes('Exploration') || env.appName.includes('OSS'));

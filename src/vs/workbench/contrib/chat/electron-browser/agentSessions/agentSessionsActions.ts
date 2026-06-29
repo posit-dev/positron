@@ -54,7 +54,7 @@ export class OpenWorkspaceInAgentsWindowAction extends Action2 {
 			category: CHAT_CATEGORY,
 			// --- Start Positron ---
 			// Hide when AI features are disabled.
-			precondition: ContextKeyExpr.and(OPEN_AGENTS_WINDOW_PRECONDITION, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true)),
+			precondition: ContextKeyExpr.and(OPEN_AGENTS_WINDOW_PRECONDITION, ChatContextKeys.aiFeaturesEnabled),
 			// --- End Positron ---
 			f1: true,
 			menu: [{

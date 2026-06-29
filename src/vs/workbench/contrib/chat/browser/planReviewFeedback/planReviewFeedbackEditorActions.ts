@@ -13,6 +13,9 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { isCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { IPlanReviewFeedbackService } from './planReviewFeedbackService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
+// --- Start Positron ---
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+// --- End Positron ---
 
 export const PlanReviewFeedbackMenuId = MenuId.for('planReviewFeedback.editorContent');
 
@@ -59,7 +62,7 @@ class NavigatePlanReviewFeedbackAction extends Action2 {
 			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
 				hasPlanReviewFeedback,
-				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				ChatContextKeys.aiFeaturesEnabled,
 			),
 			// --- End Positron ---
 			menu: {
@@ -108,7 +111,7 @@ class ClearAllPlanReviewFeedbackAction extends Action2 {
 			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
 				hasPlanReviewFeedback,
-				ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+				ChatContextKeys.aiFeaturesEnabled,
 			),
 			// --- End Positron ---
 			menu: {

@@ -263,7 +263,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ChatContextKeys.Setup.completed.negate(),
 							ChatContextKeys.Entitlement.canSignUp
 						),
-						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+						ChatContextKeys.aiFeaturesEnabled,
 					),
 					// --- End Positron ---
 				});
@@ -515,7 +515,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ChatContextKeys.Entitlement.canSignUp,
 							ChatContextKeys.Entitlement.planFree
 						),
-						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+						ChatContextKeys.aiFeaturesEnabled,
 					),
 					// --- End Positron ---
 					menu: {
@@ -586,7 +586,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 							ChatContextKeys.Entitlement.planMax,
 							ChatContextKeys.Entitlement.planEdu,
 						),
-						ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+						ChatContextKeys.aiFeaturesEnabled,
 					),
 					// --- End Positron ---
 					menu: {

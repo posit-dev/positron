@@ -11,6 +11,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "ci-lab-reset": "./.devcontainer/ci-arm/reset.sh",
     "test": "echo Please run any of the test scripts from the scripts folder.",
     "test-browser": "npx playwright install && node test/unit/browser/index.js",
     "test-browser-no-install": "node test/unit/browser/index.js",
@@ -109,6 +110,7 @@
     "build-check": "./scripts/build-check.sh",
     "build-start": "./scripts/build-start.sh",
     "build-stop": "./scripts/build-stop.sh",
+    "pwb": "bash dockerfiles/workbench-local.sh",
     "perf:chat": "node scripts/chat-simulation/test-chat-perf-regression.js",
     "perf:chat-leak": "node scripts/chat-simulation/test-chat-mem-leaks.js",
     "copilot:setup": "npm --prefix extensions/copilot run setup",
@@ -167,6 +169,7 @@
     "@xterm/headless": "^6.1.0-beta.220",
     "@xterm/xterm": "^6.1.0-beta.220",
     "chrome-remote-interface": "^0.33.0",
+    "ai-provider-bridge": "https://github.com/posit-dev/ai-provider-bridge/releases/download/v0.0.10/ai-provider-bridge-0.0.10.tgz",
     "colors": "^1.4.0",
     "he": "^1.2.0",
     "http-proxy": "^1.18.1",

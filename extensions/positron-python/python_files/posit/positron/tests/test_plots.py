@@ -548,6 +548,114 @@ def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> No
     assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
+def test_mpl_seaborn_figure_detached_after_cell(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A seaborn figure is detached from matplotlib's registry after the cell.
+
+    A re-run starts a fresh figure, while the plot stays open and renderable.
+
+    See https://github.com/posit-dev/positron/issues/8898.
+    """
+    # Create the figure as if it were produced by seaborn (detection is exercised
+    # separately in test_mpl_detect_library_walks_call_stack).
+    monkeypatch.setattr("positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn")
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Running any cell triggers the post-cell detach.
+    shell.run_cell("1").raise_error()
+
+    # The figure is removed from matplotlib's registry...
+    assert plt.get_fignums() == []
+    # ...but the plot remains open, registered, and renderable.
+    assert len(plots_service._plots) == 1  # noqa: SLF001
+    assert not plot_comm._closed  # noqa: SLF001
+    assert "result" in _do_render(plot_comm)["data"]
+
+
+def test_mpl_seaborn_does_not_overwrite_existing_matplotlib_figure(
+    shell: PositronShell, plots_service: PlotsService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Seaborn gets a fresh figure when it resolves axes while a matplotlib figure is active.
+
+    It draws on the new figure instead of over the existing one (e.g. plt then sns); the
+    matplotlib figure is left untouched.
+
+    See https://github.com/posit-dev/positron/issues/8898.
+    """
+    # An existing matplotlib figure is active.
+    _create_mpl_plot(shell, plots_service)
+    assert plt.get_fignums() == [1]
+
+    # Simulate a seaborn call resolving its axes via plt.gca().
+    monkeypatch.setattr("positron.matplotlib_backend._detect_plotting_library", lambda: "seaborn")
+    axes = plt.gca()
+
+    # gca returned axes on a new figure (2), leaving the matplotlib figure (1) intact.
+    assert axes.figure is plt.figure(2)
+    assert plt.get_fignums() == [1, 2]
+
+
+def test_mpl_matplotlib_figure_persists_after_cell(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """
+    Plain matplotlib figures stay in the registry across cells.
+
+    This is intentional cross-cell persistence; only seaborn figures are detached
+    (see issue #8898).
+    """
+    _create_mpl_plot(shell, plots_service)  # kind defaults to "matplotlib"
+
+    shell.run_cell("1").raise_error()
+
+    assert plt.get_fignums() == [1]
+
+
+def test_mpl_seaborn_no_duplicate_on_rerun(
+    shell: PositronShell, plots_service: PlotsService
+) -> None:
+    """
+    Re-running a seaborn axes-level plot creates a separate plot.
+
+    It does not stack onto the previous figure (which duplicated the colorbar).
+
+    See https://github.com/posit-dev/positron/issues/8898.
+    """
+    pytest.importorskip("seaborn")
+
+    shell.run_cell("import seaborn as sns; import numpy as np").raise_error()
+    code = "sns.heatmap(np.array([[1.0, 2.0], [3.0, 4.0]]))"
+    shell.run_cell(code).raise_error()
+    shell.run_cell(code).raise_error()
+
+    # Two independent plots, not one figure with stacked colorbars.
+    assert len(plots_service._plots) == 2  # noqa: SLF001
+
+
+def test_mpl_detect_library_walks_call_stack() -> None:
+    """
+    Detection attributes a figure to the library on the call stack, not one merely imported.
+
+    So importing seaborn for styling doesn't mislabel a plain matplotlib figure (which
+    would otherwise be detached across cells).
+
+    See https://github.com/posit-dev/positron/issues/8898.
+    """
+    from positron.matplotlib_backend import _detect_plotting_library
+
+    # A plain call site is attributed to matplotlib.
+    assert _detect_plotting_library() == "matplotlib"
+
+    # A call site inside a seaborn-rooted module is attributed to seaborn. Define a
+    # function whose frame reports `__name__ == "seaborn.matrix"` (mimicking sns.heatmap).
+    namespace: Dict[str, Any] = {"__name__": "seaborn.matrix"}
+    exec("def call(detect):\n    return detect()", namespace)
+    assert namespace["call"](_detect_plotting_library) == "seaborn"
+
+
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
 

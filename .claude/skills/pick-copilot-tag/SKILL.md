@@ -1,5 +1,6 @@
 ---
 name: pick-copilot-tag
+disable-model-invocation: true
 description: Determine which vscode-copilot-chat release tag to use for a Positron build
 ---
 

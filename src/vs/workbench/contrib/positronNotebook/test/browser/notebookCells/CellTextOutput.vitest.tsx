@@ -88,7 +88,7 @@ describe('CellTextOutput', () => {
 		// here gives isolated state without any manual reset.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
+		configurationService.setUserConfiguration('ai.enabled', true);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey('positron-assistant.hasChatModels', true);
 

@@ -44,7 +44,7 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 			{ selector: '.top-action-bar-container [aria-label="Open"]', label: 'Open File / Folder', color: '#0d9488', labelPosition: 'below-center' },
 			{ selector: ['.top-action-bar-container [aria-label="Go Back"]', '.top-action-bar-container [aria-label="Go Forward"]'], label: 'Backward / Forward', color: '#7c3aed', labelPosition: 'above-center' },
 			{ selector: '.top-action-bar-command-center', label: 'Command Center', color: '#ca8a04', labelPosition: 'above-center' },
-			{ selector: '.top-action-bar-session-manager-face', label: 'Interpreter Selector', color: '#ef4444', labelPosition: 'below-center' },
+			{ selector: '.top-action-bar-session-picker-face', label: 'Interpreter Selector', color: '#ef4444', labelPosition: 'below-center' },
 			{ selector: '.top-action-bar-custom-folder-menu', label: 'Folder Selector', color: '#ea580c', labelPosition: 'above-center' },
 		]);
 		await waitForStableUI(page);

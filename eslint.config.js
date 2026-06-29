@@ -1706,7 +1706,14 @@ export default defineConfig(
 						'yauzl',
 						'yazl',
 						'zlib',
-						'chrome-remote-interface'
+						'chrome-remote-interface',
+						// --- Start Positron ---
+						// Headless language model engine (Node egress): the provider
+						// bridge it streams through, plus its pure credential shaper.
+						'ai-provider-bridge',
+						'ai-provider-bridge/providers',
+						'ai-provider-bridge/credential-shaping',
+						// --- End Positron ---
 					]
 				},
 				{
@@ -1915,6 +1922,30 @@ export default defineConfig(
 						'vs/workbench/contrib/terminalContrib/*/~'
 					]
 				},
+				// --- Start Positron ---
+				// Must precede the generic 'src/vs/workbench/services/*/~' entry:
+				// the rule uses the first matching target, so this scopes the
+				// ai-provider-bridge allowance to the headless LM service only.
+				{
+					'target': 'src/vs/workbench/services/positronHeadlessLanguageModel/~',
+					'restrictions': [
+						'vs/base/~',
+						'vs/base/parts/*/~',
+						'vs/platform/*/~',
+						'vs/editor/~',
+						'vs/editor/contrib/*/~',
+						'vs/workbench/~',
+						'vs/workbench/services/*/~',
+						{
+							'when': 'test',
+							'pattern': 'vs/workbench/contrib/*/~'
+						},
+						// The bridge's pure, vscode-free credential shaper (no
+						// AI-SDK/Node deps -- safe in the renderer).
+						'ai-provider-bridge/credential-shaping'
+					]
+				},
+				// --- End Positron ---
 				{
 					'target': 'src/vs/workbench/services/*/~',
 					'restrictions': [

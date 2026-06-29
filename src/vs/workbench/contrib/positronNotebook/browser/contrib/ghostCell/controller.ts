@@ -6,8 +6,6 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { IObservable, autorun, observableValue } from '../../../../../../base/common/observable.js';
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
-import { generateUuid } from '../../../../../../base/common/uuid.js';
-import { CommandsRegistry, ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
@@ -19,11 +17,26 @@ import { INotebookExecutionStateService, NotebookExecutionType } from '../../../
 import { CellEditType } from '../../../../notebook/common/notebookCommon.js';
 import { CellKind as PositronCellKind } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getAssistantSettings, setAssistantSettings } from '../../../common/notebookAssistantMetadata.js';
+import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
 import {
 	POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY,
+	POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY,
+	POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY,
 } from './config.js';
+import { IHeadlessLanguageModelService, IStreamTextRequest, intentFromSetting } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { IPositronVariablesService } from '../../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
+import {
+	GHOST_CELL_SYSTEM_PROMPT,
+	GhostCellOutcome,
+	IGhostCellPartial,
+	IGhostCellVariable,
+	buildGhostCellContext,
+	generateGhostCellSuggestion,
+	snapshotCells,
+} from './ghostCellSuggestion.js';
 
 // ===== Types =====
 
@@ -39,19 +52,6 @@ export type GhostCellState =
 	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; automatic: boolean; modelName?: string; usedFallback?: boolean }
 	| { status: 'error'; executedCellIndex: number; message: string };
 
-/** Shape returned by the ghost cell suggestion command. */
-interface GhostCellSuggestionResult {
-	code: string;
-	explanation: string;
-	language: string;
-	modelName?: string;
-	usedFallback?: boolean;
-}
-
-function isGhostCellSuggestionResult(value: unknown): value is GhostCellSuggestionResult {
-	return typeof value === 'object' && value !== null && typeof (value as GhostCellSuggestionResult).code === 'string';
-}
-
 // ===== Context Keys =====
 
 export const POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST = new RawContextKey<boolean>(
@@ -59,6 +59,9 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST = new RawContextKey<b
 	false,
 	localize('positronNotebookGhostCellAwaitingRequest', "Whether a ghost cell is awaiting a suggestion request (pull mode)")
 );
+
+/** Upper bound on a whole suggestion generation, hung-stream insurance. */
+const GHOST_CELL_GENERATION_TIMEOUT_MS = 30_000;
 
 // ===== Controller =====
 
@@ -72,6 +75,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	// Private properties
 	private _ghostCellDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 	private _errorDismissTimer: ReturnType<typeof setTimeout> | undefined;
+	private _generationTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
 	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
 	private _ghostCellAwaitingRequestContextKey: IContextKey<boolean> | undefined;
 	private _optInDismissedThisOpen: boolean = false;
@@ -80,11 +84,12 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
-		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
+		@IHeadlessLanguageModelService private readonly _headlessLmService: IHeadlessLanguageModelService,
+		@IPositronVariablesService private readonly _variablesService: IPositronVariablesService,
 	) {
 		super();
 
@@ -107,12 +112,23 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			this._ghostCellAwaitingRequestContextKey.set(state.status === 'awaiting-request');
 		}));
 
-		// Clean up timers on dispose
+		// Clean up timers and cancel any in-flight request on dispose, so a
+		// pending debounce or streaming suggestion can't fire against disposed state.
 		this._register({
 			dispose: () => {
+				if (this._ghostCellDebounceTimer) {
+					clearTimeout(this._ghostCellDebounceTimer);
+					this._ghostCellDebounceTimer = undefined;
+				}
 				if (this._errorDismissTimer) {
 					clearTimeout(this._errorDismissTimer);
 					this._errorDismissTimer = undefined;
+				}
+				this._clearGenerationTimeout();
+				if (this._ghostCellCancellationToken) {
+					this._ghostCellCancellationToken.cancel();
+					this._ghostCellCancellationToken.dispose();
+					this._ghostCellCancellationToken = undefined;
 				}
 			}
 		});
@@ -208,9 +224,10 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	}
 
 	/**
-	 * Trigger generation of a ghost cell suggestion.
+	 * Trigger generation of a ghost cell suggestion through the headless LM
+	 * service.
 	 * @param executedCellIndex The index of the cell that was just executed
-	 * @param skipConfigCheck If true, skip the extension-side config check (used when workbench has already verified)
+	 * @param skipConfigCheck If true, bypass the enabled check (used when the user has just opted in)
 	 */
 	triggerGhostCellSuggestion(executedCellIndex: number, skipConfigCheck: boolean = false): void {
 		// Cancel any existing request
@@ -218,9 +235,18 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			this._ghostCellCancellationToken.cancel();
 			this._ghostCellCancellationToken.dispose();
 		}
+		this._clearGenerationTimeout();
 
 		// Check if enabled
-		if (!this._isGhostCellEnabled()) {
+		if (!skipConfigCheck && !this._isGhostCellEnabled()) {
+			this._ghostCellState.set({ status: 'hidden' }, undefined);
+			return;
+		}
+
+		// Build the prompt + context from the notebook (the service does not own
+		// prompts or context; the consumer does).
+		const built = this._buildSuggestionRequest(executedCellIndex);
+		if (!built) {
 			this._ghostCellState.set({ status: 'hidden' }, undefined);
 			return;
 		}
@@ -228,83 +254,184 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		// Set loading state
 		this._ghostCellState.set({ status: 'loading', executedCellIndex, automatic: this._isAutomaticMode() }, undefined);
 
-		// Create new cancellation token
-		this._ghostCellCancellationToken = new CancellationTokenSource();
-		const token = this._ghostCellCancellationToken.token;
+		// Create new cancellation token (the consumer owns cancellation).
+		const cts = new CancellationTokenSource();
+		this._ghostCellCancellationToken = cts;
+		const token = cts.token;
 
-		// Register callback command for streaming updates
-		const callbackCommandId = `positron-notebook-ghost-cell-callback-${generateUuid()}`;
-		const callbackDisposable = CommandsRegistry.registerCommand(
-			callbackCommandId,
-			(_accessor, partial: { code?: string; explanation?: string }) => {
+		// Bound the whole generation: a hung stream (no delta, no done, no
+		// error -- e.g. a black-holed connection) must not leave the ghost cell
+		// loading forever.
+		this._generationTimeoutTimer = setTimeout(() => {
+			this._generationTimeoutTimer = undefined;
+			this._logService.warn(`[ghost-cell] Suggestion timed out for ${this._notebook.uri.toString()}`);
+			cts.cancel();
+			this._showGhostCellFailure(executedCellIndex);
+			this._finishGeneration(cts);
+		}, GHOST_CELL_GENERATION_TIMEOUT_MS);
+
+		const onProgress = (partial: IGhostCellPartial) => {
+			if (token.isCancellationRequested) {
+				return;
+			}
+			const currentState = this._ghostCellState.get();
+			this._ghostCellState.set({
+				status: 'streaming',
+				executedCellIndex,
+				code: partial.code ?? (currentState.status === 'streaming' ? currentState.code : ''),
+				explanation: partial.explanation ?? (currentState.status === 'streaming' ? currentState.explanation : ''),
+				automatic: this._isAutomaticMode(),
+			}, undefined);
+		};
+
+		generateGhostCellSuggestion(this._headlessLmService, built.request, token, onProgress)
+			.then(outcome => {
+				if (token.isCancellationRequested) {
+					// Superseded, cancelled, or timed out; if a newer request is
+					// running, the generation timeout is its, so leave it alone.
+					return;
+				}
+				this._finishGeneration(cts);
+				this._applyGhostCellOutcome(executedCellIndex, outcome, built.language);
+			})
+			.catch((error: unknown) => {
 				if (token.isCancellationRequested) {
 					return;
 				}
-				// Update state to streaming with partial content, merging into current state
-				const currentState = this._ghostCellState.get();
-				this._ghostCellState.set({
-					status: 'streaming',
-					executedCellIndex,
-					code: partial.code ?? (currentState.status === 'streaming' ? currentState.code : ''),
-					explanation: partial.explanation ?? (currentState.status === 'streaming' ? currentState.explanation : ''),
-					automatic: this._isAutomaticMode()
-				}, undefined);
-			}
-		);
+				this._finishGeneration(cts);
+				this._logService.error(this._notebook.uri.toString(), 'Ghost cell suggestion failed:', error);
+				this._showGhostCellFailure(executedCellIndex);
+			});
+	}
 
-		// Execute the command to generate suggestion
-		this._commandService.executeCommand(
-			'positron-assistant.generateGhostCellSuggestion',
-			this._notebook.uri.toString(),
-			executedCellIndex,
-			callbackCommandId,
-			skipConfigCheck,
-			token
-		).then((result: unknown) => {
-			callbackDisposable.dispose();
+	private _clearGenerationTimeout(): void {
+		if (this._generationTimeoutTimer) {
+			clearTimeout(this._generationTimeoutTimer);
+			this._generationTimeoutTimer = undefined;
+		}
+	}
 
-			if (token.isCancellationRequested) {
-				return;
-			}
+	/**
+	 * Tear down a finished generation: clear its timeout and dispose its
+	 * cancellation source. Without this the per-request source leaks until the
+	 * next request supersedes it (or the cell is dismissed/disposed).
+	 */
+	private _finishGeneration(cts: CancellationTokenSource): void {
+		this._clearGenerationTimeout();
+		cts.dispose();
+		if (this._ghostCellCancellationToken === cts) {
+			this._ghostCellCancellationToken = undefined;
+		}
+	}
 
-			if (isGhostCellSuggestionResult(result)) {
+	/**
+	 * Apply a generation outcome: show the suggestion, stay silent for a benign
+	 * empty response, or show a generic visible failure (logging the specific
+	 * cause) for unavailable / error outcomes.
+	 */
+	private _applyGhostCellOutcome(executedCellIndex: number, outcome: GhostCellOutcome, language: string): void {
+		switch (outcome.kind) {
+			case 'ready':
 				this._ghostCellState.set({
 					status: 'ready',
 					executedCellIndex,
-					code: result.code,
-					explanation: result.explanation,
-					language: result.language,
+					code: outcome.code,
+					explanation: outcome.explanation,
+					language,
 					automatic: this._isAutomaticMode(),
-					modelName: result.modelName,
-					usedFallback: result.usedFallback
+					modelName: outcome.modelName,
+					usedFallback: outcome.usedFallback,
 				}, undefined);
-			} else {
-				// No suggestion generated, hide ghost cell
+				break;
+			case 'empty':
+				// The model had nothing useful to add -- stay silent.
+				this._ghostCellState.set({ status: 'hidden' }, undefined);
+				break;
+			case 'unavailable':
+				this._logService.warn(`[ghost-cell] No suggestion (${outcome.reason}) for ${this._notebook.uri.toString()}`);
+				this._showGhostCellFailure(executedCellIndex);
+				break;
+			case 'error':
+				this._logService.error(`[ghost-cell] Suggestion failed for ${this._notebook.uri.toString()}: ${outcome.message}`);
+				this._showGhostCellFailure(executedCellIndex);
+				break;
+		}
+	}
+
+	/**
+	 * Show a brief, deliberately generic failure that auto-dismisses; the
+	 * specific cause stays in the logs.
+	 */
+	private _showGhostCellFailure(executedCellIndex: number): void {
+		this._ghostCellState.set({
+			status: 'error',
+			executedCellIndex,
+			message: localize('ghostCell.unableToGenerate', "Unable to generate a suggestion."),
+		}, undefined);
+
+		if (this._errorDismissTimer) {
+			clearTimeout(this._errorDismissTimer);
+		}
+		this._errorDismissTimer = setTimeout(() => {
+			this._errorDismissTimer = undefined;
+			if (this._ghostCellState.get().status === 'error') {
 				this._ghostCellState.set({ status: 'hidden' }, undefined);
 			}
-		}).catch((error: unknown) => {
-			callbackDisposable.dispose();
+		}, 5000);
+	}
 
-			if (token.isCancellationRequested) {
-				return;
-			}
+	/**
+	 * Gather the notebook context and build the streamed-text request. Returns
+	 * `undefined` if the executed cell is not a usable code cell.
+	 */
+	private _buildSuggestionRequest(executedCellIndex: number): { request: IStreamTextRequest; language: string } | undefined {
+		const cells = this._notebook.cells.get();
+		if (executedCellIndex < 0 || executedCellIndex >= cells.length) {
+			return undefined;
+		}
 
-			this._logService.error(this._notebook.uri.toString(), 'Ghost cell suggestion failed:', error);
-			this._ghostCellState.set({
-				status: 'error',
-				executedCellIndex,
-				message: error instanceof Error ? error.message : String(error)
-			}, undefined);
+		// Honor the per-file AI exclusion the user configured
+		// (positron.assistant.aiExcludes): never send an excluded notebook to a model.
+		if (isFileExcludedFromAI(this._configurationService, this._notebook.uri.path)) {
+			return undefined;
+		}
 
-			// Auto-dismiss error after 5 seconds
-			this._errorDismissTimer = setTimeout(() => {
-				this._errorDismissTimer = undefined;
-				const currentState = this._ghostCellState.get();
-				if (currentState.status === 'error') {
-					this._ghostCellState.set({ status: 'hidden' }, undefined);
-				}
-			}, 5000);
-		});
+		const textCells = this._notebook.textModel?.cells;
+		const snapshots = snapshotCells(cells, index => textCells?.[index]?.language ?? 'python', executedCellIndex);
+
+		if (!snapshots[executedCellIndex].isCode) {
+			return undefined;
+		}
+
+		const modelPatterns = this._configurationService.getValue<string[]>(POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY);
+		const maxVariables = this._configurationService.getValue<number>(POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY) ?? 20;
+		const variables = this._resolveVariables();
+		const request: IStreamTextRequest = {
+			systemPrompt: GHOST_CELL_SYSTEM_PROMPT,
+			messages: [{ role: 'user', content: buildGhostCellContext(snapshots, executedCellIndex, variables, maxVariables) }],
+			model: intentFromSetting(modelPatterns),
+		};
+		return { request, language: snapshots[executedCellIndex].language };
+	}
+
+	/**
+	 * Resolve the runtime session variables for this notebook's own session,
+	 * shaped for the model context. Scoped to the notebook's session rather than
+	 * the foreground instance, which may belong to the console or another
+	 * notebook. Returns `undefined` when there is no session or no variables
+	 * (e.g. the Variables pane is closed, matching the prior extension behavior).
+	 */
+	private _resolveVariables(): IGhostCellVariable[] | undefined {
+		const sessionId = this._notebook.runtimeSession.get()?.sessionId;
+		if (!sessionId) {
+			return undefined;
+		}
+		const instance = this._variablesService.positronVariablesInstances
+			.find(i => i.session.sessionId === sessionId);
+		if (!instance || instance.variableItems.length === 0) {
+			return undefined;
+		}
+		return instance.variableItems.map(v => ({ name: v.displayName, type: v.displayType }));
 	}
 
 	/**
@@ -543,9 +670,22 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	// ===== Private Helpers =====
 
 	/**
+	 * Main switch for Positron's AI features. Ghost cell suggestions only work
+	 * when AI is enabled.
+	 */
+	private _isAIEnabled(): boolean {
+		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true;
+	}
+
+	/**
 	 * Check if ghost cell suggestions are enabled for this notebook.
 	 */
 	private _isGhostCellEnabled(): boolean {
+		// Gated on the AI main switch.
+		if (!this._isAIEnabled()) {
+			return false;
+		}
+
 		// Check per-notebook override first
 		const settings = getAssistantSettings(this._notebook.textModel?.metadata);
 		if (settings.ghostCellSuggestions !== undefined) {
@@ -557,15 +697,25 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			return true;
 		}
 
-		// Check if user has explicitly set the enabled setting using inspect()
-		// If userValue is undefined, user hasn't made a choice yet
-		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
-		if (inspected?.userValue === undefined) {
+		// If the user hasn't explicitly made a choice yet, default to off.
+		if (!this._hasExplicitEnabledSetting()) {
 			return false;
 		}
 
-		// Fall back to global setting
+		// Fall back to the configured setting (respects scope precedence).
 		return this._configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? false;
+	}
+
+	/**
+	 * Whether the user has explicitly set the enabled setting at any scope. The
+	 * setting is WINDOW-scoped, so a workspace value is a real choice too --
+	 * checking only `userValue` would miss it.
+	 */
+	private _hasExplicitEnabledSetting(): boolean {
+		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
+		return inspected.userValue !== undefined
+			|| inspected.workspaceValue !== undefined
+			|| inspected.workspaceFolderValue !== undefined;
 	}
 
 	/**
@@ -573,6 +723,11 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	 * Returns true if: user hasn't explicitly set enabled, no per-notebook override, and not dismissed this open.
 	 */
 	private _shouldShowOptInPrompt(): boolean {
+		// Don't prompt to opt in when AI is disabled.
+		if (!this._isAIEnabled()) {
+			return false;
+		}
+
 		// Check per-notebook override first - if set, no prompt needed
 		const settings = getAssistantSettings(this._notebook.textModel?.metadata);
 		if (settings.ghostCellSuggestions !== undefined) {
@@ -584,10 +739,8 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 			return false;
 		}
 
-		// Check if user has explicitly set the enabled setting using inspect()
-		// If userValue is defined, user has made a choice
-		const inspected = this._configurationService.inspect<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY);
-		if (inspected?.userValue !== undefined) {
+		// If the user has explicitly made a choice (at any scope), don't prompt.
+		if (this._hasExplicitEnabledSetting()) {
 			return false;
 		}
 

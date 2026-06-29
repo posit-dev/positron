@@ -59,9 +59,16 @@ export namespace ChatContextKeys {
 	export const supported = ContextKeyExpr.or(IsWebContext.negate(), RemoteNameContext.notEqualsTo(''), ContextKeyExpr.has('config.chat.experimental.serverlessWebEnabled'));
 	export const enabled = new RawContextKey<boolean>('chatIsEnabled', false, { type: 'boolean', description: localize('chatIsEnabled', "True when chat is enabled because a default chat participant is activated with an implementation.") });
 	// --- Start Positron ---
-	// available = enabled AND Positron's AI features are not disabled via chat.disableAIFeatures.
-	// Use this in action preconditions instead of combining enabled + notEquals() inline everywhere.
-	export const available = ContextKeyExpr.and(enabled, ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true))!;
+	// True when both AI enablement switches permit AI: Copilot's own `chat.disableAIFeatures`
+	// is not on, AND Positron's `ai.enabled` main switch is not off. `ChatAgentService`
+	// keeps this in sync from `!_isAIDisabled()` (it already watches both settings).
+	// Reference it in an action's precondition / a menu `when` (in core or in the
+	// Copilot extension's package.json, by the key name) wherever the gate previously
+	// checked only `chat.disableAIFeatures`, so `ai.enabled` hides the command too.
+	// Defaults to true so unset profiles stay enabled until the service runs.
+	export const aiFeaturesEnabled = new RawContextKey<boolean>('chatAiFeaturesEnabled', true, { type: 'boolean', description: localize('positron.chatAiFeaturesEnabled', "True when Positron's AI features are enabled, i.e. neither `chat.disableAIFeatures` nor the `ai.enabled` main switch turns AI off.") });
+	// available = a chat agent is registered AND AI features are enabled.
+	export const available = ContextKeyExpr.and(enabled, aiFeaturesEnabled)!;
 	// --- End Positron ---
 	export const accountPolicyGateActive = ChatAccountPolicyGateActiveContext;
 

@@ -10,6 +10,22 @@
 	align-items: stretch;
 }
 
+/* Footer: Back on the left, Cancel + Next/Insert grouped on the right. */
+.positron-dynamic-modal-dialog-box .visualize-footer {
+	height: 48px;
+	display: flex;
+	padding: 0 16px;
+	flex: 0 0 auto;
+	justify-content: space-between;
+	align-items: flex-start;
+}
+
+.positron-dynamic-modal-dialog-box .visualize-footer .visualize-footer-right {
+	gap: 10px;
+	display: flex;
+	align-items: flex-start;
+}
+
 .visualize-split > .visualize-modal-content {
 	flex: 1 1 420px;
 	min-width: 0;
@@ -436,6 +452,16 @@
 .visualize-column-picker-label {
 	font-size: 12px;
 	color: var(--vscode-foreground);
+}
+
+.visualize-column-select {
+	width: 100%;
+	padding: 4px;
+	border-radius: 4px;
+	box-sizing: border-box;
+	color: var(--vscode-foreground);
+	background: var(--vscode-positronModalDialog-textInputBackground);
+	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
 }
 
 /* Insert step */

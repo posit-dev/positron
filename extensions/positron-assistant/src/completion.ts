@@ -94,12 +94,10 @@ function textSimilarityScore(text: string, window: string): number {
 }
 
 abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
-	public name;
 	public identifier;
 
 	constructor(protected readonly _config: ModelConfig) {
 		this.identifier = _config.id;
-		this.name = _config.name;
 	}
 
 	abstract provideInlineCompletionItems(
@@ -156,7 +154,6 @@ class OpenAILegacyCompletion extends CompletionModel {
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'GPT 3.5 Turbo',
 			model: 'gpt-3.5-turbo-instruct',
 			apiKey: '',
 			baseUrl: 'https://api.openai.com/v1',
@@ -249,7 +246,6 @@ class MistralCompletion extends OpenAILegacyCompletion {
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'Codestral',
 			model: 'codestral-latest',
 			apiKey: '',
 			baseUrl: 'https://api.mistral.ai/v1',

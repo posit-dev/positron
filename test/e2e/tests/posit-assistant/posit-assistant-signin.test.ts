@@ -15,6 +15,9 @@ const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 	'openai-api',
 	'amazon-bedrock',
 	'posit-ai',
+	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
+	// credentials path is covered separately in the workbench suite.
+	'ms-foundry',
 ];
 
 test.describe('Posit Assistant Sign-in', {
@@ -35,6 +38,13 @@ test.describe('Posit Assistant Sign-in', {
 					// explicitly. `newConversation: false` avoids starting a
 					// fresh chat after model selection, which would drop it.
 					await app.workbench.positAssistant.selectModel('GPT-5.4');
+					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
+				} else if (provider === 'ms-foundry') {
+					// Foundry doesn't auto-select a default model on desktop, so pick
+					// it explicitly. In the model picker the model is listed under its
+					// provider name, "Microsoft Foundry". `newConversation: false`
+					// keeps the selection instead of resetting to a fresh chat.
+					await app.workbench.positAssistant.selectModel('Microsoft Foundry');
 					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 				} else {
 					await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });

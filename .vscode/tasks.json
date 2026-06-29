@@ -117,8 +117,12 @@
 						"message": 3
 					},
 					"background": {
-						"beginsPattern": "File change detected\\. Starting incremental compilation",
-						"endsPattern": "Found \\d+ errors?\\. Watching for file changes"
+						// --- Start Positron ---
+						// Fixes for the problem matcher
+						"activeOnStart": true,
+						"beginsPattern": "\\[watch:typecheck\\].*(Starting compilation|File change detected\\. Starting incremental compilation)",
+						"endsPattern": "\\[watch:typecheck\\].*Found \\d+ errors?\\. Watching for file changes"
+						// --- End Positron ---
 					}
 				}
 			]
