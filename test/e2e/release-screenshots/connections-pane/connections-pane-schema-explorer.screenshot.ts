@@ -28,7 +28,7 @@ test.use({
 });
 
 test.beforeEach(async ({ app }) => {
-	await setScreenshotWindowSize(app);
+	await setScreenshotWindowSize(app, { width: 1024, height: 700 });
 });
 
 test.afterEach(async ({ app, page, hotKeys }) => {
@@ -46,7 +46,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 	 * tree drilled into a table so the column types are visible.
 	 */
 	test('Release Screenshot - connections-pane-schema-explorer.png', async ({ app, page, openFile, executeCode, settings, r }) => {
-		const { sessions, console, connections, layouts } = app.workbench;
+		const { sessions, console, connections, layouts, hotKeys } = app.workbench;
 		await sessions.expectAllSessionsToBeReady();
 
 		// turn off occurrence highlighting so the editor doesn't box every
@@ -69,6 +69,7 @@ test.describe('Release Screenshots - Connections Pane Schema Explorer', () => {
 
 		// Expand SQLiteConnection > Default > {airlines, flights, planes} so
 		await connections.openConnectionsNodes(['SQLiteConnection', /^main$|^Default$/, 'airports', /^planes$/]);
+		await hotKeys.closePrimarySidebar();
 		await layouts.resizeAuxiliaryBar({ x: -300 });
 		await layouts.resizePanel({ y: -200 });
 		await console.focus();
