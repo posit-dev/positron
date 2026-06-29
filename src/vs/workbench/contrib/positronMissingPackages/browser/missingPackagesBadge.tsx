@@ -191,7 +191,7 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		configurationService.getValue<boolean>(WARN_MISSING_IN_EDITOR) ?? true);
 
 	// Whether an install is in progress for this resource. While installing, the
-	// badge shows a spinner and "Installing" rather than the warning treatment,
+	// badge shows a sync icon and "Installing" rather than the warning treatment,
 	// so it never looks like nothing happened after the user chose to install.
 	const [installing, setInstalling] = useState<boolean>(() =>
 		resource ? missingPackagesService.getInstalling(resource) !== undefined : false);
@@ -282,7 +282,7 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 	// Whether the badge has anything to show and is allowed to. When this is true
 	// the button is always mounted (it may still be visually hidden via the tier
 	// below) so its width can be measured and recovered on resize. An in-progress
-	// install keeps the badge mounted so its spinner stays visible.
+	// install keeps the badge mounted so its sync icon stays visible.
 	const total = activeResult?.total ?? 0;
 	const visible = warnEnabled && (installing || total > 0);
 
@@ -446,7 +446,7 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 			onClick={showDialog}
 		>
 			{installing
-				? <span className='codicon codicon-sync codicon-modifier-spin'></span>
+				? <span className='codicon codicon-sync'></span>
 				: <span className='codicon codicon-warning'></span>}
 			<span ref={labelRef} className='missing-packages-label'>{displayLabel}</span>
 			<span className='codicon codicon-positron-drop-down-arrow'></span>
@@ -489,7 +489,7 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 	const install = () => {
 		renderer.dispose();
 		// Fire and forget: installAll tracks the installing state so the badge
-		// switches to its spinner immediately, without blocking on the install. A
+		// switches to its sync icon immediately, without blocking on the install. A
 		// failed install surfaces as the badge returning to its warning state, so
 		// there is nothing to handle here beyond swallowing the rejection.
 		missingPackagesService.installAll(result).catch(() => { });

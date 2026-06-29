@@ -39,7 +39,7 @@
 }
 
 /*
- * The install spinner uses the default foreground rather than the warning color
+ * The install sync icon uses the default foreground rather than the warning color
  * so the badge reads as "working", not "warning", while the install runs.
  */
 .action-bar-widget .missing-packages-badge .codicon-sync {

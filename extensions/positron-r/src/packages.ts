@@ -19,6 +19,15 @@ export class RPackageManager {
 	/** Whether the pak install recommendation has been shown this session */
 	private _pakRecommendationShown: boolean = false;
 
+	/**
+	 * Cached result of the renv-project probe. renv is activated (or not) when
+	 * the R session starts and stays fixed for the session's lifetime --
+	 * `renv::init()` restarts R, which creates a fresh session and package
+	 * manager -- so the probe only needs to run once. `undefined` means not yet
+	 * probed.
+	 */
+	private _isRenvProject: boolean | undefined;
+
 	constructor(private readonly _session: RSession) { }
 
 	/**
@@ -336,13 +345,30 @@ export class RPackageManager {
 	}
 
 	/**
-	 * Detect if the session is running in an renv project.
+	 * Detect whether the session is running in an renv project, caching the
+	 * result for the session lifetime.
+	 *
+	 * The probe guards on `requireNamespace("renv")` so it returns `FALSE`
+	 * cleanly when renv is not installed, rather than letting `renv::project()`
+	 * raise "there is no package called 'renv'". That error would otherwise be
+	 * surfaced over the UI comm on every package-method lookup (e.g. the
+	 * background missing-packages precompute that runs on editor/session
+	 * switches), producing "Dropping unexpected message" noise when the stray
+	 * error reply arrived after the request had already been abandoned.
 	 */
 	private async _detectRenv(): Promise<boolean> {
+		if (this._isRenvProject !== undefined) {
+			return this._isRenvProject;
+		}
 		try {
-			const result = await this._session.evaluate('!is.null(renv::project())');
-			return result.result === true;
+			const result = await this._session.evaluate(
+				'if (requireNamespace("renv", quietly = TRUE)) !is.null(renv::project()) else FALSE'
+			);
+			this._isRenvProject = result.result === true;
+			return this._isRenvProject;
 		} catch {
+			// Transient failure (e.g. the kernel is not ready yet). Treat as not
+			// an renv project, but don't cache it so a later call can retry.
 			return false;
 		}
 	}
