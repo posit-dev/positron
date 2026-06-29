@@ -230,22 +230,15 @@ export class McpServer implements vscode.Disposable {
 			},
 			{
 				name: 'execute-code',
-				description: 'Execute code in the active runtime session. Runs in the user\'s live, shared session, so variables and imports persist across calls; prefer this over spawning a separate interpreter.',
+				description: 'Execute code in the active runtime session. Runs in the user\'s live, shared session, so variables and imports persist across calls; prefer this over spawning a separate interpreter. Call get-session first to confirm the active language.',
 				inputSchema: {
 					type: 'object',
 					properties: {
-						languageId: { type: 'string', description: 'Language identifier (python, r, etc.)', enum: ['python', 'r', 'javascript', 'typescript'] },
-						code: { type: 'string', description: 'Code to execute' },
-						options: {
-							type: 'object',
-							properties: {
-								focus: { type: 'boolean', default: false },
-								mode: { type: 'string', enum: ['interactive', 'non-interactive', 'transient', 'silent'], default: 'interactive' },
-								allowIncomplete: { type: 'boolean', default: false },
-							},
-						},
+						languageId: { type: 'string', description: 'Language of the active session.', enum: ['python', 'r'] },
+						code: { type: 'string', description: 'Code to execute.' },
 					},
 					required: ['languageId', 'code'],
+					additionalProperties: false,
 				},
 				run: (args) => this.executeCodeTool(args),
 			},
@@ -424,16 +417,16 @@ export class McpServer implements vscode.Disposable {
 
 		try {
 			const data = await positron.runtime.executeCode(languageId, code, focus, allowIncomplete, executionMode, errorMode);
-			return JSON.stringify({ success: true, data, metadata: { timestamp: new Date().toISOString() } });
+			return truncateOutput(JSON.stringify({ success: true, data, metadata: { timestamp: new Date().toISOString() } }));
 		} catch (error) {
-			return JSON.stringify({
+			return truncateOutput(JSON.stringify({
 				success: false,
 				error: {
 					name: error instanceof Error ? error.name : 'Error',
 					message: error instanceof Error ? error.message : String(error),
 					traceback: error instanceof Error && error.stack ? [error.stack] : [],
 				},
-			});
+			}));
 		}
 	}
 
