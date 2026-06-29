@@ -15,6 +15,7 @@ import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 import './contrib/cellTags/actions.js';
+import './AssistantPanel/notebookSuggestionsConfig.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';

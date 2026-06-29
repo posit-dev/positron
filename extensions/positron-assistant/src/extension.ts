@@ -14,9 +14,6 @@ import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
-import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
-import { generateVisualizationSuggestion, type VisualizationSuggestion } from './visualizationSuggestions.js';
-import { isCancellationTokenLike } from './asyncUtils.js';
 import { initializeTokenTracking } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
@@ -58,77 +55,6 @@ function registerGenerateCommitMessageCommand(
 		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
 			generateCommitMessage(context, participantService, log);
 		})
-	);
-}
-
-function registerGenerateNotebookSuggestionsCommand(
-	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
-	log: vscode.LogOutputChannel,
-) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'positron-assistant.generateNotebookSuggestions',
-			async (notebookUri: string, progressCallbackCommand?: string, token?: vscode.CancellationToken): Promise<NotebookSuggestionsResult> => {
-				// Create a token source only if no token is provided
-				let tokenSource: vscode.CancellationTokenSource | undefined;
-				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
-				try {
-					return await generateNotebookSuggestions(
-						notebookUri,
-						participantService,
-						log,
-						cancellationToken,
-						progressCallbackCommand
-					);
-				} finally {
-					// Only dispose if we created the token
-					tokenSource?.dispose();
-				}
-			}
-		)
-	);
-}
-
-function registerSuggestVisualizationCommand(
-	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
-	log: vscode.LogOutputChannel,
-) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand(
-			'positron-assistant.suggestVisualization',
-			async (
-				notebookUri: string,
-				executedCellIndex: number,
-				dfName: string,
-				columns: { name: string; type: string }[],
-				token?: vscode.CancellationToken,
-			): Promise<VisualizationSuggestion | null> => {
-				// Guard the token: cross-boundary command marshalling is not
-				// guaranteed to preserve method members on CancellationToken,
-				// and external callers may pass anything. Fall back to a
-				// fresh CTS when the token is missing or malformed -- the
-				// caller loses the ability to cancel us, but we don't crash.
-				let tokenSource: vscode.CancellationTokenSource | undefined;
-				const cancellationToken = isCancellationTokenLike(token)
-					? token
-					: (tokenSource = new vscode.CancellationTokenSource()).token;
-				try {
-					return await generateVisualizationSuggestion(
-						notebookUri,
-						executedCellIndex,
-						dfName,
-						columns ?? [],
-						participantService,
-						log,
-						cancellationToken,
-					);
-				} finally {
-					tokenSource?.dispose();
-				}
-			},
-		),
 	);
 }
 
@@ -408,8 +334,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerConfigureProvidersCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
-	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
-	registerSuggestVisualizationCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);

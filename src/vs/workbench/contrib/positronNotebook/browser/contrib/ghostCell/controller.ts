@@ -25,7 +25,7 @@ import {
 	POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY,
 } from './config.js';
-import { IHeadlessLanguageModelService, IStreamTextRequest } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { IHeadlessLanguageModelService, IStreamTextRequest, intentFromSetting } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IPositronVariablesService } from '../../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
 import {
@@ -35,7 +35,6 @@ import {
 	IGhostCellVariable,
 	buildGhostCellContext,
 	generateGhostCellSuggestion,
-	intentFromSetting,
 	snapshotCells,
 } from './ghostCellSuggestion.js';
 

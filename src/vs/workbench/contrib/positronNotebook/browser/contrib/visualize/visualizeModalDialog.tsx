@@ -35,15 +35,9 @@ export interface DataFrameColumn {
 }
 
 /**
- * IMPORTANT: This type is mirrored on the extension side in
- *   extensions/positron-assistant/src/visualizationSuggestions.ts
- * (as `VisualizationSuggestion`, with `VizLibrary` and `VizChartType`).
- *
- * The workbench cannot import from extensions, so drift is prevented by
- * keeping the allow-list literals and field shape identical on both
- * sides. `validateVisualizationSuggestion` below guards the IPC
- * boundary as defence in depth. When adding a field or changing a
- * literal, update BOTH.
+ * The suggestion the visualize wizard prefills from, produced in-process by
+ * `generateVisualizationSuggestion` (which validates the model's response
+ * against the column allow-list and the `VizLibrary` / `ChartType` literals).
  */
 export interface VisualizationSuggestion {
 	library: VizLibrary;
@@ -56,39 +50,6 @@ export interface VisualizationSuggestion {
 		columns: string;
 	};
 	modelName?: string;
-}
-
-const VALID_LIBRARIES: ReadonlySet<string> = new Set(['plotly', 'matplotlib', 'seaborn']);
-const VALID_CHART_TYPES: ReadonlySet<string> = new Set(['bar', 'line', 'scatter', 'histogram']);
-
-/**
- * Guard an unknown value crossing the extension/workbench IPC boundary into
- * the strongly-typed VisualizationSuggestion shape. Returns null on any
- * validation failure -- the extension-side parser is already the first line
- * of defense; this is defence in depth so a bad model response can't throw
- * inside React state updates.
- */
-export function validateVisualizationSuggestion(value: unknown): VisualizationSuggestion | null {
-	if (!value || typeof value !== 'object') { return null; }
-	const s = value as Partial<Record<keyof VisualizationSuggestion, unknown>> & { reasoning?: unknown };
-	if (typeof s.library !== 'string' || !VALID_LIBRARIES.has(s.library)) { return null; }
-	if (typeof s.chartType !== 'string' || !VALID_CHART_TYPES.has(s.chartType)) { return null; }
-	if (typeof s.xCol !== 'string') { return null; }
-	if (s.yCol !== null && typeof s.yCol !== 'string') { return null; }
-	const r = s.reasoning;
-	if (!r || typeof r !== 'object') { return null; }
-	const rr = r as Record<string, unknown>;
-	if (typeof rr.library !== 'string' || typeof rr.chartType !== 'string' || typeof rr.columns !== 'string') {
-		return null;
-	}
-	return {
-		library: s.library as VizLibrary,
-		chartType: s.chartType as ChartType,
-		xCol: s.xCol,
-		yCol: s.yCol as string | null,
-		reasoning: { library: rr.library, chartType: rr.chartType, columns: rr.columns },
-		modelName: typeof s.modelName === 'string' ? s.modelName : undefined,
-	};
 }
 
 export const showVisualizeModalDialog = (

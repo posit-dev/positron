@@ -16,6 +16,7 @@ import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { IChatEditingService } from '../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -73,6 +74,7 @@ export class AskAssistantAction extends Action2 {
 		const layoutService = accessor.get(ILayoutService);
 		const chatEditingService = accessor.get(IChatEditingService);
 		const dialogService = accessor.get(IDialogService);
+		const headlessLmService = accessor.get(IHeadlessLanguageModelService);
 
 		// Get the initial notebook instance (may be undefined during the timing gap
 		// between editor activation and setInput() completion)
@@ -119,6 +121,7 @@ export class AskAssistantAction extends Action2 {
 				commandService={commandService}
 				configurationService={configurationService}
 				dialogService={dialogService}
+				headlessLmService={headlessLmService}
 				initialNotebook={initialNotebook}
 				logService={logService}
 				notebookPromise={notebookPromise}

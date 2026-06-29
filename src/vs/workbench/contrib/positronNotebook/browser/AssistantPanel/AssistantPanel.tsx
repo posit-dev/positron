@@ -29,6 +29,7 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
@@ -100,6 +101,7 @@ export interface AssistantPanelProps {
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	dialogService: IDialogService;
+	headlessLmService: IHeadlessLanguageModelService;
 	notificationService: INotificationService;
 	logService: ILogService;
 	preferencesService: IPreferencesService;
@@ -290,6 +292,8 @@ interface ReadyStateProps {
 	notebookContext: INotebookContextDTO | undefined;
 	isLoadingContext: boolean;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	headlessLmService: IHeadlessLanguageModelService;
 	logService: ILogService;
 	notificationService: INotificationService;
 	showDiffOverride: ShowDiffOverride;
@@ -315,6 +319,8 @@ const ReadyState = ({
 	notebookContext,
 	isLoadingContext,
 	commandService,
+	configurationService,
+	headlessLmService,
 	logService,
 	notificationService,
 	showDiffOverride,
@@ -409,9 +415,10 @@ const ReadyState = ({
 				{actionsHeader}
 			</div>
 			<AssistantPanelActions
-				commandService={commandService}
-				logService={logService}
+				configurationService={configurationService}
+				headlessLmService={headlessLmService}
 				notebook={notebook}
+				notebookContext={notebookContext}
 				notificationService={notificationService}
 				onActionSelected={onActionSelected}
 				onClose={onClose}
@@ -475,6 +482,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		commandService,
 		configurationService,
 		dialogService,
+		headlessLmService,
 		notificationService,
 		logService,
 		preferencesService,
@@ -668,10 +676,12 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 					<ReadyState
 						autoFollowOverride={autoFollowOverride}
 						commandService={commandService}
+						configurationService={configurationService}
 						ghostCellSuggestionsOverride={ghostCellSuggestionsOverride}
 						globalAutoFollow={globalAutoFollow}
 						globalGhostCellSuggestions={globalGhostCellSuggestions}
 						globalShowDiff={globalShowDiff}
+						headlessLmService={headlessLmService}
 						isLoadingContext={isLoadingContext}
 						logService={logService}
 						notebook={panelState.notebook}
