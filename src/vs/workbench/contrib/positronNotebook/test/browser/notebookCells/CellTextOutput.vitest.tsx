@@ -105,6 +105,22 @@ describe('CellTextOutput', () => {
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
+	it('does not render quick-fix for errors when notebook.ai.enabled is false', () => {
+		// Everything else that would show the quick-fix is on; only the
+		// notebooks-only AI switch is off, isolating that gate.
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('notebook.ai.enabled', false);
+		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		contextKeyService.createKey('positron-assistant.hasChatModels', true);
+
+		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
+
+		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
+		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
+	});
+
 	it('renders multiline content within limit', () => {
 		renderCellTextOutput({ content: '1\n2\n3', type: 'stdout' });
 

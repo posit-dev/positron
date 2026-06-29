@@ -17,6 +17,7 @@ import { createTestContainer } from '../../../../../../test/vitest/positronTestC
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
 import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
+import { NOTEBOOK_AI_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
 import { INotebookContextDTO } from '../../../../../common/positron/notebookAssistant.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
@@ -43,8 +44,9 @@ describe('AssistantPanelActions AI gate', () => {
 		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		notificationService = stubInterface<INotificationService>({ info: vi.fn(), error: vi.fn() });
 		mockGenerateNotebookSuggestions.mockReset().mockResolvedValue([]);
-		// Default to AI on (matching the registered default) and nothing excluded.
+		// Default both AI switches on (matching the registered defaults) and nothing excluded.
 		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, true);
 		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
@@ -82,6 +84,17 @@ describe('AssistantPanelActions AI gate', () => {
 
 	it('does not request suggestions when AI is disabled, and notifies instead', async () => {
 		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
+		renderActions();
+		await clickGenerate();
+		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();
+		expect(notificationService.info).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not request suggestions when notebook.ai.enabled is false (ai.enabled on), and notifies instead', async () => {
+		// The notebooks-only switch gates suggestion generation independently of
+		// the global switch.
+		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, false);
 		renderActions();
 		await clickGenerate();
 		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();

@@ -13,6 +13,7 @@ import { createTestContainer } from '../../../../../../../test/vitest/positronTe
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IHeadlessLanguageModelService } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { AI_ENABLED_KEY } from '../../../../../positronAssistant/common/positronAIConfiguration.js';
+import { NOTEBOOK_AI_ENABLED_KEY } from '../../../../common/positronNotebookConfig.js';
 import { VisualizeDataFrameAction } from '../../../../browser/contrib/visualize/VisualizeAction.js';
 import type { IInlineDataExplorerActionContext } from '../../../../browser/notebookCells/InlineDataExplorerActions.js';
 import type { InlineTableDataGridInstance } from '../../../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
@@ -56,9 +57,10 @@ describe('VisualizeDataFrameAction', () => {
 		mockShowVisualizeModalDialog.mockReset();
 		mockApplyVisualizeResult.mockReset();
 		mockGenerateVisualizationSuggestion.mockReset().mockResolvedValue(null);
-		// Reset the AI state the shared describe-scope container carries: AI on
-		// (matching the registered default) and nothing excluded.
+		// Reset the AI state the shared describe-scope container carries: both AI
+		// switches on (matching the registered defaults) and nothing excluded.
 		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, true);
 		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
@@ -184,6 +186,19 @@ describe('VisualizeDataFrameAction', () => {
 
 	it('does not request a suggestion when AI is disabled, but still opens the dialog', async () => {
 		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
+		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
+
+		await run(buildContext());
+
+		expect(mockGenerateVisualizationSuggestion).not.toHaveBeenCalled();
+		expect(mockShowVisualizeModalDialog).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not request a suggestion when notebook.ai.enabled is false (ai.enabled on), but still opens the dialog', async () => {
+		// The notebooks-only switch gates the AI suggestion independently of the
+		// global switch: with it off, no model call, but the manual wizard opens.
+		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, false);
 		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
 
 		await run(buildContext());
