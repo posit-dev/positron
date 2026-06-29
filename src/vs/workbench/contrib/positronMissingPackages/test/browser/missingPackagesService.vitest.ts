@@ -17,7 +17,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IPositronPackagesService } from '../../../positronPackages/browser/interfaces/positronPackagesService.js';
 import { IPositronPackagesInstance } from '../../../positronPackages/browser/positronPackagesInstance.js';
 import { ILanguageRuntimePackageManager, ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeMissingPackage, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
@@ -36,12 +36,17 @@ describe('MissingPackagesService', () => {
 	let modelLanguageId: string;
 	let modelContent: string | null;
 
+	// Mutable state for the python session, so tests can drive the "session not
+	// runnable" / "session ends mid-analysis" paths.
+	let pythonSessionState: RuntimeState;
+
 	// Describe-level emitters so the builder captures their `.event` references.
 	const onDidChangePackages = new Emitter<string[]>();
 	const onDidDeleteRuntimeSession = new Emitter<string>();
 	const onDidChangeForegroundSession = new Emitter<string | undefined>();
 	const onModelRemoved = new Emitter<ITextModel>();
 	const onDidRemoveNotebookDocument = new Emitter<NotebookTextModel>();
+	const onDidEndPythonSession = new Emitter<ILanguageRuntimeExit>();
 
 	// The session's package manager (also the install fallback path).
 	const installPackages = vi.fn().mockResolvedValue(undefined);
@@ -55,6 +60,8 @@ describe('MissingPackagesService', () => {
 		sessionId,
 		listMissingPackages,
 		getPackageManager: () => packageManager,
+		getRuntimeState: () => pythonSessionState,
+		onDidEndSession: onDidEndPythonSession.event,
 	});
 
 	const instanceInstallPackages = vi.fn().mockResolvedValue(undefined);
@@ -76,6 +83,8 @@ describe('MissingPackagesService', () => {
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
 		listMissingPackages: notebookListMissingPackages,
 		getPackageManager: () => packageManager,
+		getRuntimeState: () => RuntimeState.Idle,
+		onDidEndSession: Event.None,
 	});
 	const notebookModel = stubInterface<NotebookTextModel>({
 		cells: [
@@ -95,6 +104,8 @@ describe('MissingPackagesService', () => {
 		sessionId: rSessionId,
 		listMissingPackages: rListMissingPackages,
 		getPackageManager: () => packageManager,
+		getRuntimeState: () => RuntimeState.Idle,
+		onDidEndSession: Event.None,
 	});
 	const quartoModel = stubInterface<IQuartoDocumentModel>({
 		cells: [
@@ -114,6 +125,8 @@ describe('MissingPackagesService', () => {
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r' }),
 		listMissingPackages: quartoInlineListMissingPackages,
 		getPackageManager: () => packageManager,
+		getRuntimeState: () => RuntimeState.Idle,
+		onDidEndSession: Event.None,
 	});
 
 	// Drives `usingQuartoInlineOutput`; flipped per test.
@@ -174,6 +187,7 @@ describe('MissingPackagesService', () => {
 		modelLanguageId = 'python';
 		modelContent = 'import requests';
 		quartoInlineOutputEnabled = false;
+		pythonSessionState = RuntimeState.Idle;
 	});
 
 	it('computes, caches, and serves the cached result without recomputing', async () => {
@@ -217,6 +231,37 @@ describe('MissingPackagesService', () => {
 
 		expect(service.getCached(resource)).toBeUndefined();
 		expect(listMissingPackages).not.toHaveBeenCalled();
+	});
+
+	it('does not analyze a session that has already exited', async () => {
+		const service = createService();
+		pythonSessionState = RuntimeState.Exited;
+
+		const result = await service.ensure(resource);
+
+		expect(result.total).toBe(0);
+		expect(listMissingPackages).not.toHaveBeenCalled();
+	});
+
+	it('resolves to an empty result when the session ends mid-analysis', async () => {
+		const service = createService();
+
+		// The analyzer never returns (e.g. the session failed to start), so the
+		// only way ensure resolves is via the session-end race. Signal once the
+		// analyzer is invoked so the end event fires after the race has subscribed.
+		let analysisStarted!: () => void;
+		const started = new Promise<void>(resolve => { analysisStarted = resolve; });
+		listMissingPackages.mockImplementationOnce(() => {
+			analysisStarted();
+			return new Promise<IRuntimeMissingPackage[]>(() => { });
+		});
+
+		const pending = service.ensure(resource);
+		await started;
+		onDidEndPythonSession.fire(stubInterface<ILanguageRuntimeExit>({ exit_code: 1 }));
+
+		const result = await pending;
+		expect(result.total).toBe(0);
 	});
 
 	it('invalidates a session on package change and notifies the resource', async () => {

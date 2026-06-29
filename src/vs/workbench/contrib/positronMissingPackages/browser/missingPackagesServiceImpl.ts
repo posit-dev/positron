@@ -6,14 +6,15 @@
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { hash } from '../../../../base/common/hash.js';
-import { Disposable, DisposableMap, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { LRUCache, ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronPackagesService } from '../../positronPackages/browser/interfaces/positronPackagesService.js';
-import { IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IMissingPackagesGroup, IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -405,11 +406,23 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		const sessionGeneration = this._sessionGeneration(target.sessionId);
 		try {
 			const session = this._runtimeSessionService.getSession(target.sessionId);
+			if (!session?.listMissingPackages) {
+				return [];
+			}
+
+			// Don't analyze a session that is shutting down or already gone; the
+			// RPC would never come back.
+			const state = session.getRuntimeState();
+			if (state === RuntimeState.Exiting || state === RuntimeState.Exited || state === RuntimeState.Offline) {
+				return [];
+			}
+
 			// Use no cancellation here: the result is shared across callers, so a
-			// single caller's cancellation must not abort it.
-			const result = session?.listMissingPackages
-				? await session.listMissingPackages(target.target, CancellationToken.None)
-				: [];
+			// single caller's cancellation must not abort it. But race against the
+			// session ending so a session that exits (e.g. fails to start) while the
+			// analysis is in flight resolves to an empty result rather than leaving
+			// the computation -- and any progress UI awaiting it -- pending forever.
+			const result = await this._raceSessionEnd(session, session.listMissingPackages(target.target, CancellationToken.None));
 			if (this._globalGeneration === globalGeneration &&
 				this._sessionGeneration(target.sessionId) === sessionGeneration) {
 				this._cache.set(target.cacheKey, result);
@@ -421,6 +434,21 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		} finally {
 			this._inFlight.delete(target.cacheKey);
 		}
+	}
+
+	/**
+	 * Resolves with the analysis result, or with an empty result if the session
+	 * ends first. Guards against a session whose RPC never returns because it
+	 * failed to start or exited mid-analysis.
+	 */
+	private _raceSessionEnd(session: ILanguageRuntimeSession, analysis: Thenable<IRuntimeMissingPackage[]>): Promise<IRuntimeMissingPackage[]> {
+		return new Promise<IRuntimeMissingPackage[]>((resolve, reject) => {
+			const store = new DisposableStore();
+			store.add(session.onDidEndSession(() => { store.dispose(); resolve([]); }));
+			Promise.resolve(analysis).then(
+				result => { store.dispose(); resolve(result); },
+				err => { store.dispose(); reject(err); });
+		});
 	}
 
 	private _composeResult(resource: URI, groups: IMissingPackagesGroup[]): IMissingPackagesResult {

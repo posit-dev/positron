@@ -4,24 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* The content-area provides the surrounding padding; this is just the vertical stack. */
-.missing-packages-preflight {
+.missing-packages-message {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 }
 
-/* Footer: Cancel on the left, Install + Run grouped on the right. */
-.positron-dynamic-modal-dialog-box .preflight-footer {
-	height: 48px;
-	display: flex;
-	padding: 0 16px;
-	flex: 0 0 auto;
-	justify-content: space-between;
-	align-items: flex-start;
+.missing-packages-message .missing-packages-message-text {
+	white-space: normal;
 }
 
-.positron-dynamic-modal-dialog-box .preflight-footer .preflight-footer-right {
-	gap: 10px;
-	display: flex;
-	align-items: flex-start;
+.missing-packages-message .missing-packages-message-list {
+	margin: 0;
+	padding-left: 20px;
 }

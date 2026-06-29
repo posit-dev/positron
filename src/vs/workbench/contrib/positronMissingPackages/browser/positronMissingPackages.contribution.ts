@@ -23,10 +23,14 @@ import { MissingPackageFollowupContribution } from './missingPackageProvider.js'
 import { MissingPackagesBadgeMount } from './missingPackagesBadgeMount.js';
 import { MissingPackagesPrecomputeContribution } from './missingPackagesPrecompute.js';
 import { IMissingPackagesPreflightService, MissingPackagesPreflightService } from './missingPackagesPreflightService.js';
+import { registerMissingPackagesCommands } from './missingPackagesCommands.js';
 
 // Register the missing-packages services.
 registerSingleton(IMissingPackagesService, MissingPackagesService, InstantiationType.Delayed);
 registerSingleton(IMissingPackagesPreflightService, MissingPackagesPreflightService, InstantiationType.Delayed);
+
+// Register the command-palette commands for checking/installing missing packages.
+registerMissingPackagesCommands();
 
 // Command used by extension-controlled run gestures (e.g. R's source-file) to
 // run the preflight check in the frontend. Returns whether to proceed to run.

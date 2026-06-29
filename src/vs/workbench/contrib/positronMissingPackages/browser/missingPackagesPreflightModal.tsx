@@ -15,6 +15,7 @@ import { PositronModalDialogReactRenderer } from '../../../../base/browser/posit
 import { PositronDynamicModalDialog } from '../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { FooterButton } from '../../../browser/positronComponents/positronDynamicModalDialog/components/footerButton.js';
 import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
+import { MissingPackagesMessage } from './missingPackagesMessage.js';
 
 /** The user's decision from the preflight modal. */
 export type PreflightDecision = 'install-and-run' | 'run' | 'cancel';
@@ -48,18 +49,11 @@ export const MissingPackagesPreflightModal = (props: MissingPackagesPreflightMod
 		<PositronDynamicModalDialog
 			content={
 				<div className='missing-packages-preflight'>
-					<div className='preflight-message'>
-						{/* The filename is a non-localizable identifier rendered as a
-						    monospace element, followed by a complete localized clause. */}
-						<code className='preflight-filename'>{props.fileName}</code>
-						{' '}
-						{props.languageName
-							? localize('positron.missingPackages.preflightMessageLang', "depends on the following {0} packages, but they are not installed:", props.languageName)
-							: localize('positron.missingPackages.preflightMessage', "depends on the following packages, but they are not installed:")}
-					</div>
-					<ul className='preflight-package-list'>
-						{props.packageNames.map(name => <li key={name}>{name}</li>)}
-					</ul>
+					<MissingPackagesMessage
+						fileName={props.fileName}
+						languageName={props.languageName}
+						packageNames={props.packageNames}
+					/>
 					<div className='preflight-dont-show-again'>
 						<Checkbox
 							label={localize('positron.missingPackages.preflightDontShowAgain', "Don't show this again")}
