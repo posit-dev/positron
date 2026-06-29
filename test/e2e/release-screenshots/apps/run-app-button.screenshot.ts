@@ -46,7 +46,7 @@ test.describe('Release Screenshots - Run App Button', () => {
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
-			{ selector: '.codicon-play', label: '', color: ANNOTATION_COLOR, padding: 4 },
+			{ selector: '.action-bar-button:has(.codicon-play)', label: '', color: ANNOTATION_COLOR, padding: 4 },
 		]);
 		await captureFullWindow(page, 'run-app-button.png');
 	});
