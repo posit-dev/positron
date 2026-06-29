@@ -251,6 +251,17 @@ runs:
           echo "No analysis-report.md produced; skipping Slack thread append."
           exit 0
         fi
+        # Only post when an actual e2e job failed. A Slack thread is registered
+        # only when e2e tests run and report results; on runs that fail before
+        # e2e (e.g. build/installer failures, where e2e jobs are skipped) no
+        # thread exists, so an append would never match and the scheduler would
+        # log a false "no Slack thread found" warning. Gate on run-info.json's
+        # isE2e flag, which the gather step already sets per failed job.
+        E2E_FAILURES=$(jq '[.failedJobs[]? | select(.isE2e)] | length' "$WORK_DIR/run-info.json")
+        if [ "${E2E_FAILURES:-0}" -eq 0 ]; then
+          echo "No failed e2e jobs in this run; skipping Slack thread append (no thread registered)."
+          exit 0
+        fi
 
         # The e2e-test-insights API uses a single "positron" repo ID for both
         # posit-dev/positron and posit-dev/positron-builds (same as the history
