@@ -51,11 +51,17 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	/** The last-resolved targets per resource, so invalidation can find affected resources. */
 	private readonly _resources = new ResourceMap<IResolvedTarget[]>();
 
+	/** Resources currently installing, holding the snapshot captured at start. */
+	private readonly _installing = new ResourceMap<IMissingPackagesResult>();
+
 	/** Per-session listeners on package-change events, keyed by sessionId. */
 	private readonly _packageListeners = this._register(new DisposableMap<string, IDisposable>());
 
 	private readonly _onDidChangeMissingPackages = this._register(new Emitter<URI>());
 	readonly onDidChangeMissingPackages: Event<URI> = this._onDidChangeMissingPackages.event;
+
+	private readonly _onDidChangeInstalling = this._register(new Emitter<URI>());
+	readonly onDidChangeInstalling: Event<URI> = this._onDidChangeInstalling.event;
 
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -130,6 +136,29 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 
 		// Clear stale cache for this session even when no instance event fires.
 		this._invalidateSession(group.sessionId);
+	}
+
+	async installAll(result: IMissingPackagesResult): Promise<void> {
+		// Mark the resource as installing before the first await so synchronous
+		// callers (e.g. the badge) observe the state change immediately.
+		this._installing.set(result.resource, result);
+		this._onDidChangeInstalling.fire(result.resource);
+		try {
+			for (const group of result.groups) {
+				try {
+					await this.install(group);
+				} catch (err) {
+					this._logService.warn(`[MissingPackages] install failed for session '${group.sessionId}': ${err}`);
+				}
+			}
+		} finally {
+			this._installing.delete(result.resource);
+			this._onDidChangeInstalling.fire(result.resource);
+		}
+	}
+
+	getInstalling(resource: URI): IMissingPackagesResult | undefined {
+		return this._installing.get(resource);
 	}
 
 	//#region Private helpers

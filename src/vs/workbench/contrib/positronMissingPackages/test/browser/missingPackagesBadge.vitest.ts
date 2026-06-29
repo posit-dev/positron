@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { URI } from '../../../../../base/common/uri.js';
-import { chooseMissingPackagesTier, installPackagesLabel, missingPackagesBadgeTiers, missingPackagesLabel } from '../../browser/missingPackagesBadge.js';
+import { chooseMissingPackagesTier, installingMessage, installPackagesLabel, missingPackagesBadgeTiers, missingPackagesLabel } from '../../browser/missingPackagesBadge.js';
 import { IMissingPackagesResult } from '../../common/missingPackagesService.js';
 
 function makeResult(packages: string[]): IMissingPackagesResult {
@@ -24,12 +24,16 @@ describe('missing packages labels', () => {
 			badgeMany: missingPackagesLabel(2),
 			installOne: installPackagesLabel(makeResult(['polars'])),
 			installMany: installPackagesLabel(makeResult(['pandas', 'plotnine'])),
+			installingOne: installingMessage(makeResult(['polars'])),
+			installingMany: installingMessage(makeResult(['pandas', 'plotnine'])),
 		}).toMatchInlineSnapshot(`
 			{
 			  "badgeMany": "2 missing packages",
 			  "badgeOne": "1 missing package",
 			  "installMany": "Install 2 packages",
 			  "installOne": "Install 'polars'",
+			  "installingMany": "Installing missing packages: 'pandas', 'plotnine'",
+			  "installingOne": "Installing missing package 'polars'",
 			}
 		`);
 	});

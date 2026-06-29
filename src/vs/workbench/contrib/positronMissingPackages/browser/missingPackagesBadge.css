@@ -38,6 +38,14 @@
 	color: var(--vscode-editorWarning-foreground);
 }
 
+/*
+ * The install spinner uses the default foreground rather than the warning color
+ * so the badge reads as "working", not "warning", while the install runs.
+ */
+.action-bar-widget .missing-packages-badge .codicon-sync {
+	color: var(--vscode-foreground);
+}
+
 .missing-packages-badge .missing-packages-label {
 	flex: 1;
 	margin: 0;
@@ -67,6 +75,15 @@
 
 .missing-packages-dialog-filename {
 	font-family: var(--monaco-monospace-font);
+}
+
+/* Installing dialog: the indeterminate progress bar under the message. */
+.missing-packages-installing-progress {
+	display: flex;
+}
+
+.missing-packages-installing-progress .progress-bar-item {
+	width: 100%;
 }
 
 .missing-packages-dialog-list {

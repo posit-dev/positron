@@ -192,6 +192,28 @@ describe('MissingPackagesService', () => {
 		expect(instanceInstallPackages).toHaveBeenCalledWith([{ name: 'requests' }], undefined);
 	});
 
+	it('tracks installing state across installAll and clears it when done', async () => {
+		const service = createService();
+		const result = await service.ensure(resource);
+
+		const changed: URI[] = [];
+		ctx.disposables.add(service.onDidChangeInstalling(uri => changed.push(uri)));
+
+		// Hold the install open so the in-progress state can be observed.
+		let resolveInstall!: () => void;
+		instanceInstallPackages.mockReturnValueOnce(new Promise<void>(resolve => { resolveInstall = resolve; }));
+
+		const installPromise = service.installAll(result);
+		expect(service.getInstalling(resource)).toBe(result);
+
+		resolveInstall();
+		await installPromise;
+		expect(service.getInstalling(resource)).toBeUndefined();
+
+		// One fire on start, one on finish.
+		expect(changed.map(uri => uri.toString())).toEqual([resource.toString(), resource.toString()]);
+	});
+
 	it('analyzes a notebook via its kernel session, sending only code cells', async () => {
 		const service = createService();
 

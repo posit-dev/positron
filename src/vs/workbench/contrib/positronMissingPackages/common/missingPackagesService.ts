@@ -72,9 +72,31 @@ export interface IMissingPackagesService {
 	install(group: IMissingPackagesGroup, token?: CancellationToken): Promise<void>;
 
 	/**
+	 * Installs every group in a result, tracking the resource as installing for
+	 * the lifetime of the operation so UI surfaces can reflect progress. Resolves
+	 * when all groups have completed; individual group failures are swallowed so
+	 * one failure does not abort the rest.
+	 */
+	installAll(result: IMissingPackagesResult): Promise<void>;
+
+	/**
+	 * Returns the result currently being installed for a resource, or undefined
+	 * when no install is in progress. The returned result is the snapshot
+	 * captured when the install began, so its package names remain stable while
+	 * the operation runs.
+	 */
+	getInstalling(resource: URI): IMissingPackagesResult | undefined;
+
+	/**
 	 * Fired when the cached result for a resource may have changed (packages
 	 * installed/removed, session lifecycle, or content change). UI surfaces
 	 * should re-read via `getCached` / `ensure`.
 	 */
 	readonly onDidChangeMissingPackages: Event<URI>;
+
+	/**
+	 * Fired when a resource starts or finishes installing. UI surfaces should
+	 * re-read via `getInstalling`.
+	 */
+	readonly onDidChangeInstalling: Event<URI>;
 }

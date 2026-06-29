@@ -20,6 +20,7 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../platform
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { IMissingPackagesResult, IMissingPackagesService } from '../common/missingPackagesService.js';
 
@@ -127,6 +128,28 @@ export function installPackagesLabel(result: IMissingPackagesResult): string {
 }
 
 /**
+ * Collects the names of every missing package across a result's groups,
+ * preserving order. Used by the installing dialog to name what is installing.
+ */
+function installingPackageNames(result: IMissingPackagesResult): string[] {
+	return result.groups.flatMap(group => group.packages.map(pkg => pkg.name));
+}
+
+/**
+ * Builds the message shown while packages are installing, naming the package
+ * (e.g. "Installing missing package 'polars'") or listing them when there are
+ * several (e.g. "Installing missing packages: 'foo', 'bar'").
+ */
+export function installingMessage(result: IMissingPackagesResult): string {
+	const names = installingPackageNames(result);
+	if (names.length === 1) {
+		return localize('positron.missingPackages.installingSingular', "Installing missing package '{0}'", names[0]);
+	}
+	const quoted = names.map(name => `'${name}'`).join(', ');
+	return localize('positron.missingPackages.installingPlural', "Installing missing packages: {0}", quoted);
+}
+
+/**
  * A shared badge for the editor action bar and the Positron notebook toolbar
  * that warns when the current document references packages that are not
  * installed, and offers to install them.
@@ -166,6 +189,12 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		resource ? missingPackagesService.getCached(resource) : undefined);
 	const [warnEnabled, setWarnEnabled] = useState<boolean>(() =>
 		configurationService.getValue<boolean>(WARN_MISSING_IN_EDITOR) ?? true);
+
+	// Whether an install is in progress for this resource. While installing, the
+	// badge shows a spinner and "Installing" rather than the warning treatment,
+	// so it never looks like nothing happened after the user chose to install.
+	const [installing, setInstalling] = useState<boolean>(() =>
+		resource ? missingPackagesService.getInstalling(resource) !== undefined : false);
 
 	// The index of the label tier to show (0 = widest), or -1 to hide the badge
 	// because even the icon-only tier does not fit. Starts at the widest tier;
@@ -215,17 +244,39 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		return () => disposable.dispose();
 	}, [configurationService]);
 
+	// Track whether an install is in progress for this resource.
+	useEffect(() => {
+		if (!resource) {
+			setInstalling(false);
+			return;
+		}
+		setInstalling(missingPackagesService.getInstalling(resource) !== undefined);
+		const disposable = missingPackagesService.onDidChangeInstalling(uri => {
+			if (uri.toString() === resource.toString()) {
+				setInstalling(missingPackagesService.getInstalling(resource) !== undefined);
+			}
+		});
+		return () => disposable.dispose();
+	}, [resource, missingPackagesService]);
+
 	// Tear down any open dialog when the badge unmounts.
 	useEffect(() => () => {
 		rendererRef.current?.dispose();
 		rendererRef.current = undefined;
 	}, []);
 
-	// Whether the badge has anything to warn about and is allowed to. When this
-	// is true the button is always mounted (it may still be visually hidden via
-	// the tier below) so its width can be measured and recovered on resize.
-	const total = result?.total ?? 0;
-	const visible = warnEnabled && total > 0;
+	// While installing, render against the snapshot captured when the install
+	// began so the badge keeps its size and label even as the live result drops
+	// to zero (the cache invalidates as each group finishes).
+	const installSnapshot = installing && resource ? missingPackagesService.getInstalling(resource) : undefined;
+	const activeResult = installSnapshot ?? result;
+
+	// Whether the badge has anything to show and is allowed to. When this is true
+	// the button is always mounted (it may still be visually hidden via the tier
+	// below) so its width can be measured and recovered on resize. An in-progress
+	// install keeps the badge mounted so its spinner stays visible.
+	const total = activeResult?.total ?? 0;
+	const visible = warnEnabled && (installing || total > 0);
 
 	// Choose a responsive label tier based on the width available to the badge.
 	//
@@ -245,7 +296,9 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 	// resized.
 	useLayoutEffect(() => {
 		const button = badgeRef.current;
-		if (!visible || !button) {
+		// Freeze the tier while installing so the label stays put: "Installing"
+		// (or the count) should not jump tiers as the badge text changes width.
+		if (!visible || !button || installing) {
 			return;
 		}
 
@@ -317,21 +370,31 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 			resizeObserver.observe(leftRegion);
 		}
 		return () => resizeObserver.disconnect();
-	}, [visible, total]);
+	}, [visible, total, installing]);
 
-	// Render nothing when disabled or there is nothing to warn about.
-	if (!visible || !result) {
+	// Render nothing when disabled or there is nothing to show.
+	if (!visible || !activeResult) {
 		return null;
 	}
 
-	// The full label is always used for the tooltip and accessible name, even
-	// when a narrower tier (or no text) is shown.
-	const tiers = missingPackagesBadgeTiers(result.total);
-	const label = tiers[0];
 	const hidden = tierIndex < 0;
-	const tierLabel = hidden ? '' : tiers[tierIndex];
 
-	// Open the dialog popup anchored to the badge.
+	// The full label is used for the tooltip and accessible name. While
+	// installing it names what is being installed; otherwise it is the widest
+	// tier (e.g. "5 missing packages").
+	const label = installing
+		? installingMessage(activeResult)
+		: missingPackagesBadgeTiers(activeResult.total)[0];
+
+	// The visible badge text. While installing it reads "Installing" except when
+	// the available width has collapsed to the count-only tier, which is kept so
+	// the badge does not change width. When not installing it is the chosen tier.
+	const tierLabel = hidden ? '' : missingPackagesBadgeTiers(activeResult.total)[tierIndex];
+	const installingLabel = localize('positron.missingPackages.installingBadge', "Installing");
+	const displayLabel = installing && !hidden && tierIndex <= 1 ? installingLabel : tierLabel;
+
+	// Open the dialog popup anchored to the badge. While installing this shows a
+	// progress dialog; otherwise it offers to install the missing packages.
 	const showDialog = () => {
 		if (!badgeRef.current) {
 			return;
@@ -345,14 +408,22 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		rendererRef.current = renderer;
 
 		renderer.render(
-			<MissingPackagesDialog
-				anchorElement={badgeRef.current}
-				configurationService={configurationService}
-				missingPackagesService={missingPackagesService}
-				renderer={renderer}
-				resource={result.resource}
-				result={result}
-			/>
+			installing
+				? <InstallingPackagesDialog
+					anchorElement={badgeRef.current}
+					missingPackagesService={missingPackagesService}
+					renderer={renderer}
+					resource={activeResult.resource}
+					result={activeResult}
+				/>
+				: <MissingPackagesDialog
+					anchorElement={badgeRef.current}
+					configurationService={configurationService}
+					missingPackagesService={missingPackagesService}
+					renderer={renderer}
+					resource={activeResult.resource}
+					result={activeResult}
+				/>
 		);
 	};
 
@@ -366,8 +437,10 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 			title={label}
 			onClick={showDialog}
 		>
-			<span className='codicon codicon-warning'></span>
-			<span ref={labelRef} className='missing-packages-label'>{tierLabel}</span>
+			{installing
+				? <span className='codicon codicon-sync codicon-modifier-spin'></span>
+				: <span className='codicon codicon-warning'></span>}
+			<span ref={labelRef} className='missing-packages-label'>{displayLabel}</span>
 			<span className='codicon codicon-positron-drop-down-arrow'></span>
 		</button>
 	);
@@ -405,11 +478,11 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 		? services.languageService.getLanguageName(languageIds[0])
 		: null;
 
-	const install = async () => {
+	const install = () => {
 		renderer.dispose();
-		for (const group of result.groups) {
-			await missingPackagesService.install(group);
-		}
+		// Fire and forget: installAll tracks the installing state so the badge
+		// switches to its spinner immediately, without blocking on the install.
+		missingPackagesService.installAll(result);
 	};
 
 	// Disable the badge for future documents, dismiss the dialog, and let the
@@ -465,6 +538,60 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 					<Button className='missing-packages-dialog-button default' onPressed={install}>
 						{installPackagesLabel(result)}
 					</Button>
+				</div>
+			</div>
+		</PositronModalPopup>
+	);
+};
+
+/**
+ * InstallingPackagesDialog props.
+ */
+interface InstallingPackagesDialogProps {
+	readonly anchorElement: HTMLElement;
+	readonly renderer: PositronModalReactRenderer;
+	readonly resource: URI;
+	readonly result: IMissingPackagesResult;
+	readonly missingPackagesService: IMissingPackagesService;
+}
+
+/**
+ * InstallingPackagesDialog component.
+ *
+ * A dialog popup shown when the badge is clicked while an install is already in
+ * progress. It names the packages being installed and shows an indeterminate
+ * progress bar. It closes itself when the install finishes.
+ */
+const InstallingPackagesDialog = (props: InstallingPackagesDialogProps) => {
+	const { resource, result, missingPackagesService, renderer } = props;
+
+	// Close the dialog when the install finishes (the resource is no longer
+	// installing), so it does not linger after the badge returns to normal.
+	useEffect(() => {
+		const disposable = missingPackagesService.onDidChangeInstalling(uri => {
+			if (uri.toString() === resource.toString() && !missingPackagesService.getInstalling(resource)) {
+				renderer.dispose();
+			}
+		});
+		return () => disposable.dispose();
+	}, [resource, missingPackagesService, renderer]);
+
+	return (
+		<PositronModalPopup
+			anchorElement={props.anchorElement}
+			height='auto'
+			keyboardNavigationStyle='dialog'
+			popupAlignment='right'
+			popupPosition='bottom'
+			renderer={renderer}
+			width={360}
+		>
+			<div className='missing-packages-dialog'>
+				<div className='missing-packages-dialog-message'>
+					{installingMessage(result)}
+				</div>
+				<div className='missing-packages-installing-progress'>
+					<ProgressBar />
 				</div>
 			</div>
 		</PositronModalPopup>
