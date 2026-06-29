@@ -305,13 +305,6 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: nls.localize('chat.implicitContext.suggestedContext', "Controls whether the new implicit context flow is shown. In Ask and Edit modes, the context will automatically be included. When using an agent, context will be suggested as an attachment. Selections are always included as context."),
 			default: true,
 		},
-		// --- Start Positron ---
-		'chat.useCopilotParticipantsWithOtherProviders': {
-			type: 'boolean',
-			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider when Copilot participants are used**.\n\nFor example, if you enable this setting and you are using Anthropic as a provider, GitHub Copilot participants are available. When invoked, the participants may send data to Copilot models."),
-			default: false
-		},
-		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',
 			markdownDescription: nls.localize('chat.editing.autoAcceptDelay', "Delay after which changes made by chat are automatically accepted. Values are in seconds, `0` means disabled and `100` seconds is the maximum."),
