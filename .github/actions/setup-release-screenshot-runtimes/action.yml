@@ -77,7 +77,7 @@ runs:
         uv pip install ipykernel
         # Extra packages for screenshot tests not yet in qa-example-content's
         # requirements.
-        uv pip install astropy matplotlib
+        uv pip install astropy matplotlib plotnine
 
     - name: Install Python (alternate, no venv activation)
       id: setup-python-alt
@@ -95,8 +95,16 @@ runs:
     - name: Install rig
       shell: bash
       run: |
-        brew tap r-lib/rig
-        brew install --cask rig
+        # Install rig directly from GitHub releases to avoid a broken cask in
+        # the r-lib/homebrew-rig tap (double-quote typo in rig.rb line 5).
+        RIG_VERSION="0.8.1"
+        if [ "$(uname -m)" = "x86_64" ]; then
+          RIG_PKG="rig-${RIG_VERSION}-macOS-x86_64.pkg"
+        else
+          RIG_PKG="rig-${RIG_VERSION}-macOS-arm64.pkg"
+        fi
+        curl -fsSL "https://github.com/r-lib/rig/releases/download/v${RIG_VERSION}/${RIG_PKG}" -o /tmp/rig.pkg
+        sudo installer -pkg /tmp/rig.pkg -target /
 
     - name: Install R (primary)
       shell: bash
@@ -110,6 +118,8 @@ runs:
       run: |
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
         Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+        # Extra packages for screenshot tests not in qa-example-content's DESCRIPTION.
+        Rscript -e "options(pak.install_binary = TRUE); pak::pak(c('nycflights13', 'dbplyr'))"
 
     - name: Install R (alternate)
       shell: bash

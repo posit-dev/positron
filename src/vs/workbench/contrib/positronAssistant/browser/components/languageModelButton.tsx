@@ -5,9 +5,11 @@
 
 import * as React from 'react';
 
+import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import Claude from '../icons/claude.js';
+import DeepSeek from '../icons/deepseek.js';
 import Gemini from '../icons/gemini.js';
 import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
@@ -21,15 +23,30 @@ import VertexAI from '../icons/vertexai.js';
 interface LanguageModelButtonProps {
 	identifier: string;
 	displayName: string;
+	logoUrl?: string;
 	selected?: boolean;
 	disabled?: boolean;
+	status?: 'preview' | 'experimental';
 	onClick?: () => void;
+}
+
+/** Human-readable label for a provider's maturity status, or undefined for stable providers. */
+function getStatusLabel(status: LanguageModelButtonProps['status']): string | undefined {
+	switch (status) {
+		case 'preview':
+			return localize('positron.languageModelButton.status.preview', "Preview");
+		case 'experimental':
+			return localize('positron.languageModelButton.status.experimental', "Experimental");
+		default:
+			return undefined;
+	}
 }
 
 /**
  * LanguageModelButton component.
  */
 export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageModelButtonProps>((props, ref) => {
+	const statusLabel = getStatusLabel(props.status);
 	return (
 		<Button
 			className={positronClassNames(
@@ -41,16 +58,20 @@ export const LanguageModelButton = React.forwardRef<HTMLDivElement, LanguageMode
 			onPressed={props.onClick}>
 			<div ref={ref} id={`${props.identifier}-provider-button`}>
 				<VerticalStack>
-					<LanguageModelIcon provider={props.identifier} />
+					<LanguageModelIcon logoUrl={props.logoUrl} provider={props.identifier} />
 					{props.displayName}
+					{statusLabel && <span className='language-model button-status'>{statusLabel}</span>}
 				</VerticalStack>
 			</div>
 		</Button>
 	);
 });
 
-export const LanguageModelIcon = (props: { provider: string }) => {
+export const LanguageModelIcon = (props: { provider: string; logoUrl?: string }) => {
 	function getIcon() {
+		if (props.logoUrl) {
+			return <img className='language-model icon' src={props.logoUrl} />;
+		}
 		switch (props.provider) {
 			case 'anthropic-api':
 				return <Claude className='language-model icon' />;
@@ -63,6 +84,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <GithubCopilot className='language-model icon' />;
 			case 'amazon-bedrock': // Vercel API uses this as an id
 				return <Bedrock className='language-model icon' />;
+			case 'deepseek-api':
+				return <DeepSeek className='language-model icon' />;
 			case 'openai-api':
 				return <OpenAI className='language-model icon' />;
 			case 'ms-foundry':

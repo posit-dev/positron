@@ -3,12 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ElectronApplication, Page } from 'playwright';
-import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { createWorkbenchFromPage } from '../../infra/workbench';
+import { createWorkbenchFromPage, waitForAnyNewWindow } from '../../infra/workbench';
 import { pythonDynamicPlot } from '../shared/plots.constants.js';
 const settingsPath = require('node:path').resolve(__dirname, '../../fixtures/settingsDocker.json');
 
@@ -25,50 +23,6 @@ function sshKeyscan(host: string, port: number, knownHostsPath: string) {
 	fs.mkdirSync(require('node:path').dirname(knownHostsPath), { recursive: true });
 	fs.appendFileSync(knownHostsPath, out);
 }
-
-async function waitForAnyNewWindow(
-	app: ElectronApplication,
-	trigger?: () => Promise<void> | void,
-	opts: { timeout?: number; loadState?: 'load' | 'domcontentloaded' | 'networkidle' } = {}
-): Promise<Page> {
-	const { timeout = 30_000, loadState = 'domcontentloaded' } = opts;
-
-	// Snapshot existing windows so we can detect a new one even if the event is missed.
-	const before = new Set(app.windows());
-
-	// Start waiting for a new 'window' event *before* we trigger anything.
-	const eventWait = app.waitForEvent('window', { timeout }).catch(() => null);
-
-	// Optionally run whatever opens the window (recommended).
-	if (trigger) { await trigger(); }
-
-	// If we caught the event, great.
-	let win = await eventWait;
-
-	// Fallback: CI flake where window opened before listener—scan for any new page.
-	if (!win) {
-		const start = Date.now();
-		while (Date.now() - start < timeout) {
-			const current = app.windows();
-			for (const p of current) {
-				if (!before.has(p)) {
-					win = p;
-					break;
-				}
-			}
-			if (win) { break; }
-			await new Promise(r => setTimeout(r, 100));
-		}
-	}
-
-	if (!win) { throw new Error('No new window appeared within timeout'); }
-
-	// Ensure it’s at least minimally ready and on top
-	await win.waitForLoadState(loadState).catch(() => { });
-	await win.bringToFront().catch(() => { });
-	return win;
-}
-
 
 test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
@@ -125,7 +79,14 @@ test.describe('Remote SSH', {
 
 
 		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
-			const pythonSession = await sshWorkbench.sessions.start('python');
+			// Append '(uv: root)' to the version so the picker selects the correct interpreter
+			// when multiple Python entries share the same version number.
+			// The base version comes from POSITRON_PY_REMOTE_VER_SEL (set in the yml).
+			const pythonSessionId = await sshWorkbench.sessions.startAndSkipMetadata({
+				language: 'Python',
+				version: `${process.env.POSITRON_PY_REMOTE_VER_SEL} (uv: root)`,
+			});
+			const pythonSession = await sshWorkbench.sessions.getMetadata(pythonSessionId);
 			await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
 			await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
 
@@ -159,8 +120,19 @@ test.describe('Remote SSH', {
 			await sshWin.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
 
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
-			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
-			await sshWorkbench.quickInput.type('test.py');
+
+			// The remote Save As dialog asynchronously re-populates its path
+			// input with a suggested name derived from the file's first line,
+			// which can clobber a single type() before we click OK. Retry the
+			// type until "test.py" actually sticks. Use a short settle wait +
+			// short assertion timeout so toPass can re-type quickly if the
+			// value was reset (the default 15s expect timeout would block the
+			// loop and only allow a couple of attempts).
+			await expect(async () => {
+				await sshWorkbench.quickInput.type('test.py');
+				await sshWin.waitForTimeout(750); // let any async re-population land
+				await expect(sshWorkbench.quickInput.quickInput).toHaveValue('test.py', { timeout: 1000 });
+			}).toPass({ timeout: 30000 });
 
 			await expect(async () => {
 				await sshWorkbench.quickInput.clickOkButton();
@@ -186,14 +158,21 @@ test.describe('Remote SSH', {
 	});
 });
 
-const flaskAppCode = `from flask import Flask
-
-app = Flask(__name__)
-
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-
-if __name__ == '__main__':
-    app.run(debug=True)
-`;
+// Built as an array of lines so the embedded Python keeps its 4-space indentation
+// (it is typed into Monaco, which auto-indents new lines with spaces; a literal tab
+// here would mix tabs and spaces and raise a Python TabError). Authoring the spaces
+// as string content -- rather than source-line indentation -- also satisfies the
+// tabs-only hygiene check.
+const flaskAppCode = [
+	'from flask import Flask',
+	'',
+	'app = Flask(__name__)',
+	'',
+	'@app.route(\'/\')',
+	'def hello():',
+	'    return \'Hello, World!\'',
+	'',
+	'if __name__ == \'__main__\':',
+	'    app.run(debug=True)',
+	'',
+].join('\n');

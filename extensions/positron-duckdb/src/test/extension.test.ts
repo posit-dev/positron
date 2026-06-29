@@ -1,10 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* eslint-disable local/code-no-unexternalized-strings -- test file; strings need not be externalized */
+
 import * as assert from 'assert';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import * as vscode from 'vscode';
 import {
 	BackendState,
@@ -43,9 +46,14 @@ import {
 	ColumnHistogramParamsMethod,
 	GetColumnProfilesParams,
 	ColumnHistogram,
-	ColumnSummaryStats
-} from '../interfaces';
+	ColumnSummaryStats,
+	DataExplorerUiEvent,
+	ReturnColumnProfilesEvent
+} from 'positron-data-explorer-protocol';
 import { randomBytes, randomUUID } from 'crypto';
+import * as os from 'os';
+import * as fs from 'fs';
+import { DataExplorerRpcHandler, DuckDBInstance, parseSheetNames } from '../extension';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -56,45 +64,65 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 
 // Global callback registry for column profile events
 const columnProfileCallbacks = new Map<string, (value: any) => void>();
-let globalCommandRegistered = false;
 
-// Not sure why it is not possible to use Mocha's 'before' for this
-async function activateExtension() {
-	// Ensure the extension is activated
-	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+// Global listeners for schema_update UI events, invoked with the dataset uri.
+// The file-watcher tests use these to observe reloads triggered by on-disk
+// file changes (see waitForSchemaUpdate).
+const schemaUpdateListeners = new Set<(uri: string) => void>();
 
-	// Register the global command handler once
-	if (!globalCommandRegistered) {
-		vscode.commands.registerCommand(
-			'positron-data-explorer.sendUiEvent',
-			(event: any) => {
-				if (event.method === 'return_column_profiles' && event.params.callback_id) {
-					const callback = columnProfileCallbacks.get(event.params.callback_id);
-					if (callback) {
-						callback(event.params);
-						columnProfileCallbacks.delete(event.params.callback_id);
-					}
-				}
-			}
-		);
-		globalCommandRegistered = true;
+// A test-owned DuckDB instance + RPC handler. The handler is the unit under test; the tests drive
+// it directly (rather than through the typed Data Explorer channel, which needs the core/main-thread
+// side) and capture its UI events via the injected sink below.
+let testDb: DuckDBInstance | undefined;
+let testHandler: DataExplorerRpcHandler | undefined;
+
+// The handler's UI-event sink: routes column profiles / schema updates to the test registries above.
+function routeUiEvent(event: DataExplorerUiEvent) {
+	if (event.method === 'return_column_profiles') {
+		const params = event.params as ReturnColumnProfilesEvent;
+		if (!params.callback_id) {
+			return;
+		}
+		const callback = columnProfileCallbacks.get(params.callback_id);
+		if (callback) {
+			callback(params);
+			columnProfileCallbacks.delete(params.callback_id);
+		}
+	} else if (event.method === 'schema_update') {
+		for (const listener of schemaUpdateListeners) {
+			listener(event.uri);
+		}
 	}
 }
 
+async function ensureTestHandler(): Promise<DataExplorerRpcHandler> {
+	if (!testHandler) {
+		testDb = await DuckDBInstance.create();
+		const storageDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-excel-cache-'));
+		testHandler = new DataExplorerRpcHandler(testDb, routeUiEvent, storageDir);
+	}
+	return testHandler;
+}
+
+// Not sure why it is not possible to use Mocha's 'before' for this
+async function activateExtension() {
+	// Ensure the extension is activated (registers commands like positron-duckdb.runQuery).
+	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+	await ensureTestHandler();
+}
+
 async function runQuery<Type>(query: string): Promise<Array<Type>> {
-	await activateExtension();
+	await ensureTestHandler();
 	// Uncomment to debug queries being sent
 	// console.log(query);
-	return vscode.commands.executeCommand('positron-duckdb.runQuery', query);
+	return (await testDb!.runQuery(query)).toArray();
 }
 
 async function dxExec(rpc: DataExplorerRpc): Promise<any> {
-	await activateExtension();
-	const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-		'positron-duckdb.dataExplorerRpc', rpc
-	);
+	const handler = await ensureTestHandler();
+	const resp: DataExplorerResponse = await handler.handleRequest(rpc);
 	if (!resp) {
-		return Promise.reject(new Error('dataExplorerRpc command returned undefined'));
+		return Promise.reject(new Error('handleRequest returned undefined'));
 	}
 	if (resp.error_message) {
 		return Promise.reject(new Error(resp.error_message));
@@ -165,6 +193,54 @@ async function getState(uri: vscode.Uri): Promise<BackendState> {
 	});
 }
 
+/**
+ * Resolves when a schema_update UI event is emitted for the given uri, which
+ * the extension does after re-importing a watched file that changed on disk.
+ * Rejects on timeout so a watcher that never fires surfaces as a clear failure
+ * rather than hanging the suite.
+ */
+function waitForSchemaUpdate(uri: vscode.Uri, timeoutMs = 15000): Promise<void> {
+	const target = uri.toString();
+	return new Promise<void>((resolve, reject) => {
+		const listener = (eventUri: string) => {
+			if (eventUri === target) {
+				clearTimeout(timer);
+				schemaUpdateListeners.delete(listener);
+				resolve();
+			}
+		};
+		const timer = setTimeout(() => {
+			schemaUpdateListeners.delete(listener);
+			reject(new Error(`Timed out waiting for schema_update event for ${target}`));
+		}, timeoutMs);
+		schemaUpdateListeners.add(listener);
+	});
+}
+
+/**
+ * Repeatedly writes `content` to `uri` on a short interval until the returned
+ * disposable is disposed. A freshly created file-system watcher is not armed the
+ * instant `createFileSystemWatcher` returns; on a loaded CI machine a single write
+ * can land before the watcher starts listening and the change is missed entirely.
+ * Re-issuing the write guarantees at least one change event is observed once the
+ * watcher is ready, without depending on a fixed setup delay.
+ */
+function rewriteUntilStopped(uri: vscode.Uri, content: Buffer): vscode.Disposable {
+	let active = true;
+	const pump = async () => {
+		while (active) {
+			try {
+				await vscode.workspace.fs.writeFile(uri, content);
+			} catch {
+				// The file may have been deleted during teardown; stop quietly.
+			}
+			await new Promise(resolve => setTimeout(resolve, 300));
+		}
+	};
+	void pump();
+	return { dispose: () => { active = false; } };
+}
+
 async function getSchema(tableName: string) {
 	const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 	const state = await getState(uri);
@@ -205,6 +281,150 @@ async function getAllDataValues(tableName: string, formatOptions?: FormatOptions
 		} satisfies GetDataValuesParams
 	}) as Promise<TableData>;
 }
+
+// --- Minimal .xlsx fixture writer ---------------------------------------------------------
+// DuckDB can only author single-sheet workbooks, so to exercise sheet selection
+// we synthesize small multi-sheet .xlsx files at runtime rather than committing
+// binaries. An .xlsx is a ZIP of a few XML parts; we write them with "stored"
+// (uncompressed) ZIP entries, which DuckDB and yauzl both read.
+
+/** Compute a CRC-32 (as required by ZIP local/central headers). */
+function crc32(buf: Buffer): number {
+	let crc = 0xffffffff;
+	for (let i = 0; i < buf.length; i++) {
+		crc ^= buf[i];
+		for (let bit = 0; bit < 8; bit++) {
+			crc = (crc & 1) ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+		}
+	}
+	return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Convert a zero-based column index to a spreadsheet column letter (0 -> A). */
+function columnLetter(index: number): string {
+	let letter = '';
+	for (let n = index; n >= 0; n = Math.floor(n / 26) - 1) {
+		letter = String.fromCharCode(65 + (n % 26)) + letter;
+	}
+	return letter;
+}
+
+function escapeXml(text: string): string {
+	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// A `null` cell is omitted entirely, so callers can build sparse rows (e.g. a
+// title cell that occupies a single column above a wider table).
+interface XlsxSheet { name: string; rows: Array<Array<string | number | null>> }
+
+/** Write a minimal multi-sheet .xlsx workbook to disk. */
+async function makeXlsx(filePath: string, sheets: XlsxSheet[]): Promise<void> {
+	const worksheetXml = (sheet: XlsxSheet): string => {
+		// Track the bounding box of populated cells so we can emit a <dimension>
+		// element, as real spreadsheet writers do.
+		let minCol = Infinity, maxCol = -Infinity, minRow = Infinity, maxRow = -Infinity;
+		const rows = sheet.rows.map((row, r) => {
+			const cells = row.map((value, c) => {
+				if (value === null) {
+					return '';
+				}
+				minCol = Math.min(minCol, c); maxCol = Math.max(maxCol, c);
+				minRow = Math.min(minRow, r); maxRow = Math.max(maxRow, r);
+				const ref = `${columnLetter(c)}${r + 1}`;
+				return typeof value === 'number'
+					? `<c r="${ref}"><v>${value}</v></c>`
+					: `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>`;
+			}).join('');
+			return `<row r="${r + 1}">${cells}</row>`;
+		}).join('');
+		const dimension = maxCol >= 0
+			? `<dimension ref="${columnLetter(minCol)}${minRow + 1}:${columnLetter(maxCol)}${maxRow + 1}"/>`
+			: '';
+		return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+			`${dimension}<sheetData>${rows}</sheetData></worksheet>`;
+	};
+
+	const parts: Record<string, string> = {
+		'[Content_Types].xml':
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+			`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+			`<Default Extension="xml" ContentType="application/xml"/>` +
+			`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+			sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+			`</Types>`,
+		'_rels/.rels':
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+			`</Relationships>`,
+		'xl/workbook.xml':
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+			`<sheets>` +
+			sheets.map((s, i) => `<sheet name="${escapeXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') +
+			`</sheets></workbook>`,
+		'xl/_rels/workbook.xml.rels':
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+			sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+			`</Relationships>`,
+	};
+	sheets.forEach((sheet, i) => {
+		parts[`xl/worksheets/sheet${i + 1}.xml`] = worksheetXml(sheet);
+	});
+
+	// Assemble a ZIP with stored (method 0) entries.
+	const localChunks: Buffer[] = [];
+	const centralChunks: Buffer[] = [];
+	let offset = 0;
+	for (const [name, content] of Object.entries(parts)) {
+		const nameBuf = Buffer.from(name, 'utf8');
+		const data = Buffer.from(content, 'utf8');
+		const crc = crc32(data);
+
+		const local = Buffer.alloc(30);
+		local.writeUInt32LE(0x04034b50, 0);
+		local.writeUInt16LE(20, 4);          // version needed
+		local.writeUInt16LE(0, 6);           // flags
+		local.writeUInt16LE(0, 8);           // method: stored
+		local.writeUInt32LE(0, 10);          // mod time/date
+		local.writeUInt32LE(crc, 14);
+		local.writeUInt32LE(data.length, 18);
+		local.writeUInt32LE(data.length, 22);
+		local.writeUInt16LE(nameBuf.length, 26);
+		local.writeUInt16LE(0, 28);
+		localChunks.push(local, nameBuf, data);
+
+		const central = Buffer.alloc(46);
+		central.writeUInt32LE(0x02014b50, 0);
+		central.writeUInt16LE(20, 4);        // version made by
+		central.writeUInt16LE(20, 6);        // version needed
+		central.writeUInt16LE(0, 8);
+		central.writeUInt16LE(0, 10);
+		central.writeUInt32LE(0, 12);
+		central.writeUInt32LE(crc, 16);
+		central.writeUInt32LE(data.length, 20);
+		central.writeUInt32LE(data.length, 24);
+		central.writeUInt16LE(nameBuf.length, 28);
+		central.writeUInt32LE(offset, 42);
+		centralChunks.push(central, nameBuf);
+
+		offset += local.length + nameBuf.length + data.length;
+	}
+	const centralBuf = Buffer.concat(centralChunks);
+	const localBuf = Buffer.concat(localChunks);
+	const end = Buffer.alloc(22);
+	end.writeUInt32LE(0x06054b50, 0);
+	end.writeUInt16LE(Object.keys(parts).length, 8);
+	end.writeUInt16LE(Object.keys(parts).length, 10);
+	end.writeUInt32LE(centralBuf.length, 12);
+	end.writeUInt32LE(localBuf.length, 16);
+
+	await fs.promises.writeFile(filePath, Buffer.concat([localBuf, centralBuf, end]));
+}
+// ------------------------------------------------------------------------------------------
 
 suite('Positron DuckDB Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
@@ -406,6 +626,211 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				// Ignore cleanup errors
 			}
 		}
+	});
+
+	test('gzipped parquet (.parquet.gz)', async () => {
+		// DuckDB's parquet reader can't unwrap an outer gzip container, so this
+		// exercises the JS decompress + temp-file path in createTableFromUri.
+		const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+		const tempPath = path.join(__dirname, 'temp_flights.parquet.gz');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zlib.gzipSync(parquetBytes));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 100, num_columns: 19 });
+		} finally {
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	test('zstd-compressed CSV (.csv.zst)', async function () {
+		// zstdCompressSync (added to zlib after the pinned @types/node) is only
+		// needed to build the fixture; skip if the test runtime predates it.
+		// Reading is done natively by DuckDB.
+		const zstdCompressSync = (zlib as typeof zlib & {
+			zstdCompressSync?: (buf: Uint8Array) => Buffer;
+		}).zstdCompressSync;
+		if (typeof zstdCompressSync !== 'function') {
+			this.skip();
+		}
+		const csvContent = 'a,b\n1,x\n2,y\n3,z\n';
+		const tempPath = path.join(__dirname, 'temp_zstd_test.csv.zst');
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), zstdCompressSync(Buffer.from(csvContent, 'utf8')));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 3, num_columns: 2 });
+		} finally {
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
+	// --- .xlsx support ----------------------------------------------------------------------
+
+	// Read a single cell as CSV text, mirroring the delimited-file tests above.
+	const exportCell = async (uri: vscode.Uri, row: number, column: number): Promise<string> => {
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri.toString(),
+			params: {
+				selection: { kind: TableSelectionKind.SingleCell, selection: { row_index: row, column_index: column } },
+				format: ExportFormat.Csv
+			}
+		});
+		return result.data;
+	};
+
+	const setImportOptions = (uri: vscode.Uri, options: { has_header_row?: boolean; sheet_name?: string }) =>
+		dxExec({
+			method: DataExplorerBackendRequest.SetDatasetImportOptions,
+			uri: uri.toString(),
+			params: { options }
+		});
+
+	// A workbook whose first sheet is not the one with the interesting data, to
+	// exercise sheet selection and enumeration.
+	const writeWorkbook = async (): Promise<vscode.Uri> => {
+		const tempPath = path.join(__dirname, `temp_workbook_${randomUUID()}.xlsx`);
+		await makeXlsx(tempPath, [
+			{ name: 'Summary', rows: [['note'], ['cover page']] },
+			{ name: 'People', rows: [['id', 'label'], [1, 'alpha'], [2, 'beta']] }
+		]);
+		return vscode.Uri.file(tempPath);
+	};
+
+	test('xlsx: an uppercase .XLSX extension is recognized as a workbook', async () => {
+		// The editor resolver routes files case-insensitively, so the backend must
+		// detect uppercase/mixed-case extensions too (rather than misreading the
+		// workbook as a delimited text file).
+		const tempPath = path.join(__dirname, `temp_workbook_${randomUUID()}.XLSX`);
+		await makeXlsx(tempPath, [{ name: 'People', rows: [['id', 'label'], [1, 'alpha']] }]);
+		const uri = vscode.Uri.file(tempPath);
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.available_sheets, ['People']);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 1, num_columns: 2 });
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: reads the first sheet by default and reports available sheets', async () => {
+		const uri = await writeWorkbook();
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.available_sheets, ['Summary', 'People']);
+			// The default (first) sheet has a single "note" column.
+			assert.deepStrictEqual(state.table_shape, { num_rows: 1, num_columns: 1 });
+			assert.strictEqual(await exportCell(uri, 0, 0), 'cover page');
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: selecting a sheet reimports that worksheet', async () => {
+		const uri = await writeWorkbook();
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const result = await setImportOptions(uri, { has_header_row: true, sheet_name: 'People' });
+			assert.deepStrictEqual(result, {});
+
+			const state = await getState(uri);
+			assert.deepStrictEqual(state.table_shape, { num_rows: 2, num_columns: 2 });
+			// .xlsx numeric cells are stored as doubles, so DuckDB reads 1 as 1.0.
+			assert.strictEqual(await exportCell(uri, 0, 0), '1.0');
+			assert.strictEqual(await exportCell(uri, 0, 1), 'alpha');
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: clearing the header row treats the first row as data', async () => {
+		const uri = await writeWorkbook();
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			await setImportOptions(uri, { has_header_row: false, sheet_name: 'People' });
+
+			const state = await getState(uri);
+			// The former header row is now a data row, so there are three rows.
+			assert.deepStrictEqual(state.table_shape, { num_rows: 3, num_columns: 2 });
+			assert.strictEqual(await exportCell(uri, 0, 0), 'id');
+			assert.strictEqual(await exportCell(uri, 0, 1), 'label');
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: a missing sheet yields a clear error listing the available sheets', async () => {
+		const uri = await writeWorkbook();
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const result = await setImportOptions(uri, { sheet_name: 'Nope' });
+			assert.ok(result.error_message, 'Expected an error message for a missing sheet');
+			assert.ok(
+				result.error_message.includes('"Nope"') && result.error_message.includes('Summary, People'),
+				`Error should name the sheet and list available sheets; got: ${result.error_message}`
+			);
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('xlsx: recovers a sheet with a sparse title row via the declared dimension', async () => {
+		// A merged title cell occupying a single column above a blank row and the
+		// real table. DuckDB's auto-detection anchors on the one-cell title row and
+		// collapses to a single column with no data rows; recovery re-reads using
+		// the worksheet's declared <dimension> so the full grid comes through.
+		const tempPath = path.join(__dirname, `temp_titled_${randomUUID()}.xlsx`);
+		await makeXlsx(tempPath, [
+			{
+				name: 'Report',
+				rows: [
+					['Quarterly Sales Report', null, null],
+					[null, null, null],
+					['Region', 'Units', 'Revenue'],
+					['North', 10, 1000],
+					['South', 20, 2000]
+				]
+			}
+		]);
+		const uri = vscode.Uri.file(tempPath);
+		try {
+			await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+			const state = await getState(uri);
+			// All three columns are read (vs. the single collapsed column without
+			// recovery). With the default header=true, the title row is consumed as
+			// the header, leaving the table header and two data rows.
+			assert.strictEqual(state.table_shape.num_columns, 3);
+			assert.ok(state.table_shape.num_rows >= 3, `Expected the table body to be read; got ${state.table_shape.num_rows} rows`);
+		} finally {
+			await vscode.workspace.fs.delete(uri).then(undefined, () => { });
+		}
+	});
+
+	test('parseSheetNames reads names in order and decodes XML entities', () => {
+		const workbookXml =
+			'<workbook><sheets>' +
+			'<sheet name="First" sheetId="1" r:id="rId1"/>' +
+			'<sheet name="A &amp; B" sheetId="2" r:id="rId2"/>' +
+			'<sheet name="3&lt;4" sheetId="3" r:id="rId3"/>' +
+			'</sheets></workbook>';
+		assert.deepStrictEqual(parseSheetNames(workbookXml), ['First', 'A & B', '3<4']);
 	});
 
 	type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
@@ -3053,14 +3478,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Now test that a direct RPC call works (simulating the scenario after extension host restart)
 		// when the table view might not exist in the handler's map
 		const directRpcCall = async () => {
-			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-				'positron-duckdb.dataExplorerRpc',
-				{
-					method: DataExplorerBackendRequest.GetState,
-					uri: uri.toString(),
-					params: {}
-				}
-			);
+			const resp: DataExplorerResponse = await (await ensureTestHandler()).handleRequest({
+				method: DataExplorerBackendRequest.GetState,
+				uri: uri.toString(),
+				params: {}
+			});
 
 			if (resp.error_message) {
 				throw new Error(resp.error_message);
@@ -3077,23 +3499,20 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Test getColumnProfiles which was the original failing operation
 		const profileRpcCall = async () => {
-			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
-				'positron-duckdb.dataExplorerRpc',
-				{
-					method: DataExplorerBackendRequest.GetColumnProfiles,
-					uri: uri.toString(),
-					params: {
-						callback_id: randomUUID(),
+			const resp: DataExplorerResponse = await (await ensureTestHandler()).handleRequest({
+				method: DataExplorerBackendRequest.GetColumnProfiles,
+				uri: uri.toString(),
+				params: {
+					callback_id: randomUUID(),
+					profiles: [{
+						column_index: 0,
 						profiles: [{
-							column_index: 0,
-							profiles: [{
-								profile_type: ColumnProfileType.NullCount
-							}]
-						}],
-						format_options: DEFAULT_FORMAT_OPTIONS
-					}
+							profile_type: ColumnProfileType.NullCount
+						}]
+					}],
+					format_options: DEFAULT_FORMAT_OPTIONS
 				}
-			);
+			});
 
 			if (resp.error_message) {
 				throw new Error(resp.error_message);
@@ -3103,5 +3522,109 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// This should work now that the table view has been restored
 		await profileRpcCall(); // Should not throw an error
+	});
+
+	suite('File watcher', () => {
+		test('reloads the dataset when the watched file changes on disk', async function () {
+			this.timeout(20000);
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.csv`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, Buffer.from('a,b\n1,x\n2,y\n', 'utf8'));
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 2, num_columns: 2 });
+
+				// Overwrite with a new shape (extra row and column). The watcher
+				// should re-import the file and emit a schema_update event.
+				const updated = waitForSchemaUpdate(uri);
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('a,b,c\n1,x,p\n2,y,q\n3,z,r\n', 'utf8'));
+				try {
+					await updated;
+				} finally {
+					rewriting.dispose();
+				}
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 3, num_columns: 3 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
+
+		test('leaves the existing table in place when a changed file becomes unreadable', async function () {
+			this.timeout(20000);
+			const parquetBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(flightParquet));
+			const tempPath = path.join(__dirname, `temp_watch_${randomUUID().replace(/-/g, '')}.parquet`);
+			const uri = vscode.Uri.file(tempPath);
+			await vscode.workspace.fs.writeFile(uri, parquetBytes);
+
+			try {
+				await dxExec({ method: DataExplorerBackendRequest.OpenDataset, params: { uri } });
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+
+				// Corrupt the file. The re-import fails; the watcher's handler must
+				// swallow the error (no unhandled rejection, no schema_update) and
+				// leave the previously loaded table queryable. Re-issue the corrupt
+				// write until the watcher fires so the negative assertion proves the
+				// reload was actually attempted and swallowed, not merely missed.
+				const updated = waitForSchemaUpdate(uri, 4000);
+				const rewriting = rewriteUntilStopped(uri, Buffer.from('not a parquet file', 'utf8'));
+				try {
+					await assert.rejects(updated, /Timed out/, 'A failed re-import must not emit schema_update');
+				} finally {
+					rewriting.dispose();
+				}
+
+				assert.deepStrictEqual((await getState(uri)).table_shape, { num_rows: 100, num_columns: 19 });
+			} finally {
+				try {
+					await vscode.workspace.fs.delete(uri);
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		});
+	});
+});
+
+suite('DuckDB worker isolation', () => {
+	// A stub worker that speaks the IPC protocol, so we can exercise crash
+	// recovery without depending on the native binding or a real out-of-memory
+	// condition. It crashes hard on a sentinel query and otherwise returns a
+	// trivial one-row result.
+	const STUB_WORKER = `
+		process.on('message', (req) => {
+			if (req.sql === 'CRASH') { process.exit(1); return; }
+			process.send({ kind: 'result', id: req.id, columnNames: ['x'], columns: [[1n]] });
+		});
+	`;
+
+	test('survives a worker crash, rejects the in-flight query, and respawns', async () => {
+		const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'duckdb-stub-worker-'));
+		const stubPath = path.join(dir, 'stubWorker.js');
+		await fs.promises.writeFile(stubPath, STUB_WORKER);
+
+		const db = await DuckDBInstance.create(stubPath);
+		let crashCount = 0;
+		const crashListener = db.onDidCrash(() => { crashCount++; });
+		try {
+			// Normal query round-trips through the worker.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+
+			// A crashing query rejects (rather than hanging) and fires onDidCrash.
+			await assert.rejects(db.runQuery('CRASH'), /terminated unexpectedly/);
+			assert.strictEqual(crashCount, 1, 'onDidCrash should fire exactly once');
+
+			// The next query transparently respawns the worker and succeeds.
+			assert.strictEqual((await db.runQuery('SELECT 1')).numRows, 1);
+		} finally {
+			crashListener.dispose();
+			db.close();
+			await fs.promises.rm(dir, { recursive: true, force: true });
+		}
 	});
 });

@@ -23,6 +23,9 @@ import { IUserDataProfilesService } from '../../../../platform/userDataProfile/c
 import { IUserDataSyncEnablementService } from '../../../../platform/userDataSync/common/userDataSync.js';
 import { IWorkbenchConfigurationService } from '../../../services/configuration/common/configuration.js';
 import { ADVANCED_INDICATOR_DESCRIPTION, EXPERIMENTAL_INDICATOR_DESCRIPTION, POLICY_SETTING_TAG, PREVIEW_INDICATOR_DESCRIPTION } from '../common/preferences.js';
+// --- Start Positron ---
+import { getActiveBadges, IPositronSettingBadge, POSITRON_SETTING_BADGES } from '../common/positronSettingBadges.js';
+// --- End Positron ---
 import { SettingsTreeSettingElement } from './settingsTreeModels.js';
 
 const $ = DOM.$;
@@ -72,6 +75,11 @@ export class SettingsTreeIndicatorsLabel implements IDisposable {
 	private readonly syncIgnoredIndicator: SettingIndicator;
 	private readonly defaultOverrideIndicator: SettingIndicator;
 
+	// --- Start Positron ---
+	// Setting badges keyed by tag; see POSITRON_SETTING_BADGES.
+	private readonly positronBadgeIndicators = new Map<string, SettingIndicator>();
+	// --- End Positron ---
+
 	/** Indicators that each have their own square container at the top-right of the setting */
 	private readonly isolatedIndicators: SettingIndicator[] = [];
 	/** Indicators that end up wrapped in a parenthesis at the top-right of the setting */
@@ -93,6 +101,14 @@ export class SettingsTreeIndicatorsLabel implements IDisposable {
 		this.previewIndicator = this.createPreviewIndicator();
 		this.advancedIndicator = this.createAdvancedIndicator();
 		this.isolatedIndicators = [this.previewIndicator, this.advancedIndicator];
+		// --- Start Positron ---
+		// Add setting badge indicators based on the POSITRON_SETTING_BADGES registry.
+		for (const badge of POSITRON_SETTING_BADGES) {
+			const indicator = this.createPositronBadgeIndicator(badge);
+			this.positronBadgeIndicators.set(badge.tag, indicator);
+			this.isolatedIndicators.push(indicator);
+		}
+		// --- End Positron ---
 
 		this.workspaceTrustIndicator = this.createWorkspaceTrustIndicator();
 		this.scopeOverridesIndicator = this.createScopeOverridesIndicator();
@@ -301,6 +317,32 @@ export class SettingsTreeIndicatorsLabel implements IDisposable {
 			cachedSyncIgnoredSettingsSet = new Set<string>(cachedSyncIgnoredSettings);
 		}
 	}
+
+	// --- Start Positron ---
+	private createPositronBadgeIndicator(badge: IPositronSettingBadge): SettingIndicator {
+		const disposables = new DisposableStore();
+		const element = $('span.setting-indicator.setting-item-preview');
+		// Hidden until updatePositronBadgeIndicators shows it for matching settings.
+		element.style.display = 'none';
+		const label = disposables.add(new SimpleIconLabel(element));
+		label.text = badge.label;
+
+		disposables.add(this.hoverService.setupDelayedHover(element, {
+			...this.defaultHoverOptions,
+			content: badge.description,
+		}, { setupKeyboardEvents: true }));
+
+		return { element, label, disposables };
+	}
+
+	updatePositronBadgeIndicators(element: SettingsTreeSettingElement) {
+		const activeTags = new Set(getActiveBadges(element.tags).map(badge => badge.tag));
+		for (const [tag, indicator] of this.positronBadgeIndicators) {
+			indicator.element.style.display = activeTags.has(tag) ? 'inline' : 'none';
+		}
+		this.render();
+	}
+	// --- End Positron ---
 
 	updatePreviewIndicator(element: SettingsTreeSettingElement) {
 		const isPreviewSetting = element.tags?.has('preview');

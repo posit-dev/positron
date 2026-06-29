@@ -524,13 +524,22 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
-		// If the workspace is not trusted, immediately transition to the
-		// AwaitingTrust phase so the console shows the correct message
-		// (rather than "Waiting for extensions", which is misleading since
-		// extensions won't activate until the workspace is trusted).
-		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-		}
+		// If the workspace is not trusted, transition to the AwaitingTrust
+		// phase so the console shows the correct message (rather than "Waiting
+		// for extensions", which is misleading since extensions won't activate
+		// until the workspace is trusted).
+		//
+		// Wait for workspace trust to finish initializing before checking. All
+		// workspaces now open in an untrusted state and may transition to
+		// trusted during startup (e.g. once canonical URIs are resolved), so
+		// checking synchronously here would briefly show the misleading
+		// "Restricted Mode" message for workspaces that are actually trusted.
+		this._workspaceTrustManagementService.workspaceTrustInitialized.then(() => {
+			if (this._startupPhase === RuntimeStartupPhase.Initializing &&
+				!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+				this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
+			}
+		});
 
 		// Find all the sessions that need to be restored.
 		this.findRestoredSessions().then(() => {
@@ -1498,6 +1507,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					`with ${formatLanguageRuntimeMetadata(validated)}`);
 				this._languageRuntimeService.registerRuntime(validated);
 			}
+			// If the validator redirected the runtime to a different binary --
+			// e.g. R's validateMetadata re-resolves a `current: true` entry to
+			// wherever the rig `current`/`Current` symlink points right now --
+			// the cache is keyed by `runtimePath`, so an `upsert` of the new
+			// path would leave the original entry behind. Evict the old key so
+			// the cache can't accumulate stale or duplicate "current" entries
+			// across sessions.
+			if (validated.runtimePath !== task.metadata.runtimePath) {
+				this._discoveryCache.invalidate(task.extensionId, task.languageId, task.metadata.runtimePath);
+			}
 			// Refresh the cache entry with the (possibly-updated) metadata
 			// and the fresh fingerprint we already captured.
 			await this._discoveryCache.upsert(validated);
@@ -2377,6 +2396,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * workspace to be trusted.
 	 */
 	private async startupAfterTrust(): Promise<void> {
+		// Wait for workspace trust to finish initializing before deciding
+		// whether we can proceed. All workspaces open untrusted and may
+		// transition to trusted during startup, so checking trust before it is
+		// initialized could incorrectly enter the AwaitingTrust phase.
+		await this._workspaceTrustManagementService.workspaceTrustInitialized;
+
 		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			// In a trusted workspace, we can start the startup sequence
 			// immediately.

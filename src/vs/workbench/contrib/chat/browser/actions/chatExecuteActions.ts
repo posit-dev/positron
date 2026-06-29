@@ -189,11 +189,15 @@ export class ChatSubmitAction extends SubmitAction {
 
 	constructor() {
 		const menuCondition = ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Ask);
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
 		const precondition = ContextKeyExpr.and(
 			ChatContextKeys.inputHasText,
 			ContextKeyExpr.or(whenNotInProgress, ChatContextKeys.editingRequestType.isEqualTo(ChatContextKeys.EditingRequestType.Sent)),
 			ChatContextKeys.chatSessionOptionsValid,
+			ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 		);
+		// --- End Positron ---
 
 		super({
 			id: ChatSubmitAction.ID,
@@ -286,9 +290,13 @@ class ToggleChatModeAction extends Action2 {
 			title: localize2('interactive.toggleAgent.label', "Switch to Next Agent"),
 			f1: true,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
-				ChatContextKeys.enabled,
-				ChatContextKeys.requestInProgress.negate())
+				ChatContextKeys.available,
+				ChatContextKeys.requestInProgress.negate(),
+			),
+			// --- End Positron ---
 		});
 	}
 
@@ -376,7 +384,10 @@ class SwitchToNextModelAction extends Action2 {
 			title: localize2('interactive.switchToNextModel.label', "Switch to Next Model"),
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 		});
 	}
 
@@ -401,7 +412,10 @@ export class OpenModelPickerAction extends Action2 {
 				weight: KeybindingWeight.WorkbenchContrib,
 				when: ChatContextKeys.inChatInput
 			},
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			menu: {
 				id: MenuId.ChatInput,
 				order: 3,
@@ -446,7 +460,10 @@ export class OpenPermissionPickerAction extends Action2 {
 			tooltip: localize('setPermissionLevel', "Set Permissions"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			menu: {
 				id: MenuId.ChatInputSecondary,
 				order: 1,
@@ -486,7 +503,10 @@ export class OpenModePickerAction extends Action2 {
 			tooltip: localize('setChatMode', "Set Agent"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			keybinding: {
 				when: ContextKeyExpr.and(
 					ChatContextKeys.inChatInput,
@@ -535,7 +555,15 @@ export class OpenSessionTargetPickerAction extends Action2 {
 			tooltip: localize('setSessionTarget', "Set Session Target"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(ChatContextKeys.chatSessionIsEmpty, ChatContextKeys.inAgentSessionsWelcome), ChatContextKeys.currentlyEditingInput.negate(), ChatContextKeys.currentlyEditing.negate()),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.available,
+				ContextKeyExpr.or(ChatContextKeys.chatSessionIsEmpty, ChatContextKeys.inAgentSessionsWelcome),
+				ChatContextKeys.currentlyEditingInput.negate(),
+				ChatContextKeys.currentlyEditing.negate(),
+			),
+			// --- End Positron ---
 			menu: [
 				{
 					id: MenuId.ChatInput,
@@ -545,10 +573,6 @@ export class OpenSessionTargetPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						ChatContextKeys.chatSessionIsEmpty,
-						// --- Start Positron ---
-						// Only show session target picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
 						IsSessionsWindowContext),
 					group: 'navigation',
 				},
@@ -560,10 +584,6 @@ export class OpenSessionTargetPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						IsSessionsWindowContext.negate(),
-						// --- Start Positron ---
-						// Only show session target picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
 						ChatContextKeys.chatSessionIsEmpty),
 					group: 'navigation',
 				},
@@ -590,23 +610,16 @@ export class OpenDelegationPickerAction extends Action2 {
 			tooltip: localize('delegateSession', "Delegate Session"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.chatSessionIsEmpty.negate(), ChatContextKeys.currentlyEditingInput.negate(), ChatContextKeys.currentlyEditing.negate()),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.available,
+				ChatContextKeys.chatSessionIsEmpty.negate(),
+				ChatContextKeys.currentlyEditingInput.negate(),
+				ChatContextKeys.currentlyEditing.negate(),
+			),
+			// --- End Positron ---
 			menu: [
-				{
-					id: MenuId.ChatInput,
-					order: 0.5,
-					when: ContextKeyExpr.and(
-						ChatContextKeys.enabled,
-						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
-						ChatContextKeys.inQuickChat.negate(),
-						ChatContextKeys.chatSessionIsEmpty.negate(),
-						// --- Start Positron ---
-						// Only show delegation picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
-						IsSessionsWindowContext),
-					group: 'navigation',
-				},
 				{
 					id: MenuId.ChatInputSecondary,
 					order: 0.5,
@@ -615,12 +628,7 @@ export class OpenDelegationPickerAction extends Action2 {
 						ChatContextKeys.location.isEqualTo(ChatAgentLocation.Chat),
 						ChatContextKeys.inQuickChat.negate(),
 						ChatContextKeys.chatSessionSupportsDelegation,
-						ChatContextKeys.chatSessionIsEmpty.negate(),
-						// --- Start Positron ---
-						// Only show delegation picker when the current provider is Copilot Chat
-						ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
-						// --- End Positron ---
-						IsSessionsWindowContext.negate()
+						ChatContextKeys.chatSessionIsEmpty.negate()
 					),
 					group: 'navigation',
 				},
@@ -647,7 +655,13 @@ export class OpenWorkspacePickerAction extends Action2 {
 			tooltip: localize('selectWorkspace', "Select Target Workspace"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ChatContextKeys.inAgentSessionsWelcome),
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				ChatContextKeys.available,
+				ChatContextKeys.inAgentSessionsWelcome,
+			),
+			// --- End Positron ---
 			menu: [
 				{
 					id: MenuId.ChatInputSecondary,
@@ -675,7 +689,10 @@ export class ChatSessionPrimaryPickerAction extends Action2 {
 			title: localize2('interactive.openChatSessionPrimaryPicker.label', "Open Primary Session Picker"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 			menu: [
 				{
 					// Cloud sessions: keep on the primary chat input toolbar
@@ -743,7 +760,10 @@ class ChangeChatModelAction extends Action2 {
 			title: localize2('interactive.changeModel.label', "Change Model"),
 			category: CHAT_CATEGORY,
 			f1: false,
-			precondition: ChatContextKeys.enabled,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ChatContextKeys.available,
+			// --- End Positron ---
 		});
 	}
 
@@ -770,11 +790,15 @@ export class ChatEditingSessionSubmitAction extends SubmitAction {
 		);
 
 		const menuCondition = ChatContextKeys.chatModeKind.notEqualsTo(ChatModeKind.Ask);
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
 		const precondition = ContextKeyExpr.and(
 			ChatContextKeys.inputHasText,
 			notInProgressOrEditing,
-			ChatContextKeys.chatSessionOptionsValid
+			ChatContextKeys.chatSessionOptionsValid,
+			ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 		);
+		// --- End Positron ---
 
 		super({
 			id: ChatEditingSessionSubmitAction.ID,
@@ -805,11 +829,15 @@ class SubmitWithoutDispatchingAction extends Action2 {
 	static readonly ID = 'workbench.action.chat.submitWithoutDispatching';
 
 	constructor() {
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
 		const precondition = ContextKeyExpr.and(
 			ChatContextKeys.inputHasText,
 			whenNotInProgress,
 			ChatContextKeys.chatModeKind.isEqualTo(ChatModeKind.Ask),
+			ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
 		);
+		// --- End Positron ---
 
 		super({
 			id: SubmitWithoutDispatchingAction.ID,
@@ -884,7 +912,13 @@ export class ChatSubmitWithCodebaseAction extends Action2 {
 
 class SendToNewChatAction extends Action2 {
 	constructor() {
-		const precondition = ChatContextKeys.inputHasText;
+		// --- Start Positron ---
+		// Hide when AI features are disabled.
+		const precondition = ContextKeyExpr.and(
+			ChatContextKeys.inputHasText,
+			ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+		);
+		// --- End Positron ---
 
 		super({
 			id: 'workbench.action.chat.sendToNewChat',
@@ -944,6 +978,10 @@ export class CancelAction extends Action2 {
 			f1: false,
 			category: CHAT_CATEGORY,
 			icon: Codicon.stopCircle,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [{
 				id: MenuId.ChatExecute,
 				when: ContextKeyExpr.and(
@@ -1017,6 +1055,10 @@ export class CancelEdit extends Action2 {
 			f1: false,
 			category: CHAT_CATEGORY,
 			icon: Codicon.x,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [
 				{
 					id: MenuId.ChatMessageTitle,
@@ -1082,6 +1124,10 @@ class GetHandoffsAction extends Action2 {
 			title: localize2('chat.getHandoffs.label', "Get Handoffs"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 		});
 	}
 
@@ -1141,6 +1187,10 @@ class ExecuteHandoffAction extends Action2 {
 			title: localize2('chat.executeHandoff.label', "Execute Handoff"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 		});
 	}
 

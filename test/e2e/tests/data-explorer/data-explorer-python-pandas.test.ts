@@ -92,14 +92,12 @@ test.describe('Data Explorer - Python Pandas', {
 
 
 	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, hotKeys, python }) {
-		const { dataExplorer, notebooks, variables, editors } = app.workbench;
+		const { dataExplorer, notebooksPositron, variables, editors } = app.workbench;
 
 		// open a notebook and execute a cell to create a DataFrame
 		const pythonNotebook = 'pandas-update-dataframe.ipynb';
-		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
-		await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
-		await notebooks.selectCellAtIndex(0);
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
+		await notebooksPositron.runCodeAtIndex(0);
 
 		// open the DataFrame in data explorer and verify data
 		await variables.expectVariableToBe('df', /11 rows/);
@@ -110,8 +108,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 		// execute the next cell and verify data in the data explorer
 		await editors.clickTab(pythonNotebook);
-		await notebooks.selectCellAtIndex(1);
-		await notebooks.executeCodeInCell();
+		await notebooksPositron.runCodeAtIndex(1);
 		await variables.expectVariableToBe('df', /12 rows/);
 		await variables.doubleClickVariableRow('df');
 		await dataExplorer.grid.verifyTableDataLength(12);

@@ -10,8 +10,11 @@
 // Writes the final markdown to comment.md for the upsert step to post.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync, writeFileSync, realpathSync } from 'node:fs';
+import { join, resolve as resolvePath, relative as relativePath, isAbsolute } from 'node:path';
+// Shared with the local `pete-local` skill so both paths emit identical skip
+// verdicts. Lives in the skill tree (also checked out by the workflow).
+import { renderSkipComment } from '../../../.claude/skills/pr-test-checker/scripts/context-core.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -53,35 +56,6 @@ function readJsonOrExit(path) {
 		console.error(`Failed to parse ${path}: ${err.message}`);
 		process.exit(1);
 	}
-}
-
-// --- Static comment for short-circuited skips -------------------------------
-
-function renderSkipComment(context) {
-	const { skip, pr } = context;
-	const reasonText = {
-		'empty-pr': 'No files changed.',
-		'title-prefix': 'PR title indicates a chore / dependency / docs bump.',
-		'docs-or-config-only': 'All changed files are docs, config, or lockfiles -- no source behavior to test.',
-	}[skip.reason] || skip.detail || 'Skipped by pre-filter.';
-
-	return [
-		'## PETE\'s assessment 🧪',
-		'',
-		`**Verdict:** Not applicable -- ${reasonText}`,
-		'',
-		`### What changed`,
-		`${context.stats.fileCount} file(s), categorized as: ${formatCategoryCounts(context.stats.categoryCounts)}.`,
-		'',
-		'---',
-		`<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Pre-filter short-circuited the LLM check on this PR. Run \`/recheck-tests\` if this is wrong.</sub>`,
-	].join('\n');
-}
-
-function formatCategoryCounts(counts) {
-	const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
-	if (entries.length === 0) { return '(none)'; }
-	return entries.map(([k, v]) => `${k} (${v})`).join(', ');
 }
 
 // --- Prompt building --------------------------------------------------------
@@ -138,6 +112,74 @@ function buildUserPrompt(context) {
 	return sections.join('\n');
 }
 
+// --- Tool confinement (defense in depth) -------------------------------------
+
+// The agent reads untrusted PR content. Rather than trust it with
+// bypassPermissions (which lets Read open any absolute path, e.g.
+// /proc/self/environ), we run in the default permission mode and gate every
+// tool call through canUseTool: only the read-only tools are allowed, and only
+// when their target path stays inside the analysis root (REPO_ROOT, the
+// PR-head checkout). This blocks reads of the process environment, the home
+// directory, or anything outside the checkout at the source -- a secret can't
+// be reached in the first place. The secret-redaction pass below stays as a
+// second layer.
+const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep']);
+
+/**
+ * True if `candidate` (a path or glob, absolute or relative to `root`) resolves
+ * to a location inside `root`. Lexical check first; for paths that exist, a
+ * realpath check also rejects symlinks that escape the root.
+ */
+function isWithinRoot(root, candidate) {
+	const target = resolvePath(root, candidate);
+	const rel = relativePath(root, target);
+	const lexicalInside = rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+	if (!lexicalInside) {
+		return false;
+	}
+	try {
+		const realRel = relativePath(realpathSync(root), realpathSync(target));
+		return realRel === '' || (!realRel.startsWith('..') && !isAbsolute(realRel));
+	} catch {
+		// Target doesn't exist (e.g. a glob pattern with wildcards) -- the
+		// lexical check already confirmed it can't escape the root.
+		return true;
+	}
+}
+
+/**
+ * Build a canUseTool callback that allows only the read-only tools, and only
+ * when every path argument they carry stays inside `root`. Everything else is
+ * denied. Fully non-interactive: it always returns an allow/deny decision.
+ */
+function makeCanUseTool(root) {
+	return async (toolName, input) => {
+		if (!READ_ONLY_TOOLS.has(toolName)) {
+			return { behavior: 'deny', message: `Tool "${toolName}" is not permitted; PETE may only read the checkout via Read/Glob/Grep.` };
+		}
+		// Collect the location-bearing args for this tool. Grep's `pattern` is a
+		// regex and its `glob` is a filename filter, so neither is confined here.
+		const candidates = [];
+		if (toolName === 'Read') {
+			if (typeof input.file_path !== 'string') {
+				return { behavior: 'deny', message: 'Read requires a file_path.' };
+			}
+			candidates.push(input.file_path);
+		} else if (toolName === 'Glob') {
+			if (typeof input.pattern === 'string') { candidates.push(input.pattern); }
+			if (typeof input.path === 'string') { candidates.push(input.path); }
+		} else if (toolName === 'Grep') {
+			if (typeof input.path === 'string') { candidates.push(input.path); }
+		}
+		for (const candidate of candidates) {
+			if (!isWithinRoot(root, candidate)) {
+				return { behavior: 'deny', message: `Path "${candidate}" is outside the analysis root; PETE reads are confined to the PR checkout.` };
+			}
+		}
+		return { behavior: 'allow' };
+	};
+}
+
 // --- Agent loop --------------------------------------------------------------
 
 async function runAgent(systemPrompt, userPrompt) {
@@ -151,8 +193,14 @@ async function runAgent(systemPrompt, userPrompt) {
 			model: MODEL,
 			cwd: REPO_ROOT,
 			systemPrompt,
-			allowedTools: ['Read', 'Glob', 'Grep'],
-			permissionMode: 'bypassPermissions',
+			// Gate every tool call through canUseTool (see makeCanUseTool): only
+			// Read/Glob/Grep, and only inside REPO_ROOT. We deliberately do NOT
+			// pre-allow the read tools via `allowedTools` -- a bare allow rule
+			// auto-approves and skips the per-call path check. 'default' mode
+			// routes un-ruled tool calls to canUseTool, which always returns a
+			// decision, so the run stays non-interactive.
+			permissionMode: 'default',
+			canUseTool: makeCanUseTool(REPO_ROOT),
 			maxTurns: MAX_TURNS,
 			// Extended thinking is disabled. With thinking on (the adaptive
 			// default), cancelling a parallel tool-call batch corrupts the
@@ -206,6 +254,41 @@ function wrapWithMarker(body) {
 	return `${COMMENT_MARKER}\n${body}`;
 }
 
+// --- Secret redaction (defense in depth) -------------------------------------
+
+// The agent runs over untrusted PR content with bypassPermissions, and its
+// report is posted verbatim as a public PR comment. Its tools (Read/Glob/Grep)
+// can't run commands and this step's env carries no GitHub token -- but Read
+// can open absolute paths (e.g. /proc/self/environ), so a prompt-injection in
+// PR content could in theory coax the model into echoing a secret from the
+// environment into its report. As a last line of defense, scrub known secret
+// shapes -- and the live ANTHROPIC_API_KEY value -- out of the report before it
+// is ever written to comment.md. Any hit fails the step so nothing is posted.
+const SECRET_PATTERNS = [
+	/sk-ant-[A-Za-z0-9_-]{20,}/g,         // Anthropic API keys
+	/gh[psour]_[A-Za-z0-9]{20,}/g,        // GitHub tokens (ghp_/gho_/ghs_/ghu_/ghr_)
+	/github_pat_[A-Za-z0-9_]{20,}/g,      // GitHub fine-grained PATs
+	/-----BEGIN[A-Z ]+PRIVATE KEY-----/g, // PEM private-key headers (App keys)
+];
+
+/**
+ * Replace any occurrence of the live Anthropic key or a known secret shape with
+ * `[REDACTED]`. Returns the scrubbed text and the number of redactions made.
+ */
+function redactSecrets(text) {
+	let redactions = 0;
+	let out = text;
+	const liveKey = process.env.ANTHROPIC_API_KEY;
+	if (liveKey && out.includes(liveKey)) {
+		out = out.split(liveKey).join('[REDACTED]');
+		redactions++;
+	}
+	for (const re of SECRET_PATTERNS) {
+		out = out.replace(re, () => { redactions++; return '[REDACTED]'; });
+	}
+	return { text: out, redactions };
+}
+
 // --- Main --------------------------------------------------------------------
 
 async function main() {
@@ -240,7 +323,7 @@ async function main() {
 		const fallback = [
 			'## PETE\'s assessment 🧪',
 			'',
-			'**Verdict:** _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
+			'**Verdict:** ⚪ _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
 			'',
 			'---',
 			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Run `/recheck-tests` to retry.</sub>',
@@ -250,8 +333,17 @@ async function main() {
 		process.exit(1);
 	}
 
-	writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(report));
-	console.log(`[analyzer] wrote ${report.length} chars to comment.md (turns=${turnCount}, input_tokens=${usage?.input_tokens}, output_tokens=${usage?.output_tokens})`);
+	const { text: safeReport, redactions } = redactSecrets(report);
+	// Always write the scrubbed text (it is what the artifact preserves). If
+	// anything was redacted, treat it as a possible prompt-injection exfil
+	// attempt: fail the step so the upsert step is skipped and nothing posts,
+	// and surface it for a human to inspect the uploaded artifact.
+	writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(safeReport));
+	if (redactions > 0) {
+		console.error(`::error::[analyzer] redacted ${redactions} secret-shaped string(s) from the report; refusing to post. Possible prompt-injection in PR content -- inspect the uploaded artifact.`);
+		process.exit(1);
+	}
+	console.log(`[analyzer] wrote ${safeReport.length} chars to comment.md (turns=${turnCount}, input_tokens=${usage?.input_tokens}, output_tokens=${usage?.output_tokens})`);
 }
 
 main().catch(err => {

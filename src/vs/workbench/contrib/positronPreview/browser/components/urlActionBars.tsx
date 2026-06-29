@@ -388,7 +388,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
-							icon={ThemeIcon.fromId('positron-refresh')}
+							icon={ThemeIcon.fromId('refresh')}
 							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarMenuButton

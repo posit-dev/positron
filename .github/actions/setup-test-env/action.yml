@@ -22,6 +22,10 @@ runs:
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
+        # Session must outlast the full build + sharded test run so the Bedrock
+        # sign-in e2e test doesn't hit an expired STS token (must be <= role
+        # MaxSessionDuration).
+        role-duration-seconds: 21600
 
     - name: Setup Xvfb
       uses: ./.github/actions/setup-xvfb

@@ -25,8 +25,6 @@ export function isColorThemeVisibleInPicker(themeId: string, currentThemeId: str
 		case 'vs-dark vscode-theme-monokai-themes-monokai-color-theme-json':
 		case 'vs-dark vscode-theme-red-themes-Red-color-theme-json':
 		case 'vs-dark vscode-theme-solarized-dark-themes-solarized-dark-color-theme-json':
-		case 'vs vscode-theme-2026-themes-2026-light-json':
-		case 'vs-dark vscode-theme-2026-themes-2026-dark-json':
 			return false;
 		default:
 			return true;

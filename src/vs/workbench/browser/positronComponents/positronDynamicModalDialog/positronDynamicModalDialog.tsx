@@ -25,6 +25,7 @@ const kGutter = 40;
 export interface PositronDynamicModalDialogProps {
 	renderer: PositronModalDialogReactRenderer;
 	title: string;
+	titleBarSize?: 'normal' | 'large';
 	width: number;
 	content: ReactNode;
 	contentMinHeight?: number;
@@ -32,11 +33,13 @@ export interface PositronDynamicModalDialogProps {
 	footer?: ReactNode;
 	onCancel?: () => void;
 
-	// Optional form submit handler. When provided, the dialog renders a hidden submit button and
-	// inside the wrapping <form> so pressing Enter in any input fires this callback. The dialog
-	// calls preventDefault on the underlying submit event automatically. Footer/content buttons
-	// stay type='button' and never become implicit submit targets themselves -- callers wire
-	// Enter-to-submit by passing onSubmit, not by promoting a button.
+	// Optional form submit handler. The content and footer are always wrapped in a <form>; when this
+	// is provided, pressing Enter in any input fires this callback (the dialog calls preventDefault on
+	// the underlying submit event automatically). Enter-to-submit only fires if the footer includes a
+	// button with type='submit' to serve as the form's implicit submit target -- callers opt in
+	// per button (Button defaults to type='button', so other buttons never become the submit target).
+	// Wire onSubmit to the SAME action as that submit button's onPressed, otherwise Enter and a mouse
+	// click on the primary button will do different things.
 	onSubmit?: () => void;
 }
 
@@ -228,14 +231,13 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				top: dialogBoxState.top,
 				width: props.width,
 			}}>
-				<TitleBar title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
+				<TitleBar size={props.titleBarSize} title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
-					The content area and footer are always wrapped in a <form>. Enter-key
-					implicit submission only activates when a submit target exists -- in this
-					component that target is the hidden <button type='submit'> rendered below
-					when the caller passes onSubmit. Other buttons in the dialog use type='button'
-					and never serve as the submit target, so callers can compose any footer or
-					content without worrying about which button "is" the submit button.
+					The content area and footer are always wrapped in a <form>. Enter-key implicit
+					submission only activates when a submit target exists -- i.e. when the footer
+					includes a button with type='submit'. Button defaults to type='button', so other
+					buttons never serve as the submit target, letting callers compose any footer or
+					content while choosing exactly which button "is" the submit button.
 				*/}
 				<form className='positron-dynamic-modal-dialog-form' onSubmit={submitHandler}>
 					<div className='content-area' style={{

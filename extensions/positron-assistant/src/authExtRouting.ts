@@ -10,6 +10,7 @@
 
 import * as vscode from 'vscode';
 import { ModelProviderLogger } from './providers/base/modelProviderLogger.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 
 /** Providers whose credentials are managed by the authentication extension. */
 const AUTH_EXT_PROVIDERS = new Set<string>([
@@ -86,11 +87,19 @@ export async function getApiKey(
  * extension for migrated providers, falls back to legacy secret storage.
  */
 export async function resolveApiKey(
-	config: { provider: string; id: string; name: string },
+	config: { provider: string; id: string },
 	secrets: vscode.SecretStorage
 ): Promise<string | undefined> {
-	return isAuthExtProvider(config.provider)
-		? getApiKey(config.provider, config.id, config.name, secrets)
-		: secrets.get(`apiKey-${config.id}`);
+	if (!isAuthExtProvider(config.provider)) {
+		return secrets.get(`apiKey-${config.id}`);
+	}
+	let displayName = config.provider;
+	for (const metadata of Object.values(PROVIDER_METADATA)) {
+		if (metadata.id === config.provider) {
+			displayName = metadata.displayName;
+			break;
+		}
+	}
+	return getApiKey(config.provider, config.id, displayName, secrets);
 }
 

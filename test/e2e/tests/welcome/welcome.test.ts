@@ -41,7 +41,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.reloadWindow(true);
 
 			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Jupyter Notebooks in Positron']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
@@ -51,17 +51,17 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher',
-				'Explore the Positron Notebook Editor in Alpha'
+				'Jupyter Notebooks in Positron'
 			]);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
-			const { welcome, popups, editors, notebooks } = app.workbench;
+			const { welcome, popups, editors, notebooksPositron } = app.workbench;
 
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('Python Notebook');
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(availableRuntimes['python'].name);
+			await notebooksPositron.kernel.expectBadgeToContain(availableRuntimes['python'].name);
 		});
 
 		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
@@ -73,13 +73,14 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, sessions, r }) {
-			const { welcome, popups, editors, notebooks } = app.workbench;
+			const { welcome, popups, editors, notebooksPositron } = app.workbench;
 
 			await welcome.newNotebookButton.click();
 			await popups.clickItem('R Notebook');
 
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
-			await notebooks.expectKernelToBe(availableRuntimes['r'].name);
+			// Verify the Positron notebook editor's kernel badge shows the R runtime.
+			await notebooksPositron.kernel.expectBadgeToContain(availableRuntimes['r'].name);
 			await sessions.deleteAll();
 		});
 

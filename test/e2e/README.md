@@ -9,6 +9,7 @@ This document provides guidelines and setup instructions for effectively running
 - [Dependencies](#dependencies)
 - [Running Tests](#running-tests)
 - [Test Project](#test-project)
+- [Remote WSL Tests](#remote-wsl-tests)
 - [Pull Requests and Test Tags](#pull-requests-and-test-tags)
 - [Running Tests in Github Actions](#running-tests-in-github-actions)
 - [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
@@ -35,13 +36,13 @@ An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/tests
 
 ### Environment Variables
 
-In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. There is an example env file available, just copy this into root of repo `.env.e2e`:
+In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. Copy `.env.e2e.example` to `.env.e2e` in the root of the repo and update the values:
 
 ```bash
-export POSITRON_PY_VER_SEL="3.11.5"
-export POSITRON_R_VER_SEL="4.2.1"
-export POSITRON_PY_ALT_VER_SEL='3.13.0 (Pyenv)'
-export POSITRON_R_ALT_VER_SEL='4.4.2'
+POSITRON_PY_VER_SEL=3.11.5
+POSITRON_R_VER_SEL=4.2.1
+POSITRON_PY_ALT_VER_SEL=3.13.0 (Pyenv)
+POSITRON_R_ALT_VER_SEL=4.4.2
 ```
 
 Make sure you have the selected R and Python version installed that you are using for the environment variables.
@@ -191,6 +192,43 @@ Before any of the tests start executing the test framework clones down the [QA C
 For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
+
+## Remote WSL Tests
+
+The `e2e-remote-wsl` project (tag `@:remote-wsl`, tests under `test/e2e/tests/remote-wsl/`) exercises connecting Positron to a [WSL](https://learn.microsoft.com/windows/wsl/) distro via the `open-remote-wsl` extension. These tests run **only on Windows** and are excluded from the normal suites.
+
+### Prerequisites
+
+- Windows with WSL installed and at least one glibc-based distro registered (e.g. `Ubuntu`). The REH (remote extension host) is a glibc `linux-x64` binary, so musl distros (Alpine) won't work. Pick the distro with `POSITRON_WSL_DISTRO` (defaults to `Ubuntu`).
+- A Positron REH tarball reachable from inside the distro. A dev build's `product.json` has no `commit`/`version`, so the extension's default download URL (a CDN template with `${version}`/`${commit}`) can't be resolved. Provide a local tarball instead and point the extension at it with `POSITRON_WSL_SERVER_DOWNLOAD_URL`.
+- For the Python and R tests, the distro must have Python and R interpreters installed and discoverable by Positron. The session picker matches the version in `POSITRON_PY_VER_SEL` / `POSITRON_R_VER_SEL` (bare version strings, e.g. `3.12.11`, `4.4.3`); since the in-distro interpreters differ from the local Windows ones, override them with `POSITRON_PY_WSL_VER_SEL` / `POSITRON_R_WSL_VER_SEL`. When unset, the local selectors are used as-is.
+
+### Build a local REH
+
+```bash
+# From the repo root. Produces ../vscode-reh-linux-x64
+npm run gulp vscode-reh-linux-x64
+
+# Package it so `bin/positron-server` lands at the tarball root (the extension extracts with
+# --strip-components 1, stripping the top-level vscode-reh-linux-x64/ directory).
+tar czf positron-reh-linux-x64.tar.gz -C .. vscode-reh-linux-x64
+```
+
+### Run
+
+```bash
+# Dev build (no BUILD). The file:// URL is read from inside the distro via /mnt/c.
+POSITRON_WSL_DISTRO=Ubuntu \
+POSITRON_WSL_SERVER_DOWNLOAD_URL=file:///mnt/c/path/to/positron-reh-linux-x64.tar.gz \
+POSITRON_PY_WSL_VER_SEL=3.12.11 \
+POSITRON_R_WSL_VER_SEL=4.4.3 \
+npx playwright test --project e2e-remote-wsl --workers=1
+```
+
+The suite connects to the distro and waits for the `WSL: <distro>` remote indicator, then: runs `uname` in a terminal to confirm the workbench is executing inside Linux; starts a Python session and evaluates code, checking the result in the console and Variables pane; and does the same for R.
+
+> [!NOTE]
+> CI for this project (a Windows runner that provisions WSL + the REH) is not yet wired up; it is planned as a follow-up.
 
 ## Pull Requests and Test Tags
 

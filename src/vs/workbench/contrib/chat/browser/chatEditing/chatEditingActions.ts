@@ -40,9 +40,17 @@ import { ChatTreeItem, IChatWidget, IChatWidgetService } from '../chat.js';
 export abstract class EditingSessionAction extends Action2 {
 
 	constructor(opts: Readonly<IAction2Options>) {
+		// --- Start Positron ---
+		// Hide all subclasses when AI features are disabled.
+		const aiDisabledGuard = ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true);
+		const precondition = opts.precondition
+			? ContextKeyExpr.and(opts.precondition, aiDisabledGuard)
+			: aiDisabledGuard;
+		// --- End Positron ---
 		super({
 			category: CHAT_CATEGORY,
-			...opts
+			...opts,
+			precondition,
 		});
 	}
 
@@ -296,14 +304,8 @@ export async function discardAllEditsWithConfirmation(accessor: ServicesAccessor
 		const confirmation = await dialogService.confirm({
 			title: localize('chat.editing.discardAll.confirmation.title', "Undo all edits?"),
 			message: entries.length === 1
-				// --- Start Positron ---
-				/*
 				? localize('chat.editing.discardAll.confirmation.oneFile', "This will undo changes made in {0}. Do you want to proceed?", basename(entries[0].modifiedURI))
 				: localize('chat.editing.discardAll.confirmation.manyFiles', "This will undo changes made in {0} files. Do you want to proceed?", entries.length),
-				*/
-				? localize('chat.editing.discardAll.confirmation.oneFile', "This will undo changes made by {0} in {1}. Do you want to proceed?", 'Assistant Edits', basename(entries[0].modifiedURI))
-				: localize('chat.editing.discardAll.confirmation.manyFiles', "This will undo changes made by {0} in {1} files. Do you want to proceed?", 'Assistant Edits', entries.length),
-			// --- End Positron ---
 			primaryButton: localize('chat.editing.discardAll.confirmation.primaryButton', "Yes"),
 			type: 'info'
 		});
@@ -449,6 +451,10 @@ registerAction2(class RemoveAction extends Action2 {
 			title: localize2('chat.undoEdits.label', "Undo Requests"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			icon: Codicon.discard,
 			keybinding: {
 				primary: KeyCode.Delete,
@@ -503,6 +509,10 @@ registerAction2(class RestoreCheckpointAction extends Action2 {
 			tooltip: localize2('chat.restoreCheckpoint.tooltip', "Restores workspace and chat to this point"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			keybinding: {
 				primary: KeyCode.Delete,
 				mac: {
@@ -558,6 +568,10 @@ registerAction2(class StartOverAction extends Action2 {
 			tooltip: localize2('chat.startOver.tooltip', "Clears the chat and undoes all changes"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			menu: [
 				{
 					id: MenuId.ChatMessageCheckpoint,
@@ -594,11 +608,15 @@ registerAction2(class RestoreLastCheckpoint extends Action2 {
 			f1: true,
 			category: CHAT_CATEGORY,
 			icon: Codicon.discard,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
 			precondition: ContextKeyExpr.and(
 				ChatContextKeys.inChatSession,
 				ContextKeyExpr.equals(`config.${ChatConfiguration.CheckpointsEnabled}`, true),
-				ContextKeyExpr.or(ChatContextKeys.lockedToCodingAgent.negate(), ChatContextKeyExprs.isAgentHostSession)
-			)
+				ContextKeyExpr.or(ChatContextKeys.lockedToCodingAgent.negate(), ChatContextKeyExprs.isAgentHostSession),
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 		});
 	}
 
@@ -642,6 +660,10 @@ registerAction2(class EditAction extends Action2 {
 			title: localize2('chat.editRequests.label', "Edit Request"),
 			f1: false,
 			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+			// --- End Positron ---
 			icon: Codicon.edit,
 			keybinding: {
 				primary: KeyCode.Enter,

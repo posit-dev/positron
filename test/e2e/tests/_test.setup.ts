@@ -21,7 +21,7 @@ import {
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
-import { runDockerCommand, RunResult } from '../fixtures/test-setup/docker-utils.js';
+import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixtures/test-setup/docker-utils.js';
 
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
@@ -31,6 +31,14 @@ let renamedLogsPath = 'not-set';
 // Test fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
+
+	managedCredentials: [undefined, { scope: 'worker', option: true }],
+
+	useLegacyNotebookEditor: [false, { scope: 'worker', option: true }],
+
+	enableDataConnections: [false, { scope: 'worker', option: true }],
+
+	enableFoundryAssistant: [false, { scope: 'worker', option: true }],
 
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
@@ -97,15 +105,38 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// placeholder for area-specific fixtures that need to run before app starts
 	// e.g. changing settings that require an app reload
-	// see notebooks-positron/_test.setup.ts for example usage
 	beforeApp: [
-		async ({ }, use) => {
+		async ({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, settingsFile }, use) => {
+			if (useLegacyNotebookEditor) {
+				// These tests exercise the legacy (VS Code) notebook editor. The
+				// Positron notebook editor is now the default, so disable it before
+				// the app starts to avoid waiting for a window reload. Suites opt in
+				// with `test.use({ useLegacyNotebookEditor: true })`.
+				await settingsFile.append({ 'positron.notebook.enabled': false });
+			}
+
+			if (enableDataConnections) {
+				// The Data Connections panel is a preview feature gated behind this
+				// setting, which requires a reload to take effect. Enable it before the
+				// app starts so no reload is needed. Suites opt in with
+				// `test.use({ enableDataConnections: true })`.
+				await settingsFile.append({ 'databases.enabled': true });
+			}
+
+			if (enableFoundryAssistant) {
+				// Enable the Microsoft Foundry (msFoundry) assistant provider before
+				// the app starts so no reload is needed. Suites opt in with
+				// `test.use({ enableFoundryAssistant: true })`. The Docker apps merge
+				// the same settings via dockerSettingsOverrides.
+				await settingsFile.append({ ...FOUNDRY_ASSISTANT_SETTINGS });
+			}
+
 			await use();
 		},
 		{ scope: 'worker' }],
 
-	app: [async ({ options, logsPath, logger, beforeApp: _beforeApp }, use, workerInfo) => {
-		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
+	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, beforeApp: _beforeApp }, use, workerInfo) => {
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant });
 
 		try {
 			await start();
@@ -129,7 +160,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 90000 }],
+		// Workbench projects sign in through Okta inside start(). That auth shares one TOTP
+		// account across parallel shards, so a rejected/locked-out code triggers a jittered
+		// backoff (see otpRetry.ts) of up to ~60s before re-submitting. 90s left no room for a
+		// backoff to complete alongside OAuth navigation, so allow headroom for one retry.
+	}, { scope: 'worker', auto: true, timeout: 180000 }],
 
 	assistant: [
 		async ({ app }, use) => {
@@ -516,6 +551,10 @@ export interface TestFixtures {
 
 export interface WorkerFixtures {
 	suiteId: string;
+	managedCredentials: 'snowflake' | 'databricks' | 'azure' | undefined;
+	useLegacyNotebookEditor: boolean;
+	enableDataConnections: boolean;
+	enableFoundryAssistant: boolean;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;

@@ -1,15 +1,24 @@
 import { ConfigurationTarget } from 'vscode';
-import { IInterpreterPathService } from '../../../common/types';
+// --- Start Positron ---
+import { IInterpreterPathService, InterpreterPathUpdateOptions } from '../../../common/types';
+// --- End Positron ---
 import { IPythonPathUpdaterService } from '../types';
 
 export class GlobalPythonPathUpdaterService implements IPythonPathUpdaterService {
     constructor(private readonly interpreterPathService: IInterpreterPathService) {}
-    public async updatePythonPath(pythonPath: string | undefined): Promise<void> {
+    public async updatePythonPath(
+        pythonPath: string | undefined,
+        // --- Start Positron ---
+        options?: InterpreterPathUpdateOptions,
+        // --- End Positron ---
+    ): Promise<void> {
         const pythonPathValue = this.interpreterPathService.inspect(undefined);
 
         if (pythonPathValue && pythonPathValue.globalValue === pythonPath) {
             return;
         }
-        await this.interpreterPathService.update(undefined, ConfigurationTarget.Global, pythonPath);
+        // --- Start Positron ---
+        await this.interpreterPathService.update(undefined, ConfigurationTarget.Global, pythonPath, options);
+        // --- End Positron ---
     }
 }

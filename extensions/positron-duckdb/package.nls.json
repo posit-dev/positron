@@ -1,4 +1,4 @@
 {
-	"displayName": "Positron DuckDB Wasm Support",
+	"displayName": "Positron DuckDB Support",
 	"description": "Provides DuckDB support for headless data explorers for previewing data files."
 }

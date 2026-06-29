@@ -93,6 +93,9 @@ const notebookCodeActionsOnSaveSchema: IConfigurationPropertySchema = {
 		}
 	],
 	markdownDescription: nls.localize('notebook.codeActionsOnSave', 'Run a series of Code Actions for a notebook on save. Code Actions must be specified and the editor must not be shutting down. When {0} is set to `afterDelay`, Code Actions will only be run when the file is saved explicitly. Example: `"notebook.source.organizeImports": "explicit"`', '`#files.autoSave#`'),
+	// --- Start Positron ---
+	tags: ['positronNotebook'],
+	// --- End Positron ---
 	type: 'object',
 	additionalProperties: {
 		type: ['string', 'boolean'],

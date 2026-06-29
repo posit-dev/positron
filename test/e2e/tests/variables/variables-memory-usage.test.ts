@@ -56,6 +56,30 @@ test.describe('Variables: Memory Usage', {
 		});
 	});
 
+	test('Low memory warning icon appears when memory is low', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+		const { variables } = app.workbench;
+
+		// Set a fast polling interval and a 100% threshold. The warning fires when
+		// free memory is at or below this percentage of total memory, and free
+		// memory can never exceed total, so a 100% threshold ALWAYS qualifies as
+		// "low" regardless of how the underlying provider reports memory.
+		//
+		// Reload on web since the live value update doesn't propagate there.
+		await settings.set({
+			'memoryUsage.pollingIntervalMs': 1000,
+			'memoryUsage.lowMemoryThresholdPercent': 100,
+		}, { reload: 'web' });
+
+		// Start a Python session so the variables pane shows a memory meter.
+		await sessions.start(['python']);
+
+		// Wait for the memory meter to report a real measurement.
+		await variables.expectMemoryMeterReady();
+
+		// The low-memory warning icon should be shown.
+		await variables.expectLowMemoryWarning(true);
+	});
+
 	test.skip('Reconnected session reappears in memory usage meter after extension host restart', {
 		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 	}, async function ({ app, sessions, settings }) {

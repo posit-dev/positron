@@ -1,0 +1,5 @@
+# The DuckDB excel extension is downloaded at install time by
+# scripts/install-excel-extension.ts; it is not checked in.
+excel.duckdb_extension
+excel.duckdb_extension.footer
+EXCEL_VERSION

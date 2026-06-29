@@ -82,7 +82,7 @@ else {
 			// This only applies to dev builds where it is not possible to read the
 			// product configuration. Release builds replace the product configuration
 			// during the build. See INSERT_PRODUCT_CONFIGURATION above.
-			positronVersion: '2026.06.0',
+			positronVersion: '2026.07.0',
 			positronBuildNumber: '0',
 			date: new Date().toISOString(),
 			nameShort: 'Positron Dev',

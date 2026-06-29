@@ -119,9 +119,6 @@ export interface ICodeBlockRenderOptions {
 }
 
 const defaultCodeblockPadding = 10;
-// --- Start Positron ---
-const codeBlockScrollDelta = 13; // how far above the top of the container a code block needs to be scrolled to show the toolbar at the bottom
-// --- End Positron ---
 const defaultChatScrollbarSize = 7;
 export class CodeBlockPart extends Disposable {
 
@@ -316,21 +313,6 @@ export class CodeBlockPart extends Disposable {
 		if (delegate.onDidScroll) {
 			this._register(delegate.onDidScroll(e => {
 				this.clearWidgets();
-				// --- Start Positron ---
-				const delegateTop = delegate.container.getBoundingClientRect().top;
-				const toolbarTop = toolbarElement.getElementsByClassName('monaco-toolbar')[0]?.getBoundingClientRect().top || 0;
-				const parentTop = toolbarElement.parentElement?.getBoundingClientRect().top || 0;
-
-				if (toolbarTop !== 0) {
-					if (!toolbarElement.classList.contains('bottom') && parentTop < (delegateTop - codeBlockScrollDelta)) {
-						// Toolbar is above the delegate
-						toolbarElement.classList.add('bottom');
-					} else if (toolbarElement.classList.contains('bottom') && parentTop >= (delegateTop - codeBlockScrollDelta)) {
-						// Toolbar is below the delegate
-						toolbarElement.classList.remove('bottom');
-					}
-				}
-				// --- End Positron ---
 			}));
 		}
 
@@ -609,14 +591,6 @@ export class CodeBlockPart extends Disposable {
 		this.setText(data.text);
 		this.setLanguage(data.languageId);
 		this.updateContexts(data);
-
-		// --- Start Positron ---
-		// TODO 1.104.0 Possibly needed if the upstream change to update contexts if the editor model content update contexts isn't enough
-		// Update context whenever the model content changes
-		// this._register(textModel.onDidChangeContent(() => {
-		// 	this.updateContexts(data);
-		// }));
-		// --- End Positron ---
 
 		return true;
 	}

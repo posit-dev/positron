@@ -31,18 +31,23 @@ import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase 
 
 const languageModelsOpenSettingsIcon = registerIcon('language-models-open-settings', Codicon.goToFile, localize('languageModelsOpenSettings', 'Icon for open language models settings commands.'));
 
-const LANGUAGE_MODELS_ENTITLEMENT_PRECONDITION = ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(
-	// --- Start Positron ---
-	ContextKeyTrueExpr.INSTANCE,
-	// --- End Positron ---
-	ChatContextKeys.Entitlement.planFree,
-	ChatContextKeys.Entitlement.planEdu,
-	ChatContextKeys.Entitlement.planPro,
-	ChatContextKeys.Entitlement.planProPlus,
-	ChatContextKeys.Entitlement.planBusiness,
-	ChatContextKeys.Entitlement.planEnterprise,
-	ChatContextKeys.Entitlement.internal
-));
+// --- Start Positron ---
+// Hide language model management UI when the user has disabled AI features.
+const LANGUAGE_MODELS_ENTITLEMENT_PRECONDITION = ContextKeyExpr.and(
+	ChatContextKeys.enabled,
+	ContextKeyExpr.notEquals('config.chat.disableAIFeatures', true),
+	ContextKeyExpr.or(
+		ContextKeyTrueExpr.INSTANCE,
+		ChatContextKeys.Entitlement.planFree,
+		ChatContextKeys.Entitlement.planEdu,
+		ChatContextKeys.Entitlement.planPro,
+		ChatContextKeys.Entitlement.planProPlus,
+		ChatContextKeys.Entitlement.planBusiness,
+		ChatContextKeys.Entitlement.planEnterprise,
+		ChatContextKeys.Entitlement.internal
+	)
+);
+// --- End Positron ---
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(

@@ -15,6 +15,7 @@ type EditorActionBarButton =
 	| 'Open in Viewer'
 	| 'Move into new window'
 	| 'Open as Plain Text File'
+	| 'Open as Spreadsheet'
 	| 'Deploy with Posit Publisher'
 	| 'Convert to Code'
 	| 'Clear Column Sorting'
@@ -36,7 +37,11 @@ export class EditorActionBar {
 	 * @param button - Name of the button to click in the editor action bar.
 	 */
 	async clickButton(button: EditorActionBarButton): Promise<void> {
-		const buttonLocator = this.page.getByLabel(button, { exact: true });
+		// Use `.first()` so split buttons resolve to their primary action: the
+		// primary renders before the dropdown chevron, and both carry the same
+		// aria-label (e.g. the Quarto "Preview" split button). For single-element
+		// buttons this is a no-op.
+		const buttonLocator = this.page.getByLabel(button, { exact: true }).first();
 
 		if (button === 'Split Editor Down') {
 			// Special case: "Split Editor Down" requires holding Alt key

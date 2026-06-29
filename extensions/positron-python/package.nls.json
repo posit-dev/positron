@@ -9,6 +9,7 @@
     "python.languageModelTools.configure_python_environment.userDescription": "Configure a Python Environment for a workspace",
     "python.command.python.startNativeREPL.title": "Start Native Python REPL",
     "python.command.python.createEnvironment.title": "Create Environment...",
+    "python.command.python.installPythonViaUv.title": "Install Python via uv",
     "python.command.python.createNewFile.title": "New Python File",
     "python.command.python.createPyprojectToml.title": "Create pyproject.toml If Not Found",
     "python.command.python.createTerminal.title": "Create Terminal",

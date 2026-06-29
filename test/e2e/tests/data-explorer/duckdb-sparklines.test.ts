@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,14 +24,14 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 
 		await summaryPanel.show();
 		await summaryPanel.verifyMissingPercent([
-			{ column: 1, expected: '0%' },
+			{ column: 1, expected: '100%' },
 			{ column: 2, expected: '0%' },
 			{ column: 3, expected: '0%' },
 			{ column: 4, expected: '0%' },
 			{ column: 5, expected: '0%' }
 		]);
 		await summaryPanel.verifyColumnData([
-			{ column: 1, expected: { 'Missing': '0', 'Min': '0', 'Median': '0', 'Mean': '0', 'Max': '0', 'SD': '0' } },
+			{ column: 1, expected: { 'Missing': '100', 'Min': '0', 'Median': '0', 'Mean': '0', 'Max': '0', 'SD': '0' } },
 			{ column: 2, expected: { 'Missing': '0', 'Empty': '0', 'Unique': '100' } },
 			{ column: 3, expected: { 'Missing': '0', 'True': '46', 'False': '54' } },
 			{ column: 4, expected: { 'Missing': '0', 'Min': '-125', 'Median': '-11', 'Mean': '-2.71', 'Max': '126', 'SD': '75.02' } },

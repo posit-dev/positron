@@ -18,14 +18,18 @@ import { ProcessServiceFactory } from '../../../client/common/process/processFac
 import { IProcessService, IProcessServiceFactory } from '../../../client/common/process/types';
 import { TerminalHelper } from '../../../client/common/terminal/helper';
 import { ITerminalHelper } from '../../../client/common/terminal/types';
-import { ICurrentProcess, Resource } from '../../../client/common/types';
+// --- Start Positron ---
+import { ICurrentProcess } from '../../../client/common/types';
+// --- End Positron ---
 import { getNamesAndValues } from '../../../client/common/utils/enum';
 import { Architecture, OSType } from '../../../client/common/utils/platform';
 import { EnvironmentVariablesProvider } from '../../../client/common/variables/environmentVariablesProvider';
 import { IEnvironmentVariablesProvider } from '../../../client/common/variables/types';
 import { EXTENSION_ROOT_DIR } from '../../../client/constants';
 import { EnvironmentActivationService } from '../../../client/interpreter/activation/service';
-import { IInterpreterService } from '../../../client/interpreter/contracts';
+// --- Start Positron ---
+import { IInterpreterService, InterpreterChangeEvent } from '../../../client/interpreter/contracts';
+// --- End Positron ---
 import { InterpreterService } from '../../../client/interpreter/interpreterService';
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { getSearchPathEnvVarNames } from '../../../client/common/utils/exec';
@@ -49,7 +53,9 @@ suite('Interpreters Activation - Python Environment Variables', () => {
     let workspace: IWorkspaceService;
     let interpreterService: IInterpreterService;
     let onDidChangeEnvVariables: EventEmitter<Uri | undefined>;
-    let onDidChangeInterpreter: EventEmitter<Resource>;
+    // --- Start Positron ---
+    let onDidChangeInterpreter: EventEmitter<InterpreterChangeEvent>;
+    // --- End Positron ---
     const pythonInterpreter: PythonEnvironment = {
         path: '/foo/bar/python.exe',
         version: new SemVer('3.6.6-final'),
@@ -69,7 +75,9 @@ suite('Interpreters Activation - Python Environment Variables', () => {
         interpreterService = mock(InterpreterService);
         workspace = mock(WorkspaceService);
         onDidChangeEnvVariables = new EventEmitter<Uri | undefined>();
-        onDidChangeInterpreter = new EventEmitter<Resource>();
+        // --- Start Positron ---
+        onDidChangeInterpreter = new EventEmitter<InterpreterChangeEvent>();
+        // --- End Positron ---
         when(envVarsService.onDidEnvironmentVariablesChange).thenReturn(onDidChangeEnvVariables.event);
         when(interpreterService.onDidChangeInterpreter).thenReturn(onDidChangeInterpreter.event);
         when(interpreterService.getActiveInterpreter(anything())).thenResolve(interpreter);

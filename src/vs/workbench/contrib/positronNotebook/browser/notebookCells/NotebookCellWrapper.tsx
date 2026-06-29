@@ -17,6 +17,7 @@ import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { CellTagsBar } from './CellTagsBar.js';
 import { CellProvider } from './CellProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -219,6 +220,9 @@ export function NotebookCellWrapper({ cell, children }: {
 			>
 				{children}
 			</NotebookErrorBoundary>
+			{/* Code cells render their tags inside the footer; markdown / raw cells */}
+			{/* have no footer, so they show tags standalone at the cell bottom. */}
+			{!cell.isCodeCell() && <CellTagsBar standalone cell={cell} />}
 		</CellProvider>
 		<ScreenReaderOnly>
 			{announcement}

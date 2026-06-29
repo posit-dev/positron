@@ -127,6 +127,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			output_id: data.transient?.display_id,
 			data: data.data,
 			metadata: message.metadata,
+			outputMetadata: data.metadata,
 			execution_count: data.execution_count,
 		} satisfies positron.LanguageRuntimeResult);
 	}
@@ -139,8 +140,6 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 	 * @param data The display_data message
 	 */
 	onDisplayData(message: JupyterMessage, data: JupyterDisplayData) {
-		// NOTE: We don't yet include data.metadata i.e. display metadata,
-		//       which is not the same as message.metadata.
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -149,6 +148,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			output_id: data.transient?.display_id,
 			data: data.data,
 			metadata: message.metadata,
+			outputMetadata: data.metadata,
 		} satisfies positron.LanguageRuntimeOutput);
 	}
 

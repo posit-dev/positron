@@ -339,6 +339,33 @@ export class PositronModalReactRenderer extends Disposable {
 	}
 
 	/**
+	 * Disposes the contiguous run of popup renderers at the top of the stack, stopping below the
+	 * topmost non-popup renderer (e.g. a modal dialog). A renderer counts as a popup when it has
+	 * registered a bounds provider via setBoundsProvider (PositronModalPopup does; modal dialogs
+	 * do not). This lets a click outside every popup dismiss the whole popup/menu chain while
+	 * leaving an underlying dialog open. When the stack is all popups, this disposes them all,
+	 * matching disposeAll.
+	 */
+	public static disposeTopPopups(): void {
+		// Collect the stack from bottom to top.
+		const renderers: PositronModalReactRenderer[] = [];
+		PositronModalReactRenderer._renderersStack.forEach(renderer => renderers.push(renderer));
+
+		// Walk down from the top while renderers are popups; the lowest popup in this contiguous
+		// run is the base to dispose (dispose() cascades to everything above it).
+		let base: PositronModalReactRenderer | undefined;
+		for (let i = renderers.length - 1; i >= 0; i--) {
+			if (renderers[i]._boundsProvider === undefined) {
+				break;
+			}
+			base = renderers[i];
+		}
+
+		// Dispose the base of the popup run, which cascades to the popups above it.
+		base?.dispose();
+	}
+
+	/**
 	 * Renders the ReactElement that was supplied.
 	 * @param reactElement The ReactElement to render.
 	 */

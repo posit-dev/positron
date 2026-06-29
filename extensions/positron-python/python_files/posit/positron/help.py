@@ -21,7 +21,7 @@ from .help_comm import (
 )
 from .positron_comm import CommMessage, PositronComm
 from .pydoc import start_server
-from .utils import JsonRecord, get_qualname
+from .utils import JsonRecord, get_module_name, get_qualname
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
@@ -62,6 +62,45 @@ def _distribution_to_modules(name: str) -> list[str]:
     # matches the distribution name.
     modules.sort(key=lambda m: _canonicalize_distribution_name(m) != canonical)
     return modules
+
+
+def _safe_locate(path: str) -> Any:
+    """Resolve `path` with `pydoc.locate`, returning None instead of raising.
+
+    `pydoc.locate` imports modules along the path and re-raises any error during import
+    (wrapped in `pydoc.ErrorDuringImport`). Resolving a help key must never crash the help
+    request, so we swallow any failure and treat it as "not resolvable".
+    """
+    with contextlib.suppress(Exception):
+        return pydoc.locate(path)
+    return None
+
+
+def _locatable_key(key: str, obj: Any) -> str:
+    """Return a key that `pydoc.locate` can resolve back to `obj`.
+
+    The pydoc server renders help by resolving a key string with `pydoc.locate`. Most
+    objects' qualified names resolve fine, but some libraries expose callables whose
+    `__qualname__` encodes a private defining class (e.g. `torch._VariableFunctionsClass.abs`),
+    which `pydoc.locate` can't import. In that case, fall back to a public path built from the
+    object's module and name (e.g. `torch.abs`), preferring the full module path and then the
+    top-level package.
+
+    Each candidate is only accepted if it resolves back to the same object, so an unrelated
+    name can never be substituted. If nothing resolves, the original key is returned unchanged.
+    """
+    if _safe_locate(key) is obj:
+        return key
+
+    name = getattr(obj, "__name__", None)
+    module = get_module_name(obj)
+    if name and module:
+        candidates = (f"{module}.{name}", f"{module.split('.')[0]}.{name}")
+        for candidate in candidates:
+            if candidate != key and _safe_locate(candidate) is obj:
+                return candidate
+
+    return key
 
 
 def help(topic="help"):  # noqa: A001
@@ -179,6 +218,12 @@ class HelpService:
                 if key.startswith(old):
                     key = key.replace(old, new)
                     break
+
+            # Some libraries (e.g. torch, tensorflow) expose callables whose __qualname__
+            # encodes a private defining class (e.g. torch._VariableFunctionsClass.abs), so the
+            # qualname-based key can't be resolved by pydoc.locate() on the server side. Fall back
+            # to a public path derived from the object's module and name.
+            key = _locatable_key(key, obj)
 
         url = f"{self._pydoc_thread.url}get?key={key}"
 

@@ -185,7 +185,7 @@ export class Toasts {
 			// Open the notification center to check for the import settings notification.
 			await this.openNotificationCenter();
 
-			const importSettingsNotification = this.notificationsCenter.locator('.notification-list-item').filter({
+			const importSettingsNotification = this.code.driver.currentPage.locator('.notification-list-item').filter({
 				hasText: /Import your settings from Visual Studio Code/
 			});
 

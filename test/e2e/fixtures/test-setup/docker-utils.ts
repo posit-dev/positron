@@ -49,12 +49,58 @@ export async function runDockerCommand(command: string, description: string): Pr
 }
 
 /**
- * Copy merged settings (base + Docker overrides) to the container
+ * Settings that enable the Microsoft Foundry (msFoundry) assistant provider.
+ *
+ * On the Azure Workbench shard the provider is authenticated transparently via
+ * Posit Workbench managed credentials (the authentication extension brokers an
+ * `ms-foundry` session, gated on `posit.workbench.foundry.endpoint` being set),
+ * so no interactive sign-in is required. positAI is disabled so the Foundry
+ * model is the one exercised. Shared by the host-side `beforeApp` fixture and
+ * `dockerSettingsOverrides` so the two paths cannot drift.
+ */
+export const FOUNDRY_ASSISTANT_SETTINGS = {
+	'positron.assistant.enable': true,
+	'positron.assistant.provider.positAI.enable': false,
+	'positron.assistant.models.overrides.msFoundry': [{ name: 'model-router', identifier: 'model-router' }],
+	'positron.assistant.provider.msFoundry.enable': true,
+	'posit.workbench.foundry.endpoint': 'https://east2testai.services.ai.azure.com/',
+	'authentication.foundry.baseUrl': 'https://east2testai.services.ai.azure.com/openai/v1',
+} as const;
+
+/**
+ * Build the settings overrides driven by test options for the Docker apps.
+ *
+ * Mirrors the host-side `beforeApp` fixture: when a suite opts into the legacy
+ * (VS Code) notebook editor, the Positron notebook editor is disabled; when a
+ * suite opts into the Foundry assistant, its settings are merged in. Returns
+ * `undefined` when there is nothing to override.
+ */
+export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolean; enableDataConnections?: boolean; enableFoundryAssistant?: boolean }): object | undefined {
+	const overrides: Record<string, unknown> = {};
+	if (opts.useLegacyNotebookEditor) {
+		overrides['positron.notebook.enabled'] = false;
+	}
+	if (opts.enableDataConnections) {
+		overrides['databases.enabled'] = true;
+	}
+	if (opts.enableFoundryAssistant) {
+		Object.assign(overrides, FOUNDRY_ASSISTANT_SETTINGS);
+	}
+	return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
+/**
+ * Copy merged settings (base + Docker overrides) to the container.
+ *
+ * `overrides` are merged last so they win over anything in the fixture files. The
+ * Docker apps read settings from the container rather than the host `settingsFile`,
+ * so test-driven settings (e.g. `useLegacyNotebookEditor`) must be threaded in here.
  */
 export async function copyUserSettingsToContainer(
 	containerName: string,
 	userPath: string,
-	settingsFiles: string[]
+	settingsFiles: string[],
+	overrides?: object
 ): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 
@@ -66,6 +112,11 @@ export async function copyUserSettingsToContainer(
 			const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
 			Object.assign(mergedSettings, settings);
 		}
+	}
+
+	// Test-driven overrides win over the fixture files
+	if (overrides) {
+		Object.assign(mergedSettings, overrides);
 	}
 
 	// Create temporary merged settings file

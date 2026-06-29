@@ -1341,6 +1341,9 @@ suite('Set Interpreter Command', () => {
                         TypeMoq.It.isValue(ConfigurationTarget.Global),
                         TypeMoq.It.isValue('ui'),
                         TypeMoq.It.isValue(undefined),
+                        // --- Start Positron ---
+                        TypeMoq.It.isValue({ startSession: true, source: 'quickpick' }),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => Promise.resolve())
@@ -1383,6 +1386,9 @@ suite('Set Interpreter Command', () => {
                         TypeMoq.It.isValue(ConfigurationTarget.WorkspaceFolder),
                         TypeMoq.It.isValue('ui'),
                         TypeMoq.It.isValue(folder.uri),
+                        // --- Start Positron ---
+                        TypeMoq.It.isValue({ startSession: true, source: 'quickpick' }),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => Promise.resolve())
@@ -1451,6 +1457,9 @@ suite('Set Interpreter Command', () => {
                         TypeMoq.It.isValue(ConfigurationTarget.WorkspaceFolder),
                         TypeMoq.It.isValue('ui'),
                         TypeMoq.It.isValue(folder2.uri),
+                        // --- Start Positron ---
+                        TypeMoq.It.isValue({ startSession: true, source: 'quickpick' }),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => Promise.resolve())
@@ -1517,6 +1526,9 @@ suite('Set Interpreter Command', () => {
                         TypeMoq.It.isValue(ConfigurationTarget.Workspace),
                         TypeMoq.It.isValue('ui'),
                         TypeMoq.It.isValue(folder1.uri),
+                        // --- Start Positron ---
+                        TypeMoq.It.isValue({ startSession: true, source: 'quickpick' }),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => Promise.resolve())

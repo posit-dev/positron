@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { removeAnsiEscapeCodes } from '../../../../base/common/strings.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -24,6 +24,7 @@ import { IViewContainersRegistry, IViewsRegistry, Extensions as ViewContainerExt
 import { ILanguageRuntimePackage, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PACKAGE_METADATA_CACHE_ENABLED_SETTING, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT, PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING } from './packageMetadataCache.js';
 import { PACKAGES_CAN_RUN_ACTION, PACKAGES_HAS_SELECTION, PACKAGES_VIEW_VISIBLE, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_VIEW_ID } from './positronPackagesContextKeys.js';
 import { installPackage, uninstallPackage, updatePackage } from './positronPackagesQuickPick.js';
 import { PositronPackagesService } from './positronPackagesService.js';
@@ -96,13 +97,35 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'string',
 			enum: ['auto', 'pak', 'base'],
 			enumDescriptions: [
-				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise prompt and fall back to base R."),
+				nls.localize('positron.packages.r.installer.auto', "Use pak if installed; otherwise use base R and offer to install pak."),
 				nls.localize('positron.packages.r.installer.pak', "Always use pak. Silently install it if missing."),
 				nls.localize('positron.packages.r.installer.base', "Always use base R."),
 			],
 			default: 'auto',
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.r.installer', "Which package installer to use for installing, updating, and removing R packages. Does not affect projects using renv, which always use renv."),
+			tags: ['preview'],
+		},
+		'packages.r.renvAutoSnapshot': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.RESOURCE,
+			markdownDescription: nls.localize('positron.packages.r.renvAutoSnapshot', "When using renv, automatically run `renv::snapshot()` in the Console after installing, updating, or removing packages to keep `renv.lock` in sync. The snapshot runs independently, so its success or failure does not affect the package operation."),
+			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_ENABLED_SETTING]: {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('positron.packages.metadataCache.enabled', "Cache package metadata (such as update availability) on disk so it appears immediately on a new session, while the latest data is fetched in the background."),
+			tags: ['preview'],
+		},
+		[PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_SETTING]: {
+			type: 'number',
+			default: PACKAGE_METADATA_CACHE_MAX_AGE_HOURS_DEFAULT,
+			minimum: 1,
+			scope: ConfigurationScope.APPLICATION,
+			markdownDescription: nls.localize('positron.packages.metadataCache.maxAgeHours', "How long, in hours, cached package metadata is shown before it is refreshed in the background. Only applies when `#packages.metadataCache.enabled#` is enabled."),
 			tags: ['preview'],
 		}
 	}
@@ -186,37 +209,6 @@ function showRestartSessionNotification(
 	);
 }
 
-/**
- * Shows a notification suggesting the user restart their session after updating all packages.
- */
-function showRestartSessionNotificationForUpdateAll(
-	notifications: INotificationService,
-	runtimeSessionService: IRuntimeSessionService,
-	commandService: ICommandService,
-	packagesService: IPositronPackagesService
-): void {
-	const session = packagesService.activeSession;
-	if (!session) {
-		return;
-	}
-
-	const message = nls.localize(
-		'positronPackages.restartSessionUpdateAll',
-		'Packages were updated. A session restart may be required for changes to take effect.'
-	);
-
-	notifications.prompt(
-		Severity.Info,
-		message,
-		[{
-			label: nls.localize('positronPackages.restartSession', 'Restart Session'),
-			run: async () => {
-				await commandService.executeCommand('workbench.action.positronConsole.focusConsole');
-				await runtimeSessionService.restartSession(session.sessionId, 'Packages: Restart after package operation');
-			}
-		}]
-	);
-}
 class RefreshPackagesAction extends Action2 {
 	constructor() {
 		super({
@@ -289,8 +281,8 @@ class InstallPackageAction extends Action2 {
 		const cts = new CancellationTokenSource();
 
 		try {
-			const performSearch = async (q: string) => {
-				return await service.searchPackages(q, cts.token);
+			const performSearch = async (q: string, token: CancellationToken) => {
+				return await service.searchPackages(q, token);
 			};
 
 			const performSearchVersions = async (pkg: string) => {
@@ -505,13 +497,22 @@ class UpdateAllPackagesAction extends Action2 {
 				delay: 500
 			}, async () => {
 				try {
-					await service.updateAllPackages(cts.token);
-					showRestartSessionNotificationForUpdateAll(
-						notifications,
-						runtimeSessionService,
-						commandService,
-						service
-					);
+					const updated = await service.updateAllPackages(cts.token);
+					if (cts.token.isCancellationRequested) {
+						return;
+					}
+					if (updated.length === 0) {
+						notifications.info(nls.localize('positronPackages.allUpToDate', 'All packages are already up to date.'));
+					} else {
+						showRestartSessionNotification(
+							notifications,
+							runtimeSessionService,
+							commandService,
+							service,
+							nls.localize('positronPackages.operationUpdated', 'updated'),
+							updated
+						);
+					}
 				} catch (e) {
 					notifications.error(cleanErrorMessage(e));
 					throw e;

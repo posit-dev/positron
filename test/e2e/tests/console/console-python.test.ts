@@ -3,17 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test as base, tags } from '../_test.setup';
+
+const test = base.extend<{}, {}>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'python.useBundledIpykernel': false });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
-
-	test.beforeAll(async ({ settings }) => {
-		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true, waitMs: 1000 });
-	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
 		await sessions.start('pythonAlt');

@@ -563,11 +563,12 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 			// If the click is outside this popup's bounds, decide what to dismiss.
 			if (!(e.clientX >= clientRect.left && e.clientX <= clientRect.right && e.clientY >= clientRect.top && e.clientY <= clientRect.bottom)) {
-				// If the click is outside every popup in the stack, dismiss the root renderer so
-				// the entire popup stack is dismissed. Otherwise just close this popup (e.g. a
-				// submenu when the user clicks back into its parent menu).
+				// If the click is outside every popup in the stack, dismiss the whole popup/menu
+				// chain (the contiguous run of popups at the top of the stack), leaving any
+				// underlying modal dialog open. Otherwise just close this popup (e.g. a submenu
+				// when the user clicks back into its parent menu).
 				if (!PositronModalReactRenderer.isInsideAnyPopup(e)) {
-					PositronModalReactRenderer.disposeAll();
+					PositronModalReactRenderer.disposeTopPopups();
 				} else {
 					props.renderer.dispose();
 				}

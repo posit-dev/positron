@@ -26,6 +26,7 @@ configurationRegistry.registerConfiguration({
 		[NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY]: {
 			type: 'boolean',
 			default: false,
+			tags: ['experimental', 'positronNotebook'],
 			description: localize(
 				'notebook.experimental.showExecutionInfo.description',
 				'Show notebook execution information in the status bar, such as the total duration and number of cells executed.',

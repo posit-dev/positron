@@ -416,13 +416,14 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 * @returns the release notes as a string
 	 */
 	// --- Start Positron ---
-	async getReleaseNotes(): Promise<string> {
+	async getReleaseNotes(version?: string): Promise<string> {
+		const targetVersion = version ?? this.productService.positronVersion;
 		const channel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
-		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${this.productService.positronVersion}.md`;
+		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${targetVersion}.md`;
 		const releaseNotesResponse = await this.requestService.request({ url, callSite: 'update.getReleaseNotes' }, CancellationToken.None);
 
 		if (process.env.POSITRON_UPDATE_CHANNEL) {
-			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
+			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_UPDATE_CHANNEL);
 		}
 
 		if (releaseNotesResponse.res.statusCode !== 200) {

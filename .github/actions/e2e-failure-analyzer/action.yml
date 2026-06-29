@@ -27,6 +27,10 @@ inputs:
     description: "Path to the repo workspace whose test/e2e/ source and .claude/skills/ helpers the analyzer should read. Defaults to $GITHUB_WORKSPACE. positron-builds passes $GITHUB_WORKSPACE/positron because both the test source and helper scripts live in the submodule."
     required: false
     default: ""
+  webhook-secret:
+    description: "e2e-test-insights webhook secret (X-Webhook-Secret). When set together with e2e-insights-api-key, the analyzer appends a link to its report into the analyzed run's Slack thread. Leave empty to skip the Slack post."
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -222,6 +226,82 @@ runs:
         MODEL: ${{ inputs.model }}
         MAX_TURNS: ${{ inputs.max-turns }}
       run: node analyze.mjs
+
+    - name: Post analysis link to Slack thread
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        WORK_DIR: ${{ steps.prep.outputs.work_dir }}
+        # Same Connect API key used for the history query -- it authenticates
+        # against the same connect.posit.it/e2e-test-insights-api host.
+        CONNECT_API_KEY: ${{ inputs.e2e-insights-api-key }}
+        WEBHOOK_SECRET: ${{ inputs.webhook-secret }}
+        API_URL: "https://connect.posit.it/e2e-test-insights-api"
+      run: |
+        # Append the analysis report link to the failing run's Slack thread.
+        # The dashboard opens a thread for any run with failures/flakes, and the
+        # analyzer only runs on such runs, so a thread should already exist.
+        # Posting is best-effort: a webhook failure must never fail this job.
+        if [ -z "$WEBHOOK_SECRET" ] || [ -z "$CONNECT_API_KEY" ]; then
+          echo "Webhook secret or Connect API key not provided; skipping Slack thread append."
+          exit 0
+        fi
+        if [ ! -f "$WORK_DIR/analysis-report.md" ]; then
+          echo "No analysis-report.md produced; skipping Slack thread append."
+          exit 0
+        fi
+
+        # The e2e-test-insights API uses a single "positron" repo ID for both
+        # posit-dev/positron and posit-dev/positron-builds (same as the history
+        # query step) -- do not parameterize this on the source GH repo.
+        REPO_ID="positron"
+
+        # workflow_run_id must identify the run that registered the Slack thread:
+        # the run being analyzed (run-info.json), which is NOT necessarily the run
+        # the analyzer executes in (they coincide for posit-dev/positron).
+        WORKFLOW_RUN_ID=$(jq -r '.runId // empty' "$WORK_DIR/run-info.json")
+        if [ -z "$WORKFLOW_RUN_ID" ]; then
+          echo "::warning::Could not read runId from run-info.json; skipping Slack thread append."
+          exit 0
+        fi
+
+        # Link to this analyzer job's step summary (where the report is rendered).
+        # Resolve the numeric job ID for the #summary-<id> anchor by matching the
+        # in-progress job on this runner; fall back to the run page if unresolved.
+        RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+        JOB_ID=$(gh api \
+          "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs" \
+          --paginate \
+          --jq ".jobs[] | select(.runner_name == \"${RUNNER_NAME}\" and .status == \"in_progress\") | .id" \
+          2>/dev/null | head -1 || true)
+        if [ -n "$JOB_ID" ]; then
+          LINK="${RUN_URL}#summary-${JOB_ID}"
+        else
+          echo "Could not resolve analyzer job ID; linking to the run page."
+          LINK="$RUN_URL"
+        fi
+
+        payload=$(jq -n \
+          --arg repo_id "$REPO_ID" \
+          --arg run_id "$WORKFLOW_RUN_ID" \
+          --arg text "E2E failure analysis complete: <${LINK}|View report>" \
+          '{repo_id: $repo_id, workflow_run_id: $run_id, text: $text}')
+
+        response=$(curl -s -w "\n%{http_code}" -X POST \
+          "${API_URL}/webhooks/thread-append" \
+          -H "Authorization: Key ${CONNECT_API_KEY}" \
+          -H "X-Webhook-Secret: ${WEBHOOK_SECRET}" \
+          -H "Content-Type: application/json" \
+          -d "$payload")
+
+        http_code=$(echo "$response" | tail -1)
+        body=$(echo "$response" | sed '$d')
+        if [ "$http_code" = "200" ] || [ "$http_code" = "202" ]; then
+          echo "Slack thread append queued (HTTP $http_code): $body"
+        else
+          echo "::warning::Slack thread append failed (HTTP $http_code): $body"
+        fi
 
     - name: Upload analyzer artifacts
       if: always()

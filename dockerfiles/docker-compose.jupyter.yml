@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   jupyter-test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:126
+    image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
     container_name: jupyter-test
     ports:
       - "8888:80"    # JupyterHub (TLJH uses port 80 internally)

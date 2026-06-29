@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { expect } from '@playwright/test';
-import { tags } from '../_test.setup';
+import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
 
 test.use({
@@ -202,7 +201,35 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('Python - console accepts input after notebook cell execution', {tag: [tags.CONSOLE]}, async function ({ app, sessions }) {
+	test('ensure closing a notebook removes its console session', { tag: [tags.CONSOLE, tags.EDITOR] }, async function ({ app, page, sessions, runCommand }) {
+		const { notebooksPositron } = app.workbench;
+
+		// clear any sessions left by prior tests (e.g. a terminated notebook
+		// console) so the Untitled-1.ipynb tab lookup is unambiguous
+		await sessions.deleteAll();
+
+		// start standalone sessions that should survive the notebook closing
+		const [, rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
+		const sessionCountBefore = await sessions.getSessionCount();
+
+		// create a notebook and open its console (adds a notebook session)
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'idle'
+		});
+		await notebooksPositron.kernel.openNotebookConsole();
+		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
+		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
+
+		// closing the notebook removes its console session while the standalone sessions remain (#12940)
+		await page.getByRole('tab', { name: 'Untitled-1.ipynb' }).click();
+		await runCommand('workbench.action.revertAndCloseActiveEditor');
+		await sessions.expectSessionCountToBe(sessionCountBefore);
+	});
+
+	test('Python - console accepts input after notebook cell execution', { tag: [tags.CONSOLE] }, async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 		await sessions.start(['python']);
 		await notebooksPositron.newNotebook();
@@ -215,20 +242,25 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await console.waitForReady('>>>');
 		await console.typeToConsole('x = 42', true);
 		await console.waitForReady('>>>');
-		await console.typeToConsole('print(x)', true);
-		await console.waitForConsoleContents('42');
+		await console.typeToConsole('print(f"value_is_{x}")', true);
+		await console.waitForConsoleContents('value_is_42');
 
 		// the notebook cell should still be running; if "done" appeared the test FAILS
 		// idea here is to guarantee that user will always get console ready INSTANTLY, not eventually...
 		await expect(notebooksPositron.cellOutput(0)).not.toContainText('done');
 	});
 
-	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile }) {
+	test('opening .qmd alongside notebook does not produce duplicate kernel selectors', async function ({ app, openFile, sessions }) {
 		const { notebooksPositron } = app.workbench;
+
+		await sessions.deleteDisconnectedSessions();
+		await sessions.start(['r']);
+
+		// open .qmd and open notebook
 		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('Python');
 
+		// ensure only 1 kernel selector dropdown exists for the notebook editor
 		const kernelButtons = app.code.driver.currentPage
 			.locator('.editor-group-container.active')
 			.getByRole('button', { name: 'Kernel Actions' });

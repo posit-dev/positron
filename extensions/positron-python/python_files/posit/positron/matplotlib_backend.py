@@ -17,9 +17,9 @@ the backend is set by matplotlib.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import io
 import logging
-import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
@@ -40,24 +40,70 @@ logger = logging.getLogger(__name__)
 matplotlib.interactive(True)  # noqa: FBT003
 
 
+# High-level libraries that build on matplotlib. A figure produced by one of these is
+# attributed to that library (used for the plot's display name and, for seaborn,
+# detached after each cell; see `detach_library_figures`).
+_LIBRARY_MODULE_ROOTS = ("seaborn", "plotnine")
+
+# Kinds whose figures are detached from matplotlib's global registry after each
+# interactive cell. Limited to seaborn: its axes-level functions (heatmap,
+# scatterplot, ...) draw onto the current axes, so re-running stacks elements (e.g.
+# colorbars) onto the previous figure. Plain matplotlib is intentionally left
+# persistent so a plot can be updated or re-shown across cells.
+# See https://github.com/posit-dev/positron/issues/8898.
+_DETACH_AFTER_CELL_KINDS = frozenset({"seaborn"})
+
+
 def _detect_plotting_library() -> str:
     """
-    Detect the most likely high-level plotting library in use.
+    Detect the high-level plotting library that created the current figure.
 
-    Checks sys.modules for known plotting libraries that build on matplotlib,
-    returning the most specific library name found.
+    Walks the call stack, which still contains the creating library's frames since
+    this runs during figure creation, and returns the most specific known library.
+    This is more precise than checking ``sys.modules``, which would misattribute a
+    plain matplotlib figure to seaborn whenever seaborn is merely imported (for
+    example via ``sns.set_theme()``).
     """
-    # Check for high-level libraries that build on matplotlib
-    # Order matters - check more specific libraries first
-    # Note: We don't include pandas here because pandas.plotting is auto-loaded
-    # when pandas is imported, even if not used for plotting.
-    library_priority = ["seaborn", "plotnine"]
-
-    for module_name in library_priority:
-        if module_name in sys.modules:
-            return module_name
+    frame = inspect.currentframe()
+    try:
+        while frame is not None:
+            module_root = frame.f_globals.get("__name__", "").split(".", 1)[0]
+            if module_root in _LIBRARY_MODULE_ROOTS:
+                return module_root
+            frame = frame.f_back
+    finally:
+        # Break the local reference to the frame to avoid creating a reference cycle.
+        del frame
 
     return "matplotlib"
+
+
+def detach_library_figures() -> None:
+    """
+    Detach high-level library figures (e.g. seaborn) from matplotlib's global registry.
+
+    Called after each interactive cell. The figures are only removed from the registry,
+    not destroyed: the comm and cached render stay alive (``FigureManagerPositron.destroy``
+    is a no-op and the figure is still referenced by the plots service), so the plot
+    remains visible in the Plots pane and can still be re-rendered on resize. Removing
+    them from the registry means the next execution starts with a fresh figure instead of
+    drawing onto the previous one, avoiding duplicated elements such as stacked colorbars.
+    See https://github.com/posit-dev/positron/issues/8898.
+
+    Plain matplotlib figures are intentionally left in the registry to preserve Positron's
+    cross-cell figure persistence (updating or re-showing a plot across cells).
+    """
+    from matplotlib._pylab_helpers import Gcf
+
+    for manager in list(Gcf.get_all_fig_managers()):
+        if (
+            isinstance(manager, FigureManagerPositron)
+            and manager.plotting_library in _DETACH_AFTER_CELL_KINDS
+        ):
+            # Removes the manager from the registry and invokes our no-op `destroy`.
+            # Pass the manager rather than its number: numbers freed here can be reused
+            # by matplotlib, so destroying by number could hit a different figure.
+            Gcf.destroy(manager)
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -113,8 +159,10 @@ class FigureManagerPositron(FigureManagerBase):
                 ),
             )
 
-        # Detect which plotting library was used
+        # Detect which plotting library was used. Stored so `detach_library_figures`
+        # can decide whether this figure should be detached after each cell.
         kind = _detect_plotting_library()
+        self.plotting_library = kind
 
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
@@ -135,8 +183,13 @@ class FigureManagerPositron(FigureManagerBase):
 
         This ensures matplotlib's internal figure cache is cleared when the frontend
         closes the plot, preventing figures from being restored when the comm reopens.
+
+        Close by figure object rather than by number: `detach_library_figures` removes
+        figures from the registry, freeing their numbers for matplotlib to reuse, so
+        closing by number could destroy a different figure that reused this number.
+        Closing an already-detached figure is a safe no-op.
         """
-        plt.close(self.num)
+        plt.close(self.canvas.figure)
 
     @property
     def closed(self) -> bool:
@@ -290,6 +343,54 @@ class FigureCanvasPositron(FigureCanvasAgg):
     def _hash_buffer_rgba(self) -> str:
         """Hash the canvas contents for change detection."""
         return hashlib.sha1(self.buffer_rgba()).hexdigest()
+
+
+_library_gca_redirect_installed = False
+
+
+def _install_library_gca_redirect() -> None:
+    """
+    Redirect a high-level library's implicit `plt.gca()` to a fresh figure.
+
+    Make a high-level library (e.g. seaborn) draw on a fresh figure instead of an existing
+    one created by a different library.
+
+    Seaborn's axes-level functions draw on `plt.gca()` when no `ax=` is given. With a
+    persistent figure registry, that current figure may be a leftover from a different
+    library (for example a matplotlib plot from an earlier cell), so seaborn would draw
+    over it. We intercept `plt.gca()`: when a library on the call stack differs from the
+    library that created the active figure, return the axes of a fresh figure instead.
+
+    This only affects the implicit `plt.gca()` path -- an explicit `ax=` is untouched --
+    and only fires across libraries, so plain matplotlib figures remain reusable
+    (preserving cross-cell persistence). See https://github.com/posit-dev/positron/issues/8898.
+    """
+    global _library_gca_redirect_installed
+    if _library_gca_redirect_installed:
+        return
+
+    import matplotlib.pyplot as plt
+    from matplotlib._pylab_helpers import Gcf
+
+    original_gca = plt.gca
+
+    def gca(*args, **kwargs):
+        manager = Gcf.get_active()
+        if (
+            isinstance(manager, FigureManagerPositron)
+            and manager.plotting_library not in _DETACH_AFTER_CELL_KINDS
+            and _detect_plotting_library() in _DETACH_AFTER_CELL_KINDS
+        ):
+            # Drawing library differs from the active figure's library: start fresh so
+            # the existing figure isn't overwritten.
+            return plt.figure().gca()
+        return original_gca(*args, **kwargs)
+
+    plt.gca = gca
+    _library_gca_redirect_installed = True
+
+
+_install_library_gca_redirect()
 
 
 # Fulfill the matplotlib backend API.

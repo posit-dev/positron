@@ -16,6 +16,15 @@
 	"positron.assistant.provider.testLmVendor.enable": true,
 	// Enable GitHub Copilot provider for chat participant tests
 	"positron.assistant.provider.githubCopilot.enable": true,
+	// Positron defaults `chat.disableAIFeatures` to true, which hides the chat UI
+	// and gates off the agentic/browser tools. The vscode-api-tests chat suite
+	// (chat.test, chat.runInTerminal.test, browser.tools.test) needs chat enabled,
+	// so opt back in for this test workspace.
+	"chat.disableAIFeatures": false,
+	// These upstream VS Code API contract tests exercise the legacy (VS Code)
+	// notebook editor. The Positron notebook editor is now the default, so keep
+	// it disabled here so these tests continue testing the legacy editor.
+	"positron.notebook.enabled": false,
 	// --- End Positron ---
 	"workbench.localHistory.enabled": false
 }

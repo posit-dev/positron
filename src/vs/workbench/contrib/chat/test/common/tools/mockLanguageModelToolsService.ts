@@ -15,7 +15,7 @@ import { IProgressStep } from '../../../../../../platform/progress/common/progre
 import { ChatRequestToolReferenceEntry } from '../../../common/attachments/chatVariableEntries.js';
 import { IVariableReference } from '../../../common/chatModes.js';
 import { IChatToolInvocation } from '../../../common/chatService/chatService.js';
-import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier } from '../../../common/languageModels.js';
+import { ILanguageModelChatMetadata } from '../../../common/languageModels.js';
 import { CountTokensCallback, IBeginToolCallOptions, ILanguageModelToolsService, IToolAndToolSetEnablementMap, IToolData, IToolImpl, IToolInvocation, IToolInvokedEvent, IToolResult, IToolSet, ToolDataSource, ToolSet } from '../../../common/tools/languageModelToolsService.js';
 
 export class MockLanguageModelToolsService extends Disposable implements ILanguageModelToolsService {
@@ -163,11 +163,6 @@ export class MockLanguageModelToolsService extends Disposable implements ILangua
 		throw new Error('Method not implemented.');
 	}
 
-	// --- Start Positron ---
-	isToolEnabledForModel(toolId: string, languageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
-		throw new Error('Method not implemented.');
-	}
-	// --- End Positron ---
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[] {
 		throw new Error('Method not implemented.');
 	}

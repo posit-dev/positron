@@ -13,6 +13,9 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { isCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { IPlanReviewFeedbackService } from './planReviewFeedbackService.js';
 import { CHAT_CATEGORY } from '../actions/chatActions.js';
+// --- Start Positron ---
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+// --- End Positron ---
 
 export const PlanReviewFeedbackMenuId = MenuId.for('planReviewFeedback.editorContent');
 
@@ -54,7 +57,13 @@ class SubmitPlanReviewFeedbackAction extends Action2 {
 			shortTitle: localize2('planReviewFeedback.submitShort', 'Submit'),
 			icon: Codicon.send,
 			category: CHAT_CATEGORY,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'a_submit',
@@ -86,7 +95,13 @@ class NavigatePlanReviewFeedbackAction extends Action2 {
 			icon: _next ? Codicon.arrowDown : Codicon.arrowUp,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'navigate',
@@ -129,7 +144,13 @@ class ClearAllPlanReviewFeedbackAction extends Action2 {
 			icon: Codicon.clearAll,
 			category: CHAT_CATEGORY,
 			f1: true,
-			precondition: hasPlanReviewFeedback,
+			// --- Start Positron ---
+			// Hide when AI features are disabled.
+			precondition: ContextKeyExpr.and(
+				hasPlanReviewFeedback,
+				ChatContextKeys.aiFeaturesEnabled,
+			),
+			// --- End Positron ---
 			menu: {
 				id: PlanReviewFeedbackMenuId,
 				group: 'a_submit',

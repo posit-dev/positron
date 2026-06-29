@@ -221,12 +221,6 @@
         "title": "%commands.collectDiagnostics.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
-      },
-      {
-        "command": "positron-assistant.selectGhostCellModel",
-        "title": "%commands.selectGhostCellModel.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [
@@ -352,14 +346,6 @@
               "minimum": 512
             }
           },
-          "positron.assistant.consoleActions.enable": {
-            "type": "boolean",
-            "default": true,
-            "description": "%configuration.consoleActions.enable.description%",
-            "tags": [
-              "preview"
-            ]
-          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,
@@ -401,30 +387,6 @@
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ]
-          },
-          "positron.assistant.notebookSuggestions.model": {
-            "type": "array",
-            "default": [
-              "haiku",
-              "mini"
-            ],
-            "markdownDescription": "%configuration.notebookSuggestions.model.description%",
-            "items": {
-              "type": "string"
-            },
-            "examples": [
-              [
-                "haiku",
-                "mini"
-              ],
-              [
-                "Claude Sonnet 4.5",
-                "GPT-5"
-              ]
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.providerVariables.bedrock": {
@@ -910,7 +872,7 @@
           },
           "positron.assistant.provider.msFoundry.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.msFoundry.enable.description%",
             "tags": [
               "preview"
@@ -925,7 +887,7 @@
           },
           "positron.assistant.provider.customProvider.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.customProvider.enable.description%",
             "tags": [
               "experimental"
@@ -940,11 +902,10 @@
           },
           "positron.assistant.provider.google.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "markdownDescription": "%configuration.provider.google.enable.description%",
             "tags": [
-              "experimental",
-              "advanced"
+              "experimental"
             ],
             "order": 9
           }

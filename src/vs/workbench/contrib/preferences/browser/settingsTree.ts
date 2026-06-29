@@ -1071,6 +1071,10 @@ export abstract class AbstractSettingRenderer extends Disposable implements ITre
 		template.indicatorsLabel.updateDefaultOverrideIndicator(element);
 		template.indicatorsLabel.updatePreviewIndicator(element);
 		template.indicatorsLabel.updateAdvancedIndicator(element);
+		// --- Start Positron ---
+		// Render data-driven setting badges (issue #12527).
+		template.indicatorsLabel.updatePositronBadgeIndicators(element);
+		// --- End Positron ---
 		template.elementDisposables.add(this.onDidChangeIgnoredSettings(() => {
 			template.indicatorsLabel.updateSyncIgnored(element, this.ignoredSettings);
 		}));

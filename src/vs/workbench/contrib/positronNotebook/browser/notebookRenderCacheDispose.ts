@@ -13,10 +13,12 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
  * already been re-attached elsewhere -- detaching unconditionally would tear
  * down that destination view.
  */
-export function disposeNotebookRenderCacheEntry(entry: ICachedNotebookRender): void {
+export function disposeNotebookRenderCacheEntry(
+	entry: ICachedNotebookRender,
+	instance: PositronNotebookInstance | undefined,
+): void {
 	entry.renderer.dispose();
 	entry.container.remove();
-	const instance = PositronNotebookInstance._instanceMap.get(entry.uri);
 	if (instance && instance.isAttachedTo(entry.container)) {
 		instance.detachView();
 	}

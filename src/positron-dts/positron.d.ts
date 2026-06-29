@@ -362,6 +362,15 @@ declare module 'positron' {
 		data: Record<string, unknown>;
 
 		/**
+		 * Optional metadata about the output itself, keyed by MIME type. This is
+		 * distinct from {@link LanguageRuntimeMessage.metadata}, which describes
+		 * the message more generally. It corresponds to the `metadata` field of a
+		 * Jupyter `display_data`/`execute_result` message, e.g.
+		 * `{ 'image/png': { width: 640, height: 480 } }`.
+		 */
+		outputMetadata?: Record<string, unknown>;
+
+		/**
 		 * The optional identifier of the output. If specified, this output can be referenced
 		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 		 */
@@ -1246,6 +1255,14 @@ declare module 'positron' {
 
 		/** Optional short description or summary shown in the Packages pane card view. */
 		description?: string;
+
+		/**
+		 * The package's primary external URL (its homepage, falling back to its
+		 * repository, etc.). Runtimes should pick the single best link from
+		 * whatever metadata they have; the Packages pane validates it
+		 * (http/https only) and surfaces it via the row's external-link button.
+		 */
+		url?: string;
 	}
 
 	/**
@@ -1894,8 +1911,31 @@ declare module 'positron' {
 	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
 
 	/**
-	 * A driver that provides data connections through the 'New Data Connection' dialog.
+	 * A driver that provides data connections through the 'New Database' dialog.
 	 */
+	/**
+	 * A named variant of generated connection code for a single language. A driver may offer
+	 * several variants per language (for example, Python `sqlite3` vs `SQLAlchemy`) so users can
+	 * pick the library they prefer.
+	 */
+	export interface ConnectionCodeVariant {
+		/**
+		 * A stable identifier for the variant (e.g. 'sqlite3', 'sqlalchemy'). Unique within the
+		 * variants returned for a given language.
+		 */
+		id: string;
+
+		/**
+		 * A user-facing label for the variant (e.g. 'sqlite3', 'SQLAlchemy').
+		 */
+		label: string;
+
+		/**
+		 * The generated connection code for this variant.
+		 */
+		code: string;
+	}
+
 	export interface DataConnectionDriver {
 		/**
 		 * The driver identifier.
@@ -1931,6 +1971,20 @@ declare module 'positron' {
 		 * Connects using the provided parameter values.
 		 */
 		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+
+		/**
+		 * Generates one or more named code variants that connect to this data source in the given
+		 * language, using the provided parameter values. The language is one of the driver's
+		 * `supportedLanguageIds`; drivers that report no supported languages need not implement this
+		 * method. Variants are returned in preference order, so the first is treated as the default.
+		 *
+		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
+		 *   the driver's `supportedLanguageIds`.
+		 * @param parameters The current values of the connection parameters defined in `parameters`.
+		 * @returns The available code variants, or an empty array if code cannot be generated from
+		 *   the given parameters (for example, when a required parameter is missing).
+		 */
+		generateConnectionCode?(languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
 	}
 
 	/**
@@ -1948,8 +2002,6 @@ declare module 'positron' {
 		GroupViews = 'group-views',
 		GroupColumns = 'group-columns',
 		GroupIndexes = 'group-indexes',
-		GroupTriggers = 'group-triggers',
-		Trigger = 'trigger',
 		Index = 'index',
 	}
 
@@ -1968,6 +2020,12 @@ declare module 'positron' {
 		 * Data type information, for field nodes.
 		 */
 		dataType?: string;
+
+		/**
+		 * For field nodes under a table, whether the column is part of the table's primary key.
+		 * Columns under views are not part of a primary key, so this is left unset for them.
+		 */
+		isPrimaryKey?: boolean;
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
@@ -2873,7 +2931,7 @@ declare module 'positron' {
 	namespace dataConnections {
 		/**
 		 * Registers a data connection driver, allowing extensions to contribute
-		 * to the 'New Data Connection' dialog.
+		 * to the 'New Database' dialog.
 		 *
 		 * @param driver The driver to register.
 		 * @returns A disposable that unregisters the driver when disposed.
@@ -2895,6 +2953,85 @@ declare module 'positron' {
 		 * @returns A data connection.
 		 */
 		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+	}
+
+	/**
+	 * A single Data Explorer RPC request. The `params` and the `result` of the corresponding
+	 * response use the Data Explorer backend protocol; an extension typically casts them to its own
+	 * copy of the generated protocol types.
+	 */
+	export interface DataExplorerRpcRequest {
+		/** The backend-request method name. */
+		method: string;
+		/** The dataset identifier the request targets. */
+		uri?: string;
+		/** Method-specific parameters. */
+		params: object;
+	}
+
+	/**
+	 * The response to a {@link DataExplorerRpcRequest}: a result payload or an error message.
+	 */
+	export interface DataExplorerRpcResponse {
+		result?: unknown;
+		error_message?: string;
+	}
+
+	/**
+	 * A frontend UI event pushed from a backend (e.g. async column profiles), routed by dataset id.
+	 */
+	export interface DataExplorerUiEvent {
+		/** The dataset identifier the event targets. */
+		uri: string;
+		/** The frontend-event method name. */
+		method: string;
+		/** Event-specific parameters. */
+		params: object;
+	}
+
+	/**
+	 * Services Data Explorer RPC requests for the datasets a provider owns.
+	 */
+	export interface DataExplorerRpcHandler {
+		/**
+		 * Handles a single Data Explorer RPC request.
+		 * @param request The request envelope.
+		 * @returns The response (a result or an error message).
+		 */
+		handleRpc(request: DataExplorerRpcRequest): Thenable<DataExplorerRpcResponse>;
+	}
+
+	/**
+	 * A registration handle for a Data Explorer RPC handler. Dispose to unregister.
+	 */
+	export interface DataExplorerRpcSession extends vscode.Disposable {
+		/**
+		 * Pushes a frontend UI event (e.g. async column profiles) to the Data Explorer.
+		 * @param event The UI event.
+		 */
+		sendUiEvent(event: DataExplorerUiEvent): void;
+	}
+
+	/**
+	 * Methods for providing Data Explorer backends from an extension. A provider registers an RPC
+	 * handler under a stable provider id, then opens datasets it owns in the Data Explorer.
+	 */
+	namespace dataExplorer {
+		/**
+		 * Registers a Data Explorer RPC handler under a provider id.
+		 *
+		 * @param providerId A stable identifier for the providing extension (e.g. 'positron-duckdb').
+		 * @param handler The handler that services RPC requests for this provider's datasets.
+		 * @returns A session for pushing UI events; dispose it to unregister the handler.
+		 */
+		export function registerRpcHandler(providerId: string, handler: DataExplorerRpcHandler): DataExplorerRpcSession;
+
+		/**
+		 * Opens (or focuses) a Data Explorer for a dataset served by a registered provider.
+		 *
+		 * @param options The provider id, the dataset identifier, and a human-readable display name.
+		 */
+		export function open(options: { providerId: string; datasetId: string; displayName: string }): Thenable<void>;
 	}
 
 	/**
@@ -3057,7 +3194,7 @@ declare module 'positron' {
 		 */
 		export interface ProviderMetadata {
 			/**
-			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot').
+			 * Unique identifier for this provider (e.g., 'anthropic-api', 'openai-api', 'copilot-auth').
 			 * Used internally to distinguish between provider implementations.
 			 */
 			id: string;
@@ -3072,6 +3209,18 @@ declare module 'positron' {
 			 * Positron's Assistant Service automatically reads this from registered providers.
 			 */
 			settingName: string;
+			/**
+			 * Maturity status of the provider. Drives how it's presented in the
+			 * configuration modal: stable providers (no status) are listed first,
+			 * then 'preview', then 'experimental'.
+			 */
+			status?: 'preview' | 'experimental';
+			/**
+			 * Optional data URL for the provider icon shown in the configuration dialog
+			 * (e.g., 'data:image/svg+xml;base64,...'). Falls back to built-in icons
+			 * when not provided.
+			 */
+			logoUrl?: string;
 		}
 
 		/**
@@ -3083,25 +3232,27 @@ declare module 'positron' {
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
-			defaults: LanguageModelConfigOptions;
+			defaults: LanguageModelConfig;
 			signedIn?: boolean;
 			authMethods?: string[];
-		}
-
-		/**
-		 * Positron Language Model configuration.
-		 */
-		export interface LanguageModelConfig extends LanguageModelConfigOptions {
-			type: PositronLanguageModelType;
-			provider: string;
+			/**
+			 * Provider health. `'ok'` = signed in and healthy; `'error'` = a
+			 * problem worth surfacing, described by `statusMessage`; `null` =
+			 * nothing to report.
+			 */
+			status?: 'ok' | 'error' | null;
+			/**
+			 * Human-readable reason when `status` is `'error'`
+			 * (e.g. "Authentication expired").
+			 */
+			statusMessage?: string;
 		}
 
 		/**
 		 * Positron Language Model configuration options.
 		 */
-		export interface LanguageModelConfigOptions {
-			name: string;
-			model: string;
+		export interface LanguageModelConfig {
+			model?: string;
 			baseUrl?: string;
 			apiKey?: string;
 			oauth?: boolean;
@@ -3187,38 +3338,51 @@ declare module 'positron' {
 
 		/**
 		 * Show a modal dialog for language model configuration.
+		 * Sources are read from internal state, populated via registerProvider.
 		 */
 		export function showLanguageModelConfig(
-			sources: LanguageModelSource[],
-			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
 			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
 
 		/**
-		 * Registers provider metadata with the core service.
-		 * This allows the core to check provider enable settings without requiring sign-in.
-		 * Should be called during extension activation for all available providers.
+		 * Registers a language model provider with Positron.
 		 *
-		 * @param metadata Provider identification and settings information
+		 * Call once per provider during extension activation. This registers
+		 * everything static about the provider. Creates a toggle
+		 * `positron.assistant.provider.<settingName>.enable` in Settings.
+		 *
+		 * Returns a Disposable. When disposed, the provider is removed
+		 * from the configuration service.
+		 *
+		 * @param source Provider source definition
+		 * @param onAction Optional callback invoked for user actions.
+		 * @returns A Disposable that unregisters the provider when disposed
 		 */
-		export function registerProviderMetadata(metadata: ProviderMetadata): void;
+		export function registerProvider(
+			source: LanguageModelSource,
+			onAction?: (source: LanguageModelSource, config: LanguageModelConfig, action: string) => Thenable<void>,
+		): vscode.Disposable;
 
 		/**
-		 * Adds the model to the service's known configurations and notifies its listeners.
-		 * @param id the model id
-		 * @param config the model config
+		 * Updates dynamic state for a previously registered provider.
+		 *
+		 * @param id Provider ID (must match a previously registered provider)
+		 * @param update Partial state to deep-merge
 		 */
-		export function addLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function updateProvider(id: string, update: Partial<LanguageModelSource>): void;
 
 		/**
-		 * Removes the model from the service's known configurations and notifies its listeners.
-		 * @param id the model id
+		 * Returns the sources of all registered, enabled language model
+		 * providers, including their current `signedIn`, `status`, and
+		 * `statusMessage` state.
 		 */
-		export function removeLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function getRegisteredProviders(): Thenable<LanguageModelSource[]>;
+
+		/**
+		 * Event that fires when a provider's configuration changes via
+		 * registerProvider, unregisterProvider, or updateProvider.
+		 */
+		export const onDidChangeProviderConfig: vscode.Event<LanguageModelSource>;
 
 		/**
 		 * The context in which a chat request is made.

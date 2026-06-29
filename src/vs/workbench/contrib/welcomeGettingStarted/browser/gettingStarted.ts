@@ -88,6 +88,7 @@ import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/c
 import { isDark } from '../../../../platform/theme/common/theme.js';
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
+import { gettingStartedPositronNotebookCategoryId } from '../common/gettingStartedPositronNotebookContent.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -1400,7 +1401,11 @@ export class GettingStartedPage extends EditorPane {
 			 * and the IDs are hardcoded here and need to be kept in sync with the Id
 			 * of the walkthroughs in the Positron extensions.
 			 */
-			const allowedWalkthroughIds = ['ms-python.python#positron.migrateFromVSCode', 'positron.positron-r#positron.r.migrateFromRStudio', 'positron.positron-notebooks-helpers#positron.notebooks.welcome'];
+			const allowedWalkthroughIds = [
+				'ms-python.python#positron.migrateFromVSCode',
+				'positron.positron-r#positron.r.migrateFromRStudio',
+				gettingStartedPositronNotebookCategoryId,
+			];
 
 			if (allowedWalkthroughIds.every(walkthroughId => walkthroughId !== e.id)) {
 				return null;

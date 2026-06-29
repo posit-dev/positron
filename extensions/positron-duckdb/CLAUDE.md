@@ -1,6 +1,6 @@
 # Positron DuckDB Extension Development Context
 
-This prompt provides context for working with the `positron-duckdb` extension, which provides DuckDB WebAssembly support for headless data exploration in Positron.
+This prompt provides context for working with the `positron-duckdb` extension, which provides native DuckDB support for headless data exploration in Positron.
 
 **Related documentation:**
 - **Build system**: `.claude/build-system.md` - For daemon management and compilation
@@ -10,24 +10,27 @@ This prompt provides context for working with the `positron-duckdb` extension, w
 ## Extension Overview
 
 **Purpose**: Provides DuckDB support for headless data explorers for previewing data files  
-**Display Name**: "Positron DuckDB Wasm Support"  
+**Display Name**: "Positron DuckDB Support"  
 **Location**: `extensions/positron-duckdb/`  
 **Main Entry**: `src/extension.ts`  
-**Dependencies**: `@duckdb/duckdb-wasm`, `apache-arrow`, `web-worker`  
+**Dependencies**: `@duckdb/node-api` (pulls in the platform-specific `@duckdb/node-bindings-*` native binding for the host)  
+
+The extension uses the native `@duckdb/node-api` ("node neo") package, which wraps pre-built DuckDB binaries. It reads compressed CSV/TSV files and supports multithreading.
 
 ## Architecture
 
 ### Core Components
 
-1. **DuckDBInstance**: Manages DuckDB WebAssembly database connection
-2. **DuckDBTableView**: Handles data explorer requests for a specific table
-3. **ColumnProfileEvaluator**: Computes statistical summaries and profiles 
-4. **DataExplorerRpcHandler**: Implements the Data Explorer RPC protocol
+1. **DuckDBInstance**: Manages the native DuckDB database connection (`@duckdb/node-api`)
+2. **QueryResult**: Thin wrapper over a node-api result reader; exposes `toArray()`, `columnAt(i)`, `columnByName(name)`, `columnNames`, `numRows`, `numCols`.
+3. **DuckDBTableView**: Handles data explorer requests for a specific table
+4. **ColumnProfileEvaluator**: Computes statistical summaries and profiles 
+5. **DataExplorerRpcHandler**: Implements the Data Explorer RPC protocol
 
 ### Key Features
 
-- **File Support**: CSV, TSV, Parquet (including gzipped versions)
-- **SQL Engine**: Full DuckDB SQL capabilities via WebAssembly
+- **File Support**: CSV, TSV, Parquet (including gzip/zstd-compressed versions, read natively from disk)
+- **SQL Engine**: Full DuckDB SQL capabilities via native pre-built binaries
 - **Data Profiling**: Histograms, frequency tables, summary statistics
 - **Filtering & Sorting**: Row filters, column filters, sorting
 - **Data Export**: CSV, TSV, HTML export formats
@@ -41,7 +44,7 @@ extensions/positron-duckdb/
 ├── package.nls.json      # Localized strings
 ├── src/
 │   ├── extension.ts      # Main extension logic
-│   ├── interfaces.ts     # Type definitions and RPC interfaces
+│   │                     # (protocol types come from the positron-data-explorer-protocol package)
 │   └── test/
 │       ├── extension.test.ts  # Unit tests
 │       ├── README.md         # Test instructions
@@ -49,7 +52,7 @@ extensions/positron-duckdb/
 │           ├── flights.csv
 │           └── flights.parquet
 ├── tsconfig.json         # TypeScript configuration
-└── extension.webpack.config.js  # Build configuration
+└── esbuild.mts           # Build configuration
 ```
 
 ## Quick Development Workflow
@@ -85,10 +88,9 @@ npm run test-extension -- -l positron-duckdb --grep "filter"
 ## Key Classes and Interfaces
 
 ### DuckDBInstance
-Manages the DuckDB WebAssembly runtime:
-- Loads DuckDB WASM bundles
-- Handles SQL query execution
-- Manages database connections
+Manages the native DuckDB runtime via `@duckdb/node-api`:
+- Creates an in-memory `DuckDBInstance` and a connection
+- Serializes and executes SQL queries (returns a `QueryResult`)
 - Provides error handling and logging
 
 ### DuckDBTableView
@@ -117,11 +119,9 @@ The extension implements the full Data Explorer RPC protocol:
 - `ExportDataSelection`: Export data in various formats
 
 **IMPORTANT: Protocol Types Location**
-The standard Data Explorer protocol types are auto-generated from `positron/comms/data_explorer-backend-openrpc.json` into `src/vs/workbench/services/languageRuntime/common/positronDataExplorerComm.ts`. **Do NOT manually edit positronDataExplorerComm.ts** - changes must be made in the OpenRPC schema and regenerated.
+The Data Explorer protocol types are auto-generated from `positron/comms/data_explorer-backend-openrpc.json` by `positron/comms/generate-comms.ts` into two TypeScript outputs: the core comm (`src/vs/workbench/services/languageRuntime/common/positronDataExplorerComm.ts`) and the shared, extension-facing module (`extensions/positron-data-explorer-protocol/src/dataExplorerProtocol.ts`). This extension imports the protocol types from the `positron-data-explorer-protocol` package (a `file:` dependency); it no longer vendors its own `interfaces.ts`. **Do NOT manually edit either generated file** - change the OpenRPC schema and re-run the generator (`cd positron/comms && npx tsx generate-comms.ts data_explorer`).
 
-DuckDB-specific extensions to the protocol (like `SetDatasetImportOptions` for CSV import options) should be defined in:
-- `src/vs/workbench/services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.ts` (core types)
-- `extensions/positron-duckdb/src/interfaces.ts` (extension types - must mirror the core types)
+DuckDB-specific extensions to the protocol (like `SetDatasetImportOptions` for CSV import options) live in the OpenRPC schema and flow through the generator to both outputs above.
 
 ## Supported Data Types
 
@@ -201,11 +201,11 @@ suite('DuckDB Extension Tests', () => {
 Set `DEBUG_LOG = true` in extension.ts for query logging
 
 #### Common Issues
-1. **WebAssembly Loading**: Check bundle paths for different platforms
-2. **File Handle Caching**: Use virtual files via `registerFileBuffer()`
-3. **SQL Generation**: Ensure proper identifier quoting with `quoteIdentifier()`
+1. **Native Binding Loading**: `@duckdb/node-api` loads the platform-specific `@duckdb/node-bindings-*` package, installed automatically as a transitive optional dependency for the build host's architecture. Positron ships arch-specific packages, so each build carries only its matching binding.
+2. **File Reading**: Files are read directly from disk by path (`uri.fsPath`); native DuckDB transparently decompresses `.gz`/`.zst` CSV/TSV. Non-`file:` URIs (and compressed Parquet, which DuckDB's reader can't unwrap, decompressed in JS via `decompress()`) are spilled to a temp file first.
+3. **SQL Generation**: Ensure proper identifier quoting with `quoteIdentifier()` and string-literal escaping (file paths) with `quoteLiteral()`
 4. **Memory Management**: Clean up resources and event handlers
-5. **Type Conversions**: Handle DuckDB to JavaScript type mapping
+5. **Type Conversions**: node-api returns `BigInt` for integer types and `DuckDBValue` wrappers for temporal/decimal types; most queries `CAST(... AS VARCHAR)` so values arrive as strings. Wrap counts in `Number(...)`.
 
 #### Testing Isolation  
 - Use `makeTempTableName()` for unique table names
@@ -215,7 +215,8 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 ## Integration Points
 
 ### VSCode Extension API
-- Command registration: `positron-duckdb.runQuery`, `positron-duckdb.dataExplorerRpc`
+- Command registration: `positron-duckdb.runQuery`
+- Data Explorer backend registration via `positron.dataExplorer.registerRpcHandler('positron-duckdb', ...)` (typed ext-host channel); async UI events are pushed back through the returned session's `sendUiEvent`
 - File system watching for data file changes
 - URI handling for different data sources
 
@@ -224,15 +225,14 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 - Provides statistical profiling for data science workflows  
 - Integrates with Variables pane for dataframe viewing
 
-### DuckDB WebAssembly
-- Leverages DuckDB's SQL engine in browser/Node.js context
-- Uses Apache Arrow for efficient data transfer
-- Handles large datasets with streaming and pagination
+### Native DuckDB (`@duckdb/node-api`)
+- Leverages DuckDB's SQL engine via pre-built native binaries
+- Reads files (including compressed/remote) directly
+- Handles large datasets with pagination (LIMIT/OFFSET)
 
 ## Performance Considerations
 
 - **Query Optimization**: Use subqueries for better DuckDB performance
 - **Batch Statistics**: Compute multiple statistics in single query
-- **Memory Management**: Use virtual files to avoid handle caching  
 - **Pagination**: Implement LIMIT/OFFSET for large result sets
-- **Type Conversion**: Minimize JavaScript ↔ Arrow conversions
+- **Type Conversion**: Prefer formatting values to strings in SQL over per-value JS conversion

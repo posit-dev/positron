@@ -406,11 +406,7 @@ suite('PromptHoverProvider', () => {
 				'',
 				'**Built-in agents:**',
 				'- `agent`: Describe what to build',
-				// --- Start Positron ---
-				// Positron supplies a custom description for the `ask` agent
-				// '- `ask`: Explore and understand your code',
-				'- `ask`: Ask Assistant',
-				// --- End Positron ---
+				'- `ask`: Explore and understand your code',
 				'- `edit`: Edit or refactor selected code',
 				'',
 				'**Custom agents:**',

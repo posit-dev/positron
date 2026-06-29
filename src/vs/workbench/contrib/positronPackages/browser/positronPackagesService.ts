@@ -7,12 +7,14 @@ import { timeout } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimeSession, IPackageSpec, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesService } from './interfaces/positronPackagesService.js';
+import { PackageMetadataCache } from './packageMetadataCache.js';
 import { PackagesItemSize, POSITRON_PACKAGES_HAS_ACTIVE_SESSION, POSITRON_PACKAGES_IS_BUSY, POSITRON_PACKAGES_ITEM_SIZE, POSITRON_PACKAGES_SELECTED_PACKAGE } from './positronPackagesContextKeys.js';
 import { IPositronPackagesInstance, PositronPackagesInstance } from './positronPackagesInstance.js';
 
@@ -45,6 +47,10 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	// Disposables for tracking busy state of the active instance
 	private readonly _activeInstanceDisposables = this._register(new DisposableStore());
 
+	// Shared, cross-window cache of outdated state, keyed by interpreter. Owned
+	// here and threaded into each per-session instance.
+	private readonly _metadataCache: PackageMetadataCache;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -60,9 +66,12 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		@ILogService private readonly _logService: ILogService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the disposable constructor.
 		super();
+
+		this._metadataCache = new PackageMetadataCache(this._storageService, this._logService, this._configurationService);
 
 		// Initialize context keys
 		this._hasActiveSessionContextKey = POSITRON_PACKAGES_HAS_ACTIVE_SESSION.bindTo(this._contextKeyService);
@@ -105,7 +114,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		if (instance) {
 			instance.setRuntimeSession(session);
 		} else {
-			instance = new PositronPackagesInstance(session, this._logService);
+			instance = new PositronPackagesInstance(session, this._logService, this._metadataCache);
 			this._instancesBySessionId.set(session.sessionId, instance);
 		}
 
@@ -257,7 +266,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 		throw new Error('No active session found.');
 	}
 
-	async updateAllPackages(token?: CancellationToken): Promise<void> {
+	async updateAllPackages(token?: CancellationToken): Promise<string[]> {
 		const instance = this._activeInstance;
 		if (instance) {
 			return await instance.updateAllPackages(token);

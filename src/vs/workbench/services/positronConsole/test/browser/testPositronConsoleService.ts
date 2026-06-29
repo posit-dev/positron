@@ -5,7 +5,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { DidNavigateInputHistoryUpEventArgs, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -294,7 +294,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
  * Test implementation of IPositronConsoleInstance for use in tests.
  */
 export class TestPositronConsoleInstance implements IPositronConsoleInstance {
-	private readonly _onFocusInputEmitter = new Emitter<void>();
+	private readonly _onFocusInputEmitter = new Emitter<FocusInputOptions>();
 	private readonly _onDidChangeStateEmitter = new Emitter<PositronConsoleState>();
 	private readonly _onDidChangeWordWrapEmitter = new Emitter<boolean>();
 	private readonly _onDidChangeTraceEmitter = new Emitter<boolean>();
@@ -304,6 +304,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidClearConsoleEmitter = new Emitter<void>();
 	private readonly _onDidNavigateInputHistoryDownEmitter = new Emitter<void>();
 	private readonly _onDidNavigateInputHistoryUpEmitter = new Emitter<DidNavigateInputHistoryUpEventArgs>();
+	private readonly _onDidEngageHistoryInfixSearchEmitter = new Emitter<void>();
 	private readonly _onDidClearInputHistoryEmitter = new Emitter<void>();
 	private readonly _onDidSetPendingCodeEmitter = new Emitter<string | undefined>();
 	private readonly _onDidExecuteCodeEmitter = new Emitter<ILanguageRuntimeCodeExecutedEvent>();
@@ -333,7 +334,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		public readonly codeEditor: ICodeEditor | undefined = undefined
 	) { }
 
-	get onFocusInput(): Event<void> {
+	get onFocusInput(): Event<FocusInputOptions> {
 		return this._onFocusInputEmitter.event;
 	}
 
@@ -371,6 +372,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidNavigateInputHistoryUp(): Event<DidNavigateInputHistoryUpEventArgs> {
 		return this._onDidNavigateInputHistoryUpEmitter.event;
+	}
+
+	get onDidEngageHistoryInfixSearch(): Event<void> {
+		return this._onDidEngageHistoryInfixSearchEmitter.event;
 	}
 
 	get onDidClearInputHistory(): Event<void> {
@@ -455,8 +460,8 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		this._runtimeAttached = runtimeAttached;
 	}
 
-	focusInput(): void {
-		this._onFocusInputEmitter.fire();
+	focusInput(options: FocusInputOptions = {}): void {
+		this._onFocusInputEmitter.fire(options);
 	}
 
 	layoutFindWidget(_width: number): void {
@@ -523,6 +528,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		this._onDidNavigateInputHistoryUpEmitter.fire({
 			usingPrefixMatch,
 		});
+	}
+
+	engageHistoryInfixSearch(): void {
+		this._onDidEngageHistoryInfixSearchEmitter.fire();
 	}
 
 	clearInputHistory(): void {

@@ -161,13 +161,10 @@ export class Sessions {
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
-						return;
+					} else if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
+						return; // workaround for server/workbench: session is already gone
 					} else {
-						if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
-							return; // workaround for server/workbench
-						} else {
-							throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
-						}
+						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
 					}
 				} else {
 					// More that one session: Delete via the context menu. (The trash icon
@@ -175,6 +172,10 @@ export class Sessions {
 					await this.deleteViaUI(sessionId);
 				}
 
+				// Wait for the session to actually shut down before returning. Skipping
+				// this (e.g. an early return after the trash click) lets delete() return
+				// while the instance is still visible; deleteAll()'s detach guard then
+				// passes instantly and the dying session races the next test's reuse scan.
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 				await expect(this.consoleInstance(sessionId)).not.toBeVisible();
 			}, `Delete session: ${sessionId}`).toPass();
@@ -268,30 +269,15 @@ export class Sessions {
 				await this.delete(sessionIds[i]);
 			}
 
-			// Workaround for external browser
-			if (this.code.driver.currentPage.url().includes('8080')) {
-				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
-			} else {
-				// Two Workbench-specific races can hide the empty-state message:
-				// (1) Positron is launched without a folder and auto-prompts an "Open
-				//     Folder" quickpick that intercepts pointer events.
-				// (2) The bottom panel's active tab is Terminal (not Console) on
-				//     startup, so the Console pane (and the "There is no session
-				//     running." text) is not rendered.
-				// Focus the Console first, then retry-dismiss-and-assert to cover the
-				// race where the picker appears just after a check returns false or
-				// re-pops after Escape.
-				// See https://github.com/posit-dev/positron/actions/runs/25334724797
-				const openFolderPicker = this.page.locator('.quick-input-title', { hasText: 'Open Folder' });
-				const noSessionMessage = this.page.getByText('There is no session running.');
-				await expect(async () => {
-					if (await openFolderPicker.isVisible().catch(() => false)) {
-						await this.page.keyboard.press('Escape');
-					}
-					await this.console.focus();
-					await expect(noSessionMessage).toBeVisible({ timeout: 1000 });
-				}).toPass({ timeout: 15000 });
-			}
+			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
+
+			// Deleted sessions stay attached (hidden) in the DOM until the runtime
+			// finishes shutting down, and getSessionCount() counts attached nodes.
+			// Wait for the deleted instances to fully detach so the next test's
+			// session-reuse check doesn't race them. A session intentionally left
+			// behind on server/workbench (see delete() workaround) stays visible,
+			// so it does not block this wait.
+			await expect(this.sessions.filter({ visible: false })).toHaveCount(0, { timeout: 15000 });
 		});
 	}
 
@@ -646,7 +632,10 @@ export class Sessions {
 	 */
 	async getCurrentSessionId(): Promise<string> {
 		return await test.step('Get current session ID', async () => {
-			const infoButton = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+			// Notebook console sessions carry an extra `-notebook` segment
+			// (e.g. `info-r-notebook-f77090bb`), so allow it in addition to
+			// standalone sessions (`info-r-f77090bb`).
+			const infoButton = this.page.getByTestId(/info-(python|r)(-notebook)?-[a-z0-9]+/i);
 			const infoButtonCount = await infoButton.count();
 
 			if (infoButtonCount === 0) {
@@ -655,7 +644,7 @@ export class Sessions {
 
 			const testId = await infoButton.getAttribute('data-testid');
 
-			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+			if (!testId || !/^info-((python|r)(-notebook)?-[a-z0-9]+)$/i.test(testId)) {
 				throw new Error('No active session or unexpected session ID format');
 			}
 
@@ -1042,6 +1031,15 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	/**
+	 * Action: Open the "Start New Session" quickpick showing all available
+	 * runtimes (the full interpreter list). Leaves the quickpick open so the
+	 * caller can interact with or capture it.
+	 */
+	async openStartNewSessionQuickPick(): Promise<void> {
+		await this.quickPick.openSessionQuickPickMenu(true);
 	}
 
 	/**

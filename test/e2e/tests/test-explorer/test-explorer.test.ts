@@ -4,88 +4,69 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
-import { test, expect, tags } from '../_test.setup';
+import { copyFixtureFolder } from '../../infra/test-runner';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, settings, r, hotKeys }) {
-		try {
-			// don't use native file picker
-			await settings.set({
-				'files.simpleDialog.enable': true
-			}, { reload: true, waitForReady: true });
-		} catch (e) {
-			await app.code.driver.takeScreenshot('testExplorerSetup');
-			throw e;
-		}
+test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPMENT, tags.ARK, tags.WEB, tags.WIN] }, () => {
+	// A toy R package fixture, incubated inside positron-r (beside the vscodereporter
+	// resources) to avoid cross-repo coordination with qa-example-content while the
+	// test explorer e2e stabilizes.
+	const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
+
+	test.beforeAll(async function ({ app }) {
+		const source = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
+		const destination = path.join(path.dirname(app.workspacePathOrFolder), FIXTURE_NAME);
+		copyFixtureFolder(source, destination);
 	});
 
-	test.skip('R - Verify Basic Test Explorer Functionality', {
-		tag: [tags.ARK],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10682' }]
-	}, async function ({ app, openFolder }) {
+	test.beforeEach(async function ({ app, openFolder }) {
+		const { testExplorer, sessions } = app.workbench;
+		await openFolder(FIXTURE_NAME);
+		await testExplorer.openTestExplorer();
+		// Tests share one app instance; reset to a known state.
+		await testExplorer.collapseAllTests();
+		await testExplorer.clearAllTestResults();
+		await sessions.start('r');
+	});
 
-		// Open R package embedded in qa-example-content
-		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+	test('Basic R Test Explorer Functionality', async function ({ app }) {
+		const { testExplorer } = app.workbench;
 
-		await app.workbench.sessions.expectAllSessionsToBeReady();
+		await testExplorer.expectTestItems(['test-test-that.R', 'test-describe-it.R']);
+		await testExplorer.runAllTests();
 
-		await app.workbench.sessions.start('r');
+		// Both files contain a failure, so each will have 'Failed' status.
+		// The run is async, so we wait before the first expectation.
+		await testExplorer.expectTestStatus('test-describe-it.R', 'Failed', 60000);
+		await testExplorer.expectTestStatus('test-test-that.R', 'Failed');
 
-		await expect(async () => {
-			await app.workbench.testExplorer.openTestExplorer();
-			await app.workbench.sessions.expectAllSessionsToBeReady();
-			await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
-		}).toPass({ timeout: 60000 });
+		// Reveal the test_that() and describe()/it() items inside the files.
+		await testExplorer.expandAllTests();
 
-		await app.workbench.testExplorer.runAllTests();
+		await testExplorer.expectTestStatus('simple describe() 1 passes', 'Passed');
+		await testExplorer.expectTestStatus('it number 1-1', 'Passed');
+		await testExplorer.expectTestStatus('it number 1-2', 'Passed');
 
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await testExplorer.expectTestStatus('simple describe() 2 fails', 'Failed');
+		await testExplorer.expectTestStatus('it number 2-1 fails', 'Failed');
 
-		await expect(async () => {
-			const testResults = await app.workbench.testExplorer.getTestResults();
+		await testExplorer.expectTestStatus('test_that number 1 passes', 'Passed');
+		await testExplorer.expectTestStatus('test_that number 2 fails', 'Failed');
+	});
 
-			expect(testResults[0].caseText).toBe('nothing really');
-			expect(testResults[0].status).toBe('fail');
+	// https://github.com/posit-dev/positron/issues/10133
+	test('Test with multi-line description can be run by itself', async function ({ app }) {
+		const { testExplorer } = app.workbench;
+		const MULTI_LINE_LABEL = 'test_that with a multi-line description passes';
 
-			expect(testResults[1].caseText).toBe('subtraction works');
-			expect(testResults[1].status).toBe('pass');
+		await testExplorer.expectTestItems(['test-multi-line-desc.R']);
+		await testExplorer.expandAllTests();
 
-			expect(testResults[2].caseText).toBe('subtraction `still` "works"');
-			expect(testResults[2].status).toBe('pass');
-
-			expect(testResults[3].caseText).toBe('x is \'a\'');
-			expect(testResults[3].status).toBe('pass');
-
-			expect(testResults[4].caseText).toBe('x is \'a\' AND y is \'b\'');
-			expect(testResults[4].status).toBe('pass');
-
-			expect(testResults[5].caseText).toBe('whatever');
-			expect(testResults[5].status).toBe('pass');
-
-			expect(testResults[6].caseText).toBe('can \'add\' two numbers');
-			expect(testResults[6].status).toBe('pass');
-
-			expect(testResults[7].caseText).toBe('can multiply two numbers');
-			expect(testResults[7].status).toBe('pass');
-
-			expect(testResults[8].caseText).toBe('can be multiplied by a scalar');
-			expect(testResults[8].status).toBe('pass');
-
-			expect(testResults[9].caseText).toBe('is true');
-			expect(testResults[9].status).toBe('pass');
-
-			expect(testResults[10].caseText).toBe('can add two numbers');
-			expect(testResults[10].status).toBe('pass');
-
-			expect(testResults[11].caseText).toBe('can multiply two numbers');
-			expect(testResults[11].status).toBe('pass');
-
-			expect(testResults[12].caseText).toBe('a second it()');
-			expect(testResults[12].status).toBe('pass');
-		}).toPass({ timeout: 50000 });
+		await testExplorer.runTest(MULTI_LINE_LABEL);
+		await testExplorer.expectTestStatus(MULTI_LINE_LABEL, 'Passed', 60000);
 	});
 });

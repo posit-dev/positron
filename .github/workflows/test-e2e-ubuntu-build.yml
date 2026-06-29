@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 35
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:126
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -33,7 +33,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:126
+        image: ghcr.io/posit-dev/positron-postgres-amd64:142
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -42,7 +42,7 @@ jobs:
         env:
           POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+          POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DOCKER_CONFIG: /tmp/.docker # Ensure Docker client doesn't try to read a root-owned config file in the container
@@ -53,7 +53,6 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-      E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -63,7 +62,7 @@ jobs:
       HOME: /root
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive

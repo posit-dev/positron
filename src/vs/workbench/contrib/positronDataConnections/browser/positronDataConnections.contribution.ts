@@ -19,7 +19,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
 // Configuration key that gates the Positron Data Connections feature.
-const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
+const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'databases.enabled';
 
 // Register the configuration setting.
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
@@ -32,13 +32,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'dataConnections.enabled',
-				'Enable the Data Connections panel. Requires a reload to take effect.'
+				'databases.enabled',
+				'Enable the Databases panel. Requires a reload to take effect.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.APPLICATION,
-			// Hidden from the settings UI; users can still set it in settings.json.
-			included: false,
+			included: true,
 		},
 	},
 });
@@ -73,8 +72,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 			{
 				id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 				title: {
-					value: localize('positron.dataConnections', "Data"),
-					original: 'Data'
+					value: localize('positron.dataConnections', "Databases"),
+					original: 'Databases'
 				},
 				icon: positronDataConnectionsViewIcon,
 				order: 2,
@@ -93,8 +92,8 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 		Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 			id: POSITRON_DATA_CONNECTIONS_VIEW_ID,
 			name: {
-				value: localize('positron.dataConnections', "Data"),
-				original: 'Data Connections'
+				value: localize('positron.dataConnections', "Databases"),
+				original: 'Databases'
 			},
 			containerIcon: positronDataConnectionsViewIcon,
 			canMoveView: true,

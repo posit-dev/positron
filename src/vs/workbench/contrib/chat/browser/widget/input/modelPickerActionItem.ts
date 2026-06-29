@@ -9,7 +9,6 @@ import { getBaseLayerHoverDelegate } from '../../../../../../base/browser/ui/hov
 import { getDefaultHoverDelegate } from '../../../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { BaseActionViewItem } from '../../../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { IAction } from '../../../../../../base/common/actions.js';
-import { Event } from '../../../../../../base/common/event.js';
 import { MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable } from '../../../../../../base/common/observable.js';
 import { localize } from '../../../../../../nls.js';
@@ -22,14 +21,8 @@ import { ModelPickerWidget } from './chatModelPicker.js';
 
 export interface IModelPickerDelegate {
 	readonly currentModel: IObservable<ILanguageModelChatMetadataAndIdentifier | undefined>;
-	// --- Start Positron ---
-	readonly onDidChangeModelList: Event<void>;
-	// --- End Positron ---
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
-	// --- Start Positron ---
-	canManageModels(): boolean;
-	// --- End Positron ---
 	useGroupedModelPicker(): boolean;
 	showManageModelsAction(): boolean;
 	showUnavailableFeatured(): boolean;
@@ -69,14 +62,6 @@ export class ModelPickerActionItem extends BaseActionViewItem {
 
 		// Sync widget → delegate when user picks a model
 		this._register(this._pickerWidget.onDidChangeSelection(model => delegate.setModel(model)));
-
-		// --- Start Positron ---
-		// Re-sync when Positron's model list changes (e.g. provider settings updated).
-		this._register(delegate.onDidChangeModelList(() => {
-			this._pickerWidget.setSelectedModel(delegate.currentModel.get());
-			this._updateTooltip();
-		}));
-		// --- End Positron ---
 	}
 
 	override render(container: HTMLElement): void {

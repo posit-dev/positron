@@ -13,7 +13,12 @@ import { AsyncEmitter, Emitter, Event } from '../../../../base/common/event.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { INotebookConflictEvent, INotebookEditorModelResolverService, IUntitledNotebookResource } from './notebookEditorModelResolverService.js';
-import { ResourceMap } from '../../../../base/common/map.js';
+// --- Start Positron ---
+// Also import ResourceSet for untitled name reservations (#13561).
+// Commented out upstream code:
+// import { ResourceMap } from '../../../../base/common/map.js';
+import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
+// --- End Positron ---
 import { FileWorkingCopyManager, IFileWorkingCopyManager } from '../../../services/workingCopy/common/fileWorkingCopyManager.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { NotebookProviderInfo } from './notebookProvider.js';
@@ -168,6 +173,16 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 	private readonly _onWillFailWithConflict = new AsyncEmitter<INotebookConflictEvent>();
 	readonly onWillFailWithConflict = this._onWillFailWithConflict.event;
 
+	// --- Start Positron ---
+	// Untitled resources handed out by createUntitledUri whose models are
+	// still being created. See createUntitledUri for why (#13561). Keyed by
+	// URI comparison key so that the canonical form callers release always
+	// matches the minted form reserved in createUntitledUri: asCanonicalUri
+	// finds the canonical entry by this same key, so the two agree by
+	// construction.
+	private readonly _pendingUntitledUris = new ResourceSet(uri => this._uriIdentService.extUri.getComparisonKey(uri));
+	// --- End Positron ---
+
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -194,12 +209,29 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 		}
 
 		const suffix = NotebookProviderInfo.possibleFileEnding(info.selectors) ?? '';
+		// --- Start Positron ---
+		// The two checks below only see a notebook once its model has finished
+		// loading, which includes an async round trip to the extension host
+		// serializer. Two concurrent untitled creations could therefore be
+		// handed the same Untitled-N name and silently coalesce into a single
+		// document (#13561). Reserve the name until the model becomes visible
+		// to those checks; callers release the reservation when the model
+		// resolves or fails.
+		// Commented out upstream code:
+		// for (let counter = 1; ; counter++) {
+		// 	const candidate = URI.from({ scheme: Schemas.untitled, path: `Untitled-${counter}${suffix}`, query: notebookType });
+		// 	if (!this._notebookService.getNotebookTextModel(candidate) && !this._data.isListeningToModel(candidate)) {
+		// 		return candidate;
+		// 	}
+		// }
 		for (let counter = 1; ; counter++) {
 			const candidate = URI.from({ scheme: Schemas.untitled, path: `Untitled-${counter}${suffix}`, query: notebookType });
-			if (!this._notebookService.getNotebookTextModel(candidate) && !this._data.isListeningToModel(candidate)) {
+			if (!this._notebookService.getNotebookTextModel(candidate) && !this._data.isListeningToModel(candidate) && !this._pendingUntitledUris.has(candidate)) {
+				this._pendingUntitledUris.add(candidate);
 				return candidate;
 			}
 		}
+		// --- End Positron ---
 	}
 
 	private async validateResourceViewType(uri: URI | undefined, viewType: string | undefined) {
@@ -250,7 +282,18 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 	public async createUntitledNotebookTextModel(viewType: string) {
 		const resource = this._uriIdentService.asCanonicalUri(this.createUntitledUri(viewType));
 
-		return (await this._notebookService.createNotebookTextModel(viewType, resource));
+		// --- Start Positron ---
+		// Release the name reservation made by createUntitledUri once the
+		// model exists (it is then visible to createUntitledUri's own checks)
+		// or its creation failed (#13561).
+		// Commented out upstream code:
+		// return (await this._notebookService.createNotebookTextModel(viewType, resource));
+		try {
+			return (await this._notebookService.createNotebookTextModel(viewType, resource));
+		} finally {
+			this._pendingUntitledUris.delete(resource);
+		}
+		// --- End Positron ---
 	}
 
 	async resolve(resource: URI, viewType?: string, options?: NotebookEditorModelCreationOptions): Promise<IReference<IResolvedNotebookEditorModel>>;
@@ -281,6 +324,19 @@ export class NotebookModelResolverServiceImpl implements INotebookEditorModelRes
 		} catch (err) {
 			reference.dispose();
 			throw err;
+			// --- Start Positron ---
+		} finally {
+			// If validateResourceViewType minted an untitled resource for us
+			// (no resource was provided), release the name reservation made by
+			// createUntitledUri: the model is now either resolved (and visible
+			// to createUntitledUri's checks) or failed to load (#13561).
+			// validateResourceViewType cannot throw after minting -- a freshly
+			// minted resource has no existing model to conflict with -- so a
+			// reservation always reaches this finally.
+			if (!resource) {
+				this._pendingUntitledUris.delete(validated.resource);
+			}
+			// --- End Positron ---
 		}
 	}
 }

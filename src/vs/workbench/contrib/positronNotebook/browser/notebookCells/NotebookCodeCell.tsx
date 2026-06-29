@@ -19,6 +19,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { hasWebviewOutput, htmlRenderMode } from '../PositronNotebookCells/notebookOutputUtils.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { CellOutputCollapseButton } from './CellOutputCollapseButton.js';
@@ -27,6 +28,8 @@ import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { getActiveWindow, isHTMLElement } from '../../../../../base/browser/dom.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
+import { ShadowDomContent } from '../../../../../base/browser/positron/ShadowDomContent.js';
+import { createTrustedTypesPolicy } from '../../../../../base/browser/trustedTypes.js';
 import { Markdown } from './Markdown.js';
 import { LatexOutput } from './LatexOutput.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
@@ -44,6 +47,10 @@ import { CellSelectionType } from '../selectionMachine.js';
 
 /** The minimum height (pixels) that scrollable outputs can be resized to. */
 const MINIMUM_SCROLLABLE_OUTPUT_HEIGHT = 50;
+
+// Passthrough policy to assign HTML output under Trusted Types. Safe here: active
+// content is routed to a webview upstream and innerHTML never runs scripts.
+const htmlOutputTTPolicy = createTrustedTypesPolicy('positronNotebookHtmlOutput', { createHTML: value => value });
 
 const copyOutputTextLabel = localize('positron.notebook.copyOutputText', "Copy Output Text");
 const expandOutputTooltip = localize('positron.notebook.expandOutput', "Click to Expand Output");
@@ -75,7 +82,11 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	useScrollingIndicator(outputsInnerRef);
 
 	// Per-cell scrolling override takes precedence over global setting.
-	const outputScrolling = perCellScrolling ?? layout.outputScrolling;
+	// A webview output (position:fixed overlay) is not clipped by the output
+	// container's max-height, so applying the scrolling cap would let it overflow
+	// into neighboring cells. Webviews size to their own content instead.
+	const outputScrollingEnabled = perCellScrolling ?? layout.outputScrolling;
+	const applyOutputScrolling = outputScrollingEnabled && !hasWebviewOutput(outputs);
 
 	const clearHeightOverride = useCallback(() => {
 		const el = outputsInnerRef.current;
@@ -89,7 +100,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 	// Reset height override when outputs change (new execution) or scrolling mode toggles.
 	useEffect(() => {
 		clearHeightOverride();
-	}, [outputs, outputScrolling, clearHeightOverride]);
+	}, [outputs, applyOutputScrolling, clearHeightOverride]);
 
 	const onBeginResize = useCallback((): HorizontalSplitterResizeParams => {
 		const el = outputsInnerRef.current;
@@ -233,7 +244,7 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 					'positron-notebook-code-cell-outputs-inner',
 					'positron-notebook-scrollable',
 					'positron-notebook-scrollable-fade',
-					{ 'output-scrolling': outputScrolling },
+					{ 'output-scrolling': applyOutputScrolling },
 				)}>
 
 					{isCollapsed
@@ -247,14 +258,14 @@ const CellOutputsSection = React.memo(function CellOutputsSection({ cell, output
 							>
 								<CellOutput
 									{...output}
-									outputScrolling={outputScrolling}
+									outputScrolling={outputScrollingEnabled}
 									onShowFullOutput={() => cell.showFullOutput()}
 								/>
 							</NotebookErrorBoundary>
 						))
 					}
 				</div>
-				{outputScrolling && !isCollapsed && hasOutputs &&
+				{applyOutputScrolling && !isCollapsed && hasOutputs &&
 					<HorizontalSplitter
 						showResizeIndicator
 						onBeginResize={onBeginResize}
@@ -312,7 +323,7 @@ interface CellOutputProps extends NotebookCellOutputs {
 
 const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 	if (output.preloadMessageResult) {
-		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
+		return <PreloadMessageOutput outputScrolling={output.outputScrolling} preloadMessageResult={output.preloadMessageResult} />;
 	}
 
 	const { parsed, outputs, outputScrolling, onShowFullOutput } = output;
@@ -331,9 +342,12 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 				{localize('cellExecutionKeyboardInterrupt', 'Cell execution stopped due to keyboard interrupt.')}
 			</div>;
 		case 'image':
-			return <img alt='output image' src={parsed.dataUrl} />;
+			return <img alt='output image' height={parsed.height} src={parsed.dataUrl} width={parsed.width} />;
 		case 'html':
-			return renderHtml(parsed.content);
+			// Full HTML documents go in a shadow root; renderHtml only handles fragments.
+			return htmlRenderMode(parsed.content) === 'shadowRoot'
+				? <ShadowDomContent content={parsed.content} trustedTypesPolicy={htmlOutputTTPolicy} />
+				: renderHtml(parsed.content);
 		case 'markdown':
 			return <Markdown content={parsed.content} />;
 		case 'latex':

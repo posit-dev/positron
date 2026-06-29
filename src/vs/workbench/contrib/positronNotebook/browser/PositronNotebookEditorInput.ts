@@ -14,7 +14,6 @@ import { INotebookEditorModelResolverService } from '../../notebook/common/noteb
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
 import { FileFilter, IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
@@ -22,7 +21,6 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { NotebookProviderInfo } from '../../notebook/common/notebookProvider.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 
@@ -43,22 +41,7 @@ export interface PositronNotebookEditorInputOptions {
 }
 
 
-/**
- * PositronDataToolEditorInput class.
- */
 export class PositronNotebookEditorInput extends EditorInput {
-
-	/**
-	 * Value to keep track of what input instance we're on.
-	 * Used for keeping track in the logs.
-	 */
-	static count = 0;
-
-	/**
-	 * Unique identifier for this specific input instance
-	 */
-	readonly uniqueId: string = `positron-notebook-${PositronNotebookEditorInput.count++}`;
-
 	//#region Static Properties
 
 	/**
@@ -88,8 +71,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	// This is a reference to the model that is currently being edited in the editor.
 	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
 
-	notebookInstance: PositronNotebookInstance;
-
 	//#endregion Static Properties
 	//#region Constructor & Dispose
 	/**
@@ -102,9 +83,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		public readonly viewType: string,
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
-		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -112,22 +91,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	) {
 		// Call the base class's constructor.
 		super();
-
-		this.notebookInstance = PositronNotebookInstance.getOrCreate(
-			this.uniqueId,
-			this.resource,
-			this.viewType,
-			undefined,
-			instantiationService
-		);
 	}
 
 	/**
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		this.notebookInstance.dispose();
-
 		// Dispose the editor model reference, if one exists
 		this._editorModelReference?.dispose();
 		this._editorModelReference = null;
@@ -298,14 +267,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 			this._logService.error('Failed to reassign notebook session URI', error);
 		}
 
-		// Select the kernel for the new URI.
-		// The kernel service should handle deselecting the kernel for the old URI if it was untitled
-		// to ensure that new untitled notebooks start with clean state
-		const kernel = this.notebookInstance.kernel.get();
-		if (kernel) {
-			this._notebookKernelService.selectKernelForNotebook(kernel, { uri: this.resource, notebookType: this.viewType });
-		}
-
 		// Use the model's saveAs method which handles the actual file saving
 		return await this._editorModelReference.object.saveAs(target);
 	}
@@ -424,12 +385,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		} catch (error) {
 			// Log error but don't fail the rename operation
 			this._logService.error('Failed to reassign notebook session URI during rename', error);
-		}
-
-		// select the kernel for the new URI
-		const kernel = this.notebookInstance.kernel.get();
-		if (kernel) {
-			this._notebookKernelService.selectKernelForNotebook(kernel, { uri: this.resource, notebookType: this.viewType });
 		}
 
 		// Return editor with new resource to keep the editor open

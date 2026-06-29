@@ -29,6 +29,7 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY = 'positron.assistan
 // Command IDs for ghost cell actions
 export const REQUEST_GHOST_CELL_SUGGESTION_COMMAND_ID = 'positronNotebook.requestGhostCellSuggestion';
 export const SHOW_GHOST_CELL_INFO_COMMAND_ID = 'positronNotebook.showGhostCellInfo';
+export const SELECT_GHOST_CELL_MODEL_COMMAND_ID = 'positronNotebook.selectGhostCellModel';
 
 // Register ghost cell configuration settings
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
@@ -48,7 +49,7 @@ configurationRegistry.registerConfiguration({
 				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
 			),
 			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY]: {
 			type: 'number',
@@ -60,7 +61,7 @@ configurationRegistry.registerConfiguration({
 				'Time in milliseconds to wait after cell execution before showing ghost cell suggestions. A shorter delay shows suggestions faster but may trigger unnecessary requests if you quickly execute multiple cells. A longer delay reduces requests but delays suggestions.'
 			),
 			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_AUTOMATIC_KEY]: {
 			type: 'boolean',
@@ -70,18 +71,22 @@ configurationRegistry.registerConfiguration({
 				'When enabled, suggestions appear automatically after cell execution. When disabled, a placeholder appears and you can request a suggestion by clicking "Get Suggestion" or pressing Cmd/Ctrl+Shift+G.'
 			),
 			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_MODEL_KEY]: {
 			type: 'array',
 			items: { type: 'string' },
-			default: ['haiku', 'mini'],
+			// Empty by default so the displayed default matches the runtime
+			// behavior: an empty/unset value uses the configurable fast/cheap
+			// tier (see intentFromSetting). A non-empty value pins specific
+			// patterns instead and bypasses that tier.
+			default: [],
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.model',
-				'Model patterns for ghost cell suggestions. [Select a model](command:positron-assistant.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until a match is found (case-insensitive partial matching). Falls back to the current chat session model, then the provider\'s model, then the first available model.'
+				'Model patterns for ghost cell suggestions. [Select a model](command:positronNotebook.selectGhostCellModel) or specify patterns manually. Patterns are tried in order until one matches an available model (case-insensitive). When left empty, the default fast/cheap tier is used.'
 			),
 			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_MAX_VARIABLES_KEY]: {
 			type: 'number',
@@ -93,7 +98,7 @@ configurationRegistry.registerConfiguration({
 				'Maximum number of session variables to include in ghost cell suggestion context. Variables are prioritized by relevance (DataFrames and tables first, then collections and scalars). Set to 0 to disable variable context.'
 			),
 			scope: ConfigurationScope.WINDOW,
-			tags: ['experimental'],
+			tags: ['experimental', 'positronNotebook'],
 		},
 	},
 });

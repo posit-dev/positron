@@ -28,11 +28,13 @@ import { IDefaultAccount } from '../../../../base/common/defaultAccount.js';
 
 // --- Start Positron ---
 import { env } from '../../../../base/common/process.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 // eslint-disable-next-line no-duplicate-imports
 import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // eslint-disable-next-line no-duplicate-imports
 import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
-import { parseExtensionsGalleryEnv } from '../../../../platform/extensionManagement/common/extensionsGalleryEnv.js';
+import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv, showWindowLog } from '../common/extensionGalleryManifestEnvReporting.js';
 // --- End Positron ---
 
 export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryManifestService implements IExtensionGalleryManifestService {
@@ -62,6 +64,8 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		@ILogService private readonly logService: ILogService,
 		@IDialogService private readonly dialogService: IDialogService,
 		@IHostService private readonly hostService: IHostService,
+		@INotificationService private readonly notificationService: INotificationService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
 	) {
 		super(productService);
 		this.commonHeadersPromise = resolveMarketplaceHeaders(
@@ -85,13 +89,17 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 
 	// --- Start Positron ---
 	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
-		const envValue = env['EXTENSIONS_GALLERY'];
-		const envGallery = envValue
-			? parseExtensionsGalleryEnv<ExtensionGalleryConfig>(envValue, msg => this.logService.warn(msg))
-			: undefined;
+		const gallerySource = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
+		const envGallery = reportExtensionsGalleryEnv(
+			env['EXTENSIONS_GALLERY'],
+			gallerySource,
+			this.logService,
+			this.notificationService,
+			() => showWindowLog(this.instantiationService),
+		);
 		return resolvePositronGalleryConfig(
 			envGallery,
-			this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+			gallerySource,
 			super.getGalleryConfig(),
 		);
 	}
@@ -124,7 +132,16 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			// --- Start Positron ---
 			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
-				this.requestRestart();
+				// Re-parse and report so the user is told again if the env var is
+				// malformed; only a valid env var actually overrides the setting.
+				const envGallery = reportExtensionsGalleryEnv(
+					env['EXTENSIONS_GALLERY'],
+					this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+					this.logService,
+					this.notificationService,
+					() => showWindowLog(this.instantiationService),
+				);
+				handleGallerySourceSettingChange(envGallery, this.notificationService, () => this.requestRestart());
 				return;
 			}
 			// --- End Positron ---

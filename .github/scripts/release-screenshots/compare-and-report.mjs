@@ -207,7 +207,9 @@ export async function classify(generatedDir, docsDir, opts = {}) {
 	return result;
 }
 
-const DOCS_IMAGE_BASE_URL = 'https://positron.posit.co/images';
+const DOCS_IMAGE_BASE_URL = process.env.DOCS_IMAGE_COMMIT_SHA
+	? `https://raw.githubusercontent.com/posit-dev/positron-website/${process.env.DOCS_IMAGE_COMMIT_SHA}/images`
+	: 'https://positron.posit.co/images'; // fallback for local runs
 const THUMBNAIL_WIDTH = 400;
 
 function imageCell(url) {
@@ -454,7 +456,9 @@ async function main() {
 		}
 	}
 	const outputPath = process.env.GITHUB_OUTPUT;
-	const outputs = `changed_count=${counts.changed}\nnew_count=${counts.new}\n`;
+	const outputs = `changed_count=${counts.changed}
+new_count=${counts.new}
+`;
 	if (outputPath) {
 		await appendFile(outputPath, outputs);
 	} else {

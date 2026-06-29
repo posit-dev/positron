@@ -95,10 +95,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.6.3",
+			"version": "2026.7.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "c6c92cf0c9bb1a3411484e4283e531109db1879c9b0c06e526db4bf136ded7cf",
+			"sha256": "4653f543e2eb5aa933320b99937a7fcb600ad22a5d7bbbe21cc05a94311b0a0c",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -117,7 +117,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.46.0",
+			"version": "2026.56.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -211,7 +211,7 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "1.0.0",
+			"version": "1.1.1",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -241,7 +241,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "2.7.6",
+			"version": "2.8.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -252,8 +252,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.132.0",
-			"sha256": "fe54121a32cae2b1bd9e6b8560fcfcbacc23515587abb09dd735110d3246245b",
+			"version": "1.134.0",
+			"sha256": "df2a4f8e2e68486a9c7e108ebebe2030c098890be9486d930f2303393f5ffbe4",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -268,7 +268,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.24.0",
+			"version": "0.26.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -305,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.5.9",
-			"sha256": "40e8c099477a5dd7667adc5f2e88d9867fd38f1ed92d2e5a1f5100550c89f752",
+			"version": "0.6.2",
+			"sha256": "fa0663bf62c2160378e8ec31b297450d383d74066fd927a40c3d0d61fe0c1605",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -731,6 +731,10 @@
 		"openai-api": [
 			"positron.authentication",
 			"positron.positron-assistant",
+			"posit.assistant"
+		],
+		"deepseek-api": [
+			"positron.authentication",
 			"posit.assistant"
 		],
 		"openai-compatible": [

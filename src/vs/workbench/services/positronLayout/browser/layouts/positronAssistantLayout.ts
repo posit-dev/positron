@@ -8,6 +8,8 @@ import { registerAction2 } from '../../../../../platform/actions/common/actions.
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ViewContainerLocation } from '../../../../common/views.js';
+import { IPaneCompositePartService } from '../../../panecomposite/browser/panecomposite.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
@@ -74,11 +76,11 @@ registerAction2(class extends PositronLayoutAction {
 		super(positronAssistantLayout);
 	}
 
-	override run(accessor: ServicesAccessor): void {
+	override async run(accessor: ServicesAccessor): Promise<void> {
 		// Prefer Posit Assistant when enabled; fall back to the legacy Positron Assistant chat view container.
 		const configurationService = accessor.get(IConfigurationService);
 		const sidebarContainerId = configurationService.getValue<boolean>('assistant.enabled')
-			? 'posit-assistant'
+			? 'workbench.view.extension.posit-assistant'
 			: 'workbench.panel.chat';
 
 		const layoutDescriptor: CustomPositronLayoutDescription = {
@@ -90,5 +92,12 @@ registerAction2(class extends PositronLayoutAction {
 		};
 
 		accessor.get(IPositronLayoutService).setLayout(layoutDescriptor);
+
+		// The layout opens the sidebar container fire-and-forget; for an
+		// extension-contributed, webview-backed composite (Posit Assistant) that
+		// open can lose a race with the surrounding layout work on web and leave
+		// the sidebar on the previously active view. Await an explicit open so the
+		// correct view is reliably revealed and focused on every platform.
+		await accessor.get(IPaneCompositePartService).openPaneComposite(sidebarContainerId, ViewContainerLocation.Sidebar, true);
 	}
 });

@@ -115,6 +115,28 @@ function checkModulePath(): boolean {
 }
 
 /**
+ * Find the first module init script that exists on disk for the given shell.
+ *
+ * Even when the `module` command is already available in the login shells used
+ * for discovery, we still want to know the init script path. The startup
+ * command we hand to the kernel is run in a shell (often a non-login,
+ * interactive one) where `module` may not be defined, so it must be able to
+ * source the init script itself to be self-sufficient.
+ *
+ * @param shell The shell configuration to resolve init paths for.
+ * @returns The first existing init script path, or undefined if none found.
+ */
+function findInitScript(shell: ShellConfig): string | undefined {
+	const initPaths = getModuleInitPaths(shell);
+	for (const initPath of initPaths) {
+		if (fs.existsSync(initPath)) {
+			return initPath;
+		}
+	}
+	return undefined;
+}
+
+/**
  * Detect if a module system is available and determine its type.
  */
 export async function detectModuleSystem(
@@ -162,10 +184,15 @@ export async function detectModuleSystem(
 			});
 			if (result.includes('module is a') || result.includes('module is ')) {
 				const type = await detectModuleTypeFromCommand(shell);
-				log.info(`Module system detected via MODULEPATH: type=${type}`);
+				// Resolve an init script even though `module` is already
+				// available here, so the kernel startup command can source it
+				// itself. See findInitScript for details.
+				const initPath = findInitScript(shell);
+				log.info(`Module system detected via MODULEPATH: type=${type}, initPath=${initPath ?? '(none)'}`);
 				return {
 					available: true,
 					type,
+					initPath,
 					command: 'module'
 				};
 			}
@@ -193,10 +220,16 @@ export async function detectModuleSystem(
 		});
 		if (result.includes('module is a') || result.includes('module is ')) {
 			const type = await detectModuleTypeFromCommand(shell);
-			log.info(`Module system detected via login shell: type=${type}`);
+			// `module` is available in the login shell used for discovery, but
+			// the kernel startup command may run in a non-login shell where it
+			// is not. Resolve an init script so the startup command can source
+			// it itself. See findInitScript for details.
+			const initPath = findInitScript(shell);
+			log.info(`Module system detected via login shell: type=${type}, initPath=${initPath ?? '(none)'}`);
 			return {
 				available: true,
 				type,
+				initPath,
 				command: 'module'
 			};
 		}
@@ -212,18 +245,16 @@ export async function detectModuleSystem(
 	}
 
 	// Search for shell-specific init scripts
-	const initPaths = getModuleInitPaths(shell);
-	for (const initPath of initPaths) {
-		if (fs.existsSync(initPath)) {
-			const type = await detectModuleType(initPath);
-			log.info(`Module system detected via init script: ${initPath}, type=${type}`);
-			return {
-				available: true,
-				type,
-				initPath,
-				command: 'module'
-			};
-		}
+	const initPath = findInitScript(shell);
+	if (initPath) {
+		const type = await detectModuleType(initPath);
+		log.info(`Module system detected via init script: ${initPath}, type=${type}`);
+		return {
+			available: true,
+			type,
+			initPath,
+			command: 'module'
+		};
 	}
 
 	log.debug('No module system detected');

@@ -115,7 +115,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		protected readonly _context?: vscode.ExtensionContext,
 	) {
 		this.id = _config.id;
-		this.displayName = _config.name;
+		this.displayName = this.providerName;
 		this.providerId = _config.provider;
 		this.logger = new ModelProviderLogger(this.providerName);
 		this.initializeProvider();

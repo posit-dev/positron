@@ -14,9 +14,10 @@ import { localize } from '../../../../../nls.js';
 import { Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ByteSize } from '../../../../../platform/files/common/files.js';
-import { IMemoryUsageSnapshot } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
+import { IMemoryUsageSnapshot, LowMemoryUnit, LOW_MEMORY_PERCENT_SETTING, LOW_MEMORY_MB_SETTING } from '../../../../../platform/positronMemoryUsage/common/positronMemoryUsage.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { MemoryUsageBar } from './memoryUsageBar.js';
 
 // Localized strings.
@@ -67,6 +68,9 @@ interface UsageRowEntry {
  * Renders the detailed memory usage breakdown popup.
  */
 export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
+	// Services.
+	const services = usePositronReactServicesContext();
+
 	// Subscribe to live updates so the popup stays in sync with the action bar.
 	const [snapshot, setSnapshot] = useState(props.snapshot);
 	useEffect(() => {
@@ -245,8 +249,34 @@ export const MemoryUsageDropdown = (props: MemoryUsageDropdownProps) => {
 					highlightedIds={highlightedIds}
 					onSegmentHover={onHover}
 				/>
+				{snapshot.lowMemory && (
+					<div className='low-memory-warning'>
+						<span className='codicon codicon-warning' />
+						<span>
+							{snapshot.lowMemory.unit === LowMemoryUnit.Percent
+								? localize('positron.memoryUsage.lowMemoryThresholdPercent', "Less than {0}% memory remaining", snapshot.lowMemory.threshold)
+								: localize('positron.memoryUsage.lowMemoryThresholdMb', "Less than {0}MB memory remaining", snapshot.lowMemory.threshold)}
+							{' ('}
+							<a
+								className='configure-link'
+								href='#'
+								onClick={e => {
+									e.preventDefault();
+									const settingId = snapshot.lowMemory?.unit === LowMemoryUnit.Percent
+										? LOW_MEMORY_PERCENT_SETTING
+										: LOW_MEMORY_MB_SETTING;
+									props.renderer.dispose();
+									services.preferencesService.openSettings({ query: `@id:${settingId}` });
+								}}
+							>
+								{localize('positron.memoryUsage.configure', "configure")}
+							</a>
+							{')'}
+						</span>
+					</div>
+				)}
 			</div>
-			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className='memory-usage-dropdown' role='table'>
+			<div aria-label={localize('positron.memoryUsage.breakdown', "Memory usage breakdown")} className={`memory-usage-dropdown${snapshot.lowMemory ? ' low-memory' : ''}`} role='table'>
 				{sessionRows.length > 0 && (
 					<>
 						<div className='section-header' role='row'>

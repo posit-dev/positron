@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { BaseActionViewItem } from '../../../../../base/browser/ui/actionbar/actionViewItems.js';
-import { Event } from '../../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { autorun, observableValue } from '../../../../../base/common/observable.js';
 import * as nls from '../../../../../nls.js';
@@ -92,10 +91,6 @@ class AgentHostModelPickerContribution extends Disposable implements IWorkbenchC
 				const currentModel = observableValue<ILanguageModelChatMetadataAndIdentifier | undefined>('currentModel', undefined);
 				const delegate: IModelPickerDelegate = {
 					currentModel,
-					// --- Start Positron ---
-					onDidChangeModelList: Event.None,
-					canManageModels: () => false,
-					// --- End Positron ---
 					setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
 						currentModel.set(model, undefined);
 						storageService.store(STORAGE_KEY, model.identifier, StorageScope.PROFILE, StorageTarget.MACHINE);

@@ -8,10 +8,11 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 export class NewFolderFlow {
-	private get backButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Back', exact: true }); }
-	private get cancelButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Cancel' }); }
-	private get nextButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Next', exact: true }); }
-	private get createButton(): Locator { return this.code.driver.currentPage.getByRole('button', { name: 'Create', exact: true }); }
+	private get modalOverlay(): Locator { return this.code.driver.currentPage.getByTestId('positron-modal-overlay'); }
+	private get backButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Back', exact: true }); }
+	private get cancelButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Cancel' }); }
+	private get nextButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Next', exact: true }); }
+	private get createButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Create', exact: true }); }
 	private folderTemplateButton = (label: string) => this.code.driver.currentPage.locator('label').filter({ hasText: label });
 	private get folderNameInput(): Locator { return this.code.driver.currentPage.getByLabel(/Enter the name of your new/); }
 	private get existingEnvRadioButton(): Locator { return this.code.driver.currentPage.getByText(/Use an existing/); }

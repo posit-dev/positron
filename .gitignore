@@ -85,3 +85,9 @@ dist
 .github/skills/.local/
 .sbom-tmp/
 .sbom-tmp/
+
+# --- Start Positron ---
+# ci-arm dev container local secrets
+.devcontainer/ci-arm/.env
+.devcontainer/ci-arm/license.txt
+# --- End Positron ---

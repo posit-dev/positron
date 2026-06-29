@@ -293,8 +293,9 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-duckdb',
 			'positron-catalog-explorer',
 			'positron-pdf-server',
-			'positron-data-driver-sqlite',
-			'positron-data-driver-postgresql'
+			'positron-data-driver-duckdb',
+			'positron-data-driver-postgresql',
+			'positron-data-driver-sqlite'
 		];
 
 		// If the extension has npm dependencies, use the Npm package manager
@@ -541,6 +542,10 @@ const excludedExtensions = [
 	// --- Start Positron ---
 	'positron-zed',
 	'positron-javascript',
+	// Build-time-only package: generated Data Explorer protocol types/enums that
+	// the data driver extensions bundle via esbuild. It is not an extension and
+	// must not be packaged or activated at runtime.
+	'positron-data-explorer-protocol',
 	// --- End Positron ---
 ];
 

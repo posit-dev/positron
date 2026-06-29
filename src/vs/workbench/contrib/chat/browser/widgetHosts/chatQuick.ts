@@ -219,9 +219,6 @@ class QuickChat extends Disposable {
 		if (!this.maintainScrollTimer.value) {
 			this.widget.layoutDynamicChatTreeItemMode();
 		}
-		// --- Start Positron ---
-		this.syncWithMainChat();
-		// --- End Positron ---
 	}
 
 	render(parent: HTMLElement): void {
@@ -263,9 +260,6 @@ class QuickChat extends Disposable {
 		this.sash = this._register(new Sash(parent, { getHorizontalSashTop: () => parent.offsetHeight }, { orientation: Orientation.HORIZONTAL }));
 		this.setupDisclaimer(parent);
 		this.registerListeners(parent);
-		// --- Start Positron ---
-		this.syncWithMainChat();
-		// --- End Positron ---
 	}
 
 	private setupDisclaimer(parent: HTMLElement): void {
@@ -415,46 +409,4 @@ class QuickChat extends Disposable {
 		this.modelRef = undefined;
 		super.dispose();
 	}
-	// --- Start Positron ---
-	private syncWithMainChat() {
-		// Update with any existing context from other chat widgets
-		// Look for a chat widget that is in a panel and is not a quick chat
-		const mainChatWidget = this.chatWidgetService
-			.getWidgetsByLocations(ChatAgentLocation.Chat)
-			.find(w =>
-				// Make sure it's not this quick chat widget
-				w !== this.widget &&
-				// Make sure it's in the panel
-				w.location === ChatAgentLocation.Chat &&
-				(
-					// And that it is not another quick chat
-					!('isQuickChat' in w.viewContext) ||
-					!w.viewContext.isQuickChat
-				)
-			);
-		if (mainChatWidget) {
-			// Update language model
-			const languageModel = mainChatWidget.input.selectedLanguageModel.get();
-			if (languageModel) {
-				this.widget.input.setCurrentLanguageModel(languageModel);
-			}
-			// Update implicit context
-			if (mainChatWidget.input.implicitContext && this.widget.input.implicitContext) {
-				const mainValues = mainChatWidget.input.implicitContext.values;
-				this.widget.input.implicitContext.setValues(mainValues.map(v => ({ value: v.value, isSelection: v.isSelection })));
-				this.widget.input.implicitContext.setEnabled(mainChatWidget.input.implicitContext.hasEnabled);
-			}
-			// Update attachments
-			this.widget.attachmentModel.clearAndSetContext(...mainChatWidget.attachmentModel.attachments);
-			// Update console context
-			if (this.widget.input.runtimeContext) {
-				// Set the Console context
-				this.widget.input.runtimeContext.setValue(mainChatWidget.input.runtimeContext?.value);
-				// Set whether the Console context is enabled
-				this.widget.input.runtimeContext.enabled = mainChatWidget.input.runtimeContext?.enabled ?? false;
-			}
-
-		}
-	}
-	// --- End Positron ---
 }

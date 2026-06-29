@@ -20,8 +20,7 @@ import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
-export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
-export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
+export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-6';
 
 interface PositModelsResponse {
 	chat: {
@@ -57,7 +56,6 @@ export class PositModelProvider extends VercelModelProvider {
 		provider: PROVIDER_METADATA.positAI,
 		supportedOptions: ['oauth'],
 		defaults: {
-			name: DEFAULT_POSITAI_MODEL_NAME,
 			model: DEFAULT_POSITAI_MODEL_MATCH + '-20250929',
 			toolCalls: true,
 			oauth: true,

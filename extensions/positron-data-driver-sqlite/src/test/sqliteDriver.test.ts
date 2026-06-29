@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as assert from 'assert';
+import * as positron from 'positron';
 import Database from 'better-sqlite3';
 import { SQLiteConnection } from '../sqliteConnection.js';
 
@@ -32,11 +33,45 @@ suite('SQLite Driver Tests', () => {
 		return dbPath;
 	}
 
+	// A no-op Data Explorer host: these tests exercise schema browsing, not previewing, and a real
+	// handler would register a vscode command that collides with the activated extension's.
+	const dataExplorerHost = {
+		openTableView: async () => { },
+		openColumnView: async () => { },
+		closeTableView: () => { },
+	};
+
+	// Opens a SQLiteConnection (constructing then connecting in the worker).
+	async function connect(dbPath: string, readOnly = false): Promise<SQLiteConnection> {
+		const conn = new SQLiteConnection(dbPath, readOnly, dataExplorerHost);
+		await conn.connect();
+		return conn;
+	}
+
+	// Returns the children of the named top-level category group ('Tables' | 'Views').
+	async function groupChildren(conn: SQLiteConnection, groupName: string): Promise<positron.DataConnectionNode[]> {
+		const groups = await conn.getChildren();
+		const group = groups.find(g => g.name === groupName);
+		assert.ok(group, `group '${groupName}' should exist`);
+		return group.getChildren!();
+	}
+
+	// Returns the children of a table's named category group ('Columns' | 'Indexes').
+	async function tableGroupChildren(conn: SQLiteConnection, tableName: string, groupName: string): Promise<positron.DataConnectionNode[]> {
+		const tables = await groupChildren(conn, 'Tables');
+		const table = tables.find(t => t.name === tableName);
+		assert.ok(table, `table '${tableName}' should exist`);
+		const groups = await table.getChildren!();
+		const group = groups.find(g => g.name === groupName);
+		assert.ok(group, `group '${groupName}' should exist under table '${tableName}'`);
+		return group.getChildren!();
+	}
+
 	// --- Connection lifecycle ---
 
 	test('connect and disconnect', async () => {
 		const dbPath = createTestDb('basic.db');
-		const conn = new SQLiteConnection(dbPath, false);
+		const conn = await connect(dbPath);
 
 		assert.strictEqual(await conn.isConnected(), true);
 		await conn.disconnect();
@@ -45,46 +80,56 @@ suite('SQLite Driver Tests', () => {
 
 	test('disconnect is idempotent', async () => {
 		const dbPath = createTestDb('idempotent.db');
-		const conn = new SQLiteConnection(dbPath, false);
+		const conn = await connect(dbPath);
 
 		await conn.disconnect();
 		await conn.disconnect();
 		assert.strictEqual(await conn.isConnected(), false);
 	});
 
-	test('connect to non-existent file throws', () => {
-		assert.throws(
-			() => new SQLiteConnection('/nonexistent/path/db.sqlite', false),
+	test('connect to non-existent file throws', async () => {
+		await assert.rejects(
+			() => connect('/nonexistent/path/db.sqlite', false),
 			/Cannot open|does not exist/
 		);
 	});
 
-	test('querying an invalid file throws', async () => {
+	test('connecting to an invalid file throws', async () => {
 		const badPath = path.join(tmpDir, 'notadb.txt');
 		fs.writeFileSync(badPath, 'this is not a database');
-		// SQLite opens the file handle lazily; the error surfaces on first query.
-		const conn = new SQLiteConnection(badPath, false);
+		// better-sqlite3 validates the file as a database on first access, which
+		// the connect() probe triggers; the worker error is mapped to a clean message.
 		await assert.rejects(
-			() => conn.getChildren(),
-			/not a database/
+			() => connect(badPath, false),
+			/not a valid SQLite database/
 		);
 	});
 
-	// --- Empty database ---
+	// --- Top-level groups ---
 
-	test('empty database returns no children', async () => {
+	test('top level is two category groups', async () => {
+		const dbPath = createTestDb('groups.db');
+		const conn = await connect(dbPath);
+
+		const groups = await conn.getChildren();
+		assert.deepStrictEqual(groups.map(g => g.name), ['Tables', 'Views']);
+
+		await conn.disconnect();
+	});
+
+	test('empty database has empty groups', async () => {
 		const dbPath = createTestDb('empty.db');
-		const conn = new SQLiteConnection(dbPath, false);
+		const conn = await connect(dbPath);
 
-		const children = await conn.getChildren();
-		assert.strictEqual(children.length, 0);
+		assert.strictEqual((await groupChildren(conn, 'Tables')).length, 0);
+		assert.strictEqual((await groupChildren(conn, 'Views')).length, 0);
 
 		await conn.disconnect();
 	});
 
 	// --- Tables and views ---
 
-	test('getChildren returns tables and views', async () => {
+	test('groups list tables and views', async () => {
 		const dbPath = createTestDb('tables.db', (db) => {
 			db.exec(`
 				CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);
@@ -94,21 +139,15 @@ suite('SQLite Driver Tests', () => {
 			`);
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
-		const children = await conn.getChildren();
+		const conn = await connect(dbPath);
 
-		assert.strictEqual(children.length, 3);
+		const tables = await groupChildren(conn, 'Tables');
+		assert.deepStrictEqual(tables.map(t => t.name).sort(), ['orders', 'users']);
+		assert.ok(tables.every(t => t.kind === positron.DataConnectionNodeKind.Table));
 
-		const tableNames = children
-			.filter(c => c.kind === 'table')
-			.map(c => c.name)
-			.sort();
-		assert.deepStrictEqual(tableNames, ['orders', 'users']);
-
-		const viewNames = children
-			.filter(c => c.kind === 'view')
-			.map(c => c.name);
-		assert.deepStrictEqual(viewNames, ['user_orders']);
+		const views = await groupChildren(conn, 'Views');
+		assert.deepStrictEqual(views.map(v => v.name), ['user_orders']);
+		assert.strictEqual(views[0].kind, positron.DataConnectionNodeKind.View);
 
 		await conn.disconnect();
 	});
@@ -121,12 +160,9 @@ suite('SQLite Driver Tests', () => {
 			`);
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
-		const children = await conn.getChildren();
-
-		const names = children.map(c => c.name);
-		assert.ok(!names.some(n => n.startsWith('sqlite_')),
-			'Internal sqlite_ tables should be hidden');
+		const conn = await connect(dbPath);
+		const names = (await groupChildren(conn, 'Tables')).map(t => t.name);
+		assert.ok(!names.some(n => n.startsWith('sqlite_')), 'Internal sqlite_ tables should be hidden');
 		assert.ok(names.includes('items'));
 
 		await conn.disconnect();
@@ -134,7 +170,7 @@ suite('SQLite Driver Tests', () => {
 
 	// --- Field nodes ---
 
-	test('table getChildren returns field nodes with types', async () => {
+	test('table Columns group expands to field nodes with types', async () => {
 		const dbPath = createTestDb('fields.db', (db) => {
 			db.exec(`
 				CREATE TABLE products (
@@ -148,31 +184,30 @@ suite('SQLite Driver Tests', () => {
 			`);
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
-		const children = await conn.getChildren();
-		const productsNode = children.find(c => c.name === 'products');
-		assert.ok(productsNode, 'products table should exist');
-		assert.ok(productsNode.getChildren, 'table node should have getChildren');
+		const conn = await connect(dbPath);
 
-		const fields = await productsNode.getChildren!();
+		// A table expands to Columns and Indexes category groups.
+		const tables = await groupChildren(conn, 'Tables');
+		const productsNode = tables.find(t => t.name === 'products');
+		assert.ok(productsNode, 'products table should exist');
+		assert.deepStrictEqual((await productsNode.getChildren!()).map(g => g.name), ['Columns', 'Indexes']);
+
+		const fields = await tableGroupChildren(conn, 'products', 'Columns');
 		assert.strictEqual(fields.length, 6);
 
-		const idField = fields.find(f => f.name === 'id');
-		assert.ok(idField);
-		assert.strictEqual(idField.kind, 'field');
+		const idField = fields.find(f => f.name === 'id')!;
+		assert.strictEqual(idField.kind, positron.DataConnectionNodeKind.Field);
 		assert.strictEqual(idField.dataType, 'INTEGER');
+		assert.strictEqual(fields.find(f => f.name === 'name')!.dataType, 'TEXT');
+		assert.strictEqual(fields.find(f => f.name === 'price')!.dataType, 'REAL');
 
-		const nameField = fields.find(f => f.name === 'name');
-		assert.ok(nameField);
-		assert.strictEqual(nameField.dataType, 'TEXT');
+		// The id column is the primary key; the others are not.
+		assert.strictEqual(idField.isPrimaryKey, true);
+		assert.strictEqual(fields.find(f => f.name === 'name')!.isPrimaryKey, false);
 
-		const priceField = fields.find(f => f.name === 'price');
-		assert.ok(priceField);
-		assert.strictEqual(priceField.dataType, 'REAL');
-
-		// Field nodes should be leaves.
+		// Field nodes are leaves (no children) but can be previewed as a single-column Data Explorer.
 		assert.strictEqual(idField.getChildren, undefined);
-		assert.strictEqual(idField.preview, undefined);
+		assert.strictEqual(typeof idField.preview, 'function');
 
 		await conn.disconnect();
 	});
@@ -182,13 +217,34 @@ suite('SQLite Driver Tests', () => {
 			db.exec('CREATE TABLE flex (value);');
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
-		const children = await conn.getChildren();
-		const flexNode = children.find(c => c.name === 'flex');
-		assert.ok(flexNode);
-
-		const fields = await flexNode.getChildren!();
+		const conn = await connect(dbPath);
+		const fields = await tableGroupChildren(conn, 'flex', 'Columns');
 		assert.strictEqual(fields[0].dataType, 'BLOB');
+
+		await conn.disconnect();
+	});
+
+	// --- Indexes (nested under their table) ---
+
+	test('table Indexes group lists the table indexes and excludes auto-indexes', async () => {
+		const dbPath = createTestDb('indexes.db', (db) => {
+			db.exec(`
+				CREATE TABLE people (id INTEGER PRIMARY KEY, email TEXT UNIQUE, name TEXT);
+				CREATE INDEX idx_people_name ON people (name);
+			`);
+		});
+
+		const conn = await connect(dbPath);
+
+		// Only the explicitly-created index is listed; the sqlite_autoindex_* backing the UNIQUE
+		// constraint is hidden.
+		const indexes = await tableGroupChildren(conn, 'people', 'Indexes');
+		assert.deepStrictEqual(indexes.map(i => i.name), ['idx_people_name']);
+		assert.strictEqual(indexes[0].kind, positron.DataConnectionNodeKind.Index);
+
+		// An index expands to the columns it covers.
+		const indexColumns = await indexes[0].getChildren!();
+		assert.deepStrictEqual(indexColumns.map(c => c.name), ['name']);
 
 		await conn.disconnect();
 	});
@@ -200,9 +256,9 @@ suite('SQLite Driver Tests', () => {
 			db.exec('CREATE TABLE data (val TEXT);');
 		});
 
-		const conn = new SQLiteConnection(dbPath, true);
-		const children = await conn.getChildren();
-		assert.strictEqual(children.length, 1);
+		const conn = await connect(dbPath, true);
+		assert.strictEqual(await conn.isReadOnly(), true);
+		assert.strictEqual((await groupChildren(conn, 'Tables')).length, 1);
 
 		await conn.disconnect();
 	});
@@ -214,7 +270,7 @@ suite('SQLite Driver Tests', () => {
 			db.exec('CREATE TABLE t (x INT);');
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
+		const conn = await connect(dbPath);
 		await conn.disconnect();
 
 		await assert.rejects(
@@ -230,11 +286,10 @@ suite('SQLite Driver Tests', () => {
 			db.exec('CREATE TABLE t (x INT);');
 		});
 
-		const conn = new SQLiteConnection(dbPath, false);
-		const children = await conn.getChildren();
-		const tableNode = children[0];
-		assert.ok(tableNode.preview);
-		await tableNode.preview!();
+		const conn = await connect(dbPath);
+		const tables = await groupChildren(conn, 'Tables');
+		assert.ok(tables[0].preview);
+		await tables[0].preview!();
 
 		await conn.disconnect();
 	});

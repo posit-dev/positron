@@ -104,4 +104,11 @@ export class Connections {
 		const item = this.code.driver.currentPage.locator('.connections-details', { hasText: name });
 		await item.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
 	}
+
+	async navigateBack(): Promise<void> {
+		const backButton = this.code.driver.currentPage.locator('.positron-connections-schema-navigation .codicon-arrow-left');
+		if (await backButton.isVisible()) {
+			await backButton.click();
+		}
+	}
 }

@@ -5,6 +5,7 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { escapeRegExp } from '../utils/strings';
 
 
 export class Editors {
@@ -49,7 +50,7 @@ export class Editors {
 		await test.step('Run current file in console', async () => {
 			await this.code.driver.currentPage.getByRole('button', { name: /Run.*Console|Source R File/ }).click();
 		});
-	};
+	}
 
 	async verifyTab(
 		tabName: string | RegExp,
@@ -68,10 +69,6 @@ export class Editors {
 		});
 	}
 
-	escapeRegex(s: string) {
-		return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}
-
 	async waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
 		const { currentPage } = this.code.driver;
 		const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
@@ -82,7 +79,7 @@ export class Editors {
 		await expect(active).toBeVisible();
 
 		const attrMatcher =
-			fileName instanceof RegExp ? fileName : new RegExp(`${this.escapeRegex(fileName)}$`);
+			fileName instanceof RegExp ? fileName : new RegExp(`${escapeRegExp(fileName)}$`);
 
 		await expect(active).toHaveAttribute('data-resource-name', attrMatcher);
 	}
@@ -174,9 +171,15 @@ export class Editors {
 		}
 	}
 
-	async expectSuggestionListCount(count: number): Promise<void> {
+	async expectSuggestionListCount(count: number, options?: { retryTimeout?: number }): Promise<void> {
 		await test.step(`Expect editor suggestion list to have ${count} items`, async () => {
-			await expect(this.suggestionList).toHaveCount(count);
+			if (options?.retryTimeout) {
+				await expect(async () => {
+					await expect(this.suggestionList).toHaveCount(count);
+				}).toPass({ timeout: options.retryTimeout });
+			} else {
+				await expect(this.suggestionList).toHaveCount(count);
+			}
 		});
 	}
 
