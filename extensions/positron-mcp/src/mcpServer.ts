@@ -324,13 +324,13 @@ export class McpServer implements vscode.Disposable {
 				name: 'session-interrupt',
 				description: 'Interrupt the active runtime session to stop a long-running or stuck computation.',
 				inputSchema: empty,
-				run: () => this.interruptSession(),
+				run: () => this.interruptActiveSession(),
 			},
 			{
 				name: 'session-restart',
 				description: 'Restart the active runtime session. This clears all variables and loaded data; the user is asked to confirm first.',
 				inputSchema: empty,
-				run: () => this.restartSession(),
+				run: () => this.restartActiveSession(),
 			},
 			{
 				name: 'get-diagnostics',
@@ -725,7 +725,7 @@ export class McpServer implements vscode.Disposable {
 		return [{ type: 'image', data: match[2], mimeType: match[1] }];
 	}
 
-	private async interruptSession(): Promise<string> {
+	private async interruptActiveSession(): Promise<string> {
 		const session = await positron.runtime.getForegroundSession();
 		if (!session) {
 			return 'No active runtime session.';
@@ -734,12 +734,15 @@ export class McpServer implements vscode.Disposable {
 		return 'Interrupted the active session.';
 	}
 
-	private async restartSession(): Promise<string> {
+	private async restartActiveSession(): Promise<string> {
 		const session = await positron.runtime.getForegroundSession();
 		if (!session) {
 			return 'No active runtime session.';
 		}
 		const dynState = await session.getDynState();
+		// Restart wipes the session's state, so confirm first. (Positron itself only
+		// prompts when the session is busy, and asks a different question -- whether to
+		// interrupt -- so this is the only gate for an idle session.)
 		const confirmed = await positron.window.showSimpleModalDialogPrompt(
 			'Restart Session?',
 			`${dynState.sessionName} will restart. All variables and loaded data will be lost.`,
@@ -750,25 +753,38 @@ export class McpServer implements vscode.Disposable {
 			throw new ToolError(-32001, 'Session restart declined by user');
 		}
 		try {
-			await positron.runtime.restartSession(session.metadata.sessionId);
+			// restartSession resolves false if the user declines Positron's busy-interrupt prompt.
+			const restarted = await positron.runtime.restartSession(session.metadata.sessionId);
+			if (!restarted) {
+				throw new ToolError(-32001, 'Session restart declined by user');
+			}
 			return `Restarted ${dynState.sessionName}.`;
 		} catch (error) {
+			if (error instanceof ToolError) {
+				throw error;
+			}
 			throw new ToolError(-32603, `Failed to restart session: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
 	private async getDiagnostics(args: { path?: string }): Promise<string> {
-		let uri: vscode.Uri | undefined;
+		let uri: vscode.Uri;
 		if (args.path) {
-			const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-			uri = path.isAbsolute(args.path)
-				? vscode.Uri.file(args.path)
-				: workspaceFolder ? vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, args.path)) : undefined;
+			if (path.isAbsolute(args.path)) {
+				uri = vscode.Uri.file(args.path);
+			} else {
+				const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+				if (!workspaceFolder) {
+					return 'No workspace folder is open; pass an absolute path.';
+				}
+				uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, args.path));
+			}
 		} else {
-			uri = vscode.window.activeTextEditor?.document.uri;
-		}
-		if (!uri) {
-			return 'No active document; pass a path.';
+			const activeUri = vscode.window.activeTextEditor?.document.uri;
+			if (!activeUri) {
+				return 'No active document; pass a path.';
+			}
+			uri = activeUri;
 		}
 
 		const diagnostics = vscode.languages.getDiagnostics(uri);
