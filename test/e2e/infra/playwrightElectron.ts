@@ -28,6 +28,15 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 		args.push('--enable-unsafe-swiftshader'); // minimize warnings related to GPU
 		args.push('--use-gl=swiftshader'); // minimize warnings related to GPU
 		args.push('--disable-gpu-compositing'); // minimize warnings related to GPU
+		// --- Start Positron ---
+		// The CI docker image has no OS keyring backend, so any secret-storage
+		// access pops a modal "An OS keyring couldn't be identified..." dialog
+		// that intercepts all input and cascades into widespread test failures.
+		// Use Chromium's basic (file-based) password store so Electron never
+		// probes for a system keyring. Set at launch time because the per-test
+		// argv.json approach runs after the app has already started.
+		args.push('--password-store=basic');
+		// --- End Positron ---
 	}
 
 	// Launch electron via playwright
