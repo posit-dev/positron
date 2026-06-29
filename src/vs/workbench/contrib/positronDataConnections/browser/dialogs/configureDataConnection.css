@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .configure-data-connection-container {
-	padding: 16px;
-	border-radius: 6px;
-	border: 1px solid var(--vscode-widget-border);
+	/* padding: 16px; */
+	/* border-radius: 6px; */
+	/* border: 1px solid var(--vscode-widget-border); */
 }
 
 .configure-data-connection {

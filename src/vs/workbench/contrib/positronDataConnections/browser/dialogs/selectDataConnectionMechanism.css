@@ -3,12 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.select-data-connection-mechanism .select-mechanism-label {
-	font-size: 13px;
-	margin-bottom: 6px;
-	color: var(--vscode-descriptionForeground);
-}
-
 .select-data-connection-mechanism .mechanism-list {
 	gap: 8px;
 	display: flex;

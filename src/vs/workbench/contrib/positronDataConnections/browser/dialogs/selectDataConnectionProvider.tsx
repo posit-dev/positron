@@ -168,12 +168,6 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 		<PositronDynamicModalDialog
 			content={
 				<div className='select-data-connection-provider'>
-					<div className='select-provider-label'>
-						{localize(
-							'positron.selectDataConnectionProvider.selectProvider',
-							"Select a provider"
-						)}
-					</div>
 					<div className={positronClassNames(
 						'driver-grid-clip',
 						{ 'error': showError }
@@ -253,7 +247,11 @@ export const SelectDataConnectionProvider = (props: SelectDataConnectionProvider
 				'positron.selectDataConnectionProvider.title',
 				"Add Data Connection"
 			)}
-			titleBarSize='large'
+			titleDescription={localize(
+				'positron.selectDataConnectionProvider.selectProvider',
+				"Select a provider"
+			)}
+			titleSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}

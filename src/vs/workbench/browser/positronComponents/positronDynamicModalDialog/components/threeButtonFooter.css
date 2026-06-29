@@ -12,6 +12,13 @@
 	align-items: flex-start;
 }
 
+.positron-dynamic-modal-dialog-box .three-button-footer.top-border {
+	height: auto;
+	padding-top: 16px;
+	padding-bottom: 16px;
+	border-top: solid 1px var(--vscode-positronModalDialog-border);
+}
+
 .positron-dynamic-modal-dialog-box .three-button-footer .three-button-footer-right {
 	gap: 10px;
 	display: flex;

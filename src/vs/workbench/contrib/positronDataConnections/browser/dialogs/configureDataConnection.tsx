@@ -210,12 +210,12 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				<div className='configure-data-connection-container'>
 					<div className='configure-data-connection'>
 						{/* Driver Header. */}
-						<div className='driver-header'>
+						{/* <div className='driver-header'>
 							<div className='driver-header-badge'>
 								<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${props.driver.metadata.iconSvg}`} />
 							</div>
 							<div className='driver-header-name'>{props.driver.metadata.name}</div>
-						</div>
+						</div> */}
 
 						{/* Connection Name */}
 						<div className='parameter-field'>
@@ -253,6 +253,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						leftButtonTitle={localize('positron.configureDataConnection.back', "Back")}
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						topBorder={true}
 						onLeftButton={props.onBack}
 						onPrimaryButton={saveHandler}
 						onSecondaryButton={cancelHandler}
@@ -260,6 +261,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 					: <TwoButtonFooter
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						topBorder={true}
 						onPrimaryButton={saveHandler}
 						onSecondaryButton={cancelHandler}
 					/>
@@ -267,10 +269,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
-				"Configure Data Connection"
+				"Configure Data Connection \u00B7 {0}",
+				props.driver.metadata.name
 			)}
-			titleBarSize='large'
-			width={492}
+			titleSize='large'
+			width={530}
 			onCancel={cancelHandler}
 			onSubmit={saveHandler}
 		/>

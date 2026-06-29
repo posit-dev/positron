@@ -25,7 +25,8 @@ const kGutter = 40;
 export interface PositronDynamicModalDialogProps {
 	renderer: PositronModalDialogReactRenderer;
 	title: string;
-	titleBarSize?: 'normal' | 'large';
+	titleDescription?: string;
+	titleSize?: 'normal' | 'large';
 	width: number;
 	content: ReactNode;
 	contentMinHeight?: number;
@@ -229,7 +230,7 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 				top: dialogBoxState.top,
 				width: props.width,
 			}}>
-				<TitleBar size={props.titleBarSize} title={props.title} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
+				<TitleBar size={props.titleSize} title={props.title} titleDescription={props.titleDescription} onClose={props.onCancel} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{/*
 					The content area and footer are always wrapped in a <form>. Enter-key
 					implicit submission only activates when a submit target exists -- in this

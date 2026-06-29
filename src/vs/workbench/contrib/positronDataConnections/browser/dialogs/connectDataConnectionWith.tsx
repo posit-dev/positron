@@ -289,7 +289,7 @@ const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataConnectio
 			}
 			renderer={props.renderer}
 			title={localize('positron.connectDataConnectionWith.summary', "Connect {0} · {1} with {2}", props.connectionName, props.driver.metadata.name, languageName)}
-			titleBarSize='large'
+			titleSize='large'
 			width={CONNECT_DATA_CONNECTION_WITH_WIDTH}
 			onCancel={cancelHandler}
 		/>

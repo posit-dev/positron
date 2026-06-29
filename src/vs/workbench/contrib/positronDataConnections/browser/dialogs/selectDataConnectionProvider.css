@@ -8,12 +8,6 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.select-data-connection-provider .select-provider-label {
-	font-size: 13px;
-	margin-bottom: 6px;
-	color: var(--vscode-descriptionForeground);
-}
-
 .select-data-connection-provider .driver-grid-clip {
 	overflow: hidden;
 	border-radius: 6px;

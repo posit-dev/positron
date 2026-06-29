@@ -78,12 +78,6 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 		<PositronDynamicModalDialog
 			content={
 				<div className='select-data-connection-mechanism'>
-					<div className='select-mechanism-label'>
-						{localize(
-							'positron.selectDataConnectionMechanism.selectMechanism',
-							"Select how to connect"
-						)}
-					</div>
 					<div className='mechanism-list' role='radiogroup'>
 						{driver.metadata.mechanisms.map(mechanism => {
 							const mechanismCardId = `data-connection-mechanism-card-${mechanism.id}`;
@@ -123,6 +117,7 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 					leftButtonTitle={localize('positron.selectDataConnectionMechanism.back', "Back")}
 					primaryButtonTitle={localize('positron.selectDataConnectionMechanism.next', "Next")}
 					secondaryButtonTitle={localize('positron.selectDataConnectionMechanism.cancel', "Cancel")}
+					topBorder={true}
 					onLeftButton={onBack}
 					onPrimaryButton={nextHandler}
 					onSecondaryButton={cancelHandler}
@@ -134,7 +129,11 @@ export const SelectDataConnectionMechanism = (props: SelectDataConnectionMechani
 				"Add Data Connection \u00B7 {0}",
 				driver.metadata.name
 			)}
-			titleBarSize='large'
+			titleDescription={localize(
+				'positron.selectDataConnectionMechanism.selectMechanism',
+				"Select how to connect"
+			)}
+			titleSize='large'
 			width={492}
 			onCancel={cancelHandler}
 			onSubmit={nextHandler}
