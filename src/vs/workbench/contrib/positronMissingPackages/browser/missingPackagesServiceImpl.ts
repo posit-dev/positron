@@ -143,17 +143,37 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		// callers (e.g. the badge) observe the state change immediately.
 		this._installing.set(result.resource, result);
 		this._onDidChangeInstalling.fire(result.resource);
+
+		// Install every group, continuing past a failed group so the rest still
+		// install. The first failure is remembered and rethrown once the state has
+		// been cleaned up, so callers can surface it.
+		let firstError: unknown;
 		try {
 			for (const group of result.groups) {
 				try {
 					await this.install(group);
 				} catch (err) {
+					firstError ??= err;
 					this._logService.warn(`[MissingPackages] install failed for session '${group.sessionId}': ${err}`);
 				}
+			}
+
+			// Recompute before clearing the installing flag so the post-install
+			// result is cached and available synchronously the moment the flag
+			// clears. Without this the badge briefly reverts to the pre-install
+			// "missing" state while the recompute is still in flight.
+			try {
+				await this.ensure(result.resource);
+			} catch {
+				// Best effort; the next read will recompute.
 			}
 		} finally {
 			this._installing.delete(result.resource);
 			this._onDidChangeInstalling.fire(result.resource);
+		}
+
+		if (firstError !== undefined) {
+			throw firstError;
 		}
 	}
 

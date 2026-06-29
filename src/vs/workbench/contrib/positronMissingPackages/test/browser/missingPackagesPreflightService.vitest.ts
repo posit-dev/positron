@@ -33,8 +33,8 @@ describe('MissingPackagesPreflightService', () => {
 		const cached = options.cached === undefined ? result : options.cached ?? undefined;
 		const getCached = vi.fn().mockReturnValue(cached);
 		const ensure = vi.fn().mockResolvedValue(result);
-		const install = vi.fn().mockResolvedValue(undefined);
-		const missingPackagesService = stubInterface<IMissingPackagesService>({ getCached, ensure, install });
+		const installAll = vi.fn().mockResolvedValue(undefined);
+		const missingPackagesService = stubInterface<IMissingPackagesService>({ getCached, ensure, installAll });
 
 		const updateValue = vi.fn().mockResolvedValue(undefined);
 		const configurationService = stubInterface<IConfigurationService>({
@@ -50,14 +50,14 @@ describe('MissingPackagesPreflightService', () => {
 		});
 
 		const service = new MissingPackagesPreflightService(missingPackagesService, configurationService, notificationService, languageService);
-		return { service, getCached, ensure, install, updateValue, warn, info };
+		return { service, getCached, ensure, installAll, updateValue, warn, info };
 	}
 
 	it('runs without prompting when the setting is disabled', async () => {
-		const { service, install } = setup({ confirmEnabled: false });
+		const { service, installAll } = setup({ confirmEnabled: false });
 		expect(await service.confirmBeforeRun(resource)).toBe(true);
 		expect(showModal).not.toHaveBeenCalled();
-		expect(install).not.toHaveBeenCalled();
+		expect(installAll).not.toHaveBeenCalled();
 	});
 
 	it('runs (and warms the cache) without prompting when nothing is cached', async () => {
@@ -74,19 +74,19 @@ describe('MissingPackagesPreflightService', () => {
 	});
 
 	it('installs then runs when the user chooses install-and-run', async () => {
-		const { service, install } = setup();
+		const { service, installAll } = setup();
 		showModal.mockResolvedValue({ decision: 'install-and-run', dontShowAgain: false });
 
 		expect(await service.confirmBeforeRun(resource)).toBe(true);
-		expect(install).toHaveBeenCalledWith(result.groups[0]);
+		expect(installAll).toHaveBeenCalledWith(result);
 	});
 
 	it('cancels the run when the user cancels', async () => {
-		const { service, install } = setup();
+		const { service, installAll } = setup();
 		showModal.mockResolvedValue({ decision: 'cancel', dontShowAgain: false });
 
 		expect(await service.confirmBeforeRun(resource)).toBe(false);
-		expect(install).not.toHaveBeenCalled();
+		expect(installAll).not.toHaveBeenCalled();
 	});
 
 	it('disables the setting and notifies when "Don\'t show again" is checked and the user proceeds', async () => {
@@ -108,8 +108,8 @@ describe('MissingPackagesPreflightService', () => {
 	});
 
 	it('runs anyway and warns when an install fails', async () => {
-		const { service, install, warn } = setup();
-		install.mockRejectedValue(new Error('network'));
+		const { service, installAll, warn } = setup();
+		installAll.mockRejectedValue(new Error('network'));
 		showModal.mockResolvedValue({ decision: 'install-and-run', dontShowAgain: false });
 
 		expect(await service.confirmBeforeRun(resource)).toBe(true);

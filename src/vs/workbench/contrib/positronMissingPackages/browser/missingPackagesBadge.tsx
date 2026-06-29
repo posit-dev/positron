@@ -253,7 +253,15 @@ export const MissingPackagesBadge = (props: MissingPackagesBadgeProps) => {
 		setInstalling(missingPackagesService.getInstalling(resource) !== undefined);
 		const disposable = missingPackagesService.onDidChangeInstalling(uri => {
 			if (uri.toString() === resource.toString()) {
-				setInstalling(missingPackagesService.getInstalling(resource) !== undefined);
+				const nowInstalling = missingPackagesService.getInstalling(resource) !== undefined;
+				setInstalling(nowInstalling);
+				// When the install finishes, adopt the freshly-computed result in
+				// the same render that drops the installing flag. The service
+				// refreshes the cache before clearing the flag, so this reflects
+				// the post-install state and avoids a flash back to "missing".
+				if (!nowInstalling) {
+					setResult(missingPackagesService.getCached(resource));
+				}
 			}
 		});
 		return () => disposable.dispose();
@@ -481,8 +489,10 @@ const MissingPackagesDialog = (props: MissingPackagesDialogProps) => {
 	const install = () => {
 		renderer.dispose();
 		// Fire and forget: installAll tracks the installing state so the badge
-		// switches to its spinner immediately, without blocking on the install.
-		missingPackagesService.installAll(result);
+		// switches to its spinner immediately, without blocking on the install. A
+		// failed install surfaces as the badge returning to its warning state, so
+		// there is nothing to handle here beyond swallowing the rejection.
+		missingPackagesService.installAll(result).catch(() => { });
 	};
 
 	// Disable the badge for future documents, dismiss the dialog, and let the

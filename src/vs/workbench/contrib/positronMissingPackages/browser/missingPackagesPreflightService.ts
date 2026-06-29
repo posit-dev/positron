@@ -120,15 +120,15 @@ export class MissingPackagesPreflightService implements IMissingPackagesPrefligh
 		if (!result) {
 			return;
 		}
-		for (const group of result.groups) {
-			try {
-				await this._missingPackagesService.install(group);
-			} catch (err) {
-				this._notificationService.warn(localize(
-					'positron.missingPackages.installFailed',
-					"Failed to install missing packages: {0}", String(err)
-				));
-			}
+		try {
+			// installAll tracks the installing state so the editor badge reflects
+			// the in-progress install for the same resource.
+			await this._missingPackagesService.installAll(result);
+		} catch (err) {
+			this._notificationService.warn(localize(
+				'positron.missingPackages.installFailed',
+				"Failed to install missing packages: {0}", String(err)
+			));
 		}
 	}
 }
