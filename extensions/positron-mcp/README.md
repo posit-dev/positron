@@ -194,12 +194,16 @@ extensions/positron-mcp/
 ### Supported Methods
 
 #### `initialize`
-Returns server capabilities and version info:
+Returns server capabilities, version info, and an `instructions` string that
+clients (Claude Code, Codex) surface to the model as server-wide guidance on how
+to drive the Positron session (run code in the live session, view plots with
+`get-plot`, use the notebook tools instead of hand-editing `.ipynb`, etc.):
 ```json
 {
   "protocolVersion": "2024-11-05",
   "capabilities": { "tools": {} },
-  "serverInfo": { "name": "positron-mcp-server", "version": "1.0.0" }
+  "serverInfo": { "name": "positron-mcp-server", "version": "1.0.0" },
+  "instructions": "These tools connect to a live Positron IDE session ..."
 }
 ```
 
