@@ -34,7 +34,7 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 
 		const hasWebUi = fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
 
-		// Only show on web builds that are not Posit Workbench, nor remote ssh (which don't have web ui)
+		// Only show on web builds that are not Posit Workbench, nor remote ssh (which doesn't have web ui)
 		if (!isWeb || isWorkbench || !hasWebUi) {
 			return;
 		}
