@@ -113,7 +113,7 @@ function errorResult(id: McpRequest['id'], code: number, message: string): McpRe
  * and the whole string well under the ~2KB clients retain. Keep it in sync with
  * the tools defined in `buildTools()`.
  */
-const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. When a task involves running code, inspecting data, plotting, or editing notebooks, prefer these tools over your own shell or file-editing tools, so your work shares the user's live session state and stays visible to them.
+const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. For any data exploration or data modeling work -- finding, downloading, loading, cleaning, analyzing, plotting, or modeling data -- always do it inside Positron: run code with execute-code in the user's session (or in a notebook), and write scripts to files and open them with open-document so they stay visible. Never run Python or R in your own shell or spawn a separate interpreter to do the work yourself; that hides it from the user and loses the session's shared state. More generally, when a task involves running code, inspecting data, plotting, or editing notebooks, use these tools rather than your own shell or file-editing tools.
 
 Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use get-session to see the active language/session and get-variables to inspect what is defined. If no session is active, use session-start to begin one.
 
