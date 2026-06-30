@@ -111,5 +111,24 @@ else
 fi
 rm -f "$TMP_MAP"
 
+# --- find_unmapped_positron_dirs ---
+MAP2="$(mktemp)"
+cat > "$MAP2" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "src/vs/workbench/contrib/positronTelemetry/": []
+}
+JSON
+# A mapped dir (incl. a [] entry) is NOT flagged; an unmapped positron dir IS.
+assert_eq "unmapped positron dir flagged" "src/vs/workbench/contrib/positronFoo/" \
+	"$(find_unmapped_positron_dirs "$(printf 'src/vs/workbench/contrib/positronConsole/a.ts\nsrc/vs/workbench/contrib/positronFoo/b.ts\nsrc/vs/workbench/contrib/positronTelemetry/c.ts')" "$MAP2")"
+# A non-Positron path is never flagged.
+assert_eq "non-positron path ignored" "" \
+	"$(find_unmapped_positron_dirs "src/vs/base/common/uri.ts" "$MAP2")"
+# An unmapped extension is flagged.
+assert_eq "unmapped extension flagged" "extensions/positron-bar/" \
+	"$(find_unmapped_positron_dirs "extensions/positron-bar/src/x.ts" "$MAP2")"
+rm -f "$MAP2"
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
