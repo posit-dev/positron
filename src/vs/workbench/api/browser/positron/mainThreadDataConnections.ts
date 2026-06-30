@@ -6,8 +6,8 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -15,7 +15,7 @@ import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContex
  * IDataConnectionParameter discriminated union, picking up only the fields each variant carries.
  */
 function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectionParameter {
-	const base = { id: dto.id, label: dto.label, required: dto.required };
+	const base = { id: dto.id, label: dto.label, description: dto.description, required: dto.required };
 	switch (dto.type) {
 		case 'boolean':
 			return { ...base, type: 'boolean', defaultValue: dto.defaultValue as boolean | undefined };
@@ -29,12 +29,24 @@ function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectio
 			return { ...base, type: 'password', secret: true, placeholder: dto.placeholder };
 		case 'string':
 			if (dto.secret) {
-				return { ...base, type: 'string', secret: true, placeholder: dto.placeholder };
+				return { ...base, type: 'string', secret: true, masked: dto.masked, placeholder: dto.placeholder };
 			}
 			return { ...base, type: 'string', secret: false, defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
 		default:
 			throw new Error(`Unknown IDataConnectionParameterDTO type: ${dto.type}`);
 	}
+}
+
+/**
+ * Converts a wire-format mechanism DTO to the service-level shape, narrowing each of its parameters.
+ */
+function dtoToServiceMechanism(dto: IDataConnectionMechanismDTO): IDataConnectionMechanism {
+	return {
+		id: dto.id,
+		label: dto.label,
+		description: dto.description,
+		parameters: dto.parameters.map(dtoToServiceParameter),
+	};
 }
 
 /**
@@ -46,7 +58,7 @@ function dtoToServiceMetadata(dto: IDataConnectionDriverMetadataDTO): IDataConne
 		name: dto.name,
 		description: dto.description,
 		iconSvg: dto.iconSvg,
-		parameters: dto.parameters.map(dtoToServiceParameter),
+		mechanisms: dto.mechanisms.map(dtoToServiceMechanism),
 		supportedLanguageIds: dto.supportedLanguageIds,
 	};
 }
@@ -113,7 +125,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			id: driver.id,
 			name: driver.metadata.name,
 			description: driver.metadata.description,
-			parameters: driver.metadata.parameters,
+			mechanisms: driver.metadata.mechanisms,
 			supportedLanguageIds: driver.metadata.supportedLanguageIds,
 		}));
 	}
@@ -124,13 +136,13 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * back into the ext host via $driverConnect, exercising the full RPC
 	 * round trip.
 	 */
-	async $connectToDataConnectionDriver(driverId: string, params: DataConnectionParameterValues): Promise<number> {
+	async $connectToDataConnectionDriver(driverId: string, mechanismId: string, params: DataConnectionParameterValues): Promise<number> {
 		const drivers = this._dataConnectionsService.driverManager.getDrivers();
 		const driver = drivers.find(d => d.id === driverId);
 		if (!driver) {
 			throw new Error(`Data connection driver '${driverId}' not found`);
 		}
-		const handle = await driver.connect(params);
+		const handle = await driver.connect(mechanismId, params);
 		this._connectionHandles.set(handle.handle, handle);
 		return handle.handle;
 	}
@@ -222,11 +234,12 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	/**
 	 * Calls the extension's driver.connect() via RPC and wraps the returned
 	 * connection handle in an adapter the service can operate on.
+	 * @param mechanismId The id of the mechanism the user selected.
 	 * @param params User-supplied parameter values from the connection dialog.
 	 */
-	async connect(params: DataConnectionParameterValues): Promise<IDataConnectionHandle> {
+	async connect(mechanismId: string, params: DataConnectionParameterValues): Promise<IDataConnectionHandle> {
 		// Ask the ext host to call driver.connect(); returns an integer handle.
-		const connectionHandle = await this._proxy.$driverConnect(this.id, params);
+		const connectionHandle = await this._proxy.$driverConnect(this.id, mechanismId, params);
 
 		// Wrap the handle so the service can call getChildren/disconnect/etc.
 		return new MainThreadDataConnectionHandleAdapter(connectionHandle, this._proxy);
@@ -235,12 +248,24 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	/**
 	 * Asks the ext host to run driver.generateConnectionCode() via RPC, returning the available
 	 * code variants. An empty array means code could not be generated from the given parameters.
+	 * @param mechanismId The id of the mechanism the user selected.
 	 * @param languageId One of the driver's supported language ids.
 	 * @param params User-supplied parameter values from the connection dialog.
 	 */
-	async generateConnectionCode(languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
-		const variants = await this._proxy.$generateConnectionCode(this.id, languageId, params);
+	async generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
+		const variants = await this._proxy.$generateConnectionCode(this.id, mechanismId, languageId, params);
 		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+	}
+
+	/**
+	 * Asks the ext host to run driver.redactParameterValue() via RPC, returning a display-safe form of
+	 * the stored secret value. Resolves to undefined when the driver does not implement redaction.
+	 * @param mechanismId The id of the mechanism the connection was configured with.
+	 * @param parameterId The id of the parameter to redact.
+	 * @param value The stored cleartext parameter value.
+	 */
+	async redactParameterValue(mechanismId: string, parameterId: string, value: string): Promise<string | undefined> {
+		return this._proxy.$redactParameterValue(this.id, mechanismId, parameterId, value);
 	}
 }
 

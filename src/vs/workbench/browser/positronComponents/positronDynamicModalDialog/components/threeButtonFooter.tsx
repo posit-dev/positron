@@ -9,6 +9,7 @@ import './threeButtonFooter.css';
 // Other dependencies.
 import { FooterButton } from './footerButton.js';
 import * as platform from '../../../../../base/common/platform.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 /**
  * ThreeButtonFooterProps interface.
@@ -17,6 +18,7 @@ interface ThreeButtonFooterProps {
 	leftButtonTitle: string;
 	primaryButtonTitle: string;
 	secondaryButtonTitle: string;
+	topBorder?: boolean;
 	onLeftButton: () => void;
 	onPrimaryButton: () => void;
 	onSecondaryButton: () => void;
@@ -53,7 +55,7 @@ export const ThreeButtonFooter = (props: ThreeButtonFooterProps) => {
 
 	// Render.
 	return (
-		<div className='three-button-footer'>
+		<div className={positronClassNames('three-button-footer', { 'top-border': props.topBorder })}>
 			{leftButton}
 			<div className='three-button-footer-right'>
 				{/* On Windows, the primary button comes first; on macOS/Linux, the secondary button comes first. */}

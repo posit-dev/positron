@@ -78,21 +78,26 @@ suite('Data Connection Integration', () => {
 			assert.strictEqual(duckdb.name, 'DuckDB');
 		});
 
-		test('DuckDB driver has expected parameters', async () => {
+		test('DuckDB driver has expected mechanisms and parameters', async () => {
 			// Get the drivers and find the DuckDB driver.
 			const drivers = await positron.dataConnections.getDrivers();
 			const duckdb = drivers.find(d => d.id === 'positron-data-driver-duckdb')!;
 
+			// Test the single 'file' mechanism.
+			assert.strictEqual(duckdb.mechanisms.length, 1);
+			const mechanism = duckdb.mechanisms.find(m => m.id === 'file')!;
+			assert.ok(mechanism);
+
 			// Test the parameters length.
-			assert.strictEqual(duckdb.parameters.length, 2);
+			assert.strictEqual(mechanism.parameters.length, 2);
 
 			// Check the path parameter.
-			const pathParam = duckdb.parameters.find(p => p.id === 'databasePath');
+			const pathParam = mechanism.parameters.find(p => p.id === 'databasePath');
 			assert.ok(pathParam);
 			assert.strictEqual(pathParam.type, 'file');
 
 			// Check the read only parameter.
-			const readOnlyParam = duckdb.parameters.find(p => p.id === 'readOnly');
+			const readOnlyParam = mechanism.parameters.find(p => p.id === 'readOnly');
 			assert.ok(readOnlyParam);
 			assert.strictEqual(readOnlyParam.type, 'boolean');
 		});
@@ -105,7 +110,7 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('connect.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -124,7 +129,7 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('connect-ro.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: true,
 			});
@@ -147,7 +152,7 @@ suite('Data Connection Integration', () => {
 			`);
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -175,7 +180,7 @@ suite('Data Connection Integration', () => {
 				'CREATE TABLE products (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL, price DOUBLE, in_stock BOOLEAN);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: true,
 			});
@@ -215,7 +220,7 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('lifecycle.duckdb', 'CREATE TABLE t (x INTEGER);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -235,7 +240,7 @@ suite('Data Connection Integration', () => {
 			const dbPath = await createTestDb('readwrite.duckdb', 'CREATE TABLE data (val VARCHAR);');
 
 			// Connect to the test DB.
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
 			});
@@ -265,7 +270,7 @@ suite('Data Connection Integration', () => {
 			// 3. Connect through the full stack:
 			//    ext host -> main thread service -> main thread adapter
 			//    -> RPC -> ext host $driverConnect -> DuckDBConnection
-			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', {
+			const conn = await positron.dataConnections.connect('positron-data-driver-duckdb', 'file', {
 				databasePath: dbPath,
 				readOnly: false,
 			});

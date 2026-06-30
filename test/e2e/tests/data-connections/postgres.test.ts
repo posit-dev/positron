@@ -7,7 +7,7 @@ import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `databases.enabled`. This
+	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
 	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
 	// read settings copied in at launch rather than the host settings file written at runtime.
 	enableDataConnections: true,
@@ -59,15 +59,15 @@ test.describe('Data Connections - Postgres', {
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
 		await dataConnections.selectProvider('PostgreSQL');
-
-		await dataConnections.fillConnectionInputs({
-			'Connection Name': connectionName,
-			'Host': host,
-			'Port': port,
-			'Database': database,
-			'User': user,
-			'Password': password,
-		});
+		await dataConnections.selectConnectionMechanism('User & Password');
+		await dataConnections.fillConnectionInputs([
+			['Connection Name', connectionName],
+			['Host', host],
+			['Port', port],
+			['Database', database],
+			[/^User/, user],
+			[/^Password/, password],
+		]);
 
 		await dataConnections.save();
 		await dataConnections.expectConnectionInTree(connectionName);

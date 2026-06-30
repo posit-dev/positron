@@ -17,12 +17,25 @@
 export interface IDataConnectionParameterDTO {
 	id: string;
 	label: string;
+	description?: string;
 	secret?: boolean;
+	masked?: boolean; // only for secret 'string' type; defaults to true when omitted
 	required?: boolean;
 	type: string; // 'boolean' | 'file' | 'number' | 'option' | 'password' | 'string'
 	defaultValue?: string | number | boolean;
 	placeholder?: string;
 	options?: string[]; // only for 'option' type
+}
+
+/**
+ * Serializable configuration mechanism definition. Carries the mechanism's identity and its own
+ * set of parameters.
+ */
+export interface IDataConnectionMechanismDTO {
+	id: string;
+	label: string;
+	description: string;
+	parameters: IDataConnectionParameterDTO[];
 }
 
 /**
@@ -35,7 +48,7 @@ export interface IDataConnectionDriverMetadataDTO {
 	name: string;
 	description: string;
 	iconSvg: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }
 
@@ -84,6 +97,6 @@ export interface IDataConnectionDriverSummaryDTO {
 	id: string;
 	name: string;
 	description: string;
-	parameters: IDataConnectionParameterDTO[];
+	mechanisms: IDataConnectionMechanismDTO[];
 	supportedLanguageIds: string[];
 }

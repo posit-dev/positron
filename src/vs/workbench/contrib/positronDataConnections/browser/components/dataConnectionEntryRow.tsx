@@ -20,6 +20,7 @@ import { PYTHON_ICON_BASE64, R_ICON_BASE64 } from '../../../../services/positron
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * DataConnectionEntryRowProps interface.
@@ -74,11 +75,20 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 			return;
 		}
 
+		// Resolve the mechanism the profile was configured with (falling back to the first for
+		// pre-mechanisms profiles); its parameters drive the form.
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		if (!mechanism) {
+			reportDriverAccessError();
+			return;
+		}
+
 		// Render the ConfigureDataConnection dialog for this profile.
 		const renderer = new PositronModalDialogReactRenderer();
 		renderer.render(
 			<ConfigureDataConnection
 				driver={driver}
+				mechanism={mechanism}
 				profile={profile}
 				renderer={renderer}
 				onSave={updatedProfile => {
@@ -105,13 +115,17 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 			return;
 		}
 
+		// Resolve the mechanism id (falling back to the first for pre-mechanisms profiles) once for
+		// all code generation calls below.
+		const mechanismId = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId)?.id ?? profile.mechanismId;
+
 		// Generates the connection code variants for the given language and, if any are available,
 		// opens the Connect dialog to preview and run them.
 		const connectWith = async (languageId: string) => {
 			// The in-memory profile's parameterValues never contains secret values (those live in
 			// secret storage), so this is the default, secret-free preview. Secret values are only
 			// pulled in if the user explicitly opts in via the dialog's Include Secrets action.
-			const variants = await driver.generateConnectionCode(languageId, profile.parameterValues);
+			const variants = await driver.generateConnectionCode(mechanismId, languageId, profile.parameterValues);
 			if (variants.length === 0) {
 				notificationService.error(localize(
 					'positron.dataConnections.codeGenerationFailed',
@@ -125,6 +139,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 				languageId,
 				connectionName: profile.connectionName,
 				driver,
+				mechanismId,
 				// Regenerates the code with secret values (e.g. passwords) pulled from secret storage.
 				// Invoked only after the user confirms the Include Secrets action in the dialog.
 				generateSecretVariants: async () => {
@@ -132,7 +147,7 @@ export const DataConnectionEntryRow = ({ entry }: DataConnectionEntryRowProps) =
 					if (!profileWithSecrets) {
 						return [];
 					}
-					return driver.generateConnectionCode(languageId, profileWithSecrets.parameterValues);
+					return driver.generateConnectionCode(mechanismId, languageId, profileWithSecrets.parameterValues);
 				},
 				variants,
 			});
