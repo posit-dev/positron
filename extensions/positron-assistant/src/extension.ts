@@ -8,7 +8,6 @@ import { validateProvidersEnabled } from './providerConfiguration.js';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
@@ -114,9 +113,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize prompt renderer singleton
 	new PromptRenderer(context);
-
-	// Register participant detection provider
-	registerParticipantDetectionProvider();
 
 	// Mark the assistant as enabled
 	assistantEnabled = true;
