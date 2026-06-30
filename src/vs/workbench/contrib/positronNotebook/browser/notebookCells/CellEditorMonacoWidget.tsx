@@ -14,12 +14,11 @@ import { localize } from '../../../../../nls.js';
 
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
-import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
+import { PositronCellEditorOptions } from './PositronCellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -145,40 +144,27 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		);
 
 		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
-		const editorOptions = disposables.add(new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService));
+		const editorOptions = disposables.add(new PositronCellEditorOptions(instance, language, services.configurationService));
 
-		// Build the final editor options from the cell editor defaults merged with
-		// the Positron Notebook editor overrides. Used for both initial creation
-		// and live updates so the overrides are never lost on update.
-		const buildEditorOptions = () => {
-			const defaultOptions = editorOptions.getDefaultValue();
-			return {
-				...defaultOptions,
-				// Override padding for Positron notebooks to add breathing room between action bar and editor content
-				padding: { top: 16, bottom: 16 },
-				scrollbar: {
-					...defaultOptions.scrollbar,
-					// Smaller scrollbars since we embed many editor widgets
-					verticalScrollbarSize: 8,
-					horizontalScrollbarSize: 8
-				},
-				tabIndex: -1, // Remove editor from tab order - use Enter to focus
+		const editor = disposables.add(editorInstaService.createInstance(
+			CodeEditorWidget,
+			editorPartRef.current,
+			{
+				...editorOptions.getValue(),
+				// Initially set the editor size to 0x0.
 				dimension: {
 					width: 0,
 					height: 0,
-				},
-			};
-		};
-
-		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, buildEditorOptions(), {
-			contributions: getNotebookEditorContributions()
-		}));
+				}
+			},
+			{ contributions: getNotebookEditorContributions() }
+		));
 		cell.attachEditor(editor);
 
 		// Re-apply options when they change so the open notebook
 		// updates without requiring a reload.
 		disposables.add(editorOptions.onDidChange(() => {
-			editor.updateOptions(buildEditorOptions() as IEditorOptions);
+			editor.updateOptions(editorOptions.getValue());
 		}));
 
 		// Request model for cell and pass to editor.
