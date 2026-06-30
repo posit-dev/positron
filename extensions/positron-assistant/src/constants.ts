@@ -73,11 +73,6 @@ export const MAX_CONTEXT_VARIABLES = 400;
 export const DEFAULT_PROVIDER_TIMEOUT_SEC = 60;
 
 /**
- * Determines if the Posit Web environment is detected.
- */
-export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
-
-/**
  * Default capabilities for language models supporting image input, tool calling, and agent mode.
  */
 export const DEFAULT_MODEL_CAPABILITIES: vscode.LanguageModelChatCapabilities & { agentMode?: boolean } = {

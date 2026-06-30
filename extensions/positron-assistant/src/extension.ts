@@ -13,7 +13,6 @@ import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { IS_RUNNING_ON_PWB } from './constants.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -33,66 +32,12 @@ function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
  * Initialize provider configuration system.
  * Must be called during extension activation before registering models.
  */
-async function initializeProviderConfiguration(context: vscode.ExtensionContext): Promise<void> {
+async function initializeProviderConfiguration(): Promise<void> {
 	// 1. Perform settings migrations (provider enablement, model preferences, custom models)
 	await performSettingsMigrations();
 
-	// 2. Apply PWB-specific provider defaults
-	await applyPwbProviderDefaults(context);
-
-	// 3. Validate that at least one provider is enabled
+	// 2. Validate that at least one provider is enabled
 	await validateProvidersEnabled();
-}
-
-/**
- * Apply PWB-specific provider defaults.
- *
- * On Posit Workbench, Posit AI should default to disabled, but users and admins
- * can still configure it. Since package.json doesn't support conditional defaults,
- * we use globalState to track whether we've applied the PWB default. This ensures:
- * - First run on PWB: Posit AI is disabled (unless already configured)
- * - Admin configures via policy: their choice is respected because we can't overwrite admin policies
- * - User changes the setting: their choice is preserved
- * - Subsequent runs: we don't overwrite existing choices
- *
- * See: https://github.com/posit-dev/positron/issues/12954
- */
-async function applyPwbProviderDefaults(context: vscode.ExtensionContext): Promise<void> {
-	if (!IS_RUNNING_ON_PWB) {
-		return;
-	}
-
-	const pwbDefaultAppliedKey = 'positAI.pwbDefaultApplied';
-	const pwbDefaultApplied = context.globalState.get<boolean>(pwbDefaultAppliedKey);
-
-	if (!pwbDefaultApplied) {
-		const config = vscode.workspace.getConfiguration('positron.assistant.provider.positAI');
-		const currentValue = config.get<boolean>('enable');
-
-		// If already disabled (by admin policy, user, or any other means), nothing to do
-		if (currentValue !== false) {
-			const enableInspect = config.inspect<boolean>('enable');
-
-			// Only apply default if no one has explicitly configured this setting.
-			// Admin policy values aren't exposed via inspect(), but if an admin
-			// enforced a policy, the update will fail and we catch it below.
-			const hasExplicitValue = enableInspect?.globalValue !== undefined ||
-				enableInspect?.workspaceValue !== undefined ||
-				enableInspect?.workspaceFolderValue !== undefined;
-
-			if (!hasExplicitValue) {
-				try {
-					await config.update('enable', false, vscode.ConfigurationTarget.Global);
-				} catch (e) {
-					// Setting may be enforced by admin policy; log and continue
-					log.warn(`Posit AI enablement enforced by admin policy and cannot be updated: ${e instanceof Error ? e.message : String(e)}`);
-				}
-			}
-		}
-
-		// Always mark as applied so we don't retry
-		await context.globalState.update(pwbDefaultAppliedKey, true);
-	}
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
@@ -103,7 +48,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	const participantService = registerParticipants(context);
 
 	// Initialize provider configuration system (registration, migration, validation)
-	initializeProviderConfiguration(context)
+	initializeProviderConfiguration()
 		.catch((e) => {
 			log.error(`Provider initialization failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
