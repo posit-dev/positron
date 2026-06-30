@@ -11,24 +11,25 @@
 ## Global Constraints
 
 - **Additive only.** Tag derivation never removes a tag the author specified; it only adds. The author's explicit body tags and the `@:critical` floor are always honored.
-- **Minimum correct coverage.** The map's tag *value* per prefix is the smallest correct set (usually one tag). Selection is driven by file *path*, never by the tags written inside a test file.
+- **Two derivation sources.** (1) Changed *source/extension* files -> tags via a curated path-prefix map (`e2e-tag-paths-map.json`); the map's tag *value* per prefix is the smallest correct set (usually one tag). (2) Changed *test* files (`test/e2e/tests/**`) -> the feature tags the file itself declares (`tags.XXX`), resolved to `@:value` via `test-tags.ts`. The map deliberately contains NO `test/e2e/tests/*` entries.
+- **Test-file feature tags read the whole changed file** (a cross-tagged test injects all its feature tags) and EXCLUDE non-feature tags whose resolved value matches: `@:critical`, `@:soft-fail`, `@:performance`, `@:cross-browser`, `@:win`, `@:web`, `@:web-only`, `@:jupyter`, `@:pyrefly`, `@:publisher`, `@:remote-ssh`, `@:remote-wsl`, `@:workbench*`, `@:rhel-*`, `@:suse-*`, `@:sles-*`, `@:debian-*`.
 - **Deterministic, no LLM, no PETE dependency.**
 - **ASCII only.** No em-dashes, en-dashes, smart quotes. Use straight quotes and ASCII hyphens.
 - **Tabs for indentation** in all shell scripts (matches `pr-tags-parse.sh`).
 - **Platform tags** (`@:win`/`@:web`) are detected from the PR body (existing) plus from *added* diff lines in changed `test/e2e/tests/**` files. In test source these appear as `tags.WIN` / `tags.WEB` (enum members), NOT the literal `@:win`/`@:web`.
-- **`@:no-auto-tags`** in the PR body disables path-map derivation only; the platform-added-line scan still runs.
+- **`@:no-auto-tags`** in the PR body disables BOTH derivation sources (source map and test-file read); the platform-added-line scan still runs.
 - Copyright headers are not required on shell scripts in this repo (none of the existing `scripts/*.sh` carry one); match surrounding files.
 
 ---
 
 ## File Structure
 
-- `scripts/lib/pr-tags-lib.sh` (NEW) - pure helpers: `derive_map_tags`, `scan_added_platform_tags`, `is_infra_only`, `union_csv_tags`.
+- `scripts/lib/pr-tags-lib.sh` (NEW, extended in Task 3) - pure helpers: `derive_map_tags`, `derive_test_file_tags`, `scan_added_platform_tags`, `is_infra_only`, `union_csv_tags`.
 - `scripts/test/pr-tags-lib-test.sh` (NEW) - plain-bash unit tests for the library.
-- `.github/workflows/e2e-tag-paths-map.json` (NEW) - path-prefix -> feature-tag(s) map.
-- `scripts/check-e2e-tag-map.sh` (NEW) - guardrail: lists Positron dirs/extensions and flags any missing a map entry.
+- `.github/workflows/e2e-tag-paths-map.json` (NEW) - **source/extension** path-prefix -> feature-tag(s) map (no test-dir entries).
+- `scripts/check-e2e-tag-map.sh` (NEW) - guardrail: lists Positron source dirs/extensions and flags any missing a map entry.
 - `.github/workflows/e2e-tag-map-check-nightly.yml` (NEW) - nightly run of the guardrail.
-- `scripts/pr-tags-parse.sh` (MODIFY) - source the library; derive + union map tags; honor `@:no-auto-tags`; added-line platform scan; emit `no_matches` output.
+- `scripts/pr-tags-parse.sh` (MODIFY) - source the library; derive + union source-map tags AND changed-test-file tags; honor `@:no-auto-tags`; added-line platform scan; emit `no_matches` output.
 - `.github/workflows/test-pull-request.yml` (MODIFY) - add a `no_matches` output to the `pr-tags` job and a comment-upsert step; grant `pull-requests: write`.
 
 ---
@@ -227,29 +228,17 @@ git commit -m "feat: add pure helpers for deriving e2e tags from changed files"
 - Create: `.github/workflows/e2e-tag-map-check-nightly.yml`
 
 **Interfaces:**
-- Consumes: the map format produced here is read by `derive_map_tags` (Task 1) and by `pr-tags-parse.sh` (Task 3).
-- Produces: `scripts/check-e2e-tag-map.sh` exits 0 when every enumerated dir/extension has a map entry, non-zero (listing the gaps) otherwise. Accepts `--warn-only` to always exit 0 while still printing gaps.
+- Consumes: the map format produced here is read by `derive_map_tags` (Task 1) and by `pr-tags-parse.sh` (Task 4).
+- Produces: `scripts/check-e2e-tag-map.sh` exits 0 when every enumerated source dir/extension has a map entry, non-zero (listing the gaps) otherwise. Accepts `--warn-only` to always exit 0 while still printing gaps.
+
+**Note for the implementer:** a prior attempt left an uncommitted `e2e-tag-paths-map.json` (with source/extension entries already audited, plus test-dir entries that must be REMOVED), an uncommitted `scripts/check-e2e-tag-map.sh`, and an uncommitted guardrail-smoke block already appended to `scripts/test/pr-tags-lib-test.sh`. Reconcile those to this task rather than starting from scratch: delete every `test/e2e/tests/*` key from the map, ensure the guardrail enumerates source dirs only, keep the audited source/extension entries, then proceed.
 
 - [ ] **Step 1: Create the seed map (high-confidence entries)**
 
-Create `.github/workflows/e2e-tag-paths-map.json`. These are the unambiguous mappings; the audit in Step 5 fills the rest. An empty array means "intentionally no e2e coverage."
+Create `.github/workflows/e2e-tag-paths-map.json`. **Source and extension dirs only - no `test/e2e/tests/*` entries** (test files carry their own tags; see Task 3). These are the unambiguous mappings; the audit in Step 5 fills the rest. An empty array means "intentionally no e2e coverage."
 
 ```jsonc
 {
-  "test/e2e/tests/console/": ["@:console"],
-  "test/e2e/tests/plots/": ["@:plots"],
-  "test/e2e/tests/variables/": ["@:variables"],
-  "test/e2e/tests/data-explorer/": ["@:data-explorer"],
-  "test/e2e/tests/connections/": ["@:connections"],
-  "test/e2e/tests/help/": ["@:help"],
-  "test/e2e/tests/outline/": ["@:outline"],
-  "test/e2e/tests/output/": ["@:output"],
-  "test/e2e/tests/quarto/": ["@:quarto"],
-  "test/e2e/tests/sessions/": ["@:sessions"],
-  "test/e2e/tests/welcome/": ["@:welcome"],
-  "test/e2e/tests/notebooks-positron/": ["@:positron-notebooks"],
-  "test/e2e/tests/packages-pane/": ["@:packages-pane"],
-
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
   "src/vs/workbench/services/positronConsole/": ["@:console"],
   "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
@@ -341,14 +330,19 @@ if [[ ! -f "$MAP_FILE" ]]; then
 	exit 1
 fi
 
-# Enumerate the directories/extensions that should be mapped, as repo-relative
-# prefixes with a trailing slash (matching the map's key format).
-mapfile -t expected < <(
+# Enumerate the SOURCE directories/extensions that should be mapped, as
+# repo-relative prefixes with a trailing slash (matching the map's key format).
+# Test directories (test/e2e/tests/*) are intentionally NOT enumerated -- they
+# are not in the map; their tags come from the files themselves (Task 3).
+# `while read` (not `mapfile`) so the script runs under bash 3.2 (macOS default).
+expected=()
+while IFS= read -r d; do
+	expected+=("$d")
+done < <(
 	cd "$REPO_ROOT" || exit 1
 	for d in src/vs/workbench/contrib/positron*/ \
 	         src/vs/workbench/services/positron*/ \
-	         extensions/positron-*/ \
-	         test/e2e/tests/*/; do
+	         extensions/positron-*/; do
 		[[ -d "$d" ]] && echo "$d"
 	done
 )
@@ -450,14 +444,135 @@ git commit -m "chore: enforce e2e tag map coverage in nightly guardrail"
 
 ---
 
-## Task 3: Wire derivation into pr-tags-parse.sh
+## Task 3: Read feature tags from changed test files
+
+**Files:**
+- Modify: `scripts/lib/pr-tags-lib.sh` (add `derive_test_file_tags`)
+- Modify: `scripts/test/pr-tags-lib-test.sh` (add tests)
+
+**Interfaces:**
+- Consumes: `test/e2e/infra/test-runner/test-tags.ts` (the `TestTags` enum) at runtime.
+- Produces: `derive_test_file_tags <changed_files> <repo_root> <enum_file>` -> echoes comma-separated, de-duplicated, order-stable feature tags declared in changed `test/e2e/tests/**` files, resolved from `tags.XXX` enum references via `enum_file`, EXCLUDING non-feature tags (platform/env/special/build-variant). Empty if none. Only reads files that exist under `repo_root` and live under `test/e2e/tests/`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `scripts/test/pr-tags-lib-test.sh`, just before the final `[[ $fail -eq 0 ]]` line:
+
+```bash
+# --- derive_test_file_tags ---
+ENUM="$(mktemp)"
+cat > "$ENUM" <<'TS'
+export enum TestTags {
+	CONSOLE = '@:console',
+	SESSIONS = '@:sessions',
+	PLOTS = '@:plots',
+	JUPYTER = '@:jupyter',
+	CRITICAL = '@:critical',
+	WEB = '@:web',
+	WIN = '@:win',
+}
+TS
+TROOT="$(mktemp -d)"
+mkdir -p "$TROOT/test/e2e/tests/console"
+cat > "$TROOT/test/e2e/tests/console/a.test.ts" <<'TST'
+test.describe('x', { tag: [tags.CONSOLE, tags.SESSIONS, tags.WIN, tags.CRITICAL] }, () => {});
+TST
+cat > "$TROOT/test/e2e/tests/console/b.test.ts" <<'TST'
+test.describe('y', { tag: [tags.JUPYTER, tags.PLOTS] }, () => {});
+TST
+
+# Feature tags resolved; platform (WIN), special (CRITICAL), build-variant (JUPYTER) excluded; deduped.
+assert_eq "test-file feature tags only" "@:console,@:sessions,@:plots" \
+	"$(derive_test_file_tags "$(printf 'test/e2e/tests/console/a.test.ts\ntest/e2e/tests/console/b.test.ts')" "$TROOT" "$ENUM")"
+# A changed file outside test/e2e/tests/ contributes nothing.
+assert_eq "non-test path ignored" "" \
+	"$(derive_test_file_tags "src/vs/foo.ts" "$TROOT" "$ENUM")"
+# A changed test path that no longer exists on disk is skipped.
+assert_eq "missing file ignored" "" \
+	"$(derive_test_file_tags "test/e2e/tests/console/ghost.test.ts" "$TROOT" "$ENUM")"
+
+rm -rf "$TROOT"; rm -f "$ENUM"
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `bash scripts/test/pr-tags-lib-test.sh`
+Expected: FAIL on the three new checks (`derive_test_file_tags` not defined yet).
+
+- [ ] **Step 3: Add the function to the library**
+
+Append to `scripts/lib/pr-tags-lib.sh`:
+
+```bash
+# derive_test_file_tags <changed_files> <repo_root> <enum_file>
+#   changed_files: newline-separated repo-relative paths
+#   repo_root: absolute path to the repo (to read the changed test files)
+#   enum_file: path to test/e2e/infra/test-runner/test-tags.ts
+# For each changed file under test/e2e/tests/ that exists on disk, reads its
+# `tags.XXX` enum references, resolves each to its @:value from enum_file, and
+# unions the FEATURE tags. Excludes platform/env/special/build-variant tags
+# (governed by other mechanisms). Echoes comma-separated, de-duplicated tags.
+derive_test_file_tags() {
+	local changed="$1" repo_root="$2" enum_file="$3"
+	local file name val line
+	local -a out=()
+
+	# Build NAME -> @:value lookup from the enum (lines like: CONSOLE = '@:console',).
+	declare -A enum_map=()
+	while IFS= read -r line; do
+		name="$(printf '%s' "$line" | sed -n "s/^[[:space:]]*\([A-Z0-9_]*\)[[:space:]]*=.*/\1/p")"
+		val="$(printf '%s' "$line" | sed -n "s/.*'\(@:[a-zA-Z0-9_-]*\)'.*/\1/p")"
+		[[ -n "$name" && -n "$val" ]] && enum_map[$name]="$val"
+	done < <(grep -E "=[[:space:]]*'@:" "$enum_file")
+
+	# Resolved values to exclude: platform / env / special / build-variant tags
+	# are governed by dedicated PR-body greps and the platform-added-line scan.
+	local exclude_re='^@:(critical|soft-fail|performance|cross-browser|win|web|web-only|jupyter|pyrefly|publisher|remote-ssh|remote-wsl|workbench.*|rhel-.*|suse-.*|sles-.*|debian-.*)$'
+
+	while IFS= read -r file; do
+		[[ -z "$file" ]] && continue
+		[[ "$file" == test/e2e/tests/* ]] || continue
+		[[ -f "$repo_root/$file" ]] || continue
+		while IFS= read -r name; do
+			val="${enum_map[$name]:-}"
+			[[ -z "$val" ]] && continue
+			[[ "$val" =~ $exclude_re ]] && continue
+			out+=("$val")
+		done < <(grep -oE 'tags\.[A-Z0-9_]+' "$repo_root/$file" | sed 's/^tags\.//' | sort -u)
+	done <<< "$changed"
+
+	[[ ${#out[@]} -eq 0 ]] && return 0
+	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++' | paste -sd, -
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `bash scripts/test/pr-tags-lib-test.sh`
+Expected: `ALL PASS`, exit 0.
+
+- [ ] **Step 5: Lint**
+
+Run: `command -v shellcheck >/dev/null && shellcheck scripts/lib/pr-tags-lib.sh scripts/test/pr-tags-lib-test.sh || echo "shellcheck not installed; skipping"`
+Expected: no errors beyond the pre-existing SC1091 info (dynamic `source`).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/lib/pr-tags-lib.sh scripts/test/pr-tags-lib-test.sh
+git commit -m "feat: read feature tags declared in changed e2e test files"
+```
+
+---
+
+## Task 4: Wire derivation into pr-tags-parse.sh
 
 **Files:**
 - Modify: `scripts/pr-tags-parse.sh`
 
 **Interfaces:**
-- Consumes: `derive_map_tags`, `scan_added_platform_tags`, `union_csv_tags` from `scripts/lib/pr-tags-lib.sh` (Task 1); `.github/workflows/e2e-tag-paths-map.json` (Task 2).
-- Produces: an additional `no_matches=true|false` line in `$GITHUB_OUTPUT`, consumed by Task 4. `no_matches=true` iff, after all derivation, the resolved feature-tag set is just `@:critical` (nothing else matched and the body had no feature tags).
+- Consumes: `derive_map_tags`, `derive_test_file_tags`, `scan_added_platform_tags`, `union_csv_tags` from `scripts/lib/pr-tags-lib.sh` (Tasks 1, 3); `.github/workflows/e2e-tag-paths-map.json` (Task 2); `test/e2e/infra/test-runner/test-tags.ts` (the enum).
+- Produces: an additional `no_matches=true|false` line in `$GITHUB_OUTPUT`, consumed by Task 5. `no_matches=true` iff, after all derivation, the resolved feature-tag set is just `@:critical` (nothing else matched and the body had no feature tags).
 
 - [ ] **Step 1: Source the library near the top**
 
@@ -468,23 +583,33 @@ In `scripts/pr-tags-parse.sh`, after the `set -e` line (line 5) and before the e
 source "$(dirname "$0")/lib/pr-tags-lib.sh"
 ```
 
-- [ ] **Step 2: Add map derivation + opt-out after the @:ark injection block**
+- [ ] **Step 2: Add derived tagging (source map + test files) + opt-out after the @:ark injection block**
 
 In the `else` branch (the `@:all`-not-present path), immediately after the `@:ark` injection `fi` (currently around line 138, before `# Output the tags`), insert:
 
 ```bash
 	# Auto-inject feature tags derived from the PR's changed files, unless the
 	# author opted out with @:no-auto-tags. Additive only -- never removes tags
-	# the author specified. Selection is by file PATH, via e2e-tag-paths-map.json.
+	# the author specified. Two sources: a source/extension PATH map, and the
+	# feature tags declared inside changed e2e test files.
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
-		echo "Found @:no-auto-tags. Skipping path-map tag derivation."
+		echo "Found @:no-auto-tags. Skipping derived tagging."
 	elif [[ -n "$CHANGED_FILES" ]]; then
-		MAP_FILE="$(dirname "$0")/../.github/workflows/e2e-tag-paths-map.json"
+		SCRIPT_DIR="$(dirname "$0")"
+		MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
+		ENUM_FILE="$SCRIPT_DIR/../test/e2e/infra/test-runner/test-tags.ts"
 		if [[ -f "$MAP_FILE" ]]; then
 			MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
 			if [[ -n "$MAP_TAGS" ]]; then
-				echo "Derived tags from changed files: $MAP_TAGS"
+				echo "Derived tags from changed source files: $MAP_TAGS"
 				TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
+			fi
+		fi
+		if [[ -f "$ENUM_FILE" ]]; then
+			TEST_TAGS="$(derive_test_file_tags "$CHANGED_FILES" "$SCRIPT_DIR/.." "$ENUM_FILE")"
+			if [[ -n "$TEST_TAGS" ]]; then
+				echo "Derived tags from changed test files: $TEST_TAGS"
+				TAGS="$(union_csv_tags "$TAGS" "$TEST_TAGS")"
 			fi
 		fi
 	fi
@@ -526,7 +651,7 @@ Still inside the `else` branch, after `echo "Extracted Tags: $TAGS"` (the existi
 	fi
 ```
 
-(For the `@:all` branch, `no_matches` is left unset, which Task 4 treats as falsey: an `@:all` PR runs everything, so there is nothing to warn about.)
+(For the `@:all` branch, `no_matches` is left unset, which Task 5 treats as falsey: an `@:all` PR runs everything, so there is nothing to warn about.)
 
 - [ ] **Step 5: Verify the script parses and runs the library**
 
@@ -550,7 +675,7 @@ bash scripts/pr-tags-parse.sh
 cat /tmp/pr-tags-out.txt
 ```
 
-Expected: log shows `Derived tags from changed files: ...` for a PR that touched a mapped dir, and `/tmp/pr-tags-out.txt` contains a `tags=` line plus `no_matches=`.
+Expected: log shows `Derived tags from changed source files: ...` (for a PR touching a mapped source dir) and/or `Derived tags from changed test files: ...` (for a PR touching an e2e test), and `/tmp/pr-tags-out.txt` contains a `tags=` line plus `no_matches=`.
 
 - [ ] **Step 7: Commit**
 
@@ -561,13 +686,13 @@ git commit -m "feat: auto-inject e2e tags from changed files in pr-tags-parse"
 
 ---
 
-## Task 4: No-match warning comment in the PR workflow
+## Task 5: No-match warning comment in the PR workflow
 
 **Files:**
 - Modify: `.github/workflows/test-pull-request.yml`
 
 **Interfaces:**
-- Consumes: `no_matches` output from the `pr-tags` job (Task 3).
+- Consumes: `no_matches` output from the `pr-tags` job (Task 4).
 - Produces: a sticky PR comment (hidden marker `<!-- e2e-auto-tags -->`) that warns on no-match and resolves itself when a later push matches.
 
 - [ ] **Step 1: Expose the `no_matches` output and grant comment permission**
