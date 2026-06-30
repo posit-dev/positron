@@ -6,6 +6,7 @@
 import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
 import type { SessionStartShortcutOptions } from './metric-sessions.js';
+import type { ConsoleShortcutOptions } from './metric-console.js';
 import { getPositronVersion } from '../../infra/test-runner/test-setup.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
@@ -86,6 +87,7 @@ export type RecordMetric = {
 	};
 	notebooks: {
 		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+		renderOnColdOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 		renderOnOpen: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 		renderOnNavBack: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: { description?: string; additionalContext?: MetricContext | (() => Promise<MetricContext>) }) => Promise<MetricResult<T>>;
 	};
@@ -95,6 +97,9 @@ export type RecordMetric = {
 			targetType: MetricTargetType,
 			options?: SessionStartShortcutOptions
 		) => Promise<MetricResult<T>>;
+	};
+	console: {
+		executeCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: ConsoleShortcutOptions) => Promise<MetricResult<T>>;
 	};
 	assistant: {
 		evalResponse: (input: AssistantEvalMetricInput, durationMs: number) => Promise<void>;

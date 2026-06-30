@@ -19,7 +19,7 @@ import { PositronModalDialogReactRenderer } from '../../../../../base/browser/po
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { ThreeButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/threeButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionMechanism, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * UI-side form state for a single parameter field, pairing the value with an error indicator.
@@ -48,6 +48,9 @@ interface ConfigureDataConnectionProps {
 
 	// The driver for the connection being configured.
 	driver: IDataConnectionDriver;
+
+	// The mechanism the connection is being configured with. Its parameters drive the form.
+	mechanism: IDataConnectionMechanism;
 
 	// The profile. Omit when creating a new profile.
 	profile?: IDataConnectionProfile;
@@ -86,13 +89,45 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		props.profile ? positronDataConnectionsService.getProfileSecretIds(props.profile.id) : []
 	));
 
+	// Redacted previews (parameter id -> redacted string) for unmasked secret parameters that have a
+	// stored value, shown as the field placeholder when editing (e.g. a connection string with its
+	// password masked). The cleartext is redacted by the driver and never loaded into this component.
+	const [redactedSecretValues, setRedactedSecretValues] = useState<Record<string, string>>({});
+
+	// On mount, fetch redacted previews for any unmasked secret parameters with a stored value.
+	useEffect(() => {
+		const profileId = props.profile?.id;
+		if (!profileId) {
+			return;
+		}
+
+		// Unmasked secret string parameters render in plaintext, so a "saved" dots placeholder would be
+		// misleading; show a driver-redacted preview of the stored value instead.
+		const unmaskedSecretIds = props.mechanism.parameters
+			.filter(parameter => parameter.type === 'string' && parameter.secret === true && parameter.masked === false && storedSecretIds.has(parameter.id))
+			.map(parameter => parameter.id);
+
+		let disposed = false;
+		Promise.all(unmaskedSecretIds.map(async parameterId => {
+			const redacted = await positronDataConnectionsService.getRedactedParameterValue(profileId, parameterId);
+			return [parameterId, redacted] as const;
+		})).then(entries => {
+			if (disposed) {
+				return;
+			}
+			setRedactedSecretValues(Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined)));
+		});
+
+		return () => { disposed = true; };
+	}, [positronDataConnectionsService, props.profile?.id, props.mechanism.parameters, storedSecretIds]);
+
 	// State.
 	const [connectionName, setConnectionName] = useState(props.profile?.connectionName ?? '');
 	const [connectionNameError, setConnectionNameError] = useState(false);
 	const [parameterFieldStates, setParameterFieldStates] = useState<ParameterFieldStates>(() => {
 		// Initialize parameter field states.
 		const initialParameterFieldStates: ParameterFieldStates = {};
-		for (const parameter of props.driver.metadata.parameters) {
+		for (const parameter of props.mechanism.parameters) {
 			// Get the default value for the parameter. Password parameters and secret string
 			// parameters do not have a default value in the type system.
 			const defaultValue = parameter.type === 'password' || (parameter.type === 'string' && parameter.secret)
@@ -147,7 +182,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 
 		// Validate the parameters.
 		const updatedParameterFieldStates = { ...parameterFieldStates };
-		for (const parameter of props.driver.metadata.parameters) {
+		for (const parameter of props.mechanism.parameters) {
 			// Get the current value for this parameter field.
 			const value = parameterFieldStates[parameter.id].value;
 
@@ -194,6 +229,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 					supportedLanguageIds: props.driver.metadata.supportedLanguageIds,
 				},
 				connectionName,
+				mechanismId: props.mechanism.id,
 				parameterValues,
 			});
 		}
@@ -206,12 +242,12 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 				<div className='configure-data-connection-container'>
 					<div className='configure-data-connection'>
 						{/* Driver Header. */}
-						<div className='driver-header'>
+						{/* <div className='driver-header'>
 							<div className='driver-header-badge'>
 								<img alt='' className='driver-header-icon' src={`data:image/svg+xml;base64,${props.driver.metadata.iconSvg}`} />
 							</div>
 							<div className='driver-header-name'>{props.driver.metadata.name}</div>
-						</div>
+						</div> */}
 
 						{/* Connection Name */}
 						<div className='parameter-field'>
@@ -235,7 +271,8 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						{/* Parameters */}
 						<ConfigureDataConnectionParameters
 							parameterFieldStates={parameterFieldStates}
-							parameters={props.driver.metadata.parameters}
+							parameters={props.mechanism.parameters}
+							redactedSecretValues={redactedSecretValues}
 							storedSecretIds={storedSecretIds}
 							onParameterChanged={setParameterFieldState}
 						/>
@@ -249,6 +286,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 						leftButtonTitle={localize('positron.configureDataConnection.back', "Back")}
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						topBorder={true}
 						onLeftButton={props.onBack}
 						onPrimaryButton={saveHandler}
 						onSecondaryButton={cancelHandler}
@@ -256,6 +294,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 					: <TwoButtonFooter
 						primaryButtonTitle={localize('positron.configureDataConnection.save', "Save")}
 						secondaryButtonTitle={localize('positron.configureDataConnection.cancel', "Cancel")}
+						topBorder={true}
 						onPrimaryButton={saveHandler}
 						onSecondaryButton={cancelHandler}
 					/>
@@ -263,10 +302,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			renderer={props.renderer}
 			title={localize(
 				'positron.configureDataConnection.title',
-				"Configure Database"
+				"Configure Data Connection \u00B7 {0}",
+				props.driver.metadata.name
 			)}
-			titleBarSize='large'
-			width={492}
+			titleSize='large'
+			width={530}
 			onCancel={cancelHandler}
 			onSubmit={saveHandler}
 		/>

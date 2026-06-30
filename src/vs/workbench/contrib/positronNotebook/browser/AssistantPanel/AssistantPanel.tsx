@@ -13,9 +13,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
-import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { OneButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
+import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
@@ -29,6 +29,7 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/editing/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
@@ -95,11 +96,12 @@ export interface AssistantPanelProps {
 	initialNotebook: IPositronNotebookInstance | undefined;
 	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
 	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	chatEditingService: IChatEditingService;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
 	dialogService: IDialogService;
+	headlessLmService: IHeadlessLanguageModelService;
 	notificationService: INotificationService;
 	logService: ILogService;
 	preferencesService: IPreferencesService;
@@ -290,6 +292,8 @@ interface ReadyStateProps {
 	notebookContext: INotebookContextDTO | undefined;
 	isLoadingContext: boolean;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	headlessLmService: IHeadlessLanguageModelService;
 	logService: ILogService;
 	notificationService: INotificationService;
 	showDiffOverride: ShowDiffOverride;
@@ -315,6 +319,8 @@ const ReadyState = ({
 	notebookContext,
 	isLoadingContext,
 	commandService,
+	configurationService,
+	headlessLmService,
 	logService,
 	notificationService,
 	showDiffOverride,
@@ -409,9 +415,10 @@ const ReadyState = ({
 				{actionsHeader}
 			</div>
 			<AssistantPanelActions
-				commandService={commandService}
-				logService={logService}
+				configurationService={configurationService}
+				headlessLmService={headlessLmService}
 				notebook={notebook}
+				notebookContext={notebookContext}
 				notificationService={notificationService}
 				onActionSelected={onActionSelected}
 				onClose={onClose}
@@ -475,6 +482,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		commandService,
 		configurationService,
 		dialogService,
+		headlessLmService,
 		notificationService,
 		logService,
 		preferencesService,
@@ -668,10 +676,12 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 					<ReadyState
 						autoFollowOverride={autoFollowOverride}
 						commandService={commandService}
+						configurationService={configurationService}
 						ghostCellSuggestionsOverride={ghostCellSuggestionsOverride}
 						globalAutoFollow={globalAutoFollow}
 						globalGhostCellSuggestions={globalGhostCellSuggestions}
 						globalShowDiff={globalShowDiff}
+						headlessLmService={headlessLmService}
 						isLoadingContext={isLoadingContext}
 						logService={logService}
 						notebook={panelState.notebook}
@@ -690,19 +700,22 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 	};
 
 	return (
-		<PositronModalDialog
-			closeOnClickOutside={true}
-			height={450}
-			renderer={renderer}
-			title={panelTitle}
-			width={400}
-			onCancel={handleClose}
-		>
-			<ContentArea>
+		<PositronDynamicModalDialog
+			content={
 				<div className='assistant-panel-content'>
 					{renderContent()}
 				</div>
-			</ContentArea>
-		</PositronModalDialog>
+			}
+			contentMaxHeight={600}
+			contentMinHeight={200}
+			// A footer Close button gives an explicit way out (Escape also works). onSubmit is
+			// intentionally not wired: unlike the read-only Help/Ghost Cell dialogs, this panel has
+			// interactive controls, and Enter-to-submit would dismiss it from any focused input. The
+			// autofocused Close button still closes on Enter via the Button's own key handling.
+			footer={<OneButtonFooter buttonTitle={closeButtonLabel} onButton={handleClose} />}
+			renderer={renderer}
+			title={panelTitle}
+			width={480}
+		/>
 	);
 };

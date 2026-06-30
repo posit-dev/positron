@@ -7,7 +7,7 @@ import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `databases.enabled`. This
+	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
 	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
 	// read settings copied in at launch rather than the host settings file written at runtime.
 	enableDataConnections: true,
@@ -49,20 +49,25 @@ test.describe('Data Connections - Postgres', {
 	// every test in the suite. Create it and expand the tree to a known baseline once here. Per-test
 	// state that must not leak between tests (an open Data Explorer tab) is reset in afterEach.
 	test.beforeAll(async function ({ app }) {
+		// These tests require a running Postgres container, which is only available on the Windows
+		// and web CI rigs. The macOS CI project runs @:win-tagged tests too (see playwright.config.ts),
+		// but has no Postgres container, so skip the whole suite there.
+		test.skip(process.platform === 'darwin', 'No Postgres container available on macOS CI');
+
 		const { dataConnections } = app.workbench;
 
 		await dataConnections.openDataConnectionsView();
 		await dataConnections.clickAddConnection();
 		await dataConnections.selectProvider('PostgreSQL');
-
-		await dataConnections.fillConnectionInputs({
-			'Connection Name': connectionName,
-			'Host': host,
-			'Port': port,
-			'Database': database,
-			'User': user,
-			'Password': password,
-		});
+		await dataConnections.selectConnectionMechanism('User & Password');
+		await dataConnections.fillConnectionInputs([
+			['Connection Name', connectionName],
+			['Host', host],
+			['Port', port],
+			['Database', database],
+			[/^User/, user],
+			[/^Password/, password],
+		]);
 
 		await dataConnections.save();
 		await dataConnections.expectConnectionInTree(connectionName);

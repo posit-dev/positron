@@ -78,8 +78,6 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 		provider: PROVIDER_METADATA.openai,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'OpenAI',
-			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true
 		},

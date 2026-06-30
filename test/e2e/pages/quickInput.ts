@@ -158,21 +158,40 @@ export class QuickInput {
 
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true }: { timeout?: number; force?: boolean } = {},
+		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
 	): Promise<string> {
-		const firstMatch = this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
-			.first();
+		const matches = this.code.driver.currentPage
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
 
-		const firstMatchResult =
-			(await firstMatch
+		// By default select the first matching row. When `deprioritize` is set and
+		// several rows share `text` (e.g. a project venv and a base pyenv both
+		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
+		// none of the deprioritized source markers. Falls back to the first match
+		// when every match is deprioritized (e.g. a platform where only the base
+		// interpreter is installed).
+		let target = matches.first();
+		if (deprioritize?.length) {
+			await expect(target).toBeVisible({ timeout });
+			const count = await matches.count();
+			for (let i = 0; i < count; i++) {
+				const row = matches.nth(i);
+				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
+				if (!deprioritize.some(source => ariaLabel.includes(source))) {
+					target = row;
+					break;
+				}
+			}
+		}
+
+		const targetResult =
+			(await target
 				.locator('.quick-input-list-row')
 				.nth(0)
 				.textContent({ timeout })) || '';
-		await firstMatch.click({ force, timeout });
+		await target.click({ force, timeout });
 		await this.code.driver.currentPage.mouse.move(0, 0);
 
-		return firstMatchResult.trim();
+		return targetResult.trim();
 	}
 
 	async selectQuickInputElementExact(

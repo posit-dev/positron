@@ -11,7 +11,6 @@ import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
 import {
-	DEFAULT_ANTHROPIC_MODEL_NAME,
 	DEFAULT_ANTHROPIC_MODEL_MATCH,
 	fetchAnthropicModelsFromApi,
 	getAnthropicModelsFromConfig,
@@ -71,7 +70,6 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 		defaults: {
-			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			baseUrl: 'https://api.anthropic.com',
 			toolCalls: true,

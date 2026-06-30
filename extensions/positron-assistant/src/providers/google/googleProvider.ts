@@ -67,10 +67,8 @@ export class GoogleModelProvider extends VercelModelProvider implements positron
 		provider: PROVIDER_METADATA.google,
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'Gemini 2.5 Flash',
 			model: 'gemini-2.5-flash',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-			apiKey: undefined,
 			toolCalls: true
 		},
 	};

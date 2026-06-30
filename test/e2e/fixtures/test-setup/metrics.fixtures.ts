@@ -8,6 +8,7 @@ import {
 	recordRunCell,
 	recordRenderOnOpen,
 	recordRenderOnNavBack,
+	recordRenderOnColdOpen,
 	type NotebookShortcutOptions,
 } from '../../utils/metrics/metric-notebooks.js';
 import { recordAssistantEval, type AssistantEvalInput } from '../../utils/metrics/metric-assistant.js';
@@ -15,6 +16,10 @@ import {
 	recordSessionStart,
 	type SessionStartShortcutOptions,
 } from '../../utils/metrics/metric-sessions.js';
+import {
+	recordExecuteCode,
+	type ConsoleShortcutOptions,
+} from '../../utils/metrics/metric-console.js';
 import { type RecordMetric, type MetricResult, type MetricContext, type MetricTargetType } from '../../utils/metrics/metric-base.js';
 import { Application, MultiLogger } from '../../infra/index.js';
 
@@ -90,6 +95,13 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 			): Promise<MetricResult<T>> => {
 				return recordRenderOnNavBack(operation, targetType, !app.web, logger, options);
 			},
+			renderOnColdOpen: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: NotebookShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordRenderOnColdOpen(operation, targetType, !app.web, logger, options);
+			},
 		},
 		sessions: {
 			start: async <T>(
@@ -98,6 +110,15 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				options?: SessionStartShortcutOptions
 			): Promise<MetricResult<T>> => {
 				return recordSessionStart(operation, targetType, !app.web, logger, options);
+			},
+		},
+		console: {
+			executeCode: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: ConsoleShortcutOptions
+			): Promise<MetricResult<T>> => {
+				return recordExecuteCode(operation, targetType, !app.web, logger, options);
 			},
 		},
 		assistant: {

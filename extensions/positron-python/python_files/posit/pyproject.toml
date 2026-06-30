@@ -33,6 +33,7 @@ dependencies = [
     "pytest-mock",
     "pytest-rerunfailures",
     "scipy",
+    "seaborn",
     "snowflake-connector-python",
     "sqlalchemy",
     "syrupy",

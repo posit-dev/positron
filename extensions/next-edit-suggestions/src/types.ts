@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 export interface LLMConfig {
+	providerDisplayName: string;
 	modelId: string;
+	modelDisplayName?: string;
 	apiKey?: string;
 	accessToken?: string;
 	baseUrl?: string;

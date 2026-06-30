@@ -16,7 +16,7 @@ import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
-	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
+	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
@@ -26,7 +26,12 @@ import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixt
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
+let appFixtureTracePath: string | undefined;
 let renamedLogsPath = 'not-set';
+
+// Basename of the trace exported when the app fixture's `start()` fails (see the
+// `app` fixture catch block); attached from the renamed logs dir in afterAll.
+const APP_START_FAILURE_TRACE = 'app-start-failure-trace.zip';
 
 // Test fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -120,7 +125,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				// setting, which requires a reload to take effect. Enable it before the
 				// app starts so no reload is needed. Suites opt in with
 				// `test.use({ enableDataConnections: true })`.
-				await settingsFile.append({ 'databases.enabled': true });
+				await settingsFile.append({ 'dataConnections.enabled': true });
 			}
 
 			if (enableFoundryAssistant) {
@@ -139,6 +144,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant });
 
 		try {
+			// The first trace chunk is opened at context creation (see the driver's
+			// `context.tracing.start` + `startChunk`), so the whole of `start()` --
+			// server connect, sign-in, opening the workspace -- is recorded. Each
+			// test's tracing fixture then exports the current chunk and opens the
+			// next one (see TracingFixture).
 			await start();
 
 			await use(app);
@@ -150,6 +160,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				const page = app.code?.driver?.currentPage;
 				if (page) {
 					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
+				}
+			} catch {
+				// ignore
+			}
+
+			// The per-test tracing fixture never runs when `start()` fails, so export
+			// the startup chunk here. This is the trace of the failing startup itself.
+			// It is written under logsPath, which `renameTempLogsDir` (below) renames,
+			// so remember the basename and attach it from renamedLogsPath in afterAll.
+			try {
+				if (shouldUseCustomTracing(workerInfo.project)) {
+					await app.stopTracing('app-start-failure', true, join(logsPath, APP_START_FAILURE_TRACE));
+					appFixtureTracePath = APP_START_FAILURE_TRACE;
 				}
 			} catch {
 				// ignore
@@ -415,6 +438,18 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 
 		try {
+			if (appFixtureTracePath) {
+				testInfo.attachments.push({
+					name: 'trace',
+					path: join(renamedLogsPath, appFixtureTracePath),
+					contentType: 'application/zip',
+				});
+			}
+		} catch (e) {
+			console.log(e);
+		}
+
+		try {
 			const attachLogs = AttachLogsToReportFixture();
 			await attachLogs({ suiteId, logsPath: renamedLogsPath, testInfo }, async () => { /* no-op */ });
 		} catch (e) {
@@ -423,6 +458,7 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 
 		appFixtureFailed = false;
 		appFixtureScreenshot = undefined;
+		appFixtureTracePath = undefined;
 	}
 
 	// Dump active handles/requests to help debug worker teardown timeouts

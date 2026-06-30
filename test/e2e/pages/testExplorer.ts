@@ -34,11 +34,16 @@ export class TestExplorer extends Explorer {
 		await this.quickaccess.runCommand('testing.clearTestResults');
 	}
 
-	async expectTestItems(labels: string[]): Promise<void> {
+	async expectTestItems(labels: string[], timeout?: number): Promise<void> {
 		const tree = this.code.driver.currentPage.locator('.test-explorer');
 		for (const label of labels) {
-			await expect(tree.getByLabel(label)).toBeVisible({ timeout: 3000 });
+			await expect(tree.getByLabel(label)).toBeVisible({ timeout });
 		}
+	}
+
+	async expectNoTestItem(label: string, timeout?: number): Promise<void> {
+		const tree = this.code.driver.currentPage.locator('.test-explorer');
+		await expect(tree.getByLabel(label)).toHaveCount(0, { timeout });
 	}
 
 	async runAllTests(): Promise<void> {

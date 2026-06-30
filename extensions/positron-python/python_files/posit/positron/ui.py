@@ -8,6 +8,8 @@ import importlib.metadata
 import inspect
 import logging
 import os
+import platform
+import re
 import sys
 import types
 import webbrowser
@@ -16,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Unio
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
@@ -201,6 +204,101 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     return best_url
 
 
+def _best_author(metadata: Any) -> Optional[str]:
+    """Normalize author/maintainer into a display string (names, no emails)."""
+    # Prefer the plain-name fields (no email to strip) over the RFC-style
+    # *-email fields, skipping empty / "UNKNOWN" placeholders in any field.
+    raw = None
+    for value in (
+        metadata.get("Author"),
+        metadata.get("Maintainer"),
+        metadata.get("Author-email"),
+        metadata.get("Maintainer-email"),
+    ):
+        if value and value.strip() and value.strip() != "UNKNOWN":
+            raw = value
+            break
+    if not raw:
+        return None
+    names = []
+    for part in raw.split(","):
+        part = part.strip()
+        name = part.split("<")[0].strip().strip('"')
+        names.append(name or part)
+    joined = ", ".join(n for n in names if n)
+    return joined or None
+
+
+def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Return the Source/Repository Project-URL if present."""
+    metadata: Any = dist.metadata
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        if _normalize_url_label(label) in ("source", "repository", "sourcecode", "code"):
+            url = url.strip()
+            if url:
+                return url
+    return None
+
+
+def _primary_spdx(expr: str) -> str:
+    """The primary license id from a (possibly compound) SPDX expression.
+
+    e.g. "BSD-3-Clause AND 0BSD AND MIT" -> "BSD-3-Clause",
+    "(MIT OR Apache-2.0)" -> "MIT", "Apache-2.0 WITH LLVM-exception" -> "Apache-2.0".
+    """
+    first = re.split(r"\s+(?:AND|OR|WITH)\s+", expr.strip(), maxsplit=1)[0]
+    return first.strip().strip("()").strip()
+
+
+def _best_license(metadata: Any) -> Optional[str]:
+    """Best-effort short license string.
+
+    Prefers the primary id of the SPDX `License-Expression`, then a one-line
+    legacy `License` field, then an OSI license `Classifier`. Skips the legacy
+    `License` field when it holds the full multi-line license text rather than a
+    short name.
+    """
+    expr = metadata.get("License-Expression")
+    if expr and expr.strip():
+        primary = _primary_spdx(expr)
+        if primary:
+            return primary
+    legacy = metadata.get("License")
+    if legacy and legacy.strip() and legacy.strip() != "UNKNOWN" and "\n" not in legacy:
+        return legacy.strip()
+    for classifier in metadata.get_all("Classifier") or []:
+        if classifier.startswith("License :: "):
+            return classifier.split("::")[-1].strip()
+    return None
+
+
+def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected a package name, got: {params}")
+    name = params[0]
+    try:
+        dist = importlib.metadata.distribution(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+    metadata: Any = dist.metadata
+    detail: Dict[str, JsonData] = {"name": name}
+    summary = metadata.get("Summary")
+    if summary and summary != "UNKNOWN":
+        detail["title"] = summary
+    author = _best_author(metadata)
+    if author:
+        detail["author"] = author
+    repo = _source_repository(dist)
+    if repo:
+        detail["sourceRepository"] = repo
+    license_str = _best_license(metadata)
+    if license_str:
+        detail["license"] = license_str
+    return detail
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -245,11 +343,35 @@ def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]
     return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
 
+# Evaluate Requires-Python specifiers against this kernel's interpreter.
+def _check_requires_python(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    # params[0] is the list of distinct Requires-Python specifier strings the
+    # extension collected from a package's PyPI files. We answer, for each, whether
+    # this interpreter satisfies it, using the bundled `packaging` (the same PEP 440
+    # implementation pip relies on) against our own version. This keeps PEP 440
+    # semantics in the tool that owns them rather than re-implementing them in TS.
+    specs = params[0] if params else []
+    py_version = platform.python_version()
+    result: Dict[str, JsonData] = {}
+    if isinstance(specs, list):
+        for spec in specs:
+            if not isinstance(spec, str):
+                continue
+            try:
+                result[spec] = SpecifierSet(spec).contains(py_version, prereleases=True)
+            except Exception:
+                # Conservative: an unparseable specifier must not hide a version.
+                result[spec] = True
+    return result
+
+
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
     "getPackagesInstalled": _get_packages_installed,
+    "getPackageDetail": _get_package_detail,
+    "checkRequiresPython": _check_requires_python,
 }
 
 

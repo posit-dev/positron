@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,8 +13,8 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { pickPreferredOutputItem } from './notebookOutputUtils.js';
-import { getWebviewMessageType, isComplexHtml } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { htmlRenderMode, pickPreferredOutputItem } from './notebookOutputUtils.js';
+import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
@@ -36,7 +36,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		private instance: PositronNotebookInstance,
+		instance: PositronNotebookInstance,
 		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
@@ -121,7 +121,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	toggleOutputScroll(): void {
 		const effective = this._outputScrolling.get()
-			?? this.instance.notebookOptions.getLayoutConfiguration().outputScrolling;
+			?? this._instance.notebookOptions.getLayoutConfiguration().outputScrolling;
 		this._outputScrolling.set(!effective, undefined);
 	}
 
@@ -154,7 +154,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
-					instance: this.instance,
+					instance: this._instance,
 					outputId: output.outputId,
 					outputs: outputItems,
 				});
@@ -163,12 +163,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				if (parsedOutput.preloadMessageResult === undefined) {
 					return;
 				}
-			} else if (preferredOutputItem.mime === 'text/html' && isComplexHtml(rawOutput)) {
-				// Complex HTML (scripts, iframes, full documents) can't render
-				// inline due to Trusted Types / CSP restrictions. Route through
-				// an overlay webview where scripts execute in an isolated process.
+			} else if (preferredOutputItem.mime === 'text/html' && htmlRenderMode(rawOutput) === 'webview') {
+				// Route complex HTML (iframe, script) to a sandboxed webview. Inert full
+				// documents (e.g. Great Tables) fall through and render inline.
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
-					instance: this.instance,
+					instance: this._instance,
 					outputId: output.outputId,
 					outputs: outputItems,
 					rawHtml: rawOutput,

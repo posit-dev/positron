@@ -13,7 +13,10 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
+import { buildRequirementsFile } from './requirementsFile';
+import { findWorkspaceRequirementsFile } from './workspaceRequirements';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -42,6 +45,13 @@ export class UvPackageManager implements IPackageManager {
         token?: vscode.CancellationToken,
     ): Promise<Map<string, Partial<positron.LanguageRuntimePackage>>> {
         return fetchMetadataWithOutdated(packageNames, (t) => this._getOutdatedVersions(t), token);
+    }
+
+    async getPackageDetail(
+        name: string,
+        token?: vscode.CancellationToken,
+    ): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+        return this._callMethod<Partial<positron.LanguageRuntimePackage> | undefined>('getPackageDetail', token, name);
     }
 
     /**
@@ -74,9 +84,27 @@ export class UvPackageManager implements IPackageManager {
             const args = ['add', '--active', '--python', this._pythonPath, ...packageSpecs];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: uv pip install --python <path> <packages>
-            const args = ['pip', 'install', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, token);
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath) {
+                // requirements.txt is the source of truth: pass the target on the
+                // command line plus -r <file> (verbatim). The resolver intersects
+                // the target with the file; a conflict fails atomically.
+                const args = ['pip', 'install', ...packageSpecs, '-r', requirementsPath, '--python', this._pythonPath];
+                await this._executeUvInTerminal(args, token);
+            } else {
+                // Re-resolve against the full installed set: name every installed
+                // package (bare) plus the new package(s) so an inconsistent install
+                // fails atomically instead of breaking the environment.
+                const freezeLines = await this._getInstalledFreeze(token);
+                const content = buildRequirementsFile(freezeLines, packages);
+                const tempFile = await this._writeRequirementsTempFile(content);
+                try {
+                    const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                    await this._executeUvInTerminal(args, token);
+                } finally {
+                    tempFile.dispose();
+                }
+            }
         }
     }
 
@@ -123,9 +151,30 @@ export class UvPackageManager implements IPackageManager {
             const args = ['add', '--upgrade', '--active', '--python', this._pythonPath, ...packageSpecs];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: uv pip install --upgrade --python <path> <packages>
-            const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageSpecs];
-            await this._executeUvInTerminal(args, token);
+            const missing = packages.find((pkg) => !pkg.version);
+            if (missing) {
+                throw new Error(`A version is required to update '${missing.name}'.`);
+            }
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath) {
+                // Pin the target(s) on the command line plus -r <file> (verbatim).
+                // No --upgrade: an exact pin moves only the named target.
+                const args = ['pip', 'install', ...packageSpecs, '-r', requirementsPath, '--python', this._pythonPath];
+                await this._executeUvInTerminal(args, token);
+            } else {
+                // Re-resolve against the full installed set: name every package (bare),
+                // pin only the target, so an inconsistent update fails atomically.
+                const targets = packages.map((pkg) => ({ name: pkg.name, version: pkg.version! }));
+                const freezeLines = await this._getInstalledFreeze(token);
+                const content = buildRequirementsFile(freezeLines, targets);
+                const tempFile = await this._writeRequirementsTempFile(content);
+                try {
+                    const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
+                    await this._executeUvInTerminal(args, token);
+                } finally {
+                    tempFile.dispose();
+                }
+            }
         }
     }
 
@@ -143,7 +192,6 @@ export class UvPackageManager implements IPackageManager {
             const args = ['sync', '--upgrade', '--active', '--python', this._pythonPath];
             await this._executeUvInTerminal(args, token);
         } else {
-            // Environment workflow: get outdated packages and upgrade them
             const outdatedPackages = await this._getOutdatedPackages(token);
 
             if (outdatedPackages.length === 0) {
@@ -151,9 +199,25 @@ export class UvPackageManager implements IPackageManager {
                 return;
             }
 
-            const packageNames = outdatedPackages.map((pkg) => pkg.name);
-            const args = ['pip', 'install', '--upgrade', '--python', this._pythonPath, ...packageNames];
-            await this._executeUvInTerminal(args, token);
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath) {
+                // Upgrade everything DECLARED to latest compatible; the file is the
+                // source of truth (declared pins block their own upgrade).
+                const args = ['pip', 'install', '--upgrade', '-r', requirementsPath, '--python', this._pythonPath];
+                await this._executeUvInTerminal(args, token);
+            } else {
+                // Upgrade every installed package to its latest mutually-compatible
+                // version: name them all (bare) and let uv resolve.
+                const freezeLines = await this._getInstalledFreeze(token);
+                const content = buildRequirementsFile(freezeLines, []);
+                const tempFile = await this._writeRequirementsTempFile(content);
+                try {
+                    const args = ['pip', 'install', '--upgrade', '-r', tempFile.filePath, '--python', this._pythonPath];
+                    await this._executeUvInTerminal(args, token);
+                } finally {
+                    tempFile.dispose();
+                }
+            }
         }
     }
 
@@ -162,7 +226,11 @@ export class UvPackageManager implements IPackageManager {
     }
 
     async searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]> {
-        return searchPyPIVersions(name, token);
+        return searchPyPIVersions(
+            name,
+            (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
+            token,
+        );
     }
 
     // =========================================================================
@@ -183,6 +251,15 @@ export class UvPackageManager implements IPackageManager {
     }
 
     /**
+     * Path to the workspace-root `requirements.txt` if present, else undefined.
+     */
+    private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        return findWorkspaceRequirementsFile(workspaceService, fileSystem);
+    }
+
+    /**
      * Determine whether to use the project-based workflow (uv add) or
      * environment-based workflow (uv pip install).
      *
@@ -195,7 +272,7 @@ export class UvPackageManager implements IPackageManager {
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
 
         // Get workspace folder
-        let workspaceFolder = workspaceService.workspaceFolders?.[0];
+        const workspaceFolder = workspaceService.workspaceFolders?.[0];
         if (!workspaceFolder) {
             return false;
         }
@@ -226,13 +303,51 @@ export class UvPackageManager implements IPackageManager {
         }
 
         // Check if requirements.txt exists (if so, use pip workflow to avoid sync issues)
-        const requirementsPath = path.join(workspacePath, 'requirements.txt');
-        const requirementsExists = await fileSystem.fileExists(requirementsPath);
-        if (requirementsExists) {
+        if (await findWorkspaceRequirementsFile(workspaceService, fileSystem)) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Capture the full installed set as pinned `uv pip freeze` lines, preserving
+     * install origins so already-installed packages resolve as satisfied.
+     */
+    private async _getInstalledFreeze(token?: vscode.CancellationToken): Promise<string[]> {
+        const processServiceFactory = this._serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
+        const processService = await processServiceFactory.create();
+        const proxyEnv = this._getProxyEnv();
+        // Force --color never: uv honors FORCE_COLOR/CLICOLOR_FORCE even when its
+        // output is piped, and `uv pip freeze` then wraps package names in ANSI
+        // codes (e.g. "\x1b[1mscipy\x1b[0m==1.15.3"). Feeding those to
+        // `uv pip install -r` makes uv's requirements parser reject the ESC byte.
+        const result = await processService.exec(
+            'uv',
+            ['pip', 'freeze', '--color', 'never', '--python', this._pythonPath],
+            {
+                extraVariables: proxyEnv,
+                token,
+            },
+        );
+        if (!result.stdout || result.stdout.trim() === '') {
+            throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
+        }
+        return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
+    }
+
+    /**
+     * Write requirements content to a temporary file. Caller must `dispose()`
+     * the returned handle when the install completes.
+     */
+    private async _writeRequirementsTempFile(content: string): Promise<{ filePath: string; dispose: () => void }> {
+        const fs = this._serviceContainer.get<IFileSystem>(IFileSystem);
+        const tempFile = await fs.createTemporaryFile('.txt');
+        await fs.writeFile(tempFile.filePath, content);
+        // Log the generated requirements so the resolved set passed to uv can be
+        // inspected (the temp file itself is deleted after the command runs).
+        traceVerbose(`uv package requirements file ${tempFile.filePath}:\n${content}`);
+        return tempFile;
     }
 
     /**
@@ -260,7 +375,7 @@ export class UvPackageManager implements IPackageManager {
         try {
             const result = await processService.exec(
                 'uv',
-                ['pip', 'list', '--outdated', '--format=json', '--python', this._pythonPath],
+                ['pip', 'list', '--outdated', '--format=json', '--color', 'never', '--python', this._pythonPath],
                 { extraVariables: proxyEnv, token },
             );
 

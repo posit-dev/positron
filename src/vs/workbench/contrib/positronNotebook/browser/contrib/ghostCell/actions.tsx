@@ -11,7 +11,7 @@ import { Action2, IAction2Options, registerAction2 } from '../../../../../../pla
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IQuickInputService } from '../../../../../../platform/quickinput/common/quickInput.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
@@ -104,7 +104,7 @@ registerGhostCellAction({
 	run: (controller) => {
 		const state = controller.ghostCellState.get();
 		const modelName = state.status === 'ready' ? state.modelName : undefined;
-		const renderer = new PositronModalReactRenderer();
+		const renderer = new PositronModalDialogReactRenderer();
 		renderer.render(<GhostCellInfoModalDialog modelName={modelName} renderer={renderer} />);
 	},
 });

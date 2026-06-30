@@ -191,6 +191,10 @@ cat(sprintf('Hello %s!\n', val))`;
 		const activeConsole = app.workbench.console.activeConsole;
 		const inputLocator = activeConsole.locator('.console-input');
 
+		// Start from a clean input line so leftover text from a prior test
+		// (e.g. an uncleared `x = 42`) doesn't bleed into the assertions.
+		await app.workbench.console.clearInput();
+
 		await app.workbench.console.typeToConsole('abcDEF');
 		await app.workbench.console.waitForCurrentConsoleLineContents('abcDEF');
 

@@ -92,7 +92,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 
 	// Helper: connect to the test database via the Positron driver.
 	async function connectDriver(): Promise<positron.DataConnection> {
-		return positron.dataConnections.connect('positron-data-driver-postgresql', {
+		return positron.dataConnections.connect('positron-data-driver-postgresql', 'password', {
 			host: pgHost,
 			port: pgPort,
 			database: pgDatabase,
@@ -170,43 +170,70 @@ suite('PostgreSQL Data Connection Integration', () => {
 			assert.strictEqual(pg.name, 'PostgreSQL');
 		});
 
-		test('PostgreSQL driver has expected parameters', async () => {
+		test('PostgreSQL driver has expected mechanisms and parameters', async () => {
 			// Get the drivers and find the PostgreSQL driver.
 			const drivers = await positron.dataConnections.getDrivers();
 			const pg = drivers.find(d => d.id === 'positron-data-driver-postgresql')!;
 
+			// Test the 'password' mechanism.
+			const mechanism = pg.mechanisms.find(m => m.id === 'password')!;
+			assert.ok(mechanism);
+
 			// Test the parameters length.
-			assert.strictEqual(pg.parameters.length, 6);
+			assert.strictEqual(mechanism.parameters.length, 6);
 
 			// Check the host parameter.
-			const hostParam = pg.parameters.find(p => p.id === 'host');
+			const hostParam = mechanism.parameters.find(p => p.id === 'host');
 			assert.ok(hostParam);
 			assert.strictEqual(hostParam.type, 'string');
 
 			// Check the port parameter.
-			const portParam = pg.parameters.find(p => p.id === 'port');
+			const portParam = mechanism.parameters.find(p => p.id === 'port');
 			assert.ok(portParam);
 			assert.strictEqual(portParam.type, 'number');
 
 			// Check the database parameter.
-			const dbParam = pg.parameters.find(p => p.id === 'database');
+			const dbParam = mechanism.parameters.find(p => p.id === 'database');
 			assert.ok(dbParam);
 			assert.strictEqual(dbParam.type, 'string');
 
 			// Check the user parameter.
-			const userParam = pg.parameters.find(p => p.id === 'user');
+			const userParam = mechanism.parameters.find(p => p.id === 'user');
 			assert.ok(userParam);
 			assert.strictEqual(userParam.type, 'string');
 
 			// Check the password parameter.
-			const pwParam = pg.parameters.find(p => p.id === 'password');
+			const pwParam = mechanism.parameters.find(p => p.id === 'password');
 			assert.ok(pwParam);
-			assert.strictEqual(pwParam.type, 'string');
+			assert.strictEqual(pwParam.type, 'password');
 
 			// Check the SSL parameter.
-			const sslParam = pg.parameters.find(p => p.id === 'ssl');
+			const sslParam = mechanism.parameters.find(p => p.id === 'ssl');
 			assert.ok(sslParam);
 			assert.strictEqual(sslParam.type, 'boolean');
+
+			// The local-server mechanism is offered only on Unix (it uses a local socket); Windows has
+			// no equivalent.
+			const localServerMechanism = pg.mechanisms.find(m => m.id === 'localServer');
+			if (process.platform === 'win32') {
+				assert.strictEqual(localServerMechanism, undefined);
+			} else {
+				assert.ok(localServerMechanism);
+				assert.deepStrictEqual(localServerMechanism.parameters.map(p => p.id), ['database', 'user', 'socketDirectory']);
+			}
+
+			// The connection-string mechanism takes a single secret parameter and is offered on all
+			// platforms.
+			const connectionStringMechanism = pg.mechanisms.find(m => m.id === 'connectionString');
+			assert.ok(connectionStringMechanism);
+			assert.deepStrictEqual(connectionStringMechanism.parameters.map(p => p.id), ['connectionString']);
+			const csParam = connectionStringMechanism.parameters[0];
+			assert.ok(csParam.type === 'string' && csParam.secret === true);
+
+			// The client-certificate mechanism is offered on all platforms (it runs over TCP/TLS).
+			const certMechanism = pg.mechanisms.find(m => m.id === 'clientCert');
+			assert.ok(certMechanism);
+			assert.deepStrictEqual(certMechanism.parameters.map(p => p.id), ['host', 'port', 'database', 'user', 'sslrootcert', 'sslcert', 'sslkey']);
 		});
 	});
 
