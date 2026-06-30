@@ -8,17 +8,26 @@ import { isAbsolute, join } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
 import { IMcpCallToolResult, McpContent } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronAssistantService } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IPositronMcpToolService } from './positronMcpToolService.js';
+import { UserConsentManager } from './positronMcpConsent.js';
+import { executeCodeWithObserver } from './positronMcpExecuteCode.js';
+import { PositronMcpNotebookTools } from './positronMcpNotebook.js';
 import {
 	formatPackages,
 	formatTableProfile,
@@ -49,16 +58,32 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 
 	private readonly _handlers = new Map<string, ToolHandler>();
 
+	/** Gates AI-initiated code execution behind a user-consent prompt. */
+	private readonly _consent: UserConsentManager;
+
+	/** The notebook-* tools, which act on the active Positron notebook. */
+	private readonly _notebookTools: PositronMcpNotebookTools;
+
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IPositronVariablesService private readonly _variablesService: IPositronVariablesService,
 		@IPositronAssistantService private readonly _assistantService: IPositronAssistantService,
+		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
+		@IPositronModalDialogsService private readonly _modalDialogsService: IPositronModalDialogsService,
 		@IMarkerService private readonly _markerService: IMarkerService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IFileService fileService: IFileService,
+		@ICommandService private readonly _commandService: ICommandService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService logService: ILogService,
 	) {
 		super();
+		this._consent = new UserConsentManager(this._modalDialogsService, logService);
+		this._notebookTools = new PositronMcpNotebookTools(
+			this._editorService, fileService, path => this._resolveWorkspacePath(path));
+
 		this._handlers.set('get-session', () => this._getSession());
 		this._handlers.set('get-variables', () => this._getVariables());
 		this._handlers.set('inspect-variable', args => this._inspectVariable(args));
@@ -68,6 +93,18 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		this._handlers.set('get-workspace-info', () => this._getWorkspaceInfo());
 		this._handlers.set('get-diagnostics', args => this._getDiagnostics(args));
 		this._handlers.set('get-plot', () => this._getPlot());
+
+		// Phase 4: mutating tools.
+		this._handlers.set('execute-code', args => this._executeCode(args));
+		this._handlers.set('open-document', args => this._openDocument(args));
+		this._handlers.set('enlarge-plots-pane', () => this._enlargePlotsPane());
+		this._handlers.set('session-start', args => this._startSession(args));
+		this._handlers.set('session-interrupt', () => this._interruptSession());
+		this._handlers.set('session-restart', () => this._restartSession());
+		this._handlers.set('notebook-read', args => this._notebookRead(args));
+		this._handlers.set('notebook-edit', args => this._notebookEdit(args));
+		this._handlers.set('notebook-run-cells', args => this._notebookRunCells(args));
+		this._handlers.set('notebook-create', args => this._notebookCreate(args));
 	}
 
 	async callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
@@ -305,6 +342,160 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		// The image is returned untruncated: it is the whole point, and the server
 		// is localhost-only.
 		return imageResult(match[1], match[2]);
+	}
+
+	// --- Execute code / consent ----------------------------------------------
+
+	/** Ask for code-execution consent; throw a clean error if the user declines. */
+	private async _requireExecutionConsent(languageId: string, code: string): Promise<void> {
+		const consented = await this._consent.requestCodeExecutionConsent(languageId, code);
+		if (!consented) {
+			throw new Error('Code execution denied by user');
+		}
+	}
+
+	private async _executeCode(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		const languageId = typeof args.languageId === 'string' ? args.languageId : '';
+		const code = typeof args.code === 'string' ? args.code : '';
+		if (!languageId.trim()) {
+			throw new Error('languageId is required');
+		}
+		if (!code.trim()) {
+			throw new Error('code is required');
+		}
+
+		await this._requireExecutionConsent(languageId, code);
+
+		const outcome = await executeCodeWithObserver(
+			this._consoleService, this._runtimeSessionService, languageId, code, this._timeoutMs);
+
+		switch (outcome.kind) {
+			case 'success':
+				return textResult(JSON.stringify({ success: true, data: outcome.data, metadata: { timestamp: new Date().toISOString() } }));
+			case 'error':
+				return textResult(JSON.stringify({ success: false, error: outcome.error }));
+			case 'timeout': {
+				const message = outcome.started
+					? `Code is still running after ${this._timeoutMs} ms. It may be a long computation -- wait and re-check with get-variables, or call session-interrupt to stop it.`
+					: `Execution did not start within ${this._timeoutMs} ms, most likely because a previous statement is still running and this one is queued behind it. Wait and re-check with get-variables, or call session-interrupt to clear the running statement.`;
+				return textResult(JSON.stringify({ success: false, timedOut: true, started: outcome.started, partialOutput: outcome.streamed || undefined, error: { message } }));
+			}
+		}
+	}
+
+	// --- Documents / plots ---------------------------------------------------
+
+	private async _openDocument(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		const inputPath = typeof args.path === 'string' ? args.path : '';
+		if (!inputPath.trim()) {
+			throw new Error('path is required');
+		}
+		const uri = this._resolveWorkspacePath(inputPath);
+		try {
+			await this._editorService.openEditor({ resource: uri, options: { pinned: true } });
+		} catch (error) {
+			throw new Error(`Failed to open ${inputPath}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+		return textResult(`Opened ${uri.fsPath} in the editor.`);
+	}
+
+	private async _enlargePlotsPane(): Promise<IMcpCallToolResult> {
+		// Reveal the Plots view, then grow it with the workbench view-size command.
+		// There is no absolute pane sizing, so this is a coarse, stepwise enlarge.
+		await this._commandService.executeCommand('workbench.panel.positronPlots.focus');
+		for (let i = 0; i < 6; i++) {
+			await this._commandService.executeCommand('workbench.action.increaseViewSize');
+		}
+		return textResult('Focused and enlarged the Plots pane. Re-run your plotting code so the plot re-renders at the larger size.');
+	}
+
+	// --- Session lifecycle ---------------------------------------------------
+
+	private async _startSession(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		const language = typeof args.language === 'string' ? args.language : '';
+		if (!language.trim()) {
+			throw new Error('language is required');
+		}
+
+		// If a session for this language is already active, leave it alone --
+		// selecting a runtime shuts the existing one down and wipes its state.
+		const existing = this._runtimeSessionService.getActiveSessions()
+			.find(s => s.session.runtimeMetadata.languageId === language);
+		if (existing) {
+			return textResult(`A ${language} session (${existing.session.dynState.sessionName}) is already running.`);
+		}
+
+		const runtime = this._runtimeStartupService.getPreferredRuntime(language);
+		if (!runtime) {
+			return textResult(`No ${language} runtime is registered in Positron.`);
+		}
+
+		await this._runtimeSessionService.selectRuntime(runtime.runtimeId, 'positron-mcp session-start tool');
+		return textResult(`Starting ${runtime.runtimeName}. The session is initializing; give it a moment before running code.`);
+	}
+
+	private async _interruptSession(): Promise<IMcpCallToolResult> {
+		const session = this._runtimeSessionService.foregroundSession;
+		if (!session) {
+			return textResult('No active runtime session.');
+		}
+		await this._runtimeSessionService.interruptSession(session.sessionId);
+		return textResult('Interrupted the active session.');
+	}
+
+	private async _restartSession(): Promise<IMcpCallToolResult> {
+		const session = this._runtimeSessionService.foregroundSession;
+		if (!session) {
+			return textResult('No active runtime session.');
+		}
+		// Restart wipes the session's state, so confirm first. (Positron itself only
+		// prompts when the session is busy, asking whether to interrupt, so this is
+		// the only gate for an idle session.)
+		const confirmed = await this._modalDialogsService.showSimpleModalDialogPrompt(
+			'Restart Session?',
+			`${session.dynState.sessionName} will restart. All variables and loaded data will be lost.`,
+			'Restart',
+			'Cancel',
+		);
+		if (!confirmed) {
+			throw new Error('Session restart declined by user');
+		}
+		// restartSession resolves false if the user declines Positron's busy-interrupt prompt.
+		const restarted = await this._runtimeSessionService.restartSession(session.sessionId, 'positron-mcp session-restart tool');
+		if (!restarted) {
+			throw new Error('Session restart declined by user');
+		}
+		return textResult(`Restarted ${session.dynState.sessionName}.`);
+	}
+
+	// --- Notebooks -----------------------------------------------------------
+
+	private async _notebookRead(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return textResult(await this._notebookTools.read(args));
+	}
+
+	private async _notebookEdit(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return textResult(await this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+	}
+
+	private async _notebookRunCells(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return textResult(await this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+	}
+
+	private async _notebookCreate(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return textResult(await this._notebookTools.create(args));
+	}
+
+	/** Resolve a path (absolute, or relative to the first workspace folder) to a URI. */
+	private _resolveWorkspacePath(inputPath: string): URI {
+		if (isAbsolute(inputPath)) {
+			return URI.file(inputPath);
+		}
+		const folder = this._workspaceContextService.getWorkspace().folders[0];
+		if (!folder) {
+			throw new Error('No workspace folder is open; provide an absolute path.');
+		}
+		return URI.file(join(folder.uri.fsPath, inputPath));
 	}
 }
 
