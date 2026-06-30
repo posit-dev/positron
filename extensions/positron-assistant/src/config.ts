@@ -10,7 +10,6 @@ import { disposeModels, removeAutoconfiguredModel } from './modelRegistration.js
 import { CopilotService } from './copilot.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
 import { isAuthExtProvider, resolveApiKey } from './authExtRouting.js';
-import { getModelProviders } from './providers/index.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
@@ -51,55 +50,25 @@ export async function syncSessionToGlobalState(
 		return;
 	}
 
-	const providerClass = getModelProviders().find(
-		p => p.source.provider.id === providerId
-	);
-	if (!providerClass) {
-		return;
-	}
-
 	const existingConfigs: StoredModelConfig[] =
 		context.globalState.get('positron.assistant.models') || [];
 	const existing = existingConfigs.find(c => c.provider === providerId);
-	if (existing) {
-		if (existing.id === session.account.id) {
-			return;
-		}
-		// Account ID changed (e.g. user re-saved with a new key). Update it.
-		const updated = existingConfigs.map(c =>
-			c.provider === providerId
-				? { ...c, id: session.account.id }
-				: c
-		);
-		await context.globalState.update('positron.assistant.models', updated);
-		log.info(`[Config Sync] Updated stored config for ${providerId} (account ${session.account.id})`);
+	if (!existing) {
 		return;
 	}
 
-	const CONFIG_KEY_OVERRIDES: Record<string, string> = {
-		'anthropic-api': 'anthropic',
-		'ms-foundry': 'foundry',
-	};
-	const configKey = CONFIG_KEY_OVERRIDES[providerId] ?? providerId;
-	const savedBaseUrl = vscode.workspace
-		.getConfiguration(`authentication.${configKey}`)
-		.get<string>('baseUrl') || providerClass.source.defaults.baseUrl;
+	if (existing.id === session.account.id) {
+		return;
+	}
 
-	const newConfig: StoredModelConfig = {
-		id: session.account.id,
-		provider: providerId,
-		type: providerClass.source.type,
-		model: providerClass.source.defaults.model,
-		baseUrl: savedBaseUrl,
-		toolCalls: providerClass.source.defaults.toolCalls,
-		completions: providerClass.source.defaults.completions,
-	};
-
-	await context.globalState.update(
-		'positron.assistant.models',
-		[...existingConfigs, newConfig]
+	// Account ID changed (e.g. user re-saved with a new key). Update it.
+	const updated = existingConfigs.map(c =>
+		c.provider === providerId
+			? { ...c, id: session.account.id }
+			: c
 	);
-	log.info(`[Config Sync] Persisted new config for ${providerId} (account ${session.account.id})`);
+	await context.globalState.update('positron.assistant.models', updated);
+	log.info(`[Config Sync] Updated stored config for ${providerId} (account ${session.account.id})`);
 }
 
 export async function deleteConfigurationByProvider(context: vscode.ExtensionContext, providerId: string) {

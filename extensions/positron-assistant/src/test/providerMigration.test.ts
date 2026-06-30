@@ -10,7 +10,6 @@ import {
 	performProviderMigration,
 	performCustomModelsMigration
 } from '../providerMigration.js';
-import { stubGetModelProviders } from './utils.js';
 
 interface MockStubs {
 	mockInspect: sinon.SinonStub;
@@ -31,7 +30,6 @@ function setupMigrationTest(): MockStubs {
 	}) as unknown as vscode.WorkspaceConfiguration);
 
 	const mockShowInformationMessage = sinon.stub(vscode.window, 'showInformationMessage').resolves();
-	stubGetModelProviders();
 
 	return { mockInspect, mockUpdate, mockGet, mockShowInformationMessage };
 }

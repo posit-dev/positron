@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { BufferedLogOutputChannel } from './log.js';
-import { getModelProviders } from './providers';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 
 function formatError(error: unknown): string {
@@ -214,34 +213,7 @@ async function getChatExportInfo(): Promise<string> {
 }
 
 function getEnvironmentConfiguredModels(): string {
-	const models = getModelProviders();
-	const envModels = models
-		.filter(model => {
-			const defaults = model.source.defaults as any;
-			if (!('apiKeyEnvVar' in defaults && defaults.apiKeyEnvVar)) {
-				return false;
-			}
-			const envVarConfig = defaults.apiKeyEnvVar as { key: string; signedIn: boolean };
-			const key = envVarConfig.key;
-			// Only include if the environment variable is actually set
-			return !!process.env[key];
-		})
-		.map(model => {
-			const defaults = model.source.defaults as any;
-			const envVarConfig = defaults.apiKeyEnvVar as { key: string; signedIn: boolean };
-			const key = envVarConfig.key;
-
-			const fields = [
-				`- **${model.source.provider.displayName}**`,
-				`\t- Provider: ${model.source.provider.id}`,
-				`\t- Type: ${model.source.type}`,
-				`\t- API Key: Yes (\`${key}\`)`,
-			];
-
-			return fields.join('\n');
-		});
-
-	return envModels.length > 0 ? envModels.join('\n\n') : '';
+	return '';
 }
 
 function getVersionInfo(): string {

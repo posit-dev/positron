@@ -23,8 +23,7 @@ import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModelWithAPI, registerModels, registerModelsForProvider } from './modelRegistration';
-import { getModelProviders } from './providers/index.js';
+import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
 import { isAuthExtProvider } from './authExtRouting.js';
@@ -34,11 +33,8 @@ import { IS_RUNNING_ON_PWB } from './constants.js';
 
 let assistantEnabled = false;
 
-function registerConfigureProvidersCommand(context: vscode.ExtensionContext) {
+function registerLogStoredModelsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
-			await vscode.commands.executeCommand('authentication.configureProviders', { preselectedProviderId: providerId });
-		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
 			log.show();
@@ -332,7 +328,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerHistoryTracking(context);
 
 	// Commands
-	registerConfigureProvidersCommand(context);
+	registerLogStoredModelsCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);

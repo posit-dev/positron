@@ -152,12 +152,7 @@
 					"when": "positron-assistant.generatingCommitMessage"
 				}
 			],
-			"commandPalette": [
-				{
-					"command": "positron-assistant.configureProviders",
-					"when": "false"
-				}
-			]
+			"commandPalette": []
 		},
 		"commands": [
 			{
@@ -175,12 +170,6 @@
 			{
 				"command": "positron-assistant.exportChatTo",
 				"title": "%commands.exportChatTo.title%",
-				"category": "%commands.category%",
-				"enablement": "config.positron.assistant.enable"
-			},
-			{
-				"command": "positron-assistant.configureProviders",
-				"title": "%commands.configureProviders.title%",
 				"category": "%commands.category%",
 				"enablement": "config.positron.assistant.enable"
 			},
@@ -237,7 +226,7 @@
 							"preview"
 						]
 					},
-"positron.assistant.inlineCompletions.enable": {
+					"positron.assistant.inlineCompletions.enable": {
 						"type": "object",
 						"default": {
 							"*": true
@@ -247,7 +236,7 @@
 						},
 						"markdownDescription": "%configuration.inlineCompletions.enable.description%"
 					},
-"positron.assistant.providerVariables.bedrock": {
+					"positron.assistant.providerVariables.bedrock": {
 						"type": "object",
 						"default": {},
 						"markdownDescription": "%configuration.providerVariables.bedrock.description%",
@@ -288,53 +277,6 @@
 						"additionalProperties": false
 					}
 				}
-			}
-		],
-		"languageModelChatProviders": [
-			{
-				"vendor": "echo",
-				"displayName": "Echo",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "amazon-bedrock",
-				"displayName": "Amazon Bedrock",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "ms-foundry",
-				"displayName": "Microsoft Foundry",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "anthropic-api",
-				"displayName": "Anthropic",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "openai-api",
-				"displayName": "OpenAI",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "openai-compatible",
-				"displayName": "Custom Provider",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "posit-ai",
-				"displayName": "Posit AI",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "snowflake-cortex",
-				"displayName": "Snowflake Cortex",
-				"managementCommand": "positron-assistant.configureProviders"
-			},
-			{
-				"vendor": "google",
-				"displayName": "Gemini Code Assist",
-				"managementCommand": "positron-assistant.configureProviders"
 			}
 		],
 		"languageModelTools": [
@@ -763,11 +705,16 @@
 					"properties": {
 						"language": {
 							"type": "string",
-							"enum": ["python", "r"],
+							"enum": [
+								"python",
+								"r"
+							],
 							"description": "The kernel language for the notebook"
 						}
 					},
-					"required": ["language"]
+					"required": [
+						"language"
+					]
 				}
 			}
 		]

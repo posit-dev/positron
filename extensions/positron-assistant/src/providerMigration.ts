@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { log } from './log.js';
-import { getModelProviders } from './providers/index.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
 /**
@@ -23,8 +23,8 @@ function normalizeToEntries<T>(oldValue: string[] | Record<string, T>): Array<[s
 
 export function getProviderIdToSettingNameMap(): Map<string, string> {
 	const map = new Map<string, string>();
-	for (const provider of getModelProviders()) {
-		const { id, settingName } = provider.source.provider;
+	for (const metadata of Object.values(PROVIDER_METADATA)) {
+		const { id, settingName } = metadata;
 		if (settingName) {
 			map.set(id, settingName);
 		}

@@ -7,7 +7,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
-import { stubGetModelProviders } from './utils.js';
 
 suite('Model Definitions', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -18,9 +17,6 @@ suite('Model Definitions', () => {
 		sinon.stub(vscode.workspace, 'getConfiguration').callsFake(() => ({
 			get: mockWorkspaceConfig
 		}) as unknown as vscode.WorkspaceConfiguration);
-
-		// Mock getModelProviders to return test providers
-		stubGetModelProviders();
 	});
 
 	teardown(() => {

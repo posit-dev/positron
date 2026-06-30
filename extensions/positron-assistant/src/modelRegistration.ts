@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { createAutomaticModelConfigs, getModelProviders, newLanguageModelChatProvider } from './providers';
 import { getModelConfigurations } from './config';
 import { ModelConfig, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
@@ -118,59 +117,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 	// Dispose of existing models
 	disposeModels();
 
-	let autoModelConfigs: ModelConfig[];
-	let modelConfigs: ModelConfig[] = [];
-	try {
-		// Refresh the set of enabled providers
-		const enabledProviders = await positron.ai.getEnabledProviders();
-
-		modelConfigs = await getModelConfigurations(context);
-		modelConfigs = modelConfigs.filter(config => {
-			const enabled = enabledProviders.length === 0 ||
-				enabledProviders.includes(config.provider);
-			if (!enabled) {
-				console.log('Ignoring disabled model provider: ', config.provider);
-			}
-			return enabled;
-		});
-
-		// Add any configs that should automatically work when the right conditions are met
-		autoModelConfigs = await createAutomaticModelConfigs();
-		// we add in the config if we don't already have it configured
-		for (const config of autoModelConfigs) {
-			if (!modelConfigs.find(c => c.provider === config.provider)) {
-				modelConfigs.push(config);
-			}
-		}
-
-	} catch (e) {
-		if (!(e instanceof AssistantError) || e.display) {
-			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
-			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
-		}
-
-		return;
-	}
-
-	const registeredModels: ModelConfig[] = [];
-	for (const config of modelConfigs) {
-		try {
-			await registerModelWithAPI(config, context);
-			registeredModels.push(config);
-			if (autoModelConfigs.includes(config)) {
-				addAutoconfiguredModel(config);
-			}
-		} catch (e) {
-			if (!(e instanceof AssistantError) || e.display) {
-				vscode.window.showErrorMessage(`${e}`);
-			}
-		}
-	}
-
-	// Set context for if we have chat models available for use.
-	const hasPositronChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
 	let hasOtherChatModels = false;
-
 	try {
 		// Check if there are any other models available (e.g., Copilot)
 		const availableModels = await vscode.lm.selectChatModels();
@@ -179,8 +126,7 @@ export async function registerModels(context: vscode.ExtensionContext) {
 		log.warn('Failed to check for available language models', error);
 	}
 
-	const hasChatModels = hasPositronChatModels || hasOtherChatModels;
-	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
+	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasOtherChatModels);
 }
 
 /**
@@ -195,82 +141,8 @@ export async function registerModels(context: vscode.ExtensionContext) {
  * @param providerId The provider ID to re-register (e.g., 'snowflake-cortex')
  * @param authProviderId Optional auth provider ID for session-based fallback
  */
-export async function registerModelsForProvider(context: vscode.ExtensionContext, providerId: string, authProviderId?: string) {
-	// Dispose only models for this provider
-	disposeModels(providerId);
-	// Also remove from autoconfigured models list
-	removeAutoconfiguredModel(providerId);
-
-	try {
-		// Check if this provider is enabled
-		const enabledProviders = await positron.ai.getEnabledProviders();
-		const isEnabled = enabledProviders.length === 0 || enabledProviders.includes(providerId);
-
-		if (!isEnabled) {
-			log.info(`[Model Registration] Provider ${providerId} is disabled, skipping registration`);
-			return;
-		}
-
-		// Get stored model configurations for this provider
-		let modelConfigs = await getModelConfigurations(context);
-		modelConfigs = modelConfigs.filter(config => config.provider === providerId);
-
-		// Also check auto-configured models for this provider
-		const autoModelConfigs = await createAutomaticModelConfigs();
-		for (const config of autoModelConfigs) {
-			if (config.provider === providerId && !modelConfigs.find(c => c.provider === config.provider)) {
-				modelConfigs.push(config);
-			}
-		}
-
-		// Session-based fallback: if no configs found and an auth
-		// provider ID was given, create a default config from
-		// provider metadata when a session exists.
-		const sessionConfigs = new Set<ModelConfig>();
-		if (modelConfigs.length === 0 && authProviderId) {
-			const provider = getModelProviders().find(
-				p => p.source.provider.id === providerId
-			);
-			if (provider) {
-				const session = await vscode.authentication.getSession(
-					authProviderId, [], { silent: true }
-				);
-				if (session) {
-					const config: ModelConfig = {
-						id: providerId,
-						provider: providerId,
-						type: provider.source.type,
-						model: provider.source.defaults.model,
-						toolCalls: provider.source.defaults.toolCalls,
-						completions: provider.source.defaults.completions,
-						apiKey: '',
-					};
-					modelConfigs.push(config);
-					sessionConfigs.add(config);
-				}
-			}
-		}
-
-		// Register models for this provider
-		for (const config of modelConfigs) {
-			try {
-				await registerModelWithAPI(config, context);
-				if (autoModelConfigs.includes(config) || sessionConfigs.has(config)) {
-					addAutoconfiguredModel(config);
-				}
-				log.info(`[Model Registration] Re-registered model for provider: ${providerId}`);
-			} catch (e) {
-				if (!(e instanceof AssistantError) || e.display) {
-					vscode.window.showErrorMessage(`${e}`);
-				}
-			}
-		}
-	} catch (e) {
-		if (!(e instanceof AssistantError) || e.display) {
-			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to re-register models for provider {0}.', providerId);
-			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
-		}
-	}
+export async function registerModelsForProvider(_context: vscode.ExtensionContext, _providerId: string, _authProviderId?: string) {
+	// No-op: provider implementations have been removed.
 }
 
 /**
@@ -279,37 +151,23 @@ export async function registerModelsForProvider(context: vscode.ExtensionContext
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
-	// Register with Language Model API
+export async function registerModelWithAPI(modelConfig: ModelConfig, _context: vscode.ExtensionContext, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
+	if (!instance) {
+		throw new Error(`No provider registered for vendor: ${modelConfig.provider}`);
+	}
+
 	if (modelConfig.type === 'chat') {
-		// const models = availableModels.get(modelConfig.provider);
-		// const modelsCopy = models ? [...models] : [];
-
-		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context);
-
-		try {
-			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
-
-			if (error) {
-				throw new Error(error.message);
-			}
-		} catch (error) {
-			// Handle both patterns: models that throw errors directly (like ErrorLanguageModel and OpenAILanguageModel)
-			// and models that return errors (like the base AILanguageModel)
-			throw error;
+		const error = await instance.resolveConnection(new vscode.CancellationTokenSource().token);
+		if (error) {
+			throw new Error(error.message);
 		}
-
-		const vendor = modelConfig.provider; // as defined in package.json in "languageModels"
-		const modelDisp = vscode.lm.registerLanguageModelChatProvider(vendor, languageModel);
+		const vendor = modelConfig.provider;
+		const modelDisp = vscode.lm.registerLanguageModelChatProvider(vendor, instance);
 		modelDisposables.push(new ModelDisposable(modelDisp, modelConfig));
 		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
-	}
-	// Register with VS Code completions API
-	else if (modelConfig.type === 'completion') {
-		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context);
+	} else if (modelConfig.type === 'completion') {
 		const completionProvider = newCompletionProvider(modelConfig);
-		// this uses the proposed inlineCompletionAdditions API
-		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: languageModel.displayName });
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: instance.displayName });
 		modelDisposables.push(new ModelDisposable(complDisp, modelConfig));
 	}
 }

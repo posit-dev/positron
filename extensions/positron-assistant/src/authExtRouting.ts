@@ -9,7 +9,7 @@
 // Remove this file when all providers are migrated.
 
 import * as vscode from 'vscode';
-import { ModelProviderLogger } from './providers/base/modelProviderLogger.js';
+import { log } from './log.js';
 import { PROVIDER_METADATA } from './providerMetadata.js';
 
 /** Providers whose credentials are managed by the authentication extension. */
@@ -39,13 +39,12 @@ export async function getApiKey(
 	label: string,
 	secrets: vscode.SecretStorage
 ): Promise<string | undefined> {
-	const providerLogger = new ModelProviderLogger(label);
 	try {
 		const session = await vscode.authentication.getSession(
 			providerId, [], { silent: true, account: { id: accountId, label: '' } }
 		);
 		if (session?.accessToken !== undefined) {
-			providerLogger.logAuthentication('success', 'via Authentication extension');
+			log.info(`[${label}] Auth success via Authentication extension`);
 			return session.accessToken;
 		}
 
@@ -57,26 +56,26 @@ export async function getApiKey(
 				{ silent: true, account: { id: fallbackAccount.id, label: '' } }
 			);
 			if (fallbackSession?.accessToken !== undefined) {
-				providerLogger.logAuthentication('success', 'via Authentication extension fallback account session');
+				log.info(`[${label}] Auth success via Authentication extension fallback account session`);
 				return fallbackSession.accessToken;
 			}
 		}
 		if (fallbackAccounts.length === 0) {
-			providerLogger.warn(`Requested auth account no longer exists: ${accountId}`);
+			log.warn(`[${label}] Requested auth account no longer exists: ${accountId}`);
 		}
 	} catch (err) {
-		providerLogger.warn(`Failed to read auth session for ${accountId}`, err);
+		log.warn(`[${label}] Failed to read auth session for ${accountId}: ${err}`);
 	}
 	const legacyKey = await secrets.get(`apiKey-${accountId}`);
 	if (legacyKey) {
-		providerLogger.info(`Migrating legacy API key for ${accountId} to auth extension`);
+		log.info(`[${label}] Migrating legacy API key for ${accountId} to auth extension`);
 		try {
 			await vscode.commands.executeCommand(
 				'authentication.migrateApiKey', providerId, accountId, label, legacyKey
 			);
 			await secrets.delete(`apiKey-${accountId}`);
 		} catch (err) {
-			providerLogger.warn(`Migration failed for ${accountId}, using legacy key`, err);
+			log.warn(`[${label}] Migration failed for ${accountId}, using legacy key: ${err}`);
 		}
 	}
 	return legacyKey;

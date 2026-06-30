@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ModelCapabilities } from './providers/base/modelProviderTypes.js';
 
 /** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
@@ -81,7 +80,7 @@ export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKin
 /**
  * Default capabilities for language models supporting image input, tool calling, and agent mode.
  */
-export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
+export const DEFAULT_MODEL_CAPABILITIES: vscode.LanguageModelChatCapabilities & { agentMode?: boolean } = {
 	imageInput: true,
 	toolCalling: true,
 	agentMode: true,

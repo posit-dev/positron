@@ -7,10 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
-import { ModelConfig } from './configTypes.js';
-import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
-import { ModelProvider } from './providers/base/modelProvider.js';
-import { PROVIDER_METADATA } from './providerMetadata.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -143,79 +139,5 @@ export class CopilotService implements vscode.Disposable {
 	}
 }
 
-/**
- * Stub, authentication-only implementation of Copilot language model provider,
- * so we can show its sign in/sign out state in the language model configuration
- * UI. Once signed in/out, all the actual chat features are handled by the
- * Copilot Chat extension, so this is just a placeholder.
- */
-export class CopilotModelProvider extends ModelProvider {
 
-	/** Stub for chat response. Always resolves immediately. */
-	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: vscode.LanguageModelChatMessage2[], options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Promise<void> {
-		return Promise.resolve();
-	}
-
-	/** Stub for token counting. Always returns 0. */
-	provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
-		return Promise.resolve(0);
-	}
-
-	/** Stub for connection resolution; refreshes sign-in state */
-	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		return undefined;
-	}
-
-	/** Stub for model resolution. This placeholder fixture doesn't return any models. */
-	resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		return Promise.resolve([]);
-	}
-
-	get providerName() {
-		return CopilotModelProvider.source.provider.displayName;
-	}
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Chat,
-		provider: PROVIDER_METADATA.copilot,
-		supportedOptions: ['oauth', 'autoconfigure'],
-		defaults: {
-			model: 'github-copilot',
-			autoconfigure: {
-				type: positron.ai.LanguageModelAutoconfigureType.Custom,
-				message: vscode.l10n.t('the Accounts menu.'),
-				signedIn: false
-			},
-		},
-	};
-
-	public providerId: string;
-	public id: string;
-	public displayName: string;
-
-	static async autoconfigure(): Promise<AutoconfigureResult> {
-		// Refresh the signed-in state
-		await CopilotService.instance().refreshSignedInState();
-
-		if (CopilotService.instance().isSignedIn) {
-			return {
-				configured: true,
-				message: vscode.l10n.t('the Accounts menu.')
-			};
-		} else {
-			return {
-				configured: false,
-			};
-		}
-	}
-
-	constructor(
-		readonly _config: ModelConfig,
-	) {
-		super(_config);
-		this.displayName = this.providerName;
-		this.providerId = _config.provider;
-		this.id = _config.id;
-	}
-}
 
