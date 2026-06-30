@@ -871,8 +871,8 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	override async runAllCells({ timeout = 30000 } = {}): Promise<void> {
 		await test.step('Run all cells', async () => {
-			// Run All / Interrupt own Cmd/Ctrl+Shift+Enter in command mode; exit
-			// edit mode first so the shortcut doesn't just run the selection in the
+			// Run All / Interrupt own the Cmd/Ctrl+Shift+Enter shortcut in command
+			// mode; exit edit mode first so it doesn't just run the selection in the
 			// focused cell (#3804).
 			await this.selectCellAtIndex(0, { editMode: false });
 			const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
