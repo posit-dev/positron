@@ -1859,6 +1859,18 @@ export class MainThreadLanguageRuntime
 		throw new Error(`No variables provider found for session ${sessionId}`);
 	}
 
+	$getSessionPackages(sessionId: string): Promise<ILanguageRuntimePackage[]> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session found for session ${sessionId}`);
+		}
+		const packageManager = session.getPackageManager?.();
+		if (!packageManager) {
+			throw new Error(`Session ${sessionId} does not support package management`);
+		}
+		return packageManager.getPackages(CancellationToken.None);
+	}
+
 	async getSessionVariables(instance: IPositronVariablesInstance, accessKeys?: Array<Array<string>>):
 		Promise<Array<Array<Variable>>> {
 		const client = instance.getClientInstance();
