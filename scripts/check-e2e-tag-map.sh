@@ -27,8 +27,8 @@ while IFS= read -r d; do
 done < <(
 	cd "$REPO_ROOT" || exit 1
 	for d in src/vs/workbench/contrib/positron*/ \
-	         src/vs/workbench/services/positron*/ \
-	         extensions/positron-*/; do
+		src/vs/workbench/services/positron*/ \
+		extensions/positron-*/; do
 		[[ -d "$d" ]] && echo "$d"
 	done
 )
