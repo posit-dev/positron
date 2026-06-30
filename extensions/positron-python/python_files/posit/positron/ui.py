@@ -103,7 +103,7 @@ def _get_missing_imports(
     import importlib.util
 
     modules = [name for name in params[0] if isinstance(name, str)]
-    missing: List[str] = []
+    missing: List[JsonData] = []
     for name in modules:
         if name in sys.modules:
             continue
