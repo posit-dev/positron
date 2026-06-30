@@ -16,6 +16,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { MockContextKeyService } from '../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NotebookDisplayOptions, NotebookLayoutConfiguration, NotebookOptions, NotebookOptionsChangeEvent } from '../../../../notebook/browser/notebookOptions.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { CellTextOutput } from '../../../browser/notebookCells/CellTextOutput.js';
@@ -91,7 +92,7 @@ describe('CellTextOutput', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey('positronNotebook.aiEnabled', true);
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
@@ -115,7 +116,7 @@ describe('CellTextOutput', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey('positronNotebook.aiEnabled', false);
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
