@@ -9,8 +9,7 @@ import * as sinon from 'sinon';
 import {
 	performProviderMigration,
 	performModelPreferencesMigration,
-	performCustomModelsMigration,
-	performInlineCompletionsMigration
+	performCustomModelsMigration
 } from '../providerMigration.js';
 import { stubGetModelProviders } from './utils.js';
 
@@ -308,84 +307,5 @@ suite('Custom Models Migration Tests', () => {
 
 		assert.ok(anthropicCall);
 		assert.ok(!invalidCall);
-	});
-});
-
-suite('Inline Completions Migration Tests', () => {
-	let stubs: MockStubs;
-
-	setup(() => {
-		stubs = setupMigrationTest();
-	});
-
-	teardown(() => {
-		sinon.restore();
-	});
-
-	test('migrates inlineCompletions.enable to github.copilot.enable and removes old setting', async () => {
-		stubs.mockInspect.withArgs('inlineCompletions.enable').returns({
-			globalValue: { '*': false, 'r': true }
-		});
-
-		await performInlineCompletionsMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		const writeCall = calls.find(call => call.args[0] === 'enable');
-		const removeCall = calls.find(call => call.args[0] === 'inlineCompletions.enable');
-
-		assert.ok(writeCall);
-		assert.deepStrictEqual(writeCall.args[1], { '*': false, 'r': true });
-		assert.strictEqual(writeCall.args[2], vscode.ConfigurationTarget.Global);
-
-		assert.ok(removeCall);
-		assert.strictEqual(removeCall.args[1], undefined);
-	});
-
-	test('merges over existing github.copilot.enable value (old value takes precedence)', async () => {
-		stubs.mockInspect.withArgs('enable').returns({
-			globalValue: { 'python': false, 'r': false }
-		});
-		stubs.mockInspect.withArgs('inlineCompletions.enable').returns({
-			globalValue: { '*': false, 'r': true }
-		});
-
-		await performInlineCompletionsMigration();
-
-		const writeCall = stubs.mockUpdate.getCalls().find(call => call.args[0] === 'enable');
-
-		// Old value wins on the conflicting 'r' key; non-conflicting keys are preserved.
-		assert.ok(writeCall);
-		assert.deepStrictEqual(writeCall.args[1], { 'python': false, '*': false, 'r': true });
-	});
-
-	test('does nothing when inlineCompletions.enable is not set', async () => {
-		stubs.mockInspect.withArgs('inlineCompletions.enable').returns({});
-
-		await performInlineCompletionsMigration();
-
-		assert.strictEqual(stubs.mockUpdate.getCalls().length, 0);
-	});
-
-	test('does nothing when inlineCompletions.enable is empty object', async () => {
-		stubs.mockInspect.withArgs('inlineCompletions.enable').returns({
-			globalValue: {}
-		});
-
-		await performInlineCompletionsMigration();
-
-		assert.strictEqual(stubs.mockUpdate.getCalls().length, 0);
-	});
-
-	test('keeps old setting when the github.copilot.enable write fails', async () => {
-		stubs.mockInspect.withArgs('inlineCompletions.enable').returns({
-			globalValue: { '*': false }
-		});
-		stubs.mockUpdate.withArgs('enable').rejects(new Error('enforced by admin policy'));
-
-		await performInlineCompletionsMigration();
-
-		// The old setting must not be removed if the migration write failed.
-		const removeCall = stubs.mockUpdate.getCalls().find(call => call.args[0] === 'inlineCompletions.enable');
-		assert.ok(!removeCall);
 	});
 });

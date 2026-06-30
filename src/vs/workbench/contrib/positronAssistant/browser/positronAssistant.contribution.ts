@@ -27,6 +27,10 @@ import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBa
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
 
+// Register the migration from the deprecated
+// `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
+import './inlineCompletionsMigration.js';
+
 const consoleLanguageIds = ['r', 'python'];
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
