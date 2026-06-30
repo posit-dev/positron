@@ -26,6 +26,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import {
 	PositronDataExplorerCommandId,
 	PositronDataExplorerViewDataFrameAtCursorAction,
+	PositronDataExplorerViewDataFrameByVariableAction,
 } from '../../browser/positronDataExplorerActions.js';
 
 const SESSION_ID = 'test-session-id';
@@ -328,5 +329,52 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			expect(viewStub).toHaveBeenCalledTimes(1);
 			expect(notificationInfo).not.toHaveBeenCalled();
 		});
+	});
+});
+
+describe('PositronDataExplorerViewDataFrameByVariableAction', () => {
+	let variablesInstances: IPositronVariablesInstance[];
+
+	const ctx = createTestContainer()
+		.stub(IPositronVariablesService, {
+			get positronVariablesInstances() { return variablesInstances; },
+		})
+		.stub(IPositronDataExplorerService, {
+			getInstanceForVar: () => undefined,
+			getInstanceForVariablePath: () => undefined,
+			setInstanceForVar: vi.fn(),
+		})
+		.stub(INotificationService, {
+			info: vi.fn(),
+			error: vi.fn(),
+		})
+		.build();
+
+	beforeEach(() => {
+		variablesInstances = [];
+	});
+
+	const runAction = (args?: { sessionId: string; variableId: string }) => {
+		const action = new PositronDataExplorerViewDataFrameByVariableAction();
+		return ctx.instantiationService.invokeFunction(accessor => action.run(accessor, args));
+	};
+
+	it('opens the viewer for the resolved variable', async () => {
+		const viewStub = vi.fn().mockResolvedValue(undefined);
+		const item = makeVariableItem({ id: 'item-id', view: viewStub as unknown as IVariableItem['view'] });
+		variablesInstances = [makeVariablesInstance([item])];
+
+		await runAction({ sessionId: SESSION_ID, variableId: 'item-id' });
+
+		expect(viewStub).toHaveBeenCalledTimes(1);
+	});
+
+	it('does nothing when the variable no longer exists in the session', async () => {
+		const viewStub = vi.fn().mockResolvedValue(undefined);
+		variablesInstances = [makeVariablesInstance([makeVariableItem({ id: 'other-id', view: viewStub as unknown as IVariableItem['view'] })])];
+
+		await runAction({ sessionId: SESSION_ID, variableId: 'item-id' });
+
+		expect(viewStub).not.toHaveBeenCalled();
 	});
 });
