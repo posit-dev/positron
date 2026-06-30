@@ -107,6 +107,11 @@
         "category": "Positron"
       },
       {
+        "command": "positron.mcp.addConfigFile",
+        "title": "Positron MCP: Add .mcp.json to Workspace",
+        "category": "Positron"
+      },
+      {
         "command": "positron.mcp.showLogs",
         "title": "Positron MCP: Show Logs",
         "category": "Positron"
@@ -134,6 +139,9 @@
         },
         {
           "command": "positron.mcp.disableServer"
+        },
+        {
+          "command": "positron.mcp.addConfigFile"
         },
         {
           "command": "positron.mcp.showLogs"

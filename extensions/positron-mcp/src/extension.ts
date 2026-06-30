@@ -70,6 +70,53 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	});
 
+	// Register command to add the .mcp.json file to the current workspace.
+	// The server is a single global instance, but each project needs its own
+	// .mcp.json pointing at it for clients (e.g. Claude Code) to discover it.
+	// This writes that file directly, without re-enabling the server -- useful
+	// when opening a new project while the server is already running.
+	const addConfigFileCommand = vscode.commands.registerCommand('positron.mcp.addConfigFile', async () => {
+		try {
+			if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+				await positron.window.showSimpleModalDialogMessage(
+					'No Workspace Open',
+					'Open a folder or workspace first, then run this command to add the .mcp.json file to it.',
+					'OK'
+				);
+				return;
+			}
+
+			const mcpConfigPath = await createOrUpdateMcpConfig();
+			if (!mcpConfigPath) {
+				await positron.window.showSimpleModalDialogMessage(
+					'Failed to Add Configuration File',
+					'Could not create or update the <code>.mcp.json</code> file. Check the Positron MCP logs for details.',
+					'OK'
+				);
+				return;
+			}
+
+			let message = `An <code>.mcp.json</code> file in your workspace root now points at the Positron MCP server.`;
+			const enabled = vscode.workspace.getConfiguration('positron.mcp').get<boolean>('enable', false);
+			if (!enabled) {
+				message += `<br><br>The MCP server is not enabled yet. Run <strong>Positron MCP: Enable Server</strong> so clients can connect.`;
+			}
+			await positron.window.showSimpleModalDialogMessage(
+				'MCP Configuration File Added',
+				message,
+				'OK'
+			);
+		} catch (error) {
+			const logger = getLogger();
+			logger.error('Command', 'Failed to add .mcp.json', error);
+			await positron.window.showSimpleModalDialogMessage(
+				'Failed to Add Configuration File',
+				`Failed to add the .mcp.json file: ${error}`,
+				'OK'
+			);
+		}
+	});
+
 	// Register command to show logs
 	const showLogsCommand = vscode.commands.registerCommand('positron.mcp.showLogs', () => {
 		const logger = getLogger();
@@ -154,6 +201,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		enableCommand,
 		disableCommand,
+		addConfigFileCommand,
 		showLogsCommand,
 		resetConsentCommand,
 		showAuditLogCommand,
