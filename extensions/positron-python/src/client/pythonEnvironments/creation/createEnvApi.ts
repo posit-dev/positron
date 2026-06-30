@@ -37,7 +37,11 @@ import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
 import { isUvInstalled } from '../common/environmentManagers/uv';
 import { UvCreationProvider } from './provider/uvCreationProvider';
-import { installPythonViaUv, InstallPythonResult } from '../common/environmentManagers/uvPythonInstaller';
+import {
+    installPythonViaUv,
+    InstallPythonResult,
+    showUvInstallError,
+} from '../common/environmentManagers/uvPythonInstaller';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
@@ -46,7 +50,6 @@ import {
 } from '../../positron/createEnvApi';
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration } from '../../common/vscodeApis/workspaceApis';
-import { showErrorMessage } from '../../common/vscodeApis/windowApis';
 import { InterpreterQuickPickList } from '../../common/utils/localize';
 // --- End Positron ---
 
@@ -126,7 +129,7 @@ async function handleInstallPythonResult(
         return { pythonPath: result.pythonPath, runtimeId: metadata?.runtimeId };
     }
     if (result.error && result.error !== 'Cancelled') {
-        showErrorMessage(result.error);
+        await showUvInstallError(result.error);
     }
     return undefined;
 }
@@ -237,7 +240,7 @@ export async function registerCreateEnvironmentFeatures(
                 return handled;
             } catch (error) {
                 traceError(`installPythonViaUv command failed: ${error}`);
-                showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
+                await showUvInstallError(InterpreterQuickPickList.UvInstall.installCommandFailed);
                 return undefined;
             }
         }),
@@ -296,7 +299,7 @@ export async function registerCreateEnvironmentFeatures(
                         return handled?.runtimeId;
                     } catch (error) {
                         traceError(`Install Python via uv failed: ${error}`);
-                        showErrorMessage(InterpreterQuickPickList.UvInstall.installCommandFailed);
+                        await showUvInstallError(InterpreterQuickPickList.UvInstall.installCommandFailed);
                     }
                 }
                 return undefined;
