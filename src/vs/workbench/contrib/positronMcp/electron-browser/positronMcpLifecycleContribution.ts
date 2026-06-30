@@ -8,9 +8,11 @@ import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IPositronMcpService, PositronMcpChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IPositronMcpService, PositronMcpChannelName, PositronMcpToolBrokerChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
+import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
+import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
 
 /** Setting that turns the MCP server on. Declared by the positron-mcp extension
  * today; core reads it rather than re-declaring it to avoid a duplicate key
@@ -33,9 +35,14 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronMcpToolService toolService: IPositronMcpToolService,
 	) {
 		super();
 		this._proxy = ProxyChannel.toService<IPositronMcpService>(mainProcessService.getChannel(PositronMcpChannelName));
+
+		// Register this window's tool broker so the main-process server can route
+		// tool calls here when this window is the pinned target.
+		mainProcessService.registerChannel(PositronMcpToolBrokerChannelName, new PositronMcpToolBrokerChannel(toolService));
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(MCP_ENABLE_KEY) || e.affectsConfiguration(AI_ENABLED_KEY)) {

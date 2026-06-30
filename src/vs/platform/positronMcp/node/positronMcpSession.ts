@@ -16,23 +16,23 @@ import { hasKey } from '../../../base/common/types.js';
 import { ILogger } from '../../log/common/log.js';
 import {
 	IMcpCallToolResult,
+	McpContent,
 	POSITRON_MCP_PROTOCOL_VERSION,
 	POSITRON_MCP_SERVER_INFO,
 	POSITRON_MCP_TOOLS,
 	SERVER_INSTRUCTIONS,
 } from '../common/positronMcpTools.js';
+import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
 /** JSON-RPC error codes used by the MCP session. */
 const MCP_INVALID_REQUEST = -32600;
 const MCP_METHOD_NOT_FOUND = -32601;
 
-/**
- * Invokes a named tool with its arguments and returns the MCP result. The
- * session is transport-only; the real implementation (renderer tool broker,
- * window routing, consent) is injected by the server. Until Phase 2 wires the
- * broker, the server supplies a stub that reports the tool is not yet available.
- */
-export type ToolInvoker = (name: string, args: Record<string, unknown>) => Promise<IMcpCallToolResult>;
+/** A tool result that reports an error to the model rather than failing the call. */
+function toolError(text: string): IMcpCallToolResult {
+	const content: McpContent[] = [{ type: 'text', text }];
+	return { content, isError: true };
+}
 
 /**
  * Returns true when a message (or the first of a batch) is an `initialize`
@@ -47,17 +47,24 @@ export function isInitializeMessage(message: JsonRpcMessage | JsonRpcMessage[]):
 /**
  * One MCP session over the Streamable HTTP transport. Owns a {@link JsonRpcProtocol}
  * and dispatches the MCP methods. `initialize`, `tools/list`, and `ping` are
- * answered entirely here (no window needed); `tools/call` forwards to the
- * injected {@link ToolInvoker}.
+ * answered entirely here (no window needed); `tools/call` is routed to the
+ * session's pinned window via the {@link IPositronMcpToolBroker}.
+ *
+ * Window pinning: the session resolves a target window once at `initialize` and
+ * keeps using it, so every tool call in one agent conversation hits the same
+ * window's session even if focus moves. If the pinned window closes, the next
+ * tool call re-resolves to the current last-active window; if none exists, the
+ * call returns a clean error (never hangs).
  */
 export class PositronMcpSession extends Disposable {
 	private readonly _rpc: JsonRpcProtocol;
 	private _initialized = false;
+	private _pinnedWindowId: number | undefined;
 
 	constructor(
 		public readonly id: string,
 		private readonly _logger: ILogger,
-		private readonly _invokeTool: ToolInvoker,
+		private readonly _broker: IPositronMcpToolBroker,
 	) {
 		super();
 		// The session is request/response over POST: responses come back from
@@ -84,9 +91,10 @@ export class PositronMcpSession extends Disposable {
 	private async _handleRequest(request: IJsonRpcRequest): Promise<unknown> {
 		if (request.method === 'initialize') {
 			this._initialized = true;
+			this._pinnedWindowId = this._broker.resolveTargetWindow();
 			const clientInfo = (request.params as { clientInfo?: { name?: unknown; version?: unknown } } | undefined)?.clientInfo;
 			if (clientInfo?.name) {
-				this._logger.info(`[PositronMcpSession ${this.id}] initialize from ${String(clientInfo.name)}${clientInfo.version ? ` ${String(clientInfo.version)}` : ''}`);
+				this._logger.info(`[PositronMcpSession ${this.id}] initialize from ${String(clientInfo.name)}${clientInfo.version ? ` ${String(clientInfo.version)}` : ''} (window ${this._pinnedWindowId ?? 'none'})`);
 			}
 			return {
 				protocolVersion: POSITRON_MCP_PROTOCOL_VERSION,
@@ -113,10 +121,37 @@ export class PositronMcpSession extends Disposable {
 				if (!params.name) {
 					throw new JsonRpcError(MCP_INVALID_REQUEST, 'tools/call requires a tool name');
 				}
-				return this._invokeTool(params.name, params.arguments ?? {});
+				return this._callTool(params.name, params.arguments ?? {});
 			}
 			default:
 				throw new JsonRpcError(MCP_METHOD_NOT_FOUND, `Method not found: ${request.method}`);
+		}
+	}
+
+	/**
+	 * Route a tool call to this session's pinned window. Re-resolves the target if
+	 * the pinned window has closed, and returns a tool-level error (not a thrown
+	 * exception) when no live window is available, so the model gets a recoverable
+	 * message instead of the call hanging or failing the transport.
+	 */
+	private async _callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		// Re-resolve if the pinned window is gone (or was never set).
+		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
+			const reResolved = this._broker.resolveTargetWindow();
+			this._logger.info(`[PositronMcpSession ${this.id}] pinned window unavailable; re-pinned to ${reResolved ?? 'none'}`);
+			this._pinnedWindowId = reResolved;
+		}
+
+		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
+			return toolError('No Positron window is available to run this. Open a Positron window and try again.');
+		}
+
+		try {
+			return await this._broker.invokeTool(this._pinnedWindowId, name, args);
+		} catch (error) {
+			// A window that closes mid-call rejects the pending IPC call; surface it
+			// as a recoverable tool error rather than a transport failure.
+			return toolError(`Failed to run ${name} in the Positron window: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 }

@@ -7,14 +7,21 @@
 
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
-import { POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
-import { isInitializeMessage, PositronMcpSession, ToolInvoker } from '../../node/positronMcpSession.js';
+import { IMcpCallToolResult, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
+import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
+import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
 
-/** Build a session with a stub tool invoker; returns both for assertions. */
-function createSession(invoke?: ToolInvoker) {
-	const invokeTool: ToolInvoker = invoke ?? (async name => ({ content: [{ type: 'text', text: `called ${name}` }] }));
-	const session = new PositronMcpSession('test-session', new NullLogger(), invokeTool);
-	return session;
+/** A broker that always has window 1 available and records tool invocations. */
+class StubBroker implements IPositronMcpToolBroker {
+	readonly invokeTool = vi.fn(async (_windowId: number, name: string): Promise<IMcpCallToolResult> =>
+		({ content: [{ type: 'text', text: `called ${name}` }] }));
+	resolveTargetWindow(): number | undefined { return 1; }
+	isWindowConnected(): boolean { return true; }
+}
+
+/** Build a session with a stub broker; returns both for assertions. */
+function createSession(broker: IPositronMcpToolBroker = new StubBroker()) {
+	return new PositronMcpSession('test-session', new NullLogger(), broker);
 }
 
 const initializeRequest: JsonRpcMessage = {
@@ -54,12 +61,12 @@ describe('PositronMcpSession', () => {
 		expect(response).toMatchObject({ id: 9, error: { code: -32600 } });
 	});
 
-	it('forwards tools/call to the invoker with name and arguments', async () => {
-		const invoke = vi.fn<ToolInvoker>(async () => ({ content: [{ type: 'text', text: 'ok' }] }));
-		const session = createSession(invoke);
+	it('forwards tools/call to the broker with name and arguments', async () => {
+		const broker = new StubBroker();
+		const session = createSession(broker);
 		await session.handleIncoming(initializeRequest);
 		await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
-		expect(invoke).toHaveBeenCalledWith('get-session', { foo: 1 });
+		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', { foo: 1 });
 	});
 
 	it('returns no response for a notification (202 path)', async () => {

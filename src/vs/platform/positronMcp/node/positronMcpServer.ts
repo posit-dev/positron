@@ -10,16 +10,8 @@ import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcPro
 import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT } from '../common/positronMcp.js';
-import { IMcpCallToolResult } from '../common/positronMcpTools.js';
-import { isInitializeMessage, PositronMcpSession, ToolInvoker } from './positronMcpSession.js';
-
-/**
- * Resolves the `webContents.id` of the window MCP tool calls should be routed
- * to, or `undefined` when no suitable window exists. Injected so the node server
- * never imports the Electron-main windows service directly, which keeps it
- * testable and out of the electron-main layer.
- */
-export type WindowSelector = () => number | undefined;
+import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
+import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
 /**
  * Reads the configured port from the environment, falling back to the default.
@@ -57,7 +49,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	private readonly _sessions = this._register(new DisposableMap<string, PositronMcpSession>());
 
 	constructor(
-		private readonly _windowSelector: WindowSelector,
+		private readonly _broker: IPositronMcpToolBroker,
 		@ILoggerService loggerService: ILoggerService,
 	) {
 		super();
@@ -194,24 +186,11 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		}
 
 		const sessionId = generateUuid();
-		const session = new PositronMcpSession(sessionId, this._logger, this._invokeTool);
+		const session = new PositronMcpSession(sessionId, this._logger, this._broker);
 		this._sessions.set(sessionId, session);
 		this._logger.info(`[PositronMcpServer] Created session ${sessionId}`);
 		return session;
 	}
-
-	/**
-	 * Phase 1 stub: tool calls are not yet routed to a window. Phase 2 replaces
-	 * this with a broker that resolves the target window and invokes the renderer
-	 * tool registry. The `_windowSelector` is captured here so it is retained.
-	 */
-	private readonly _invokeTool: ToolInvoker = async (name): Promise<IMcpCallToolResult> => {
-		void this._windowSelector;
-		return {
-			content: [{ type: 'text', text: `Tool '${name}' is not available yet (server still initializing).` }],
-			isError: true,
-		};
-	};
 
 	private _getSessionId(req: http.IncomingMessage): string | undefined {
 		const value = req.headers[PositronMcpServer.SessionHeaderName];

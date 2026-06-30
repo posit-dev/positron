@@ -141,8 +141,9 @@ import { IMcpGatewayService, McpGatewayChannelName } from '../../platform/mcp/co
 import { McpGatewayService } from '../../platform/mcp/node/mcpGatewayService.js';
 import { McpGatewayChannel } from '../../platform/mcp/node/mcpGatewayChannel.js';
 // --- Start Positron ---
-import { IPositronMcpService, PositronMcpChannelName } from '../../platform/positronMcp/common/positronMcp.js';
+import { PositronMcpChannelName } from '../../platform/positronMcp/common/positronMcp.js';
 import { PositronMcpServer } from '../../platform/positronMcp/node/positronMcpServer.js';
+import { PositronMcpToolBroker } from '../../platform/positronMcp/node/positronMcpToolBroker.js';
 // --- End Positron ---
 import { IWebContentExtractorService } from '../../platform/webContentExtractor/common/webContentExtractor.js';
 import { NativeWebContentExtractorService } from '../../platform/webContentExtractor/electron-main/webContentExtractorService.js';
@@ -1228,15 +1229,6 @@ export class CodeApplication extends Disposable {
 		services.set(INativeMcpDiscoveryHelperService, new SyncDescriptor(NativeMcpDiscoveryHelperService));
 		services.set(IMcpGatewayService, new SyncDescriptor(McpGatewayService));
 
-		// --- Start Positron ---
-		// The Positron MCP server routes tool calls to the last-active window's
-		// renderer. The selector is read lazily (only when a tool call arrives), so
-		// it is safe to capture before `windowsMainService` is assigned in startup.
-		services.set(IPositronMcpService, new SyncDescriptor(PositronMcpServer, [
-			() => this.windowsMainService?.getLastActiveWindow()?.win?.webContents.id,
-		]));
-		// --- End Positron ---
-
 		// Dev Only: CSS service (for ESM)
 		services.set(ICSSDevelopmentService, new SyncDescriptor(CSSDevelopmentService, undefined, true));
 
@@ -1407,7 +1399,16 @@ export class CodeApplication extends Disposable {
 		mainProcessElectronServer.registerChannel(McpGatewayChannelName, mcpGatewayChannel);
 
 		// --- Start Positron ---
-		const positronMcpChannel = ProxyChannel.fromService(accessor.get(IPositronMcpService), disposables);
+		// The Positron MCP server routes tool calls to the last-active window's
+		// renderer over the broker channel. The window selector is read lazily (only
+		// when a tool call arrives), so it is safe to capture `windowsMainService`
+		// here even though it is assigned later in startup.
+		const positronMcpBroker = new PositronMcpToolBroker(
+			mainProcessElectronServer,
+			() => this.windowsMainService?.getLastActiveWindow()?.id,
+		);
+		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, accessor.get(ILoggerService)));
+		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServer, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---
 
