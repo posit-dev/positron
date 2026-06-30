@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, syncSessionToGlobalState } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
-import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
@@ -269,9 +268,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize prompt renderer singleton
 	new PromptRenderer(context);
-
-	// Register mapped edits provider
-	registerMappedEditsProvider(context, participantService, log);
 
 	// Register participant detection provider
 	registerParticipantDetectionProvider();
