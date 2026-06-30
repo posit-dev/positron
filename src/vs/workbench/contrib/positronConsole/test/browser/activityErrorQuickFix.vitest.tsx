@@ -91,6 +91,6 @@ describe('ConsoleQuickFix', () => {
 		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
-		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant is not available/);
+		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
 	});
 });

@@ -49,7 +49,7 @@ export async function openPositAssistantChat(
 		notificationService.error(
 			localize(
 				'positron.assistant.chatUnavailable',
-				"Posit Assistant is not available. Make sure the Posit Assistant extension is installed and enabled."
+				"Posit Assistant could not be opened. Make sure the Posit Assistant extension is installed and enabled, and that the assistant sidebar view is turned on."
 			)
 		);
 	}

@@ -51,6 +51,6 @@ describe('openPositAssistantChat', () => {
 		// The helper's job on this path is to surface the localized unavailable message,
 		// not just to call error() with anything -- pin the message so a regression to an
 		// empty or raw-error string fails.
-		expect(error).toHaveBeenCalledWith(expect.stringMatching(/Posit Assistant is not available/));
+		expect(error).toHaveBeenCalledWith(expect.stringMatching(/Posit Assistant could not be opened/));
 	});
 });
