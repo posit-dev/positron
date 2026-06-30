@@ -2,8 +2,7 @@ name: "Nightly: e2e Tag Map Check"
 
 # Flags Positron feature dirs / extensions that have no entry in
 # e2e-tag-paths-map.json, so the auto-tagging map can't silently fall out of
-# date. Starts in warning-only mode; flip `--warn-only` off (see step in plan)
-# once the map is verified clean.
+# date. Fails when a Positron dir/extension is unmapped.
 
 on:
   schedule:
@@ -19,4 +18,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Check e2e tag map coverage
-        run: bash scripts/check-e2e-tag-map.sh --warn-only | tee -a "$GITHUB_STEP_SUMMARY"
+        run: bash scripts/check-e2e-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
