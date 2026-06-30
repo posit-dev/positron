@@ -72,13 +72,13 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	},
 	google: {
 		id: GEMINI_AUTH_PROVIDER_ID,
-		displayName: 'Gemini Code Assist',
+		displayName: 'Google Gemini',
 		settingName: 'google',
 		status: 'experimental',
 	},
 	googleVertex: {
 		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-		displayName: 'Google Vertex AI',
+		displayName: 'Gemini Enterprise Agent Platform',
 		settingName: 'googleVertex',
 		status: 'experimental',
 	},

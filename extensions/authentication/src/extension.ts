@@ -521,7 +521,7 @@ async function registerGeminiProvider(
 	}
 
 	const provider = new AuthProvider(
-		GEMINI_AUTH_PROVIDER_ID, 'Gemini Code Assist', context,
+		GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', context,
 		undefined,
 		{
 			resolve: async () => {
@@ -543,7 +543,7 @@ async function registerGeminiProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			GEMINI_AUTH_PROVIDER_ID, 'Gemini Code Assist', provider,
+			GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', provider,
 			{ supportsMultipleAccounts: true }
 		),
 		provider
@@ -586,7 +586,7 @@ async function registerGoogleVertexProvider(
 	}
 
 	const provider = new AuthProvider(
-		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Google Vertex AI', context,
+		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
 		undefined,
 		{
 			resolve: () => resolveGoogleVertexCredential(logger),
@@ -595,7 +595,7 @@ async function registerGoogleVertexProvider(
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
-			GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Google Vertex AI', provider,
+			GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', provider,
 			{ supportsMultipleAccounts: false }
 		),
 		provider,

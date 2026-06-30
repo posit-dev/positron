@@ -64,11 +64,11 @@
 			},
 			{
 				"id": "google",
-				"label": "Gemini Code Assist"
+				"label": "Google Gemini"
 			},
 			{
 				"id": "google-cloud",
-				"label": "Google Vertex AI"
+				"label": "Gemini Enterprise Agent Platform"
 			},
 			{
 				"id": "deepseek-api",
