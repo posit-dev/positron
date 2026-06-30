@@ -23,7 +23,7 @@ const DRAG_ACTIVATION_DISTANCE_PX = 10;
 const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear All Outputs' | 'Run All Cells';
 type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output' | 'Show Full Output' | 'Truncate Output' | 'Copy Image';
 
 /**
@@ -2211,10 +2211,10 @@ export class ScopedNotebook {
 		this.kernel = new ScopedKernel(statusBadge, this.editorActionBar, contextMenu);
 
 		// Action bar buttons
-		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All Cells' });
 		this.addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 		this.addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
-		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear All Outputs' });
 	}
 
 	/** Get a specific cell by index */
