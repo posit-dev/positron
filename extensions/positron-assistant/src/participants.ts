@@ -18,7 +18,6 @@ import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './log.js';
 import { getRequestTokenUsage, TokenUsage } from './tokens.js';
 import { IChatRequestHandler } from './commands/index.js';
-import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
@@ -501,22 +500,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						attachmentPrompts.push(attachmentNode);
 						log.debug(`[context] adding file attachment context: ${attachmentNode.length} characters`);
 					}
-				} else if (value instanceof vscode.Uri && value.scheme === 'scm-history-item') {
-					// The user attached a specific git commit
-					const details = JSON.parse(value.query) as { historyItemId: string; historyItemParentId: string };
-					const diff = await getCommitChanges(value, details.historyItemId, details.historyItemParentId);
-
-					// Add as a reference to the response.
-					response.reference(value);
-
-					// Attach the git commit details.
-					const attachmentNode = xml.node('attachment', diff, {
-						historyItemId: details.historyItemId,
-						historyItemParentId: details.historyItemParentId,
-						description: 'Git commit details',
-					});
-					attachmentPrompts.push(attachmentNode);
-					log.debug(`[context] adding git commit details context: ${attachmentNode.length} characters`);
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
 						// The user attached an image - usually a pasted image or screenshot of the IDE.

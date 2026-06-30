@@ -473,18 +473,6 @@
 				}
 			},
 			{
-				"name": "getChangedFiles",
-				"displayName": "Get changed files",
-				"modelDescription": "Get summaries and git diffs for current changes to files in this workspace.",
-				"canBeReferencedInPrompt": true,
-				"userDescription": "Get changed files",
-				"toolReferenceName": "changes",
-				"icon": "$(diff)",
-				"tags": [
-					"positron-assistant"
-				]
-			},
-			{
 				"name": "executeNotebook",
 				"displayName": "Execute Notebook",
 				"modelDescription": "Manage notebook execution lifecycle. Use operation='run' to execute specific cells by index and return their outputs. Use operation='runAll' to execute all cells in order. Use operation='interrupt' to cancel a running execution. Use operation='restartKernel' to restart the kernel (optionally with runAll=true to run all cells after restart).",

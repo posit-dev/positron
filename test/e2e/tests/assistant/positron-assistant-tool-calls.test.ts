@@ -125,7 +125,6 @@ test.describe.skip('Positron Assistant Tool Scoping', { tag: [tags.WIN, tags.ASS
 		const NON_SESSION_TOOLS = [
 			'documentCreate',
 			'getProjectTree',
-			'getChangedFiles',
 			'inline_chat_exit',
 			'get_terminal_output',
 			'terminal_selection',
