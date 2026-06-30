@@ -116,6 +116,24 @@ export function resolvePositronGalleryConfig(
 	return preset ?? productGallery;
 }
 
+/**
+ * Whether two gallery resource URLs (or templates) target the same gallery host.
+ * Used to decide whether the product-default resource API is a safe fallback for
+ * the resolved gallery: it is only safe within the same host, so a non-default
+ * gallery never silently leaks to the default one. Returns false when either
+ * value is missing or not a parseable URL.
+ */
+export function sameGalleryHost(a: string | undefined, b: string | undefined): boolean {
+	if (!a || !b) {
+		return false;
+	}
+	try {
+		return new URL(a).origin === new URL(b).origin;
+	} catch {
+		return false;
+	}
+}
+
 // --- End Positron ---
 
 export class ExtensionGalleryManifestService extends Disposable implements IExtensionGalleryManifestService {

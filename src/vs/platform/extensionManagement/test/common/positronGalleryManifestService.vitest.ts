@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, POSITRON_GALLERY_PRESET_BASES, deriveGalleryConfig, resolvePositronGalleryConfig } from '../../common/extensionGalleryManifestService.js';
+import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, POSITRON_GALLERY_PRESET_BASES, deriveGalleryConfig, resolvePositronGalleryConfig, sameGalleryHost } from '../../common/extensionGalleryManifestService.js';
 import { parseExtensionsGalleryEnv } from '../../common/extensionsGalleryEnv.js';
 import { ExtensionGalleryResourceType, getExtensionGalleryManifestResourceUri } from '../../common/extensionGalleryManifest.js';
 import { IProductService } from '../../../product/common/productService.js';
@@ -292,6 +292,25 @@ describe('resolvePositronGalleryConfig', () => {
 		const before = resolvePositronGalleryConfig(undefined, 'custom', 'https://a.example.com/vscode', productGallery);
 		const after = resolvePositronGalleryConfig(undefined, 'custom', 'https://b.example.com/vscode', productGallery);
 		expect(after?.serviceUrl).not.toBe(before?.serviceUrl);
+	});
+});
+
+describe('sameGalleryHost', () => {
+	const p3m = 'https://p3m.dev/openvsx/latest/vscode/gallery/{publisher}/{name}/latest';
+
+	it('is true for templates on the same host', () => {
+		expect(sameGalleryHost(p3m, p3m)).toBe(true);
+	});
+
+	it('is false for a custom gallery vs the default host (no cross-gallery fallback)', () => {
+		const custom = 'https://solo.packagemanager.posit.co/openvsx/latest/vscode/gallery/{publisher}/{name}/latest';
+		expect(sameGalleryHost(custom, p3m)).toBe(false);
+	});
+
+	it('is false when either value is missing or unparseable', () => {
+		expect(sameGalleryHost(undefined, p3m)).toBe(false);
+		expect(sameGalleryHost(p3m, undefined)).toBe(false);
+		expect(sameGalleryHost('not a url', p3m)).toBe(false);
 	});
 });
 
