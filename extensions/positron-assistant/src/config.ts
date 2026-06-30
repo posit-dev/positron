@@ -5,7 +5,6 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { log } from './log.js';
-import { clearTokenUsage } from './tokens.js';
 import { disposeModels, removeAutoconfiguredModel } from './modelRegistration.js';
 import { CopilotService } from './copilot.js';
 import { StoredModelConfig, ModelConfig } from './configTypes.js';
@@ -105,8 +104,6 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 	}
 
 	disposeModels(id);
-
-	clearTokenUsage(targetConfig.provider);
 
 	positron.ai.updateProvider(targetConfig.provider, { signedIn: false });
 

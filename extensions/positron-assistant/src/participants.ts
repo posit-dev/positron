@@ -15,7 +15,6 @@ import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { log } from './log.js';
-import { getRequestTokenUsage, TokenUsage } from './tokens.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
@@ -283,12 +282,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
 		// Send the request to the language model.
-		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
+		await this.sendLanguageModelRequest(request, response, token, messages, tools);
 
 		return {
 			metadata: {
 				modelId: request.model.id,
-				tokenUsage: tokenUsage,
 				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
 				systemPrompt,
@@ -562,7 +560,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
-	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
+	): Promise<void> {
 		if (token.isCancellationRequested) {
 			return;
 		}
@@ -622,9 +620,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (textProcessor) {
 			await textProcessor.flush();
 		}
-
-		// Get actual token usage from the registry
-		const tokenUsage = getRequestTokenUsage(request.id);
 
 		// Warn if the response was truncated due to max output tokens
 		if (isMaxTokensFinishReason(finishReason)) {
@@ -695,9 +690,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			];
 			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
 		}
-
-		// Return token usage information
-		return tokenUsage;
 	}
 
 	/**

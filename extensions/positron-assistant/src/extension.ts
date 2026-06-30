@@ -13,7 +13,6 @@ import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
-import { initializeTokenTracking } from './tokens.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
@@ -367,8 +366,6 @@ async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
-
-	initializeTokenTracking(context);
 
 	// Migrate API keys from global state to encrypted storage. This is a
 	// one-time migration of keys that were stored in global state in versions
