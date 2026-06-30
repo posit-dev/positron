@@ -57,8 +57,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 	foundry: {
 		id: FOUNDRY_AUTH_PROVIDER_ID,
 		displayName: 'Microsoft Foundry',
-		settingName: 'msFoundry',
-		status: 'preview',
+		settingName: 'msFoundry'
 	},
 	snowflake: {
 		id: 'snowflake-cortex',
