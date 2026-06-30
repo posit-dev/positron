@@ -385,6 +385,15 @@ cmd_up() {
 		printf '\nCONNECT_BOOTSTRAP_SECRETKEY="%s"\n' "$CONNECT_BOOTSTRAP_SECRETKEY" >> "${SCRIPT_DIR}/.env"
 	fi
 	mkdir -p "${SCRIPT_DIR}/connect"
+	# A prior run without a license lets Compose's bind-mount auto-create
+	# connect/connect.lic as a *directory* on the host. That then makes connect
+	# fail to start ("cannot mount directory onto file") and makes the cp below
+	# land the license file *inside* the directory -- a confusing crash that
+	# persists even after the license is added. Clear that stale mount artifact
+	# so the copy creates a real file.
+	if [ -d "${SCRIPT_DIR}/connect/connect.lic" ]; then
+		rm -rf "${SCRIPT_DIR}/connect/connect.lic"
+	fi
 	if [ -f "${SCRIPT_DIR}/connect.lic" ]; then
 		cp "${SCRIPT_DIR}/connect.lic" "${SCRIPT_DIR}/connect/connect.lic"
 	fi
