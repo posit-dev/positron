@@ -20,10 +20,31 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
 const { mockShowDialog } = vi.hoisted(() => ({ mockShowDialog: vi.fn() }));
 vi.mock('../../browser/languageModelModalDialog.js', () => ({ showLanguageModelModalDialog: mockShowDialog }));
+
+// `areCompletionsEnabled` reads the completions enablement setting name from
+// product configuration. The vitest web fallback leaves that name empty, so
+// override only this one field (preserving the rest of the product config) to
+// match the shipped `github.copilot.enable` value.
+vi.mock('../../../../../platform/product/common/product.js', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../../../../platform/product/common/product.js')>();
+	return {
+		...actual,
+		default: {
+			...actual.default,
+			defaultChatAgent: {
+				...actual.default.defaultChatAgent,
+				completionsEnablementSetting: 'github.copilot.enable',
+			},
+		},
+	};
+});
 
 describe('PositronAssistantService', () => {
 	const ctx = createTestContainer()
@@ -174,5 +195,57 @@ describe('PositronAssistantService showLanguageModelModalDialog', () => {
 		expect(prompt).not.toHaveBeenCalled();
 		expect(mockShowDialog).toHaveBeenCalledTimes(1);
 		expect(mockShowDialog.mock.calls[0][0]).toBe(sources);
+	});
+});
+
+describe('PositronAssistantService areCompletionsEnabled', () => {
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.build();
+
+	let service: PositronAssistantService;
+	let configurationService: TestConfigurationService;
+	let languageService: ILanguageService;
+
+	beforeEach(() => {
+		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		languageService = ctx.get(ILanguageService);
+		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantService));
+	});
+
+	/** Force the language guessed for a file so the enablement check is deterministic. */
+	function guessLanguage(languageId: string | null): void {
+		vi.spyOn(languageService, 'guessLanguageIdByFilepathOrFirstLine').mockReturnValue(languageId);
+	}
+
+	it('enables completions when the global setting is on and the language is not overridden', () => {
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(true);
+	});
+
+	it('disables completions when the file language is explicitly turned off', () => {
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true, r: false });
+		guessLanguage('r');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.R'))).toBe(false);
+	});
+
+	it('disables completions when the enablement setting is absent', () => {
+		// Regression guard for the default flip: the old inline-completions logic
+		// defaulted to enabled when nothing was set, whereas delegating to
+		// `github.copilot.enable` defaults to disabled for an absent setting.
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(false);
+	});
+
+	it('disables completions for files matching an AI exclusion pattern', () => {
+		configurationService.setUserConfiguration('github.copilot.enable', { '*': true });
+		configurationService.setUserConfiguration('positron.assistant.aiExcludes', ['*.py']);
+		guessLanguage('python');
+
+		expect(service.areCompletionsEnabled(URI.file('/path/to/file.py'))).toBe(false);
 	});
 });
