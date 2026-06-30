@@ -48,6 +48,9 @@ main branch by either pulling or rebasing.
 
   - Instructions: https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
   - Available tags: https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
+
+  e2e feature tags are auto-added based on your changed files. Add tags here to
+  run more, or `@:no-auto-tags` to opt out.
 -->
 
 
