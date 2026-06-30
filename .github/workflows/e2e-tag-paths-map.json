@@ -47,7 +47,7 @@
   "src/vs/workbench/contrib/positronOutputWebview/": ["@:positron-notebooks"],
   "src/vs/workbench/contrib/positronPlotsGalleryEditor/": ["@:plots"],
   "src/vs/workbench/contrib/positronPreview/": ["@:viewer"],
-  "src/vs/workbench/contrib/positronPreviewEditor/": [],
+  "src/vs/workbench/contrib/positronPreviewEditor/": ["@:viewer"],
   "src/vs/workbench/contrib/positronWebviewPreloads/": ["@:positron-notebooks"],
 
   "src/vs/workbench/services/positronDataConnections/": ["@:connections"],
