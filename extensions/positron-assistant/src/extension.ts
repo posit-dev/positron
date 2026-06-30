@@ -18,7 +18,7 @@ import { initializeTokenTracking } from './tokens.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
-import { registerPromptManagement } from './promptRender.js';
+import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
@@ -309,8 +309,8 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
 
-	// Register prompt management
-	registerPromptManagement(context);
+	// Initialize prompt renderer singleton
+	new PromptRenderer(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);
