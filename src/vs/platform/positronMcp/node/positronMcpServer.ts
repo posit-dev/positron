@@ -5,9 +5,13 @@
 
 import type * as http from 'http';
 import { DeferredPromise } from '../../../base/common/async.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
+import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
+import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT } from '../common/positronMcp.js';
+import { IMcpCallToolResult } from '../common/positronMcpTools.js';
+import { isInitializeMessage, PositronMcpSession, ToolInvoker } from './positronMcpSession.js';
 
 /**
  * Resolves the `webContents.id` of the window MCP tool calls should be routed
@@ -42,10 +46,15 @@ export function parsePort(): number {
 export class PositronMcpServer extends Disposable implements IPositronMcpService {
 	declare readonly _serviceBrand: undefined;
 
+	private static readonly SessionHeaderName = 'mcp-session-id';
+	/** Cap on a single request body, matching the extension's 1MB limit. */
+	private static readonly MaxRequestBytes = 1024 * 1024;
+
 	private readonly _logger: ILogger;
 	private readonly _port = parsePort();
 	private _server: http.Server | undefined;
 	private _startPromise: Promise<void> | undefined;
+	private readonly _sessions = this._register(new DisposableMap<string, PositronMcpSession>());
 
 	constructor(
 		private readonly _windowSelector: WindowSelector,
@@ -98,6 +107,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			return;
 		}
 		this._server = undefined;
+		this._sessions.clearAndDisposeAll();
 		await new Promise<void>(resolve => server.close(() => resolve()));
 		this._logger.info('[PositronMcpServer] Stopped');
 	}
@@ -107,18 +117,118 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	}
 
 	private _handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-		// Phase 0: only a health probe is wired up. The JSON-RPC POST handler and
-		// tool broker land in later phases; until then everything else is 404.
-		if (req.method === 'GET' && req.url === '/health') {
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ status: 'ok', server: 'positron-mcp-server' }));
+		if (req.method === 'OPTIONS') {
+			res.writeHead(200).end();
 			return;
 		}
-		// Reference the selector so it is retained for later phases and so an
-		// unused-parameter lint does not fire on the constructor field.
+		if (req.method === 'GET' && req.url === '/health') {
+			this._sendJson(res, 200, { status: 'ok', server: 'positron-mcp-server' });
+			return;
+		}
+		if (req.method === 'POST') {
+			void this._handlePost(req, res);
+			return;
+		}
+		this._sendJson(res, 404, { error: 'Not found' });
+	}
+
+	private async _handlePost(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+		const body = await this._readBody(req);
+		if (body === undefined) {
+			this._sendJson(res, 413, { error: 'Payload too large' });
+			return;
+		}
+
+		let message: JsonRpcMessage | JsonRpcMessage[];
+		try {
+			message = JSON.parse(body);
+		} catch (error) {
+			this._sendJson(res, 400, JsonRpcProtocol.createParseError('Parse error', error instanceof Error ? error.message : String(error)));
+			return;
+		}
+
+		const session = this._resolveSession(req, message, res);
+		if (!session) {
+			return;
+		}
+
+		try {
+			const responses = await session.handleIncoming(message);
+			const headers = { 'Content-Type': 'application/json', 'Mcp-Session-Id': session.id };
+			// A notification (no id) yields no response body: acknowledge with 202
+			// per the Streamable HTTP transport.
+			if (responses.length === 0) {
+				res.writeHead(202, headers).end();
+				return;
+			}
+			res.writeHead(200, headers).end(JSON.stringify(Array.isArray(message) ? responses : responses[0]));
+		} catch (error) {
+			this._logger.error(`[PositronMcpServer] Error handling request: ${error}`);
+			this._sendJson(res, 500, { error: 'Internal server error' });
+		}
+	}
+
+	/**
+	 * Find the session for a POST, or create one for an `initialize` request that
+	 * arrives without a session id. Other id-less requests are rejected.
+	 */
+	private _resolveSession(req: http.IncomingMessage, message: JsonRpcMessage | JsonRpcMessage[], res: http.ServerResponse): PositronMcpSession | undefined {
+		const headerSessionId = this._getSessionId(req);
+		if (headerSessionId) {
+			const existing = this._sessions.get(headerSessionId);
+			if (!existing) {
+				this._sendJson(res, 404, { error: 'Session not found' });
+				return undefined;
+			}
+			return existing;
+		}
+
+		if (!isInitializeMessage(message)) {
+			this._sendJson(res, 400, { error: 'Missing Mcp-Session-Id header' });
+			return undefined;
+		}
+
+		const sessionId = generateUuid();
+		const session = new PositronMcpSession(sessionId, this._logger, this._invokeTool);
+		this._sessions.set(sessionId, session);
+		this._logger.info(`[PositronMcpServer] Created session ${sessionId}`);
+		return session;
+	}
+
+	/**
+	 * Phase 1 stub: tool calls are not yet routed to a window. Phase 2 replaces
+	 * this with a broker that resolves the target window and invokes the renderer
+	 * tool registry. The `_windowSelector` is captured here so it is retained.
+	 */
+	private readonly _invokeTool: ToolInvoker = async (name): Promise<IMcpCallToolResult> => {
 		void this._windowSelector;
-		res.writeHead(404, { 'Content-Type': 'application/json' });
-		res.end(JSON.stringify({ error: 'Not found' }));
+		return {
+			content: [{ type: 'text', text: `Tool '${name}' is not available yet (server still initializing).` }],
+			isError: true,
+		};
+	};
+
+	private _getSessionId(req: http.IncomingMessage): string | undefined {
+		const value = req.headers[PositronMcpServer.SessionHeaderName];
+		return Array.isArray(value) ? value[0] : value;
+	}
+
+	private async _readBody(req: http.IncomingMessage): Promise<string | undefined> {
+		const chunks: Buffer[] = [];
+		let size = 0;
+		for await (const chunk of req) {
+			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+			size += buffer.byteLength;
+			if (size > PositronMcpServer.MaxRequestBytes) {
+				return undefined;
+			}
+			chunks.push(buffer);
+		}
+		return Buffer.concat(chunks).toString('utf8');
+	}
+
+	private _sendJson(res: http.ServerResponse, statusCode: number, body: object): void {
+		res.writeHead(statusCode, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
 	}
 
 	override dispose(): void {
