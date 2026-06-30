@@ -8,6 +8,11 @@
 	overflow: auto;
 	height: 100%;
 	box-sizing: border-box;
+	/* The workbench root sets user-select: none (browser/media/style.css). */
+	/* Opt back in so package metadata (version, license, repository URL, */
+	/* etc.) can be selected and copied, matching the extension editor. */
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 .package-detail-header {
@@ -29,6 +34,9 @@
 	font-size: 24px;
 	color: var(--vscode-button-foreground);
 	background: var(--vscode-button-background);
+	/* Decorative, aria-hidden glyph -- keep it out of copied selections. */
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .package-detail-header-main { flex: 1; min-width: 0; }
@@ -37,7 +45,15 @@
 .package-detail-version { color: var(--vscode-descriptionForeground); font-size: 0.9em; }
 .package-detail-author { color: var(--vscode-descriptionForeground); margin: 2px 0; }
 .package-detail-description { color: var(--vscode-foreground); margin: 2px 0 10px; }
-.package-detail-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.package-detail-actions {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+	/* Buttons are not text content -- don't select their labels on drag. */
+	user-select: none;
+	-webkit-user-select: none;
+}
 
 .package-detail-attached-pill {
 	font-size: 0.8em;
@@ -194,3 +210,7 @@
 	background: var(--vscode-editorWidget-background);
 	opacity: 0.6;
 }
+
+/* Header placeholders read as a name / one-line summary, so size them wider. */
+.package-detail-author .package-detail-skeleton { width: 140px; }
+.package-detail-description .package-detail-skeleton { width: 240px; }

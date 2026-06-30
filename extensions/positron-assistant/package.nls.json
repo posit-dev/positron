@@ -1,7 +1,6 @@
 {
 	"displayName": "Positron Assistant",
 	"description": "Provides default assistant and language models for Positron.",
-	"commands.toggleInlineCompletions.title": "Toggle (Enable/Disable) Completions",
 	"commands.collectDiagnostics.title": "Collect Diagnostics",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
@@ -13,7 +12,6 @@
 	"configuration.title": "Positron Assistant",
 	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.\n\nRequires a restart to take effect.",
 	"configuration.enable.markdownDeprecationMessage": "Positron Assistant is being superseded by Posit Assistant. Use `#assistant.enabled#` instead.",
-	"configuration.inlineCompletions.enable.description": "Languages for which inline completions in the editor are enabled.\n\nBy default, the setting is configured with item `*` and value `true` to enable completions for all languages. To disable completions for all languages, set the entry to item `*` and value `false`.\n\nExample: to disable completions for R files, add an item using language identifier `r` and value `false`.\n\nSee the [known language identifiers](https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers) documentation for additional language identifiers.",
 	"configuration.getTableSummary.description": "Enable Positron Assistant get table summary tool.",
 	"configuration.providerVariables.bedrock.description": "Variables used to configure advanced settings for Bedrock in Positron Assistant.\n\nRequires a restart to take effect.\n\nExample: to set the AWS region and profile for Amazon Bedrock, add items with keys `AWS_REGION` and `AWS_PROFILE`.",
 	"configuration.bedrock.inferenceProfileRegion.description": "Override the inference profile region for Amazon Bedrock.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' → 'us'). Use this setting to explicitly specify a different region.\n\nRequires a restart to take effect.\n\nExamples: 'global', 'us', 'eu', 'apac'.",

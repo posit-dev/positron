@@ -20,7 +20,6 @@
 		"codeActionAI",
 		"defaultChatParticipant",
 		"findFiles2",
-		"inlineCompletionsAdditions",
 		"languageModelSystem"
 	],
 	"contributes": {
@@ -116,12 +115,6 @@
 		},
 		"commands": [
 			{
-				"command": "positron-assistant.toggleInlineCompletions",
-				"title": "%commands.toggleInlineCompletions.title%",
-				"category": "%commands.category%",
-				"enablement": "config.positron.assistant.enable"
-			},
-			{
 				"command": "positron-assistant.collectDiagnostics",
 				"title": "%commands.collectDiagnostics.title%",
 				"category": "%commands.category%",
@@ -141,16 +134,6 @@
 						"tags": [
 							"preview"
 						]
-					},
-					"positron.assistant.inlineCompletions.enable": {
-						"type": "object",
-						"default": {
-							"*": true
-						},
-						"additionalProperties": {
-							"type": "boolean"
-						},
-						"markdownDescription": "%configuration.inlineCompletions.enable.description%"
 					},
 					"positron.assistant.providerVariables.bedrock": {
 						"type": "object",

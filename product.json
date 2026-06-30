@@ -380,7 +380,7 @@
 		"completionsQuotaExceededContext": "github.copilot.completions.quotaExceeded",
 		"walkthroughCommand": "github.copilot.open.walkthrough",
 		"completionsMenuCommand": "github.copilot.toggleStatusMenu",
-		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsEnablementSetting": "github.copilot.enable",
 		"completionsRefreshTokenCommand": "github.copilot.signIn",
 		"chatRefreshTokenCommand": "github.copilot.refreshToken",
 		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",

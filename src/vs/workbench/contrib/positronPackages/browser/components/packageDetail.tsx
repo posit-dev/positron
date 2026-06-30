@@ -48,40 +48,36 @@ function formatPublishedDate(raw: string): string {
 
 /**
  * A single stat in the Overview's top stat strip: an uppercase label above a
- * prominent value. Shows a skeleton while a detail-sourced value is pending,
- * and renders nothing once resolved if there is still no value.
+ * prominent value. Renders nothing if there is no value. The Overview is hidden
+ * until the detail fetch resolves, so this never sees a pending value.
  */
-const Stat = (props: { label: string; value: string | number | undefined; loading?: boolean }) => {
+const Stat = (props: { label: string; value: string | number | undefined }) => {
 	const hasValue = props.value !== undefined && props.value !== '';
-	if (!hasValue && !props.loading) {
+	if (!hasValue) {
 		return null;
 	}
 	return (
 		<div className='package-detail-stat'>
 			<div className='package-detail-stat-label'>{props.label}</div>
-			<div className='package-detail-stat-value'>
-				{hasValue ? props.value : <span className='package-detail-skeleton' data-testid='package-detail-loading' />}
-			</div>
+			<div className='package-detail-stat-value'>{props.value}</div>
 		</div>
 	);
 };
 
 /**
- * A label/value row in the Metadata section. Shows a skeleton while a
- * detail-sourced value is pending, and renders nothing once resolved if there
- * is still no value.
+ * A label/value row in the Metadata section. Renders nothing if there is no
+ * value. The Overview is hidden until the detail fetch resolves, so this never
+ * sees a pending value.
  */
-const MetaRow = (props: { label: string; value: string | number | undefined; loading?: boolean }) => {
+const MetaRow = (props: { label: string; value: string | number | undefined }) => {
 	const hasValue = props.value !== undefined && props.value !== '';
-	if (!hasValue && !props.loading) {
+	if (!hasValue) {
 		return null;
 	}
 	return (
 		<>
 			<div className='package-detail-meta-label'>{props.label}</div>
-			<div className='package-detail-meta-value'>
-				{hasValue ? props.value : <span className='package-detail-skeleton' data-testid='package-detail-loading' />}
-			</div>
+			<div className='package-detail-meta-value'>{props.value}</div>
 		</>
 	);
 };
@@ -120,8 +116,12 @@ export const PackageDetail = (props: PackageDetailProps) => {
 	}, [packagesService, sessionId]);
 
 	// Detail fetch: call getPackageDetail when the package/session changes.
+	// Initialize `detailLoading` to true when a live session exists so the very
+	// first paint already reflects the pending fetch -- otherwise the Overview
+	// would flash in (with no detail) for one frame before the effect runs.
 	const [detail, setDetail] = useState<Partial<ILanguageRuntimePackage> | undefined>(undefined);
-	const [detailLoading, setDetailLoading] = useState(false);
+	const [detailLoading, setDetailLoading] = useState<boolean>(() =>
+		!!packagesService.getInstances().find(i => i.session.metadata.sessionId === sessionId));
 	useEffect(() => {
 		const inst = packagesService.getInstances().find(i => i.session.metadata.sessionId === sessionId);
 		if (!inst) {
@@ -287,8 +287,12 @@ export const PackageDetail = (props: PackageDetailProps) => {
 						{pkg?.version && <span className='package-detail-version'>{pkg.version}</span>}
 						{pkg?.attached && <span className='package-detail-attached-pill'>{localize('positron.packages.detail.attached', "Attached")}</span>}
 					</div>
-					{merged.author && <div className='package-detail-author'>{merged.author}</div>}
-					{subtitle && <div className='package-detail-description'>{subtitle}</div>}
+					{detailLoading
+						? <div className='package-detail-author'><span className='package-detail-skeleton' data-testid='package-detail-loading' /></div>
+						: merged.author && <div className='package-detail-author'>{merged.author}</div>}
+					{detailLoading
+						? <div className='package-detail-description'><span className='package-detail-skeleton' data-testid='package-detail-loading' /></div>
+						: subtitle && <div className='package-detail-description'>{subtitle}</div>}
 					<div className='package-detail-actions'>
 						{view.actions.map(renderActionButton)}
 					</div>
@@ -311,21 +315,28 @@ export const PackageDetail = (props: PackageDetailProps) => {
 				<div className='package-detail-tab active'>{localize('positron.packages.detail.overview', "Overview")}</div>
 			</div>
 
-			<div className='package-detail-overview'>
-				<div className='package-detail-stats'>
-					<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
-					<Stat label={localize('positron.packages.detail.license', "License")} loading={detailLoading} value={merged.license} />
-				</div>
+			{/*
+			 * Hold the Overview back until the detail fetch resolves, then render
+			 * it all at once. Half-rendering it with the list entry and filling in
+			 * detail-only fields afterwards made the panel jump.
+			 */}
+			{!detailLoading &&
+				<div className='package-detail-overview'>
+					<div className='package-detail-stats'>
+						<Stat label={localize('positron.packages.detail.version', "Version")} value={installedVersionText} />
+						<Stat label={localize('positron.packages.detail.license', "License")} value={merged.license} />
+					</div>
 
-				<div className='package-detail-section'>
-					<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
-					<div className='package-detail-meta-grid'>
-						<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} loading={detailLoading} value={merged.sourceRepository} />
-						<MetaRow label={localize('positron.packages.detail.published', "Date published")} loading={detailLoading} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
-						<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+					<div className='package-detail-section'>
+						<div className='package-detail-section-title'>{localize('positron.packages.detail.metadata', "Metadata")}</div>
+						<div className='package-detail-meta-grid'>
+							<MetaRow label={localize('positron.packages.detail.repository', "Source repository")} value={merged.sourceRepository} />
+							<MetaRow label={localize('positron.packages.detail.published', "Date published")} value={merged.publishedDate ? formatPublishedDate(merged.publishedDate) : undefined} />
+							<MetaRow label={localize('positron.packages.detail.interpreter', "Interpreter")} value={interpreter} />
+						</div>
 					</div>
 				</div>
-			</div>
+			}
 		</div>
 	);
 };
