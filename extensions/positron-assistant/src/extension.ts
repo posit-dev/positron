@@ -12,7 +12,6 @@ import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { registerCodeActionProvider } from './codeActions.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
@@ -298,9 +297,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);
-
-	// Register code action provider
-	registerCodeActionProvider(context);
 
 	// Register participant detection provider
 	registerParticipantDetectionProvider();
