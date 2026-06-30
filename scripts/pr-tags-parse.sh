@@ -4,6 +4,9 @@
 
 set -e
 
+# Pure tag-derivation helpers (unit-tested in scripts/test/pr-tags-lib-test.sh).
+source "$(dirname "$0")/lib/pr-tags-lib.sh"
+
 # Fetch GitHub repository and PR number from the environment
 REPO="${GITHUB_REPOSITORY}"  # Automatically set by GitHub Actions
 PR_NUMBER="${GITHUB_PR_NUMBER:-${GITHUB_EVENT_PULL_REQUEST_NUMBER}}"  # Use the correct PR number env variable
@@ -136,8 +139,73 @@ else
 		fi
 	fi
 
+	# Resolve paths to the map / tag enum (this script lives in scripts/).
+	SCRIPT_DIR="$(dirname "$0")"
+	MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
+	ENUM_FILE="$SCRIPT_DIR/../test/e2e/infra/test-runner/test-tags.ts"
+
+	# Auto-inject feature tags derived from the PR's changed files, unless the
+	# author opted out with @:no-auto-tags. Additive only -- never removes tags
+	# the author specified. Two sources: a source/extension PATH map, and the
+	# feature tags declared inside changed e2e test files.
+	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
+		echo "Found @:no-auto-tags. Skipping derived tagging."
+	elif [[ -n "$CHANGED_FILES" ]]; then
+		if [[ -f "$MAP_FILE" ]]; then
+			MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
+			if [[ -n "$MAP_TAGS" ]]; then
+				echo "Derived tags from changed source files: $MAP_TAGS"
+				TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
+			fi
+		fi
+		if [[ -f "$ENUM_FILE" ]]; then
+			TEST_TAGS="$(derive_test_file_tags "$CHANGED_FILES" "$SCRIPT_DIR/.." "$ENUM_FILE")"
+			if [[ -n "$TEST_TAGS" ]]; then
+				echo "Derived tags from changed test files: $TEST_TAGS"
+				TAGS="$(union_csv_tags "$TAGS" "$TEST_TAGS")"
+			fi
+		fi
+	fi
+
+	# PR-time guardrail: warn (via the advisory comment + log) when this PR
+	# touches a Positron source dir/extension with no map entry. Runs regardless
+	# of @:no-auto-tags -- it is map-maintenance feedback, not tag selection.
+	UNMAPPED_DIRS=""
+	if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+		UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
+		if [[ -n "$UNMAPPED_DIRS" ]]; then
+			echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
+			printf '  - %s\n' $UNMAPPED_DIRS
+		fi
+	fi
+	echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
+
+	# Enable Windows/web jobs when a NEWLY ADDED e2e test carries tags.WIN /
+	# tags.WEB (read from added diff lines only, so small edits to an existing
+	# tagged test don't opt in). Runs regardless of @:no-auto-tags.
+	TEST_PATCHES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | .patch' || true)"
+	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags "$TEST_PATCHES")"
+	if [[ "$ADDED_WIN" == "true" ]]; then
+		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
+		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+	fi
+	if [[ "$ADDED_WEB" == "true" ]]; then
+		echo "Newly added e2e test carries tags.WEB. Enabling web tests."
+		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+	fi
+
 	# Output the tags
 	echo "Extracted Tags: $TAGS"
+
+	# Signal the workflow when nothing but the @:critical floor resolved, so it
+	# can warn the author that no feature suites were auto-selected.
+	if [[ "$TAGS" == "@:critical" ]]; then
+		echo "no_matches=true" >> "$GITHUB_OUTPUT"
+	else
+		echo "no_matches=false" >> "$GITHUB_OUTPUT"
+	fi
 fi
 
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
