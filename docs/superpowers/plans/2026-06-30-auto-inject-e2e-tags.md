@@ -4,7 +4,7 @@
 
 **Goal:** Derive the correct `@:feature-name` e2e tags from a PR's changed files and inject them into `pr-tags-parse.sh`, so the right suites run even when the author forgets to tag the PR body.
 
-**Architecture:** Pure string-in/string-out bash helpers (no `gh`, no GitHub Actions side effects) live in a sourceable library and are unit-tested with a zero-dependency bash harness. `pr-tags-parse.sh` sources the library and wires `gh`-fetched data into it. A curated `e2e-tag-paths-map.json` maps path prefixes to feature tags; a nightly guardrail script flags unmapped Positron dirs. A no-match warning comment is posted from the PR workflow.
+**Architecture:** Pure string-in/string-out bash helpers (no `gh`, no GitHub Actions side effects) live in a sourceable library and are unit-tested with a zero-dependency bash harness. `pr-tags-parse.sh` sources the library and wires `gh`-fetched data into it. A curated `e2e-tag-paths-map.json` maps source/extension path prefixes to feature tags; changed test files contribute the feature tags they declare. A PR-time guardrail flags Positron dirs the PR touches that are missing from the map. A single advisory comment (no-match and/or unmapped-dir warnings) is posted from the PR workflow.
 
 **Tech Stack:** Bash, `jq` (preinstalled on GitHub-hosted runners), `gh` CLI, GitHub Actions YAML.
 
@@ -24,12 +24,12 @@
 
 ## File Structure
 
-- `scripts/lib/pr-tags-lib.sh` (NEW, extended in Task 3) - pure helpers: `derive_map_tags`, `derive_test_file_tags`, `scan_added_platform_tags`, `is_infra_only`, `union_csv_tags`.
+- `scripts/lib/pr-tags-lib.sh` (NEW, extended in Tasks 3-4) - pure helpers: `derive_map_tags`, `derive_test_file_tags`, `find_unmapped_positron_dirs`, `scan_added_platform_tags`, `is_infra_only`, `union_csv_tags`.
 - `scripts/test/pr-tags-lib-test.sh` (NEW) - plain-bash unit tests for the library.
 - `.github/workflows/e2e-tag-paths-map.json` (NEW) - **source/extension** path-prefix -> feature-tag(s) map (no test-dir entries).
-- `scripts/check-e2e-tag-map.sh` (NEW) - guardrail: lists Positron source dirs/extensions and flags any missing a map entry.
-- `.github/workflows/e2e-tag-map-check-nightly.yml` (NEW) - nightly run of the guardrail.
-- `scripts/pr-tags-parse.sh` (MODIFY) - source the library; derive + union source-map tags AND changed-test-file tags; honor `@:no-auto-tags`; added-line platform scan; emit `no_matches` output.
+- `scripts/check-e2e-tag-map.sh` (NEW) - local/manual full-sweep audit utility (not run by CI; the authoritative check is the PR-time one in `pr-tags-parse.sh`).
+- `scripts/pr-tags-parse.sh` (MODIFY) - source the library; derive + union source-map tags AND changed-test-file tags; honor `@:no-auto-tags`; added-line platform scan; PR-time guardrail (unmapped Positron dirs); emit `no_matches` and `unmapped_dirs` outputs.
+- (Task 2 creates `.github/workflows/e2e-tag-map-check-nightly.yml`; Task 4 removes it when the guardrail moves to PR-time. Not in the final tree.)
 - `.github/workflows/test-pull-request.yml` (MODIFY) - add a `no_matches` output to the `pr-tags` job and a comment-upsert step; grant `pull-requests: write`.
 
 ---
@@ -565,16 +565,124 @@ git commit -m "feat: read feature tags declared in changed e2e test files"
 
 ---
 
-## Task 4: Wire derivation into pr-tags-parse.sh
+## Task 4: PR-time guardrail function + wire all derivation into pr-tags-parse.sh
 
 **Files:**
+- Modify: `scripts/lib/pr-tags-lib.sh` (add `find_unmapped_positron_dirs`)
+- Modify: `scripts/test/pr-tags-lib-test.sh` (add tests)
+- Delete: `.github/workflows/e2e-tag-map-check-nightly.yml` (guardrail moves to PR-time)
+- Modify: `scripts/check-e2e-tag-map.sh` (header comment: now local/manual only)
 - Modify: `scripts/pr-tags-parse.sh`
 
 **Interfaces:**
-- Consumes: `derive_map_tags`, `derive_test_file_tags`, `scan_added_platform_tags`, `union_csv_tags` from `scripts/lib/pr-tags-lib.sh` (Tasks 1, 3); `.github/workflows/e2e-tag-paths-map.json` (Task 2); `test/e2e/infra/test-runner/test-tags.ts` (the enum).
-- Produces: an additional `no_matches=true|false` line in `$GITHUB_OUTPUT`, consumed by Task 5. `no_matches=true` iff, after all derivation, the resolved feature-tag set is just `@:critical` (nothing else matched and the body had no feature tags).
+- Consumes: `derive_map_tags`, `derive_test_file_tags`, `find_unmapped_positron_dirs`, `scan_added_platform_tags`, `union_csv_tags` from `scripts/lib/pr-tags-lib.sh` (Tasks 1, 3, 4); `.github/workflows/e2e-tag-paths-map.json` (Task 2); `test/e2e/infra/test-runner/test-tags.ts` (the enum).
+- Produces: two new `$GITHUB_OUTPUT` lines consumed by Task 5: `no_matches=true|false` (`true` iff the resolved feature-tag set is just `@:critical`) and `unmapped_dirs=<comma-joined>` (Positron source dirs this PR touches that have no map entry; empty if none).
 
-- [ ] **Step 1: Source the library near the top**
+- [ ] **Step 1: Write the failing guardrail-function tests**
+
+Append to `scripts/test/pr-tags-lib-test.sh`, just before the final `[[ $fail -eq 0 ]]` line:
+
+```bash
+# --- find_unmapped_positron_dirs ---
+MAP2="$(mktemp)"
+cat > "$MAP2" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "src/vs/workbench/contrib/positronTelemetry/": []
+}
+JSON
+# A mapped dir (incl. a [] entry) is NOT flagged; an unmapped positron dir IS.
+assert_eq "unmapped positron dir flagged" "src/vs/workbench/contrib/positronFoo/" \
+	"$(find_unmapped_positron_dirs "$(printf 'src/vs/workbench/contrib/positronConsole/a.ts\nsrc/vs/workbench/contrib/positronFoo/b.ts\nsrc/vs/workbench/contrib/positronTelemetry/c.ts')" "$MAP2")"
+# A non-Positron path is never flagged.
+assert_eq "non-positron path ignored" "" \
+	"$(find_unmapped_positron_dirs "src/vs/base/common/uri.ts" "$MAP2")"
+# An unmapped extension is flagged.
+assert_eq "unmapped extension flagged" "extensions/positron-bar/" \
+	"$(find_unmapped_positron_dirs "extensions/positron-bar/src/x.ts" "$MAP2")"
+rm -f "$MAP2"
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `bash scripts/test/pr-tags-lib-test.sh`
+Expected: FAIL on the three new checks (`find_unmapped_positron_dirs` not defined yet).
+
+- [ ] **Step 3: Add the function to the library**
+
+Append to `scripts/lib/pr-tags-lib.sh`:
+
+```bash
+# find_unmapped_positron_dirs <changed_files> <map_file>
+# Echoes (newline-separated, unique) the Positron source dirs/extensions this PR
+# touches that have NO key in the map. The dir is the path truncated to its
+# positron* / positron-* segment with a trailing slash. A dir counts as mapped
+# when its prefix is a key in the map (even with a [] value). Used for PR-time
+# map-rot feedback; test dirs are never considered (they are not in the map).
+find_unmapped_positron_dirs() {
+	local changed="$1" map_file="$2"
+	local file dir
+	local -a out=()
+	while IFS= read -r file; do
+		[[ -z "$file" ]] && continue
+		case "$file" in
+			src/vs/workbench/contrib/positron*/*)
+				dir="$(printf '%s' "$file" | sed -E 's#^(src/vs/workbench/contrib/[^/]+/).*#\1#')" ;;
+			src/vs/workbench/services/positron*/*)
+				dir="$(printf '%s' "$file" | sed -E 's#^(src/vs/workbench/services/[^/]+/).*#\1#')" ;;
+			extensions/positron-*/*)
+				dir="$(printf '%s' "$file" | sed -E 's#^(extensions/[^/]+/).*#\1#')" ;;
+			*) continue ;;
+		esac
+		if ! jq -e --arg k "$dir" 'has($k)' "$map_file" >/dev/null 2>&1; then
+			out+=("$dir")
+		fi
+	done <<< "$changed"
+	[[ ${#out[@]} -eq 0 ]] && return 0
+	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `bash scripts/test/pr-tags-lib-test.sh`
+Expected: `ALL PASS`, exit 0 (all prior tests still pass too).
+
+- [ ] **Step 5: Commit the guardrail function**
+
+```bash
+git add scripts/lib/pr-tags-lib.sh scripts/test/pr-tags-lib-test.sh
+git commit -m "feat: add find_unmapped_positron_dirs for PR-time map-rot check"
+```
+
+- [ ] **Step 6: Remove the nightly workflow; repurpose the standalone script**
+
+The guardrail now runs at PR time, so the nightly workflow is no longer needed.
+
+```bash
+git rm .github/workflows/e2e-tag-map-check-nightly.yml
+```
+
+Then edit the header comment of `scripts/check-e2e-tag-map.sh` so it reads as a local/manual utility (it is no longer invoked by any workflow). Replace its opening comment block with:
+
+```bash
+#!/usr/bin/env bash
+# LOCAL / MANUAL full-sweep audit utility (not run by CI). Lists every Positron
+# source dir/extension that has no entry in e2e-tag-paths-map.json. The
+# authoritative, automated check runs per-PR in pr-tags-parse.sh, scoped to the
+# dirs each PR touches; run this by hand for an initial audit or a full sweep.
+# Usage: scripts/check-e2e-tag-map.sh [--warn-only]
+# Env: MAP_FILE overrides the map path (used by tests).
+```
+
+Commit:
+
+```bash
+git add .github/workflows/e2e-tag-map-check-nightly.yml scripts/check-e2e-tag-map.sh
+git commit -m "chore: move e2e tag map check from nightly to PR-time"
+```
+
+- [ ] **Step 7: Source the library near the top of pr-tags-parse.sh**
 
 In `scripts/pr-tags-parse.sh`, after the `set -e` line (line 5) and before the env-var reads, add:
 
@@ -583,11 +691,16 @@ In `scripts/pr-tags-parse.sh`, after the `set -e` line (line 5) and before the e
 source "$(dirname "$0")/lib/pr-tags-lib.sh"
 ```
 
-- [ ] **Step 2: Add derived tagging (source map + test files) + opt-out after the @:ark injection block**
+- [ ] **Step 8: Add derived tagging + PR-time guardrail after the @:ark injection block**
 
 In the `else` branch (the `@:all`-not-present path), immediately after the `@:ark` injection `fi` (currently around line 138, before `# Output the tags`), insert:
 
 ```bash
+	# Resolve paths to the map / tag enum (this script lives in scripts/).
+	SCRIPT_DIR="$(dirname "$0")"
+	MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
+	ENUM_FILE="$SCRIPT_DIR/../test/e2e/infra/test-runner/test-tags.ts"
+
 	# Auto-inject feature tags derived from the PR's changed files, unless the
 	# author opted out with @:no-auto-tags. Additive only -- never removes tags
 	# the author specified. Two sources: a source/extension PATH map, and the
@@ -595,9 +708,6 @@ In the `else` branch (the `@:all`-not-present path), immediately after the `@:ar
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
 		echo "Found @:no-auto-tags. Skipping derived tagging."
 	elif [[ -n "$CHANGED_FILES" ]]; then
-		SCRIPT_DIR="$(dirname "$0")"
-		MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
-		ENUM_FILE="$SCRIPT_DIR/../test/e2e/infra/test-runner/test-tags.ts"
 		if [[ -f "$MAP_FILE" ]]; then
 			MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
 			if [[ -n "$MAP_TAGS" ]]; then
@@ -613,9 +723,22 @@ In the `else` branch (the `@:all`-not-present path), immediately after the `@:ar
 			fi
 		fi
 	fi
+
+	# PR-time guardrail: warn (via the advisory comment + log) when this PR
+	# touches a Positron source dir/extension with no map entry. Runs regardless
+	# of @:no-auto-tags -- it is map-maintenance feedback, not tag selection.
+	UNMAPPED_DIRS=""
+	if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+		UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
+		if [[ -n "$UNMAPPED_DIRS" ]]; then
+			echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
+			printf '  - %s\n' $UNMAPPED_DIRS
+		fi
+	fi
+	echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
 ```
 
-- [ ] **Step 3: Add the added-line platform scan in the same branch**
+- [ ] **Step 9: Add the added-line platform scan in the same branch**
 
 Immediately after the block from Step 2, insert the platform scan. This enables the Windows/web jobs when a newly added e2e test carries `tags.WIN` / `tags.WEB`:
 
@@ -637,7 +760,7 @@ Immediately after the block from Step 2, insert the platform scan. This enables 
 	fi
 ```
 
-- [ ] **Step 4: Emit the no_matches signal**
+- [ ] **Step 10: Emit the no_matches signal**
 
 Still inside the `else` branch, after `echo "Extracted Tags: $TAGS"` (the existing line), add:
 
@@ -651,9 +774,9 @@ Still inside the `else` branch, after `echo "Extracted Tags: $TAGS"` (the existi
 	fi
 ```
 
-(For the `@:all` branch, `no_matches` is left unset, which Task 5 treats as falsey: an `@:all` PR runs everything, so there is nothing to warn about.)
+(For the `@:all` branch, both `no_matches` and `unmapped_dirs` are left unset, which Task 5 treats as falsey/empty: an `@:all` PR runs everything, so there is nothing to warn about.)
 
-- [ ] **Step 5: Verify the script parses and runs the library**
+- [ ] **Step 11: Verify the script parses and runs the library**
 
 Run: `bash -n scripts/pr-tags-parse.sh && echo "syntax OK"`
 Expected: `syntax OK`.
@@ -662,7 +785,7 @@ Run the library tests again to confirm nothing in the lib regressed:
 Run: `bash scripts/test/pr-tags-lib-test.sh`
 Expected: `ALL PASS`.
 
-- [ ] **Step 6: Manual smoke against a real PR (optional but recommended)**
+- [ ] **Step 12: Manual smoke against a real PR (optional but recommended)**
 
 If `gh` is authenticated locally, dry-run the parse against a recent PR by exporting the env the script reads, pointing `GITHUB_OUTPUT` at a temp file:
 
@@ -675,9 +798,9 @@ bash scripts/pr-tags-parse.sh
 cat /tmp/pr-tags-out.txt
 ```
 
-Expected: log shows `Derived tags from changed source files: ...` (for a PR touching a mapped source dir) and/or `Derived tags from changed test files: ...` (for a PR touching an e2e test), and `/tmp/pr-tags-out.txt` contains a `tags=` line plus `no_matches=`.
+Expected: log shows `Derived tags from changed source files: ...` (for a PR touching a mapped source dir) and/or `Derived tags from changed test files: ...` (for a PR touching an e2e test), and `/tmp/pr-tags-out.txt` contains a `tags=` line plus `no_matches=` and `unmapped_dirs=` lines.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add scripts/pr-tags-parse.sh
@@ -692,16 +815,17 @@ git commit -m "feat: auto-inject e2e tags from changed files in pr-tags-parse"
 - Modify: `.github/workflows/test-pull-request.yml`
 
 **Interfaces:**
-- Consumes: `no_matches` output from the `pr-tags` job (Task 4).
-- Produces: a sticky PR comment (hidden marker `<!-- e2e-auto-tags -->`) that warns on no-match and resolves itself when a later push matches.
+- Consumes: `no_matches` and `unmapped_dirs` outputs from the `pr-tags` job (Task 4).
+- Produces: a sticky PR comment (hidden marker `<!-- e2e-auto-tags -->`) that warns on no-match and/or unmapped Positron dirs, and resolves itself when a later push clears both.
 
-- [ ] **Step 1: Expose the `no_matches` output and grant comment permission**
+- [ ] **Step 1: Expose the outputs and grant comment permission**
 
 In `.github/workflows/test-pull-request.yml`, in the `pr-tags` job:
 - Add to the job's `outputs:` block (alongside `tags:` etc.):
 
 ```yaml
       no_matches: ${{ steps.pr-tags.outputs.no_matches }}
+      unmapped_dirs: ${{ steps.pr-tags.outputs.unmapped_dirs }}
 ```
 
 - Add a `permissions:` block to the `pr-tags` job (it currently has none), so the comment step can write:
@@ -724,6 +848,7 @@ Add a final step to the `pr-tags` job, after the existing `Parse Tags from PR Bo
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           NO_MATCHES: ${{ steps.pr-tags.outputs.no_matches }}
+          UNMAPPED_DIRS: ${{ steps.pr-tags.outputs.unmapped_dirs }}
         run: bash scripts/pr-tags-comment.sh || echo "Comment step failed (non-fatal)."
 ```
 
@@ -733,11 +858,12 @@ Create `scripts/pr-tags-comment.sh`:
 
 ```bash
 #!/usr/bin/env bash
-# Upsert a sticky advisory comment about auto-tagging.
-# - NO_MATCHES=true  -> warn the author no feature suites were auto-selected.
-# - NO_MATCHES=false -> resolve any prior warning (so a stale warning never lingers).
-# Suppressed entirely for infra-only PRs. Non-fatal: fork PRs get a read-only
-# token, so a failed POST must not break the tags job (caller appends `|| echo`).
+# Upsert a sticky advisory comment about auto-tagging. Two advisories may apply:
+#   - NO_MATCHES=true        -> no feature suites were auto-selected (only @:critical runs).
+#   - UNMAPPED_DIRS non-empty -> the PR touches Positron dirs absent from the map.
+# When neither applies, resolve any prior warning (so a stale one never lingers).
+# Suppressed for infra-only PRs. Non-fatal: fork PRs get a read-only token, so a
+# failed write must not break the tags job (caller appends `|| echo`).
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -746,6 +872,7 @@ source "$REPO_ROOT/lib/pr-tags-lib.sh"
 REPO="${GITHUB_REPOSITORY}"
 PR_NUMBER="${PR_NUMBER}"
 NO_MATCHES="${NO_MATCHES:-false}"
+UNMAPPED_DIRS="${UNMAPPED_DIRS:-}"
 MARKER="<!-- e2e-auto-tags -->"
 
 CHANGED_FILES="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename' || true)"
@@ -754,20 +881,34 @@ if [[ "$(is_infra_only "$CHANGED_FILES")" == "true" ]]; then
 	exit 0
 fi
 
-# Find an existing advisory comment (by marker).
 EXISTING_ID="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
 	--jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" | head -n1 || true)"
 
+# Assemble whichever advisory sections currently apply.
+SECTIONS=""
 if [[ "$NO_MATCHES" == "true" ]]; then
-	BODY="${MARKER}
-**No e2e feature tags were auto-selected for this PR.** Only \`@:critical\` will run.
+	SECTIONS="${SECTIONS}
+**No e2e feature tags were auto-selected for this PR.** Only \`@:critical\` will run. If this PR changes a feature with e2e coverage, add the tag(s) to the PR body (see \`test/e2e/infra/test-runner/test-tags.ts\`).
+"
+fi
+if [[ -n "$UNMAPPED_DIRS" ]]; then
+	DIR_BULLETS="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | sed 's/^/- /')"
+	SECTIONS="${SECTIONS}
+**This PR touches Positron dir(s) with no entry in \`.github/workflows/e2e-tag-paths-map.json\`:**
+${DIR_BULLETS}
 
-If this PR changes a feature with e2e coverage, add the tag(s) to the PR body (see \`test/e2e/infra/test-runner/test-tags.ts\` for the list). To intentionally skip auto-tagging, add \`@:no-auto-tags\`."
-else
-	# Resolve: only leave a (quiet) note if a prior warning exists.
-	[[ -z "$EXISTING_ID" ]] && { echo "Matches found and no prior warning; nothing to do."; exit 0; }
+Add each to the map (a feature tag list, or \`[]\` if it has no e2e coverage) so future changes there auto-select the right suite.
+"
+fi
+
+if [[ -z "$SECTIONS" ]]; then
+	# Nothing to warn about: resolve any prior warning, else do nothing.
+	[[ -z "$EXISTING_ID" ]] && { echo "No advisories and no prior comment; nothing to do."; exit 0; }
 	BODY="${MARKER}
-e2e feature tags were auto-selected from this PR's changed files. No action needed."
+e2e auto-tagging looks good for this PR. No action needed."
+else
+	BODY="${MARKER}${SECTIONS}
+To skip auto-tagging entirely, add \`@:no-auto-tags\` to the PR body."
 fi
 
 if [[ -n "$EXISTING_ID" ]]; then

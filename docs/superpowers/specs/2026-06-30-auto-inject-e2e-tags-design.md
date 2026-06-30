@@ -159,20 +159,28 @@ that they should add feature tag(s) manually if the change has e2e coverage.
   documented in the no-match comment text and the PR template's tag section, so
   authors learn the escape hatch exists without reading this spec.
 
-### 6. Guardrail against map rot
+### 6. Guardrail against map rot (PR-time, scoped)
 
-A nightly workflow (clone of `extensions-check-nightly.yml`) flags any
-`src/vs/workbench/contrib/positron*` dir, `src/vs/workbench/services/positron*`
-dir, or `positron-*` extension that has no entry in `e2e-tag-paths-map.json`.
-(Test directories are intentionally NOT checked - they are not in the map; their
-tags come from the files themselves, section 2.) This is the same maintenance
-pattern already in use for `extensions-tag-map.json`, so the map can't silently
-fall out of date.
+The map can't silently fall out of date, but the check runs **at PR time, scoped
+to the dirs the PR actually touches** - not as a nightly full sweep. When a PR
+changes a file under a `src/vs/workbench/contrib/positron*` /
+`src/vs/workbench/services/positron*` dir or a `positron-*` extension that has no
+entry in `e2e-tag-paths-map.json`, the unmapped dir is surfaced in the advisory
+comment and the workflow log. This gives the author immediate, relevant feedback
+on the very PR that introduces a new feature dir, and never blocks an unrelated
+PR over a pre-existing gap elsewhere.
 
-**Opt-out for areas with no e2e coverage.** Many `positron*` dirs and extensions
-are pure plumbing with no e2e tests; mapping them to a real tag would be wrong.
-The guardrail therefore checks that an **entry exists**, not that its tag list is
-non-empty. An explicit empty value documents "intentionally no e2e coverage":
+- **Scoped, not global.** Every new Positron dir arrives via a PR that edits
+  files in it, so the PR-time check catches new/renamed dirs on introduction -
+  the same coverage a nightly sweep would give, without the separate workflow to
+  maintain or the noise of failing unrelated PRs.
+- **Warn, not block.** The unmapped-dir notice is advisory (comment + log), not a
+  hard CI failure - consistent with the rest of the feature being additive and
+  non-blocking. (Could escalate to a job failure later if authors ignore it.)
+- **Opt-out for areas with no e2e coverage.** Many `positron*` dirs are pure
+  plumbing; the check is satisfied by an **entry existing**, not by a non-empty
+  tag list. An explicit empty value documents "intentionally no e2e coverage" and
+  silences the notice while injecting no tags:
 
 ```jsonc
 {
@@ -180,44 +188,45 @@ non-empty. An explicit empty value documents "intentionally no e2e coverage":
 }
 ```
 
-An empty-value entry satisfies the guardrail (so it stops flagging) and injects
-no tags. New dirs still get flagged until someone makes a deliberate choice -
-either a real tag or an explicit `[]` - which is the point.
+- A standalone `scripts/check-e2e-tag-map.sh` is retained as a **local/manual**
+  full-sweep utility (handy for the initial audit and ad-hoc checks), but nothing
+  runs it automatically - the authoritative check is the PR-time scoped one.
 
 ## Implementation surface
 
 - **`scripts/lib/pr-tags-lib.sh`** - pure helpers (`derive_map_tags`,
-  `derive_test_file_tags`, `scan_added_platform_tags`, `is_infra_only`,
-  `union_csv_tags`), unit-tested with no `gh`/network.
+  `derive_test_file_tags`, `find_unmapped_positron_dirs`,
+  `scan_added_platform_tags`, `is_infra_only`, `union_csv_tags`), unit-tested with
+  no `gh`/network.
 - **`scripts/pr-tags-parse.sh`** - extend with: (a) match changed files (already
   fetched via `gh api .../pulls/N/files` for the `@:ark` injection - this is
   relative to the PR's base ref, so non-`main`-targeted PRs compute the right
   set) against the source map and union matched tags; (b) for changed
   `test/e2e/tests/**` files, read their declared feature tags and union them in;
   (c) scan added test-file diff lines for `@:win`/`@:web`; (d) honor
-  `@:no-auto-tags`; (e) emit a `no_matches` signal for the comment step. Matching
-  uses `jq` (present on GitHub-hosted runners, already used in these workflows).
+  `@:no-auto-tags`; (e) compute the PR-time guardrail (unmapped Positron dirs this
+  PR touches); (f) emit `no_matches` and `unmapped_dirs` signals for the comment
+  step. Matching uses `jq` (present on GitHub-hosted runners).
 - **`.github/workflows/e2e-tag-paths-map.json`** - the source/extension map.
 - **`.github/workflows/test-pull-request.yml`** - add a comment-upsert step to the
-  `pr-tags` job for the no-match warning; grant it `pull-requests: write`.
-- **New nightly guardrail workflow** - flags unmapped source dirs/extensions.
+  `pr-tags` job for the no-match / unmapped-dir warning; grant it
+  `pull-requests: write`.
+- **`scripts/check-e2e-tag-map.sh`** - retained as a local/manual full-sweep
+  audit utility (no automated runner; the nightly workflow is removed).
 
 ## Rollout
 
-Sequencing matters: a live guardrail before the map is populated would fail
-nightly immediately, and a live script before the map exists would silently
-no-op. Phased delivery:
+A live script before the map exists would silently no-op, so land the map first.
+Phased delivery:
 
-1. **Map + guardrail (warning-only).** Land `e2e-tag-paths-map.json` (drafted by
-   the audit task below) and the nightly guardrail in non-failing/warning mode.
-   Verify it doesn't flag anything unexpected, then flip it to failing.
-2. **Script + workflow.** Extend `pr-tags-parse.sh` and wire it into
-   `test-pull-request.yml`. Because injected tags are additive and echoed in the
-   workflow log, the first PRs that exercise it are self-observing - the log
-   shows what *would* be added before anyone relies on it, which covers the
-   canary need without a separate dry-run mode.
-3. **No-match comment.** Enable the comment-upsert step last, once derivation is
-   trusted.
+1. **Map.** Land `e2e-tag-paths-map.json` (drafted by the audit task below).
+2. **Script.** Extend `pr-tags-parse.sh` and wire it into `test-pull-request.yml`.
+   Because injected tags are additive and echoed in the workflow log, the first
+   PRs that exercise it are self-observing - the log shows what *would* be added
+   before anyone relies on it, which covers the canary need without a separate
+   dry-run mode.
+3. **Comment.** Enable the comment-upsert step (no-match + unmapped-dir warnings)
+   last, once derivation is trusted.
 
 ## Security boundary
 
@@ -236,16 +245,16 @@ degrades gracefully (section 4). No secrets are exposed to PR-head content.
    `@:feature-name` tags; assign the minimum-correct tag set or an explicit `[]`.
    (Test directories are NOT mapped.) This is the bulk of the human effort and
    precedes code.
-2. Ship map + guardrail (warning-only), then flip to failing.
-3. Extend `pr-tags-parse.sh` + wire into `test-pull-request.yml`.
-4. Add the no-match comment-upsert step.
+2. Ship the map (+ retain `check-e2e-tag-map.sh` as a local utility).
+3. Extend `pr-tags-parse.sh` (derivation + PR-time guardrail) + wire into
+   `test-pull-request.yml`.
+4. Add the comment-upsert step (no-match + unmapped-dir warnings).
 
 ## Testing
 
 The derivation logic has real branching (prefix match, enum resolution +
-exclusion for test-file tags, dedupe, opt-out, no-match, infra-exclusion,
-platform-from-added-lines), so it warrants a focused test harness at
-**`scripts/test/pr-tags-lib-test.sh`** (plain-bash assert harness - chosen over
-bats so CI needs no install). It exercises the pure library functions with a
-table of inputs -> expected outputs. The map *data* is validated by the nightly
-guardrail, not this harness.
+exclusion for test-file tags, unmapped-dir detection, dedupe, opt-out, no-match,
+infra-exclusion, platform-from-added-lines), so it warrants a focused test
+harness at **`scripts/test/pr-tags-lib-test.sh`** (plain-bash assert harness -
+chosen over bats so CI needs no install). It exercises the pure library functions
+with a table of inputs -> expected outputs.
