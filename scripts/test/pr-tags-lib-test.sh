@@ -60,5 +60,22 @@ assert_eq "union dedup order-stable" "@:critical,@:console,@:plots" \
 assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 
 rm -f "$MAP"
+
+# --- check-e2e-tag-map.sh smoke ---
+# A map missing a known dir should fail; --warn-only should still exit 0.
+TMP_MAP="$(mktemp)"
+echo '{}' > "$TMP_MAP"
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" >/dev/null 2>&1; then
+	echo "FAIL: guardrail should exit non-zero on empty map"; fail=1
+else
+	echo "PASS: guardrail fails on empty map"
+fi
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --warn-only >/dev/null 2>&1; then
+	echo "PASS: guardrail --warn-only exits 0"
+else
+	echo "FAIL: guardrail --warn-only should exit 0"; fail=1
+fi
+rm -f "$TMP_MAP"
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
