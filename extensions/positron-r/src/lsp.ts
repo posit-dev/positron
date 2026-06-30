@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
+import { RInputBoundaryProvider } from './input-boundaries';
 import { LOGGER } from './extension';
 import { RErrorHandler } from './error-handler';
 
@@ -29,6 +30,7 @@ const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[
 
 // Selector for Quarto virtual documents.
 const VDOC_SELECTOR = { language: 'r', pattern: '**/.vdoc.*.{r,R}' };
+const QUARTO_INPUT_BOUNDARY_SELECTOR = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*.{r,R}' };
 
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
@@ -403,10 +405,17 @@ export class ArkLsp implements vscode.Disposable {
 		const selector: vscode.DocumentSelector = this._metadata.notebookUri
 			? [VDOC_SELECTOR, { language: 'r', scheme: 'vscode-notebook-cell' }]
 			: 'r';
+		const inputBoundarySelector: vscode.DocumentSelector = this._metadata.notebookUri
+			? [VDOC_SELECTOR, { language: 'r', scheme: 'vscode-notebook-cell' }, QUARTO_INPUT_BOUNDARY_SELECTOR]
+			: selector;
 
 		const rangeDisposable = positron.languages.registerStatementRangeProvider(selector,
 			new RStatementRangeProvider(client));
 		this.activationDisposables.push(rangeDisposable);
+
+		const inputBoundaryDisposable = positron.languages.registerInputBoundaryProvider(inputBoundarySelector,
+			new RInputBoundaryProvider(client));
+		this.activationDisposables.push(inputBoundaryDisposable);
 
 		const helpDisposable = positron.languages.registerHelpTopicProvider(selector,
 			new RHelpTopicProvider(client));
