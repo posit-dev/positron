@@ -207,6 +207,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	statusBarItem.command = 'positron.mcp.showStatus';
 
 	const showStatusCommand = vscode.commands.registerCommand('positron.mcp.showStatus', showMcpStatus);
+	const addAgentGuidanceCommand = vscode.commands.registerCommand('positron.mcp.addAgentGuidance', addAgentGuidance);
 
 	// Keep the status bar in sync with the things that change what it reports:
 	// the .mcp.json file, which folders are open, and the enable setting.
@@ -231,6 +232,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		clearAuditLogCommand,
 		statusBarItem,
 		showStatusCommand,
+		addAgentGuidanceCommand,
 		mcpConfigWatcher,
 		workspaceFoldersListener,
 		configListener
@@ -494,20 +496,20 @@ async function updateStatusBar(): Promise<void> {
 	statusBarItem.show();
 }
 
-/** Show a modal summarizing the MCP server, workspace, and last-client status. */
+/** Show a modal summarizing MCP status, with contextual action buttons. */
 async function showMcpStatus(): Promise<void> {
 	const enabled = vscode.workspace.getConfiguration('positron.mcp').get<boolean>('enable', false);
 	const status = mcpServer?.getStatus();
 	const configState = await getWorkspaceConfigState();
 
 	const serverLine = status?.running
-		? `Running on <code>localhost:${status.port}</code>`
+		? `Running on localhost:${status.port}`
 		: enabled
 			? 'Enabled - restart Positron to start the server'
 			: 'Disabled';
 
 	const workspaceLine = configState === 'configured'
-		? 'Configured (<code>.mcp.json</code>)'
+		? 'Configured (.mcp.json)'
 		: configState === 'not-configured'
 			? 'Not configured'
 			: 'No workspace open';
@@ -517,29 +519,36 @@ async function showMcpStatus(): Promise<void> {
 		clientLine = 'Not available';
 	} else if (status.lastRequestAt) {
 		const client = status.lastClient
-			? `${escapeHtml(status.lastClient.name)}${status.lastClient.version ? ` ${escapeHtml(status.lastClient.version)}` : ''}`
+			? `${status.lastClient.name}${status.lastClient.version ? ` ${status.lastClient.version}` : ''}`
 			: 'Unknown client';
 		clientLine = `${client}, ${formatRelativeTime(status.lastRequestAt)}`;
 	} else {
 		clientLine = 'No requests yet';
 	}
 
-	const parts = [
-		`<strong>Server:</strong> ${serverLine}`,
-		`<strong>This workspace:</strong> ${workspaceLine}`,
-		`<strong>Last client:</strong> ${clientLine}`,
-	];
+	const detail = [
+		`Server: ${serverLine}`,
+		`This workspace: ${workspaceLine}`,
+		`Last client: ${clientLine}`,
+	].join('\n');
+
+	// Contextual action buttons. Modal dialog buttons return the clicked label.
+	const ADD_CONFIG = 'Add .mcp.json';
+	const ADD_GUIDANCE = 'Add Agent Guidance...';
+	const buttons: string[] = [];
 	if (configState === 'not-configured') {
-		parts.push('', 'Run <strong>Positron MCP: Add .mcp.json to Workspace</strong> to connect this project.');
-	} else if (!enabled) {
-		parts.push('', 'Run <strong>Positron MCP: Enable Server</strong> to start it.');
+		buttons.push(ADD_CONFIG);
+	}
+	if (configState !== 'no-workspace') {
+		buttons.push(ADD_GUIDANCE);
 	}
 
-	await positron.window.showSimpleModalDialogMessage(
-		'Positron MCP Status',
-		parts.join('<br>'),
-		'OK'
-	);
+	const choice = await vscode.window.showInformationMessage('Positron MCP Status', { modal: true, detail }, ...buttons);
+	if (choice === ADD_CONFIG) {
+		await vscode.commands.executeCommand('positron.mcp.addConfigFile');
+	} else if (choice === ADD_GUIDANCE) {
+		await vscode.commands.executeCommand('positron.mcp.addAgentGuidance');
+	}
 }
 
 /** Format a past Date as a short relative time like "12s ago" or "3m ago". */
@@ -554,6 +563,93 @@ function formatRelativeTime(date: Date): string {
 	}
 	const hours = Math.round(minutes / 60);
 	return `${hours}h ago`;
+}
+
+// A marker comment so re-running the guidance command is idempotent: if the
+// marker is already in the file, we leave it alone.
+const GUIDANCE_MARKER = '<!-- positron-mcp -->';
+const GUIDANCE_TEXT = 'This workspace has a Positron MCP server available. Use its `positron` MCP tools to run code, inspect variables and data, create plots, and edit notebooks in the user\'s live Positron session -- prefer them over your own shell for any data exploration or modeling work.';
+
+/**
+ * Append the Positron MCP usage note to an agent-instruction file in the first
+ * workspace folder, creating the file if needed. No-op if the marker is already
+ * present.
+ */
+async function appendAgentGuidance(fileName: string): Promise<'added' | 'present' | 'failed'> {
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders || folders.length === 0) {
+		return 'failed';
+	}
+	const uri = vscode.Uri.joinPath(folders[0].uri, fileName);
+	try {
+		let existing = '';
+		try {
+			existing = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+		} catch {
+			// File does not exist yet -- it will be created.
+		}
+		if (existing.includes(GUIDANCE_MARKER)) {
+			return 'present';
+		}
+		const separator = existing.length === 0 ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
+		const block = `${separator}${GUIDANCE_MARKER}\n${GUIDANCE_TEXT}\n`;
+		await vscode.workspace.fs.writeFile(uri, Buffer.from(existing + block, 'utf8'));
+		return 'added';
+	} catch (error) {
+		getLogger().error('Command', `Failed to update ${fileName}`, error);
+		return 'failed';
+	}
+}
+
+/**
+ * Ask which agent-instruction file(s) to update, append the MCP usage note to
+ * each, open the ones we changed, and report the outcome.
+ */
+async function addAgentGuidance(): Promise<void> {
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders || folders.length === 0) {
+		await positron.window.showSimpleModalDialogMessage(
+			'No Workspace Open',
+			'Open a folder or workspace first, then run this command to add MCP usage guidance.',
+			'OK'
+		);
+		return;
+	}
+
+	const picks = await vscode.window.showQuickPick(
+		[
+			{ label: 'AGENTS.md', description: 'Read by Codex and many other agents' },
+			{ label: 'CLAUDE.md', description: 'Read by Claude Code' },
+		],
+		{
+			canPickMany: true,
+			title: 'Add Positron MCP Guidance',
+			placeHolder: 'Select the agent instruction file(s) to update',
+			ignoreFocusOut: true,
+		}
+	);
+	if (!picks || picks.length === 0) {
+		return;
+	}
+
+	const results = await Promise.all(picks.map(async pick => ({ file: pick.label, status: await appendAgentGuidance(pick.label) })));
+
+	// Open the files we actually changed so the addition is visible.
+	for (const result of results) {
+		if (result.status === 'added') {
+			try {
+				await vscode.window.showTextDocument(vscode.Uri.joinPath(folders[0].uri, result.file), { preview: false });
+			} catch {
+				// Opening the file is a convenience, not essential.
+			}
+		}
+	}
+
+	const summary = results.map(r => {
+		const outcome = r.status === 'added' ? 'guidance added' : r.status === 'present' ? 'already present' : 'could not be updated';
+		return `<code>${escapeHtml(r.file)}</code>: ${outcome}`;
+	}).join('<br>');
+	await positron.window.showSimpleModalDialogMessage('Agent Guidance', summary, 'OK');
 }
 
 function escapeHtml(value: unknown): string {
