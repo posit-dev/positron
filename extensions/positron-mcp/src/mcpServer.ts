@@ -137,7 +137,42 @@ Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-cr
 
 Files: after writing a script or other file to disk, call open-document to open it in the user's editor so your work is visible to them.
 
-Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use get-packages to see which packages are installed instead of running pip list / installed.packages(). Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use profile-data for a dataframe's per-column summary statistics (min, max, mean, unique counts) the way the Data Explorer computes them, instead of running df.describe() / summary(). Use get-packages to see which packages are installed instead of running pip list / installed.packages(). Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+
+/**
+ * The parsed shapes of the JSON strings that `querySessionTables` returns in
+ * `column_schemas` / `column_profiles`. The kernels (R `r_variables.rs`, Python
+ * `data_explorer.py`) serialize one JSON object per column; these interfaces
+ * cover only the fields profile-data reads. Each profile carries its own
+ * `column_name` because Python omits columns whose stats failed, so the
+ * profiles array is not index-aligned with the schema -- profile-data matches by
+ * name. `summary_stats` is the only profile the table-summary RPC computes; the
+ * richer ColumnProfileType set is for the interactive Data Explorer only.
+ */
+interface ParsedColumnSchema {
+	column_name: string;
+	type_display: string;
+}
+
+interface NumberStats { min_value?: string; max_value?: string; mean?: string; median?: string; stdev?: string }
+interface StringStats { num_empty?: number; num_unique?: number }
+interface BooleanStats { true_count?: number; false_count?: number }
+interface DateStats { num_unique?: number; min_date?: string; max_date?: string }
+
+/** A column's summary stats: exactly one of the per-type sub-objects is populated. */
+interface ParsedSummaryStats {
+	number_stats?: NumberStats;
+	string_stats?: StringStats;
+	boolean_stats?: BooleanStats;
+	date_stats?: DateStats;
+	datetime_stats?: DateStats;
+	other_stats?: { num_unique?: number };
+}
+
+interface ParsedColumnProfile {
+	column_name?: string;
+	summary_stats?: ParsedSummaryStats | null;
+}
 
 export class McpServer implements vscode.Disposable {
 	private readonly app: express.Express;
@@ -285,6 +320,21 @@ export class McpServer implements vscode.Disposable {
 				},
 				annotations: { readOnlyHint: true },
 				run: (args) => this.inspectVariable(args),
+			},
+			{
+				name: 'profile-data',
+				description: 'Profile a dataframe variable in the active session: per-column summary statistics (min, max, mean, median, and standard deviation for numbers; unique and empty counts for strings; true/false counts for booleans) -- the same computations Positron\'s Data Explorer runs, with no mutating df.describe() / summary() call. Pass a variable name as shown by get-variables; optionally limit to specific columns.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						name: { type: 'string', description: 'The display name of the dataframe variable to profile, as shown by get-variables (e.g. "df").' },
+						columns: { type: 'array', items: { type: 'string' }, description: 'Optional subset of column names to profile. If omitted, all columns are profiled.' },
+					},
+					required: ['name'],
+					additionalProperties: false,
+				},
+				annotations: { readOnlyHint: true },
+				run: (args) => this.profileData(args),
 			},
 			{
 				name: 'get-packages',
@@ -611,6 +661,141 @@ export class McpServer implements vscode.Disposable {
 			}
 		}
 		return truncateOutput(lines.join('\n'));
+	}
+
+	private async profileData(args: { name: string; columns?: string[] }): Promise<string> {
+		const { name, columns } = args;
+		if (!name?.trim()) {
+			throw new Error('name is required');
+		}
+
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return 'No active runtime session. Start a Python/R console first.';
+		}
+
+		const groups = await positron.runtime.getSessionVariables(session.metadata.sessionId);
+		const variable = groups.flat().find(v => v.display_name === name);
+		if (!variable) {
+			return `No variable named "${name}" in the active session. Use get-variables to list what is defined.`;
+		}
+
+		// querySessionTables queries the kernel, and that query queues behind any
+		// running computation on the session's single-threaded kernel, so race it
+		// against a timeout rather than let the tool call hang indefinitely on a
+		// busy session. Settle to {ok}/{error} so the abandoned promise never
+		// rejects unhandled after a timeout. Only summary_stats is requested: it is
+		// the only profile the table-summary query computes (R r_variables.rs,
+		// Python data_explorer.py); null_count, histograms, and frequency tables are
+		// ignored on this path.
+		const timeoutMs = vscode.workspace.getConfiguration('positron.mcp').get<number>('executionTimeout', 30000);
+		const query = positron.runtime.querySessionTables(session.metadata.sessionId, [[variable.access_key]], ['summary_stats']).then(
+			(results): { ok: true; results: positron.QueryTableSummaryResult[] } => ({ ok: true, results }),
+			(error): { ok: false; error: unknown } => ({ ok: false, error }),
+		);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<'timeout'>((resolve) => {
+			timer = setTimeout(() => resolve('timeout'), timeoutMs);
+		});
+
+		let outcome: 'timeout' | { ok: true; results: positron.QueryTableSummaryResult[] } | { ok: false; error: unknown };
+		try {
+			outcome = await Promise.race([query, timeout]);
+		} finally {
+			if (timer) {
+				clearTimeout(timer);
+			}
+		}
+
+		if (outcome === 'timeout') {
+			return `Profiling "${name}" timed out after ${timeoutMs} ms; the session may be busy running code. Wait for it to finish, or call session-interrupt, then try again.`;
+		}
+		if (!outcome.ok) {
+			// The variable may not be a table (data.frame / DataFrame), or the kernel may not support profiling.
+			return `Could not profile "${name}": ${outcome.error instanceof Error ? outcome.error.message : String(outcome.error)}. profile-data works on dataframe variables; use inspect-variable for other types.`;
+		}
+
+		const result = outcome.results[0];
+		if (!result) {
+			return `No profile data was returned for "${name}".`;
+		}
+		return this.formatTableProfile(name, result, columns);
+	}
+
+	/** Format a querySessionTables result into a compact, per-column profile block. */
+	private formatTableProfile(name: string, result: positron.QueryTableSummaryResult, columnsFilter?: string[]): string {
+		let schemas: ParsedColumnSchema[];
+		let profiles: ParsedColumnProfile[];
+		try {
+			schemas = result.column_schemas.map(s => JSON.parse(s) as ParsedColumnSchema);
+			profiles = result.column_profiles.map(p => JSON.parse(p) as ParsedColumnProfile);
+		} catch (error) {
+			throw new ToolError(-32603, `Could not parse profile data for "${name}": ${error instanceof Error ? error.message : String(error)}`);
+		}
+
+		// Python omits columns whose stats failed, so the profiles array is not
+		// index-aligned with the schema; key profiles by column name instead.
+		const profileByName = new Map<string, ParsedColumnProfile>();
+		for (const profile of profiles) {
+			if (profile.column_name !== undefined) {
+				profileByName.set(profile.column_name, profile);
+			}
+		}
+
+		let columns = schemas;
+		if (columnsFilter && columnsFilter.length > 0) {
+			const wanted = new Set(columnsFilter);
+			columns = schemas.filter(c => wanted.has(c.column_name));
+			if (columns.length === 0) {
+				return `None of the requested columns (${columnsFilter.join(', ')}) exist in "${name}". Use inspect-variable to list its columns.`;
+			}
+		}
+
+		const lines = columns.map(column => {
+			const stats = column.column_name !== undefined ? profileByName.get(column.column_name)?.summary_stats : undefined;
+			const formatted = stats ? this.formatSummaryStats(stats) : '';
+			return `• ${column.column_name} (${column.type_display})${formatted ? `: ${formatted}` : ''}`;
+		});
+
+		const header = `Profile of "${name}" (${result.num_rows} rows x ${result.num_columns} columns):`;
+		return truncateOutput(`${header}\n\n${lines.join('\n')}`);
+	}
+
+	/** Render one column's summary stats as a compact one-liner based on its data type. */
+	private formatSummaryStats(stats: ParsedSummaryStats): string {
+		if (stats.number_stats) {
+			const n = stats.number_stats;
+			return [
+				n.min_value !== undefined ? `min ${n.min_value}` : undefined,
+				n.max_value !== undefined ? `max ${n.max_value}` : undefined,
+				n.mean !== undefined ? `mean ${n.mean}` : undefined,
+				n.median !== undefined ? `median ${n.median}` : undefined,
+				n.stdev !== undefined ? `sd ${n.stdev}` : undefined,
+			].filter((part): part is string => part !== undefined).join(', ');
+		}
+		if (stats.string_stats) {
+			const s = stats.string_stats;
+			return [
+				s.num_unique !== undefined ? `${s.num_unique} unique` : undefined,
+				s.num_empty !== undefined ? `${s.num_empty} empty` : undefined,
+			].filter((part): part is string => part !== undefined).join(', ');
+		}
+		if (stats.boolean_stats) {
+			const b = stats.boolean_stats;
+			return `${b.true_count ?? 0} true, ${b.false_count ?? 0} false`;
+		}
+		const dateStats = stats.date_stats ?? stats.datetime_stats;
+		if (dateStats) {
+			return [
+				dateStats.num_unique !== undefined ? `${dateStats.num_unique} unique` : undefined,
+				dateStats.min_date !== undefined ? `min ${dateStats.min_date}` : undefined,
+				dateStats.max_date !== undefined ? `max ${dateStats.max_date}` : undefined,
+			].filter((part): part is string => part !== undefined).join(', ');
+		}
+		if (stats.other_stats?.num_unique !== undefined) {
+			return `${stats.other_stats.num_unique} unique`;
+		}
+		return '';
 	}
 
 	private async executeCodeTool(args: { languageId: string; code: string }): Promise<string> {
