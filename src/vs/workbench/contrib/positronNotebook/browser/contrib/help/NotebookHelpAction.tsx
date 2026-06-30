@@ -17,6 +17,7 @@ import { PositronModalDialogReactRenderer } from '../../../../../../base/browser
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../../common/positronNotebookCommon.js';
 import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { NotebookHelpPanel, resolveShortcutBindings } from './NotebookHelpPanel.js';
+import { SHOW_NOTEBOOK_COMMANDS_ACTION_ID } from '../commands/NotebookCommandsAction.js';
 
 const NOTEBOOK_HELP_ACTION_ID = 'positronNotebook.showKeyboardShortcuts';
 
@@ -24,9 +25,9 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 	constructor() {
 		super({
 			id: NOTEBOOK_HELP_ACTION_ID,
-			title: localize2('positron.notebookHelp.action', 'Keyboard Shortcuts'),
-			tooltip: localize2('positron.notebookHelp.tooltip', 'Show Notebook Keyboard Shortcuts'),
-			icon: Codicon.keyboard,
+			title: localize2('positron.notebookHelp.action', 'Help'),
+			tooltip: localize2('positron.notebookHelp.tooltip', 'Show Notebook Help'),
+			icon: Codicon.question,
 			f1: true,
 			category: localize2('positronNotebook.category', 'Notebook'),
 			keybinding: {
@@ -62,6 +63,9 @@ registerAction2(class NotebookShowKeyboardShortcutsAction extends Action2 {
 				resolvedBindings={resolvedBindings}
 				onOpenAllShortcuts={() => {
 					commandService.executeCommand('workbench.action.openGlobalKeybindings', 'positronNotebook.');
+				}}
+				onSeeAllCommands={() => {
+					commandService.executeCommand(SHOW_NOTEBOOK_COMMANDS_ACTION_ID);
 				}}
 			/>
 		);
