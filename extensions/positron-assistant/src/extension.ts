@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { ParticipantService, registerParticipants } from './participants';
-import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
@@ -17,7 +16,6 @@ import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels } from './modelRegistration';
 import { IS_RUNNING_ON_PWB } from './constants.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
@@ -109,13 +107,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
-		.then(() => registerModels(context))
 		.catch((e) => {
-			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
+			log.error(`Provider initialization failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
-
-	// Track opened files for completion context
-	registerHistoryTracking(context);
 
 	// Commands
 	registerCollectDiagnosticsCommand(context);
@@ -125,13 +119,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register participant detection provider
 	registerParticipantDetectionProvider();
-
-	// Dispose cleanup
-	context.subscriptions.push({
-		dispose: () => {
-			disposeModels();
-		}
-	});
 
 	// Mark the assistant as enabled
 	assistantEnabled = true;
