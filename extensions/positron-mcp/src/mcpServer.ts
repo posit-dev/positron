@@ -25,13 +25,6 @@ interface McpResponse {
 	error?: { code: number; message: string };
 }
 
-interface ExecOptions {
-	focus?: boolean;
-	allowIncomplete?: boolean;
-	mode?: 'interactive' | 'non-interactive' | 'transient' | 'silent';
-	errorBehavior?: 'stop' | 'continue';
-}
-
 /** A block of MCP tool-result content (the wire shape sent to the client). */
 type McpContent =
 	| { type: 'text'; text: string }
@@ -63,13 +56,6 @@ class ToolError extends Error {
 		super(message);
 	}
 }
-
-const EXECUTION_MODES: Record<string, positron.RuntimeCodeExecutionMode> = {
-	'interactive': positron.RuntimeCodeExecutionMode.Interactive,
-	'non-interactive': positron.RuntimeCodeExecutionMode.NonInteractive,
-	'transient': positron.RuntimeCodeExecutionMode.Transient,
-	'silent': positron.RuntimeCodeExecutionMode.Silent,
-};
 
 /** Jupyter kernelspecs for notebooks created via the notebook-create tool. */
 const KERNELSPECS: Record<string, { display_name: string; language: string; name: string }> = {
@@ -137,7 +123,7 @@ Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-cr
 
 Files: after writing a script or other file to disk, call open-document to open it in the user's editor so your work is visible to them.
 
-Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use get-packages to see which packages are installed instead of running pip list / installed.packages(). Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
 
 export class McpServer implements vscode.Disposable {
 	private readonly app: express.Express;
@@ -157,7 +143,10 @@ export class McpServer implements vscode.Disposable {
 
 	private setupMiddleware(): void {
 		// JSON parsing must come before the security middleware that inspects the body.
-		this.app.use(express.json());
+		// Cap the body size at the configured maximum; Express's default is 100kb,
+		// which would otherwise silently override the larger configured limit.
+		const maxRequestSize = vscode.workspace.getConfiguration('positron.mcp.security').get<number>('maxRequestSize', 1048576);
+		this.app.use(express.json({ limit: maxRequestSize }));
 		this.app.use(this.securityMiddleware.corsMiddleware());
 		this.app.use(this.securityMiddleware.requestValidationMiddleware());
 		this.app.use(this.securityMiddleware.rateLimitMiddleware());
@@ -176,6 +165,12 @@ export class McpServer implements vscode.Disposable {
 		try {
 			const request: McpRequest = req.body;
 			this.logger.debug('MCP.Request', request.method, request.params);
+			// A JSON-RPC notification (no id) gets no response body; acknowledge with
+			// 202 per the Streamable HTTP transport instead of returning an error.
+			if (request.id === undefined) {
+				res.status(202).end();
+				return;
+			}
 			res.json(await this.processRequest(request));
 		} catch (error) {
 			this.logger.error('MCP.Handler', 'Error handling MCP request', error);
@@ -260,6 +255,13 @@ export class McpServer implements vscode.Disposable {
 				},
 				annotations: { readOnlyHint: true },
 				run: (args) => this.inspectVariable(args),
+			},
+			{
+				name: 'get-packages',
+				description: 'List the packages installed in the active runtime session -- the same data shown in the Packages pane -- with each package\'s version and whether it is attached and/or outdated. Use this instead of running pip list / installed.packages() in the session.',
+				inputSchema: empty,
+				annotations: { readOnlyHint: true },
+				run: () => this.describePackages(),
 			},
 			{
 				name: 'execute-code',
@@ -481,7 +483,42 @@ export class McpServer implements vscode.Disposable {
 			});
 			text += `\n\nDataFrames: ${info.join(', ')}`;
 		}
-		return text;
+		return truncateOutput(text);
+	}
+
+	private async describePackages(): Promise<string> {
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return 'No active runtime session. Start a Python/R console first.';
+		}
+
+		let packages: positron.LanguageRuntimePackage[];
+		try {
+			packages = await positron.runtime.getSessionPackages(session.metadata.sessionId);
+		} catch (error) {
+			// The runtime may not support package management, or the session may
+			// be busy and unable to answer the package-manager query right now.
+			return `Could not list packages for this session: ${error instanceof Error ? error.message : String(error)}`;
+		}
+
+		if (packages.length === 0) {
+			return 'No packages reported for the active session.';
+		}
+
+		const languageName = session.runtimeMetadata.languageName;
+		const sorted = [...packages].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+		const lines = sorted.map(pkg => {
+			const flags: string[] = [];
+			if (pkg.attached) {
+				flags.push('attached');
+			}
+			if (pkg.outdated) {
+				flags.push(pkg.latestVersion ? `outdated -> ${pkg.latestVersion}` : 'outdated');
+			}
+			const suffix = flags.length ? ` (${flags.join(', ')})` : '';
+			return `• ${pkg.name} ${pkg.version}${suffix}`;
+		});
+		return truncateOutput(`${packages.length} packages installed in your ${languageName} session:\n\n${lines.join('\n')}`);
 	}
 
 	private async inspectVariable(args: { name: string }): Promise<string> {
@@ -522,10 +559,8 @@ export class McpServer implements vscode.Disposable {
 		return truncateOutput(lines.join('\n'));
 	}
 
-	private async executeCodeTool(args: { languageId: string; code: string; options?: ExecOptions }): Promise<string> {
-		const { languageId, code, options = {} } = args;
-
-		await this.requireExecutionConsent(languageId, code);
+	private async executeCodeTool(args: { languageId: string; code: string }): Promise<string> {
+		const { languageId, code } = args;
 
 		if (!languageId?.trim()) {
 			throw new Error('languageId is required');
@@ -534,14 +569,22 @@ export class McpServer implements vscode.Disposable {
 			throw new Error('code is required');
 		}
 
-		const { focus = false, allowIncomplete = false, mode = 'interactive', errorBehavior = 'stop' } = options;
-		const executionMode = EXECUTION_MODES[mode] ?? positron.RuntimeCodeExecutionMode.Interactive;
-		const errorMode = errorBehavior === 'continue' ? positron.RuntimeErrorBehavior.Continue : positron.RuntimeErrorBehavior.Stop;
+		await this.requireExecutionConsent(languageId, code);
 
-		// Guard against a console that hangs on incomplete code. The runtime's own
-		// completeness check (isCodeFragmentComplete) lives on the provider-side
-		// session interface and isn't reachable here, so we instead observe whether
-		// execution actually starts and race the call against a timeout.
+		const executionMode = positron.RuntimeCodeExecutionMode.Interactive;
+		const errorMode = positron.RuntimeErrorBehavior.Stop;
+
+		// We submit whole blocks, not lines typed into a REPL, so bypass the
+		// console's interactive completeness check by passing allowIncomplete=true
+		// below. With it left off (false), a multi-line block that happens to end on
+		// an indented line -- a function or loop body, which the kernel's is_complete
+		// check reports as "incomplete" -- is silently stashed as pending console
+		// input and never run, so this promise would hang until the timeout. With it
+		// on, the code is always sent to the kernel; genuinely incomplete code comes
+		// back as a normal syntax error the model can fix, rather than a hang.
+		//
+		// The timeout below still guards against a legitimately long-running or
+		// queued execution that never settles.
 		const timeoutMs = vscode.workspace.getConfiguration('positron.mcp').get<number>('executionTimeout', 30000);
 		const cts = new vscode.CancellationTokenSource();
 		let started = false;
@@ -555,7 +598,7 @@ export class McpServer implements vscode.Disposable {
 
 		// Settle to {ok}/{error} so the abandoned promise never rejects unhandled
 		// after a timeout.
-		const execution = positron.runtime.executeCode(languageId, code, focus, allowIncomplete, executionMode, errorMode, observer)
+		const execution = positron.runtime.executeCode(languageId, code, false, true, executionMode, errorMode, observer)
 			.then(
 				(data): { ok: true; data: Record<string, any> } => ({ ok: true, data }),
 				(error): { ok: false; error: unknown } => ({ ok: false, error }),
@@ -574,7 +617,7 @@ export class McpServer implements vscode.Disposable {
 				cts.cancel();
 				const message = started
 					? `Code is still running after ${timeoutMs} ms. It may be a long computation -- wait and re-check with get-variables, or call session-interrupt to stop it.`
-					: `Execution did not start within ${timeoutMs} ms. Either the submitted code is incomplete (an unclosed block, bracket, or string) and the console is waiting for more input, or a previous statement is still running and this one is queued. If you suspect incomplete code, call session-interrupt and resubmit complete code.`;
+					: `Execution did not start within ${timeoutMs} ms, most likely because a previous statement is still running and this one is queued behind it. Wait and re-check with get-variables, or call session-interrupt to clear the running statement.`;
 				return truncateOutput(JSON.stringify({ success: false, timedOut: true, started, partialOutput: streamed || undefined, error: { message } }));
 			}
 
@@ -1019,6 +1062,9 @@ export class McpServer implements vscode.Disposable {
 				resolve();
 			});
 			this.server.on('error', (error) => {
+				// Clear the handle so a later dispose() doesn't close a server that
+				// never finished listening.
+				this.server = undefined;
 				this.logger.error('Server', `Failed to start server on port ${this.port}`, error);
 				reject(error);
 			});
