@@ -77,7 +77,7 @@ export class UserConsentManager {
 	 * Request user consent for code execution
 	 */
 	async requestCodeExecutionConsent(languageId: string, code: string): Promise<boolean> {
-		const cacheKey = `${languageId}:${crypto.createHash('md5').update(code).digest('hex')}`;
+		const cacheKey = `${languageId}:${crypto.createHash('sha256').update(code).digest('hex')}`;
 
 		// Check cache first
 		const cached = this.consentCache.get(cacheKey);
@@ -173,8 +173,21 @@ export class MinimalSecurityMiddleware {
 				return next();
 			}
 
-			const origin = req.headers.origin || req.headers.referer;
+			// DNS-rebinding guard: this server is localhost-only, so the Host
+			// header must resolve to localhost. A request whose Host is some other
+			// domain (the hallmark of a DNS-rebinding attack, where a malicious page
+			// rebinds its domain to 127.0.0.1) is rejected outright.
+			const host = (req.headers.host || '').split(':')[0].toLowerCase();
+			if (host && !['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) {
+				this.logger.warn('Security', `Blocked request with non-local Host header: ${req.headers.host}`);
+				res.status(403).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Forbidden: non-local Host header' } });
+				return;
+			}
 
+			// Only the Origin header is security-relevant for cross-origin requests;
+			// non-browser clients (e.g. Claude Code) send none and are allowed through
+			// after the Host check above.
+			const origin = req.headers.origin;
 			if (origin) {
 				// Check if origin matches allowed patterns
 				const isAllowed = this.config.allowedOrigins.some(pattern => {
@@ -186,12 +199,7 @@ export class MinimalSecurityMiddleware {
 					return regex.test(origin);
 				});
 
-				if (isAllowed) {
-					res.setHeader('Access-Control-Allow-Origin', origin);
-					res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-					res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-					res.setHeader('Access-Control-Allow-Credentials', 'true');
-				} else {
+				if (!isAllowed) {
 					this.logAuditEvent({
 						timestamp: '',
 						eventType: 'security',
@@ -203,7 +211,14 @@ export class MinimalSecurityMiddleware {
 						details: { reason: 'Origin not allowed' }
 					});
 					this.logger.warn('Security', `Blocked request from unauthorized origin: ${origin}`);
+					res.status(403).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Forbidden: origin not allowed' } });
+					return;
 				}
+
+				res.setHeader('Access-Control-Allow-Origin', origin);
+				res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+				res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+				res.setHeader('Access-Control-Allow-Credentials', 'true');
 			}
 
 			next();
