@@ -247,24 +247,6 @@
 						},
 						"markdownDescription": "%configuration.inlineCompletions.enable.description%"
 					},
-"positron.assistant.maxInputTokens": {
-						"type": "object",
-						"default": {},
-						"description": "%configuration.maxInputTokens.description%",
-						"additionalProperties": {
-							"type": "number",
-							"minimum": 512
-						}
-					},
-					"positron.assistant.maxOutputTokens": {
-						"type": "object",
-						"default": {},
-						"description": "%configuration.maxOutputTokens.description%",
-						"additionalProperties": {
-							"type": "number",
-							"minimum": 512
-						}
-					},
 "positron.assistant.providerVariables.bedrock": {
 						"type": "object",
 						"default": {},

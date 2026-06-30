@@ -673,15 +673,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Warn if the response was truncated due to max output tokens
 		if (isMaxTokensFinishReason(finishReason)) {
-			const maxTokensArg = encodeURIComponent(JSON.stringify(['positron.assistant.maxOutputTokens']));
-			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
 			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
 			const overridesUri = `command:workbench.action.openSettings?${overridesArg}`;
 			const tokenLimitSuffix = maxOutputTokens ? ` (${maxOutputTokens} tokens)` : '';
 			const message = new vscode.MarkdownString(
 				`This response may be incomplete because it reached the maximum output token limit${tokenLimitSuffix}. ` +
-				`To allow longer responses, increase [Max Output Tokens](${maxTokensUri}) or ` +
-				`configure [Model Overrides](${overridesUri}) in Settings.`
+				`To allow longer responses, configure [Model Overrides](${overridesUri}) in Settings.`
 			);
 			message.isTrusted = { enabledCommands: ['workbench.action.openSettings'] };
 			response.warning(message);

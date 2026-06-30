@@ -5,30 +5,8 @@
 
 import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './log.js';
-
-/**
- * Type definition for token limits configuration from user settings.
- */
-export interface TokenLimits {
-	maxInput: Record<string, number>;
-	maxOutput: Record<string, number>;
-}
-
-/**
- * Retrieves user-configured token limits from workspace settings.
- * These settings allow users to override default token limits for specific models.
- *
- * @returns Object containing maxInput and maxOutput token limits by model ID
- */
-export function getUserTokenLimits(): TokenLimits {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	return {
-		maxInput: config.get('maxInputTokens', {}),
-		maxOutput: config.get('maxOutputTokens', {})
-	};
-}
 
 /**
  * Finds the index of the best matching model for a pattern.
@@ -70,12 +48,9 @@ export function findMatchingModelIndex(
  * Resolves the maximum token count for a model with proper fallback hierarchy.
  *
  * Priority order:
- * 1. User override from workspace settings (maxInputTokens/maxOutputTokens)
- * 2. Model definition limits from getAllModelDefinitions()
- * 3. Provider-specific defaults
- * 4. Global defaults
- *
- * Includes validation to ensure minimum token limit with helpful warnings.
+ * 1. Model definition limits from getAllModelDefinitions()
+ * 2. Provider-specific defaults
+ * 3. Global defaults
  *
  * @param id The model ID to resolve tokens for
  * @param type Whether to resolve 'input' or 'output' tokens
@@ -99,28 +74,9 @@ export function getMaxTokens(
 	const fixedValue = type === 'input'
 		? configuredModels?.find(m => m.identifier === id)?.maxInputTokens
 		: configuredModels?.find(m => m.identifier === id)?.maxOutputTokens;
-	let maxTokens = fixedValue ?? defaultTokens;
+	const maxTokens = fixedValue ?? defaultTokens;
 
-	// Apply user overrides from workspace settings
-	const configKey = type === 'input' ? 'maxInputTokens' : 'maxOutputTokens';
-	const tokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get(configKey, {});
-	for (const [key, value] of Object.entries(tokensConfig)) {
-		if (id.indexOf(key) !== -1 && value) {
-			if (typeof value !== 'number') {
-				log.warn(`[${providerName ?? provider}] Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
-				continue;
-			}
-			if (value < MIN_TOKEN_LIMIT) {
-				log.warn(`[${providerName ?? provider}] Specified ${configKey} '${value}' for ${key} (${id}) is too low; using ${MIN_TOKEN_LIMIT} instead`);
-				maxTokens = MIN_TOKEN_LIMIT;
-			} else {
-				maxTokens = value;
-			}
-			break;
-		}
-	}
-
-	log.trace(`[${providerName ?? provider}] Setting ${configKey} for (${id}) to ${maxTokens}`);
+	log.trace(`[${providerName ?? provider}] Setting max ${type} tokens for (${id}) to ${maxTokens}`);
 	return maxTokens;
 }
 

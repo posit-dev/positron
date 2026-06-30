@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import * as logModule from '../log.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
@@ -14,9 +13,9 @@ import {
 	markDefaultModel
 } from '../modelResolutionHelpers.js';
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
+import * as vscode from 'vscode';
 
 suite('Model Resolution Helpers', () => {
-	let mockGetConfiguration: sinon.SinonStub;
 	let mockLog: {
 		warn: sinon.SinonStub;
 		trace: sinon.SinonStub;
@@ -25,21 +24,12 @@ suite('Model Resolution Helpers', () => {
 	};
 
 	setup(() => {
-		// Mock vscode.workspace.getConfiguration
-		mockGetConfiguration = sinon.stub();
-		sinon.stub(vscode.workspace, 'getConfiguration').returns({
-			get: mockGetConfiguration
-		} as any);
-
-		// Mock the log module
 		mockLog = {
 			warn: sinon.stub(),
 			trace: sinon.stub(),
 			info: sinon.stub(),
 			error: sinon.stub()
 		};
-
-		// Mock the log module
 		sinon.stub(logModule, 'log').value(mockLog);
 	});
 
@@ -151,26 +141,17 @@ suite('Model Resolution Helpers', () => {
 	});
 
 	suite('getMaxTokens', () => {
-		test('returns global default when no overrides', () => {
-			mockGetConfiguration.withArgs('maxInputTokens', {}).returns({});
-			mockGetConfiguration.withArgs('maxOutputTokens', {}).returns({});
-
-			// Mock getAllModelDefinitions to return empty array
+		test('returns global default when no model definition', () => {
 			sinon.stub(modelDefinitionsModule, 'getAllModelDefinitions').returns([]);
 
 			const resultInput = getMaxTokens('test-model', 'input', 'test-provider');
 			const resultOutput = getMaxTokens('test-model', 'output', 'test-provider');
 
-			// Should use DEFAULT_MAX_TOKEN_INPUT (100_000) and DEFAULT_MAX_TOKEN_OUTPUT (4_096)
 			assert.strictEqual(resultInput, 100_000);
 			assert.strictEqual(resultOutput, 4_096);
 		});
 
 		test('uses provider-specific default over global default', () => {
-			mockGetConfiguration.withArgs('maxInputTokens', {}).returns({});
-			mockGetConfiguration.withArgs('maxOutputTokens', {}).returns({});
-
-			// Mock getAllModelDefinitions to return empty array
 			sinon.stub(modelDefinitionsModule, 'getAllModelDefinitions').returns([]);
 
 			const resultInput = getMaxTokens('test-model', 'input', 'test-provider', 200_000, 'Test Provider');
@@ -181,10 +162,6 @@ suite('Model Resolution Helpers', () => {
 		});
 
 		test('uses model definition limit over defaults', () => {
-			mockGetConfiguration.withArgs('maxInputTokens', {}).returns({});
-			mockGetConfiguration.withArgs('maxOutputTokens', {}).returns({});
-
-			// Mock getAllModelDefinitions to return model with specific token limits
 			sinon.stub(modelDefinitionsModule, 'getAllModelDefinitions').returns([
 				{
 					identifier: 'test-model',
@@ -200,28 +177,6 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(resultInput, 175_000);
 			assert.strictEqual(resultOutput, 32_000);
 		});
-
-		test('uses user workspace setting over model definition', () => {
-			mockGetConfiguration.withArgs('maxInputTokens', {}).returns({ 'test-model': 250_000 });
-			mockGetConfiguration.withArgs('maxOutputTokens', {}).returns({ 'test-model': 64_000 });
-
-			// Mock getAllModelDefinitions to return model with different limits
-			sinon.stub(modelDefinitionsModule, 'getAllModelDefinitions').returns([
-				{
-					identifier: 'test-model',
-					name: 'Test Model',
-					maxInputTokens: 175_000,
-					maxOutputTokens: 32_000
-				}
-			]);
-
-			const resultInput = getMaxTokens('test-model', 'input', 'test-provider');
-			const resultOutput = getMaxTokens('test-model', 'output', 'test-provider');
-
-			assert.strictEqual(resultInput, 250_000);
-			assert.strictEqual(resultOutput, 64_000);
-		});
-
 	});
 
 	suite('markDefaultModel', () => {
