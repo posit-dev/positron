@@ -24,6 +24,7 @@ import { IPositronVariablesInstance } from '../../../services/positronVariables/
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronAssistantService } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { DEFAULT_EXECUTION_TIMEOUT, EXECUTION_TIMEOUT_KEY } from '../common/positronMcpConfiguration.js';
 import { IPositronMcpToolService } from './positronMcpToolService.js';
 import { UserConsentManager } from './positronMcpConsent.js';
 import { executeCodeWithObserver } from './positronMcpExecuteCode.js';
@@ -39,10 +40,6 @@ import {
 
 /** A tool handler: receives its arguments, returns an MCP result. */
 type ToolHandler = (args: Record<string, unknown>) => Promise<IMcpCallToolResult>;
-
-/** Default timeout for kernel-backed queries; mirrors the extension's executionTimeout. */
-const EXECUTION_TIMEOUT_KEY = 'positron.mcp.executionTimeout';
-const DEFAULT_EXECUTION_TIMEOUT = 30000;
 
 function errorResult(text: string): IMcpCallToolResult {
 	const content: McpContent[] = [{ type: 'text', text }];

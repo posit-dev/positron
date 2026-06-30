@@ -1,0 +1,161 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { localize, localize2 } from '../../../../nls.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
+import { IMcpStatusData, McpPanelAction, showMcpStatusModal } from './positronMcpStatusModal.js';
+import { PositronMcpWorkspace } from './positronMcpWorkspace.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+
+/** Command IDs, matching the positron-mcp extension's so configs/keybindings carry over. */
+const COMMAND_ID = {
+	enableServer: 'positron.mcp.enableServer',
+	disableServer: 'positron.mcp.disableServer',
+	addConfigFile: 'positron.mcp.addConfigFile',
+	addAgentGuidance: 'positron.mcp.addAgentGuidance',
+	showStatus: 'positron.mcp.showStatus',
+	showLogs: 'positron.mcp.showLogs',
+} as const;
+
+const MCP_CATEGORY = localize2('positron.mcp.category', "Positron MCP");
+
+/** Build the live status the panel renders from the current services. */
+async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
+	const configurationService = accessor.get(IConfigurationService);
+	const mcpService = accessor.get(IPositronMcpService);
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+
+	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
+	const serverStatus = await mcpService.getStatus();
+	const workspaceConfig = await workspace.getConfigState();
+	return { enabled, running: serverStatus.running, port: serverStatus.port, workspaceConfig };
+}
+
+/** Toggle the enable setting. The lifecycle contribution starts/stops the server in response. */
+async function setEnabled(accessor: ServicesAccessor, enabled: boolean): Promise<void> {
+	await accessor.get(IConfigurationService).updateValue(MCP_ENABLE_KEY, enabled, ConfigurationTarget.USER);
+}
+
+/** Write the workspace `.mcp.json`, notifying the result. */
+async function addConfigFile(accessor: ServicesAccessor): Promise<void> {
+	const notificationService = accessor.get(INotificationService);
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+	const path = await workspace.writeMcpConfig();
+	if (!path) {
+		notificationService.warn(localize('positron.mcp.noWorkspace', "Open a folder or workspace first, then add the .mcp.json file to it."));
+		return;
+	}
+	notificationService.info(localize('positron.mcp.configAdded', "An .mcp.json file in your workspace root now points at the Positron MCP server."));
+}
+
+/** Append MCP guidance to the agent-instruction files the user picks, opening any we changed. */
+async function addAgentGuidance(accessor: ServicesAccessor): Promise<void> {
+	const notificationService = accessor.get(INotificationService);
+	const editorService = accessor.get(IEditorService);
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+
+	if (accessor.get(IWorkspaceContextService).getWorkspace().folders.length === 0) {
+		notificationService.warn(localize('positron.mcp.noWorkspaceGuidance', "Open a folder or workspace first, then add MCP usage guidance."));
+		return;
+	}
+
+	// Update both files agents commonly read; appendGuidance is idempotent.
+	const changed = (await Promise.all(['AGENTS.md', 'CLAUDE.md'].map(file => workspace.appendGuidance(file))))
+		.filter((uri): uri is NonNullable<typeof uri> => uri !== undefined);
+	for (const uri of changed) {
+		await editorService.openEditor({ resource: uri, options: { pinned: true } });
+	}
+	notificationService.info(changed.length > 0
+		? localize('positron.mcp.guidanceAdded', "Added Positron MCP guidance to your agent instruction files.")
+		: localize('positron.mcp.guidancePresent', "Positron MCP guidance is already present in your agent instruction files."));
+}
+
+/** Run a status-panel button by delegating to the matching command. */
+async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction): Promise<void> {
+	switch (action) {
+		case 'enable': return setEnabled(accessor, true);
+		case 'disable': return setEnabled(accessor, false);
+		case 'addConfig': return addConfigFile(accessor);
+		case 'addGuidance': return addAgentGuidance(accessor);
+		case 'showLogs': accessor.get(ILogService).info('[PositronMcp] Show logs requested'); return;
+	}
+}
+
+/**
+ * Register the Positron MCP commands, skipping any whose id the positron-mcp
+ * extension already registered (registerAction2 throws on a duplicate id). When
+ * the extension is disabled -- the normal way to run the core server -- core owns
+ * the ids; when it is enabled, the extension's versions stand in.
+ */
+export function registerPositronMcpCommands(): void {
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.enableServer, title: localize2('positron.mcp.enableServer', "Enable Server"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { return setEnabled(accessor, true); }
+	}, COMMAND_ID.enableServer);
+
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.disableServer, title: localize2('positron.mcp.disableServer', "Disable Server"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { return setEnabled(accessor, false); }
+	}, COMMAND_ID.disableServer);
+
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.addConfigFile, title: localize2('positron.mcp.addConfigFile', "Add .mcp.json to Workspace"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { return addConfigFile(accessor); }
+	}, COMMAND_ID.addConfigFile);
+
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.addAgentGuidance, title: localize2('positron.mcp.addAgentGuidance', "Add Guidance to AGENTS.md or CLAUDE.md"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { return addAgentGuidance(accessor); }
+	}, COMMAND_ID.addAgentGuidance);
+
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.showStatus, title: localize2('positron.mcp.showStatus', "Show Status"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) {
+			// Capture the instantiation service so the panel's status reads and
+			// button actions resolve fresh services each time they run.
+			const instantiationService = accessor.get(IInstantiationService);
+			const renderer = new PositronModalReactRenderer();
+			showMcpStatusModal(
+				renderer,
+				() => instantiationService.invokeFunction(readStatus),
+				action => instantiationService.invokeFunction(acc => runPanelAction(acc, action)),
+			);
+		}
+	}, COMMAND_ID.showStatus);
+
+	registerIfAbsent(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.showLogs, title: localize2('positron.mcp.showLogs', "Show Logs"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { accessor.get(ILogService).info('[PositronMcp] Show logs requested'); }
+	}, COMMAND_ID.showLogs);
+}
+
+/** Register an action unless its command id is already taken (by the extension). */
+function registerIfAbsent(ctor: { new(): Action2 }, id: string): void {
+	if (!CommandsRegistry.getCommand(id)) {
+		registerAction2(ctor);
+	}
+}

@@ -12,12 +12,8 @@ import { IPositronMcpService, PositronMcpChannelName, PositronMcpToolBrokerChann
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
+import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
 import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
-
-/** Setting that turns the MCP server on. Declared by the positron-mcp extension
- * today; core reads it rather than re-declaring it to avoid a duplicate key
- * while both coexist. */
-const MCP_ENABLE_KEY = 'positron.mcp.enable';
 
 /**
  * Renderer-side driver for the main-process MCP server.

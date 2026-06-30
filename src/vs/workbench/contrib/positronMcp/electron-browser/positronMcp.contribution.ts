@@ -7,6 +7,8 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
 import { PositronMcpToolService } from '../browser/positronMcpToolService.impl.js';
+// Browser-layer UI: config, commands, and status bar (no electron dependency).
+import '../browser/positronMcp.contribution.js';
 import { PositronMcpLifecycleContribution } from './positronMcpLifecycleContribution.js';
 
 registerSingleton(IPositronMcpToolService, PositronMcpToolService, InstantiationType.Delayed);

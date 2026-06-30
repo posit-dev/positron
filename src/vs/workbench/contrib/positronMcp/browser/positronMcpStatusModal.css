@@ -1,0 +1,108 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-mcp-status {
+	padding: 8px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.positron-mcp-status .subtitle {
+	color: var(--vscode-descriptionForeground);
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.positron-mcp-status .status-card {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: 8px;
+	padding: 2px 14px;
+}
+
+.positron-mcp-status .status-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 11px 0;
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.positron-mcp-status .status-row:last-child {
+	border-bottom: none;
+}
+
+.positron-mcp-status .status-label {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.positron-mcp-status .status-value {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 500;
+	text-align: right;
+}
+
+.positron-mcp-status .status-dot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	flex: none;
+	background: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-status .status-dot.running {
+	background: var(--vscode-charts-green, #89d185);
+}
+
+.positron-mcp-status .status-dot.restart {
+	background: var(--vscode-charts-yellow, #cca700);
+}
+
+.positron-mcp-status .status-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.positron-mcp-status .action-button {
+	padding: 7px 14px;
+	border-radius: 6px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.positron-mcp-status .action-button:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.positron-mcp-status .connect-card {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	border-radius: 8px;
+	padding: 14px;
+}
+
+.positron-mcp-status .connect-hint {
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	margin: 0 0 8px;
+}
+
+.positron-mcp-status .connect-command {
+	display: block;
+	padding: 9px 12px;
+	background: var(--vscode-textCodeBlock-background);
+	border-radius: 6px;
+	font-family: monospace;
+	font-size: 12px;
+	overflow-x: auto;
+	white-space: pre;
+}
