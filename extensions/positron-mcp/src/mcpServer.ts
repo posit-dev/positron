@@ -178,7 +178,13 @@ export class McpServer implements vscode.Disposable {
 		}
 	}
 
-	private async processRequest(request: McpRequest): Promise<McpResponse> {
+	/**
+	 * Dispatch a single JSON-RPC request to its handler and return the response.
+	 * This is the server's protocol entry point: `handleMcpRequest` calls it for
+	 * each HTTP request, and tests drive it directly (no socket) to exercise the
+	 * protocol and tool handlers in-process.
+	 */
+	async processRequest(request: McpRequest): Promise<McpResponse> {
 		switch (request.method) {
 			case 'initialize':
 				return {
@@ -492,14 +498,38 @@ export class McpServer implements vscode.Disposable {
 			return 'No active runtime session. Start a Python/R console first.';
 		}
 
-		let packages: positron.LanguageRuntimePackage[];
+		// getSessionPackages queries the kernel, and that query queues behind any
+		// running computation on the session's single-threaded kernel, so race it
+		// against a timeout rather than let the tool call hang indefinitely on a
+		// busy session. Settle to {ok}/{error} so the abandoned promise never
+		// rejects unhandled after a timeout.
+		const timeoutMs = vscode.workspace.getConfiguration('positron.mcp').get<number>('executionTimeout', 30000);
+		const query = positron.runtime.getSessionPackages(session.metadata.sessionId).then(
+			(packages): { ok: true; packages: positron.LanguageRuntimePackage[] } => ({ ok: true, packages }),
+			(error): { ok: false; error: unknown } => ({ ok: false, error }),
+		);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<'timeout'>((resolve) => {
+			timer = setTimeout(() => resolve('timeout'), timeoutMs);
+		});
+
+		let outcome: 'timeout' | { ok: true; packages: positron.LanguageRuntimePackage[] } | { ok: false; error: unknown };
 		try {
-			packages = await positron.runtime.getSessionPackages(session.metadata.sessionId);
-		} catch (error) {
-			// The runtime may not support package management, or the session may
-			// be busy and unable to answer the package-manager query right now.
-			return `Could not list packages for this session: ${error instanceof Error ? error.message : String(error)}`;
+			outcome = await Promise.race([query, timeout]);
+		} finally {
+			if (timer) {
+				clearTimeout(timer);
+			}
 		}
+
+		if (outcome === 'timeout') {
+			return `Listing packages timed out after ${timeoutMs} ms; the session may be busy running code. Wait for it to finish, or call session-interrupt, then try again.`;
+		}
+		if (!outcome.ok) {
+			// The runtime may not support package management.
+			return `Could not list packages for this session: ${outcome.error instanceof Error ? outcome.error.message : String(outcome.error)}`;
+		}
+		const packages = outcome.packages;
 
 		if (packages.length === 0) {
 			return 'No packages reported for the active session.';
