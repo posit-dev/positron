@@ -9,7 +9,6 @@ import { getModelConfigurations } from './config';
 import { ModelConfig, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
-import { AssistantError } from './errors';
 import { log } from './log.js';
 import { resolveApiKey } from './authExtRouting.js';
 
