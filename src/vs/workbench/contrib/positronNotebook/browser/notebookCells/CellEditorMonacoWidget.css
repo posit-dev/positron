@@ -2,6 +2,13 @@
  *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/* Layout-transparent wrapper: the editor's own node (.positron-cell-editor-monaco-widget)
+ * is appended inside, but it should behave as a direct child of the editor section. */
+.positron-cell-editor-container {
+	display: contents;
+}
+
 .positron-cell-editor-monaco-widget {
 	/* No borders - parent container (.positron-notebook-editor-section) handles them */
 	border: none;
@@ -21,9 +28,4 @@
 .positron-cell-editor-monaco-widget:focus-within {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
-}
-
-/* Ensure the editor container has minimum height for empty cells */
-.positron-monaco-editor-container {
-	min-height: 1rem;
 }
