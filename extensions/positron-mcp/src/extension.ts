@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { McpServer } from './mcpServer';
+import { McpServer, parsePort } from './mcpServer';
+import { McpControlPanel, McpStatusData } from './mcpControlPanel';
 import { getLogger } from './logger';
 
 let mcpServer: McpServer | undefined;
@@ -206,7 +207,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	statusBarItem.name = 'Positron MCP';
 	statusBarItem.command = 'positron.mcp.showStatus';
 
-	const showStatusCommand = vscode.commands.registerCommand('positron.mcp.showStatus', showMcpStatus);
+	const showStatusCommand = vscode.commands.registerCommand('positron.mcp.showStatus', () => McpControlPanel.createOrShow(getMcpStatusData));
 	const addAgentGuidanceCommand = vscode.commands.registerCommand('positron.mcp.addAgentGuidance', addAgentGuidance);
 
 	// Keep the status bar in sync with the things that change what it reports:
@@ -496,59 +497,29 @@ async function updateStatusBar(): Promise<void> {
 	statusBarItem.show();
 }
 
-/** Show a modal summarizing MCP status, with contextual action buttons. */
-async function showMcpStatus(): Promise<void> {
+/** Gather the live status the control panel renders. */
+async function getMcpStatusData(): Promise<McpStatusData> {
 	const enabled = vscode.workspace.getConfiguration('positron.mcp').get<boolean>('enable', false);
 	const status = mcpServer?.getStatus();
-	const configState = await getWorkspaceConfigState();
+	const workspaceConfig = await getWorkspaceConfigState();
 
-	const serverLine = status?.running
-		? `Running on localhost:${status.port}`
-		: enabled
-			? 'Enabled - restart Positron to start the server'
-			: 'Disabled';
-
-	const workspaceLine = configState === 'configured'
-		? 'Configured (.mcp.json)'
-		: configState === 'not-configured'
-			? 'Not configured'
-			: 'No workspace open';
-
-	let clientLine: string;
-	if (!status?.running) {
-		clientLine = 'Not available';
-	} else if (status.lastRequestAt) {
-		const client = status.lastClient
+	let lastClient: string | undefined;
+	let lastActivity: string | undefined;
+	if (status?.lastRequestAt) {
+		lastActivity = formatRelativeTime(status.lastRequestAt);
+		lastClient = status.lastClient
 			? `${status.lastClient.name}${status.lastClient.version ? ` ${status.lastClient.version}` : ''}`
 			: 'Unknown client';
-		clientLine = `${client}, ${formatRelativeTime(status.lastRequestAt)}`;
-	} else {
-		clientLine = 'No requests yet';
 	}
 
-	const detail = [
-		`Server: ${serverLine}`,
-		`This workspace: ${workspaceLine}`,
-		`Last client: ${clientLine}`,
-	].join('\n');
-
-	// Contextual action buttons. Modal dialog buttons return the clicked label.
-	const ADD_CONFIG = 'Add .mcp.json';
-	const ADD_GUIDANCE = 'Add Agent Guidance...';
-	const buttons: string[] = [];
-	if (configState === 'not-configured') {
-		buttons.push(ADD_CONFIG);
-	}
-	if (configState !== 'no-workspace') {
-		buttons.push(ADD_GUIDANCE);
-	}
-
-	const choice = await vscode.window.showInformationMessage('Positron MCP Status', { modal: true, detail }, ...buttons);
-	if (choice === ADD_CONFIG) {
-		await vscode.commands.executeCommand('positron.mcp.addConfigFile');
-	} else if (choice === ADD_GUIDANCE) {
-		await vscode.commands.executeCommand('positron.mcp.addAgentGuidance');
-	}
+	return {
+		enabled,
+		running: status?.running ?? false,
+		port: status?.port ?? parsePort(),
+		workspaceConfig,
+		lastClient,
+		lastActivity,
+	};
 }
 
 /** Format a past Date as a short relative time like "12s ago" or "3m ago". */

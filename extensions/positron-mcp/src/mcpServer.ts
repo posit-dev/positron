@@ -101,7 +101,7 @@ function truncateOutput(text: string): string {
 		: text;
 }
 
-function parsePort(): number {
+export function parsePort(): number {
 	const DEFAULT_PORT = 43123;
 	const raw = process.env.POSITRON_MCP_PORT;
 	if (!raw?.trim()) {
