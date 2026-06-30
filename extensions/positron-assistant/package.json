@@ -47,7 +47,8 @@
         ],
         "modes": [
           "ask"
-        ]
+        ],
+        "when": "false"
       },
       {
         "id": "positron.assistant.agent",
@@ -60,7 +61,8 @@
         ],
         "modes": [
           "agent"
-        ]
+        ],
+        "when": "false"
       },
       {
         "id": "positron.assistant.terminal",
@@ -71,7 +73,8 @@
         "isDefault": true,
         "locations": [
           "terminal"
-        ]
+        ],
+        "when": "false"
       },
       {
         "id": "positron.assistant.editor",
@@ -82,7 +85,8 @@
         "isDefault": true,
         "locations": [
           "editor"
-        ]
+        ],
+        "when": "false"
       },
       {
         "id": "positron.assistant.notebook",
@@ -93,7 +97,8 @@
         "isDefault": true,
         "locations": [
           "notebook"
-        ]
+        ],
+        "when": "false"
       },
       {
         "id": "positron.assistant.editingSessionEditor",
@@ -107,7 +112,8 @@
         ],
         "modes": [
           "edit"
-        ]
+        ],
+        "when": "false"
       }
     ],
     "menus": {
