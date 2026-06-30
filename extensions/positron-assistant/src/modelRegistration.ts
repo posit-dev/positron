@@ -5,12 +5,10 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getModelConfigurations } from './config';
-import { ModelConfig, StoredModelConfig } from './configTypes.js';
+import { ModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { log } from './log.js';
-import { resolveApiKey } from './authExtRouting.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -82,33 +80,6 @@ export function disposeModels(id?: string) {
 	} else {
 		modelDisposables.forEach(d => d.dispose());
 		modelDisposables = [];
-	}
-}
-
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext) {
-	try {
-		const modelConfig: ModelConfig = {
-			...config,
-			apiKey: undefined // will be filled in below if needed
-		};
-
-		const apiKey = await resolveApiKey(modelConfig, context.secrets);
-		if (apiKey !== undefined) {
-			modelConfig.apiKey = apiKey;
-		}
-
-		const enabledProviders = await positron.ai.getEnabledProviders();
-		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
-		if (!enabled) {
-			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
-		}
-
-		await registerModelWithAPI(modelConfig, context);
-	} catch (e) {
-		vscode.window.showErrorMessage(
-			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', e.message)
-		);
-		throw e;
 	}
 }
 

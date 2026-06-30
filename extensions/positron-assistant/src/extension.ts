@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, syncSessionToGlobalState } from './config';
+import { getStoredModels } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
@@ -17,9 +17,7 @@ import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
-import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
-import { ModelConfig } from './configTypes.js';
-import { isAuthExtProvider } from './authExtRouting.js';
+import { disposeModels, registerModels } from './modelRegistration';
 import { IS_RUNNING_ON_PWB } from './constants.js';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
@@ -139,28 +137,6 @@ async function applyPwbProviderDefaults(context: vscode.ExtensionContext): Promi
 	}
 }
 
-async function reconcileAuthProviderModels(
-	context: vscode.ExtensionContext,
-	providerId: string,
-): Promise<boolean> {
-	const accounts = await vscode.authentication.getAccounts(providerId);
-	const accountIds = new Set(accounts.map(account => account.id));
-	const providerModels = getStoredModels(context).filter(model => model.provider === providerId);
-
-	for (const model of providerModels) {
-		if (!accountIds.has(model.id)) {
-			await deleteConfiguration(context, model.id);
-		}
-	}
-
-	if (accountIds.size === 0) {
-		await deleteConfigurationByProvider(context, providerId);
-		return false;
-	}
-
-	return getStoredModels(context).some(model => model.provider === providerId);
-}
-
 function registerAssistant(context: vscode.ExtensionContext) {
 	// Register Copilot service
 	registerCopilotService(context);
@@ -168,96 +144,12 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Register chat participants
 	const participantService = registerParticipants(context);
 
-	// Gate the session listener until initial model registration completes.
-	// Without this, the auth extension resolving credentials during startup
-	// fires onDidChangeSessions, which registers models and can cause the
-	// LM service to auto-switch the active provider before the initial
-	// registerModels() call finishes. Queued events are replayed afterward.
-	let initialRegistrationComplete = false;
-	const pendingSessionEvents: string[] = [];
-
-	// On Posit Workbench, session-backed providers (AWS, Foundry) may not
-	// have stored configs. Re-register with authProviderId to trigger the
-	// session-based fallback in registerModelsForProvider. On desktop,
-	// these providers only register when the user explicitly configures them.
-	const SESSION_PROVIDERS = IS_RUNNING_ON_PWB
-		? new Set(['amazon-bedrock', 'ms-foundry', 'snowflake-cortex'])
-		: new Set<string>();
-
 	// Initialize provider configuration system (registration, migration, validation)
 	initializeProviderConfiguration(context)
-		.then(async () => {
-			// Reconcile stale auth-backed configs before model registration so
-			// startup doesn't attempt to register with missing session IDs.
-			const authProviderIds = new Set(
-				getStoredModels(context)
-					.map(model => model.provider)
-					.filter(providerId => isAuthExtProvider(providerId))
-			);
-
-			for (const providerId of authProviderIds) {
-				try {
-					await reconcileAuthProviderModels(context, providerId);
-				} catch (error) {
-					log.warn(`[Auth Startup Reconcile] Failed for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
-				}
-			}
-		})
-		.then(() => {
-			// After initialization, register models
-			return registerModels(context);
-		})
-		.then(async () => {
-			initialRegistrationComplete = true;
-			// Replay session events that arrived during startup.
-			const unique = [...new Set(pendingSessionEvents)];
-			for (const providerId of unique) {
-				try {
-					await syncSessionToGlobalState(context, providerId);
-					await reconcileAuthProviderModels(context, providerId);
-					await registerModelsForProvider(context, providerId, providerId);
-				} catch (e) {
-					log.warn(`[Auth Startup] Deferred session registration failed for ${providerId}: ${e instanceof Error ? e.message : String(e)}`);
-				}
-			}
-
-			// Register session-backed providers that aren't covered by
-			// queued events (e.g. Workbench-managed credentials).
-			for (const providerId of SESSION_PROVIDERS) {
-				if (!unique.includes(providerId)) {
-					await registerModelsForProvider(context, providerId, providerId);
-				}
-			}
-		})
+		.then(() => registerModels(context))
 		.catch((e) => {
-			initialRegistrationComplete = true;
 			log.error(`Provider initialization chain failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
-
-	// Keep Positron Assistant model state in sync when auth sessions change.
-	context.subscriptions.push(vscode.authentication.onDidChangeSessions(async (e) => {
-		const providerId = e.provider.id;
-		if (!isAuthExtProvider(providerId)) {
-			return;
-		}
-
-		// Queue session events during startup -- they are replayed after
-		// registerModels() completes to avoid racing with initial setup.
-		if (!initialRegistrationComplete) {
-			log.info(`[Auth Session Sync] Queuing session event for ${providerId} during initial registration`);
-			pendingSessionEvents.push(providerId);
-			return;
-		}
-
-		try {
-			await syncSessionToGlobalState(context, providerId);
-			await reconcileAuthProviderModels(context, providerId);
-			await registerModelsForProvider(context, providerId, providerId);
-		} catch (error) {
-			log.warn(`[Auth Session Sync] Failed to sync provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}));
-
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);
