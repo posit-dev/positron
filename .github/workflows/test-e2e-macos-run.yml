@@ -257,7 +257,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Install ipykernel for 3.11.0
+      # Pre-install requirements.txt so in-test installs that resolve against it don't time out.
+      - name: Install requirements and ipykernel for 3.11.0
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PATH"
@@ -265,6 +266,7 @@ jobs:
           eval "$(pyenv init -)"
           pyenv global 3.11.0
           python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
           python -m pip install ipykernel
           pyenv global 3.10.10
 

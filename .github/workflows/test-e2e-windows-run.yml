@@ -335,11 +335,13 @@ jobs:
           python-version: "3.13.0"
 
       # Ensure Python 3.13.0 is used and only install ipykernel
-      - name: Install ipykernel for Python 3.13.0
+      # Pre-install requirements.txt so in-test installs that resolve against it don't time out.
+      - name: Install requirements and ipykernel for Python 3.13.0
         env:
           UV_CACHE_DIR: ${{ runner.temp }}\uv-cache
         run: |
           python --version  # Verify it's 3.13.0
+          uv pip install --system -r requirements.txt
           uv pip install --system ipykernel
 
       # Install rig (R Installation Manager)
