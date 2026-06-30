@@ -64,7 +64,8 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			markdownDescription: localize(
 				'positron.notebook.ai.enabled',
-				'Enable AI features in notebooks, such as ghost cell suggestions, the notebook assistant, and Fix and Explain on cell errors. When disabled, all AI features in notebooks are turned off. The main AI features setting (`#ai.enabled#`) must also be enabled.'
+				'Enable AI features in notebooks, such as ghost cell suggestions, the notebook assistant, and Fix and Explain on cell errors. When disabled, all AI features in notebooks are turned off. The main AI features setting ({0}) must also be enabled.',
+				'`#ai.enabled#`'
 			),
 			tags: ['positronNotebook'],
 			scope: ConfigurationScope.WINDOW,
