@@ -96,6 +96,10 @@ export async function deactivate(): Promise<void> {
 	}
 
 	if (shouldDisposeOnDeactivate(lastShutdownReason, vscode.env.uiKind)) {
+		// Ask the server to shut down before tearing down our local
+		// connections. This is a no-op for detached servers that are meant to
+		// outlive the application.
+		await API_INSTANCE.shutdownForQuit();
 		API_INSTANCE.dispose();
 	}
 }
