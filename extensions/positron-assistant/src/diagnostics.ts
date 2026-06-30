@@ -5,9 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getStoredModels } from './config';
 import { BufferedLogOutputChannel } from './log.js';
-import { getAllModelDefinitions } from './modelDefinitions.js';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -83,65 +81,14 @@ function getRelatedSettings(): string {
 		.join(',\n');
 }
 
-async function getConfiguredProviders(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
-	const storedModels = getStoredModels(context);
+async function getConfiguredProviders(): Promise<string> {
 	const envModels = getEnvironmentConfiguredModels();
 
-	const modelsByProvider = new Map<string, typeof storedModels>();
-	for (const model of storedModels) {
-		const existing = modelsByProvider.get(model.provider);
-		if (existing) {
-			existing.push(model);
-		} else {
-			modelsByProvider.set(model.provider, [model]);
-		}
-	}
-
-	const modelInfos = await Promise.all(
-		Array.from(modelsByProvider.entries()).map(async ([provider, models]) => {
-			// Use the first model for shared properties
-			const firstModel = models[0];
-			const types = [...new Set(models.map(m => m.type))];
-
-			const modelName = firstModel.model
-				? getAllModelDefinitions(provider).find(def => def.identifier === firstModel.model)?.name ?? firstModel.model
-				: firstModel.id;
-
-			const fields = [
-				`- **${modelName}**`,
-				`	- Provider: ${provider}`,
-				`	- Types: ${types.join(', ')}`,
-			];
-
-			if (firstModel.baseUrl) {
-				fields.push(`	- Base URL: ${firstModel.baseUrl}`);
-			}
-
-			try {
-				const accounts = await vscode.authentication.getAccounts(provider);
-				if (accounts.length > 0) {
-					fields.push(`	- Auth Session: Active (${accounts.map(a => a.label).join(', ')})`);
-				} else {
-					fields.push(`	- Auth Session: None`);
-				}
-			} catch (error) {
-				log.trace(`Failed to check credentials for model ${firstModel.id}: ${formatError(error)}`);
-			}
-
-			return fields.join('\n');
-		})
-	);
-
-	const allModels = [...modelInfos];
-	if (envModels) {
-		allModels.push(envModels);
-	}
-
-	if (allModels.length === 0) {
+	if (!envModels) {
 		return 'No models configured';
 	}
 
-	return allModels.join('\n\n');
+	return envModels;
 }
 
 async function getAvailableModels(): Promise<string> {
@@ -241,7 +188,7 @@ function getAuthLogs(): string {
 	return authExt?.exports?.getLogs?.() ?? 'Authentication extension not available';
 }
 
-export async function generateDiagnosticsContent(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
+export async function generateDiagnosticsContent(log: BufferedLogOutputChannel): Promise<string> {
 	return `# Positron Assistant Diagnostics
 
 Generated: ${new Date().toISOString()}
@@ -272,7 +219,7 @@ Positron Assistant and GitHub Copilot settings:
 
 ## Configured Providers
 
-${await getConfiguredProviders(context, log)}
+${await getConfiguredProviders()}
 
 ### Available Models
 
@@ -303,8 +250,8 @@ ${getAuthLogs()}
 `;
 }
 
-export async function collectDiagnostics(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<void> {
-	const content = await generateDiagnosticsContent(context, log);
+export async function collectDiagnostics(log: BufferedLogOutputChannel): Promise<void> {
+	const content = await generateDiagnosticsContent(log);
 
 	const document = await vscode.workspace.openTextDocument({
 		language: 'markdown',

@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import { getStoredModels } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
@@ -26,7 +24,7 @@ let assistantEnabled = false;
 function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
-			await collectDiagnostics(context, log);
+			await collectDiagnostics(log);
 		})
 	);
 }
@@ -126,56 +124,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	return participantService;
 }
 
-/**
- * One-time migration to move API keys from global state to encrypted storage.
- *
- * Previously, API keys were stored in global state in web mode.  This migration
- * moves those keys to encrypted storage and removes them from global state.
- */
-async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext): Promise<void> {
-	const storedModels = getStoredModels(context);
-
-	// Start with known keys from Posit AI
-	const keysToMigrate: string[] = [
-		'positron.assistant.positai.access_token',
-		'positron.assistant.positai.refresh_token',
-		'positron.assistant.positai.token_expiry',
-	];
-
-	// Add keys for all stored models
-	for (const model of storedModels) {
-		const globalStateKey = `apiKey-${model.id}`;
-		keysToMigrate.push(globalStateKey);
-	}
-
-	// Migrate all keys that exist in global state to encrypted storage
-	for (const key of keysToMigrate) {
-		const apiKey = context.globalState.get<string>(key);
-
-		if (apiKey) {
-			log.info(`Migrating ${key} to encrypted storage`);
-			try {
-				// Save to encrypted storage
-				await context.secrets.store(key, apiKey);
-				// Remove from global state
-				await context.globalState.update(key, undefined);
-			} catch (error) {
-				log.error(`Failed to migrate API ${key}:`, error);
-			}
-		}
-	}
-}
-
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
-
-	// Migrate API keys from global state to encrypted storage. This is a
-	// one-time migration of keys that were stored in global state in versions
-	// of Positron 2026.01 and prior.
-	//
-	// This migration can be removed in a future version.
-	await migrateApiKeysToEncryptedStorage(context);
 
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
@@ -186,12 +137,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		try {
 			const participantService = registerAssistant(context);
 			registerAssistantTools(context, participantService);
-			const storedModels = getStoredModels(context);
-			if (storedModels.length) {
-				storedModels.forEach(stored => {
-					positron.ai.updateProvider(stored.provider, { signedIn: true });
-				});
-			}
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
