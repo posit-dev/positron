@@ -14,6 +14,7 @@ This extension exposes Positron's runtime sessions and variable data through a s
 - **`get-session`** - Returns information about the active runtime session (its language, name, and ID)
 - **`get-variables`** - Returns all variables from the active session with their types and values
 - **`inspect-variable`** - Inspect one variable in detail, including a dataframe's columns and their types
+- **`get-packages`** - List the packages installed in the active session (the Packages pane data), with versions and attached/outdated flags
 - **`get-active-document`** - Get information about the currently active editor document
 - **`open-document`** - Open a file in the Positron editor (e.g. a script just written to disk)
 - **`get-workspace-info`** - List the workspace folders (project roots) open in Positron
