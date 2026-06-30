@@ -1669,6 +1669,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getSessionVariables(sessionId, accessKeys);
 	}
 
+	public getSessionPackages(sessionId: string): Promise<positron.LanguageRuntimePackage[]> {
+		return this._proxy.$getSessionPackages(sessionId);
+	}
+
 	public querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
 		Promise<Array<QueryTableSummaryResult>> {
 		return this._proxy.$querySessionTables(sessionId, accessKeys, queryTypes);
