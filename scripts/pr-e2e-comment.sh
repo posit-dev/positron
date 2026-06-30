@@ -66,7 +66,7 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   if [ "$NO_MATCHES" = "true" ]; then
     # Info, not warning: only-critical is common and often benign (refactors,
     # infra, test-only PRs), so a louder style would just be noise.
-    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No e2e feature tags were auto-selected, so only \`@:critical\` will run. If this PR changes a feature with e2e coverage, add its tag in the description above."
+    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No e2e feature tags were detected for this PR. If it changes a feature with e2e coverage, add the tag in the description above."
   fi
   if [ -n "$UNMAPPED_DIRS" ]; then
     # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
