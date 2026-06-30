@@ -360,6 +360,21 @@ version = "0.1.0"`;
             expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
             expect(args).to.not.include('--upgrade');
         });
+
+        test('installPackages proceeds on an empty environment (freeze returns nothing)', async () => {
+            // A fresh env (e.g. newly created via pyenv) has no user packages, so
+            // `uv pip freeze` prints nothing. The install must still proceed with
+            // only the target, not fail with "returned no output".
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze']))
+                .resolves({ stdout: '', stderr: '' });
+
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            expect((fileSystem as any).getWritten()).to.equal('cowsay==6.1\n');
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+        });
     });
 
     suite('Environment-workflow with requirements.txt', () => {

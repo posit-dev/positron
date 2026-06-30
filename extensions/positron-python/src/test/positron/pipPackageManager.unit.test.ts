@@ -178,6 +178,21 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.not.contain('cowsay==');
     });
 
+    test('installPackages proceeds on an empty environment (freeze returns nothing)', async () => {
+        // A fresh env (e.g. newly created via pyenv) has no user packages, so
+        // `pip freeze` prints nothing. The install must still proceed with only
+        // the target, not fail with "returned no output".
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['freeze']))
+            .resolves({ stdout: '', stderr: '' });
+
+        await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+        expect(writtenContent).to.equal('cowsay==6.1\n');
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+    });
+
     test('installPackages propagates a resolver failure (no silent success)', async () => {
         terminalService.sendCommand.rejects(new Error('Command failed with errors'));
 
