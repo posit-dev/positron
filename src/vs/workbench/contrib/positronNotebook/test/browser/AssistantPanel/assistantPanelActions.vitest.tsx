@@ -5,7 +5,6 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CancellationToken } from '../../../../../../base/common/cancellation.js';
