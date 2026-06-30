@@ -9,6 +9,7 @@ import { McpServer } from './mcpServer';
 import { getLogger } from './logger';
 
 let mcpServer: McpServer | undefined;
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	// Check if MCP server is enabled via configuration
@@ -198,6 +199,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	});
 
+	// Status bar item: a quick, always-visible (when enabled) indicator of MCP
+	// state. Clicking it opens a modal summarizing server, workspace, and client
+	// status.
+	statusBarItem = vscode.window.createStatusBarItem('positron.mcp.status', vscode.StatusBarAlignment.Right, 100);
+	statusBarItem.name = 'Positron MCP';
+	statusBarItem.command = 'positron.mcp.showStatus';
+
+	const showStatusCommand = vscode.commands.registerCommand('positron.mcp.showStatus', showMcpStatus);
+
+	// Keep the status bar in sync with the things that change what it reports:
+	// the .mcp.json file, which folders are open, and the enable setting.
+	const mcpConfigWatcher = vscode.workspace.createFileSystemWatcher('**/.mcp.json');
+	mcpConfigWatcher.onDidCreate(() => updateStatusBar());
+	mcpConfigWatcher.onDidChange(() => updateStatusBar());
+	mcpConfigWatcher.onDidDelete(() => updateStatusBar());
+	const workspaceFoldersListener = vscode.workspace.onDidChangeWorkspaceFolders(() => updateStatusBar());
+	const configListener = vscode.workspace.onDidChangeConfiguration(e => {
+		if (e.affectsConfiguration('positron.mcp.enable')) {
+			updateStatusBar();
+		}
+	});
+
 	context.subscriptions.push(
 		enableCommand,
 		disableCommand,
@@ -205,8 +228,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		showLogsCommand,
 		resetConsentCommand,
 		showAuditLogCommand,
-		clearAuditLogCommand
+		clearAuditLogCommand,
+		statusBarItem,
+		showStatusCommand,
+		mcpConfigWatcher,
+		workspaceFoldersListener,
+		configListener
 	);
+
+	await updateStatusBar();
 
 	// Clean up server on deactivation
 	context.subscriptions.push({
@@ -409,6 +439,121 @@ async function createOrUpdateMcpConfig(): Promise<string | undefined> {
 		logger.error('Config', 'Failed to create/update .mcp.json', error);
 		return undefined;
 	}
+}
+
+type WorkspaceConfigState = 'configured' | 'not-configured' | 'no-workspace';
+
+/** Whether the first workspace folder has an .mcp.json with a positron entry. */
+async function getWorkspaceConfigState(): Promise<WorkspaceConfigState> {
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders || folders.length === 0) {
+		return 'no-workspace';
+	}
+	const mcpConfigPath = vscode.Uri.joinPath(folders[0].uri, '.mcp.json');
+	try {
+		const content = await vscode.workspace.fs.readFile(mcpConfigPath);
+		const parsed = JSON.parse(Buffer.from(content).toString('utf8'));
+		return parsed?.mcpServers?.positron ? 'configured' : 'not-configured';
+	} catch {
+		// Missing file or invalid JSON -- treat as not configured.
+		return 'not-configured';
+	}
+}
+
+/** Refresh the status bar item. It is hidden while the server is disabled, and
+ * shows a warning background when something needs attention (server enabled but
+ * not running, or this workspace lacks an .mcp.json). */
+async function updateStatusBar(): Promise<void> {
+	if (!statusBarItem) {
+		return;
+	}
+	const enabled = vscode.workspace.getConfiguration('positron.mcp').get<boolean>('enable', false);
+	if (!enabled) {
+		statusBarItem.hide();
+		return;
+	}
+
+	const running = mcpServer !== undefined;
+	const configState = await getWorkspaceConfigState();
+	const needsAttention = !running || configState === 'not-configured';
+
+	statusBarItem.text = needsAttention ? '$(warning) MCP' : '$(plug) MCP';
+	statusBarItem.backgroundColor = needsAttention
+		? new vscode.ThemeColor('statusBarItem.warningBackground')
+		: undefined;
+
+	const serverLine = running
+		? `MCP server running on localhost:${mcpServer!.getStatus().port}`
+		: 'MCP server enabled (restart Positron to start)';
+	const workspaceLine = configState === 'configured'
+		? 'This workspace is configured (.mcp.json)'
+		: configState === 'not-configured'
+			? 'This workspace has no .mcp.json'
+			: 'No workspace open';
+	statusBarItem.tooltip = `${serverLine}\n${workspaceLine}\nClick for details`;
+	statusBarItem.show();
+}
+
+/** Show a modal summarizing the MCP server, workspace, and last-client status. */
+async function showMcpStatus(): Promise<void> {
+	const enabled = vscode.workspace.getConfiguration('positron.mcp').get<boolean>('enable', false);
+	const status = mcpServer?.getStatus();
+	const configState = await getWorkspaceConfigState();
+
+	const serverLine = status?.running
+		? `Running on <code>localhost:${status.port}</code>`
+		: enabled
+			? 'Enabled - restart Positron to start the server'
+			: 'Disabled';
+
+	const workspaceLine = configState === 'configured'
+		? 'Configured (<code>.mcp.json</code>)'
+		: configState === 'not-configured'
+			? 'Not configured'
+			: 'No workspace open';
+
+	let clientLine: string;
+	if (!status?.running) {
+		clientLine = 'Not available';
+	} else if (status.lastRequestAt) {
+		const client = status.lastClient
+			? `${escapeHtml(status.lastClient.name)}${status.lastClient.version ? ` ${escapeHtml(status.lastClient.version)}` : ''}`
+			: 'Unknown client';
+		clientLine = `${client}, ${formatRelativeTime(status.lastRequestAt)}`;
+	} else {
+		clientLine = 'No requests yet';
+	}
+
+	const parts = [
+		`<strong>Server:</strong> ${serverLine}`,
+		`<strong>This workspace:</strong> ${workspaceLine}`,
+		`<strong>Last client:</strong> ${clientLine}`,
+	];
+	if (configState === 'not-configured') {
+		parts.push('', 'Run <strong>Positron MCP: Add .mcp.json to Workspace</strong> to connect this project.');
+	} else if (!enabled) {
+		parts.push('', 'Run <strong>Positron MCP: Enable Server</strong> to start it.');
+	}
+
+	await positron.window.showSimpleModalDialogMessage(
+		'Positron MCP Status',
+		parts.join('<br>'),
+		'OK'
+	);
+}
+
+/** Format a past Date as a short relative time like "12s ago" or "3m ago". */
+function formatRelativeTime(date: Date): string {
+	const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+	if (seconds < 60) {
+		return `${seconds}s ago`;
+	}
+	const minutes = Math.round(seconds / 60);
+	if (minutes < 60) {
+		return `${minutes}m ago`;
+	}
+	const hours = Math.round(minutes / 60);
+	return `${hours}h ago`;
 }
 
 function escapeHtml(value: unknown): string {

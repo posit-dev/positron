@@ -57,6 +57,20 @@ class ToolError extends Error {
 	}
 }
 
+/** A snapshot of the server's runtime state, for the status UI. */
+export interface McpServerStatus {
+	/** Whether the HTTP server is currently listening. */
+	running: boolean;
+	/** The port the server listens on. */
+	port: number;
+	/** Number of JSON-RPC requests handled since this window started the server. */
+	requestCount: number;
+	/** When the most recent request was handled, if any. */
+	lastRequestAt?: Date;
+	/** The client from the most recent `initialize` handshake, if any. */
+	lastClient?: { name: string; version?: string };
+}
+
 /** Jupyter kernelspecs for notebooks created via the notebook-create tool. */
 const KERNELSPECS: Record<string, { display_name: string; language: string; name: string }> = {
 	python: { display_name: 'Python 3', language: 'python', name: 'python3' },
@@ -132,6 +146,9 @@ export class McpServer implements vscode.Disposable {
 	private readonly securityMiddleware: MinimalSecurityMiddleware;
 	private readonly port = parsePort();
 	private readonly tools: Tool[];
+	private requestCount = 0;
+	private lastRequestAt: Date | undefined;
+	private lastClient: { name: string; version?: string } | undefined;
 
 	constructor(context: vscode.ExtensionContext) {
 		this.app = express();
@@ -185,8 +202,14 @@ export class McpServer implements vscode.Disposable {
 	 * protocol and tool handlers in-process.
 	 */
 	async processRequest(request: McpRequest): Promise<McpResponse> {
+		this.requestCount++;
+		this.lastRequestAt = new Date();
 		switch (request.method) {
-			case 'initialize':
+			case 'initialize': {
+				const clientInfo = request.params?.clientInfo;
+				if (clientInfo?.name) {
+					this.lastClient = { name: String(clientInfo.name), version: clientInfo.version ? String(clientInfo.version) : undefined };
+				}
 				return {
 					jsonrpc: '2.0',
 					id: request.id,
@@ -197,6 +220,7 @@ export class McpServer implements vscode.Disposable {
 						instructions: SERVER_INSTRUCTIONS,
 					},
 				};
+			}
 			case 'tools/list':
 				return {
 					jsonrpc: '2.0',
@@ -1107,6 +1131,16 @@ export class McpServer implements vscode.Disposable {
 			this.server = undefined;
 			this.logger.info('Server', 'MCP server stopped');
 		}
+	}
+
+	getStatus(): McpServerStatus {
+		return {
+			running: this.server !== undefined,
+			port: this.port,
+			requestCount: this.requestCount,
+			lastRequestAt: this.lastRequestAt,
+			lastClient: this.lastClient,
+		};
 	}
 
 	getSecurityAuditLog(): any[] {

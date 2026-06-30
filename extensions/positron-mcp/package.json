@@ -112,6 +112,11 @@
         "category": "Positron"
       },
       {
+        "command": "positron.mcp.showStatus",
+        "title": "Positron MCP: Show Status",
+        "category": "Positron"
+      },
+      {
         "command": "positron.mcp.showLogs",
         "title": "Positron MCP: Show Logs",
         "category": "Positron"
@@ -142,6 +147,9 @@
         },
         {
           "command": "positron.mcp.addConfigFile"
+        },
+        {
+          "command": "positron.mcp.showStatus"
         },
         {
           "command": "positron.mcp.showLogs"

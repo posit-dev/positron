@@ -60,6 +60,17 @@ suite('McpServer protocol', () => {
 		const res = await server.processRequest({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'no-such-tool' } });
 		assert.strictEqual(res.error?.code, -32601);
 	});
+
+	test('getStatus reports request count and the initialize client', async () => {
+		await server.processRequest({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { clientInfo: { name: 'Claude Code', version: '1.2.3' } } });
+		await server.processRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+
+		const status = server.getStatus();
+		assert.deepStrictEqual(
+			{ running: status.running, requestCount: status.requestCount, lastClient: status.lastClient, hasTimestamp: status.lastRequestAt instanceof Date },
+			{ running: false, requestCount: 2, lastClient: { name: 'Claude Code', version: '1.2.3' }, hasTimestamp: true },
+		);
+	});
 });
 
 suite('McpServer get-packages handler', () => {
