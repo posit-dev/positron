@@ -1,14 +1,23 @@
 #!/bin/bash
 
-# Script to update or create a PR comment with E2E test tags
-# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>"
-# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto"
+# Script to update or create the single E2E PR comment: the tags that will run,
+# plus advisory warnings (no feature tags auto-selected, and/or touched Positron
+# dirs missing from the tag map) folded into the same comment.
+# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>" [<no_matches>] [<unmapped_dirs>]
+# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto" "false" ""
 
 set -e
 
 # Arguments
-COMMENT_MARKER="$1"  # e.g., "<!-- PR Tags -->"
-TAGS="$2"            # e.g., "@:critical,@:quarto"
+COMMENT_MARKER="$1"        # e.g., "<!-- PR Tags -->"
+TAGS="$2"                  # e.g., "@:critical,@:quarto"
+NO_MATCHES="${3:-false}"   # "true" when only @:critical resolved (no feature tags)
+UNMAPPED_DIRS="${4:-}"     # comma-joined Positron dirs with no entry in the tag map
+
+# Pure helpers (is_infra_only) used to gate the advisory warnings.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/lib/pr-tags-lib.sh"
 
 # Ensure required arguments are provided
 if [ -z "$COMMENT_MARKER" ]; then
@@ -47,8 +56,24 @@ fi
 # Add the "🚨 RED ALERT!" note
 RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t go here, they belong above ^ in the PR description using this proper format: \`@:tag\`. Changing them here won't do anything (trust us, we’ve tried). Confused? Check out the README hyperlink.\n-->"
 
-# Build the new comment body with proper newlines
-NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>&nbsp;&nbsp;<sup>[why these tags?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files)</sup>" "$FORMATTED_TAGS")
+# Advisory warnings, folded into this single comment. Suppressed for infra-only
+# PRs (docs/scripts/config), where feature e2e coverage isn't expected, so the
+# warnings would just be noise. Rebuilt every run, so they clear on a push that
+# resolves them.
+WARN_FMT=""
+CHANGED_FILES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate --header "Authorization: token $GITHUB_TOKEN" --jq '.[].filename' || true)"
+if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
+  if [ "$NO_MATCHES" = "true" ]; then
+    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> No e2e feature tags were auto-selected, so only \`@:critical\` will run. If this PR changes a feature with e2e coverage, add its tag in the description above."
+  fi
+  if [ -n "$UNMAPPED_DIRS" ]; then
+    DIRS="$(echo "$UNMAPPED_DIRS" | sed 's/,/, /g')"
+    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> This PR changes Positron dir(s) with no entry in \`e2e-tag-paths-map.json\`: ${DIRS}. Add each (a feature tag, or \`[]\` if it has no e2e coverage) so future changes there auto-select the right suite."
+  fi
+fi
+
+# Build the new comment body with proper newlines (%s = tags, %b = warnings).
+NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>&nbsp;&nbsp;<sup>[why these tags?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files)</sup>%b" "$FORMATTED_TAGS" "$WARN_FMT")
 
 if [ -n "$COMMENT_ID" ]; then
   # Update the existing comment

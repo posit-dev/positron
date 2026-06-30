@@ -32,12 +32,6 @@ jobs:
       workbench_stable_tag_found: ${{ steps.pr-tags.outputs.workbench_stable_tag_found }}
       jupyter_tag_found: ${{ steps.pr-tags.outputs.jupyter_tag_found }}
       remote_ssh_tag_found: ${{ steps.pr-tags.outputs.remote_ssh_tag_found }}
-      no_matches: ${{ steps.pr-tags.outputs.no_matches }}
-      unmapped_dirs: ${{ steps.pr-tags.outputs.unmapped_dirs }}
-
-    permissions:
-      contents: read
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v7
@@ -48,15 +42,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-      - name: Upsert auto-tag advisory comment
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          NO_MATCHES: ${{ steps.pr-tags.outputs.no_matches }}
-          UNMAPPED_DIRS: ${{ steps.pr-tags.outputs.unmapped_dirs }}
-        run: bash scripts/pr-tags-comment.sh || echo "Comment step failed (non-fatal)."
+      # The advisory comment (no-match / unmapped-dir warnings) is posted from
+      # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
 
   e2e-ubuntu-electron:
     name: e2e
