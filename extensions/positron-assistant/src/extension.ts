@@ -13,7 +13,6 @@ import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
-import { generateCommitMessage } from './git.js';
 import { initializeTokenTracking } from './tokens.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
@@ -31,18 +30,6 @@ import { IS_RUNNING_ON_PWB } from './constants.js';
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
 let assistantEnabled = false;
-
-function registerGenerateCommitMessageCommand(
-	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
-	log: vscode.LogOutputChannel,
-) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
-			generateCommitMessage(context, participantService, log);
-		})
-	);
-}
 
 function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
@@ -305,7 +292,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerHistoryTracking(context);
 
 	// Commands
-	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
 

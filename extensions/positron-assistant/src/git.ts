@@ -4,17 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
 
-import { ParticipantService } from './participants.js';
 import type { API as GitAPI, GitExtension, Repository, Change } from './typings/git.d.ts';
 import { Status } from './typings/git.constants.js';
-import { MARKDOWN_DIR } from './constants';
-import { PROVIDER_METADATA } from './providerMetadata.js';
-import { getCandidateModels as getOrderedCandidateModels } from './modelSelection.js';
-
-const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
 export enum GitRepoChangeKind {
 	Staged = 'staged',
@@ -134,86 +127,3 @@ export async function getWorkspaceGitChanges(kind: GitRepoChangeKind): Promise<G
 	return repoChanges.filter((repoChange) => repoChange.changes.length > 0);
 }
 
-/** Generate a commit message for git repositories with staged changes */
-export async function generateCommitMessage(
-	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
-	log: vscode.LogOutputChannel,
-) {
-	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
-
-	const candidates = await getCandidateModels(participantService);
-	log.info(`[git] Found ${candidates.length} candidate model(s) for commit message generation.`);
-	log.debug(`[git] Candidate models: ${candidates.map(m => `(${m.vendor}) ${m.id}`).join(', ')}`);
-
-	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
-	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
-		tokenSource.cancel();
-		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
-	});
-
-	// Send repo changes to the LLM and update the commit message input boxes
-	const allChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
-	const stagedChanges = await getWorkspaceGitChanges(GitRepoChangeKind.Staged);
-	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
-	log.trace(`[git] Sending changes ${JSON.stringify(gitChanges)} to model provider.`);
-
-	const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'git', 'commit.md'), 'utf8');
-	try {
-		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
-			if (changes.length > 0) {
-				const repoLabel = path.basename(repo.rootUri.fsPath);
-				const messages = [
-					new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
-					vscode.LanguageModelChatMessage.User(changes.map(change => change.summary).join('\n')),
-				];
-
-				for (const model of candidates) {
-					try {
-						log.info(`[git] [${repoLabel}] Trying model (${model.vendor}) ${model.id} for commit message generation.`);
-						const response = await model.sendRequest(messages, {}, tokenSource.token);
-
-						repo.inputBox.value = '';
-						for await (const delta of response.text) {
-							if (tokenSource.token.isCancellationRequested) {
-								return null;
-							}
-							repo.inputBox.value += delta;
-						}
-						return; // Success - stop trying other models
-					} catch (e) {
-						if (e instanceof vscode.CancellationError) {
-							throw e;
-						}
-						const error = e as Error;
-						repo.inputBox.value = '';
-						log.warn(`[git] [${repoLabel}] Model (${model.vendor}) ${model.id} failed: ${error.message}. Trying next candidate.`);
-					}
-				}
-
-				// All candidates failed
-				throw new Error('All candidate models failed for commit message generation. Check the log for details.');
-			}
-		}));
-	} catch (e) {
-		const error = e as Error;
-		log.error(`[git] Error generating commit message: ${error.message}`);
-		void vscode.window.showErrorMessage(`Error generating commit message: ${error.message}`);
-		throw e;
-	} finally {
-		cancelDisposable.dispose();
-		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
-	}
-}
-
-export async function getCandidateModels(participantService: ParticipantService): Promise<vscode.LanguageModelChat[]> {
-	const candidates = await getOrderedCandidateModels({
-		participantService,
-		fallbackModelFilter: model => model.family !== PROVIDER_METADATA.echo.id && model.family !== PROVIDER_METADATA.error.id,
-	}) ?? [];
-	if (candidates.length === 0) {
-		throw new Error('No language models available for git commit message generation');
-	}
-
-	return candidates;
-}
