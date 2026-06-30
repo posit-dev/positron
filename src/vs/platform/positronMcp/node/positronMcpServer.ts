@@ -97,7 +97,12 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			deferred.error(err);
 		});
 
-		server.listen(this._port, 'localhost');
+		// Bind IPv4 explicitly. Binding 'localhost' lets the main process resolve to
+		// IPv6 (::1), but existing `.mcp.json` files and `claude mcp add` use
+		// http://localhost:43123, and many clients resolve that to 127.0.0.1 first
+		// -- so an IPv6-only bind is unreachable for them. The extension and the
+		// upstream MCP gateway both bind 127.0.0.1 for the same reason.
+		server.listen(this._port, '127.0.0.1');
 		return deferred.p;
 	}
 
