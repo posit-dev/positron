@@ -1090,15 +1090,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Set the discovery-complete flag without running an enumeration. Called
-	 * by the main thread on the warm-start fast path, where the discovery
-	 * cache has satisfied every manager and no real enumeration is needed.
-	 * Without this, late-registered runtime managers (those registered via
-	 * `registerLanguageRuntimeManager` after initial discovery) would never
-	 * see the flag flip and so would never self-discover.
+	 * Mark discovery complete on the warm-start fast path, where the main thread
+	 * served every cache-satisfied language from its discovery cache.
+	 *
+	 * This still runs a normal discovery pass, but with the cache-satisfied
+	 * languages in the skip set so they aren't needlessly re-walked. The point
+	 * is to catch a runtime manager registered via the public
+	 * `registerLanguageRuntimeManager` API *before* this signal arrived: its
+	 * language isn't cache-backed, so it was parked in `_runtimeManagers`
+	 * awaiting an enumeration pass that the warm start would otherwise skip,
+	 * stranding it forever. (Managers registered *after* the flag flips
+	 * self-discover via their own IIFE, so they were never at risk.)
+	 *
+	 * @param skipLanguageIds The cache-satisfied (and disabled) languages to
+	 * skip; supplied by the main thread.
 	 */
-	public $markRuntimeDiscoveryComplete(): void {
-		this._runtimeDiscoveryComplete = true;
+	public $markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): Promise<void> {
+		return this.$discoverLanguageRuntimes([], skipLanguageIds);
 	}
 
 	/**

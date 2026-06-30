@@ -1659,14 +1659,19 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
-	 * Tell the extension host that initial discovery is over without asking
-	 * it to enumerate. Used by the warm-start fast path in
+	 * Tell the extension host that initial discovery is over on the warm-start
+	 * fast path. The ext host enumerates any managers whose language isn't in
+	 * `skipLanguageIds` (the cache-satisfied set), so late-registered managers
+	 * aren't stranded, but skips the cache-backed languages the main thread
+	 * already served. Used by the warm-start fast path in
 	 * `RuntimeStartupService.discoverAllRuntimes`.
 	 *
 	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param skipLanguageIds The cache-satisfied languages to skip enumerating.
 	 */
-	markDiscoveryComplete(): void {
-		this._proxy.$markRuntimeDiscoveryComplete();
+	markDiscoveryComplete(skipLanguageIds?: string[]): void {
+		this._proxy.$markRuntimeDiscoveryComplete(skipLanguageIds);
 	}
 
 	/**
