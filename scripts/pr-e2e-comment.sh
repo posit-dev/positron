@@ -64,11 +64,15 @@ WARN_FMT=""
 CHANGED_FILES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate --header "Authorization: token $GITHUB_TOKEN" --jq '.[].filename' || true)"
 if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   if [ "$NO_MATCHES" = "true" ]; then
-    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> No e2e feature tags were auto-selected, so only \`@:critical\` will run. If this PR changes a feature with e2e coverage, add its tag in the description above."
+    # Info, not warning: only-critical is common and often benign (refactors,
+    # infra, test-only PRs), so a louder style would just be noise.
+    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No e2e feature tags were auto-selected, so only \`@:critical\` will run. If this PR changes a feature with e2e coverage, add its tag in the description above."
   fi
   if [ -n "$UNMAPPED_DIRS" ]; then
+    # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
+    # every future PR touching this dir silently won't auto-tag.
     DIRS="$(echo "$UNMAPPED_DIRS" | sed 's/,/, /g')"
-    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> This PR changes Positron dir(s) with no entry in \`e2e-tag-paths-map.json\`: ${DIRS}. Add each (a feature tag, or \`[]\` if it has no e2e coverage) so future changes there auto-select the right suite."
+    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR changes Positron dir(s) with no entry in \`e2e-tag-paths-map.json\`: ${DIRS}. Add each (a feature tag, or \`[]\` if it has no e2e coverage) so future changes there auto-select the right suite."
   fi
 fi
 
