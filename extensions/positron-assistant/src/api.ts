@@ -330,13 +330,6 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
-			case PositronAssistantToolName.EditFile:
-				if (!(isEditMode || isAgentMode)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires edit or agent mode' });
-					continue;
-				}
-				break;
 			// Only include the getTableSummary tool when there are variables available
 			case PositronAssistantToolName.GetTableSummary:
 				if (!hasVariables) {

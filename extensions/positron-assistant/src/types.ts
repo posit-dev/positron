@@ -7,13 +7,10 @@ import { type RuntimeVariable } from 'positron';
 import * as vscode from 'vscode';
 
 export enum PositronAssistantToolName {
-	EditFile = 'positron_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetTableSummary = 'getTableSummary',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
-	TextSearch = 'positron_findTextInProject_internal',
-	FileContents = 'positron_getFileContents_internal',
 	ExecuteNotebook = 'executeNotebook',
 	EditNotebook = 'editNotebook',
 	GetNotebookInfo = 'getNotebookInfo',
