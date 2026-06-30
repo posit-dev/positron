@@ -5953,6 +5953,18 @@
         {
           "command": "github.copilot.chat.otel.exportAgentTracesDB",
           "when": "config.github.copilot.chat.otel.dbSpanExporter.enabled && chatAiFeaturesEnabled"
+        },
+        {
+          "command": "github.copilot.chat.review",
+          "when": "config.github.copilot.chat.reviewSelection.enabled && chatAiFeaturesEnabled"
+        },
+        {
+          "command": "github.copilot.chat.tools.memory.showMemories",
+          "when": "chatAiFeaturesEnabled"
+        },
+        {
+          "command": "github.copilot.chat.tools.memory.clearMemories",
+          "when": "chatAiFeaturesEnabled"
         }
       ],
       "view/title": [

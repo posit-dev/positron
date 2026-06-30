@@ -26,9 +26,24 @@ import { IInstantiationService } from '../../../../util/vs/platform/instantiatio
 import { createExtensionTestingServices } from '../../../test/vscode-node/services';
 import { buildUtilityAliasModelInfo, CopilotLanguageModelWrapper, LanguageModelAccess } from '../languageModelAccess';
 import { buildReasoningEffortSchemaProperty, normalizeTokenPrices, pickDefaultReasoningEffort } from '../../common/languageModelAccess';
+// --- Start Positron ---
+import { isSimulationCacheAvailable } from '../../../../../test/base/cache';
+// --- End Positron ---
 
 
 suite('CopilotLanguageModelWrapper', () => {
+	// --- Start Positron ---
+	// These suites resolve real chat endpoints, which read the simulation
+	// model-metadata cache (base.sqlite). Positron strips that LFS-hosted cache
+	// (see extensions/copilot/.gitattributes), so skip the suite when it is absent
+	// rather than failing in the per-test setup hook.
+	suiteSetup(function () {
+		if (!isSimulationCacheAvailable()) {
+			this.skip();
+		}
+	});
+	// --- End Positron ---
+
 	let accessor: ITestingServicesAccessor;
 	let instaService: IInstantiationService;
 
