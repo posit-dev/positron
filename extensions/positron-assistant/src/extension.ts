@@ -15,7 +15,6 @@ import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { initializeTokenTracking } from './tokens.js';
-import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
@@ -50,19 +49,6 @@ function registerGenerateCommitMessageCommand(
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
 			generateCommitMessage(context, participantService, log);
-		})
-	);
-}
-
-function registerExportChatCommands(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
-			await exportChatToFileInWorkspace();
-		})
-	);
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.exportChatTo', async () => {
-			await exportChatToUserSpecifiedLocation();
 		})
 	);
 }
@@ -330,7 +316,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerLogStoredModelsCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
-	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
 
