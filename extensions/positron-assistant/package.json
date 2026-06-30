@@ -265,16 +265,7 @@
 							"minimum": 512
 						}
 					},
-"positron.assistant.models.preference.global": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.global.description%",
-						"examples": [
-							"Claude Sonnet 4.5",
-							"GPT-5"
-						]
-					},
-					"positron.assistant.providerVariables.bedrock": {
+"positron.assistant.providerVariables.bedrock": {
 						"type": "object",
 						"default": {},
 						"markdownDescription": "%configuration.providerVariables.bedrock.description%",
@@ -313,91 +304,6 @@
 							}
 						},
 						"additionalProperties": false
-					}
-				}
-			},
-			{
-				"type": "object",
-				"title": "%configuration.modelPreferences.title%",
-				"properties": {
-					"positron.assistant.models.preference.byProvider": {
-						"type": "object",
-						"markdownDeprecationMessage": "%configuration.models.preference.byProvider.deprecated.markdownDeprecationMessage%",
-						"description": "%configuration.models.preference.byProvider.deprecated.description%"
-					},
-					"positron.assistant.models.preference.anthropic": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.anthropic.description%"
-					},
-					"positron.assistant.models.preference.githubCopilot": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.githubCopilot.description%",
-						"tags": [
-							"preview"
-						]
-					},
-					"positron.assistant.models.preference.amazonBedrock": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.amazonBedrock.description%"
-					},
-					"positron.assistant.models.preference.snowflakeCortex": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.snowflakeCortex.description%"
-					},
-					"positron.assistant.models.preference.msFoundry": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.msFoundry.description%",
-						"tags": [
-							"preview"
-						]
-					},
-					"positron.assistant.models.preference.openAI": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.openAI.description%"
-					},
-					"positron.assistant.models.preference.customProvider": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.customProvider.description%",
-						"tags": [
-							"experimental"
-						]
-					},
-					"positron.assistant.models.preference.positAI": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.positAI.description%"
-					},
-					"positron.assistant.models.preference.google": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.google.description%",
-						"tags": [
-							"experimental",
-							"advanced"
-						]
-					},
-					"positron.assistant.models.preference.echo": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.echo.description%",
-						"tags": [
-							"advanced"
-						]
-					},
-					"positron.assistant.models.preference.error": {
-						"type": "string",
-						"default": "",
-						"markdownDescription": "%configuration.models.preference.error.description%",
-						"tags": [
-							"advanced"
-						]
 					}
 				}
 			}

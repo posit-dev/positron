@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './log.js';
-import { getSettingNameForProvider } from './providerMetadata.js';
 
 /**
  * Type definition for token limits configuration from user settings.
@@ -189,9 +188,8 @@ export function createModelInfo(params: CreateModelInfoParams): vscode.LanguageM
  * Marks models as default, ensuring only one default per provider.
  *
  * Priority order:
- * 1. Individual provider setting (models.preference.<settingName>)
- * 2. Provider-specific defaultMatch pattern (exact match preferred, then partial)
- * 3. First model in list
+ * 1. Provider-specific defaultMatch pattern (exact match preferred, then partial)
+ * 2. First model in list
  *
  * @param models Array of models to process
  * @param provider The provider ID (used for default model detection)
@@ -200,32 +198,19 @@ export function createModelInfo(params: CreateModelInfoParams): vscode.LanguageM
  */
 export function markDefaultModel(
 	models: vscode.LanguageModelChatInformation[],
-	provider: string,
+	_provider: string,
 	defaultMatch?: string
 ): vscode.LanguageModelChatInformation[] {
 	if (models.length === 0) {
 		return models;
 	}
 
-	const config = vscode.workspace.getConfiguration('positron.assistant');
 	let defaultModelIndex = -1;
 
-	const settingName = getSettingNameForProvider(provider);
-
-	// Try individual provider setting
-	if (settingName) {
-		const individualPref = config.get<string>(`models.preference.${settingName}`);
-		if (individualPref) {
-			defaultModelIndex = findMatchingModelIndex(models, individualPref);
-		}
-	}
-
-	// Fall back to provider-specific defaultMatch
-	if (defaultModelIndex === -1 && defaultMatch) {
+	if (defaultMatch) {
 		defaultModelIndex = findMatchingModelIndex(models, defaultMatch);
 	}
 
-	// Fall back to first model
 	if (defaultModelIndex === -1) {
 		defaultModelIndex = 0;
 	}

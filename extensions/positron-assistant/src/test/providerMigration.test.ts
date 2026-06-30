@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import {
 	performProviderMigration,
-	performModelPreferencesMigration,
 	performCustomModelsMigration
 } from '../providerMigration.js';
 import { stubGetModelProviders } from './utils.js';
@@ -128,83 +127,6 @@ suite('Provider Migration Tests', () => {
 
 		const calls = stubs.mockUpdate.getCalls();
 		assert.strictEqual(calls.length, 0);
-	});
-});
-
-suite('Model Preferences Migration Tests', () => {
-	let stubs: MockStubs;
-
-	setup(() => {
-		stubs = setupMigrationTest();
-	});
-
-	teardown(() => {
-		sinon.restore();
-	});
-
-	test('migrates model preferences from byProvider object to individual settings', async () => {
-		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
-			globalValue: {
-				'anthropic-api': 'claude-opus-4',
-				'openai-api': 'gpt-4'
-			}
-		});
-
-		await performModelPreferencesMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.preference.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.preference.openAI');
-		const removeCall = calls.find(call => call.args[0] === 'models.preference.byProvider');
-
-		assert.ok(anthropicCall);
-		assert.strictEqual(anthropicCall.args[1], 'claude-opus-4');
-		assert.strictEqual(anthropicCall.args[2], vscode.ConfigurationTarget.Global);
-
-		assert.ok(openaiCall);
-		assert.strictEqual(openaiCall.args[1], 'gpt-4');
-
-		assert.ok(removeCall);
-		assert.strictEqual(removeCall.args[1], undefined);
-	});
-
-	test('does nothing when byProvider is not set', async () => {
-		stubs.mockInspect.withArgs('models.preference.byProvider').returns({});
-
-		await performModelPreferencesMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		assert.strictEqual(calls.length, 0);
-	});
-
-	test('does nothing when byProvider is empty object', async () => {
-		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
-			globalValue: {}
-		});
-
-		await performModelPreferencesMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		assert.strictEqual(calls.length, 0);
-	});
-
-	test('skips invalid provider IDs in model preferences', async () => {
-		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
-			globalValue: {
-				'invalid-provider': 'some-model',
-				'anthropic-api': 'claude-opus-4'
-			}
-		});
-
-		await performModelPreferencesMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		// Anthropic should be migrated, invalid provider should not
-		const anthropicCall = calls.find(call => call.args[0] === 'models.preference.anthropic');
-		const invalidCall = calls.find(call => call.args[0].includes('invalid'));
-
-		assert.ok(anthropicCall);
-		assert.ok(!invalidCall);
 	});
 });
 

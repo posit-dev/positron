@@ -225,44 +225,6 @@ suite('Model Resolution Helpers', () => {
 	});
 
 	suite('markDefaultModel', () => {
-		test('marks user-preferred model as default', () => {
-			const models = [
-				{
-					id: 'claude-opus-4-1',
-					name: 'Claude Opus 4.1',
-					family: 'anthropic-api',
-					version: '1.0',
-					maxInputTokens: 200_000,
-					maxOutputTokens: 8_192,
-					capabilities: DEFAULT_MODEL_CAPABILITIES,
-					isDefault: false,
-					isUserSelectable: true
-				},
-				{
-					id: 'claude-sonnet-4-5',
-					name: 'Claude Sonnet 4.5',
-					family: 'anthropic-api',
-					version: '1.0',
-					maxInputTokens: 200_000,
-					maxOutputTokens: 64_000,
-					capabilities: DEFAULT_MODEL_CAPABILITIES,
-					isDefault: false,
-					isUserSelectable: true
-				}
-			];
-
-			// Mock workspace configuration to simulate user preference for opus
-			mockGetConfiguration.withArgs('models.preference.anthropic').returns('opus');
-
-			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
-
-			const defaultModel = result.find((m: any) => m.isDefault);
-			assert.strictEqual(defaultModel.id, 'claude-opus-4-1');
-			const nonDefaultModels = result.filter((m: any) => !m.isDefault);
-			assert.strictEqual(nonDefaultModels.length, 1);
-			assert.strictEqual(nonDefaultModels[0].id, 'claude-sonnet-4-5');
-		});
-
 		test('marks first model as default when no user preference matches', () => {
 			const models = [
 				{
@@ -288,9 +250,6 @@ suite('Model Resolution Helpers', () => {
 					isUserSelectable: true
 				}
 			];
-
-			// Mock workspace configuration with no matching preference
-			mockGetConfiguration.withArgs('models.preference.anthropic').returns('nonexistent');
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -323,9 +282,6 @@ suite('Model Resolution Helpers', () => {
 					isUserSelectable: true
 				}
 			];
-
-			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('models.preference.anthropic').returns('');
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
 			assert.strictEqual(defaultModel.id, 'claude-sonnet-4-5');
@@ -371,9 +327,6 @@ suite('Model Resolution Helpers', () => {
 				}
 			];
 
-			// Mock workspace configuration that would match multiple models
-			mockGetConfiguration.withArgs('models.preference.anthropic').returns('claude');
-
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
 			const defaultModels_result = result.filter((m: any) => m.isDefault);
@@ -402,9 +355,6 @@ suite('Model Resolution Helpers', () => {
 				}
 			];
 
-			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('models.preference.testProvider').returns('');
-
 			const result = markDefaultModel(models as any, 'test-provider'); assert.strictEqual(result.length, 1);
 			const model = result[0];
 			assert.strictEqual(model.id, 'test-model');
@@ -418,37 +368,5 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(model.isUserSelectable, true);
 		});
 
-		test('prioritizes user config over defaultMatch', () => {
-			const models = [
-				{
-					id: 'claude-opus-4-1',
-					name: 'Claude Opus 4.1',
-					family: 'anthropic-api',
-					version: '1.0',
-					maxInputTokens: 200_000,
-					maxOutputTokens: 8_192,
-					capabilities: DEFAULT_MODEL_CAPABILITIES,
-					isDefault: false,
-					isUserSelectable: true
-				},
-				{
-					id: 'claude-sonnet-4-5',
-					name: 'Claude Sonnet 4.5',
-					family: 'anthropic-api',
-					version: '1.0',
-					maxInputTokens: 200_000,
-					maxOutputTokens: 64_000,
-					capabilities: DEFAULT_MODEL_CAPABILITIES,
-					isDefault: false,
-					isUserSelectable: true
-				}
-			];
-
-			// User wants opus, but defaultMatch suggests sonnet - user config should win
-			mockGetConfiguration.withArgs('models.preference.anthropic').returns('opus');
-
-			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
-			assert.strictEqual(defaultModel.id, 'claude-opus-4-1');
-		});
 	});
 });
