@@ -61,6 +61,40 @@ assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 
 rm -f "$MAP"
 
+# --- derive_test_file_tags ---
+ENUM="$(mktemp)"
+cat > "$ENUM" <<'TS'
+export enum TestTags {
+	CONSOLE = '@:console',
+	SESSIONS = '@:sessions',
+	PLOTS = '@:plots',
+	JUPYTER = '@:jupyter',
+	CRITICAL = '@:critical',
+	WEB = '@:web',
+	WIN = '@:win',
+}
+TS
+TROOT="$(mktemp -d)"
+mkdir -p "$TROOT/test/e2e/tests/console"
+cat > "$TROOT/test/e2e/tests/console/a.test.ts" <<'TST'
+test.describe('x', { tag: [tags.CONSOLE, tags.SESSIONS, tags.WIN, tags.CRITICAL] }, () => {});
+TST
+cat > "$TROOT/test/e2e/tests/console/b.test.ts" <<'TST'
+test.describe('y', { tag: [tags.JUPYTER, tags.PLOTS] }, () => {});
+TST
+
+# Feature tags resolved; platform (WIN), special (CRITICAL), build-variant (JUPYTER) excluded; deduped.
+assert_eq "test-file feature tags only" "@:console,@:sessions,@:plots" \
+	"$(derive_test_file_tags "$(printf 'test/e2e/tests/console/a.test.ts\ntest/e2e/tests/console/b.test.ts')" "$TROOT" "$ENUM")"
+# A changed file outside test/e2e/tests/ contributes nothing.
+assert_eq "non-test path ignored" "" \
+	"$(derive_test_file_tags "src/vs/foo.ts" "$TROOT" "$ENUM")"
+# A changed test path that no longer exists on disk is skipped.
+assert_eq "missing file ignored" "" \
+	"$(derive_test_file_tags "test/e2e/tests/console/ghost.test.ts" "$TROOT" "$ENUM")"
+
+rm -rf "$TROOT"; rm -f "$ENUM"
+
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"

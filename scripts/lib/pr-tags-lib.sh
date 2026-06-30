@@ -68,3 +68,47 @@ union_csv_tags() {
 	printf '%s\n%s\n' "${a//,/$'\n'}" "${b//,/$'\n'}" \
 		| awk 'NF && !seen[$0]++' | paste -sd, -
 }
+
+# derive_test_file_tags <changed_files> <repo_root> <enum_file>
+#   changed_files: newline-separated repo-relative paths
+#   repo_root: absolute path to the repo (to read the changed test files)
+#   enum_file: path to test/e2e/infra/test-runner/test-tags.ts
+# For each changed file under test/e2e/tests/ that exists on disk, reads its
+# `tags.XXX` enum references, resolves each to its @:value from enum_file, and
+# unions the FEATURE tags. Excludes platform/env/special/build-variant tags
+# (governed by other mechanisms). Echoes comma-separated, de-duplicated tags.
+derive_test_file_tags() {
+	local changed="$1" repo_root="$2" enum_file="$3"
+	local file name val enum_content
+	local -a out=()
+
+	# Build NAME -> @:value lookup from the enum (lines like: CONSOLE = '@:console',).
+	# Cache the enum file to avoid repeated reads.
+	enum_content="$(grep -E "=[[:space:]]*'@:" "$enum_file")"
+
+	# Helper to look up a tag name in the enum
+	_lookup_tag() {
+		local tag_name="$1"
+		printf '%s' "$enum_content" | grep "^[[:space:]]*${tag_name}[[:space:]]*=" | \
+			sed -n "s/.*'\(@:[a-zA-Z0-9_-]*\)'.*/\1/p" | head -1
+	}
+
+	# Resolved values to exclude: platform / env / special / build-variant tags
+	# are governed by dedicated PR-body greps and the platform-added-line scan.
+	local exclude_re='^@:(critical|soft-fail|performance|cross-browser|win|web|web-only|jupyter|pyrefly|publisher|remote-ssh|remote-wsl|workbench.*|rhel-.*|suse-.*|sles-.*|debian-.*)$'
+
+	while IFS= read -r file; do
+		[[ -z "$file" ]] && continue
+		[[ "$file" == test/e2e/tests/* ]] || continue
+		[[ -f "$repo_root/$file" ]] || continue
+		while IFS= read -r name; do
+			val="$(_lookup_tag "$name")"
+			[[ -z "$val" ]] && continue
+			[[ "$val" =~ $exclude_re ]] && continue
+			out+=("$val")
+		done < <(grep -oE 'tags\.[A-Z0-9_]+' "$repo_root/$file" | sed 's/^tags\.//' | sort -u)
+	done <<< "$changed"
+
+	[[ ${#out[@]} -eq 0 ]] && return 0
+	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++' | paste -sd, -
+}
