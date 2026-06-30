@@ -12,8 +12,6 @@ import * as xml from './xml.js';
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isMaxTokensFinishReason, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
-import { DefaultTextProcessor } from './defaultTextProcessor.js';
-import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { log } from './log.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
@@ -588,11 +586,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		let finishReason: string | undefined;
 		let maxOutputTokens: number | undefined;
 
-		// Create a streaming text processor to allow the model to stream to the chat
-		// response e.g. using a loose XML format.
-		// This will be undefined if the current context does not require a text processor.
-		const textProcessor = this.createTextProcessor(request, response);
-
 		for await (const chunk of modelResponse.stream) {
 			if (token.isCancellationRequested) {
 				break;
@@ -600,7 +593,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
-				await textProcessor.process(chunk.value);
+				response.markdown(chunk.value);
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
 				toolRequests.push(chunk);
 			} else if (chunk instanceof vscode.LanguageModelDataPart) {
@@ -614,11 +607,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Ignore data parts we can't parse
 				}
 			}
-		}
-
-		// Flush the text processor, if needed.
-		if (textProcessor) {
-			await textProcessor.flush();
 		}
 
 		// Warn if the response was truncated due to max output tokens
@@ -690,28 +678,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			];
 			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
 		}
-	}
-
-	/**
-	 * Create a streaming text processor for a given request.
-	 *
-	 * The text processor will be given chunks of text from the language model
-	 * and is expected to write to the chat response stream.
-	 *
-	 * @param request The current chat request.
-	 * @param response The chat response stream to write to.
-	 * @returns The appropriate processor for the request.
-	 */
-	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor {
-		const defaultTextProcessor = new DefaultTextProcessor(response);
-
-		// Check if we're in an editor context
-		if (isTextEditRequest(request)) {
-			return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
-		}
-
-		// Process as default text, which may contain warning blocks
-		return defaultTextProcessor;
 	}
 
 	dispose(): void { }
@@ -925,15 +891,6 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 	return llmsDocument;
 }
 
-
-/** Processes streaming text. */
-export interface TextProcessor {
-	/** Process a chunk of text. */
-	process(chunk: string): void | Promise<void>;
-
-	/** Process any unhandled text at the end of the stream. */
-	flush(): void | Promise<void>;
-}
 
 /**
  * Add cache breakpoints (for Anthropic prompt caching) to the last few user messages.
