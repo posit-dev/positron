@@ -21,7 +21,7 @@ import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { PositronCellEditorOptions } from './PositronCellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
-import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -43,7 +43,7 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
  * @returns An editor widget for the cell
  */
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
-	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
+	const { containerRef, focusTargetRef } = useCellEditorWidget(cell);
 
 	/**
 	 * Observe outputs reactively so hasOutputs updates when outputs are added/removed.
@@ -74,10 +74,12 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 	};
 
 	return <>
+		{/* Container in which the editor appends its DOM node.
+		* React doesn't own the editor's DOM node so that it can be
+		* reparented to another CellEditorMonacoWidget. */}
 		<div
-			ref={editorPartRef}
-			className='positron-cell-editor-monaco-widget'
-			tabIndex={-1}
+			ref={containerRef}
+			className='positron-cell-editor-container'
 		/>
 		<div
 			ref={focusTargetRef}
@@ -92,24 +94,36 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 }
 
 function createCellEditor(
-	editorPartRef: React.RefObject<HTMLDivElement | null>,
+	container: HTMLDivElement,
 	cell: PositronNotebookCellGeneral,
 	instance: IPositronNotebookInstance,
 	configurationService: IConfigurationService,
 	contextKeyService: IContextKeyService,
 	logService: ILogService,
-): IDisposable | undefined {
-	if (!editorPartRef.current || !cell.scopedContextKeyService) { return; }
+): IDisposable {
+	if (!cell.scopedContextKeyService) {
+		throw new Error('Cell does not have a scoped context key service');
+	}
 
 	const disposables = new DisposableStore();
 
 	const language = cell.model.language;
 
+	// Create the editor DOM node. The editor owns its node (rather than React)
+	// so that it can be reparented to another CellEditorMonacoWidget.
+	const element = container.ownerDocument.createElement('div');
+	element.className = 'positron-cell-editor-monaco-widget';
+	element.tabIndex = -1;
+
+	// Append the editor node to the container and ensure it's removed on dispose.
+	container.appendChild(element);
+	disposables.add(toDisposable(() => element.remove()));
+
 	// Create a scoped context key service for this editor as a child of the cell's scope.
 	// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
 	// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
 	// from this one for editor-specific keys.
-	const editorContextKeyService = cell.scopedContextKeyService.createScoped(editorPartRef.current);
+	const editorContextKeyService = cell.scopedContextKeyService.createScoped(element);
 	disposables.add(editorContextKeyService);
 
 	// CRITICAL: Set the inCompositeEditor flag to change editor behavior
@@ -145,7 +159,7 @@ function createCellEditor(
 
 	const editor = disposables.add(editorInstaService.createInstance(
 		CodeEditorWidget,
-		editorPartRef.current,
+		element,
 		{
 			...editorOptions.getValue(),
 			// Initially set the editor size to 0x0.
@@ -275,10 +289,9 @@ function createCellEditor(
 	 * @param height Height to set. Defaults to checking content height.
 	 */
 	function resizeEditor(height: number = editor.getContentHeight()) {
-		if (!editorPartRef.current) { return; }
 		editor.layout({
 			height,
-			width: editorPartRef.current.offsetWidth,
+			width: element.offsetWidth,
 		});
 	}
 
@@ -302,28 +315,28 @@ function createCellEditor(
 /**
  * Create a cell editor widget for a cell.
  * @param cell Cell whose editor is to be created
- * @returns Refs to place the editor and the wrapping div
+ * @returns The editor container ref and the focus-target ref
  */
 export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
 	const instance = useNotebookInstance();
 
-	// Create an element ref to contain the editor
-	const editorPartRef = React.useRef<HTMLDivElement>(null);
+	// Container in which the editor appends its DOM node.
+	// React doesn't own the editor's DOM node so that it can be
+	// reparented to another CellEditorMonacoWidget.
+	const containerRef = React.useRef<HTMLDivElement>(null);
 
 	// Create the editor
 	React.useEffect(() => {
+		if (!containerRef.current || !cell.scopedContextKeyService) { return; }
 		const disposables = createCellEditor(
-			editorPartRef,
+			containerRef.current,
 			cell,
 			instance,
 			services.configurationService,
 			services.contextKeyService,
 			services.logService
 		);
-		if (!disposables) {
-			return;
-		}
 
 		return () => {
 			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
@@ -426,7 +439,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		};
 	}, [cell, instance.currentContainer, instance.selectionStateMachine]);
 
-	return { editorPartRef, focusTargetRef };
+	return { containerRef, focusTargetRef };
 }
 
 
