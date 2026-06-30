@@ -14,7 +14,6 @@ import { isChatImageMimeType, isMaxTokensFinishReason, isTextEditRequest, langua
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
-import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './log.js';
 import { getRequestTokenUsage, TokenUsage } from './tokens.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
@@ -716,13 +715,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Check if we're in an editor context
 		if (isTextEditRequest(request)) {
-			if (request.location2.selection.isEmpty) {
-				// Process streaming edits to the whole document
-				return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
-			} else {
-				// Process streaming edits to the selected text
-				return new ReplaceSelectionProcessor(request.location2.document.uri, request.location2.selection, response, defaultTextProcessor);
-			}
+			return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
 		}
 
 		// Process as default text, which may contain warning blocks

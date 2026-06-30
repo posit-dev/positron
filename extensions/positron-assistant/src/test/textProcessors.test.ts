@@ -7,7 +7,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DefaultTextProcessor } from '../defaultTextProcessor.js';
 import { ReplaceStringProcessor } from '../replaceStringProcessor.js';
-import { ReplaceSelectionProcessor } from '../replaceSelectionProcessor.js';
 import { mock } from './utils.js';
 
 suite('Text Processors', () => {
@@ -63,30 +62,6 @@ suite('Text Processors', () => {
 		assert.strictEqual(combinedMarkdown, 'Some text  more text');
 		assert.strictEqual(warnings.length, 1);
 		assert.strictEqual(textEdits.length, 0);
-	});
-
-	test('ReplaceSelectionProcessor handles text and replaceSelection tags', async () => {
-		const selection = new vscode.Selection(0, 0, 0, 5);
-		const defaultTextProcessor = new DefaultTextProcessor(mockResponse);
-		const processor = new ReplaceSelectionProcessor(mockUri, selection, mockResponse, defaultTextProcessor);
-
-		await processor.process('Some text ');
-		await processor.process('<warning>This is a warning</warning>');
-		await processor.process(' more text');
-		await processor.process('<replaceSelection>Replaced content</replaceSelection>');
-		await processor.flush();
-
-		const { markdown, warnings, textEdits } = getResponseParts();
-		const combinedMarkdown = markdown.map(p => p.value.value).join('');
-
-		assert.strictEqual(combinedMarkdown, 'Some text  more text');
-		assert.strictEqual(warnings.length, 1);
-		assert.strictEqual(warnings[0].value.value, 'This is a warning');
-		assert.strictEqual(textEdits.length, 2);
-
-		// First edit deletes selection, second edit inserts new content
-		assert.strictEqual(textEdits[0].edits[0].newText, '');
-		assert.strictEqual(textEdits[1].edits[0].newText, 'Replaced content');
 	});
 
 	test('ReplaceStringProcessor handles text and replaceString tags', async () => {
