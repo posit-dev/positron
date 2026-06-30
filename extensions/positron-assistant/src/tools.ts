@@ -7,8 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
-import { ProjectTreeTool } from './tools/projectTreeTool.js';
-import { DocumentCreateTool } from './tools/documentCreate.js';
 import { registerNotebookTools } from './tools/notebookTools.js';
 import { CreateNotebookTool } from './tools/createNotebook.js';
 
@@ -86,101 +84,6 @@ export function registerAssistantTools(
 	context: vscode.ExtensionContext,
 	participantService: ParticipantService,
 ): void {
-	const documentEditTool = vscode.lm.registerTool<{
-		deltas: { delete: string; replace: string }[];
-	}>(PositronAssistantToolName.DocumentEdit, {
-		prepareInvocation: async (options, token) => {
-			return {
-				// Hide the tool invocation message from the user.
-				presentation: 'hidden',
-			};
-		},
-
-		invoke: async (options, token) => {
-			if (!options.input.deltas) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No edits to apply.'),
-				]);
-			}
-
-			// Get the active chat request data
-			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
-			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-				throw new Error('This tool can only be invoked from an editor.');
-			}
-
-			// Get the text of the document to edit
-			const document = request.location2.document;
-			const documentText = document.getText();
-
-			// Process each change, emitting text edits for each one
-			let numTextEdits = 0;
-			for (const delta of options.input.deltas) {
-				const deleteText = delta.delete;
-				const startPos = documentText.indexOf(deleteText!);
-				if (startPos === -1) {
-					// If the delete text is not found in the document,
-					// we can't apply this edit; ignore.
-					continue;
-				}
-				const startPosition = document.positionAt(startPos);
-				const endPosition = document.positionAt(startPos + deleteText!.length);
-				const range = new vscode.Range(startPosition, endPosition);
-				const textEdit = vscode.TextEdit.replace(range, delta.replace!);
-				response.textEdit(document.uri, textEdit);
-				numTextEdits++;
-			}
-
-			if (numTextEdits > 0) {
-				// Complete the text edit group.
-				response.textEdit(document.uri, true);
-
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(`Applied ${numTextEdits} of ${options.input.deltas.length} edits.`),
-				]);
-			} else {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No edits applied.'),
-				]);
-			}
-		}
-	});
-
-	context.subscriptions.push(documentEditTool);
-
-	const selectionEditTool = vscode.lm.registerTool<{ code: string }>(PositronAssistantToolName.SelectionEdit, {
-		prepareInvocation: async (options, token) => {
-			// Hide the tool invocation message from the user.
-			return {
-				presentation: 'hidden',
-			};
-		},
-
-		invoke: async (options, token) => {
-			// Get the active chat request data.
-			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
-			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-				throw new Error('This tool can only be invoked from an editor.');
-			}
-
-			const document = request.location2.document;
-			const selection = request.location2.selection;
-
-			// Apply the edit to the selected text.
-			const edits = vscode.TextEdit.replace(selection, options.input.code);
-			response.textEdit(document.uri, edits);
-
-			// Complete the text edit group.
-			response.textEdit(document.uri, true);
-
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart('Selection edited.'),
-			]);
-		}
-	});
-
-	context.subscriptions.push(selectionEditTool);
-
 	const executeCodeTool = vscode.lm.registerTool<{
 		sessionIdentifier: string;
 		code: string;
@@ -422,11 +325,6 @@ export function registerAssistantTools(
 		}
 	});
 	context.subscriptions.push(getTableSummaryTool);
-
-
-	context.subscriptions.push(ProjectTreeTool);
-
-	context.subscriptions.push(DocumentCreateTool);
 
 	// Register notebook-specific tools for notebook participant
 	// These tools enable the assistant to interact with Jupyter notebooks:

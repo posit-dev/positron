@@ -330,33 +330,10 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			// Only include the documentEdit tool in an editor and if there is
-			// no selection.
-			case PositronAssistantToolName.DocumentEdit:
-				if (!(inEditor && !hasSelection)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires editor context without selection' });
-					continue;
-				}
-				break;
-			// Only include the selectionEdit tool in an editor and if there is
-			// a selection.
-			case PositronAssistantToolName.SelectionEdit:
-				if (!(inEditor && hasSelection)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires editor context with selection' });
-					continue;
-				}
-				break;
 			// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 			case PositronAssistantToolName.EditFile:
 				if (!(isEditMode || isAgentMode)) {
 					disabledTools.push({ name: tool.name, reason: 'Requires edit or agent mode' });
-					continue;
-				}
-				break;
-			// Only include the documentCreate tool in the chat pane in edit or agent mode.
-			case PositronAssistantToolName.DocumentCreate:
-				if (!inChatPane || !(isEditMode || isAgentMode)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane and edit/agent mode' });
 					continue;
 				}
 				break;
