@@ -492,9 +492,16 @@ cmd_status() {
 
 cmd_logs() {
 	wb_require_stack
-	case "${1:-rserver}" in
-		rserver|workbench) docker exec test bash -c 'tail -n 100 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
-		connect)           docker logs -f connect ;;
+	# Default to the full interleaved history of every service and follow live
+	# (parity with the old `docker compose up` foreground view): Ctrl-C to stop,
+	# then scroll back over the whole run. Name a service for just that one.
+	# rserver logs to a file inside the test container (the container's own
+	# docker log is only the keepalive loop), so tail that file from the top
+	# (-n +1) for its full history rather than docker logs.
+	case "${1:-all}" in
+		all)               wb_compose logs -f ;;
+		rserver|workbench) docker exec test bash -c 'tail -n +1 -f /var/log/rstudio/rstudio-server/rserver.log' ;;
+		connect|postgres)  wb_compose logs -f "${1}" ;;
 		*)                 docker logs -f "${1}" ;;
 	esac
 }
@@ -521,7 +528,8 @@ USAGE
                              or azure (set the provider's vars in .env first).
   npm run pwb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run pwb -- status       Containers, installed Positron + Workbench versions, URLs.
-  npm run pwb -- logs [svc]   Tail logs: rserver (default), connect, or a container name.
+  npm run pwb -- logs [svc]   Follow full history of all services (default), or one:
+                             rserver, connect, postgres. Ctrl-C to stop, then scroll back.
   npm run pwb -- shell [svc]  Open a shell in the container: test (default), postgres, connect.
   npm run pwb -- stop         Pause the stack (containers stopped, volumes kept).
   npm run pwb -- down         Tear the stack down (removes containers and volumes).
