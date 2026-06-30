@@ -75,10 +75,13 @@ describe('PackageDetail', () => {
 		);
 	}
 
-	it('renders the package name and description', () => {
+	it('renders the package name immediately and the description once the fetch resolves', async () => {
 		render();
+		// The name is list-derived, so it paints right away.
 		expect(screen.getByRole('heading', { name: 'dplyr' })).toBeInTheDocument();
-		expect(screen.getByText('A grammar of data manipulation')).toBeInTheDocument();
+		// The subtitle is held behind a skeleton until the detail fetch resolves
+		// (here to no detail), then falls back to the list description.
+		expect(await screen.findByText('A grammar of data manipulation')).toBeInTheDocument();
 	});
 
 	it('shows an Update button for an outdated package and runs the update command', async () => {
@@ -90,11 +93,13 @@ describe('PackageDetail', () => {
 		expect(executeCommand).toHaveBeenCalledWith('positronPackages.updatePackage', 'dplyr', '1.1.4');
 	});
 
-	it('shows the Overview stat strip', () => {
+	it('shows the Overview stat strip once the fetch resolves', async () => {
 		render();
+		// The Overview is held back until the detail fetch resolves; the LICENSE
+		// stat ("MIT") is the last piece to appear.
+		expect(await screen.findByText('MIT')).toBeInTheDocument();     // LICENSE stat
 		// The version appears twice: faded next to the name and as the VERSION stat.
 		expect(screen.getAllByText('1.1.2')).toHaveLength(2);
-		expect(screen.getByText('MIT')).toBeInTheDocument();     // LICENSE stat
 	});
 });
 
@@ -131,13 +136,13 @@ describe('PackageDetail when the package is current', () => {
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('appends "(latest)" to the installed version and omits a Latest version row', () => {
+	it('appends "(latest)" to the installed version and omits a Latest version row', async () => {
 		rtl.render(
 			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
-		// Installed-version Overview row reads "1.1.4 (latest)"; the faded header
-		// version is the bare "1.1.4".
-		expect(screen.getByText('1.1.4 (latest)')).toBeInTheDocument();
+		// Installed-version Overview row reads "1.1.4 (latest)" (appears once the
+		// fetch resolves); the faded header version is the bare "1.1.4".
+		expect(await screen.findByText('1.1.4 (latest)')).toBeInTheDocument();
 		expect(screen.getByText('1.1.4')).toBeInTheDocument();
 	});
 });
@@ -203,11 +208,14 @@ describe('PackageDetail while detail fetch is pending', () => {
 	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand: vi.fn() }).build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('shows loading skeletons for detail-only rows while the fetch is pending', () => {
+	it('shows header skeletons and hides the Overview while the fetch is pending', () => {
 		rtl.render(
 			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
 		);
-		const skeletons = screen.getAllByTestId('package-detail-loading');
-		expect(skeletons.length).toBeGreaterThan(0);
+		// Author and subtitle render as fixed-height skeletons so the header
+		// doesn't jump when the detail fetch resolves.
+		expect(screen.getAllByTestId('package-detail-loading')).toHaveLength(2);
+		// The Overview (and its detail-only rows) stays hidden until the fetch resolves.
+		expect(screen.queryByText('MIT')).not.toBeInTheDocument();
 	});
 });

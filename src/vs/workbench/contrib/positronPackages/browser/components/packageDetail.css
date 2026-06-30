@@ -194,3 +194,7 @@
 	background: var(--vscode-editorWidget-background);
 	opacity: 0.6;
 }
+
+/* Header placeholders read as a name / one-line summary, so size them wider. */
+.package-detail-author .package-detail-skeleton { width: 140px; }
+.package-detail-description .package-detail-skeleton { width: 240px; }
