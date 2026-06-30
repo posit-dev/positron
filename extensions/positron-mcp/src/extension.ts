@@ -235,11 +235,18 @@ async function enableMcpServer(): Promise<void> {
 	const logger = getLogger();
 	logger.info('Command', 'Enabling MCP server via command');
 
-	// Check if server is already running
+	// If the server is already running (e.g. enabled globally and started by this
+	// window), there is nothing to enable -- but a newly opened project may still
+	// be missing its per-workspace .mcp.json. Offer to write it instead of bailing
+	// out, so this command works for new projects without a disable/re-enable cycle.
 	if (mcpServer) {
+		const mcpConfigPath = await offerToCreateMcpConfig();
+		const message = mcpConfigPath
+			? 'The Positron MCP server is already running. An <code>.mcp.json</code> file in your workspace root now points at it.'
+			: 'The Positron MCP server is already running on http://localhost:43123.';
 		await positron.window.showSimpleModalDialogMessage(
 			'MCP Server Already Running',
-			'The Positron MCP server is already running on http://localhost:43123',
+			message,
 			'OK'
 		);
 		return;
@@ -267,23 +274,7 @@ async function enableMcpServer(): Promise<void> {
 	await config.update('positron.mcp.enable', true, vscode.ConfigurationTarget.Global);
 
 	// Ask about .mcp.json file configuration
-	let mcpConfigPath: string | undefined;
-	if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-		const configOptions = [
-			{ label: '$(file-add) Create/update .mcp.json file', value: true },
-			{ label: '$(dash) Skip configuration file', value: false }
-		];
-
-		const configChoice = await vscode.window.showQuickPick(configOptions, {
-			placeHolder: 'Would you like to create or update the .mcp.json configuration file?',
-			title: 'MCP Configuration File',
-			ignoreFocusOut: true
-		});
-
-		if (configChoice && configChoice.value) {
-			mcpConfigPath = await createOrUpdateMcpConfig();
-		}
-	}
+	const mcpConfigPath = await offerToCreateMcpConfig();
 
 	// Build the final message based on choices
 	let message = `Positron MCP server is enabled. Please restart Positron to start the server`;
@@ -347,6 +338,33 @@ async function disableMcpServer(): Promise<void> {
 	);
 
 	logger.info('Command', 'MCP server disabled successfully');
+}
+
+/**
+ * If a workspace is open, ask whether to create/update the .mcp.json file and do
+ * so if the user agrees. Returns the file path on success, or undefined if there
+ * is no workspace, the user skipped, or the write failed.
+ */
+async function offerToCreateMcpConfig(): Promise<string | undefined> {
+	if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+		return undefined;
+	}
+
+	const configOptions = [
+		{ label: '$(file-add) Create/update .mcp.json file', value: true },
+		{ label: '$(dash) Skip configuration file', value: false }
+	];
+
+	const configChoice = await vscode.window.showQuickPick(configOptions, {
+		placeHolder: 'Would you like to create or update the .mcp.json configuration file?',
+		title: 'MCP Configuration File',
+		ignoreFocusOut: true
+	});
+
+	if (configChoice && configChoice.value) {
+		return await createOrUpdateMcpConfig();
+	}
+	return undefined;
 }
 
 async function createOrUpdateMcpConfig(): Promise<string | undefined> {
