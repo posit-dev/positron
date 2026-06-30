@@ -71,14 +71,6 @@ function registerExportChatCommands(context: vscode.ExtensionContext) {
 	);
 }
 
-function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.toggleInlineCompletions', async () => {
-			await toggleInlineCompletions();
-		})
-	);
-}
-
 function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
@@ -108,40 +100,6 @@ function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext
 			}
 		})
 	);
-}
-
-
-async function toggleInlineCompletions() {
-	// Get the current value of the setting. Inline completions are gated on
-	// Copilot's native `github.copilot.enable` setting, shared across the
-	// Assistant, Copilot, and the chat status UI.
-	const config = vscode.workspace.getConfiguration('github.copilot');
-	const currentSettings = config.get<Record<string, boolean>>('enable') || {};
-
-	// Get the current file's language ID if there's an active text editor
-	const activeEditor = vscode.window.activeTextEditor;
-	const currentLanguageId = activeEditor?.document.languageId;
-
-	let keyToToggle: string;
-	let currentValue: boolean;
-
-	if (currentLanguageId && Object.prototype.hasOwnProperty.call(currentSettings, currentLanguageId)) {
-		// If current file type has an explicit setting, toggle it
-		keyToToggle = currentLanguageId;
-		currentValue = currentSettings[currentLanguageId];
-	} else {
-		// Otherwise toggle the global setting (*)
-		keyToToggle = '*';
-		currentValue = currentSettings['*'] ?? true; // Default to true if not set
-	}
-
-	// Toggle the value
-	const newValue = !currentValue;
-	const updatedSettings = { ...currentSettings };
-	updatedSettings[keyToToggle] = newValue;
-
-	// Update the configuration
-	await config.update('enable', updatedSettings, vscode.ConfigurationTarget.Global);
 }
 
 /**
@@ -337,7 +295,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureProvidersCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
-	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
 
 	// Register prompt management
