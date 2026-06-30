@@ -244,12 +244,16 @@ export function TracingFixture() {
 			return;
 		}
 
-		// The trace chunk we export below was opened *before* this test's per-test
-		// fixtures ran -- either by the `app` worker fixture (for the first test in
-		// the worker, which also captures `beforeAll`) or by the previous test's
-		// teardown in this same fixture. So failures in pre-test fixtures and
-		// `beforeEach` hooks are already inside the trace. The try/finally ensures
-		// we always export and re-open, even when `use()` rejects.
+		// Ensure a chunk is recording for this test. This fixture is an auto fixture,
+		// so it sets up before the test's request fixtures (`python`, `r`, ...) and
+		// `beforeEach` hooks -- their activity is captured. For the first test in the
+		// worker this is a no-op: the driver already opened the "startup" chunk at
+		// context creation, so that chunk (covering app startup and `beforeAll`) is
+		// reused and exported as the first test's trace. We deliberately open here at
+		// setup rather than re-opening in teardown: a test that leaves a blocking
+		// native dialog (e.g. the PDF print preview) would hang startTracing() in
+		// teardown. The try/finally still ensures we export even when `use()` rejects.
+		await app.startTracing(testInfo.titlePath.join(' › '));
 		try {
 			await use(app);
 		} finally {
@@ -257,12 +261,6 @@ export function TracingFixture() {
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 			const tracePath = testInfo.outputPath(`${title}.zip`);
 			await app.stopTracing(title, true, tracePath);
-
-			// Immediately open a fresh chunk so the *next* test's pre-test fixtures
-			// and `beforeEach` hooks are captured from the very start. (For the last
-			// test in the worker this chunk is simply discarded when the context's
-			// tracing is stopped on close.)
-			await app.startTracing(testInfo.titlePath.join(' › '));
 
 			// attach the trace to the report if CI and test failed or not in CI
 			const isCI = process.env.CI === 'true';
