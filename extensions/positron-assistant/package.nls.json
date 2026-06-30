@@ -10,8 +10,6 @@
 	"chatParticipants.agent.description": "Complete tasks in your workspace",
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"configuration.title": "Positron Assistant",
-	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.\n\nRequires a restart to take effect.",
-	"configuration.enable.markdownDeprecationMessage": "Positron Assistant is being superseded by Posit Assistant. Use `#assistant.enabled#` instead.",
 	"configuration.getTableSummary.description": "Enable Positron Assistant get table summary tool.",
 	"configuration.providerVariables.bedrock.description": "Variables used to configure advanced settings for Bedrock in Positron Assistant.\n\nRequires a restart to take effect.\n\nExample: to set the AWS region and profile for Amazon Bedrock, add items with keys `AWS_REGION` and `AWS_PROFILE`.",
 	"configuration.bedrock.inferenceProfileRegion.description": "Override the inference profile region for Amazon Bedrock.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' → 'us'). Use this setting to explicitly specify a different region.\n\nRequires a restart to take effect.\n\nExamples: 'global', 'us', 'eu', 'apac'.",

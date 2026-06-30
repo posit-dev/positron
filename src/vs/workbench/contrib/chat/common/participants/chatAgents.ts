@@ -447,12 +447,11 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			}
 		}
 		// --- Start Positron ---
-		// Do not register default agents when Assistant is disabled, except for
-		// the API test agent from upstream. Also treat `chat.disableAIFeatures`
-		// as "no panel participant" so the chat UI hides while leaving the chat
-		// extension's `vscode.lm` model provider available for other consumers.
+		// Do not register default agents when AI features are disabled, except for
+		// the API test agent from upstream. `_isAIDisabled()` covers both
+		// `chat.disableAIFeatures` and `ai.enabled`.
 		// this._defaultAgentRegistered.set(defaultAgentRegistered);
-		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
+		if (testAgentRegistered || !this._isAIDisabled()) {
 			this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		}
 		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.

@@ -124,7 +124,7 @@
         "command": "positron-assistant.collectDiagnostics",
         "title": "%commands.collectDiagnostics.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
+        "enablement": "chatAiFeaturesEnabled"
       }
     ],
     "configuration": [
@@ -132,15 +132,6 @@
         "type": "object",
         "title": "%configuration.title%",
         "properties": {
-          "positron.assistant.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.enable.markdownDescription%",
-            "markdownDeprecationMessage": "%configuration.enable.markdownDeprecationMessage%",
-            "tags": [
-              "preview"
-            ]
-          },
           "positron.assistant.providerVariables.bedrock": {
             "type": "object",
             "default": {},

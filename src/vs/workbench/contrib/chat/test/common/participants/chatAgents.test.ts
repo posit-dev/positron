@@ -105,7 +105,8 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
-		configurationService.setUserConfiguration('positron.assistant.enable', true);
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('chat.disableAIFeatures', false);
 		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
 		// --- End Positron ---
 	});
@@ -239,8 +240,8 @@ suite('ChatAgents', function () {
 			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when AI is re-enabled at runtime');
 		});
 
-		test('API test agent registers the panel participant regardless of positron.assistant.enable', () => {
-			configurationService.setUserConfiguration('positron.assistant.enable', false);
+		test('API test agent registers the panel participant regardless of AI feature gates', () => {
+			configurationService.setUserConfiguration('chat.disableAIFeatures', true);
 			store.add(chatAgentService.registerAgent(defaultAgentId, {
 				...defaultAgentData,
 				extensionId: new ExtensionIdentifier('vscode.vscode-api-tests'),

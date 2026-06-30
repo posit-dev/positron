@@ -65,13 +65,17 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	return participantService;
 }
 
+function isActive(): boolean {
+	const cfg = vscode.workspace.getConfiguration();
+	return cfg.get('ai.enabled') !== false
+		&& cfg.get('chat.disableAIFeatures') !== true;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
-	// Check to see if the assistant is enabled
-	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
-	if (enabled) {
+	if (isActive()) {
 		// Register the assistant. We don't propagate errors here since we want
 		// the extension to stay activated even if the assistant fails to
 		// initialize.
@@ -85,19 +89,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			);
 		}
 	} else {
-		// If the assistant is not enabled, listen for configuration changes so that we can
-		// enable it immediately if the user enables it in the settings.
+		// Listen for configuration changes so we can register once the gates open.
 		context.subscriptions.push(
 			vscode.workspace.onDidChangeConfiguration(async e => {
-				if (e.affectsConfiguration('positron.assistant.enable')) {
-					const enabled =
-						vscode.workspace.getConfiguration('positron.assistant').get('enable');
-					if (enabled && !assistantEnabled) {
+				if (e.affectsConfiguration('ai.enabled') || e.affectsConfiguration('chat.disableAIFeatures')) {
+					if (isActive() && !assistantEnabled) {
 						try {
 							registerAssistant(context);
-							vscode.window.showInformationMessage(
-								vscode.l10n.t('Positron Assistant is now enabled.')
-							);
 						} catch (e) {
 							vscode.window.showErrorMessage(
 								vscode.l10n.t(
