@@ -156,12 +156,6 @@
 		},
 		"commands": [
 			{
-				"command": "positron-assistant.logStoredModels",
-				"title": "%commands.logStoredModels.title%",
-				"category": "%commands.category%",
-				"enablement": "config.positron.assistant.enable"
-			},
-			{
 				"command": "positron-assistant.generateCommitMessage",
 				"title": "%commands.generateCommitMessage.title%",
 				"category": "%commands.category%",

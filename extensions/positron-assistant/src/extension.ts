@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, logStoredModels, syncSessionToGlobalState } from './config';
+import { deleteConfiguration, deleteConfigurationByProvider, getStoredModels, syncSessionToGlobalState } from './config';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
@@ -31,15 +31,6 @@ import { IS_RUNNING_ON_PWB } from './constants.js';
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
 let assistantEnabled = false;
-
-function registerLogStoredModelsCommand(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
-			logStoredModels(context);
-			log.show();
-		}),
-	);
-}
 
 function registerGenerateCommitMessageCommand(
 	context: vscode.ExtensionContext,
@@ -314,7 +305,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerHistoryTracking(context);
 
 	// Commands
-	registerLogStoredModelsCommand(context);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);

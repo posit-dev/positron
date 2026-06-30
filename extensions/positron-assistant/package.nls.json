@@ -1,8 +1,7 @@
 {
 	"displayName": "Positron Assistant",
 	"description": "Provides default assistant and language models for Positron.",
-"commands.logStoredModels.title": "Log the stored language models",
-	"commands.generateCommitMessage.title": "Generate Commit Message",
+"commands.generateCommitMessage.title": "Generate Commit Message",
 	"commands.cancelGenerateCommitMessage.title": "Cancel Generate Commit Message",
 	"commands.toggleInlineCompletions.title": "Toggle (Enable/Disable) Completions",
 	"commands.managePromptFiles.title": "Manage Prompt Files",

@@ -119,20 +119,3 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 		}
 	}
 }
-
-export function logStoredModels(context: vscode.ExtensionContext): void {
-	const models = getStoredModels(context);
-	const chatModels = models.filter(m => m.type === 'chat').map(m => ({
-		model: m.model,
-		provider: m.provider,
-	}));
-	const completionModels = models.filter(m => m.type === 'completion').map(m => ({
-		model: m.model,
-		provider: m.provider,
-	}));
-	const modelsInfo = {
-		chatModels: chatModels.length > 0 ? chatModels : 'None',
-		completionModels: completionModels.length > 0 ? completionModels : 'None',
-	};
-	log.info('Stored Models:', JSON.stringify(modelsInfo, null, 2));
-}
