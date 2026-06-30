@@ -5608,7 +5608,7 @@
         },
         {
           "command": "github.copilot.chat.review",
-          "when": "!github.copilot.interactiveSession.disabled"
+          "when": "!github.copilot.interactiveSession.disabled && chatAiFeaturesEnabled"
         },
         {
           "command": "github.copilot.chat.review.apply",
@@ -5953,10 +5953,6 @@
         {
           "command": "github.copilot.chat.otel.exportAgentTracesDB",
           "when": "config.github.copilot.chat.otel.dbSpanExporter.enabled && chatAiFeaturesEnabled"
-        },
-        {
-          "command": "github.copilot.chat.review",
-          "when": "config.github.copilot.chat.reviewSelection.enabled && chatAiFeaturesEnabled"
         },
         {
           "command": "github.copilot.chat.tools.memory.showMemories",
