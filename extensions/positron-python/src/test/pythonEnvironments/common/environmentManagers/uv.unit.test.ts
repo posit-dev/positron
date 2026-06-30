@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as os from 'os';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
 import {
@@ -216,6 +218,21 @@ suite('uv Environment Tests', () => {
             const result = await isUvInstalled();
 
             assert.strictEqual(result, false);
+        });
+
+        test('Falls back to the default install location when uv is not on PATH', async () => {
+            // The uv installer drops the binary at ~/.local/bin/uv and only edits shell rc
+            // files, so a freshly installed uv is not reachable on the running process PATH.
+            const localBinUv = path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'uv.exe' : 'uv');
+            // Bare `uv` is not on PATH.
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).rejects(new Error('command not found'));
+            // uv exists at its default install location and works there.
+            pathExistsStub.withArgs(localBinUv).resolves(true);
+            execStub.withArgs(localBinUv, ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: customDir });
+
+            const result = await isUvInstalled();
+
+            assert.strictEqual(result, true);
         });
     });
 

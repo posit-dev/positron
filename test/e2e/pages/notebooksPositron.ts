@@ -23,7 +23,7 @@ const DRAG_ACTIVATION_DISTANCE_PX = 10;
 const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear All Outputs' | 'Run All Cells';
 type OutputActionBarButtons = 'Collapse Output' | 'Expand Output' | 'Clear Output' | 'Show Full Output' | 'Truncate Output' | 'Copy Image';
 
 /**
@@ -833,6 +833,51 @@ export class PositronNotebooks extends Notebooks {
 			}
 
 			return cell;
+		});
+	}
+
+	/**
+	 * Action: Add a tag to the cell at the specified index.
+	 *
+	 * Uses the "Add Tag" command, which opens the inline tag input on the
+	 * active cell; the tag is committed with Enter.
+	 * @param cellIndex - The index of the cell to tag.
+	 * @param tag - The tag text to add (e.g. 'raises-exception').
+	 */
+	async addCellTag(cellIndex: number, tag: string): Promise<void> {
+		await test.step(`Add tag "${tag}" to cell ${cellIndex}`, async () => {
+			await this.selectCellAtIndex(cellIndex);
+			await this.quickaccess.runCommand('positronNotebook.cell.addTag');
+
+			const tagInput = this.cell.nth(cellIndex).locator('.positron-notebook-cell-tag-input');
+			await expect(tagInput).toBeFocused({ timeout: DEFAULT_TIMEOUT });
+			await tagInput.fill(tag);
+			await this.code.driver.currentPage.keyboard.press('Enter');
+
+			// Confirm the tag pill rendered.
+			await expect(
+				this.cell.nth(cellIndex).getByRole('button', { name: `Edit tag ${tag}` })
+			).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
+	 * Action: Run all cells and wait for execution to finish.
+	 *
+	 * Overrides the legacy notebook implementation: triggers Run All via the
+	 * Cmd/Ctrl+Shift+Enter command-mode shortcut, then waits for all execution
+	 * spinners to clear.
+	 * @param timeout - Maximum time to wait for execution to complete.
+	 */
+	override async runAllCells({ timeout = 30000 } = {}): Promise<void> {
+		await test.step('Run all cells', async () => {
+			// Run All / Interrupt own the Cmd/Ctrl+Shift+Enter shortcut in command
+			// mode; exit edit mode first so it doesn't just run the selection in the
+			// focused cell (#3804).
+			await this.selectCellAtIndex(0, { editMode: false });
+			const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+			await this.code.driver.currentPage.keyboard.press(`${mod}+Shift+Enter`);
+			await this.expectNoActiveSpinners(timeout);
 		});
 	}
 
@@ -2211,10 +2256,10 @@ export class ScopedNotebook {
 		this.kernel = new ScopedKernel(statusBadge, this.editorActionBar, contextMenu);
 
 		// Action bar buttons
-		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+		this.runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All Cells' });
 		this.addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 		this.addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
-		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+		this.clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear All Outputs' });
 	}
 
 	/** Get a specific cell by index */

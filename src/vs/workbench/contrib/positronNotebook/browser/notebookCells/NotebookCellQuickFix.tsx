@@ -16,18 +16,15 @@ import { usePositronConfiguration, useContextKeyFromString } from '../../../../.
 import { IAction } from '../../../../../base/common/actions.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
-import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
-import { ChatModeKind } from '../../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+import { openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
 const explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.");
 
-const NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 const ATTACHMENT_NAME = 'notebook-cell-error.txt';
-const SIDEBAR_VIEW_SETTING = 'assistant.sidebarView';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -39,19 +36,20 @@ interface NotebookCellQuickFixProps {
 
 /**
  * Quick fix component for notebook cell errors.
- * Displays "Fix" and "Explain" split buttons that send the error content to the assistant.
- * Uses posit-assistant.newChat when available, falling back to the built-in quick chat.
+ * Displays "Fix" and "Explain" split buttons that send the error content to the assistant
+ * via posit-assistant.newChat.
  * Primary click starts a fresh conversation; dropdown continues in the current conversation.
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const services = usePositronReactServicesContext();
-	const { commandService, contextMenuService, notificationService } = services;
+	const { commandService, contextMenuService, logService, notificationService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
-	const hasChatModels = useContextKeyFromString<boolean>('positron-assistant.hasChatModels');
-	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
+	// Set by the Posit Assistant extension when it has at least one usable model.
+	// The old positron-assistant.hasChatModels key is going away this milestone.
+	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
 
 	// Only show buttons if AI is enabled, notebook mode is enabled, and chat models are available
 	const showQuickFix = aiEnabled && enableNotebookMode && hasChatModels;
@@ -69,50 +67,18 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 		return { uri: `data:text/plain;base64,${base64}`, name: ATTACHMENT_NAME };
 	}, [cleanError]);
 
-	const runNewChat = useCallback(async (prompt: string, target: 'new' | 'auto') => {
-		try {
-			await commandService.executeCommand(NEW_CHAT_COMMAND, {
-				prompt,
-				target,
-				behavior: 'submit',
-				...(attachment && { files: [attachment] }),
-			});
-		} catch {
-			notificationService.error(
-				localize(
-					'positronNotebookAssistantUnavailable',
-					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
-				)
-			);
-		}
-	}, [commandService, notificationService, attachment]);
+	const runNewChat = useCallback((prompt: string, target: 'new' | 'auto') =>
+		openPositAssistantChat(commandService, notificationService, logService, {
+			prompt,
+			target,
+			behavior: 'submit',
+			...(attachment && { files: [attachment] }),
+		}),
+		[commandService, logService, notificationService, attachment]);
 
-	const runQuickChat = useCallback((prompt: string, isNew: boolean) => {
-		const query = cleanError
-			? `${prompt}\n\`\`\`\n${cleanError}\n\`\`\``
-			: prompt;
-		if (isNew) {
-			commandService.executeCommand(ACTION_ID_NEW_CHAT);
-		}
-		commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-			query,
-			mode: ChatModeKind.Agent
-		});
-	}, [commandService, cleanError]);
+	const pressedFixHandler = () => runNewChat(fixPrompt, 'new');
 
-	const pressedFixHandler = () => {
-		if (sidebarViewEnabled) {
-			return runNewChat(fixPrompt, 'new');
-		}
-		return runQuickChat(fixPrompt, true);
-	};
-
-	const pressedExplainHandler = () => {
-		if (sidebarViewEnabled) {
-			return runNewChat(explainPrompt, 'new');
-		}
-		return runQuickChat(explainPrompt, true);
-	};
+	const pressedExplainHandler = () => runNewChat(explainPrompt, 'new');
 
 	// Memoize dropdown actions for Fix button
 	const fixDropdownActions = useMemo((): IAction[] => [
@@ -122,14 +88,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			tooltip: localize('positronNotebookAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => {
-				if (sidebarViewEnabled) {
-					return runNewChat(fixPrompt, 'auto');
-				}
-				return runQuickChat(fixPrompt, false);
-			}
+			run: () => runNewChat(fixPrompt, 'auto')
 		}
-	], [sidebarViewEnabled, runNewChat, runQuickChat]);
+	], [runNewChat]);
 
 	// Memoize dropdown actions for Explain button
 	const explainDropdownActions = useMemo((): IAction[] => [
@@ -139,14 +100,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			tooltip: localize('positronNotebookAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
-			run: () => {
-				if (sidebarViewEnabled) {
-					return runNewChat(explainPrompt, 'auto');
-				}
-				return runQuickChat(explainPrompt, false);
-			}
+			run: () => runNewChat(explainPrompt, 'auto')
 		}
-	], [sidebarViewEnabled, runNewChat, runQuickChat]);
+	], [runNewChat]);
 
 	// Don't render if assistant features are not enabled
 	if (!showQuickFix) {

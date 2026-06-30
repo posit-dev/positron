@@ -221,26 +221,43 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 	}
 }
 
+/**
+ * Whether we manage Playwright tracing ourselves via per-test chunks (Positron
+ * desktop runs and all command-line runs), as opposed to letting Playwright's
+ * built-in tracing handle it (browser-based runs in UI mode or the VS Code
+ * extension). The continuous recording is started once per worker when the app
+ * context is created; we slice it into per-test chunks (see `TracingFixture`).
+ */
+export function shouldUseCustomTracing(project: playwright.FullProject): boolean {
+	const isCommandLineRun = !!process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
+	// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
+	return !(project.use.browserName && !isCommandLineRun);
+}
+
 export function TracingFixture() {
 	return async (options: TracingOptions, use: (arg0: Application) => Promise<void>) => {
 		const { app, testInfo } = options;
 
-		// Determine execution mode
-		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
-		// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
-		// Use custom tracing for Positron desktop runs or CLI runs.
-		if (
-			testInfo.project.use.browserName &&
-			!isCommandLineRun
-		) {
+		if (!shouldUseCustomTracing(testInfo.project)) {
+			// Playwright's built-in tracing manages the trace for this run.
 			await use(app);
-		} else {
-			// start tracing
-			await app.startTracing(testInfo.titlePath.join(' › '));
+			return;
+		}
 
+		// Ensure a chunk is recording for this test. This fixture is an auto fixture,
+		// so it sets up before the test's request fixtures (`python`, `r`, ...) and
+		// `beforeEach` hooks -- their activity is captured. For the first test in the
+		// worker this is a no-op: the driver already opened the "startup" chunk at
+		// context creation, so that chunk (covering app startup and `beforeAll`) is
+		// reused and exported as the first test's trace. We deliberately open here at
+		// setup rather than re-opening in teardown: a test that leaves a blocking
+		// native dialog (e.g. the PDF print preview) would hang startTracing() in
+		// teardown. The try/finally still ensures we export even when `use()` rejects.
+		await app.startTracing(testInfo.titlePath.join(' › '));
+		try {
 			await use(app);
-
-			// stop tracing
+		} finally {
+			// Export the chunk for this test.
 			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 			const tracePath = testInfo.outputPath(`${title}.zip`);
 			await app.stopTracing(title, true, tracePath);

@@ -37,24 +37,30 @@ test.describe('Packages Pane', {
 	// python is uv; pythonAlt is pyenv
 	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
-	pythonRuntimes.forEach((runtime) => {
-		test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
-			async function ({ app, sessions }) {
-				const { packages } = app.workbench;
+	test.describe('Python - Install, search, and uninstall package', () => {
+		test.beforeAll(async function ({ app, openFolder }) {
+			await openFolder('qa-example-content/workspaces/packages-pane-python');
+		});
 
-				await sessions.start(runtime);
+		pythonRuntimes.forEach((runtime) => {
+			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
+				async function ({ app, sessions }) {
+					const { packages } = app.workbench;
 
-				await packages.verifyPackagesList();
+					await sessions.start(runtime);
 
-				// install package and verify it shows up in the list
-				await packages.installPackage('cowsay');
-				await packages.searchPackages('cowsay');
-				await packages.expectPackageInList('cowsay');
+					await packages.verifyPackagesList();
 
-				// uninstall package and verify it is removed from the list
-				await packages.uninstallPackage('cowsay');
-				await packages.expectPackageNotInList('cowsay');
-			});
+					// install package and verify it shows up in the list
+					await packages.installPackage('cowsay');
+					await packages.searchPackages('cowsay');
+					await packages.expectPackageInList('cowsay');
+
+					// uninstall package and verify it is removed from the list
+					await packages.uninstallPackage('cowsay');
+					await packages.expectPackageNotInList('cowsay');
+				});
+		});
 	});
 
 	test('R - Install, search, and uninstall package', {
