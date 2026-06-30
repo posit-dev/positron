@@ -78,7 +78,7 @@
   "extensions/positron-pdf-server/": ["@:pdf"],
   "extensions/positron-postgresql/": [],
   "extensions/positron-proxy/": [],
-  "extensions/positron-python/": ["@:interpreter"],
+  "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
   "extensions/positron-r/": ["@:ark"],
   "extensions/positron-runtime-debugger/": ["@:debug"],
   "extensions/positron-sqlite/": [],
