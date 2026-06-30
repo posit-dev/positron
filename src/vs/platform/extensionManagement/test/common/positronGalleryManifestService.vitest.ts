@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, resolvePositronGalleryConfig } from '../../common/extensionGalleryManifestService.js';
+import { ExtensionGalleryManifestService, ExtensionGalleryConfig, POSITRON_GALLERY_PRESETS, POSITRON_GALLERY_PRESET_BASES, deriveGalleryConfig, resolvePositronGalleryConfig } from '../../common/extensionGalleryManifestService.js';
 import { parseExtensionsGalleryEnv } from '../../common/extensionsGalleryEnv.js';
 import { ExtensionGalleryResourceType, getExtensionGalleryManifestResourceUri } from '../../common/extensionGalleryManifest.js';
 import { IProductService } from '../../../product/common/productService.js';
@@ -44,6 +44,65 @@ describe('POSITRON_GALLERY_PRESETS', () => {
 			}
 			expect(preset.serviceUrl).toBeTruthy();
 			expect(preset.itemUrl).toBeTruthy();
+		}
+	});
+});
+
+describe('deriveGalleryConfig', () => {
+	it('derives the four URLs from a base using the Open VSX scheme', () => {
+		const config = deriveGalleryConfig('https://my-ppm.example.com/openvsx/latest/vscode');
+		expect(config).toEqual({
+			serviceUrl: 'https://my-ppm.example.com/openvsx/latest/vscode/gallery',
+			itemUrl: 'https://my-ppm.example.com/openvsx/latest/vscode/item',
+			resourceUrlTemplate: 'https://my-ppm.example.com/openvsx/latest/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}',
+			extensionUrlTemplate: 'https://my-ppm.example.com/openvsx/latest/vscode/gallery/{publisher}/{name}/latest',
+			controlUrl: '',
+			nlsBaseUrl: '',
+			publisherUrl: '',
+		});
+	});
+
+	it('normalizes one or more trailing slashes', () => {
+		const a = deriveGalleryConfig('https://host.example.com/vscode/');
+		const b = deriveGalleryConfig('https://host.example.com/vscode');
+		expect(a).toEqual(b);
+		expect(a?.serviceUrl).toBe('https://host.example.com/vscode/gallery');
+	});
+
+	it('trims surrounding whitespace', () => {
+		const config = deriveGalleryConfig('  https://host.example.com/vscode  ');
+		expect(config?.serviceUrl).toBe('https://host.example.com/vscode/gallery');
+	});
+
+	it('returns undefined for blank or whitespace-only input', () => {
+		const warn = vi.fn();
+		expect(deriveGalleryConfig('', warn)).toBeUndefined();
+		expect(deriveGalleryConfig('   ', warn)).toBeUndefined();
+		expect(warn).not.toHaveBeenCalled();
+	});
+
+	it('returns undefined for non-http(s) or unparseable input', () => {
+		expect(deriveGalleryConfig('not a url')).toBeUndefined();
+		expect(deriveGalleryConfig('ftp://host.example.com/vscode')).toBeUndefined();
+	});
+
+	it('rejects credentials, query, and fragment', () => {
+		expect(deriveGalleryConfig('https://user:pass@host.example.com/vscode')).toBeUndefined();
+		expect(deriveGalleryConfig('https://host.example.com/vscode?x=1')).toBeUndefined();
+		expect(deriveGalleryConfig('https://host.example.com/vscode#frag')).toBeUndefined();
+	});
+
+	it('warns via the supplied callback on rejection', () => {
+		const warn = vi.fn();
+		expect(deriveGalleryConfig('https://user:pass@host/vscode', warn)).toBeUndefined();
+		expect(deriveGalleryConfig('not a url', warn)).toBeUndefined();
+		expect(deriveGalleryConfig('ftp://host.example.com/vscode', warn)).toBeUndefined();
+		expect(warn).toHaveBeenCalledTimes(3);
+	});
+
+	it('preset bases derive to the same configs as POSITRON_GALLERY_PRESETS', () => {
+		for (const [name, base] of Object.entries(POSITRON_GALLERY_PRESET_BASES)) {
+			expect(deriveGalleryConfig(base)).toEqual(POSITRON_GALLERY_PRESETS[name]);
 		}
 	});
 });
@@ -167,7 +226,7 @@ describe('resolvePositronGalleryConfig', () => {
 			...productGallery,
 			serviceUrl: 'https://override.example.com/gallery',
 		};
-		const result = resolvePositronGalleryConfig(envGallery, 'open-vsx', productGallery);
+		const result = resolvePositronGalleryConfig(envGallery, 'open-vsx', undefined, productGallery);
 		expect(result).toBe(envGallery);
 		expect(result?.serviceUrl).toBe('https://override.example.com/gallery');
 		expect(result?.serviceUrl).not.toBe(POSITRON_GALLERY_PRESETS['open-vsx'].serviceUrl);
@@ -178,7 +237,7 @@ describe('resolvePositronGalleryConfig', () => {
 			...productGallery,
 			serviceUrl: 'https://override.example.com/gallery',
 		};
-		const result = resolvePositronGalleryConfig(envGallery, undefined, productGallery);
+		const result = resolvePositronGalleryConfig(envGallery, undefined, undefined, productGallery);
 		expect(result).toBe(envGallery);
 	});
 
@@ -186,18 +245,53 @@ describe('resolvePositronGalleryConfig', () => {
 		// Passing undefined is how the caller signals "env was not usable" — either
 		// it wasn't set, or it was set but parseExtensionsGalleryEnv returned undefined
 		// because the value was not valid JSON. In both cases the preset wins.
-		expect(resolvePositronGalleryConfig(undefined, 'open-vsx', productGallery)).toBe(POSITRON_GALLERY_PRESETS['open-vsx']);
-		expect(resolvePositronGalleryConfig(undefined, 'posit-p3m', productGallery)).toBe(POSITRON_GALLERY_PRESETS['posit-p3m']);
+		expect(resolvePositronGalleryConfig(undefined, 'open-vsx', undefined, productGallery)).toBe(POSITRON_GALLERY_PRESETS['open-vsx']);
+		expect(resolvePositronGalleryConfig(undefined, 'posit-p3m', undefined, productGallery)).toBe(POSITRON_GALLERY_PRESETS['posit-p3m']);
 	});
 
 	it('returns the product gallery when env is undefined and gallerySource is unset or unknown', () => {
-		expect(resolvePositronGalleryConfig(undefined, undefined, productGallery)).toBe(productGallery);
-		expect(resolvePositronGalleryConfig(undefined, '', productGallery)).toBe(productGallery);
-		expect(resolvePositronGalleryConfig(undefined, 'not-a-preset', productGallery)).toBe(productGallery);
+		expect(resolvePositronGalleryConfig(undefined, undefined, undefined, productGallery)).toBe(productGallery);
+		expect(resolvePositronGalleryConfig(undefined, '', undefined, productGallery)).toBe(productGallery);
+		expect(resolvePositronGalleryConfig(undefined, 'not-a-preset', undefined, productGallery)).toBe(productGallery);
 	});
 
 	it('returns undefined when env is undefined and the product gallery is unset', () => {
-		expect(resolvePositronGalleryConfig(undefined, undefined, undefined)).toBeUndefined();
+		expect(resolvePositronGalleryConfig(undefined, undefined, undefined, undefined)).toBeUndefined();
+	});
+
+	it('derives a custom config when gallerySource is custom and the URL is valid', () => {
+		const result = resolvePositronGalleryConfig(undefined, 'custom', 'https://my-ppm.example.com/vscode', productGallery);
+		expect(result).toEqual(deriveGalleryConfig('https://my-ppm.example.com/vscode'));
+	});
+
+	it('falls back to product gallery when gallerySource is custom but the URL is blank', () => {
+		expect(resolvePositronGalleryConfig(undefined, 'custom', '', productGallery)).toBe(productGallery);
+		expect(resolvePositronGalleryConfig(undefined, 'custom', undefined, productGallery)).toBe(productGallery);
+	});
+
+	it('falls back to product gallery when gallerySource is custom but the URL is invalid', () => {
+		expect(resolvePositronGalleryConfig(undefined, 'custom', 'https://user:pass@host/vscode', productGallery)).toBe(productGallery);
+		expect(resolvePositronGalleryConfig(undefined, 'custom', 'not a url', productGallery)).toBe(productGallery);
+	});
+
+	it('env gallery still wins even when gallerySource is custom', () => {
+		const envGallery: ExtensionGalleryConfig = { ...productGallery, serviceUrl: 'https://override.example.com/gallery' };
+		expect(resolvePositronGalleryConfig(envGallery, 'custom', 'https://my-ppm.example.com/vscode', productGallery)).toBe(envGallery);
+	});
+
+	// The electron-browser service only prompts for a restart when the resolved
+	// serviceUrl changes. These pin the resolution property that gating relies on,
+	// so editing the two settings in sequence never triggers a no-op restart.
+	it('setting a custom URL while the source is a preset does not change the resolved gallery', () => {
+		const before = resolvePositronGalleryConfig(undefined, 'posit-p3m', '', productGallery);
+		const after = resolvePositronGalleryConfig(undefined, 'posit-p3m', 'https://my-ppm.example.com/vscode', productGallery);
+		expect(after?.serviceUrl).toBe(before?.serviceUrl);
+	});
+
+	it('changing the custom URL while the source is custom does change the resolved gallery', () => {
+		const before = resolvePositronGalleryConfig(undefined, 'custom', 'https://a.example.com/vscode', productGallery);
+		const after = resolvePositronGalleryConfig(undefined, 'custom', 'https://b.example.com/vscode', productGallery);
+		expect(after?.serviceUrl).not.toBe(before?.serviceUrl);
 	});
 });
 
