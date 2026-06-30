@@ -17,7 +17,6 @@ import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './log.js';
 import { getRequestTokenUsage, TokenUsage } from './tokens.js';
-import { IChatRequestHandler } from './commands/index.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
@@ -136,6 +135,16 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 
 	/** Manually attach context information for the chat request. */
 	attachContextInfo: (messages: vscode.LanguageModelChatMessage2[]) => Promise<Readonly<ContextInfo> | undefined>;
+}
+
+export interface IChatRequestHandler {
+	(
+		request: vscode.ChatRequest,
+		context: PositronAssistantChatContext,
+		response: vscode.ChatResponseStream,
+		token: vscode.CancellationToken,
+		handleDefault: () => Promise<vscode.ChatResult | void>
+	): Promise<vscode.ChatResult | void>;
 }
 
 /** Base class for Positron Assistant chat participants. */

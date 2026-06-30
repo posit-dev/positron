@@ -45,10 +45,6 @@
 				"isDefault": true,
 				"commands": [
 					{
-						"name": "exportQuarto",
-						"description": "%chatParticipants.commands.exportQuarto.description%"
-					},
-					{
 						"name": "fix",
 						"description": "%chatParticipants.commands.fix.description%"
 					},
@@ -106,10 +102,6 @@
 					{
 						"name": "explain",
 						"description": "%chatParticipants.commands.explain.description%"
-					},
-					{
-						"name": "doc",
-						"description": "%chatParticipants.commands.doc.description%"
 					}
 				]
 			},
