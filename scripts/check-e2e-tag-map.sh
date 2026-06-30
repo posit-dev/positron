@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Guardrail: every Positron feature directory and extension must have an entry
-# in e2e-tag-paths-map.json (a real tag list OR an explicit [] meaning "no e2e
-# coverage by design"). Flags any that are missing so the map can't silently rot.
+# LOCAL / MANUAL full-sweep audit utility (not run by CI). Lists every Positron
+# source dir/extension that has no entry in e2e-tag-paths-map.json. The
+# authoritative, automated check runs per-PR in pr-tags-parse.sh, scoped to the
+# dirs each PR touches; run this by hand for an initial audit or a full sweep.
 # Usage: scripts/check-e2e-tag-map.sh [--warn-only]
 # Env: MAP_FILE overrides the map path (used by tests).
 set -uo pipefail
