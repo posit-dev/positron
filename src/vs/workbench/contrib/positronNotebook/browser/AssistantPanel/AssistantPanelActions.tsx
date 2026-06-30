@@ -15,9 +15,9 @@ import { ChatModeKind } from '../../../chat/common/constants.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
 import { isFileExcludedFromAI } from '../../../chat/browser/tools/utils.js';
-import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
-import { NOTEBOOK_AI_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { IHeadlessLanguageModelService } from '../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
 import { generateNotebookSuggestions, INotebookSuggestion } from './notebookSuggestions.js';
@@ -95,6 +95,11 @@ export interface AssistantPanelActionsProps {
 export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 	const { notebook, configurationService, headlessLmService, notebookContext, notificationService, onActionSelected } = props;
 
+	// Composite notebook AI gate (global ai.enabled AND notebook.ai.enabled), kept
+	// in sync by bindNotebookAIEnabledContextKey. Read reactively so toggling it
+	// without a window reload updates the gate. undefined reads as enabled.
+	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
+
 	const [customPrompt, setCustomPrompt] = useState('');
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [aiSuggestions, setAiSuggestions] = useState<INotebookSuggestion[]>([]);
@@ -141,13 +146,11 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			)
 		);
 
-		// Honor the AI main switch and the per-file exclusion the user
-		// configured: never send a notebook to a model when AI is disabled or
-		// the file is excluded. Read live, since `ai.enabled` toggles without a
-		// window reload.
-		// notebook.ai.enabled defaults to true, so only an explicit `false` disables.
-		const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true
-			&& configurationService.getValue<boolean>(NOTEBOOK_AI_ENABLED_KEY) !== false;
+		// Honor the composite notebook AI gate and the per-file exclusion the user
+		// configured: never send a notebook to a model when AI is disabled or the
+		// file is excluded. notebookAiEnabled defaults to enabled, so only an
+		// explicit disable (either AI switch off) blocks generation.
+		const aiEnabled = notebookAiEnabled !== false;
 		if (!notebookContext || !aiEnabled || isFileExcludedFromAI(configurationService, notebook.uri.path)) {
 			notifyNoSuggestions();
 			return;
@@ -208,7 +211,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			setIsGenerating(false);
 			cancellationTokenSourceRef.current = null;
 		}
-	}, [isGenerating, notebook, notebookContext, configurationService, headlessLmService, notificationService]);
+	}, [isGenerating, notebook, notebookContext, notebookAiEnabled, configurationService, headlessLmService, notificationService]);
 
 	const handleActionClick = useCallback((action: PredefinedAction) => {
 		onActionSelected(action.query, action.mode);

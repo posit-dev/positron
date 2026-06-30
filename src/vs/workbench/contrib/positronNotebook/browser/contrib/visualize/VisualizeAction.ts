@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationTokenSource } from '../../../../../../base/common/cancellation.js';
-import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { localize } from '../../../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { isFileExcludedFromAI } from '../../../../chat/browser/tools/utils.js';
-import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
-import { NOTEBOOK_AI_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import type { PositronNotebookCodeCell } from '../../PositronNotebookCells/PositronNotebookCodeCell.js';
 import type { IInlineDataExplorerActionContext } from '../../notebookCells/InlineDataExplorerActions.js';
@@ -79,6 +78,7 @@ export class VisualizeDataFrameAction extends Action2 {
 
 		const headlessLmService = accessor.get(IHeadlessLanguageModelService);
 		const configurationService = accessor.get(IConfigurationService);
+		const contextKeyService = accessor.get(IContextKeyService);
 		const notificationService = accessor.get(INotificationService);
 
 		const columns: DataFrameColumn[] = [];
@@ -112,11 +112,10 @@ export class VisualizeDataFrameAction extends Action2 {
 		// closes before the request resolves.
 		const suggestionCts = new CancellationTokenSource();
 		try {
-			// Honor the AI switches (global + notebooks) and the per-file exclusion:
-			// skip the model when AI is disabled or the notebook is excluded. The
-			// wizard still opens for manual selection (null prefill).
-			const aiEnabled = configurationService.getValue<boolean>(AI_ENABLED_KEY) === true
-				&& configurationService.getValue<boolean>(NOTEBOOK_AI_ENABLED_KEY) !== false;
+			// Honor the composite notebook AI gate (global + notebooks) and the
+			// per-file exclusion: skip the model when AI is disabled or the notebook
+			// is excluded. The wizard still opens for manual selection (null prefill).
+			const aiEnabled = NotebookContextKeys.aiEnabled.getValue(contextKeyService) !== false;
 			const suggestionPromise = (!aiEnabled || isFileExcludedFromAI(configurationService, ctx.documentUri.path))
 				? Promise.resolve(null)
 				: generateVisualizationSuggestion(

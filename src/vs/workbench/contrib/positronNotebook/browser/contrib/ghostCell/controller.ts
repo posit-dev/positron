@@ -9,7 +9,7 @@ import { CancellationTokenSource } from '../../../../../../base/common/cancellat
 import { ConfigurationTarget, IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../../../platform/notification/common/notification.js';
-import { RawContextKey, IContextKey } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { RawContextKey, IContextKey, IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
@@ -17,8 +17,7 @@ import { INotebookExecutionStateService, NotebookExecutionType } from '../../../
 import { CellEditType } from '../../../../notebook/common/notebookCommon.js';
 import { CellKind as PositronCellKind } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getAssistantSettings, setAssistantSettings } from '../../../common/notebookAssistantMetadata.js';
-import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
-import { NOTEBOOK_AI_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import {
 	POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 	POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY,
@@ -91,6 +90,7 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 		@ILogService private readonly _logService: ILogService,
 		@IHeadlessLanguageModelService private readonly _headlessLmService: IHeadlessLanguageModelService,
 		@IPositronVariablesService private readonly _variablesService: IPositronVariablesService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		super();
 
@@ -671,14 +671,14 @@ export class GhostCellController extends Disposable implements IPositronNotebook
 	// ===== Private Helpers =====
 
 	/**
-	 * Whether AI is enabled for notebooks. Both switches must be on: the global
-	 * `ai.enabled` and the notebooks-only `notebook.ai.enabled`. The latter
-	 * defaults to true, so only an explicit `false` disables notebook AI.
-	 * Ghost cell suggestions only work when notebook AI is enabled.
+	 * Whether AI is enabled for notebooks, read from the composite
+	 * `positronNotebook.aiEnabled` context key (the global `ai.enabled` AND the
+	 * notebooks-only `notebook.ai.enabled`, kept in sync by
+	 * bindNotebookAIEnabledContextKey). Defaults to enabled when unset, so only an
+	 * explicit disable blocks ghost cell suggestions.
 	 */
 	private _isNotebookAIEnabled(): boolean {
-		return this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true
-			&& this._configurationService.getValue<boolean>(NOTEBOOK_AI_ENABLED_KEY) !== false;
+		return NotebookContextKeys.aiEnabled.getValue(this._contextKeyService) !== false;
 	}
 
 	/**

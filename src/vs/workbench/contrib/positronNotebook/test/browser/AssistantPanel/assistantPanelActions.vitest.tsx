@@ -12,12 +12,12 @@ import { CancellationToken } from '../../../../../../base/common/cancellation.js
 import { URI } from '../../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
-import { AI_ENABLED_KEY } from '../../../../positronAssistant/common/positronAIConfiguration.js';
-import { NOTEBOOK_AI_ENABLED_KEY } from '../../../common/positronNotebookConfig.js';
+import { NotebookContextKeys } from '../../../common/notebookContextKeys.js';
 import { INotebookContextDTO } from '../../../../../common/positron/notebookAssistant.js';
 import { IHeadlessLanguageModelService } from '../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookInstance.js';
@@ -38,15 +38,17 @@ describe('AssistantPanelActions AI gate', () => {
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	let configurationService: TestConfigurationService;
+	let contextKeyService: IContextKeyService;
 	let notificationService: INotificationService;
 
 	beforeEach(() => {
 		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		contextKeyService = ctx.get(IContextKeyService);
 		notificationService = stubInterface<INotificationService>({ info: vi.fn(), error: vi.fn() });
 		mockGenerateNotebookSuggestions.mockReset().mockResolvedValue([]);
-		// Default both AI switches on (matching the registered defaults) and nothing excluded.
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
-		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, true);
+		// Default the composite notebook AI gate on (matching the default) and
+		// nothing excluded.
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
 		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
@@ -82,19 +84,11 @@ describe('AssistantPanelActions AI gate', () => {
 		await waitFor(() => expect(mockGenerateNotebookSuggestions).toHaveBeenCalledTimes(1));
 	});
 
-	it('does not request suggestions when AI is disabled, and notifies instead', async () => {
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
-		renderActions();
-		await clickGenerate();
-		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();
-		expect(notificationService.info).toHaveBeenCalledTimes(1);
-	});
-
-	it('does not request suggestions when notebook.ai.enabled is false (ai.enabled on), and notifies instead', async () => {
-		// The notebooks-only switch gates suggestion generation independently of
-		// the global switch.
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
-		configurationService.setUserConfiguration(NOTEBOOK_AI_ENABLED_KEY, false);
+	it('does not request suggestions when the notebook AI gate is off, and notifies instead', async () => {
+		// The composite notebook AI gate (ai.enabled AND notebook.ai.enabled, whose
+		// composition is covered in notebookAIEnabledContextKey.vitest.ts) gates
+		// suggestion generation.
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
 		renderActions();
 		await clickGenerate();
 		expect(mockGenerateNotebookSuggestions).not.toHaveBeenCalled();

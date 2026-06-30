@@ -62,6 +62,7 @@ import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
+import { bindNotebookAIEnabledContextKey } from './notebookAIEnabledContextKey.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { Action2, registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInCellAction } from './ExecuteSelectionInCellAction.js';
@@ -136,6 +137,10 @@ class PositronNotebookContribution extends Disposable {
 			contextKeyService,
 			reader => positronNotebookService.experimentsEnabled.read(reader),
 		));
+
+		// Keep the composite notebook AI gate (ai.enabled AND notebook.ai.enabled)
+		// in sync so every notebook AI feature can read the single context key.
+		this._register(bindNotebookAIEnabledContextKey(contextKeyService, this.configurationService));
 
 		this.registerEditor();
 	}

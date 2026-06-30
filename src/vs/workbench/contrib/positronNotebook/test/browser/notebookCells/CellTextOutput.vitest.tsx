@@ -85,11 +85,13 @@ describe('CellTextOutput', () => {
 	it('renders error output with quick-fix', () => {
 		// The workbench preset creates a fresh TestConfigurationService and
 		// MockContextKeyService per test, so pulling them out of the container
-		// here gives isolated state without any manual reset.
+		// here gives isolated state without any manual reset. The composite
+		// notebook AI gate is a context key (positronNotebook.aiEnabled), not a
+		// config value.
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('ai.enabled', true);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		contextKeyService.createKey('positronNotebook.aiEnabled', true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
@@ -105,15 +107,16 @@ describe('CellTextOutput', () => {
 		expect(screen.queryByRole('group', { name: /quick fix/i })).not.toBeInTheDocument();
 	});
 
-	it('does not render quick-fix for errors when notebook.ai.enabled is false', () => {
-		// Everything else that would show the quick-fix is on; only the
-		// notebooks-only AI switch is off, isolating that gate.
+	it('does not render quick-fix for errors when the notebook AI gate is off', () => {
+		// Everything else that would show the quick-fix is on; only the composite
+		// notebook AI context key is off, isolating that gate. (The ai.enabled vs
+		// notebook.ai.enabled composition is covered in
+		// notebookAIEnabledContextKey.vitest.ts.)
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
-		configurationService.setUserConfiguration('ai.enabled', true);
-		configurationService.setUserConfiguration('notebook.ai.enabled', false);
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
-		contextKeyService.createKey('positron-assistant.hasChatModels', true);
+		contextKeyService.createKey('positronNotebook.aiEnabled', false);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
