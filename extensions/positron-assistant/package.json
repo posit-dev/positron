@@ -205,12 +205,6 @@
 				"icon": "$(stop)"
 			},
 			{
-				"command": "positron-assistant.toggleInlineCompletions",
-				"title": "%commands.toggleInlineCompletions.title%",
-				"category": "%commands.category%",
-				"enablement": "config.positron.assistant.enable"
-			},
-			{
 				"command": "positron-assistant.managePromptFiles",
 				"title": "%commands.managePromptFiles.title%",
 				"category": "%commands.category%",
@@ -254,16 +248,6 @@
 						"type": "boolean",
 						"default": true,
 						"description": "%configuration.streamingEdits.enable%"
-					},
-					"positron.assistant.inlineCompletions.enable": {
-						"type": "object",
-						"default": {
-							"*": true
-						},
-						"additionalProperties": {
-							"type": "boolean"
-						},
-						"markdownDescription": "%configuration.inlineCompletions.enable.description%"
 					},
 					"positron.assistant.gitIntegration.enable": {
 						"type": "boolean",
