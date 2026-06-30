@@ -113,6 +113,10 @@ else
 	# Parse tags starting with '@:'
 	TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
 
+	# @:no-auto-tags is an opt-out signal (detected separately below), not a real
+	# tag -- strip it so it never pollutes the grep string or the log line.
+	TAGS=$(printf '%s' "$TAGS" | tr ',' '\n' | grep -v '^@:no-auto-tags$' | paste -sd, -)
+
 	# Always add @:critical if not already included
 	if [[ ! "$TAGS" =~ "@:critical" ]]; then
 		if [[ -n "$TAGS" ]]; then
@@ -167,19 +171,6 @@ else
 		fi
 	fi
 
-	# PR-time guardrail: warn (via the advisory comment + log) when this PR
-	# touches a Positron source dir/extension with no map entry. Runs regardless
-	# of @:no-auto-tags -- it is map-maintenance feedback, not tag selection.
-	UNMAPPED_DIRS=""
-	if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
-		UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
-		if [[ -n "$UNMAPPED_DIRS" ]]; then
-			echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
-			printf '  - %s\n' $UNMAPPED_DIRS
-		fi
-	fi
-	echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
-
 	# Enable Windows/web jobs when a NEWLY ADDED e2e test carries tags.WIN /
 	# tags.WEB (read from added diff lines only, so small edits to an existing
 	# tagged test don't opt in). Runs regardless of @:no-auto-tags.
@@ -207,6 +198,29 @@ else
 		echo "no_matches=false" >> "$GITHUB_OUTPUT"
 	fi
 fi
+
+# PR-time guardrail: warn (via the advisory comment + log) when this PR touches
+# a Positron source dir/extension with no map entry. Runs for BOTH @:all and
+# the normal path -- it is map-maintenance feedback, independent of tag
+# selection. Reuse CHANGED_FILES/MAP_FILE from the else branch above if they
+# were already computed there, so we don't double-fetch.
+SCRIPT_DIR="$(dirname "$0")"
+MAP_FILE="${MAP_FILE:-$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json}"
+if [[ -z "${CHANGED_FILES+x}" ]]; then
+	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[].filename' || true)
+fi
+
+UNMAPPED_DIRS=""
+if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+	UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
+	if [[ -n "$UNMAPPED_DIRS" ]]; then
+		echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
+		printf '  - %s\n' $UNMAPPED_DIRS
+	fi
+fi
+echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
 
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
 if [[ -n "$GITHUB_OUTPUT" ]]; then
