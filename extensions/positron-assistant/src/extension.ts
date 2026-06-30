@@ -19,7 +19,6 @@ import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
 import { disposeModels, registerModels, registerModelsForProvider } from './modelRegistration';
-import { PROVIDER_METADATA } from './providerMetadata.js';
 import { ModelConfig } from './configTypes.js';
 import { isAuthExtProvider } from './authExtRouting.js';
 import { IS_RUNNING_ON_PWB } from './constants.js';
@@ -43,30 +42,6 @@ function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 		})
 	);
 }
-
-/**
- * Listen for Snowflake configuration changes that affect model registration.
- * Only re-registers Snowflake models when Snowflake-specific settings change.
- */
-function registerSnowflakeConfigurationListener(context: vscode.ExtensionContext) {
-	const snowflakeProviderId = PROVIDER_METADATA.snowflake.id;
-
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(async (e) => {
-			// Snowflake provider enable setting changed
-			if (e.affectsConfiguration('positron.assistant.provider.snowflakeCortex.enable')) {
-				log.info('[Assistant] Snowflake provider enable setting changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
-			}
-			// Snowflake credentials changed in auth extension
-			if (e.affectsConfiguration('authentication.snowflake.credentials')) {
-				log.info('[Assistant] Snowflake credentials changed, re-registering Snowflake models');
-				await registerModelsForProvider(context, snowflakeProviderId, 'snowflake-cortex');
-			}
-		})
-	);
-}
-
 
 async function toggleInlineCompletions() {
 	// Get the current value of the setting
@@ -300,11 +275,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register participant detection provider
 	registerParticipantDetectionProvider();
-
-	// Listener for configuration changes so that models can be registered without a reload
-	// Note: Snowflake uses file-based credentials (connections.toml), handled via
-	// positron.assistant.providerVariables.snowflake configuration changes
-	registerSnowflakeConfigurationListener(context);
 
 	// Dispose cleanup
 	context.subscriptions.push({
