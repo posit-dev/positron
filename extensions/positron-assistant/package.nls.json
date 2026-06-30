@@ -9,8 +9,6 @@
 	"chatParticipants.fullName": "Positron Assistant",
 	"chatParticipants.ask.description": "Ask Assistant",
 	"chatParticipants.agent.description": "Complete tasks in your workspace",
-	"chatParticipants.commands.explain.description": "Explain the code in the active editor",
-	"chatParticipants.commands.fix.description": "Fix issues in the active editor or Console",
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"configuration.title": "Positron Assistant",
 	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.\n\nRequires a restart to take effect.",

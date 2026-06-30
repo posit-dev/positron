@@ -15,7 +15,6 @@ import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { initializeTokenTracking } from './tokens.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
-import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
@@ -306,9 +305,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register participant detection provider
 	registerParticipantDetectionProvider();
-
-	// Register chat commands
-	registerAssistantCommands();
 
 	// Listener for configuration changes so that models can be registered without a reload
 	// Note: Snowflake uses file-based credentials (connections.toml), handled via

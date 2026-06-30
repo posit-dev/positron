@@ -137,21 +137,10 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 	attachContextInfo: (messages: vscode.LanguageModelChatMessage2[]) => Promise<Readonly<ContextInfo> | undefined>;
 }
 
-export interface IChatRequestHandler {
-	(
-		request: vscode.ChatRequest,
-		context: PositronAssistantChatContext,
-		response: vscode.ChatResponseStream,
-		token: vscode.CancellationToken,
-		handleDefault: () => Promise<vscode.ChatResult | void>
-	): Promise<vscode.ChatResult | void>;
-}
-
 /** Base class for Positron Assistant chat participants. */
 abstract class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	abstract id: ParticipantID;
 	private readonly _requests = new Map<string, ChatRequestData>();
-	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, IChatRequestHandler>>();
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -180,35 +169,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			// Get an extended Assistant-specific chat context
 			const assistantContext = await this.getAssistantContext(request, context, response);
 
-			// Select request handler based on the command issued by the user for this request
-			if (request.command) {
-				if (request.command in this.commandRegistry) {
-					const handler = this.commandRegistry[request.command];
-					const handleDefault = () => this.defaultRequestHandler(request, assistantContext, response, token);
-					return await handler(request, assistantContext, response, token, handleDefault);
-				} else {
-					log.warn(`[participant] No command handler registered in participant ${this.id} for command: ${request.command}`);
-				}
-			}
 			return await this.defaultRequestHandler(request, assistantContext, response, token);
 		} finally {
 			this._requests.delete(request.id);
 		}
-	}
-
-	protected get commandRegistry(): Record<string, IChatRequestHandler> {
-		const constructor = this.constructor as typeof PositronAssistantParticipant;
-		if (!PositronAssistantParticipant._commands.has(constructor)) {
-			PositronAssistantParticipant._commands.set(constructor, {});
-		}
-		return PositronAssistantParticipant._commands.get(constructor)!;
-	}
-
-	public static registerCommand(command: string, handler: IChatRequestHandler) {
-		if (!PositronAssistantParticipant._commands.has(this)) {
-			PositronAssistantParticipant._commands.set(this, {});
-		}
-		PositronAssistantParticipant._commands.get(this)![command] = handler;
 	}
 
 	public getRequestData(chatRequestId: string): ChatRequestData | undefined {

@@ -43,16 +43,6 @@
 				"description": "%chatParticipants.ask.description%",
 				"isSticky": false,
 				"isDefault": true,
-				"commands": [
-					{
-						"name": "fix",
-						"description": "%chatParticipants.commands.fix.description%"
-					},
-					{
-						"name": "explain",
-						"description": "%chatParticipants.commands.explain.description%"
-					}
-				],
 				"locations": [
 					"panel"
 				],
@@ -94,16 +84,6 @@
 				"locations": [
 					"editor"
 				],
-				"commands": [
-					{
-						"name": "fix",
-						"description": "%chatParticipants.commands.fix.description%"
-					},
-					{
-						"name": "explain",
-						"description": "%chatParticipants.commands.explain.description%"
-					}
-				]
 			},
 			{
 				"id": "positron.assistant.notebook",
