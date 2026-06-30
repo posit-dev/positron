@@ -18,6 +18,7 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ListPackages } from '../../browser/components/listPackages.js';
 import { PositronPackagesContextProvider } from '../../browser/positronPackagesContext.js';
@@ -90,6 +91,9 @@ describe('ListPackages highlight', () => {
 			onDidChangeItemSize: Event.None,
 			setSelectedPackage: vi.fn(),
 		})
+		// Selecting a package fires the (fire-and-forget) 'positronPackages.openPackage'
+		// command; stub it so these flash/select tests don't emit unhandled rejections.
+		.stub(ICommandService, { executeCommand: vi.fn() })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

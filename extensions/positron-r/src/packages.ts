@@ -78,6 +78,19 @@ export class RPackageManager {
 	}
 
 	/**
+	 * Get detail fields for a single installed package.
+	 * Returns undefined if the package is not installed or the name is empty.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	async getPackageDetail(
+		name: string,
+		token?: vscode.CancellationToken,
+	): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+		return this._callMethod<Partial<positron.LanguageRuntimePackage> | undefined>('pkg_detail', token, name) ?? undefined;
+	}
+
+	/**
 	 * Call `pkg_outdated` and return a map of package name to latest version
 	 * from the user's configured R repositories. Swallows errors -- the call
 	 * hits the network and can fail transiently; outdated state will

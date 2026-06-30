@@ -136,6 +136,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
 	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
+	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;
 }

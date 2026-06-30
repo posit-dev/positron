@@ -5,14 +5,17 @@
 
 'use strict';
 
+import * as path from 'path';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import { Uri } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
 import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IFileSystem } from '../../client/common/platform/types';
+import { IWorkspaceService } from '../../client/common/application/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PipPackageManager } from '../../client/positron/packages/pipPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
@@ -26,7 +29,8 @@ suite('PipPackageManager update Tests', () => {
     let serviceContainer: IServiceContainer;
     let pythonService: { isModuleInstalled: sinon.SinonStub; execModule: sinon.SinonStub };
     let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
-    let fileSystem: { createTemporaryFile: sinon.SinonStub; writeFile: sinon.SinonStub };
+    let fileSystem: { createTemporaryFile: sinon.SinonStub; writeFile: sinon.SinonStub; fileExists: sinon.SinonStub };
+    let workspaceService: IWorkspaceService;
     let writtenContent: string;
     let messageEmitter: MessageEmitter;
     let session: PackageSession;
@@ -51,12 +55,18 @@ suite('PipPackageManager update Tests', () => {
 
         writtenContent = '';
         fileSystem = {
+            fileExists: sinon.stub().resolves(false),
             createTemporaryFile: sinon.stub().resolves({ filePath: '/tmp/reqs.txt', dispose: sinon.stub() }),
             writeFile: sinon.stub().callsFake((_p: string, text: string) => {
                 writtenContent = text;
                 return Promise.resolve();
             }),
         };
+        workspaceService = {
+            get workspaceFolders() {
+                return undefined;
+            },
+        } as any;
 
         // Assign getConfiguration so _getProxyFlags() gets a real WorkspaceConfiguration-like
         // object (vscode.workspace is a ts-mockito instance; sinon.stub won't work on it).
@@ -75,7 +85,9 @@ suite('PipPackageManager update Tests', () => {
             .withArgs(ITerminalServiceFactory)
             .returns(terminalFactory)
             .withArgs(IFileSystem)
-            .returns(fileSystem);
+            .returns(fileSystem)
+            .withArgs(IWorkspaceService)
+            .returns(workspaceService);
 
         messageEmitter = { fire: sinon.stub() };
         session = { metadata: { sessionId: 'test' }, callMethod: sinon.stub().resolves([]) };
@@ -176,5 +188,56 @@ suite('PipPackageManager update Tests', () => {
             threw = true;
         }
         expect(threw).to.equal(true);
+    });
+
+    suite('with workspace requirements.txt', () => {
+        let reqPath: string;
+
+        setup(() => {
+            const workspaceFolder = { uri: Uri.file('/workspace'), name: 'ws', index: 0 };
+            reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            fileSystem.fileExists.withArgs(reqPath).resolves(true);
+        });
+
+        test('installPackages passes the target on the command line plus -r requirements.txt', async () => {
+            await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['install', 'cowsay==6.1', '-r', reqPath]);
+            expect(args).to.not.include('--upgrade');
+            // No freeze temp file synthesized.
+            expect(fileSystem.createTemporaryFile.called).to.equal(false);
+            expect(pythonService.execModule.calledWithMatch('pip', sinon.match.array.startsWith(['freeze']))).to.equal(
+                false,
+            );
+        });
+
+        test('installPackages passes a versionless target as a bare name', async () => {
+            await manager.installPackages([{ name: 'cowsay' }]);
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['install', 'cowsay', '-r', reqPath]);
+        });
+
+        test('updatePackages pins the target on the command line plus -r requirements.txt (no --upgrade)', async () => {
+            await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['install', 'werkzeug==3.1.8', '-r', reqPath]);
+            expect(args).to.not.include('--upgrade');
+        });
+
+        test('updateAllPackages runs install --upgrade -r requirements.txt with no targets', async () => {
+            pythonService.execModule
+                .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+            await manager.updateAllPackages();
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['install', '--upgrade', '-r', reqPath]);
+            expect(fileSystem.createTemporaryFile.called).to.equal(false);
+        });
     });
 });

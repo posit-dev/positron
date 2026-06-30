@@ -33,6 +33,12 @@ export interface IPositronPackagesInstance {
 	searchPackages(name: string, token?: CancellationToken): Promise<ILanguageRuntimePackage[]>;
 	searchPackageVersions(name: string, token?: CancellationToken): Promise<string[]>;
 
+	/**
+	 * Fetch detail metadata for a single package from the session's package
+	 * manager. Resolves undefined when the manager doesn't support it.
+	 */
+	getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined>;
+
 	readonly onDidRefreshPackagesInstance: Event<ILanguageRuntimePackage[]>;
 
 	/**
@@ -491,6 +497,14 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			return [];
 		}
 		return results;
+	}
+
+	async getPackageDetail(name: string, token?: CancellationToken): Promise<Partial<ILanguageRuntimePackage> | undefined> {
+		const packageManager = this.getPackageManagerOrThrow();
+		if (!packageManager.getPackageDetail) {
+			return undefined;
+		}
+		return packageManager.getPackageDetail(name, token);
 	}
 
 	/**

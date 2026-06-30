@@ -335,6 +335,15 @@ export interface ILanguageRuntimePackage {
 	 * via the row's external-link button.
 	 */
 	url?: string;
+
+	/** One-line title/summary, richer than `description`. From the detail RPC. */
+	title?: string;
+
+	/** Display-ready author/maintainer string (already normalized by the runtime). */
+	author?: string;
+
+	/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
+	sourceRepository?: string;
 }
 
 /**
@@ -439,6 +448,20 @@ export interface ILanguageRuntimePackageManager {
 		packageNames: string[],
 		token?: CancellationToken,
 	): Promise<Map<string, Partial<ILanguageRuntimePackage>> | undefined>;
+
+	/**
+	 * Fetch detailed metadata for a single package, called when the package
+	 * detail editor opens. Cheap, kernel-local fields only (title, author,
+	 * source repository, published date); never network or
+	 * expensive filesystem walks. Returns a partial package to merge over the
+	 * list entry, or undefined when unsupported / not found.
+	 * @param name Package name
+	 * @param token Optional cancellation token
+	 */
+	getPackageDetail?(
+		name: string,
+		token?: CancellationToken,
+	): Promise<Partial<ILanguageRuntimePackage> | undefined>;
 }
 
 /**

@@ -826,6 +826,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return (await session.listMissingPackages?.(target, token)) ?? [];
 	}
 
+	async $getPackageDetail(
+		handle: number,
+		name: string,
+		token: CancellationToken,
+	): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package detail');
+		if (!packageManager.getPackageDetail) {
+			return undefined;
+		}
+		return packageManager.getPackageDetail(name, token);
+	}
+
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
