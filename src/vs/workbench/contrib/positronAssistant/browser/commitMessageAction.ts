@@ -37,8 +37,7 @@ const SELECT_GIT_SUGGESTIONS_MODEL_COMMAND_ID = 'positron.git.selectSuggestionsM
 
 /** Read the configured model selection (empty patterns fall back to the fast/cheap tier). */
 function commitMessageModelSelection(configurationService: IConfigurationService): ModelSelection {
-	const patterns = configurationService.getValue<string[]>(GIT_SUGGESTIONS_MODEL_KEY);
-	return patterns ? intentFromSetting(patterns) : FastCheap;
+	return intentFromSetting(configurationService.getValue<string[]>(GIT_SUGGESTIONS_MODEL_KEY));
 }
 
 /** A short description of a model selection. */
