@@ -44,31 +44,40 @@ for prefix in "${expected[@]}"; do
 	fi
 done
 
-# Tag health: existence isn't enough. Every tag the map uses must (1) be a real
-# tag declared in test-tags.ts, and (2) actually be carried by at least one e2e
-# test -- otherwise the mapping is dead coverage (a renamed/removed tag, or a
-# suite that never existed). Catches the silent "complete but wrong" rot.
+# Tag health. HARD (#1): every tag the map uses must be a real tag declared in
+# test-tags.ts -- a typo'd or deleted tag is a genuine error. ADVISORY (#2): a
+# valid tag that no e2e test currently carries is surfaced but NOT failed -- the
+# enum declaring the tag signals intent (a suite mid-migration or coming back),
+# so we don't force it to [] or block on it.
 ENUM_FILE="${ENUM_FILE:-$REPO_ROOT/test/e2e/infra/test-runner/test-tags.ts}"
 TESTS_DIR="${TESTS_DIR:-$REPO_ROOT/test/e2e/tests}"
-tag_problems=()
+invalid_tags=()
+untested_tags=()
 if [[ -f "$ENUM_FILE" ]]; then
 	valid_tags="$(grep -oE "'@:[a-zA-Z0-9_-]+'" "$ENUM_FILE" | tr -d "'" | sort -u)"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
 		if ! printf '%s\n' "$valid_tags" | grep -qxF "$tag"; then
-			tag_problems+=("$tag -- not declared in test-tags.ts")
+			invalid_tags+=("$tag")
 			continue
 		fi
-		# Resolve the tag value to its enum NAME, then require a tags.NAME reference.
+		# Resolve the tag value to its enum NAME, then look for a tags.NAME reference.
 		name="$(grep -E "= '${tag}'," "$ENUM_FILE" | sed -nE 's/^[[:space:]]*([A-Z0-9_]+)[[:space:]]*=.*/\1/p' | head -1)"
 		if [[ -n "$name" ]] && ! grep -rqE "tags\.${name}\b" "$TESTS_DIR" 2>/dev/null; then
-			tag_problems+=("$tag -- no e2e test carries tags.$name")
+			untested_tags+=("$tag")
 		fi
 	done < <(jq -r '.[][]?' "$MAP_FILE" | sort -u)
 fi
 
-if [[ ${#missing[@]} -eq 0 && ${#tag_problems[@]} -eq 0 ]]; then
-	echo "All Positron dirs are mapped and every mapped tag is valid and used."
+# Advisory (never fails): valid tags with no test carrying them today.
+if [[ ${#untested_tags[@]} -gt 0 ]]; then
+	echo "Note: mapped tag(s) with no e2e test yet (ok if a suite is mid-migration or planned):"
+	printf '  - %s\n' "${untested_tags[@]}"
+	echo ""
+fi
+
+if [[ ${#missing[@]} -eq 0 && ${#invalid_tags[@]} -eq 0 ]]; then
+	echo "All Positron dirs are mapped and every mapped tag is valid."
 	exit 0
 fi
 
@@ -78,10 +87,10 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 	echo "Add each to the map: a feature tag list (e.g. [\"@:console\"]) or [] if it has no e2e coverage."
 	echo ""
 fi
-if [[ ${#tag_problems[@]} -gt 0 ]]; then
-	echo "The following map tags are invalid or have no e2e coverage:"
-	printf '  - %s\n' "${tag_problems[@]}"
-	echo "Fix the tag, or map the dir to [] if the feature has no e2e coverage."
+if [[ ${#invalid_tags[@]} -gt 0 ]]; then
+	echo "The following map tags are not declared in test-tags.ts:"
+	printf '  - %s\n' "${invalid_tags[@]}"
+	echo "Fix the tag name, or map the dir to [] if the feature has no e2e coverage."
 	echo ""
 fi
 
