@@ -12,6 +12,10 @@ import { MainThreadConfigurationShape, MainContext, ExtHostContext, IConfigurati
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { ConfigurationTarget, IConfigurationService, IConfigurationOverrides } from '../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../platform/environment/common/environment.js';
+// --- Start Positron ---
+import { ILogService } from '../../../platform/log/common/log.js';
+import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry, ConfigurationKeyValuePairs } from '../../common/configuration.js';
+// --- End Positron ---
 
 @extHostNamedCustomer(MainContext.MainThreadConfiguration)
 export class MainThreadConfiguration implements MainThreadConfigurationShape {
@@ -23,6 +27,9 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
+		// --- Start Positron ---
+		@ILogService private readonly _logService: ILogService,
+		// --- End Positron ---
 	) {
 		const proxy = extHostContext.getProxy(ExtHostContext.ExtHostConfiguration);
 
@@ -40,6 +47,43 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		}
 		return configurationData;
 	}
+
+	// --- Start Positron ---
+	$registerConfigurationMigrations(extensionId: string, migrations: ReadonlyArray<{ readonly key: string; readonly migrateTo: string }>): void {
+		const configurationProperties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
+		const normalizedExtensionId = extensionId.toLowerCase();
+		const publisher = normalizedExtensionId.split('.')[0];
+		const isTrusted = publisher === 'posit';
+
+		const approved = migrations.filter(migration => {
+			const source = configurationProperties[migration.key]?.source;
+			const sourceId = (source && typeof source !== 'string')
+				? source.id.toLowerCase()
+				: undefined;
+			const isRegisteredOwner = sourceId === normalizedExtensionId;
+			// When the key has no extension owner (unregistered after a rename, or never attributed),
+			// accept ownership if the key falls within the extension's namespace.
+			const isNamespaceOwner = sourceId === undefined && migration.key.toLowerCase().startsWith(normalizedExtensionId + '.');
+			const isOwner = isRegisteredOwner || isNamespaceOwner;
+			if (!isOwner && !isTrusted) {
+				this._logService.warn(`Extension '${extensionId}' attempted to register a configuration migration for '${migration.key}' but does not own it.`);
+				return false;
+			}
+			return true;
+		});
+
+		if (approved.length > 0) {
+			Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.ConfigurationMigration)
+				.registerConfigurationMigrations(approved.map(migration => ({
+					key: migration.key,
+					migrateFn: (value: unknown): ConfigurationKeyValuePairs => [
+						[migration.migrateTo, { value }],
+						[migration.key, { value: undefined }],
+					],
+				})));
+		}
+	}
+	// --- End Positron ---
 
 	public dispose(): void {
 		this._configurationListener.dispose();
