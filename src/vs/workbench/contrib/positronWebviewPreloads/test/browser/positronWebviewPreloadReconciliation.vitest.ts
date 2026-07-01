@@ -35,21 +35,31 @@ import { waitForRuntimeState } from '../../../../services/runtimeSession/test/co
  * can assert disposal against.
  */
 describe('Positron - PositronWebviewPreloadService output reconciliation (#12887)', () => {
-	// Track every fake webview the stubbed output-webview service hands out,
-	// keyed by output ID, plus whether dispose() has been called on it.
+	// Track every fake webview the stubbed output-webview service hands out.
+	// `disposedById` collapses to the latest webview per output ID (enough for
+	// the leak/exclusion assertions); `created` keeps every instance so tests
+	// that rebuild under the same output ID can distinguish old from new.
 	const disposedById = new Map<string, boolean>();
+	interface FakeWebview extends INotebookOutputWebview { disposed: boolean }
+	const created: FakeWebview[] = [];
 
-	function makeFakeWebview(id: string): INotebookOutputWebview {
+	function makeFakeWebview(id: string): FakeWebview {
 		disposedById.set(id, false);
-		return {
+		const fake: FakeWebview = {
 			id,
 			sessionId: 'test-session',
+			disposed: false,
 			// The reconciliation path never touches the underlying overlay; a
 			// minimal stub is enough and keeps the fake free of real disposables.
 			webview: stubInterface<IOverlayWebview>(),
 			onDidRender: Event.None,
-			dispose: () => disposedById.set(id, true),
+			dispose: () => {
+				fake.disposed = true;
+				disposedById.set(id, true);
+			},
 		};
+		created.push(fake);
+		return fake;
 	}
 
 	const ctx = createTestContainer()
@@ -68,6 +78,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 	beforeEach(() => {
 		disposedById.clear();
+		created.length = 0;
 		// Construct the service AFTER stubs are applied so it captures our
 		// stubbed output-webview service.
 		service = ctx.disposables.add(
@@ -192,6 +203,27 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		await flushReconciliation();
 
 		expect(disposedById.get('display-1'), 'a changed output type must dispose the stale overlay webview').toBe(true);
+	});
+
+	it('rebuilds a display webview when its content changes under the same output ID', async () => {
+		const { instance } = setupNotebook([plotlyOutput]);
+
+		await awaitWebview(service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs }));
+		expect(created.length, 'first render creates one webview').toBe(1);
+
+		// A Jupyter update_display_data keeps the same output ID but swaps the
+		// content. parseCellOutputs() re-runs and calls addNotebookOutput again
+		// with the new bytes -- the cached webview is stale and must be rebuilt.
+		const updatedOutputs = [{ mime: 'application/vnd.plotly.v1+json', data: VSBuffer.fromString('{"updated":true}') }];
+		await awaitWebview(service.addNotebookOutput({ instance, outputId: 'display-1', outputs: updatedOutputs }));
+
+		expect(created.length, 'a content change must build a second, distinct webview').toBe(2);
+		expect(created[0].disposed, 'the stale webview must be disposed').toBe(true);
+		expect(created[1].disposed, 'the fresh webview stays alive').toBe(false);
+
+		// The re-parse that does NOT change content must reuse, not churn.
+		await awaitWebview(service.addNotebookOutput({ instance, outputId: 'display-1', outputs: updatedOutputs }));
+		expect(created.length, 'unchanged content reuses the live webview -- no rebuild').toBe(2);
 	});
 
 	it('disposes an orphaned raw HTML webview when its cell is deleted', async () => {

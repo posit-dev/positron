@@ -58,6 +58,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	/** Map tracking which overlay output IDs belong to which notebook for reconciliation. */
 	private readonly _overlayOutputIdsByNotebookId = new Map<string, Set<string>>();
 
+	/**
+	 * Fingerprint of the content each tracked overlay webview was created from,
+	 * keyed by output ID. Used to detect when an output's content changes under
+	 * the same output ID (e.g. a Jupyter update_display_data) so the stale
+	 * webview is rebuilt rather than reused.
+	 */
+	private readonly _overlayContentByOutputId = new Map<string, string>();
+
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
 
@@ -254,14 +262,25 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			webviewPromise.then(webview => webview.dispose(), () => { /* creation failed; nothing to dispose */ });
 		}
 		this._overlayWebviewsByOutputId.delete(outputId);
+		this._overlayContentByOutputId.delete(outputId);
+	}
+
+	/**
+	 * Stable fingerprint of an output's items (mime + data), used to detect when
+	 * a display output's content changed under the same output ID so a stale
+	 * webview is rebuilt rather than reused.
+	 */
+	private _fingerprintOutputs(outputs: NotebookOutput['outputs']): string {
+		return outputs.map(o => `${o.mime}:${o.data.toString()}`).join('\0');
 	}
 
 	/**
 	 * Track and return an overlay webview (display plot or raw HTML) so it can
 	 * be reconciled against the notebook model and disposed when orphaned.
 	 */
-	private _trackOverlayWebview(instance: IPositronNotebookInstance, outputId: string, webview: Promise<INotebookOutputWebview>): Promise<INotebookOutputWebview> {
+	private _trackOverlayWebview(instance: IPositronNotebookInstance, outputId: string, contentKey: string, webview: Promise<INotebookOutputWebview>): Promise<INotebookOutputWebview> {
 		this._overlayWebviewsByOutputId.set(outputId, webview);
+		this._overlayContentByOutputId.set(outputId, contentKey);
 		this._overlayOutputIdsByNotebookId.get(instance.getId())?.add(outputId);
 		return webview;
 	}
@@ -274,6 +293,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	private _untrackOverlayWebview(instance: IPositronNotebookInstance, outputId: string, webview: Promise<INotebookOutputWebview>): void {
 		if (this._overlayWebviewsByOutputId.get(outputId) === webview) {
 			this._overlayWebviewsByOutputId.delete(outputId);
+			this._overlayContentByOutputId.delete(outputId);
 			this._overlayOutputIdsByNotebookId.get(instance.getId())?.delete(outputId);
 		}
 	}
@@ -352,13 +372,19 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				return { preloadMessageType: 'display', webview: webviewPromise };
 			}
 
-			// Reuse a tracked overlay if one already exists for this output:
-			// parseCellOutputs() re-runs on every output change, so recreating
-			// here would churn (and orphan) the webview. The tracked webview is
-			// reconciled against the model and disposed when its output is gone.
+			// Reuse a tracked overlay if one already exists for this output with
+			// the same content: parseCellOutputs() re-runs on every output
+			// change, so recreating here would churn (and orphan) the webview.
+			// If the HTML changed under the same output ID (e.g. an in-place
+			// update), dispose the stale webview and rebuild. The tracked webview
+			// is reconciled against the model and disposed when its output is gone.
+			const contentKey = rawHtml;
 			const existingOverlay = this._overlayWebviewsByOutputId.get(outputId);
-			if (existingOverlay) {
+			if (existingOverlay && this._overlayContentByOutputId.get(outputId) === contentKey) {
 				return { preloadMessageType: 'display', webview: existingOverlay };
+			}
+			if (existingOverlay) {
+				this._disposeOverlayWebview(outputId);
 			}
 
 			const webviewPromise = this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri)
@@ -368,7 +394,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				});
 			return {
 				preloadMessageType: 'display',
-				webview: this._trackOverlayWebview(instance, outputId, webviewPromise),
+				webview: this._trackOverlayWebview(instance, outputId, contentKey, webviewPromise),
 			};
 		}
 
@@ -424,14 +450,20 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		}
 
 		// Display messages (e.g., interactive plots) need their own overlay
-		// webview. Reuse a tracked one if it already exists -- parseCellOutputs()
-		// re-runs on every output change, so recreating here would churn (and
-		// orphan) the webview. The tracked webview is reconciled against the
-		// model and disposed when its output disappears.
+		// webview. Reuse a tracked one if it already exists with the same content
+		// -- parseCellOutputs() re-runs on every output change, so recreating
+		// here would churn (and orphan) the webview. If the output content
+		// changed under the same output ID (e.g. an in-place update), dispose the
+		// stale webview and rebuild. The tracked webview is reconciled against
+		// the model and disposed when its output disappears.
 		if (messageType === 'display') {
+			const contentKey = this._fingerprintOutputs(outputs);
 			const existingOverlay = this._overlayWebviewsByOutputId.get(runtimeOutput.id);
-			if (existingOverlay) {
+			if (existingOverlay && this._overlayContentByOutputId.get(runtimeOutput.id) === contentKey) {
 				return { preloadMessageType: messageType, webview: existingOverlay };
+			}
+			if (existingOverlay) {
+				this._disposeOverlayWebview(runtimeOutput.id);
 			}
 
 			const webviewPromise = this._createNotebookPlotWebview(instance, runtimeOutput)
@@ -441,7 +473,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				});
 			return {
 				preloadMessageType: messageType,
-				webview: this._trackOverlayWebview(instance, runtimeOutput.id, webviewPromise),
+				webview: this._trackOverlayWebview(instance, runtimeOutput.id, contentKey, webviewPromise),
 			};
 		}
 
