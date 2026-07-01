@@ -548,7 +548,7 @@ version = "0.1.0"`;
         });
     });
 
-    suite('with python.packageManager.useRequirementsFile disabled', () => {
+    suite('with packages.python.useRequirementsFile disabled', () => {
         let processService: { exec: sinon.SinonStub };
         let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
         let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
@@ -560,7 +560,7 @@ version = "0.1.0"`;
             vscode.workspace.getConfiguration = (section?: string) =>
                 ({
                     get: (key: string, defaultValue?: unknown) =>
-                        section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                        section === 'packages.python' && key === 'useRequirementsFile' ? false : defaultValue,
                 } as any);
 
             sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);

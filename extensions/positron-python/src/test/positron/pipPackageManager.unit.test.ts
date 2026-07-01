@@ -261,7 +261,7 @@ suite('PipPackageManager update Tests', () => {
             expect(fileSystem.createTemporaryFile.called).to.equal(false);
         });
 
-        suite('with python.packageManager.useRequirementsFile disabled', () => {
+        suite('with packages.python.useRequirementsFile disabled', () => {
             setup(() => {
                 // Force the opt-out setting to false so requirements.txt is ignored
                 // and operations fall back to the pip freeze re-resolve path, even
@@ -269,7 +269,7 @@ suite('PipPackageManager update Tests', () => {
                 vscode.workspace.getConfiguration = (section?: string) =>
                     ({
                         get: (key: string, defaultValue?: unknown) =>
-                            section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                            section === 'packages.python' && key === 'useRequirementsFile' ? false : defaultValue,
                     } as any);
             });
 
@@ -361,7 +361,7 @@ suite('PipPackageManager update Tests', () => {
                         if (section === 'packages.python' && key === 'autoUpdateRequirements') {
                             return true;
                         }
-                        if (section === 'python' && key === 'packageManager.useRequirementsFile') {
+                        if (section === 'packages.python' && key === 'useRequirementsFile') {
                             return false;
                         }
                         return defaultValue;

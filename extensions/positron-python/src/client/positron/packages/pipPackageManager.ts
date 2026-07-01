@@ -307,7 +307,7 @@ export class PipPackageManager implements IPackageManager {
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
         // Opt-out: when the setting is disabled, ignore requirements.txt so all
         // operations fall back to the pip freeze re-resolve path.
-        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+        if (!vscode.workspace.getConfiguration('packages.python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
             return undefined;
         }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
