@@ -91,6 +91,22 @@ export class QuickInput {
 		).toBeVisible({ timeout });
 	}
 
+	/**
+	 * Wait for the runtime quick pick to finish interpreter discovery before
+	 * interacting with the list. While discovery is in progress the picker sets
+	 * its input placeholder to "Discovering interpreters..." (see
+	 * languageRuntimeActions.ts) and lists only the interpreters found so far.
+	 * Selecting during this window races discovery: a version-string match can
+	 * land on a fast-discovered source (e.g. a uv base install) instead of the
+	 * intended interpreter. The placeholder is set synchronously before the
+	 * picker is shown, so this assertion cannot pass vacuously mid-discovery.
+	 */
+	async waitForInterpreterDiscoveryToComplete({ timeout = 30000 }: { timeout?: number } = {}): Promise<void> {
+		await expect(
+			this.code.driver.currentPage.locator(QuickInput.QUICK_INPUT_INPUT),
+		).not.toHaveAttribute('placeholder', /Discovering interpreters/i, { timeout });
+	}
+
 	async type(value: string): Promise<void> {
 		await this.code.driver.currentPage
 			.locator(QuickInput.QUICK_INPUT_INPUT)
