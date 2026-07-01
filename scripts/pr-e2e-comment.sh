@@ -72,7 +72,7 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
     # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
     # every future PR touching this dir silently won't auto-tag.
     DIRS="$(echo "$UNMAPPED_DIRS" | sed 's/,/, /g')"
-    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches Positron directories that aren't mapped in \`e2e-tag-paths-map.json\`: ${DIRS}. Add an entry for each directory (an e2e tag or \`[]\` for no coverage) so future changes are tagged automatically."
+    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches Positron directories that aren't mapped in [\`e2e-tag-paths-map.json\`](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json): ${DIRS}. Add an entry for each directory (an e2e tag or \`[]\` for no coverage) so future changes are tagged automatically."
   fi
 fi
 
