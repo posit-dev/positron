@@ -30,6 +30,11 @@ cat > "$MAP" <<'JSON'
   "extensions/positron-assistant/": ["@:assistant", "@:posit-assistant"],
   "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
   "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
+  "extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
+  "extensions/positron-python/python_files/posit/positron/matplotlib_backend": ["@:plots"],
+  "extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
+  "extensions/positron-python/python_files/posit/positron/variables": ["@:variables"],
+  "extensions/positron-python/python_files/posit/positron/_vendor/": [],
   "src/vs/workbench/contrib/positronTelemetry/": []
 }
 JSON
@@ -56,6 +61,26 @@ assert_eq "parent still applies outside the leaf" "@:interpreter,@:console,@:pac
 # Two files, one leaf one parent: union of the winning entry per file.
 assert_eq "leaf + parent union across files" "@:packages-pane,@:interpreter,@:console" \
 	"$(derive_map_tags "$(printf 'extensions/positron-python/src/client/positron/packages/x.ts\nextensions/positron-python/src/client/positron/session.ts')" "$MAP")"
+
+# Three-level layering (parent -> python_files default -> per-feature file leaf).
+# A kernel-side feature file wins with its precise tag, dropping the coarser
+# ancestor tags.
+assert_eq "python_files feature file: matplotlib -> plots" "@:plots" \
+	"$(derive_map_tags "extensions/positron-python/python_files/posit/positron/matplotlib_backend.py" "$MAP")"
+assert_eq "python_files feature file: data_explorer_comm -> data-explorer" "@:data-explorer" \
+	"$(derive_map_tags "extensions/positron-python/python_files/posit/positron/data_explorer_comm.py" "$MAP")"
+assert_eq "python_files feature file: variables -> variables" "@:variables" \
+	"$(derive_map_tags "extensions/positron-python/python_files/posit/positron/variables.py" "$MAP")"
+# Kernel plumbing with no feature leaf falls to the python_files default
+# (console+interpreter), NOT the parent's packages-pane.
+assert_eq "python_files plumbing -> kernel default, no packages-pane" "@:console,@:interpreter" \
+	"$(derive_map_tags "extensions/positron-python/python_files/posit/positron/positron_ipkernel.py" "$MAP")"
+# Vendored code under python_files contributes nothing.
+assert_eq "python_files _vendor -> nothing" "" \
+	"$(derive_map_tags "extensions/positron-python/python_files/posit/positron/_vendor/foo.py" "$MAP")"
+# The TS-client packages leaf is unaffected by the python_files entries.
+assert_eq "src/client packages leaf still wins" "@:packages-pane" \
+	"$(derive_map_tags "extensions/positron-python/src/client/positron/packages/pip.ts" "$MAP")"
 
 # Test files and lockfiles never contribute to derivation (a test-only or
 # lockfile-only change should not auto-select a feature suite).
