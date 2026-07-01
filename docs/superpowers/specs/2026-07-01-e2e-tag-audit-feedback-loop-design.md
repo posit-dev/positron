@@ -96,7 +96,7 @@ pure check over the map keys, unit-tested alongside the primitives.
   1. **Summary line** - PRs examined, gaps (`+`), over-tags (`-`), clean.
   2. **Delta table** - columns: `PR | Title | Author | Derived | Delta | Entry`.
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
-       resolves in both the tracking issue and the job summary. (Repo URL from
+       resolves in the job summary and any Slack link. (Repo URL from
        `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
        `posit-dev/positron` origin locally.)
      - `Author` (what the PR was actually tagged) and `Derived` (what the map
@@ -122,15 +122,29 @@ pure check over the map keys, unit-tested alongside the primitives.
 - Triggers: `schedule` cron `0 12 * * 1` (Monday 12:00 UTC ~ 6am CT; DST drift of
   1h across the year is accepted for a weekly report) and `workflow_dispatch`
   (manual).
-- Steps: checkout; run `audit-e2e-tags.sh --since <7 days ago>`; write the report
-  to `$GITHUB_STEP_SUMMARY` (always, durable in the run); upsert a single
-  tracking issue.
-- Issue upsert: find an **open** issue by a fixed marker (label `e2e-tag-audit` +
-  title). If found, edit its body with the current report; else create it,
-  assigned to `@marieidleman`, labeled `e2e-tag-audit`. A closed issue is treated
-  as acted-on -> create a fresh one rather than reopen.
-- Permissions: `contents: read`, `pull-requests: read`, `issues: write`. Uses
-  `gh` with `GITHUB_TOKEN`.
+- Steps: checkout; run `audit-e2e-tags.sh --since <7 days ago>`; write the full
+  report to `$GITHUB_STEP_SUMMARY` (always - this is the canonical, durable
+  record for the run); post a Slack notification for visibility.
+- **Delivery mirrors the nightly bootstrap-extensions workflow**
+  (`extensions-check-nightly.yml`) - same channel and mechanism, just linking to
+  the report instead of a PR:
+  - Post to `#positron-dev` via `chat.postMessage` with the
+    `SLACK_TOKEN_TEST_STATUS` bot token (same `curl -X POST
+    https://slack.com/api/chat.postMessage` + `jq` payload the nightly uses).
+  - Message is a one-liner: emoji + `*e2e tag audit*` + counts + a
+    `<run-url|report>` link, where `run-url` is
+    `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
+    (the run page renders the job-summary report).
+  - **Skip the Slack post on a clean week** (no gaps and no over-tags), mirroring
+    the nightly's "skip repost when nothing new." The job summary is still
+    written every run.
+  - A `slack-workflow-status@v3.1.3` job notifies `#positron-test-results` on
+    workflow **failure**, same as the nightly.
+- **No tracking issue** (dropped): a weekly report is a rolling snapshot - fixed
+  divergences simply fall off next week - so an assignable issue with open/closed
+  state adds bookkeeping without value, and it keeps us off GitHub issues.
+- Permissions: `contents: read`, `pull-requests: read`. Uses `gh` with
+  `GITHUB_TOKEN` for reads; Slack via the secret token.
 
 ### Data flow
 
@@ -140,16 +154,16 @@ cron (Mon 12:00 UTC)
     -> audit-e2e-tags.sh --since <7d ago>
       -> gh: list merged PRs (last 7d) + per-PR files/body
       -> derive_map_tags + is_derivable_source (shared lib)
-      -> csv_minus -> gap / review
+      -> csv_minus -> gap / over-tag
     -> Markdown report
-      -> $GITHUB_STEP_SUMMARY
-      -> upsert tracking issue (assigned to Marie)
+      -> $GITHUB_STEP_SUMMARY  (always; canonical record)
+      -> Slack #positron-dev  (chat.postMessage, only if divergences; links to run)
 ```
 
 ## Report format (illustrative)
 
-The report renders as Markdown (shown here as it would appear in the issue /
-job summary):
+The full report renders as Markdown in the job summary (the Slack post is just a
+one-line headline linking to it):
 
 > ## e2e tag audit - week of 2026-06-23..2026-06-29
 >
@@ -176,7 +190,7 @@ job summary):
   - ancestor-explained check - true when a shorter matching prefix supplies the
     missing tag (the `positron-r/src/testing/` drops `@:ark` case), false for a
     genuine gap (14248 `@:interpreter`).
-- The `gh` fetch, table formatting, and issue upsert are glue: validated by a
+- The `gh` fetch, table formatting, and Slack post are glue: validated by a
   manual `workflow_dispatch` run, not unit-tested.
 
 ### Testing from the feature branch (no merge required)
@@ -187,8 +201,9 @@ job summary):
   ad-hoc audit run during brainstorming.
 - **Workflow:** `workflow_dispatch` runs from any branch that contains the
   workflow file: `gh workflow run e2e-tag-audit.yml --ref mi/e2e-tag-audit`
-  exercises the full path (fetch -> report -> job summary -> issue upsert) while
-  still on the branch.
+  exercises the full path (fetch -> report -> job summary -> Slack post) while
+  still on the branch. (Use a throwaway test channel or the `dry-run` path so a
+  branch run doesn't post to `#positron-dev`.)
 - **Only the `schedule:` cron** requires the file on the default branch; that is
   the sole step that waits for merge.
 
@@ -196,7 +211,7 @@ job summary):
 
 1. Land `csv_minus` + `audit-e2e-tags.sh` with unit tests.
 2. Add the workflow with `workflow_dispatch` only; run it manually to validate
-   the report and the issue upsert.
+   the report and the Slack post (against a test channel first).
 3. Enable the `schedule` trigger once the manual run looks right.
 4. Rebase onto `main` after PR #14602 (the `pr-tags-lib.sh` dependency) merges.
 
@@ -213,5 +228,6 @@ job summary):
   are still "author knew more than the dir implies," not map bugs. Triage
   accordingly.
 - **Cron DST drift** of 1 hour - accepted for a weekly report.
-- **Issue-upsert identity** relies on a stable label + title marker; a manually
-  renamed/relabeled issue would cause a duplicate. Low impact.
+- **Slack is ephemeral; the job summary is the record.** The message is a headline
+  + link, skipped on clean weeks. If someone misses the Slack ping, the run's
+  summary still holds the full report.
