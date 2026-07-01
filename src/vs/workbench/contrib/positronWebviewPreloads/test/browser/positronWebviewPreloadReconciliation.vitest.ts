@@ -249,7 +249,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		expect(disposedById.get('html-1'), 'deleting the cell must dispose its overlay webview').toBe(true);
 	});
 
-	it('does NOT dispose a widget webview during reconciliation', async () => {
+	it('reconciliation disposes an overlay but spares a widget sharing the cell', async () => {
 		// Widgets need a live notebook session to be created.
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
@@ -260,18 +260,29 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		await waitForRuntimeState(session, RuntimeState.Ready);
 		expect(ctx.get(IRuntimeSessionService).getNotebookSessionForNotebookUri(NOTEBOOK_URI)).toBeDefined();
 
-		const { textModel, instance } = setupNotebook([widgetOutput]);
+		// One cell holding both a display overlay and a widget. Clearing the cell
+		// removes both outputs, so a single reconciliation pass sees both gone.
+		// The overlay must be disposed (proving the pass actually ran and is not a
+		// no-op); the widget must survive (it owns its own lifecycle). If a change
+		// wrongly lumped widgets into the reconciled set, the widget would be
+		// disposed in this very pass and the final assertion would flip.
+		const { textModel, instance } = setupNotebook([plotlyOutput, widgetOutput]);
 
-		const result = service.addNotebookOutput({ instance, outputId: 'widget-1', outputs: widgetOutput.outputs });
-		expect(result?.preloadMessageType).toBe('widget');
-		await awaitWebview(result);
+		const display = service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs });
+		expect(display?.preloadMessageType).toBe('display');
+		await awaitWebview(display);
+
+		const widget = service.addNotebookOutput({ instance, outputId: 'widget-1', outputs: widgetOutput.outputs });
+		expect(widget?.preloadMessageType).toBe('widget');
+		await awaitWebview(widget);
+
+		expect(disposedById.get('display-1')).toBe(false);
 		expect(disposedById.get('widget-1')).toBe(false);
 
-		// Removing the widget's output triggers reconciliation. The widget owns
-		// its own lifecycle, so reconciliation must leave it alone.
 		clearOutputs(textModel);
 		await flushReconciliation();
 
-		expect(disposedById.get('widget-1'), 'reconciliation must not dispose widget webviews').toBe(false);
+		expect(disposedById.get('display-1'), 'reconciliation ran and disposed the orphaned overlay').toBe(true);
+		expect(disposedById.get('widget-1'), 'the same reconciliation pass must spare the widget webview').toBe(false);
 	});
 });
