@@ -118,15 +118,7 @@ function createCellEditor(
 	const editor = disposables.add(cellEditor.scopedInstantiationService.createInstance(
 		CodeEditorWidget,
 		element,
-		{
-			...getInitialCellEditorOptions(),
-			// TODO: Do we need dim 0?
-			// Initially set the editor size to 0x0.
-			dimension: {
-				width: 0,
-				height: 0,
-			}
-		},
+		getInitialCellEditorOptions(),
 		{ contributions: getNotebookEditorContributions() }
 	));
 	cell.attachEditor(editor);
