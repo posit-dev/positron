@@ -61,6 +61,11 @@ export class PositronMcpSession extends Disposable {
 	private _initialized = false;
 	private _pinnedWindowId: number | undefined;
 
+	/** Name the client reported at `initialize` (e.g. "claude-code"), for status UI. */
+	public clientName: string | undefined;
+	/** Version the client reported at `initialize`, for status UI. */
+	public clientVersion: string | undefined;
+
 	constructor(
 		public readonly id: string,
 		private readonly _logger: ILogger,
@@ -94,7 +99,9 @@ export class PositronMcpSession extends Disposable {
 			this._pinnedWindowId = this._broker.resolveTargetWindow();
 			const clientInfo = (request.params as { clientInfo?: { name?: unknown; version?: unknown } } | undefined)?.clientInfo;
 			if (clientInfo?.name) {
-				this._logger.info(`[PositronMcpSession ${this.id}] initialize from ${String(clientInfo.name)}${clientInfo.version ? ` ${String(clientInfo.version)}` : ''} (window ${this._pinnedWindowId ?? 'none'})`);
+				this.clientName = String(clientInfo.name);
+				this.clientVersion = clientInfo.version !== undefined ? String(clientInfo.version) : undefined;
+				this._logger.info(`[PositronMcpSession ${this.id}] initialize from ${this.clientName}${this.clientVersion ? ` ${this.clientVersion}` : ''} (window ${this._pinnedWindowId ?? 'none'})`);
 			}
 			return {
 				protocolVersion: POSITRON_MCP_PROTOCOL_VERSION,

@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IPositronMcpService, PositronMcpChannelName, PositronMcpToolBrokerChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IPositronMcpService, PositronMcpToolBrokerChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
@@ -25,16 +24,14 @@ import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js'
  * windows are open they each drive the same shared server idempotently.
  */
 export class PositronMcpLifecycleContribution extends Disposable implements IWorkbenchContribution {
-	private readonly _proxy: IPositronMcpService;
-
 	constructor(
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronMcpService private readonly _mcpService: IPositronMcpService,
 		@IPositronMcpToolService toolService: IPositronMcpToolService,
 	) {
 		super();
-		this._proxy = ProxyChannel.toService<IPositronMcpService>(mainProcessService.getChannel(PositronMcpChannelName));
 
 		// Register this window's tool broker so the main-process server can route
 		// tool calls here when this window is the pinned target.
@@ -57,7 +54,7 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 
 	private _sync(): void {
 		const run = this._shouldRun();
-		const action = run ? this._proxy.start() : this._proxy.stop();
+		const action = run ? this._mcpService.start() : this._mcpService.stop();
 		action.catch(err => this._logService.error(`[PositronMcp] Failed to ${run ? 'start' : 'stop'} server`, err));
 	}
 }

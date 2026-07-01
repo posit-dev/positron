@@ -40,7 +40,15 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
 	const serverStatus = await mcpService.getStatus();
 	const workspaceConfig = await workspace.getConfigState();
-	return { enabled, running: serverStatus.running, port: serverStatus.port, workspaceConfig };
+	return {
+		enabled,
+		running: serverStatus.running,
+		port: serverStatus.port,
+		workspaceConfig,
+		lastClientName: serverStatus.lastClientName,
+		lastClientVersion: serverStatus.lastClientVersion,
+		lastActivityAt: serverStatus.lastActivityAt,
+	};
 }
 
 /** Toggle the enable setting. The lifecycle contribution starts/stops the server in response. */

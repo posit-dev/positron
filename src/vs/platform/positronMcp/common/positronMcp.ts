@@ -27,6 +27,12 @@ export interface IPositronMcpServerStatus {
 	readonly running: boolean;
 	/** The port the server listens on (or would, when started). */
 	readonly port: number;
+	/** Name the most recently connected client reported (e.g. "claude-code"), if any. */
+	readonly lastClientName?: string;
+	/** Version the most recently connected client reported, if any. */
+	readonly lastClientVersion?: string;
+	/** Epoch milliseconds of the most recent request from any client, if any. */
+	readonly lastActivityAt?: number;
 }
 
 /**
