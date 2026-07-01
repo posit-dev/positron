@@ -7,20 +7,41 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { constObservable } from '../../../../../base/common/observable.js';
 import { IFileStatWithMetadata, IFileService } from '../../../../../platform/files/common/files.js';
 import { IResourceEditorInput } from '../../../../../platform/editor/common/editor.js';
+import { EditorsOrder, IEditorIdentifier } from '../../../../common/editor.js';
+import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookCell } from '../../../positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronMcpNotebookTools } from '../../browser/positronMcpNotebook.js';
 
 describe('PositronMcpNotebookTools', () => {
 	const resolvePath = (p: string) => URI.file(p.startsWith('/') ? p : `/workspace/${p}`);
 
-	/** Tools wired with no active notebook (the editor pane is not a notebook). */
+	/** A one-cell markdown notebook instance open at the given path. */
+	function notebookInstance(path: string, content: string): IPositronNotebookInstance {
+		const cell = stubInterface<IPositronNotebookCell>({
+			index: 0,
+			// A markdown cell: the cast satisfies isCodeCell's `this is` type guard.
+			isCodeCell: (() => false) as IPositronNotebookCell['isCodeCell'],
+			getContent: () => content,
+		});
+		return stubInterface<IPositronNotebookInstance>({
+			uri: URI.file(path),
+			cells: constObservable([cell]),
+		});
+	}
+
+	/** Tools wired with no notebook open (the notebook service lists none). */
 	function withoutNotebook() {
-		const editorService = stubInterface<IEditorService>({ activeEditorPane: undefined });
+		const editorService = stubInterface<IEditorService>({});
 		const fileService = stubInterface<IFileService>({});
-		return new PositronMcpNotebookTools(editorService, fileService, resolvePath);
+		const notebookService = stubInterface<IPositronNotebookService>({ listInstances: () => [] });
+		return new PositronMcpNotebookTools(editorService, fileService, notebookService, resolvePath);
 	}
 
 	describe('guards when no notebook is open', () => {
@@ -34,6 +55,37 @@ describe('PositronMcpNotebookTools', () => {
 		});
 	});
 
+	describe('resolves an open notebook regardless of focus', () => {
+		it('reads a notebook that is open even when it is not the focused editor', async () => {
+			// A single open notebook: no editor pane needs to be focused on it.
+			const notebookService = stubInterface<IPositronNotebookService>({
+				listInstances: () => [notebookInstance('/workspace/analysis.ipynb', '# Analysis')],
+			});
+			const tools = new PositronMcpNotebookTools(
+				stubInterface<IEditorService>({}), stubInterface<IFileService>({}), notebookService, resolvePath);
+
+			expect(await tools.read({})).toContain('Notebook: file:///workspace/analysis.ipynb');
+		});
+
+		it('picks the most-recently-active notebook when several are open', async () => {
+			const a = notebookInstance('/workspace/a.ipynb', '# A');
+			const b = notebookInstance('/workspace/b.ipynb', '# B');
+			// Registered in a-then-b order, but b is most recently active.
+			const notebookService = stubInterface<IPositronNotebookService>({ listInstances: () => [a, b] });
+			const editorId = (uri: URI): IEditorIdentifier => ({ groupId: 1, editor: stubInterface<EditorInput>({ resource: uri }) });
+			const editorService = stubInterface<IEditorService>({
+				getEditors: (order: EditorsOrder) =>
+					order === EditorsOrder.MOST_RECENTLY_ACTIVE
+						? [editorId(b.uri), editorId(a.uri)]
+						: [editorId(a.uri), editorId(b.uri)],
+			});
+			const tools = new PositronMcpNotebookTools(
+				editorService, stubInterface<IFileService>({}), notebookService, resolvePath);
+
+			expect(await tools.read({})).toContain('# B');
+		});
+	});
+
 	describe('create', () => {
 		/** Tools with a writable file system and a notebook editor that opens cleanly. */
 		function withFileSystem(exists: boolean) {
@@ -44,7 +96,8 @@ describe('PositronMcpNotebookTools', () => {
 			const writeFile = vi.fn<IFileService['writeFile']>(async () => stubInterface<IFileStatWithMetadata>());
 			const editorService = stubInterface<IEditorService>({ openEditor: openEditor as unknown as IEditorService['openEditor'] });
 			const fileService = stubInterface<IFileService>({ exists: vi.fn(async () => exists), writeFile });
-			const tools = new PositronMcpNotebookTools(editorService, fileService, resolvePath);
+			const notebookService = stubInterface<IPositronNotebookService>({});
+			const tools = new PositronMcpNotebookTools(editorService, fileService, notebookService, resolvePath);
 			return { tools, getOpenedWith: () => openedWith, writeFile };
 		}
 

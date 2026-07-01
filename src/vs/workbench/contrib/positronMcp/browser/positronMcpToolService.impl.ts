@@ -22,6 +22,7 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronAssistantService } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { DEFAULT_EXECUTION_TIMEOUT, EXECUTION_TIMEOUT_KEY } from '../common/positronMcpConfiguration.js';
@@ -71,6 +72,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		@IMarkerService private readonly _markerService: IMarkerService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IFileService fileService: IFileService,
+		@IPositronNotebookService notebookService: IPositronNotebookService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -79,7 +81,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		super();
 		this._consent = new UserConsentManager(this._modalDialogsService, logService);
 		this._notebookTools = new PositronMcpNotebookTools(
-			this._editorService, fileService, path => this._resolveWorkspacePath(path));
+			this._editorService, fileService, notebookService, path => this._resolveWorkspacePath(path));
 
 		this._handlers.set('get-session', () => this._getSession());
 		this._handlers.set('get-variables', () => this._getVariables());

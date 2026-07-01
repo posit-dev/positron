@@ -168,7 +168,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'notebook-read',
-		description: 'Read cells of the active Positron notebook. Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs. Use this instead of opening the .ipynb file directly.',
+		description: 'Read cells of the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab). Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs. Use this instead of opening the .ipynb file directly.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -181,7 +181,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'notebook-edit',
-		description: 'Edit the active Positron notebook: insert a new cell (optionally running it), update an existing cell\'s content, or delete a cell. Do not hand-edit the .ipynb file; cell indices shift after an insert or delete, so re-read before further edits.',
+		description: 'Edit the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab): insert a new cell (optionally running it), update an existing cell\'s content, or delete a cell. Do not hand-edit the .ipynb file; cell indices shift after an insert or delete, so re-read before further edits.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -198,7 +198,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'notebook-run-cells',
-		description: 'Execute one or more cells in the active Positron notebook and return their text outputs.',
+		description: 'Execute one or more cells in the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab) and return their text outputs.',
 		inputSchema: {
 			type: 'object',
 			properties: {

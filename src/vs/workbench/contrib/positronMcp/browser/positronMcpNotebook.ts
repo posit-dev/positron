@@ -5,13 +5,15 @@
 
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { URI } from '../../../../base/common/uri.js';
+import { isEqual } from '../../../../base/common/resources.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { EditorsOrder } from '../../../common/editor.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CellEditType, CellKind } from '../../notebook/common/notebookCommon.js';
 import { cellToCellDtoForRestore } from '../../positronNotebook/browser/cellClipboardUtils.js';
 import { IPositronNotebookInstance, NotebookOperationType } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../../positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { getNotebookInstanceFromActiveEditorPane } from '../../positronNotebook/browser/notebookUtils.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { truncateOutput } from './positronMcpFormat.js';
@@ -32,23 +34,43 @@ const KERNELSPECS: Record<string, { display_name: string; language: string; name
 };
 
 /**
- * The notebook-* MCP tools. Each acts on the active Positron notebook through the
- * same in-process paths the `mainThreadNotebookFeatures` bridge uses (the
- * extension routed through that bridge), so behavior matches the extension: cell
- * edits are tagged as assistant operations, deletions leave a restore sentinel,
- * and the modified cell is revealed via follow mode. Methods return plain text;
- * the caller wraps it as an MCP result.
+ * The notebook-* MCP tools. Each acts on the notebook the user is working in
+ * through the same in-process paths the `mainThreadNotebookFeatures` bridge uses
+ * (the extension routed through that bridge), so behavior matches the extension:
+ * cell edits are tagged as assistant operations, deletions leave a restore
+ * sentinel, and the modified cell is revealed via follow mode. Methods return
+ * plain text; the caller wraps it as an MCP result.
  */
 export class PositronMcpNotebookTools {
 	constructor(
 		private readonly _editorService: IEditorService,
 		private readonly _fileService: IFileService,
+		private readonly _notebookService: IPositronNotebookService,
 		private readonly _resolvePath: ResolvePathFn,
 	) { }
 
-	/** The active Positron notebook instance, or undefined if none is focused. */
-	private _active(): IPositronNotebookInstance | undefined {
-		return getNotebookInstanceFromActiveEditorPane(this._editorService);
+	/**
+	 * The Positron notebook the tools act on, or undefined if none is open.
+	 *
+	 * Resolves against every *open* notebook (not just the focused editor pane)
+	 * so the tools still work when a notebook is open while focus is elsewhere --
+	 * e.g. the terminal or another editor. When several notebooks are open, picks
+	 * the one the user touched most recently; most-recently-active order puts the
+	 * focused notebook first, so this also matches the focused notebook when one
+	 * is focused.
+	 */
+	private _resolveNotebook(): IPositronNotebookInstance | undefined {
+		const instances = this._notebookService.listInstances();
+		if (instances.length <= 1) {
+			return instances[0];
+		}
+		for (const { editor } of this._editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
+			const match = editor.resource && instances.find(instance => isEqual(instance.uri, editor.resource));
+			if (match) {
+				return match;
+			}
+		}
+		return instances[0];
 	}
 
 	/** The active notebook's kernel language, if a kernel is attached. */
@@ -57,7 +79,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async read(args: Record<string, unknown>): Promise<string> {
-		const instance = this._active();
+		const instance = this._resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}
@@ -95,7 +117,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async edit(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
-		const instance = this._active();
+		const instance = this._resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}
@@ -172,7 +194,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async runCells(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
-		const instance = this._active();
+		const instance = this._resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}
