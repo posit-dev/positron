@@ -21,6 +21,15 @@ function fileServiceReturning(content: string): IFileService {
 	});
 }
 
+/** A file service that returns content keyed by the URI being read. */
+function fileServiceForUris(contentByUri: Map<string, string>): IFileService {
+	return stubInterface<IFileService>({
+		readFile: async (uri: URI) => stubInterface<IFileContent>({
+			value: VSBuffer.fromString(contentByUri.get(uri.toString()) ?? ''),
+		}),
+	});
+}
+
 /** Build a resource group with the given id and resources. */
 function makeGroup(id: string, resources: ISCMResource[]): ISCMResourceGroup {
 	return stubInterface<ISCMResourceGroup>({ id, label: id, resources });
@@ -31,6 +40,7 @@ function makeAddedResource(path: string): ISCMResource {
 	return stubInterface<ISCMResource>({
 		sourceUri: URI.file(`/repo/${path}`),
 		multiDiffEditorOriginalUri: undefined,
+		multiDiffEditorModifiedUri: undefined,
 		contextValue: 'untracked',
 		decorations: {},
 	});
@@ -70,5 +80,28 @@ describe('buildCommitMessageContext', () => {
 		];
 		const result = await buildCommitMessageContext(fileServiceReturning('x\n'), ROOT_URI, groups);
 		expect(result).toContain('b/unstaged.ts');
+	});
+
+	it('diffs the staged blob, not the working tree, for a partially staged file', async () => {
+		const workingTreeUri = URI.file('/repo/file.ts');
+		const stagedUri = workingTreeUri.with({ scheme: 'git', query: '' });
+		const headUri = workingTreeUri.with({ scheme: 'git', query: 'HEAD' });
+		const resource = stubInterface<ISCMResource>({
+			sourceUri: workingTreeUri,
+			multiDiffEditorOriginalUri: headUri,
+			multiDiffEditorModifiedUri: stagedUri,
+			contextValue: 'index-modified',
+			decorations: {},
+		});
+		const content = new Map([
+			[headUri.toString(), 'original\n'],
+			[stagedUri.toString(), 'staged\n'],
+			[workingTreeUri.toString(), 'staged\nplus unstaged\n'],
+		]);
+
+		const result = await buildCommitMessageContext(fileServiceForUris(content), ROOT_URI, [makeGroup('index', [resource])]);
+
+		expect(result).toContain('+staged');
+		expect(result).not.toContain('plus unstaged');
 	});
 });

@@ -13,6 +13,8 @@ import { IConfigurationChangeEvent, IConfigurationService } from '../../../../..
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IFileContent, IFileService } from '../../../../../platform/files/common/files.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IUriIdentityService } from '../../../../../platform/uriIdentity/common/uriIdentity.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -49,6 +51,7 @@ function makeRepository(setValue: (value: string) => void): ISCMRepository {
 			stubInterface<ISCMResource>({
 				sourceUri: URI.file('/repo/added.ts'),
 				multiDiffEditorOriginalUri: undefined,
+				multiDiffEditorModifiedUri: undefined,
 				contextValue: 'untracked',
 				decorations: {},
 			}),
@@ -84,6 +87,7 @@ describe('GenerateCommitMessageAction', () => {
 		})
 		.stub(IConfigurationService, new TestConfigurationService())
 		.stub(ILogService, new NullLogService())
+		.stub(INotificationService, new TestNotificationService())
 		.build();
 
 	beforeEach(() => {
@@ -127,6 +131,13 @@ describe('GenerateCommitMessageAction', () => {
 		streamResult = { available: false, reason: 'sign-in-required' satisfies UnavailableReason };
 		await run();
 		expect(inputValues).toEqual([]);
+	});
+
+	it('notifies the user when the model is unavailable', async () => {
+		streamResult = { available: false, reason: 'sign-in-required' satisfies UnavailableReason };
+		const warn = vi.spyOn(ctx.get(INotificationService), 'warn');
+		await run();
+		expect(warn).toHaveBeenCalledOnce();
 	});
 
 	it('stops streaming when cancelled', async () => {

@@ -16,11 +16,12 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { FastCheap, IHeadlessLanguageModelService, intentFromSetting, ModelSelection } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { FastCheap, IHeadlessLanguageModelService, intentFromSetting, ModelSelection, UnavailableReason } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { showHeadlessModelPicker } from '../../../services/positronHeadlessLanguageModel/browser/headlessModelPicker.js';
 import { ISCMService } from '../../scm/common/scm.js';
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
@@ -85,6 +86,21 @@ function registerCommitMessageConfiguration(): void {
 	});
 }
 
+/**
+ * A user-facing message for an unavailable model.
+ */
+function unavailableMessage(reason: UnavailableReason): string | undefined {
+	switch (reason) {
+		case 'sign-in-required':
+			return localize('positron.git.commitMessage.signInRequired', "Sign in to a language model provider to generate a commit message.");
+		case 'no-providers-configured':
+		case 'no-model-matched':
+			return localize('positron.git.commitMessage.noModel', "No language model is available to generate a commit message.");
+		case 'temporarily-unavailable':
+			return undefined;
+	}
+}
+
 /** The context-key expression gating the commit message UI. */
 const commitMessagePrecondition = ContextKeyExpr.and(
 	ContextKeyExpr.equals('scmProvider', 'git'),
@@ -119,6 +135,7 @@ export class GenerateCommitMessageAction extends Action2 {
 		const headlessService = accessor.get(IHeadlessLanguageModelService);
 		const uriIdentityService = accessor.get(IUriIdentityService);
 		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
 
 		const repository = [...scmService.repositories].find(repo =>
 			uriIdentityService.extUri.isEqual(repo.provider.rootUri, rootUri));
@@ -143,6 +160,10 @@ export class GenerateCommitMessageAction extends Action2 {
 
 			if (!result.available) {
 				logService.warn(`[git] Commit message generation unavailable: ${result.reason}.`);
+				const message = unavailableMessage(result.reason);
+				if (message) {
+					notificationService.warn(message);
+				}
 				return;
 			}
 
@@ -157,6 +178,7 @@ export class GenerateCommitMessageAction extends Action2 {
 			}
 		} catch (error) {
 			logService.error('[git] Error generating commit message:', error);
+			notificationService.error(localize('positron.git.commitMessage.error', "Failed to generate a commit message. See the log for details."));
 		}
 	}
 }

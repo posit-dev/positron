@@ -40,7 +40,7 @@ export async function buildCommitMessageContext(
 				fileService,
 				relPath,
 				resource.multiDiffEditorOriginalUri,
-				resource.sourceUri,
+				resource.multiDiffEditorModifiedUri ?? resource.sourceUri,
 				changeType,
 			);
 			return diff ?? `${changeTypeLabel(changeType)}: ${relPath}`;
