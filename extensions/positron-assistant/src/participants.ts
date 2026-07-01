@@ -16,7 +16,6 @@ import { log } from './log.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
-import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
 import { resolveToolInputPaths } from './pathUtils.js';
 
 export enum ParticipantID {
@@ -34,9 +33,6 @@ export enum ParticipantID {
 
 	/** The participant used in terminal inline chats. */
 	Terminal = 'positron.assistant.terminal',
-
-	/** The participant used in notebook inline chats. */
-	Notebook = 'positron.assistant.notebook',
 }
 
 export interface ChatRequestData {
@@ -254,24 +250,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		// The context message is fairly stable during iterative workflows, so it comes before
-		// the more volatile notebook context.
 		const contextInfo = await attachContextInfo(messages);
-
-		// Add notebook context as a separate user message with cache breakpoint.
-		// This is placed AFTER the general context message because notebook state (cells, selection)
-		// changes more frequently than session variables. By placing the most volatile content last,
-		// we maximize cache hits on the stable prefix (system prompt + context message).
-		const notebookContext = await getAttachedNotebookContext(request);
-		if (notebookContext) {
-			const notebookContextContent = serializeNotebookContextAsUserMessage(notebookContext);
-			const notebookMessage = vscode.LanguageModelChatMessage.User([
-				new vscode.LanguageModelTextPart(notebookContextContent),
-				languageModelCacheBreakpointPart(), // Cache breakpoint after notebook context
-			]);
-			messages.push(notebookMessage);
-			log.debug(`[participant] Added notebook context as user message (${notebookContextContent.length} chars)`);
-		}
 
 		// Add the user's prompt.
 		// The user's prompt is the last message in the chat messages.
@@ -692,15 +671,10 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Ask,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -715,15 +689,10 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Edit,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -738,15 +707,10 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Agent,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -837,28 +801,6 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 
 }
 
-/**
- * The participant used in notebook inline chats.
- *
- * Notebook context is injected as a separate user message in defaultRequestHandler()
- * rather than via getCustomPrompt(). This allows the system prompt to contain only
- * static instructions (cacheable), while dynamic notebook state is added as a user
- * message with its own cache breakpoint.
- */
-export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
-	id = ParticipantID.Notebook;
-
-	/**
-	 * Returns empty string to prevent the parent EditorParticipant from adding
-	 * cell content as if it were a standalone file. Notebook cells should be
-	 * presented as part of the notebook context (handled in defaultRequestHandler),
-	 * not as individual documents with selection/diagnostics.
-	 */
-	override async getCustomPrompt(_request: vscode.ChatRequest): Promise<string> {
-		return '';
-	}
-}
-
 export function registerParticipants(context: vscode.ExtensionContext) {
 	// Register the participants service.
 	const participantService = new ParticipantService();
@@ -869,7 +811,6 @@ export function registerParticipants(context: vscode.ExtensionContext) {
 	participantService.registerParticipant(new PositronAssistantAgentParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantEditorParticipant(context, participantService));
-	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantEditParticipant(context, participantService));
 
 	return participantService;

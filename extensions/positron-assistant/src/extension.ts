@@ -60,8 +60,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		// the extension to stay activated even if the assistant fails to
 		// initialize.
 		try {
-			const participantService = registerAssistant(context);
-			registerAssistantTools(context, participantService);
+			registerAssistant(context);
+			registerAssistantTools(context);
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(

@@ -7,8 +7,7 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ParticipantID } from './participants.js';
-import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext, isNotebookModeEnabled } from './tools/notebookUtils.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
@@ -52,10 +51,8 @@ export class PositronAssistantApi {
 		// Start with the system prompt
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
 
-		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits: true, notebookContext }).content;
+		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits: true }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -131,33 +128,6 @@ export class PositronAssistantApi {
 }
 
 /**
- * External notebook tool names that should be disabled when Positron notebook mode is active.
- * These tools conflict with Positron's specialized notebook tools.
- *
- * Includes tools from both Copilot (copilot_* prefix) and the Jupyter extension
- * (ms-toolsai.jupyter), which registers configure_notebook, notebook_list_packages,
- * and notebook_install_packages.
- */
-const EXTERNAL_NOTEBOOK_TOOLS = new Set([
-	// Copilot notebook tools
-	'copilot_editNotebook',
-	'copilot_getNotebookSummary',
-	'copilot_runNotebookCell',
-	'copilot_readNotebookCellOutput',
-	'copilot_createNewJupyterNotebook',
-	// Jupyter extension notebook tools (ms-toolsai.jupyter)
-	'configure_notebook',
-	'notebook_list_packages',
-	'notebook_install_packages',
-	// Jupyter extension kernel management tools (ms-toolsai.jupyter)
-	// These are hidden via when: "false" but can be dynamically activated
-	// via the extension_installed_by_tool tag mechanism.
-	'configure_python_notebook',
-	'configure_non_python_notebook',
-	'restart_notebook_kernel',
-]);
-
-/**
  * Gets the set of enabled tools for a chat request.
  *
  * @param request The chat request to get enabled tools for.
@@ -189,9 +159,6 @@ export function getEnabledTools(
 		}
 	}
 
-	// Check if a notebook is attached as context and has an active editor
-	const hasActiveNotebook = hasAttachedNotebookContext(request);
-
 	// Define more readable variables for filtering.
 	const inChatPane = request.location2 === undefined;
 	const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
@@ -200,7 +167,7 @@ export function getEnabledTools(
 	const isAgentMode = positronParticipantId === ParticipantID.Agent ||
 		positronParticipantId === undefined;
 	const isAskMode = positronParticipantId === ParticipantID.Chat;
-	const isStreamingInlineEditor = positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook;
+	const isStreamingInlineEditor = positronParticipantId === ParticipantID.Editor;
 
 	for (const tool of tools) {
 		// Check if the user has explicitly disabled this tool via the Configure Tools picker,
@@ -240,13 +207,6 @@ export function getEnabledTools(
 			continue;
 		}
 
-		// If the tool requires a notebook, but no notebook is attached with active editor,
-		// skip it early. Specific notebook tools have additional mode-based checks below.
-		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
-			disabledTools.push({ name: tool.name, reason: 'Requires notebook but none attached or not in chat pane' });
-			continue;
-		}
-
 		// If the tool requires actions, skip it in Ask mode.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIONS) && isAskMode) {
 			disabledTools.push({ name: tool.name, reason: 'Is not available in Ask mode' });
@@ -275,43 +235,6 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			// Notebook tools require both a notebook attached as context AND an active notebook editor.
-			// Tool availability varies by mode:
-			// - Execution tools (ExecuteNotebook): Agent mode only
-			// - Modification tools (EditNotebook): Edit and Agent modes
-			// - Read-only tools (GetNotebookInfo): All modes (Ask, Edit, Agent)
-			case PositronAssistantToolName.ExecuteNotebook:
-				// Execution requires Agent mode
-				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, active notebook, and agent mode' });
-					continue;
-				}
-				break;
-			case PositronAssistantToolName.EditNotebook:
-				// Modification requires Edit or Agent mode
-				// Available when notebook mode is enabled (not just when notebook is active)
-				// so it can be used immediately after CreateNotebook in the same turn
-				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, notebook mode, and edit/agent mode' });
-					continue;
-				}
-				break;
-			case PositronAssistantToolName.GetNotebookInfo:
-				// Read-only tools available in all modes when notebook mode is enabled
-				// Available without active notebook so it can be used after CreateNotebook
-				if (!(inChatPane && isNotebookModeEnabled())) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane and notebook mode' });
-					continue;
-				}
-				break;
-			case PositronAssistantToolName.CreateNotebook:
-				// CreateNotebook requires notebook mode enabled but NOT an active notebook
-				// Only available in Edit or Agent mode (creates something)
-				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, notebook mode, and edit/agent mode' });
-					continue;
-				}
-				break;
 			// This tool is used by Copilot to edit files; Positron Assistant
 			// has its own file editing tool. Don't include this tool for
 			// Positron participants.
@@ -327,19 +250,6 @@ export function getEnabledTools(
 		const usingCopilotModel = request.model.vendor === 'copilot';
 		// Check if the tool is provided by Copilot.
 		const copilotTool = tool.name.startsWith('copilot_');
-
-		// Disable external notebook tools when Positron notebook mode is active
-		// to avoid conflicts with Positron's specialized notebook tools.
-		if (EXTERNAL_NOTEBOOK_TOOLS.has(tool.name)) {
-			// For most tools, this means an active notebook is attached
-			// For createNotebook specifically, we disable when our CreateNotebook tool would be available
-			if (hasActiveNotebook ||
-				(tool.name === 'copilot_createNewJupyterNotebook' &&
-					inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
-				disabledTools.push({ name: tool.name, reason: 'Is superseded by Positron notebook tools' });
-				continue;
-			}
-		}
 
 		const shouldIncludeCopilotTools = usingCopilotModel;
 

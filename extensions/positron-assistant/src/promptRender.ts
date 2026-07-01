@@ -10,7 +10,6 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './log.js';
-import { SerializedNotebookContext } from './tools/notebookUtils.js';
 import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
@@ -25,7 +24,6 @@ type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: st
 interface AugmentedRenderData {
 	hasRSession: boolean;
 	hasPythonSession: boolean;
-	hasNotebookContext: boolean;
 }
 
 /**
@@ -39,15 +37,10 @@ class PromptTemplateEngine {
 		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
 		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
 
-		// Only track whether notebook context exists, not its content.
-		// Dynamic notebook content is injected as a user message for caching.
-		const hasNotebookContext = !!data.notebookContext;
-
 		return {
 			...data,
 			hasRSession,
 			hasPythonSession,
-			hasNotebookContext,
 		};
 	}
 
@@ -269,7 +262,6 @@ interface PromptRenderData {
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
-	notebookContext?: SerializedNotebookContext;
 	mode?: PromptMetadataMode;
 }
 

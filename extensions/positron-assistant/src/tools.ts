@@ -7,8 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
-import { registerNotebookTools } from './tools/notebookTools.js';
-import { CreateNotebookTool } from './tools/createNotebook.js';
 
 
 /**
@@ -95,11 +93,9 @@ async function resolveSessionIdentifier(sessionIdentifier?: string): Promise<str
  * Registers tools for the Positron Assistant.
  *
  * @param context The extension context for registering disposables
- * @param participants The Positron Assistant chat participants.
  */
 export function registerAssistantTools(
 	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
 ): void {
 	const executeCodeTool = vscode.lm.registerTool<{
 		sessionIdentifier: string;
@@ -346,16 +342,6 @@ export function registerAssistantTools(
 		}
 	});
 	context.subscriptions.push(getTableSummaryTool);
-
-	// Register notebook-specific tools for notebook participant
-	// These tools enable the assistant to interact with Jupyter notebooks:
-	// - ExecuteNotebook: Execute cells and retrieve outputs
-	// - EditNotebook: Add, update, delete, or reorder cells
-	// - GetNotebookInfo: Retrieve cell info, outputs, and kernel status
-	registerNotebookTools(context, participantService);
-
-	// Register the CreateNotebook tool for creating new notebooks
-	context.subscriptions.push(CreateNotebookTool);
 }
 
 /**

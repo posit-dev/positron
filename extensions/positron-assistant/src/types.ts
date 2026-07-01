@@ -11,10 +11,6 @@ export enum PositronAssistantToolName {
 	GetTableSummary = 'getTableSummary',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
-	ExecuteNotebook = 'executeNotebook',
-	EditNotebook = 'editNotebook',
-	GetNotebookInfo = 'getNotebookInfo',
-	CreateNotebook = 'createNotebook',
 }
 
 /**
@@ -85,7 +81,6 @@ export interface RuntimeSessionReference {
 		language: string;
 		version: string;
 		mode: string;
-		notebookUri?: any;
 		executions: {
 			input: string;
 			output: string;
