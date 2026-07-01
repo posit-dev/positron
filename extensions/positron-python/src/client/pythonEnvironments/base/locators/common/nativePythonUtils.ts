@@ -14,10 +14,6 @@ export enum NativePythonEnvironmentKind {
     PyenvVirtualEnv = 'PyenvVirtualEnv',
     Pipenv = 'Pipenv',
     Poetry = 'Poetry',
-    // --- Start Positron ---
-    Uv = 'uv',
-    Custom = 'Custom',
-    // --- End Positron ---
     MacPythonOrg = 'MacPythonOrg',
     MacCommandLineTools = 'MacCommandLineTools',
     LinuxGlobal = 'LinuxGlobal',
@@ -28,10 +24,14 @@ export enum NativePythonEnvironmentKind {
     WindowsStore = 'WindowsStore',
     WindowsRegistry = 'WindowsRegistry',
     // --- Start Positron ---
-    // Disabling UvVenv since PET does not have a release that uses it yet.
-    // We currently have our own implementation of `Uv`, that we may want to
-    // swap out once PET can handle this.
+    // PET emits these category strings verbatim for uv-managed environments:
+    // `Uv` for uv-managed base Pythons and non-workspace uv venvs, `UvWorkspace`
+    // for uv venvs inside a uv workspace. Both map to PythonEnvKind.Uv below.
+    //
     // VenvUv = 'Uv',
+    Uv = 'Uv',
+    UvWorkspace = 'UvWorkspace',
+    Custom = 'Custom',
     // --- End Positron ---
 }
 
@@ -43,17 +43,14 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.PyenvVirtualEnv, PythonEnvKind.Pyenv],
     [NativePythonEnvironmentKind.Pipenv, PythonEnvKind.Pipenv],
     [NativePythonEnvironmentKind.Poetry, PythonEnvKind.Poetry],
-    // --- Start Positron ---
-    [NativePythonEnvironmentKind.Uv, PythonEnvKind.Uv],
-    // --- End Positron ---
     [NativePythonEnvironmentKind.VirtualEnv, PythonEnvKind.VirtualEnv],
     [NativePythonEnvironmentKind.VirtualEnvWrapper, PythonEnvKind.VirtualEnvWrapper],
     [NativePythonEnvironmentKind.Venv, PythonEnvKind.Venv],
     // --- Start Positron ---
-    // Disabling UvVenv since PET does not have a release that uses it yet.
-    // We currently have our own implementation of `Uv`, that we may want to
-    // swap out once PET can handle this.
     // [NativePythonEnvironmentKind.VenvUv, PythonEnvKind.Venv],
+    [NativePythonEnvironmentKind.Uv, PythonEnvKind.Uv],
+    [NativePythonEnvironmentKind.UvWorkspace, PythonEnvKind.Uv],
+    [NativePythonEnvironmentKind.Custom, PythonEnvKind.Custom],
     // --- End Positron ---
     [NativePythonEnvironmentKind.WindowsRegistry, PythonEnvKind.System],
     [NativePythonEnvironmentKind.WindowsStore, PythonEnvKind.MicrosoftStore],
@@ -62,9 +59,6 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.MacCommandLineTools, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacPythonOrg, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacXCode, PythonEnvKind.System],
-    // --- Start Positron ---
-    [NativePythonEnvironmentKind.Custom, PythonEnvKind.Custom],
-    // --- End Positron ---
 ]);
 
 export function categoryToKind(category?: NativePythonEnvironmentKind, logger?: LogOutputChannel): PythonEnvKind {

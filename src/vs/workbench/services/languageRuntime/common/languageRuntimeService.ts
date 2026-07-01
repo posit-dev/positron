@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -1154,6 +1154,12 @@ export interface ILanguageRuntimeService {
 	 * An event that fires when a new runtime is registered.
 	 */
 	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
+
+	/**
+	 * An event that fires when a runtime is unregistered, carrying the
+	 * runtimeId of the removed runtime.
+	 */
+	readonly onDidUnregisterRuntime: Event<string>;
 
 	/**
 	 * Event tracking the current startup phase.
