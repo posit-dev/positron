@@ -12,6 +12,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -20,6 +21,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorExtensions } from '../../../common/editor.js';
+import { ActiveEditorContext } from '../../../common/contextkeys.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
@@ -728,6 +730,23 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 		new SyncDescriptor(PackageEditorInput)
 	]
 );
+
+// Register Ctrl/Cmd+A to select all text in the package detail editor. The
+// workbench root disables text selection and intercepts the keystroke, so we
+// scope a keybinding to the active package editor and select its contents
+// programmatically (matching the Console pane's select-all).
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: 'positronPackages.detail.selectAll',
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyA,
+	when: ActiveEditorContext.isEqualTo(PackageEditor.ID),
+	handler: accessor => {
+		const pane = accessor.get(IEditorService).activeEditorPane;
+		if (pane instanceof PackageEditor) {
+			pane.selectAll();
+		}
+	}
+});
 
 // Opens a package detail editor for the given package name.
 // `pinned` is false for preview (single-click) and true for a pinned tab (double-click).

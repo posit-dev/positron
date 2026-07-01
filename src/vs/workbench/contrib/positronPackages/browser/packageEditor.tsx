@@ -72,6 +72,17 @@ export class PackageEditor extends EditorPane {
 		DOM.size(this._container, dimension.width, dimension.height);
 	}
 
+	/**
+	 * Selects all selectable text in the detail view. Bound to Ctrl/Cmd+A via a
+	 * keybinding rule scoped to this editor; the per-element user-select: none
+	 * rules (language badge, actions row) keep decorative content out of the
+	 * selection.
+	 */
+	selectAll(): void {
+		const selection = DOM.getActiveWindow().document.getSelection();
+		selection?.selectAllChildren(this._container);
+	}
+
 	override dispose(): void {
 		this.disposeRenderer();
 		super.dispose();
