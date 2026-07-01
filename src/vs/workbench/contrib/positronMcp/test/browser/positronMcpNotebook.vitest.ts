@@ -5,22 +5,30 @@
 
 /// <reference types="vitest/globals" />
 
-import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { VSBuffer, encodeBase64 } from '../../../../../base/common/buffer.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { IFileStatWithMetadata, IFileService } from '../../../../../platform/files/common/files.js';
 import { IResourceEditorInput } from '../../../../../platform/editor/common/editor.js';
+import { IMcpCallToolResult } from '../../../../../platform/positronMcp/common/positronMcpTools.js';
 import { EditorsOrder, IEditorIdentifier } from '../../../../common/editor.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
-import { IPositronNotebookCell } from '../../../positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookCell, NotebookCellOutputs } from '../../../positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronMcpNotebookTools } from '../../browser/positronMcpNotebook.js';
 
 describe('PositronMcpNotebookTools', () => {
 	const resolvePath = (p: string) => URI.file(p.startsWith('/') ? p : `/workspace/${p}`);
+
+	/** The text of a tool result's first text block. */
+	function textOf(result: IMcpCallToolResult): string {
+		const block = result.content.find(c => c.type === 'text');
+		return block?.type === 'text' ? block.text : '';
+	}
 
 	/** A one-cell markdown notebook instance open at the given path. */
 	function notebookInstance(path: string, content: string): IPositronNotebookInstance {
@@ -33,6 +41,22 @@ describe('PositronMcpNotebookTools', () => {
 		return stubInterface<IPositronNotebookInstance>({
 			uri: URI.file(path),
 			cells: constObservable([cell]),
+		});
+	}
+
+	/** One cell output carrying the given items (its `parsed` shape is unused here). */
+	function cellOutput(items: IOutputItemDto[]): NotebookCellOutputs {
+		return { outputId: 'out', outputs: items, parsed: { type: 'text', content: '' } };
+	}
+
+	/** A code cell at `index` with the given content and outputs. */
+	function codeCell(index: number, content: string, outputs: NotebookCellOutputs[]): IPositronNotebookCell {
+		return stubInterface<IPositronNotebookCell>({
+			index,
+			isCodeCell: (() => true) as IPositronNotebookCell['isCodeCell'],
+			getContent: () => content,
+			executionStatus: constObservable('idle' as const),
+			outputs: constObservable(outputs),
 		});
 	}
 
@@ -49,9 +73,9 @@ describe('PositronMcpNotebookTools', () => {
 			const tools = withoutNotebook();
 			const noConsent = async () => { throw new Error('consent should not be requested'); };
 			const message = 'No notebook is open in the editor. Open a notebook, then try again.';
-			expect(await tools.read({})).toBe(message);
-			expect(await tools.edit({ editMode: 'delete', cellIndex: 0 }, noConsent)).toBe(message);
-			expect(await tools.runCells({ cellIndices: [0] }, noConsent)).toBe(message);
+			expect(textOf(await tools.read({}))).toBe(message);
+			expect(textOf(await tools.edit({ editMode: 'delete', cellIndex: 0 }, noConsent))).toBe(message);
+			expect(textOf(await tools.runCells({ cellIndices: [0] }, noConsent))).toBe(message);
 		});
 	});
 
@@ -64,7 +88,7 @@ describe('PositronMcpNotebookTools', () => {
 			const tools = new PositronMcpNotebookTools(
 				stubInterface<IEditorService>({}), stubInterface<IFileService>({}), notebookService, resolvePath);
 
-			expect(await tools.read({})).toContain('Notebook: file:///workspace/analysis.ipynb');
+			expect(textOf(await tools.read({}))).toContain('Notebook: file:///workspace/analysis.ipynb');
 		});
 
 		it('picks the most-recently-active notebook when several are open', async () => {
@@ -82,7 +106,61 @@ describe('PositronMcpNotebookTools', () => {
 			const tools = new PositronMcpNotebookTools(
 				editorService, stubInterface<IFileService>({}), notebookService, resolvePath);
 
-			expect(await tools.read({})).toContain('# B');
+			expect(textOf(await tools.read({}))).toContain('# B');
+		});
+	});
+
+	describe('returns plot outputs as image content', () => {
+		/** Tools wired to a single open notebook containing `cells`, runnable. */
+		function toolsForNotebook(cells: IPositronNotebookCell[]) {
+			const instance = stubInterface<IPositronNotebookInstance>({
+				uri: URI.file('/workspace/plot.ipynb'),
+				cells: constObservable(cells),
+				kernel: constObservable(undefined),
+				runCells: vi.fn(async () => { }),
+				handleAssistantCellModification: vi.fn(async () => { }),
+			});
+			const notebookService = stubInterface<IPositronNotebookService>({ listInstances: () => [instance] });
+			return new PositronMcpNotebookTools(
+				stubInterface<IEditorService>({}), stubInterface<IFileService>({}), notebookService, resolvePath);
+		}
+
+		it('notebook-read includeOutputs returns a cell\'s image output alongside its text', async () => {
+			const png = VSBuffer.fromString('PNGDATA');
+			const tools = toolsForNotebook([codeCell(0, 'plot()', [cellOutput([
+				{ mime: 'text/plain', data: VSBuffer.fromString('<Figure>') },
+				{ mime: 'image/png', data: png },
+			])])]);
+
+			const result = await tools.read({ includeOutputs: true });
+
+			expect(textOf(result)).toContain('<Figure>');
+			expect(result.content).toEqual([
+				{ type: 'text', text: expect.stringContaining('[1 image output returned as image content]') },
+				{ type: 'image', mimeType: 'image/png', data: encodeBase64(png) },
+			]);
+		});
+
+		it('notebook-run-cells returns the plot as an image block', async () => {
+			const png = VSBuffer.fromString('PNGDATA');
+			const tools = toolsForNotebook([codeCell(0, 'plot()', [cellOutput([{ mime: 'image/png', data: png }])])]);
+
+			const result = await tools.runCells({ cellIndices: [0] }, async () => { });
+
+			expect(result.content).toEqual([
+				{ type: 'text', text: expect.stringContaining('[1 image output returned as image content]') },
+				{ type: 'image', mimeType: 'image/png', data: encodeBase64(png) },
+			]);
+		});
+
+		it('caps returned images and notes how many were omitted', async () => {
+			const items: IOutputItemDto[] = Array.from({ length: 7 }, (_, i) => ({ mime: 'image/png', data: VSBuffer.fromString(`PNG${i}`) }));
+			const tools = toolsForNotebook([codeCell(0, 'plots()', [cellOutput(items)])]);
+
+			const result = await tools.read({ includeOutputs: true });
+
+			expect(result.content.filter(c => c.type === 'image')).toHaveLength(5);
+			expect(textOf(result)).toContain('7 image outputs: 5 returned as image content, 2 omitted (5-image limit)');
 		});
 	});
 
@@ -120,7 +198,7 @@ describe('PositronMcpNotebookTools', () => {
 			const { tools, getOpenedWith, writeFile } = withFileSystem(false);
 			const result = await tools.create({ path: 'nb.ipynb', language: 'python' });
 
-			expect(result).toContain('Created empty python notebook');
+			expect(textOf(result)).toContain('Created empty python notebook');
 			// The written content is a valid empty Jupyter notebook with the kernelspec.
 			const written = JSON.parse((writeFile.mock.calls[0][1] as VSBuffer).toString());
 			expect(written).toMatchObject({ cells: [], nbformat: 4, metadata: { kernelspec: { name: 'python3' } } });

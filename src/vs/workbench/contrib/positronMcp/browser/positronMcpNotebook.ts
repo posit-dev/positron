@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from '../../../../base/common/buffer.js';
+import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { IMcpCallToolResult, McpContent } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CellEditType, CellKind } from '../../notebook/common/notebookCommon.js';
@@ -16,7 +17,7 @@ import { IPositronNotebookCell, IPositronNotebookCodeCell } from '../../positron
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../positronNotebook/browser/notebookMimeUtils.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
-import { truncateOutput } from './positronMcpFormat.js';
+import { textResult, truncateOutput } from './positronMcpFormat.js';
 
 /**
  * Asks the user to consent to running `code`; throws if declined. The notebook
@@ -34,12 +35,20 @@ const KERNELSPECS: Record<string, { display_name: string; language: string; name
 };
 
 /**
+ * Cap on the number of image outputs returned in a single tool result, so a run
+ * that plots in many cells can't blow up the response. Text notes any omitted.
+ */
+const MAX_NOTEBOOK_IMAGES = 5;
+
+/**
  * The notebook-* MCP tools. Each acts on the notebook the user is working in
  * through the same in-process paths the `mainThreadNotebookFeatures` bridge uses
  * (the extension routed through that bridge), so behavior matches the extension:
  * cell edits are tagged as assistant operations, deletions leave a restore
- * sentinel, and the modified cell is revealed via follow mode. Methods return
- * plain text; the caller wraps it as an MCP result.
+ * sentinel, and the modified cell is revealed via follow mode. Methods return a
+ * full MCP tool result -- text, plus image content blocks for any plot outputs
+ * (capped at {@link MAX_NOTEBOOK_IMAGES}) -- which the caller passes straight to
+ * the client.
  */
 export class PositronMcpNotebookTools {
 	constructor(
@@ -82,10 +91,10 @@ export class PositronMcpNotebookTools {
 		return instance.kernel.get()?.runtime.languageId;
 	}
 
-	async read(args: Record<string, unknown>): Promise<string> {
+	async read(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
 		const instance = this.resolveNotebook();
 		if (!instance) {
-			return 'No notebook is open in the editor. Open a notebook, then try again.';
+			return textResult('No notebook is open in the editor. Open a notebook, then try again.');
 		}
 		const cellIndices = Array.isArray(args.cellIndices)
 			? args.cellIndices.filter((i): i is number => typeof i === 'number')
@@ -94,11 +103,11 @@ export class PositronMcpNotebookTools {
 
 		const allCells = instance.cells.get();
 		if (allCells.length === 0) {
-			return 'The active notebook is empty (0 cells).';
+			return textResult('The active notebook is empty (0 cells).');
 		}
 		const cells = cellIndices ? allCells.filter(c => cellIndices.includes(c.index)) : allCells;
 		if (cells.length === 0) {
-			return `No cells found at the requested indices. The notebook has ${allCells.length} cells (indices 0-${allCells.length - 1}).`;
+			return textResult(`No cells found at the requested indices. The notebook has ${allCells.length} cells (indices 0-${allCells.length - 1}).`);
 		}
 
 		let output = `Notebook: ${instance.uri.toString()}\nTotal cells: ${allCells.length}`;
@@ -107,6 +116,7 @@ export class PositronMcpNotebookTools {
 		}
 		output += '\n\n';
 
+		const images: McpContent[] = [];
 		for (const cell of cells) {
 			const isCode = cell.isCodeCell();
 			const status = isCode ? ` [${cell.executionStatus.get()}]` : '';
@@ -115,15 +125,20 @@ export class PositronMcpNotebookTools {
 				for (const item of this._textOutputItems(cell)) {
 					output += `Output:\n${item}\n\n`;
 				}
+				const { blocks, total } = this._cellImageBlocks(cell, MAX_NOTEBOOK_IMAGES - images.length);
+				if (total > 0) {
+					images.push(...blocks);
+					output += `Output: ${this._imageNote(total, blocks.length)}\n\n`;
+				}
 			}
 		}
-		return truncateOutput(output.trimEnd());
+		return { content: [{ type: 'text', text: truncateOutput(output.trimEnd()) }, ...images] };
 	}
 
-	async edit(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
+	async edit(args: Record<string, unknown>, consent: ConsentFn): Promise<IMcpCallToolResult> {
 		const instance = this.resolveNotebook();
 		if (!instance) {
-			return 'No notebook is open in the editor. Open a notebook, then try again.';
+			return textResult('No notebook is open in the editor. Open a notebook, then try again.');
 		}
 		const editMode = typeof args.editMode === 'string' ? args.editMode : '';
 		const cellIndex = typeof args.cellIndex === 'number' ? args.cellIndex : undefined;
@@ -157,13 +172,13 @@ export class PositronMcpNotebookTools {
 					const inserted = instance.cells.get()[insertIndex];
 					try {
 						await instance.runCells([inserted]);
-						const outputText = this._collectCellOutputText(instance, [insertIndex]);
-						return `Inserted and ran code cell at index ${insertIndex}.\n\nOutput:\n${outputText}`;
+						const { text, images } = this._collectCellOutput(instance, [insertIndex]);
+						return { content: [{ type: 'text', text: `Inserted and ran code cell at index ${insertIndex}.\n\nOutput:\n${text}` }, ...images] };
 					} catch (error) {
-						return `Inserted code cell at index ${insertIndex}, but execution failed: ${error instanceof Error ? error.message : String(error)}`;
+						return textResult(`Inserted code cell at index ${insertIndex}, but execution failed: ${error instanceof Error ? error.message : String(error)}`);
 					}
 				}
-				return `Inserted ${cellType} cell at index ${insertIndex}.`;
+				return textResult(`Inserted ${cellType} cell at index ${insertIndex}.`);
 			}
 
 			case 'update': {
@@ -174,7 +189,7 @@ export class PositronMcpNotebookTools {
 					throw new Error('content is required for update mode');
 				}
 				await this._updateCellContent(instance, cellIndex, content);
-				return `Updated cell ${cellIndex}.`;
+				return textResult(`Updated cell ${cellIndex}.`);
 			}
 
 			case 'delete': {
@@ -189,7 +204,7 @@ export class PositronMcpNotebookTools {
 				const cellData = cellToCellDtoForRestore(cell);
 				instance.deleteCell(cell);
 				instance.addDeletionSentinel(cellIndex, cellData);
-				return `Deleted cell ${cellIndex}.`;
+				return textResult(`Deleted cell ${cellIndex}.`);
 			}
 
 			default:
@@ -197,10 +212,10 @@ export class PositronMcpNotebookTools {
 		}
 	}
 
-	async runCells(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
+	async runCells(args: Record<string, unknown>, consent: ConsentFn): Promise<IMcpCallToolResult> {
 		const instance = this.resolveNotebook();
 		if (!instance) {
-			return 'No notebook is open in the editor. Open a notebook, then try again.';
+			return textResult('No notebook is open in the editor. Open a notebook, then try again.');
 		}
 		const cellIndices = Array.isArray(args.cellIndices)
 			? args.cellIndices.filter((i): i is number => typeof i === 'number')
@@ -223,11 +238,11 @@ export class PositronMcpNotebookTools {
 		await instance.runCells(cellsToRun);
 		await instance.handleAssistantCellModification(cellsToRun[cellsToRun.length - 1].index);
 
-		const outputText = this._collectCellOutputText(instance, cellIndices);
-		return outputText || '(no output)';
+		const { text, images } = this._collectCellOutput(instance, cellIndices);
+		return { content: [{ type: 'text', text: text || '(no output)' }, ...images] };
 	}
 
-	async create(args: Record<string, unknown>): Promise<string> {
+	async create(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
 		const notebookPath = typeof args.path === 'string' ? args.path : '';
 		const language = typeof args.language === 'string' ? args.language : '';
 		if (!notebookPath.trim()) {
@@ -259,9 +274,9 @@ export class PositronMcpNotebookTools {
 		try {
 			await this._editorService.openEditor({ resource: uri, options: { override: POSITRON_NOTEBOOK_EDITOR_ID } });
 		} catch {
-			return `Created notebook ${notebookPath}, but failed to open it in the editor. Open it manually, then use notebook-edit to add cells.`;
+			return textResult(`Created notebook ${notebookPath}, but failed to open it in the editor. Open it manually, then use notebook-edit to add cells.`);
 		}
-		return `Created empty ${language} notebook: ${notebookPath}. It is open and active; use notebook-edit with editMode "insert" to add cells.`;
+		return textResult(`Created empty ${language} notebook: ${notebookPath}. It is open and active; use notebook-edit with editMode "insert" to add cells.`);
 	}
 
 	/**
@@ -318,15 +333,22 @@ export class PositronMcpNotebookTools {
 	}
 
 	/**
-	 * Collect the text outputs of the given cells into one block, labeling each
-	 * cell and marking image outputs. Mirrors the extension's collectCellOutputText.
+	 * Collect the outputs of the given cells into an MCP result body: a text block
+	 * labeling each cell and inlining its text outputs, plus image content blocks
+	 * for any plot outputs. Mirrors the extension's collectCellOutputText, but
+	 * returns images as real content instead of dropping them to a text placeholder.
 	 */
-	private _collectCellOutputText(instance: IPositronNotebookInstance, cellIndices: number[]): string {
+	private _collectCellOutput(instance: IPositronNotebookInstance, cellIndices: number[]): { text: string; images: McpContent[] } {
 		const cells = instance.cells.get();
+		const images: McpContent[] = [];
 		let text = '';
 		for (const index of cellIndices) {
 			const cell: IPositronNotebookCell | undefined = cells[index];
-			const outputs = cell?.isCodeCell() ? cell.outputs.get() : [];
+			if (!cell?.isCodeCell()) {
+				text += `Cell ${index}: (no output)\n`;
+				continue;
+			}
+			const outputs = cell.outputs.get();
 			if (outputs.length === 0) {
 				text += `Cell ${index}: (no output)\n`;
 				continue;
@@ -334,14 +356,48 @@ export class PositronMcpNotebookTools {
 			text += `Cell ${index}:\n`;
 			for (const output of outputs) {
 				for (const item of output.outputs) {
-					if (isImageMimeType(item.mime)) {
-						text += `[image output: ${item.mime}]\n`;
-					} else if (isTextBasedMimeType(item.mime)) {
+					if (isTextBasedMimeType(item.mime)) {
 						text += item.data.toString() + '\n';
 					}
 				}
 			}
+			const { blocks, total } = this._cellImageBlocks(cell, MAX_NOTEBOOK_IMAGES - images.length);
+			if (total > 0) {
+				images.push(...blocks);
+				text += `${this._imageNote(total, blocks.length)}\n`;
+			}
 		}
-		return truncateOutput(text);
+		return { text: truncateOutput(text), images };
+	}
+
+	/**
+	 * Image outputs of one code cell as MCP image content blocks (base64-encoded),
+	 * taking at most `limit`. Also reports `total`, the count of image outputs in
+	 * the cell regardless of the limit, so the caller can note any it dropped.
+	 */
+	private _cellImageBlocks(cell: IPositronNotebookCodeCell, limit: number): { blocks: McpContent[]; total: number } {
+		const blocks: McpContent[] = [];
+		let total = 0;
+		for (const output of cell.outputs.get()) {
+			for (const item of output.outputs) {
+				if (!isImageMimeType(item.mime)) {
+					continue;
+				}
+				total++;
+				if (blocks.length < limit) {
+					blocks.push({ type: 'image', data: encodeBase64(item.data), mimeType: item.mime });
+				}
+			}
+		}
+		return { blocks, total };
+	}
+
+	/** A one-line note describing how many image outputs were returned vs. omitted. */
+	private _imageNote(total: number, returned: number): string {
+		const plural = total === 1 ? '' : 's';
+		const omitted = total - returned;
+		return omitted > 0
+			? `[${total} image output${plural}: ${returned} returned as image content, ${omitted} omitted (${MAX_NOTEBOOK_IMAGES}-image limit)]`
+			: `[${total} image output${plural} returned as image content]`;
 	}
 }

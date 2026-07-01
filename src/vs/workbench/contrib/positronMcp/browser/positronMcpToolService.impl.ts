@@ -482,20 +482,20 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 
 	// --- Notebooks -----------------------------------------------------------
 
-	private async _notebookRead(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return textResult(await this._notebookTools.read(args));
+	private _notebookRead(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return this._notebookTools.read(args);
 	}
 
-	private async _notebookEdit(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return textResult(await this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+	private _notebookEdit(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code));
 	}
 
-	private async _notebookRunCells(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return textResult(await this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+	private _notebookRunCells(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code));
 	}
 
-	private async _notebookCreate(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return textResult(await this._notebookTools.create(args));
+	private _notebookCreate(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		return this._notebookTools.create(args);
 	}
 
 	/** Resolve a path (absolute, or relative to the first workspace folder) to a URI. */
