@@ -17,11 +17,11 @@ import { normalizePackageName } from './requirementsFile';
 
 /**
  * Whether auto-updating `requirements.txt` after package operations is enabled.
- * Controlled by `packages.python.autoUpdateRequirements` (default: true). Read
- * live so a mid-session toggle takes effect without a reload.
+ * Controlled by `packages.python.autoUpdateRequirements` (default: false, so it
+ * is opt-in). Read live so a mid-session toggle takes effect without a reload.
  */
 export function isAutoUpdateRequirementsEnabled(): boolean {
-    return vscode.workspace.getConfiguration('packages.python').get<boolean>('autoUpdateRequirements', true);
+    return vscode.workspace.getConfiguration('packages.python').get<boolean>('autoUpdateRequirements', false);
 }
 
 /**

@@ -120,7 +120,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		},
 		'packages.python.autoUpdateRequirements': {
 			type: 'boolean',
-			default: true,
+			default: false,
 			scope: ConfigurationScope.RESOURCE,
 			markdownDescription: nls.localize('positron.packages.python.autoUpdateRequirements', "When a `requirements.txt` file is present, automatically add newly installed packages to it and remove uninstalled ones. This runs independently, so its success or failure does not affect the package operation."),
 			tags: ['preview'],
