@@ -86,8 +86,10 @@ pure check over the map keys, unit-tested alongside the primitives.
 - Output (stdout, Markdown) - two tables split by the action they imply:
   1. **Summary line** - PRs examined, gaps, over-tags, clean.
   2. **Gaps table** - PRs where the author set a tag the map did not derive
-     (consider *adding* to the map). Columns: `PR | Title | Missing | Candidate
-     entry`.
+     (consider *adding* to the map). Columns: `PR | Title | Author | Derived |
+     Missing | Candidate entry`. `Author` (what the PR was actually tagged) and
+     `Derived` (what the map produced) are the baseline for reference; `Missing`
+     is the computed delta (author minus derived).
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
        resolves in both the tracking issue and the job summary. (Repo URL from
        `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
@@ -99,10 +101,11 @@ pure check over the map keys, unit-tested alongside the primitives.
      tag(s) to the candidate entry, PR context as a comment. *Proposals to review
      and apply by hand*, not auto-applied.
   4. **Over-tags table** - PRs where the map derived a tag the author did not set
-     (*review*: over-tag vs. good catch). Columns: `PR | Title | Extra | Source
-     entry`. `Extra` = derived minus author; `Source entry` = the entry that
-     produced it. **Review-only: no suggested diffs**, because over-tag and
-     good-catch are indistinguishable to the tool.
+     (*review*: over-tag vs. good catch). Columns: `PR | Title | Author | Derived
+     | Extra | Source entry`. `Author`/`Derived` are the baseline; `Extra` =
+     derived minus author; `Source entry` = the entry that produced it.
+     **Review-only: no suggested diffs**, because over-tag and good-catch are
+     indistinguishable to the tool.
 - A PR with both a gap and an over-tag appears in both tables (each row targets a
   different decision).
 - Read-only. No writes to the map or GitHub.
@@ -147,10 +150,10 @@ job summary):
 >
 > ### Gaps - author set a tag the map did not derive (consider adding)
 >
-> | PR | Title | Missing | Candidate entry |
-> |----|-------|---------|-----------------|
-> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | `extensions/positron-r/` |
-> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark | `extensions/positron-r/src/testing/` (review) |
+> | PR | Title | Author | Derived | Missing | Candidate entry |
+> |----|-------|--------|---------|---------|-----------------|
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | @:ark | @:interpreter | `extensions/positron-r/` |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark,@:test-explorer | @:test-explorer | @:ark | `extensions/positron-r/src/testing/` (review) |
 >
 > #### Suggested map edits (review before applying)
 >
@@ -167,10 +170,10 @@ job summary):
 >
 > ### Over-tags - map derived a tag the author did not set (review only)
 >
-> | PR | Title | Extra | Source entry |
-> |----|-------|-------|--------------|
-> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:console,@:interpreter | `extensions/positron-python/` |
-> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` |
+> | PR | Title | Author | Derived | Extra | Source entry |
+> |----|-------|--------|---------|-------|--------------|
+> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | @:console,@:interpreter | `extensions/positron-python/` |
+> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` |
 
 ## Testing
 
