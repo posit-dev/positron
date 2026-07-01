@@ -66,7 +66,7 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   if [ "$NO_MATCHES" = "true" ]; then
     # Info, not warning: only-critical is common and often benign (refactors,
     # infra, test-only PRs), so a louder style would just be noise.
-    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No feature tags detected. If this PR needs feature coverage, add the tag above and re-run the checks (edits don't re-trigger)."
+    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No feature tags detected. If this PR needs feature coverage, add the tag above and retrigger the workflow (a description edit won't)."
   fi
   if [ -n "$UNMAPPED_DIRS" ]; then
     # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
