@@ -267,6 +267,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronLicenseeInfo",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/repl",
 			"project": "vscode-workbench"
 		},
