@@ -5,19 +5,48 @@
 
 /// <reference types="vitest/globals" />
 
-import { hideWebviewOverlayWhenAnchorHidden } from '../../browser/quartoOutputViewZone.js';
+import { isWebviewOverlayShown } from '../../browser/quartoOutputViewZone.js';
 
-describe('hideWebviewOverlayWhenAnchorHidden', () => {
-	it('hides the overlay when its anchor is no longer visible', () => {
-		// The inline output webview is a fixed-position overlay anchored to a
-		// placeholder inside the editor view zone. When the placeholder scrolls
-		// out of the rendered range and is removed, the overlay must be hidden
-		// rather than falling back to (and "sticking" in) the editor corner.
-		// See posit-dev/positron#13978.
-		const overlayContent = document.createElement('div');
+// The inline-output webview is a fixed-position overlay anchored to a
+// placeholder inside the editor view zone. It must be shown only while its view
+// zone is on-screen; otherwise CSS anchor positioning falls back to a static
+// position and the overlay "sticks" in the editor corner (see
+// posit-dev/positron#13978).
+//
+// The predicate keys off Monaco's own `monaco-visible-view-zone` attribute
+// rather than a geometry probe. Monaco sets/removes it in its render pass before
+// calling `onDomNodeTop`, so it is fresh during scroll; a `getClientRects()`
+// probe is one frame stale and, worse, stays truthy for a zone that has scrolled
+// out of the viewport while Monaco still renders it -- exactly the flextable
+// sticking case.
+describe('isWebviewOverlayShown', () => {
+	function zone(visible: boolean): HTMLElement {
+		const el = document.createElement('div');
+		if (visible) {
+			el.setAttribute('monaco-visible-view-zone', 'true');
+		}
+		return el;
+	}
 
-		hideWebviewOverlayWhenAnchorHidden(overlayContent);
+	function anchor(connected: boolean): HTMLElement {
+		const el = document.createElement('div');
+		if (connected) {
+			document.body.appendChild(el);
+		}
+		return el;
+	}
 
-		expect(overlayContent.style.getPropertyValue('position-visibility')).toBe('anchors-visible');
+	it('shows the overlay when the zone is on-screen and the anchor is attached', () => {
+		expect(isWebviewOverlayShown(zone(true), anchor(true))).toBe(true);
+	});
+
+	it('hides the overlay when the zone has scrolled off-screen', () => {
+		// Monaco removes the attribute for an off-screen zone even while the
+		// placeholder is still in the DOM: this is the flextable sticking case.
+		expect(isWebviewOverlayShown(zone(false), anchor(true))).toBe(false);
+	});
+
+	it('hides the overlay when the anchor is detached from the DOM', () => {
+		expect(isWebviewOverlayShown(zone(true), anchor(false))).toBe(false);
 	});
 });
