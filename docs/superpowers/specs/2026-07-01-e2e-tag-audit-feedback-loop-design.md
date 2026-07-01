@@ -83,31 +83,30 @@ pure check over the map keys, unit-tested alongside the primitives.
     are excluded from the comparison).
   - Fetch changed files -> `derive_map_tags`.
   - Compute gap and review via `csv_minus`.
-- Output (stdout, Markdown) - two tables split by the action they imply:
-  1. **Summary line** - PRs examined, gaps, over-tags, clean.
-  2. **Gaps table** - PRs where the author set a tag the map did not derive
-     (consider *adding* to the map). Columns: `PR | Title | Author | Derived |
-     Missing | Candidate entry`. `Author` (what the PR was actually tagged) and
-     `Derived` (what the map produced) are the baseline for reference; `Missing`
-     is the computed delta (author minus derived).
+- Output (stdout, Markdown) - one table, one row per divergent PR:
+  1. **Summary line** - PRs examined, gaps (`+`), over-tags (`-`), clean.
+  2. **Delta table** - columns: `PR | Title | Author | Derived | Delta | Entry`.
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
        resolves in both the tracking issue and the job summary. (Repo URL from
        `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
        `posit-dev/positron` origin locally.)
-     - `Missing` = author minus derived. `Candidate entry` = `longest_map_prefix`
-       for the changed files (where an add would land). Ancestor-explained rows
-       are marked `(review)` so intentional narrowing isn't mistaken for a gap.
-  3. **Suggested diffs** - one fenced JSON diff per gap row, adding the missing
-     tag(s) to the candidate entry, PR context as a comment. *Proposals to review
-     and apply by hand*, not auto-applied.
-  4. **Over-tags table** - PRs where the map derived a tag the author did not set
-     (*review*: over-tag vs. good catch). Columns: `PR | Title | Author | Derived
-     | Extra | Source entry`. `Author`/`Derived` are the baseline; `Extra` =
-     derived minus author; `Source entry` = the entry that produced it.
-     **Review-only: no suggested diffs**, because over-tag and good-catch are
-     indistinguishable to the tool.
-- A PR with both a gap and an over-tag appears in both tables (each row targets a
-  different decision).
+     - `Author` (what the PR was actually tagged) and `Derived` (what the map
+       produced) are the baseline for reference.
+     - `Delta` = signed, comma-separated tags:
+       - **`+@:X`** = author had it, map missed it -> consider *adding* (gap).
+       - **`-@:X`** = map produced it, author did not set it -> *review*
+         (over-tag to narrow, or a good catch to keep).
+       A `+` that is ancestor-explained (a leaf deliberately narrowed the tag
+       away) is suffixed `(review)` so it isn't mistaken for a real gap.
+     - `Entry` = `longest_map_prefix` for the changed files - where a `+` would be
+       added / a `-` was produced.
+  3. **Suggested diffs** - one fenced JSON diff per **genuine `+` (gap)** row
+     (i.e. excluding `(review)`/ancestor-explained ones), adding the tag to its
+     entry, PR context as a comment. *Proposals to review and apply by hand.*
+     `-` (over-tag) rows get **no diff** (over-tag vs. good-catch is
+     indistinguishable to the tool), and `(review)` rows get **no diff** (the
+     narrowing is intentional and meant to be dismissed).
+  4. **Legend** - a one-line key under the table explaining `+` / `-` / `(review)`.
 - Read-only. No writes to the map or GitHub.
 
 ### Component B: `.github/workflows/e2e-tag-audit.yml`
@@ -146,34 +145,26 @@ job summary):
 
 > ## e2e tag audit - week of 2026-06-23..2026-06-29
 >
-> Examined 41 merged PRs: 2 gaps, 6 over-tags, 33 clean.
+> Examined 41 merged PRs: 2 gaps (+), 6 over-tags (-), 33 clean.
 >
-> ### Gaps - author set a tag the map did not derive (consider adding)
+> | PR | Title | Author | Derived | Delta | Entry |
+> |----|-------|--------|---------|-------|-------|
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | @:ark | +@:interpreter, -@:ark | `extensions/positron-r/` |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark,@:test-explorer | @:test-explorer | +@:ark (review) | `extensions/positron-r/src/testing/` |
+> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | -@:console, -@:interpreter | `extensions/positron-python/` |
+> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | -@:console, -@:posit-assistant, -@:positron-notebooks | `positronConsole/`, `positronNotebook/` |
 >
-> | PR | Title | Author | Derived | Missing | Candidate entry |
-> |----|-------|--------|---------|---------|-----------------|
-> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | @:ark | @:interpreter | `extensions/positron-r/` |
-> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark,@:test-explorer | @:test-explorer | @:ark | `extensions/positron-r/src/testing/` (review) |
+> **Legend:** `+` author had it, map missed it (consider adding - see diff) - `-`
+> map produced it, author didn't (review: over-tag or good catch) - `(review)`
+> a leaf intentionally narrowed this tag away.
 >
-> #### Suggested map edits (review before applying)
+> ### Suggested map edits (review before applying)
 >
 > ~~~diff
-> # 14248  author had @:interpreter, map did not derive it
+> # 14248  +@:interpreter  (author had it, map did not derive it)
 > -  "extensions/positron-r/": ["@:ark"],
 > +  "extensions/positron-r/": ["@:ark", "@:interpreter"],
 > ~~~
-> ~~~diff
-> # 14336  author had @:ark  (review: positron-r/src/testing/ intentionally drops @:ark)
-> -  "extensions/positron-r/src/testing/": ["@:test-explorer"],
-> +  "extensions/positron-r/src/testing/": ["@:test-explorer", "@:ark"],
-> ~~~
->
-> ### Over-tags - map derived a tag the author did not set (review only)
->
-> | PR | Title | Author | Derived | Extra | Source entry |
-> |----|-------|--------|---------|-------|--------------|
-> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | @:console,@:interpreter | `extensions/positron-python/` |
-> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` |
 
 ## Testing
 
