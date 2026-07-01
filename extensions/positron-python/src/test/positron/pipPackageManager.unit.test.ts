@@ -29,7 +29,12 @@ suite('PipPackageManager update Tests', () => {
     let serviceContainer: IServiceContainer;
     let pythonService: { isModuleInstalled: sinon.SinonStub; execModule: sinon.SinonStub };
     let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
-    let fileSystem: { createTemporaryFile: sinon.SinonStub; writeFile: sinon.SinonStub; fileExists: sinon.SinonStub };
+    let fileSystem: {
+        createTemporaryFile: sinon.SinonStub;
+        writeFile: sinon.SinonStub;
+        fileExists: sinon.SinonStub;
+        readFile: sinon.SinonStub;
+    };
     let workspaceService: IWorkspaceService;
     let writtenContent: string;
     let messageEmitter: MessageEmitter;
@@ -61,6 +66,7 @@ suite('PipPackageManager update Tests', () => {
                 writtenContent = text;
                 return Promise.resolve();
             }),
+            readFile: sinon.stub().resolves(''),
         };
         workspaceService = {
             get workspaceFolders() {
@@ -253,6 +259,53 @@ suite('PipPackageManager update Tests', () => {
             const [, args] = terminalService.sendCommand.firstCall.args;
             expect(args).to.include.members(['install', '--upgrade', '-r', reqPath]);
             expect(fileSystem.createTemporaryFile.called).to.equal(false);
+        });
+    });
+
+    suite('PipPackageManager requirements sync', () => {
+        let reqPath: string;
+        let callMethod: sinon.SinonStub;
+
+        setup(() => {
+            const workspaceFolder = { uri: Uri.file('/w'), name: 'w', index: 0 };
+            reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            fileSystem.fileExists.withArgs(reqPath).resolves(true);
+            fileSystem.readFile.resolves('flask==2.2.0\n');
+
+            callMethod = sinon.stub().resolves([]);
+            callMethod.withArgs('getPackagesInstalled').resolves([{ name: 'flask' }, { name: 'pandas' }]);
+            session.callMethod = callMethod;
+
+            vscode.workspace.getConfiguration = (section?: string) =>
+                ({
+                    get: (key: string, defaultValue?: unknown) =>
+                        section === 'packages.python' && key === 'autoUpdateRequirements' ? true : defaultValue,
+                } as unknown as vscode.WorkspaceConfiguration);
+        });
+
+        test('install appends a newly installed undeclared package', async () => {
+            await manager.installPackages([{ name: 'pandas' }]);
+            expect(writtenContent).to.equal('flask==2.2.0\npandas\n');
+        });
+
+        test('uninstall removes a declared package once it is gone', async () => {
+            fileSystem.readFile.resolves('flask==2.2.0\nrequests\n');
+            callMethod.withArgs('getPackagesInstalled').resolves([{ name: 'flask' }]);
+
+            await manager.uninstallPackages(['requests']);
+            expect(writtenContent).to.equal('flask==2.2.0\n');
+        });
+
+        test('does nothing when the setting is disabled', async () => {
+            vscode.workspace.getConfiguration = (section?: string) =>
+                ({
+                    get: (key: string, defaultValue?: unknown) =>
+                        section === 'packages.python' && key === 'autoUpdateRequirements' ? false : defaultValue,
+                } as unknown as vscode.WorkspaceConfiguration);
+
+            await manager.installPackages([{ name: 'pandas' }]);
+            expect(fileSystem.writeFile.calledWith(reqPath, sinon.match.any)).to.equal(false);
         });
     });
 });
