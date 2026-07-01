@@ -26,11 +26,12 @@ human-in-the-loop.
 ## Non-goals
 
 - No change to the per-PR derivation mechanism or the map format.
-- **No auto-editing the map and no auto-PR.** Whether a divergence should become
-  a map entry is a subjective call (contrast: 14248 R-interpreter *should* be
-  added; snowflake -> `@:workbench-snowflake` should *not*). A wrong auto-edit
-  silently corrupts test selection, which is the exact failure this system
-  exists to prevent. The loop stays human-in-the-loop.
+- **No auto-editing the map and no auto-PR.** The report may include a *suggested*
+  JSON diff, but a human reviews and applies it by hand. Whether a divergence
+  should become a map entry is a subjective call (contrast: 14248 R-interpreter
+  *should* be added; snowflake -> `@:workbench-snowflake` should *not*). A wrong
+  auto-edit silently corrupts test selection, which is the exact failure this
+  system exists to prevent. The loop stays human-in-the-loop.
 - No coverage instrumentation / test-impact analysis (considered; deferred as
   too much infra).
 - No LLM in the loop (nondeterministic; would gate CI on an external service).
@@ -39,21 +40,33 @@ human-in-the-loop.
 
 Two components plus one shared pure primitive.
 
-### Shared primitive (`scripts/lib/pr-tags-lib.sh`)
+### Shared primitives (`scripts/lib/pr-tags-lib.sh`)
 
-Add a pure, unit-tested set-difference helper:
+Add pure, unit-tested helpers:
 
 ```
 csv_minus <a_csv> <b_csv>
   Echoes the comma-separated, order-stable tags present in a but not in b.
+
+longest_map_prefix <file> <map_file>
+  Echoes the single longest map key that prefixes <file> (the winning entry
+  under most-specific-wins), or nothing. This is the same selection
+  derive_map_tags makes internally, exposed so the report can name the exact
+  entry a suggested edit should target.
 ```
 
-The audit uses it to compute, per PR:
+The audit uses `csv_minus` to compute, per PR:
 - **gap** = `csv_minus <author_tags> <auto_tags>` - a tag the author set that the
   map did not derive -> candidate map gap (highest-value signal).
 - **review** = `csv_minus <auto_tags> <author_tags>` - a tag the map derived that
   the author did not set -> either over-tag or a good catch (needs human).
 - match = present in both (informational).
+
+For each gap tag, a suggestion is **ancestor-explained** (and flagged `(review)`
+rather than proposed as a fix) when a *shorter* matching prefix of the changed
+file(s) already maps to that tag - i.e. a more-specific leaf deliberately
+narrowed it away (e.g. `positron-r/src/testing/` dropping `@:ark`). This is a
+pure check over the map keys, unit-tested alongside the primitives.
 
 ### Component A: `scripts/audit-e2e-tags.sh`
 
@@ -71,13 +84,16 @@ The audit uses it to compute, per PR:
   - Fetch changed files -> `derive_map_tags`.
   - Compute gap and review via `csv_minus`.
 - Output (stdout, Markdown):
-  1. A divergence table: `PR | author | auto | gap | review | title`.
-  2. Summary counts (PRs examined, with-gap, with-review, clean).
-  3. A "gap hints" block: for each gap PR, the missing tag plus the PR's changed
-     Positron dirs (via `positron_dir_of`) as *candidates* a human might map.
-     Advisory only - it does not emit a ready-to-apply JSON diff, because
-     attributing a missing tag to a specific dir is the subjective step we keep
-     with the human.
+  1. **Delta table** - one row per divergent PR:
+     `PR | Author | Derived | Missing | Candidate entry | Title`. The `Missing`
+     column is the gap (author minus derived), so the delta is scannable at a
+     glance. `Candidate entry` is `longest_map_prefix` for the changed files;
+     rows whose gap is ancestor-explained are marked `(review)`.
+  2. **Summary counts** (PRs examined, with-gap, with-review, clean).
+  3. **Suggested diffs** - one fenced JSON diff per gap, adding the missing
+     tag(s) to the candidate entry, with the PR context as a comment. These are
+     *proposals to review and apply by hand*, not auto-applied; ancestor-explained
+     ones carry a `(review: ...)` comment so they are dismissed, not pasted.
 - Read-only. No writes to the map or GitHub.
 
 ### Component B: `.github/workflows/e2e-tag-audit.yml`
@@ -111,26 +127,43 @@ cron (Mon 12:00 UTC)
 
 ## Report format (illustrative)
 
-```
-## e2e tag audit - week of 2026-06-23..2026-06-29
+The report renders as Markdown (shown here as it would appear in the issue /
+job summary):
 
-Examined 41 merged PRs: 3 gaps, 6 review, 32 clean.
-
-| PR | author | auto | gap | review | title |
-|----|--------|------|-----|--------|-------|
-| 14248 | @:interpreter | @:ark | @:interpreter | @:ark | Fix runtime cache missing R versions |
-| ...   |               |      |     |        |       |
-
-### Gap hints (author had a tag the map did not derive)
-- #14248 `@:interpreter` - changed Positron dirs: extensions/positron-r/
-```
+> ## e2e tag audit - week of 2026-06-23..2026-06-29
+>
+> Examined 41 merged PRs: 3 gaps, 6 review, 32 clean.
+>
+> | PR | Author | Derived | Missing | Candidate entry | Title |
+> |----|--------|---------|---------|-----------------|-------|
+> | 14248 | @:interpreter | @:ark | +@:interpreter | positron-r/ | Fix runtime cache missing R versions |
+> | 14336 | @:ark,@:test-explorer | @:test-explorer | +@:ark | positron-r/src/testing/ (review) | Multi-line desc in R test explorer |
+>
+> ### Suggested map edits (review before applying)
+>
+> ~~~diff
+> # 14248  author had @:interpreter, map did not derive it
+> -  "extensions/positron-r/": ["@:ark"],
+> +  "extensions/positron-r/": ["@:ark", "@:interpreter"],
+> ~~~
+> ~~~diff
+> # 14336  author had @:ark  (review: positron-r/src/testing/ intentionally drops @:ark)
+> -  "extensions/positron-r/src/testing/": ["@:test-explorer"],
+> +  "extensions/positron-r/src/testing/": ["@:test-explorer", "@:ark"],
+> ~~~
 
 ## Testing
 
-- Unit: `csv_minus` in `scripts/test/pr-tags-lib-test.sh` - a-not-in-b,
-  order-stable, empty-a, empty-b, no-overlap, full-overlap.
-- The `gh` fetch, Markdown formatting, and issue upsert are glue: validated by a
-  manual `workflow_dispatch` run, not unit-tested.
+- Unit (in `scripts/test/pr-tags-lib-test.sh`):
+  - `csv_minus` - a-not-in-b, order-stable, empty-a, empty-b, no-overlap,
+    full-overlap.
+  - `longest_map_prefix` - picks the longest matching key; nothing on no match;
+    agrees with what `derive_map_tags` selects.
+  - ancestor-explained check - true when a shorter matching prefix supplies the
+    missing tag (the `positron-r/src/testing/` drops `@:ark` case), false for a
+    genuine gap (14248 `@:interpreter`).
+- The `gh` fetch, table/diff formatting, and issue upsert are glue: validated by
+  a manual `workflow_dispatch` run, not unit-tested.
 
 ### Testing from the feature branch (no merge required)
 
@@ -155,8 +188,10 @@ Examined 41 merged PRs: 3 gaps, 6 review, 32 clean.
 
 ## Risks / accepted tradeoffs
 
-- **Gap hints are heuristic** (dir attribution is fuzzy) - kept advisory,
-  human decides. This is deliberate, not a defect.
+- **Suggested diffs are proposals, not fixes.** Attribution targets the longest
+  matching entry deterministically, but whether to apply is the human's call;
+  ancestor-explained rows are flagged so intentional narrowing (e.g. testing
+  dropping `@:ark`) isn't pasted in. Deliberate, not a defect.
 - **Cron DST drift** of 1 hour - accepted for a weekly report.
 - **Issue-upsert identity** relies on a stable label + title marker; a manually
   renamed/relabeled issue would cause a duplicate. Low impact.
