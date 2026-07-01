@@ -422,15 +422,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let extensionAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
-		// --- Start Positron ---
-		let testAgentRegistered = false;
-		// --- End Positron ---
 		for (const agent of this.getAgents()) {
-			// --- Start Positron ---
-			if (agent.extensionId.value === 'vscode.vscode-api-tests') {
-				testAgentRegistered = true;
-			}
-			// --- End Positron ---
 			if (agent.isDefault) {
 				// --- Start Positron ---
 				defaultAgentRegistered = true;
@@ -447,13 +439,13 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			}
 		}
 		// --- Start Positron ---
-		// Do not register default agents when AI features are disabled, except for
-		// the API test agent from upstream. `_isAIDisabled()` covers both
-		// `chat.disableAIFeatures` and `ai.enabled`.
-		// this._defaultAgentRegistered.set(defaultAgentRegistered);
-		if (testAgentRegistered || !this._isAIDisabled()) {
-			this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
-		}
+		// Treat `chat.disableAIFeatures` as "no panel participant" so the chat UI
+		// hides while leaving the chat extension's `vscode.lm` model provider
+		// available for other consumers. (Previously also gated on
+		// `positron.assistant.enable`, which made the chat panel depend on the
+		// Positron Assistant extension being enabled; removed so a default chat
+		// agent such as GitHub Copilot can register on its own.)
+		this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.
 		this._aiFeaturesEnabled.set(!this._isAIDisabled());
 		// --- End Positron ---
