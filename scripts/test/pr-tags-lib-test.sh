@@ -128,6 +128,15 @@ assert_eq "union dedup order-stable" "@:critical,@:console,@:plots" \
 	"$(union_csv_tags "@:critical,@:console" "@:console,@:plots")"
 assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 
+# --- csv_minus ---
+assert_eq "csv_minus removes b's tags, keeps a order" "@:a,@:c" \
+	"$(csv_minus "@:a,@:b,@:c" "@:b")"
+assert_eq "csv_minus empty a" "" "$(csv_minus "" "@:x")"
+assert_eq "csv_minus empty b returns a" "@:a,@:b" "$(csv_minus "@:a,@:b" "")"
+assert_eq "csv_minus no overlap" "@:a" "$(csv_minus "@:a" "@:b")"
+assert_eq "csv_minus full overlap" "" "$(csv_minus "@:a,@:b" "@:b,@:a")"
+assert_eq "csv_minus dedups a" "@:a" "$(csv_minus "@:a,@:a" "")"
+
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"

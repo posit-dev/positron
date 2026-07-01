@@ -95,6 +95,21 @@ union_csv_tags() {
 		| awk 'NF && !seen[$0]++' | paste -sd, -
 }
 
+# csv_minus <a_csv> <b_csv>
+# Echoes the comma-separated, order-stable (a's order) tags present in a but not
+# in b, de-duplicated. Empty if none.
+csv_minus() {
+	awk -v a="$1" -v b="$2" 'BEGIN {
+		nb = split(b, B, ","); for (i = 1; i <= nb; i++) if (B[i] != "") skip[B[i]] = 1
+		na = split(a, A, ","); out = ""
+		for (i = 1; i <= na; i++) {
+			t = A[i]
+			if (t != "" && !skip[t] && !seen[t]++) out = out (out == "" ? "" : ",") t
+		}
+		print out
+	}'
+}
+
 # positron_dir_of <path>
 # THE single source of truth for "which mappable Positron dir does a path belong
 # to". Echoes the path truncated to its FIRST positron* segment with a trailing
