@@ -17,6 +17,11 @@ import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile } from './workspaceRequirements';
+import {
+    addInstalledToRequirements,
+    isAutoUpdateRequirementsEnabled,
+    removeUninstalledFromRequirements,
+} from './requirementsSync';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -91,6 +96,15 @@ export class UvPackageManager implements IPackageManager {
                 // the target with the file; a conflict fails atomically.
                 const args = ['pip', 'install', ...packageSpecs, '-r', requirementsPath, '--python', this._pythonPath];
                 await this._executeUvInTerminal(args, token);
+                if (isAutoUpdateRequirementsEnabled()) {
+                    const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+                    await addInstalledToRequirements(
+                        this._serviceContainer.get<IFileSystem>(IFileSystem),
+                        requirementsPath,
+                        packages.map((pkg) => pkg.name),
+                        installed,
+                    );
+                }
             } else {
                 // Re-resolve against the full installed set: name every installed
                 // package (bare) plus the new package(s) so an inconsistent install
@@ -129,6 +143,17 @@ export class UvPackageManager implements IPackageManager {
             // Environment workflow: uv pip uninstall --python <path> <packages>
             const args = ['pip', 'uninstall', '--python', this._pythonPath, ...packages];
             await this._executeUvInTerminal(args, token);
+
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath && isAutoUpdateRequirementsEnabled()) {
+                const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+                await removeUninstalledFromRequirements(
+                    this._serviceContainer.get<IFileSystem>(IFileSystem),
+                    requirementsPath,
+                    packages,
+                    installed,
+                );
+            }
         }
     }
 
