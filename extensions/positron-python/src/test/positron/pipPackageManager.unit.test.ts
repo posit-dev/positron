@@ -263,9 +263,7 @@ suite('PipPackageManager update Tests', () => {
                 vscode.workspace.getConfiguration = (section?: string) =>
                     ({
                         get: (key: string, defaultValue?: unknown) =>
-                            section === 'python' && key === 'packageManager.useRequirementsFile'
-                                ? false
-                                : defaultValue,
+                            section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
                     } as any);
             });
 
