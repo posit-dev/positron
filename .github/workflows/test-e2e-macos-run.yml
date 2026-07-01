@@ -217,9 +217,16 @@ jobs:
           rig add "$R_ALTERNATE_VERSION"
 
       - name: Install R packages for 4.5.2
+        env:
+          # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
+          # target: pak resolves a version from the metadata, but by the time it
+          # downloads the binary PPM may have published a newer release and rotated
+          # the old binary out, yielding intermittent 404s. A dated snapshot keeps
+          # metadata and binaries consistent.
+          PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = 'https://packagemanager.posit.co/cran/latest')); pak::local_install_dev_deps(ask = FALSE)"
+          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
 
       - name: Install pyenv and Python
         run: |
