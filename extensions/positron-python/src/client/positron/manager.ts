@@ -15,7 +15,7 @@ import { inject, injectable } from 'inversify';
 import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
-import { IInterpreterService } from '../interpreter/contracts';
+import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
 import { getActivePythonSessions, PythonRuntimeSession } from './session';
@@ -66,6 +66,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
     private readonly _onDidDiscoverRuntime = new EventEmitter<positron.LanguageRuntimeMetadata>();
 
+    private readonly _onDidRemoveRuntime = new EventEmitter<string>();
+
     private readonly _onDidCreateSession = new EventEmitter<PythonRuntimeSession>();
 
     /**
@@ -73,7 +75,23 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      */
     public readonly onDidDiscoverRuntime = this._onDidDiscoverRuntime.event;
 
+    /**
+     * An event that fires when a previously registered Python runtime should be
+     * retracted from Positron, carrying the runtimeId to remove. Used to drop a
+     * runtime whose interpreter was deleted, or a symlink alias that
+     * de-duplication has collapsed into another path.
+     */
+    public readonly onDidRemoveRuntime = this._onDidRemoveRuntime.event;
+
     public readonly onDidCreateSession = this._onDidCreateSession.event;
+
+    /**
+     * Serializes handling of `onDidChangeInterpreters` events. The handler is
+     * async (it resolves interpreter details before registering), so without a
+     * queue a `Created` and a follow-up `Changed`/`Deleted` for the same path
+     * could interleave and leave the registry out of sync with the picker.
+     */
+    private _interpreterChangeQueue: Promise<void> = Promise.resolve();
 
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
@@ -89,38 +107,19 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 new CondaPythonPickerContribution(this.serviceContainer),
             ),
 
-            // When an interpreter is added or removed, update our registry and (on removal)
-            // shut down any sessions still backed by the deleted environment.
-            interpreterService.onDidChangeInterpreters(async (event) => {
-                if (!event.old && event.new) {
-                    // An interpreter was added.
-                    const interpreterPath = event.new.path;
-                    await this.registerLanguageRuntimeFromPath(interpreterPath);
-                } else if (event.old && !event.new) {
-                    // An interpreter was removed externally (e.g. `.venv` directory deleted). Clear
-                    // stored metadata so we don't hand out stale runtimes, and shut down any live
-                    // sessions using the deleted path.
-                    const deletedPath = event.old.path;
-                    this.registeredPythonRuntimes.delete(deletedPath);
-                    try {
-                        // Only Python sessions; other languages' sessions may not even have
-                        // extraRuntimeData (e.g. restored from a serialized state).
-                        const sessions = await getActivePythonSessions();
-                        const toShutdown = sessions.filter(
-                            (s) =>
-                                (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath ===
-                                deletedPath,
-                        );
-                        if (toShutdown.length > 0) {
-                            traceInfo(
-                                `Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`,
-                            );
-                            await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
-                        }
-                    } catch (error) {
-                        traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
-                    }
-                }
+            // When an interpreter is added, removed, or replaced, keep our
+            // registry (and the Positron picker) in sync. Serialized so a
+            // Created and a follow-up Changed/Deleted for the same path can't
+            // interleave. Each event's failure is caught and logged so one
+            // transient error can't reject the queue and stop every later event
+            // from being handled until reload.
+            interpreterService.onDidChangeInterpreters((event) => {
+                this._interpreterChangeQueue = this._interpreterChangeQueue
+                    .then(() => this.handleInterpreterChange(event))
+                    .catch((error) => {
+                        const changedPath = event.new?.path ?? event.old?.path;
+                        traceError(`Failed to handle interpreter change for ${changedPath}: ${error}`);
+                    });
             }),
 
             interpreterService.onDidChangeInterpreter(async (event) => {
@@ -154,6 +153,57 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
     dispose(): void {
         this.disposables.forEach((d) => d.dispose());
+    }
+
+    /**
+     * Handles an interpreter add/remove/replace event, keeping the registry and
+     * the Positron picker in sync. Invoked serially via `_interpreterChangeQueue`.
+     *
+     * - Added (`new` only): register a runtime for the new path.
+     * - Removed (`old` only): retract the removed path's runtime and shut down
+     *   any sessions still backed by it.
+     * - Replaced (`old` and `new` with different paths): de-duplication collapsed
+     *   one interpreter alias into another (e.g. a symlink resolved to a shorter
+     *   path). Retract the old alias's runtime -- which may already be in the
+     *   picker from its own earlier Created event -- and register the survivor.
+     *   Same-path changes are metadata refreshes and leave the registration as is.
+     */
+    private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
+        if (!event.old && event.new) {
+            await this.registerLanguageRuntimeFromPath(event.new.path);
+        } else if (event.old && !event.new) {
+            const deletedPath = event.old.path;
+            this.unregisterRuntimeForPath(deletedPath);
+            try {
+                // Only Python sessions; other languages' sessions may not even have
+                // extraRuntimeData (e.g. restored from a serialized state).
+                const sessions = await getActivePythonSessions();
+                const toShutdown = sessions.filter(
+                    (s) => (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === deletedPath,
+                );
+                if (toShutdown.length > 0) {
+                    traceInfo(`Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`);
+                    await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
+                }
+            } catch (error) {
+                traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
+            }
+        } else if (event.old && event.new && event.old.path !== event.new.path) {
+            this.unregisterRuntimeForPath(event.old.path);
+            await this.registerLanguageRuntimeFromPath(event.new.path);
+        }
+    }
+
+    /**
+     * Retract the runtime registered for a given interpreter path, if any, so it
+     * is removed from the Positron picker. No-op if the path isn't registered.
+     */
+    private unregisterRuntimeForPath(pythonPath: string): void {
+        const existing = this.registeredPythonRuntimes.get(pythonPath);
+        if (existing) {
+            this.registeredPythonRuntimes.delete(pythonPath);
+            this._onDidRemoveRuntime.fire(existing.runtimeId);
+        }
     }
 
     /**
@@ -265,6 +315,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
 
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
+            // If this path is already registered under a different runtime id
+            // (e.g. a stale version -- the same venv reported as 3.14.4 by the
+            // cached discovery pass and 3.14.6 once resolved), retract the old
+            // one first so the picker shows a single entry per interpreter path.
+            const existing = this.registeredPythonRuntimes.get(extraData.pythonPath);
+            if (existing && existing.runtimeId !== runtime.runtimeId) {
+                this._onDidRemoveRuntime.fire(existing.runtimeId);
+            }
+
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
             this._onDidDiscoverRuntime.fire(runtime);
@@ -524,8 +583,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
         // As each runtime metadata element is returned, cache and return it
         for await (const runtime of discoverer) {
-            // Save a copy of the metadata for later use
             const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
+
+            // If the live `onDidChangeInterpreters` handler already registered
+            // this path during discovery, it resolved the interpreter and may
+            // hold a more accurate version than this (cached) discovery pass --
+            // e.g. a venv whose base was upgraded in place, reported here as the
+            // stale `pyvenv.cfg` version but resolved live to the real one.
+            // Yield the existing registration so the same path can't produce two
+            // picker entries with different versions.
+            const existing = this.registeredPythonRuntimes.get(extraData.pythonPath);
+            if (existing && existing.runtimeId !== runtime.runtimeId) {
+                yield existing;
+                continue;
+            }
+
+            // Save a copy of the metadata for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
 
             // Return the runtime to Positron
@@ -544,11 +617,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         recreateRuntime?: boolean,
     ): Promise<positron.LanguageRuntimeMetadata | undefined> {
         const alreadyRegisteredRuntime = this.registeredPythonRuntimes.get(pythonPath);
-        if (alreadyRegisteredRuntime) {
-            if (!recreateRuntime) {
-                return alreadyRegisteredRuntime;
-            }
-
+        if (alreadyRegisteredRuntime && recreateRuntime) {
             const sessions = await getActivePythonSessions();
             // Find any active sessions using this runtime
             const sessionsToShutdown = sessions.filter((session) => {
@@ -569,13 +638,27 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             this.registeredPythonRuntimes.delete(pythonPath);
         }
 
-        // Get the interpreter corresponding to the new runtime.
+        // Get the interpreter corresponding to the new runtime. This resolves the
+        // interpreter (running it when needed), so the version reflects what the
+        // interpreter actually reports rather than a stale `pyvenv.cfg` version a
+        // cached discovery pass may have registered for this path.
         const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
         // Create the runtime and register it with Positron.
         if (interpreter) {
             // Set recommendedForWorkspace to false, since we change the active runtime
             // in the onDidChangeActiveEnvironmentPath listener.
             const newRuntime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+            // If this path is already registered as the same (resolved) runtime,
+            // there's nothing to do. If it resolved to a different runtime (e.g. the
+            // real version supersedes a stale one from discovery), registerLanguageRuntime
+            // retracts the stale entry so the picker shows the correct version.
+            if (
+                alreadyRegisteredRuntime &&
+                !recreateRuntime &&
+                alreadyRegisteredRuntime.runtimeId === newRuntime.runtimeId
+            ) {
+                return alreadyRegisteredRuntime;
+            }
             // Register the runtime with Positron.
             this.registerLanguageRuntime(newRuntime);
             return newRuntime;

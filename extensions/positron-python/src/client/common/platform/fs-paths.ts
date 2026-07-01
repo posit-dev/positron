@@ -23,7 +23,7 @@ export class FileSystemPaths implements IFileSystemPaths {
         private readonly isCaseInsensitive: boolean,
         // (effectively) the node "path" module to use
         private readonly raw: INodePath,
-    ) {}
+    ) { }
     // Create a new object using common-case default values.
     // We do not use an alternate constructor because defaults in the
     // constructor runs counter to our typical approach.
@@ -73,7 +73,7 @@ export class Executables {
         public readonly delimiter: string,
         // the OS type to target
         private readonly osType: OSType,
-    ) {}
+    ) { }
     // Create a new object using common-case default values.
     // We do not use an alternate constructor because defaults in the
     // constructor runs counter to our typical approach.
@@ -106,7 +106,7 @@ export class FileSystemPathUtils implements IFileSystemPathUtils {
         public readonly executables: IExecutables,
         // other low-level FS path operations to use
         private readonly raw: IRawPaths,
-    ) {}
+    ) { }
     // Create a new object using common-case default values.
     // We do not use an alternate constructor because defaults in the
     // constructor runs counter to our typical approach.
@@ -236,6 +236,12 @@ export function readdirSync(
 export function readlink(path: string): Promise<string> {
     return fs.readlink(path);
 }
+
+// --- Start Positron ---
+export function realpath(path: string): Promise<string> {
+    return fs.realpath(path);
+}
+// --- End Positron ---
 
 export function unlink(path: string): Promise<void> {
     return fs.unlink(path);
