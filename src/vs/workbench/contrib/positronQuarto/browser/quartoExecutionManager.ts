@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { CancellationError, isCancellationError } from '../../../../base/common/errors.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { ResourceMap } from '../../../../base/common/map.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
@@ -35,7 +36,8 @@ import {
 	DEFAULT_EXECUTION_CONFIG,
 	DATA_EXPLORER_MIME_TYPE,
 } from '../common/quartoExecutionTypes.js';
-import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { usingQuartoInlineOutputStatementSplitting } from '../common/positronQuartoConfig.js';
+import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -93,21 +95,6 @@ interface SerializedQueueState {
 	runningCell: string | undefined;
 }
 
-interface RInputBoundaryRange {
-	start: number;
-	end: number;
-}
-
-type RInputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
-
-interface RInputBoundary {
-	range: RInputBoundaryRange;
-	kind: RInputBoundaryKind;
-	data?: {
-		message?: string;
-	};
-}
-
 /**
  * Implementation of the Quarto execution manager.
  * Manages code execution queue and output collection for Quarto documents.
@@ -154,6 +141,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IEditorService private readonly _editorService: IEditorService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -655,12 +643,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				});
 				cancellationPromise.catch(() => undefined);
 
-				// R only returns the final implicit result from a multi-expression
-				// request. Execute complete expressions separately so each result
-				// is appended to the cell's inline output.
-				const codeFragments = cellLanguage === 'r'
-					? await this._getRCodeFragments(session, code, cts.token)
-					: [code];
+				const codeFragments = await this._getCodeFragments(cellLanguage, code, cts.token);
 				const errorBehavior = options.error
 					? RuntimeErrorBehavior.Stop
 					: RuntimeErrorBehavior.Continue;
@@ -1563,33 +1546,27 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	}
 
 	/**
-	 * Split R code into complete expressions using the R input boundary provider.
-	 *
-	 * Falls back to the older line-by-line completeness probe if no provider
-	 * exposes input boundaries.
+	 * Split code into complete language inputs when the feature is enabled and
+	 * a language input boundary provider is available.
 	 */
-	private async _getRCodeFragments(session: ILanguageRuntimeSession, code: string, token: CancellationToken): Promise<string[]> {
-		const boundaryFragments = await this._getRCodeFragmentsFromInputBoundaryProvider(code, token);
-		if (boundaryFragments) {
-			return boundaryFragments;
+	private async _getCodeFragments(languageId: string, code: string, token: CancellationToken): Promise<string[]> {
+		if (!usingQuartoInlineOutputStatementSplitting(this._configurationService)) {
+			return [code];
 		}
 
-		if (token.isCancellationRequested) {
-			throw new CancellationError();
-		}
-
-		return this._getRCodeFragmentsByCompleteness(session, code, token);
+		const boundaryFragments = await this._getCodeFragmentsFromInputBoundaryProvider(languageId, code, token);
+		return boundaryFragments ?? [code];
 	}
 
 	/**
 	 * Ask a language provider for all input boundaries in one request and split
 	 * the code accordingly.
 	 */
-	private async _getRCodeFragmentsFromInputBoundaryProvider(code: string, token: CancellationToken): Promise<string[] | undefined> {
+	private async _getCodeFragmentsFromInputBoundaryProvider(languageId: string, code: string, token: CancellationToken): Promise<string[] | undefined> {
 		const model = this._modelService.createModel(
 			code,
-			this._languageService.createById('r'),
-			URI.from({ scheme: 'inmemory', path: `/quarto-input-boundaries/${generateUuid()}.R` })
+			this._languageService.createById(languageId),
+			URI.from({ scheme: 'inmemory', path: `/quarto-input-boundaries/${generateUuid()}` })
 		);
 
 		try {
@@ -1607,15 +1584,15 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					if (isCancellationError(error)) {
 						throw error;
 					}
-					this._logService.debug('[QuartoExecutionManager] Failed to query R input boundaries; falling back to line-by-line completeness checks', error);
+					this._logService.debug('[QuartoExecutionManager] Failed to query input boundaries; trying the next provider', error);
 					continue;
 				}
 
-				const fragments = this._getRCodeFragmentsFromBoundaries(code, boundaries);
+				const fragments = this._getCodeFragmentsFromBoundaries(code, boundaries);
 				if (fragments) {
 					return fragments;
 				}
-				this._logService.debug('[QuartoExecutionManager] Ignoring malformed R input boundaries; falling back to line-by-line completeness checks');
+				this._logService.debug('[QuartoExecutionManager] Ignoring malformed input boundaries; executing the full code range');
 				return undefined;
 			}
 		} finally {
@@ -1625,7 +1602,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return undefined;
 	}
 
-	private _getRCodeFragmentsFromBoundaries(code: string, boundaries: unknown): string[] | undefined {
+	private _getCodeFragmentsFromBoundaries(code: string, boundaries: unknown): string[] | undefined {
 		if (!Array.isArray(boundaries)) {
 			return undefined;
 		}
@@ -1640,7 +1617,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				return undefined;
 			}
 
-			const kind = (boundary as RInputBoundary).kind;
+			const kind = (boundary as IInputBoundary).kind;
 			if (kind !== 'whitespace' &&
 				kind !== 'complete' &&
 				kind !== 'incomplete' &&
@@ -1649,7 +1626,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				return undefined;
 			}
 
-			const range = (boundary as RInputBoundary).range;
+			const range = (boundary as IInputBoundary).range;
 			if (!range ||
 				!Number.isInteger(range.start) ||
 				!Number.isInteger(range.end) ||
@@ -1686,54 +1663,6 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		}
 
 		return fragments.length > 0 ? fragments : [code];
-	}
-
-	/**
-	 * Legacy fallback for runtimes that do not expose input boundaries.
-	 */
-	private async _getRCodeFragmentsByCompleteness(session: ILanguageRuntimeSession, code: string, token: CancellationToken): Promise<string[]> {
-		const fragments: string[] = [];
-		const pendingLines: string[] = [];
-
-		for (const line of code.split('\n')) {
-			pendingLines.push(line);
-			const pendingCode = pendingLines.join('\n');
-			let status: RuntimeCodeFragmentStatus;
-			try {
-				status = await raceCancellationError(Promise.resolve(session.isCodeFragmentComplete(pendingCode)), token);
-			} catch (error) {
-				if (isCancellationError(error)) {
-					throw error;
-				}
-				return [code];
-			}
-
-			if (status === RuntimeCodeFragmentStatus.Unknown) {
-				return [code];
-			}
-
-			if (status === RuntimeCodeFragmentStatus.Complete ||
-				status === RuntimeCodeFragmentStatus.Invalid
-			) {
-				if (this._containsExecutableRCode(pendingCode)) {
-					fragments.push(pendingCode);
-				}
-				pendingLines.length = 0;
-			}
-		}
-
-		if (pendingLines.length > 0) {
-			fragments.push(pendingLines.join('\n'));
-		}
-
-		return fragments.length > 0 ? fragments : [code];
-	}
-
-	/**
-	 * Check whether R code contains more than whitespace and comments.
-	 */
-	private _containsExecutableRCode(code: string): boolean {
-		return code.split('\n').some(line => !/^\s*(?:#.*)?$/.test(line));
 	}
 
 	async cancelQueuedCell(documentUri: URI, cellId: string): Promise<void> {

@@ -30,7 +30,7 @@ const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[
 
 // Selector for Quarto virtual documents.
 const VDOC_SELECTOR = { language: 'r', pattern: '**/.vdoc.*.{r,R}' };
-const QUARTO_INPUT_BOUNDARY_SELECTOR = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*.{r,R}' };
+const QUARTO_INPUT_BOUNDARY_SELECTOR = { language: 'r', scheme: 'inmemory', pattern: '**/quarto-input-boundaries/*' };
 
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;

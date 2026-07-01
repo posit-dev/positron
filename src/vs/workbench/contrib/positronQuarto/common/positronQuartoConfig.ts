@@ -25,6 +25,11 @@ export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.e
 export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
 
 /**
+ * Configuration key for splitting Quarto inline code into language-defined statements.
+ */
+export const POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY = 'positron.quarto.inlineOutput.splitStatements';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -94,6 +99,15 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
+		[POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.splitStatements',
+				'Execute Quarto inline code statement by statement when the language provides input boundaries, so each statement can produce inline output.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
 	},
 });
 
@@ -104,6 +118,15 @@ configurationRegistry.registerConfiguration({
  */
 export function usingQuartoInlineOutput(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+}
+
+/**
+ * Helper function to check if Quarto inline output should split code at statement boundaries.
+ * @param configurationService The configuration service instance
+ * @returns true if statement splitting is enabled
+ */
+export function usingQuartoInlineOutputStatementSplitting(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY) ?? true;
 }
 
 /**
