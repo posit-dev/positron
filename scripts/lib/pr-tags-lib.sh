@@ -69,6 +69,15 @@ union_csv_tags() {
 		| awk 'NF && !seen[$0]++' | paste -sd, -
 }
 
+# _pr_tags_lookup_enum <enum_content> <name>
+# Private helper: resolve a TestTags enum member NAME to its @:value from the
+# already-grepped enum lines. File-scoped (not nested) so it doesn't leak a
+# generic name into scripts that source this library.
+_pr_tags_lookup_enum() {
+	printf '%s' "$1" | grep "^[[:space:]]*${2}[[:space:]]*=" | \
+		sed -n "s/.*'\(@:[a-zA-Z0-9_-]*\)'.*/\1/p" | head -1
+}
+
 # derive_test_file_tags <changed_files> <repo_root> <enum_file>
 #   changed_files: newline-separated repo-relative paths
 #   repo_root: absolute path to the repo (to read the changed test files)
@@ -86,13 +95,6 @@ derive_test_file_tags() {
 	# Cache the enum file to avoid repeated reads.
 	enum_content="$(grep -E "=[[:space:]]*'@:" "$enum_file")"
 
-	# Helper to look up a tag name in the enum
-	_lookup_tag() {
-		local tag_name="$1"
-		printf '%s' "$enum_content" | grep "^[[:space:]]*${tag_name}[[:space:]]*=" | \
-			sed -n "s/.*'\(@:[a-zA-Z0-9_-]*\)'.*/\1/p" | head -1
-	}
-
 	# Resolved values to exclude: platform / env / special / build-variant tags
 	# are governed by dedicated PR-body greps and the platform-added-line scan.
 	local exclude_re='^@:(critical|soft-fail|performance|cross-browser|win|web|web-only|jupyter|pyrefly|publisher|remote-ssh|remote-wsl|workbench.*|rhel-.*|suse-.*|sles-.*|debian-.*)$'
@@ -102,7 +104,7 @@ derive_test_file_tags() {
 		[[ "$file" == test/e2e/tests/* ]] || continue
 		[[ -f "$repo_root/$file" ]] || continue
 		while IFS= read -r name; do
-			val="$(_lookup_tag "$name")"
+			val="$(_pr_tags_lookup_enum "$enum_content" "$name")"
 			[[ -z "$val" ]] && continue
 			[[ "$val" =~ $exclude_re ]] && continue
 			out+=("$val")

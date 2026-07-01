@@ -204,7 +204,9 @@ fi
 # the normal path -- it is map-maintenance feedback, independent of tag
 # selection. Reuse CHANGED_FILES/MAP_FILE from the else branch above if they
 # were already computed there, so we don't double-fetch.
-SCRIPT_DIR="$(dirname "$0")"
+# Reuse SCRIPT_DIR/CHANGED_FILES if the else branch already set them; the @:all
+# branch skips that branch, so fall back to computing them here.
+SCRIPT_DIR="${SCRIPT_DIR:-$(dirname "$0")}"
 MAP_FILE="${MAP_FILE:-$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json}"
 if [[ -z "${CHANGED_FILES+x}" ]]; then
 	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
@@ -217,7 +219,7 @@ if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
 	UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
 	if [[ -n "$UNMAPPED_DIRS" ]]; then
 		echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
-		printf '  - %s\n' $UNMAPPED_DIRS
+		while IFS= read -r d; do [[ -n "$d" ]] && printf '  - %s\n' "$d"; done <<< "$UNMAPPED_DIRS"
 	fi
 fi
 echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"

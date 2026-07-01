@@ -7,6 +7,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../lib/pr-tags-lib.sh"
 
 fail=0
+# Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
+# interrupted run doesn't leave files behind. Vars are empty until each mktemp.
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${ENUM:-}" "${TROOT:-}" "${MAP2:-}" 2>/dev/null || true' EXIT
+
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
 	if [[ "$expected" == "$actual" ]]; then
@@ -22,7 +26,6 @@ assert_eq() {
 MAP="$(mktemp)"
 cat > "$MAP" <<'JSON'
 {
-  "test/e2e/tests/console/": ["@:console"],
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
   "extensions/positron-assistant/": ["@:assistant", "@:posit-assistant"],
   "src/vs/workbench/contrib/positronTelemetry/": []
@@ -34,8 +37,8 @@ assert_eq "single source match" "@:console" \
 	"$(derive_map_tags "src/vs/workbench/contrib/positronConsole/foo.ts" "$MAP")"
 assert_eq "multi-tag extension" "@:assistant,@:posit-assistant" \
 	"$(derive_map_tags "extensions/positron-assistant/src/x.ts" "$MAP")"
-assert_eq "dedupe across source + test" "@:console" \
-	"$(derive_map_tags "$(printf 'src/vs/workbench/contrib/positronConsole/a.ts\ntest/e2e/tests/console/b.test.ts')" "$MAP")"
+assert_eq "dedupe across two source files" "@:console" \
+	"$(derive_map_tags "$(printf 'src/vs/workbench/contrib/positronConsole/a.ts\nsrc/vs/workbench/contrib/positronConsole/b.ts')" "$MAP")"
 assert_eq "empty-value entry yields nothing" "" \
 	"$(derive_map_tags "src/vs/workbench/contrib/positronTelemetry/t.ts" "$MAP")"
 assert_eq "no match" "" \
@@ -58,8 +61,6 @@ assert_eq "empty is not infra" "false" "$(is_infra_only "")"
 assert_eq "union dedup order-stable" "@:critical,@:console,@:plots" \
 	"$(union_csv_tags "@:critical,@:console" "@:console,@:plots")"
 assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
-
-rm -f "$MAP"
 
 # --- derive_test_file_tags ---
 ENUM="$(mktemp)"
@@ -93,8 +94,6 @@ assert_eq "non-test path ignored" "" \
 assert_eq "missing file ignored" "" \
 	"$(derive_test_file_tags "test/e2e/tests/console/ghost.test.ts" "$TROOT" "$ENUM")"
 
-rm -rf "$TROOT"; rm -f "$ENUM"
-
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"
@@ -109,14 +108,20 @@ if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --warn-only >/dev/nu
 else
 	echo "FAIL: guardrail --warn-only should exit 0"; fail=1
 fi
-rm -f "$TMP_MAP"
+# The real (complete) map should pass -- also guards the map staying complete.
+if bash "$HERE/../check-e2e-tag-map.sh" >/dev/null 2>&1; then
+	echo "PASS: guardrail passes on the complete map"
+else
+	echo "FAIL: guardrail should exit 0 on the complete map"; fail=1
+fi
 
 # --- find_unmapped_positron_dirs ---
 MAP2="$(mktemp)"
 cat > "$MAP2" <<'JSON'
 {
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "src/vs/workbench/contrib/positronTelemetry/": []
+  "src/vs/workbench/contrib/positronTelemetry/": [],
+  "src/vs/workbench/services/positronConsole/": ["@:console"]
 }
 JSON
 # A mapped dir (incl. a [] entry) is NOT flagged; an unmapped positron dir IS.
@@ -128,7 +133,9 @@ assert_eq "non-positron path ignored" "" \
 # An unmapped extension is flagged.
 assert_eq "unmapped extension flagged" "extensions/positron-bar/" \
 	"$(find_unmapped_positron_dirs "extensions/positron-bar/src/x.ts" "$MAP2")"
-rm -f "$MAP2"
+# services/ paths are handled like contrib/: mapped -> not flagged, unmapped -> flagged.
+assert_eq "unmapped services dir flagged" "src/vs/workbench/services/positronBaz/" \
+	"$(find_unmapped_positron_dirs "$(printf 'src/vs/workbench/services/positronConsole/a.ts\nsrc/vs/workbench/services/positronBaz/b.ts')" "$MAP2")"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
