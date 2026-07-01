@@ -154,6 +154,23 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		return this._composeResult(resource, groups);
 	}
 
+	analyzeCode(sessionId: string, code: string, token?: CancellationToken): Promise<IRuntimeMissingPackage[]> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session?.listMissingPackages) {
+			return Promise.resolve([]);
+		}
+		// Build a synthetic target for this session + code and run it through the
+		// same compute path as resource-based analysis, so the console-error
+		// onramp shares the cache, in-flight dedupe, and resilience guards.
+		const target: IResolvedTarget = {
+			sessionId,
+			languageId: session.runtimeMetadata.languageId,
+			cacheKey: `${sessionId}:${hash(code)}`,
+			target: { code },
+		};
+		return this._computeTarget(target);
+	}
+
 	async install(group: IMissingPackagesGroup, token?: CancellationToken): Promise<void> {
 		const specs: IPackageSpec[] = group.packages.map(pkg => ({ name: pkg.name }));
 

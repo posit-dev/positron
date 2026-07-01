@@ -58,6 +58,7 @@ describe('MissingPackagesService', () => {
 
 	const session = stubInterface<ILanguageRuntimeSession>({
 		sessionId,
+		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
 		listMissingPackages,
 		getPackageManager: () => packageManager,
 		getRuntimeState: () => pythonSessionState,
@@ -224,6 +225,26 @@ describe('MissingPackagesService', () => {
 		await Promise.all([service.ensure(resource), service.ensure(resource)]);
 
 		expect(listMissingPackages).toHaveBeenCalledTimes(1);
+	});
+
+	it('analyzeCode shares the cache with ensure for the same session and code', async () => {
+		const service = createService();
+
+		// ensure() analyzes 'import requests' against the python session and caches
+		// it. analyzeCode() with the same session + code hits that cache entry
+		// (keyed on sessionId + content hash) rather than recomputing.
+		await service.ensure(resource);
+		const missing = await service.analyzeCode(sessionId, 'import requests');
+
+		expect(missing).toEqual([{ name: 'requests' }]);
+		expect(listMissingPackages).toHaveBeenCalledTimes(1);
+	});
+
+	it('analyzeCode returns empty for an unknown session without analyzing', async () => {
+		const service = createService();
+
+		expect(await service.analyzeCode('no-such-session', 'import requests')).toEqual([]);
+		expect(listMissingPackages).not.toHaveBeenCalled();
 	});
 
 	it('getCached never triggers work', () => {

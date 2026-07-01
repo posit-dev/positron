@@ -66,6 +66,18 @@ export interface IMissingPackagesService {
 	ensure(resource: URI, token?: CancellationToken): Promise<IMissingPackagesResult>;
 
 	/**
+	 * Analyzes an arbitrary chunk of code against a specific session, returning
+	 * the referenced-but-not-installed, installable packages. Shares the same
+	 * cache, in-flight dedupe, and resilience guards (session-end race, runtime
+	 * state check) as {@link ensure}, but is keyed on the session + code rather
+	 * than a resource. Callers that recognize a package reference outside of a
+	 * tracked document (e.g. a console-error followup) use this to confirm the
+	 * package is missing and recover its install name. Returns an empty array
+	 * when the session is gone, cannot analyze packages, or is shutting down.
+	 */
+	analyzeCode(sessionId: string, code: string, token?: CancellationToken): Promise<IRuntimeMissingPackage[]>;
+
+	/**
 	 * Installs the given group's packages against its session. Resolves when the
 	 * install completes (or rejects if it fails).
 	 */

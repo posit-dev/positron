@@ -10,7 +10,6 @@ import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConsoleError, IConsoleErrorFollowupService, IConsoleErrorSuggestion, IConsoleErrorSuggestionProvider } from '../../../services/positronConsole/common/consoleErrorFollowup.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IMissingPackagesService } from '../common/missingPackagesService.js';
 
 /** Setting that gates the console install suggestion. */
@@ -29,13 +28,14 @@ const R_MISSING_PACKAGE_REGEX = /there is no package called ['"\u2018]([^'"\u201
  * A console-error followup provider that offers to install a missing package
  * when a runtime reports a missing-module / missing-package error.
  *
- * It reuses the session's `listMissingPackages` analyzer to confirm the package
- * is actually installable in this environment (and to recover the install name),
- * so it never offers a package it cannot install.
+ * It routes a synthetic reference to the package through the missing-packages
+ * service to confirm the package is actually installable in this environment
+ * (and to recover the install name), so it never offers a package it cannot
+ * install. Going through the service (rather than the session directly) shares
+ * the analysis cache, in-flight dedupe, and resilience guards.
  */
 export class MissingPackageErrorProvider implements IConsoleErrorSuggestionProvider {
 	constructor(
-		private readonly _runtimeSessionService: IRuntimeSessionService,
 		private readonly _missingPackagesService: IMissingPackagesService,
 		private readonly _configurationService: IConfigurationService,
 		private readonly _notificationService: INotificationService,
@@ -51,24 +51,14 @@ export class MissingPackageErrorProvider implements IConsoleErrorSuggestionProvi
 			return [];
 		}
 
-		const session = this._runtimeSessionService.getSession(error.sessionId);
-		if (!session?.listMissingPackages) {
-			return [];
-		}
-
-		// Reuse the analyzer on a synthetic reference to the package: it confirms
-		// the package is missing AND installable, and recovers the install name.
+		// Analyze a synthetic reference to the package: it confirms the package is
+		// missing AND installable, and recovers the install name.
 		const code = syntheticReference(error.languageId, referencedName);
 		if (!code) {
 			return [];
 		}
 
-		let missing;
-		try {
-			missing = await session.listMissingPackages({ code }, token);
-		} catch {
-			return [];
-		}
+		const missing = await this._missingPackagesService.analyzeCode(error.sessionId, code, token);
 
 		return missing.map(pkg => ({
 			icon: Codicon.lightBulb,
@@ -125,14 +115,12 @@ export class MissingPackageFollowupContribution extends Disposable {
 
 	constructor(
 		@IConsoleErrorFollowupService consoleErrorFollowupService: IConsoleErrorFollowupService,
-		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 		@IMissingPackagesService missingPackagesService: IMissingPackagesService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@INotificationService notificationService: INotificationService,
 	) {
 		super();
 		const provider = new MissingPackageErrorProvider(
-			runtimeSessionService,
 			missingPackagesService,
 			configurationService,
 			notificationService,

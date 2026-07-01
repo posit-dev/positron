@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ConsoleErrorFollowupService, IConsoleError, IConsoleErrorSuggestion } from '../../../../services/positronConsole/common/consoleErrorFollowup.js';
-import { ILanguageRuntimeSession, IRuntimeMissingPackage, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeMissingPackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IMissingPackagesService } from '../../common/missingPackagesService.js';
 import { MissingPackageErrorProvider } from '../../browser/missingPackageProvider.js';
 
@@ -49,26 +49,24 @@ describe('MissingPackageErrorProvider', () => {
 		enabled?: boolean;
 		missing?: IRuntimeMissingPackage[];
 	} = {}) {
-		const listMissingPackages = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
+		const analyzeCode = vi.fn<(...args: unknown[]) => Promise<IRuntimeMissingPackage[]>>()
 			.mockResolvedValue(options.missing ?? [{ name: 'requests' }]);
-		const session = stubInterface<ILanguageRuntimeSession>({ listMissingPackages });
-		const runtimeSessionService = stubInterface<IRuntimeSessionService>({ getSession: () => session });
 		const install = vi.fn().mockResolvedValue(undefined);
-		const missingPackagesService = stubInterface<IMissingPackagesService>({ install });
+		const missingPackagesService = stubInterface<IMissingPackagesService>({ analyzeCode, install });
 		const configurationService = stubInterface<IConfigurationService>({ getValue: () => options.enabled ?? true });
 		const notificationError = vi.fn();
 		const notificationService = stubInterface<INotificationService>({ error: notificationError });
-		const provider = new MissingPackageErrorProvider(runtimeSessionService, missingPackagesService, configurationService, notificationService);
-		return { provider, listMissingPackages, install, notificationError };
+		const provider = new MissingPackageErrorProvider(missingPackagesService, configurationService, notificationService);
+		return { provider, analyzeCode, install, notificationError };
 	}
 
 	it('offers an install action for a Python missing-module error', async () => {
-		const { provider, listMissingPackages, install } = setup();
+		const { provider, analyzeCode, install } = setup();
 		const error = makeError({ languageId: 'python', name: 'ModuleNotFoundError', message: `No module named 'requests'` });
 
 		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
 
-		expect(listMissingPackages).toHaveBeenCalledWith({ code: 'import requests' }, CancellationToken.None);
+		expect(analyzeCode).toHaveBeenCalledWith('s1', 'import requests', CancellationToken.None);
 		expect(suggestions).toHaveLength(1);
 		expect(suggestions[0].label).toBe('Install requests');
 
@@ -77,7 +75,7 @@ describe('MissingPackageErrorProvider', () => {
 	});
 
 	it('matches an R missing-package error with curly quotes', async () => {
-		const { provider, listMissingPackages } = setup({ missing: [{ name: 'tidyverse' }] });
+		const { provider, analyzeCode } = setup({ missing: [{ name: 'tidyverse' }] });
 		const error = makeError({
 			languageId: 'r',
 			message: 'Error in library(tidyverse) : there is no package called \u2018tidyverse\u2019',
@@ -85,16 +83,16 @@ describe('MissingPackageErrorProvider', () => {
 
 		const suggestions = await provider.provideSuggestions(error, CancellationToken.None);
 
-		expect(listMissingPackages).toHaveBeenCalledWith({ code: 'library(tidyverse)' }, CancellationToken.None);
+		expect(analyzeCode).toHaveBeenCalledWith('s1', 'library(tidyverse)', CancellationToken.None);
 		expect(suggestions.map(s => s.label)).toEqual(['Install tidyverse']);
 	});
 
 	it('offers nothing when the setting is disabled', async () => {
-		const { provider, listMissingPackages } = setup({ enabled: false });
+		const { provider, analyzeCode } = setup({ enabled: false });
 		const error = makeError({ message: `No module named 'requests'` });
 
 		expect(await provider.provideSuggestions(error, CancellationToken.None)).toEqual([]);
-		expect(listMissingPackages).not.toHaveBeenCalled();
+		expect(analyzeCode).not.toHaveBeenCalled();
 	});
 
 	it('offers nothing when the analyzer finds no installable package', async () => {
