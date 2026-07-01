@@ -132,7 +132,13 @@ positron_dir_of() {
 	# way a file path (positron segment mid-path) does. sed matches leftmost.
 	dir="$(printf '%s/' "$path" | sed -nE 's#(positron[^/]*)/.*#\1/#p')"
 	[[ -z "$dir" ]] && return 0
-	case "$dir" in */out/*|*/node_modules/*) return 0 ;; esac
+	# Locations that are categorically infrastructure, never a feature suite, so
+	# they need no map entry (and future dirs here are auto-excluded): the VS Code
+	# base layer, the extension-API glue, and the extension API type declarations.
+	case "$dir" in
+		*/out/*|*/node_modules/*) return 0 ;;
+		src/vs/base/*|src/vs/workbench/api/*|src/positron-dts/*) return 0 ;;
+	esac
 	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
 	printf '%s\n' "$dir"
 }

@@ -102,11 +102,5 @@
   "src/vs/workbench/browser/positronList/": [],
   "src/vs/workbench/browser/positronTree/": [],
   "src/vs/workbench/browser/positronViewPane/": [],
-  "src/positron-dts/": [],
-  "src/vs/base/browser/positron/": [],
-  "src/vs/base/browser/ui/positronComponents/": [],
-  "src/vs/base/common/positron/": [],
-  "src/vs/workbench/api/browser/positron/": [],
-  "src/vs/workbench/api/common/positron/": [],
   "src/vs/workbench/common/positron/": []
 }
