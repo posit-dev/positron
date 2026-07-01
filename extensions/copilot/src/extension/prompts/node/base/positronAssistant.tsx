@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { PromptElement, PromptSizing, SystemMessage, TextChunk } from '@vscode/prompt-tsx';
-import { ChatResponsePart } from '@vscode/prompt-tsx/dist/base/vscodeTypes.js';
+import type { ChatResponsePart } from '@vscode/prompt-tsx/dist/base/vscodeTypes.js';
 import * as vscode from 'vscode';
-import { GenericBasePromptElementProps } from '../../../context/node/resolvers/genericPanelIntentInvocation';
-import { IBuildPromptContext } from '../../../prompt/common/intents.js';
+import type { GenericBasePromptElementProps } from '../../../context/node/resolvers/genericPanelIntentInvocation';
+import type { IBuildPromptContext } from '../../../prompt/common/intents.js';
 
 /**
  * The Positron Assistant component; adds context from Positron as a prompt
@@ -25,10 +25,21 @@ export class PositronAssistant extends PromptElement<GenericBasePromptElementPro
 		progress?: vscode.Progress<ChatResponsePart>,
 		token?: vscode.CancellationToken): Promise<any> {
 
-		// Get the Positron API
-		const api = vscode.extensions.getExtension('positron.positron-assistant')?.exports;
+		// The Positron Assistant extension supplies the Positron-specific context
+		// for this prompt. When Copilot Chat is used on its own, that extension may
+		// be disabled or not installed; skip this element in that case rather than
+		// failing the whole chat request.
+		const extension = vscode.extensions.getExtension('positron.positron-assistant');
+		if (!extension) {
+			return undefined;
+		}
 
-		// Generate the content element
+		// Activate the extension if needed so its API is available, then generate
+		// the content element.
+		const api = await extension.activate();
+		if (typeof api?.generateAssistantPrompt !== 'function') {
+			return undefined;
+		}
 		return await api.generateAssistantPrompt(this.context.request);
 	}
 
@@ -42,6 +53,11 @@ export class PositronAssistant extends PromptElement<GenericBasePromptElementPro
 	 * @returns The rendered component.
 	 */
 	render(state: any, sizing: PromptSizing) {
+		// No Positron context available (e.g. the Positron Assistant extension is
+		// not installed or enabled); render nothing.
+		if (!state) {
+			return undefined;
+		}
 		return (
 			<SystemMessage>
 				<TextChunk>{state}</TextChunk>
