@@ -28,6 +28,25 @@ export function parsePort(): number {
 }
 
 /**
+ * Whether an HTTP Host header refers to this machine. The server is
+ * localhost-only, so a request whose Host is some other domain is the hallmark
+ * of a DNS-rebinding attack (a malicious page rebinding its domain to
+ * 127.0.0.1, which sidesteps the browser's same-origin policy). An absent Host
+ * is allowed through, matching the extension's middleware this guard is ported
+ * from; the socket is bound to 127.0.0.1 regardless.
+ */
+export function isLocalHostHeader(hostHeader: string | undefined): boolean {
+	const raw = (hostHeader ?? '').trim().toLowerCase();
+	if (!raw) {
+		return true;
+	}
+	// Strip the port: an IPv6 host is bracketed ("[::1]:43123"), so the port is
+	// whatever follows the closing bracket; otherwise it follows the first colon.
+	const host = raw.startsWith('[') ? raw.slice(0, raw.indexOf(']') + 1) : raw.split(':')[0];
+	return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+}
+
+/**
  * Node implementation of the Positron MCP server.
  *
  * Phase 0: owns the HTTP listener lifecycle on a fixed localhost port and
@@ -129,6 +148,11 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	}
 
 	private _handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+		if (!isLocalHostHeader(req.headers.host)) {
+			this._logger.warn(`[PositronMcpServer] Blocked request with non-local Host header: ${req.headers.host}`);
+			this._sendJson(res, 403, { error: 'Forbidden: non-local Host header' });
+			return;
+		}
 		if (req.method === 'OPTIONS') {
 			res.writeHead(200).end();
 			return;
