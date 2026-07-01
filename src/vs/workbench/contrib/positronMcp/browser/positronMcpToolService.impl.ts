@@ -100,10 +100,10 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		this._handlers.set('session-start', args => this._startSession(args));
 		this._handlers.set('session-interrupt', () => this._interruptSession());
 		this._handlers.set('session-restart', () => this._restartSession());
-		this._handlers.set('notebook-read', args => this._notebookRead(args));
-		this._handlers.set('notebook-edit', args => this._notebookEdit(args));
-		this._handlers.set('notebook-run-cells', args => this._notebookRunCells(args));
-		this._handlers.set('notebook-create', args => this._notebookCreate(args));
+		this._handlers.set('notebook-read', args => this._notebookTools.read(args));
+		this._handlers.set('notebook-edit', args => this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+		this._handlers.set('notebook-run-cells', args => this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)));
+		this._handlers.set('notebook-create', args => this._notebookTools.create(args));
 	}
 
 	async callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
@@ -311,14 +311,10 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		const inputPath = typeof args.path === 'string' ? args.path : undefined;
 		let uri: URI;
 		if (inputPath) {
-			if (isAbsolute(inputPath)) {
-				uri = URI.file(inputPath);
-			} else {
-				const folder = this._workspaceContextService.getWorkspace().folders[0];
-				if (!folder) {
-					return textResult('No workspace folder is open; pass an absolute path.');
-				}
-				uri = URI.file(join(folder.uri.fsPath, inputPath));
+			try {
+				uri = this._resolveWorkspacePath(inputPath);
+			} catch {
+				return textResult('No workspace folder is open; pass an absolute path.');
 			}
 		} else {
 			const model = isCodeEditor(this._editorService.activeTextEditorControl) ? this._editorService.activeTextEditorControl.getModel() : undefined;
@@ -478,24 +474,6 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 			throw new Error('Session restart declined by user');
 		}
 		return textResult(`Restarted ${session.dynState.sessionName}.`);
-	}
-
-	// --- Notebooks -----------------------------------------------------------
-
-	private _notebookRead(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return this._notebookTools.read(args);
-	}
-
-	private _notebookEdit(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code));
-	}
-
-	private _notebookRunCells(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code));
-	}
-
-	private _notebookCreate(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		return this._notebookTools.create(args);
 	}
 
 	/** Resolve a path (absolute, or relative to the first workspace folder) to a URI. */

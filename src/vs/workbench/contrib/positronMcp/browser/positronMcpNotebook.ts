@@ -354,12 +354,8 @@ export class PositronMcpNotebookTools {
 				continue;
 			}
 			text += `Cell ${index}:\n`;
-			for (const output of outputs) {
-				for (const item of output.outputs) {
-					if (isTextBasedMimeType(item.mime)) {
-						text += item.data.toString() + '\n';
-					}
-				}
+			for (const item of this._textOutputItems(cell)) {
+				text += item + '\n';
 			}
 			const { blocks, total } = this._cellImageBlocks(cell, MAX_NOTEBOOK_IMAGES - images.length);
 			if (total > 0) {

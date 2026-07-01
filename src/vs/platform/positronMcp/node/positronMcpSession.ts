@@ -119,10 +119,9 @@ export class PositronMcpSession extends Disposable {
 			case 'ping':
 				return {};
 			case 'tools/list':
-				return {
-					tools: POSITRON_MCP_TOOLS.map(({ name, description, inputSchema, annotations }) =>
-						annotations ? { name, description, inputSchema, annotations } : { name, description, inputSchema }),
-				};
+				// The descriptor type is exactly the wire shape, so the list is
+				// returned as-is (JSON.stringify drops an absent `annotations`).
+				return { tools: POSITRON_MCP_TOOLS };
 			case 'tools/call': {
 				const params = (request.params ?? {}) as { name?: string; arguments?: Record<string, unknown> };
 				if (!params.name) {
