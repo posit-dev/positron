@@ -26,12 +26,14 @@ human-in-the-loop.
 ## Non-goals
 
 - No change to the per-PR derivation mechanism or the map format.
-- **No auto-editing the map and no auto-PR.** The report may include a *suggested*
-  JSON diff, but a human reviews and applies it by hand. Whether a divergence
-  should become a map entry is a subjective call (contrast: 14248 R-interpreter
-  *should* be added; snowflake -> `@:workbench-snowflake` should *not*). A wrong
-  auto-edit silently corrupts test selection, which is the exact failure this
-  system exists to prevent. The loop stays human-in-the-loop.
+- **No auto-editing the map, no auto-PR, and no auto-generated diff.** The report
+  points at the candidate `Entry`; the human writes any map edit. Whether a
+  divergence should become a map entry is a subjective call (contrast: 14248
+  R-interpreter *should* be added; snowflake -> `@:workbench-snowflake` should
+  *not*; and on multi-feature PRs the missing tag often belongs to a different
+  feature than the changed source). A wrong edit silently corrupts test
+  selection, which is the exact failure this system exists to prevent. The loop
+  stays human-in-the-loop.
 - No coverage instrumentation / test-impact analysis (considered; deferred as
   too much infra).
 - No LLM in the loop (nondeterministic; would gate CI on an external service).
@@ -105,15 +107,14 @@ pure check over the map keys, unit-tested alongside the primitives.
          (over-tag to narrow, or a good catch to keep).
        A `+` that is ancestor-explained (a leaf deliberately narrowed the tag
        away) is suffixed `(review)` so it isn't mistaken for a real gap.
-     - `Entry` = `longest_map_prefix` for the changed files - where a `+` would be
-       added / a `-` was produced.
-  3. **Suggested diffs** - one fenced JSON diff per **genuine `+` (gap)** row
-     (i.e. excluding `(review)`/ancestor-explained ones), adding the tag to its
-     entry, PR context as a comment. *Proposals to review and apply by hand.*
-     `-` (over-tag) rows get **no diff** (over-tag vs. good-catch is
-     indistinguishable to the tool), and `(review)` rows get **no diff** (the
-     narrowing is intentional and meant to be dismissed).
-  4. **Legend** - a one-line key under the table explaining `+` / `-` / `(review)`.
+     - `Entry` = `longest_map_prefix` for the changed source files - the map key
+       to act from (add a `+` there / narrow a `-` there). No auto-generated diff:
+       on multi-feature PRs the missing tag often belongs to a *different* feature
+       than the changed source dir (e.g. an author tagging a test's coverage), so
+       a generated diff attributes to the wrong entry. The human writes the edit
+       from `Entry`; for a clear gap like #14248 it's obvious, for a
+       cross-cutting one it's correctly a no-op.
+  3. **Legend** - a one-line key under the table explaining `+` / `-` / `(review)`.
 - Read-only. No writes to the map or GitHub.
 
 ### Component B: `.github/workflows/e2e-tag-audit.yml`
@@ -161,17 +162,9 @@ job summary):
 > | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | -@:console, -@:interpreter | `extensions/positron-python/` |
 > | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | -@:console, -@:posit-assistant, -@:positron-notebooks | `positronConsole/`, `positronNotebook/` |
 >
-> **Legend:** `+` author had it, map missed it (consider adding - see diff) - `-`
+> **Legend:** `+` author had it, map missed it (consider adding at `Entry`) - `-`
 > map produced it, author didn't (review: over-tag or good catch) - `(review)`
 > a leaf intentionally narrowed this tag away.
->
-> ### Suggested map edits (review before applying)
->
-> ~~~diff
-> # 14248  +@:interpreter  (author had it, map did not derive it)
-> -  "extensions/positron-r/": ["@:ark"],
-> +  "extensions/positron-r/": ["@:ark", "@:interpreter"],
-> ~~~
 
 ## Testing
 
@@ -209,10 +202,16 @@ job summary):
 
 ## Risks / accepted tradeoffs
 
-- **Suggested diffs are proposals, not fixes.** Attribution targets the longest
-  matching entry deterministically, but whether to apply is the human's call;
-  ancestor-explained rows are flagged so intentional narrowing (e.g. testing
-  dropping `@:ark`) isn't pasted in. Deliberate, not a defect.
+- **The report triages, it does not fix.** It surfaces divergences and points at
+  the candidate `Entry`; the human decides and edits. No auto-generated diff -
+  real-PR testing showed that on multi-feature PRs (e.g. #14319, a flaky
+  session-state *test* that only changed `positronConsole/` source) a generated
+  diff attributes the author's extra tags to the wrong entry. Deliberate.
+- **The `+` (gap) signal is noisier than `-` (over-tag).** Author tags can exceed
+  what the changed source dir maps to (cross-cutting knowledge, test coverage);
+  the source-PR filter and the `(review)` flag remove the bulk, but some `+` rows
+  are still "author knew more than the dir implies," not map bugs. Triage
+  accordingly.
 - **Cron DST drift** of 1 hour - accepted for a weekly report.
 - **Issue-upsert identity** relies on a stable label + title marker; a manually
   renamed/relabeled issue would cause a duplicate. Low impact.
