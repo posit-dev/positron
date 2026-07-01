@@ -143,31 +143,25 @@ else
 		fi
 	fi
 
-	# Resolve paths to the map / tag enum (this script lives in scripts/).
+	# Resolve the path to the map (this script lives in scripts/).
 	SCRIPT_DIR="$(dirname "$0")"
 	MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
-	ENUM_FILE="$SCRIPT_DIR/../test/e2e/infra/test-runner/test-tags.ts"
 
-	# Auto-inject feature tags derived from the PR's changed files, unless the
-	# author opted out with @:no-auto-tags. Additive only -- never removes tags
-	# the author specified. Two sources: a source/extension PATH map, and the
-	# feature tags declared inside changed e2e test files.
+	# Auto-inject feature tags derived from the PR's changed SOURCE files, unless
+	# the author opted out with @:no-auto-tags. Additive only -- never removes
+	# tags the author specified. Derivation is scoped to the source/extension
+	# PATH map: it targets the population that under-tags (devs fixing code who
+	# may not know which e2e suite covers it). Test-file changes are NOT
+	# auto-tagged -- those are almost always authored by QA, who tag deliberately,
+	# and deriving every feature tag off a multi-tagged test file over-selected
+	# whole sibling suites for no coverage gain on the impacted test.
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
 		echo "Found @:no-auto-tags. Skipping derived tagging."
-	elif [[ -n "$CHANGED_FILES" ]]; then
-		if [[ -f "$MAP_FILE" ]]; then
-			MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
-			if [[ -n "$MAP_TAGS" ]]; then
-				echo "Derived tags from changed source files: $MAP_TAGS"
-				TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
-			fi
-		fi
-		if [[ -f "$ENUM_FILE" ]]; then
-			TEST_TAGS="$(derive_test_file_tags "$CHANGED_FILES" "$SCRIPT_DIR/.." "$ENUM_FILE")"
-			if [[ -n "$TEST_TAGS" ]]; then
-				echo "Derived tags from changed test files: $TEST_TAGS"
-				TAGS="$(union_csv_tags "$TAGS" "$TEST_TAGS")"
-			fi
+	elif [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+		MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
+		if [[ -n "$MAP_TAGS" ]]; then
+			echo "Derived tags from changed source files: $MAP_TAGS"
+			TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
 		fi
 	fi
 
