@@ -24,21 +24,15 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 
 /**
- * Regression coverage for #12887: overlay webviews (interactive display plots
- * and raw HTML) must be disposed when their backing output disappears from the
- * notebook model -- cleared, the cell deleted, or the output replaced. Widget
- * webviews are explicitly excluded; they manage their own lifecycle via the
- * ipywidgets comm channels, so reconciliation must never dispose them.
- *
- * These tests drive the service directly against a real NotebookTextModel and
- * stub the output-webview service so each created webview is a tracked fake we
- * can assert disposal against.
+ * Regression coverage for #12887: overlay webviews (display plots + raw HTML)
+ * must be disposed when their output leaves the model (cleared, cell deleted,
+ * replaced), while comm-backed widgets must be left alone. Drives the service
+ * against a real NotebookTextModel with a stubbed output-webview service whose
+ * fakes track disposal.
  */
 describe('Positron - PositronWebviewPreloadService output reconciliation (#12887)', () => {
-	// Track every fake webview the stubbed output-webview service hands out.
-	// `disposedById` collapses to the latest webview per output ID (enough for
-	// the leak/exclusion assertions); `created` keeps every instance so tests
-	// that rebuild under the same output ID can distinguish old from new.
+	// Track fakes the stub hands out: `disposedById` keyed by latest output ID
+	// (leak/exclusion checks); `created` keeps every instance (rebuild checks).
 	const disposedById = new Map<string, boolean>();
 	interface FakeWebview extends INotebookOutputWebview { disposed: boolean }
 	const created: FakeWebview[] = [];
@@ -49,8 +43,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 			id,
 			sessionId: 'test-session',
 			disposed: false,
-			// The reconciliation path never touches the underlying overlay; a
-			// minimal stub is enough and keeps the fake free of real disposables.
+			// Reconciliation never touches the underlying overlay; a minimal stub suffices.
 			webview: stubInterface<IOverlayWebview>(),
 			onDidRender: Event.None,
 			dispose: () => {
@@ -79,8 +72,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 	beforeEach(() => {
 		disposedById.clear();
 		created.length = 0;
-		// Construct the service AFTER stubs are applied so it captures our
-		// stubbed output-webview service.
+		// Construct after stubs so the service captures the stubbed output-webview service.
 		service = ctx.disposables.add(
 			ctx.instantiationService.createInstance(PositronWebviewPreloadService)
 		);
@@ -97,11 +89,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		outputs: [{ mime: 'application/vnd.jupyter.widget-view+json', data: VSBuffer.fromString('{}') }],
 	};
 
-	/**
-	 * Build a real single-cell NotebookTextModel seeded with the given outputs
-	 * and a minimal IPositronNotebookInstance exposing only what the service
-	 * reads (id, uri, textModel, onDidChangeModel).
-	 */
+	/** Real single-cell NotebookTextModel + a minimal instance exposing what the service reads. */
 	function setupNotebook(outputs: IOutputDto[]) {
 		const textModel = ctx.disposables.add(ctx.instantiationService.createInstance(
 			NotebookTextModel,
@@ -132,10 +120,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		return { textModel, instance };
 	}
 
-	/**
-	 * Wait for the webview a 'display'/'widget' result carries. Narrows the
-	 * NotebookPreloadOutputResults union (the 'preload' member has no webview).
-	 */
+	/** Await the webview a display/widget result carries (narrows out the webview-less 'preload' member). */
 	async function awaitWebview(result: NotebookPreloadOutputResults | undefined) {
 		if (!result || result.preloadMessageType === 'preload') {
 			throw new Error(`expected a webview-bearing result, got ${result?.preloadMessageType}`);
@@ -152,11 +137,8 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 	}
 
 	/**
-	 * Let reconciliation run to completion. The listener fires synchronously on
-	 * the model-change event, but disposal is chained off an already-resolved
-	 * webview Promise, so it lands on a later microtask. A macrotask hop drains
-	 * all pending microtasks; a few extra hops keep a correct multi-await fix
-	 * from producing a false negative.
+	 * Drain reconciliation. Disposal is chained off a resolved Promise, so it
+	 * lands a microtask later; a few macrotask hops flush it.
 	 */
 	async function flushReconciliation() {
 		for (let i = 0; i < 3; i++) {
@@ -260,12 +242,9 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		await waitForRuntimeState(session, RuntimeState.Ready);
 		expect(ctx.get(IRuntimeSessionService).getNotebookSessionForNotebookUri(NOTEBOOK_URI)).toBeDefined();
 
-		// One cell holding both a display overlay and a widget. Clearing the cell
-		// removes both outputs, so a single reconciliation pass sees both gone.
-		// The overlay must be disposed (proving the pass actually ran and is not a
-		// no-op); the widget must survive (it owns its own lifecycle). If a change
-		// wrongly lumped widgets into the reconciled set, the widget would be
-		// disposed in this very pass and the final assertion would flip.
+		// One cell with both an overlay and a widget. Clearing removes both
+		// outputs, so one reconciliation pass sees both gone: the overlay must be
+		// disposed (proving the pass ran) and the widget must survive.
 		const { textModel, instance } = setupNotebook([plotlyOutput, widgetOutput]);
 
 		const display = service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs });
