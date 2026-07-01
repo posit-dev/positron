@@ -31,7 +31,7 @@ Whenever a locator did not match, decide between **locator drift / stale selecto
 - Identifier **absent entirely** (no equivalent affordance present) => **product regression**: the element genuinely failed to render.
 - Element **present with its expected role** but the error is a visibility/interactability timeout => timing/flaky, not drift.
 - A **matched** locator is not proof until you confirm it matched the element the test MEANS. A broad selector (`getByLabel`/`getByText`/`getByRole`, or a container selector not scoped to one editor group / tab / dialog) can resolve to a leftover view, a duplicate control, a notification, or a second editor group -- an element the test never intended. When the call log shows the selector DID resolve (even repeatedly) but the failure is "not visible" / wrong-count / wrong-state, check WHICH surface owns the matched node before concluding the assertion is inverted. If it belongs to another surface, this is a **test logic bug (over-broad selector)** and the fix is to scope the selector, not to flip the assertion.
-- A **bootstrapped** extension floated to its latest main build at test time (e.g. Posit Assistant) is a common source of locator drift WITH NO POSITRON-SIDE CHANGE: its UI markup changes upstream, so the head commit and changed files look unrelated. An unrelated-looking commit does NOT imply product regression -- check the snapshot for changed markup before concluding either way.
+- Markup can drift from code that is NOT in the head commit -- a bootstrapped extension floated to its latest build at test time (e.g. Posit Assistant), upstream-merged code, or remotely-served content -- so an unrelated-looking commit does NOT imply product regression. Check the snapshot for changed markup before concluding either way (see "Check the triggering commit").
 
 ## Other heuristics
 
@@ -46,7 +46,7 @@ Whenever a locator did not match, decide between **locator drift / stale selecto
 If historical test-health data is provided, use it to separate regressions from known flakes:
 
 - 0% pass rate on one platform but 100% on others = deterministic platform regression, NOT flaky. Always read the per-environment breakdown, not just the aggregate pass rate.
-- A failure pattern that starts on this run across all platforms at once points to a regression (or an upstream bootstrapped-extension change), not a flake.
+- A failure pattern that starts on this run across all platforms at once points to a regression (or a change in code sourced outside the head commit, e.g. a bootstrapped extension), not a flake.
 - **Intermittent does not mean "provisioning broke," even for "file not found" errors.** A truly missing/never-provisioned fixture fails the test EVERY run (0% on the affected platform). If the suite is mostly green with some flakes (e.g. 153/159 passing, several flaky), a "file not found" is far more likely a mid-run lifecycle/race (something deletes the file) than provisioning that never ran. Reconcile your root cause with the pass rate: a high pass rate contradicts a deterministic-missing-fixture conclusion.
 
 ## Check the triggering commit
@@ -59,7 +59,7 @@ For tests that **failed all retries** (not just flaky), inspect the head commit'
 
 A commit that modifies notebook cell rendering is a plausible cause for a notebook cell-count assertion failure, even if the test has flaked before. Conversely, a commit that only changes R interpreter code is unlikely to cause a Python plot test failure. When the commit is relevant, say so explicitly, e.g. "modified `notebookCellList.ts` (notebook cell rendering) -- plausible cause" or "no files related to this test's feature area -- unlikely cause".
 
-**Caveat for bootstrapped extensions:** Posit Assistant (and other extensions floated to their latest main build at test time) change UI markup upstream, so a drift-induced failure leaves NO trace in the head commit's changed files. For a locator failure on such a test, an unrelated-looking commit is expected and is NOT evidence of a product regression -- apply the locator-drift decision above before blaming the product.
+**Caveat -- code outside the head commit.** Not everything under test comes from the head commit. UI can be produced by extensions bootstrapped to their latest build at test time (e.g. Posit Assistant), upstream-merged code, remotely-served or CDN content, or dynamically-installed dependencies -- none of which appear in the head commit's changed files. So an unrelated-looking changed-files list is NOT evidence for or against a product regression: a failure can have a real cause that simply lives outside the commit. Decide from the page snapshot and the locator-drift decision above, not from the changed-files list.
 
 ## Sanity-check the suggested action
 
