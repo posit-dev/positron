@@ -1,0 +1,65 @@
+name: E2E Tag Audit
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'   # Mondays ~06:00 CT (12:00 UTC; DST drift accepted)
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'ISO date (YYYY-MM-DD); default = 7 days ago'
+        required: false
+      dry_run:
+        description: 'Skip the Slack post (write the job summary only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run audit
+        id: audit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SINCE="${{ github.event.inputs.since }}"
+          if [ -z "$SINCE" ]; then SINCE="$(date -u -d '7 days ago' +%Y-%m-%d)"; fi
+          bash scripts/audit-e2e-tags.sh --since "$SINCE" | tee "$GITHUB_STEP_SUMMARY"
+
+      - name: Post to Slack
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.dry_run != 'true' }}
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          TEXT="$(printf ':label: *<%s|Test Tag Audit>* - %s\nExamined %s merged PRs:\n- Clean: %s\n- Under-tagged: %s\n- Over-tagged: %s' \
+            "$RUN_URL" \
+            "${{ steps.audit.outputs.week }}" \
+            "${{ steps.audit.outputs.examined }}" \
+            "${{ steps.audit.outputs.clean }}" \
+            "${{ steps.audit.outputs.under }}" \
+            "${{ steps.audit.outputs.over }}")"
+          jq -n --arg channel "#positron-dev" --arg text "$TEXT" \
+            '{channel: $channel, text: $text}' \
+            | curl -sS -X POST https://slack.com/api/chat.postMessage \
+                -H "Authorization: Bearer $SLACK_TOKEN" \
+                -H 'Content-type: application/json; charset=utf-8' \
+                --data @-
+
+  slack-notify:
+    needs: audit
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack on failure
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: "failure"
