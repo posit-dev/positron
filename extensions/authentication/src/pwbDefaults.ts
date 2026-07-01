@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './log';
 
 /**
@@ -22,7 +23,7 @@ import { log } from './log';
  */
 export async function applyPwbPositAIDefault(
 	context: vscode.ExtensionContext,
-	isRunningOnPwb = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web
+	isRunningOnPwb = IS_RUNNING_ON_PWB
 ): Promise<void> {
 	if (!isRunningOnPwb) {
 		return;

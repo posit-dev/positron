@@ -113,6 +113,12 @@
         "type": "object",
         "title": "%configuration.title%",
         "properties": {
+          "positron.assistant.providerTimeout": {
+            "type": "number",
+            "default": 60,
+            "markdownDescription": "%configuration.providerTimeout.description%",
+            "minimum": 1
+          },
           "positron.assistant.providerVariables.bedrock": {
             "type": "object",
             "default": {},
