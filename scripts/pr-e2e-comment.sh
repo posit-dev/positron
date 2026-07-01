@@ -70,12 +70,18 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   fi
   if [ -n "$UNMAPPED_DIRS" ]; then
     # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
-    # every future PR touching this dir silently won't auto-tag.
-    # Monospace each changed dir path (it's the token the reader must act on);
-    # the map filename is a plain link (link styling already sets it apart).
+    # every future PR touching this dir silently won't auto-tag. Each dir path is
+    # monospaced (the token the reader acts on); the map filename is a plain link.
+    # One dir reads inline; 2+ get a bulleted list so a long run doesn't wrap.
     BT='`'
-    DIRS="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | sed "s/.*/${BT}&${BT}/" | paste -sd, - | sed 's/,/, /g')"
-    WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches Positron directories that aren't mapped in [e2e-tag-paths-map.json](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json): ${DIRS}. Add an entry for each directory (an e2e tag or \`[]\` for no coverage) so future changes are tagged automatically."
+    MAP_LINK="[e2e-tag-paths-map.json](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json)"
+    N="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | grep -c .)"
+    if [ "$N" -ge 2 ]; then
+      BULLETS="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | while IFS= read -r d || [ -n "$d" ]; do [ -n "$d" ] && printf '> - %s%s%s\\n' "$BT" "$d" "$BT"; done)"
+      WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches Positron directories that aren't mapped in ${MAP_LINK}:\n>\n${BULLETS}>\n> Add an entry for each (an e2e tag or ${BT}[]${BT} for no coverage) so future changes are tagged automatically."
+    else
+      WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches a Positron directory that isn't mapped in ${MAP_LINK}: ${BT}${UNMAPPED_DIRS}${BT}. Add an entry (an e2e tag or ${BT}[]${BT} for no coverage) so future changes are tagged automatically."
+    fi
   fi
 fi
 
