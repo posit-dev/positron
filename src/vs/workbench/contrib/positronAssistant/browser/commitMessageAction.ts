@@ -148,6 +148,7 @@ export class GenerateCommitMessageAction extends Action2 {
 			const context = await buildCommitMessageContext(fileService, rootUri, repository.provider.groups);
 			if (!context) {
 				logService.info('[git] No changes available for commit message generation.');
+				notificationService.info(localize('positron.git.commitMessage.noChanges', "There are no changes to summarize into a commit message."));
 				return;
 			}
 

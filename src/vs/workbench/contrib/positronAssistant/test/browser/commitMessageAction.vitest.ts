@@ -52,7 +52,6 @@ function makeRepository(setValue: (value: string) => void): ISCMRepository {
 				sourceUri: URI.file('/repo/added.ts'),
 				multiDiffEditorOriginalUri: undefined,
 				multiDiffEditorModifiedUri: undefined,
-				contextValue: 'untracked',
 				decorations: {},
 			}),
 		],
@@ -138,6 +137,21 @@ describe('GenerateCommitMessageAction', () => {
 		const warn = vi.spyOn(ctx.get(INotificationService), 'warn');
 		await run();
 		expect(warn).toHaveBeenCalledOnce();
+	});
+
+	it('notifies the user and does not call the model when there are no changes', async () => {
+		const emptyGroup = stubInterface<ISCMResourceGroup>({ id: 'index', label: 'Staged Changes', resources: [] });
+		const provider = stubInterface<ISCMProvider>({ groups: [emptyGroup], rootUri: ROOT_URI });
+		const input = stubInterface<ISCMInput>({ setValue: (value: string) => inputValues.push(value) });
+		repository = stubInterface<ISCMRepository>({ provider, input });
+		const info = vi.spyOn(ctx.get(INotificationService), 'info');
+		const streamText = vi.spyOn(ctx.get(IHeadlessLanguageModelService), 'streamText');
+
+		await run();
+
+		expect(info).toHaveBeenCalledOnce();
+		expect(streamText).not.toHaveBeenCalled();
+		expect(inputValues).toEqual([]);
 	});
 
 	it('stops streaming when cancelled', async () => {

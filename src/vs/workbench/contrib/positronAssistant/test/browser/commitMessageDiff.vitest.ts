@@ -35,14 +35,24 @@ function makeGroup(id: string, resources: ISCMResource[]): ISCMResourceGroup {
 	return stubInterface<ISCMResourceGroup>({ id, label: id, resources });
 }
 
-/** Build an untracked (added) resource at the given path. */
+/** Build an added resource at the given path. */
 function makeAddedResource(path: string): ISCMResource {
 	return stubInterface<ISCMResource>({
 		sourceUri: URI.file(`/repo/${path}`),
 		multiDiffEditorOriginalUri: undefined,
 		multiDiffEditorModifiedUri: undefined,
-		contextValue: 'untracked',
 		decorations: {},
+	});
+}
+
+/** Build a deleted resource at the given path. */
+function makeDeletedResource(path: string): ISCMResource {
+	const sourceUri = URI.file(`/repo/${path}`);
+	return stubInterface<ISCMResource>({
+		sourceUri,
+		multiDiffEditorOriginalUri: sourceUri.with({ scheme: 'git', query: 'HEAD' }),
+		multiDiffEditorModifiedUri: undefined,
+		decorations: { strikeThrough: true },
 	});
 }
 
@@ -90,7 +100,6 @@ describe('buildCommitMessageContext', () => {
 			sourceUri: workingTreeUri,
 			multiDiffEditorOriginalUri: headUri,
 			multiDiffEditorModifiedUri: stagedUri,
-			contextValue: 'index-modified',
 			decorations: {},
 		});
 		const content = new Map([
@@ -103,5 +112,44 @@ describe('buildCommitMessageContext', () => {
 
 		expect(result).toContain('+staged');
 		expect(result).not.toContain('plus unstaged');
+	});
+
+	it('summarizes a deleted file as a removal diff', async () => {
+		const groups = [makeGroup('index', [makeDeletedResource('gone.ts')])];
+		const result = await buildCommitMessageContext(fileServiceReturning('bye\n'), ROOT_URI, groups);
+		expect(result).toMatchInlineSnapshot(`
+			"--- a/gone.ts
+			+++ /dev/null
+			@@ -1,1 +0,0 @@
+			-bye"
+		`);
+	});
+
+	it('truncates an oversized single-file diff to the per-file budget and flags the omission', async () => {
+		const huge = `${'x'.repeat(200 * 1024)}\n`;
+		const groups = [makeGroup('index', [makeAddedResource('big.ts')])];
+		const result = await buildCommitMessageContext(fileServiceReturning(huge), ROOT_URI, groups);
+		expect(result).toContain('[Some changes were omitted');
+		// The 200 KB input is truncated to the ~2 KB per-file budget (plus note).
+		expect(result.length).toBeLessThan(3 * 1024);
+	});
+
+	it('truncates each large file independently rather than sharing one budget', async () => {
+		const huge = `${'x'.repeat(50 * 1024)}\n`;
+		const resources = ['a.ts', 'b.ts', 'c.ts'].map(makeAddedResource);
+		const result = await buildCommitMessageContext(fileServiceReturning(huge), ROOT_URI, [makeGroup('index', resources)]);
+		// Each of the three files contributes up to ~2 KB, so all three appear.
+		expect(result).toContain('b/a.ts');
+		expect(result).toContain('b/b.ts');
+		expect(result).toContain('b/c.ts');
+		expect(result.length).toBeLessThan(3 * (2 * 1024) + 256);
+	});
+
+	it('caps the number of files summarized and flags the omission', async () => {
+		const resources = Array.from({ length: 150 }, (_, i) => makeAddedResource(`file${i}.ts`));
+		const result = await buildCommitMessageContext(fileServiceReturning('a\n'), ROOT_URI, [makeGroup('workingTree', resources)]);
+		expect(result).toContain('[Some changes were omitted');
+		expect(result).toContain('b/file0.ts');
+		expect(result).not.toContain('b/file149.ts');
 	});
 });
