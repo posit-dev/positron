@@ -174,9 +174,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				Thenable<Array<Array<positron.RuntimeVariable>>> {
 				return extHostLanguageRuntime.getSessionVariables(sessionId, accessKeys);
 			},
-			getSessionPackages(sessionId: string): Thenable<positron.LanguageRuntimePackage[]> {
-				return extHostLanguageRuntime.getSessionPackages(sessionId);
-			},
 			querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
 				Thenable<Array<positron.QueryTableSummaryResult>> {
 				return extHostLanguageRuntime.querySessionTables(sessionId, accessKeys, queryTypes);

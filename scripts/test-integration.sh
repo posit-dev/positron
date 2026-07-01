@@ -365,12 +365,6 @@ npm run test-extension -- -l positron-r
 kill_app
 
 echo
-echo "### Positron MCP tests"
-echo
-npm run test-extension -- -l positron-mcp
-kill_app
-
-echo
 echo "### Positron R connections tests"
 echo
 npm run test-extension -- -l positron-connections

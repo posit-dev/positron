@@ -2938,21 +2938,6 @@ declare module 'positron' {
 			Thenable<Array<Array<RuntimeVariable>>>;
 
 		/**
-		 * Get the packages installed in a session: the same data shown in the
-		 * Packages pane. Each entry carries the package's name, version, and
-		 * metadata (whether it is attached, whether a newer version is
-		 * available, etc.).
-		 *
-		 * Resolves via the session's package manager; rejects if the session is
-		 * unknown or its runtime does not support package management.
-		 *
-		 * @param sessionId The session ID of the session to list packages for.
-		 *
-		 * @returns A Thenable that resolves with the installed packages.
-		 */
-		export function getSessionPackages(sessionId: string): Thenable<LanguageRuntimePackage[]>;
-
-		/**
 		 * Query a table in a session.
 		 *
 		 * @param sessionId The session ID of the session to query tables.
