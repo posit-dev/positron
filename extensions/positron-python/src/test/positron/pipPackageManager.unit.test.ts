@@ -254,5 +254,49 @@ suite('PipPackageManager update Tests', () => {
             expect(args).to.include.members(['install', '--upgrade', '-r', reqPath]);
             expect(fileSystem.createTemporaryFile.called).to.equal(false);
         });
+
+        suite('with python.packageManager.useRequirementsFile disabled', () => {
+            setup(() => {
+                // Force the opt-out setting to false so requirements.txt is ignored
+                // and operations fall back to the pip freeze re-resolve path, even
+                // though a requirements.txt is present.
+                vscode.workspace.getConfiguration = (section?: string) =>
+                    ({
+                        get: (key: string, defaultValue?: unknown) =>
+                            section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                    } as any);
+            });
+
+            test('installPackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
+
+            test('updatePackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
+
+            test('updateAllPackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                pythonService.execModule
+                    .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+                    .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+                await manager.updateAllPackages();
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '--upgrade', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
+        });
     });
 });
