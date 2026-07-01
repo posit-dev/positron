@@ -5,24 +5,14 @@
 
 import * as vscode from 'vscode';
 import { validateProvidersEnabled } from './providerConfiguration.js';
-import { ParticipantService, registerParticipants } from './participants';
+import { registerParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
-import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
 
 let assistantEnabled = false;
-
-function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
-			await collectDiagnostics(log);
-		})
-	);
-}
-
 
 /**
  * Initialize provider configuration system.
@@ -45,9 +35,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		.catch((e) => {
 			log.error(`Provider initialization failed: ${e instanceof Error ? e.message : String(e)}`);
 		});
-
-	// Commands
-	registerCollectDiagnosticsCommand(context);
 
 	// Initialize prompt renderer singleton
 	new PromptRenderer(context);

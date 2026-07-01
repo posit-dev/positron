@@ -119,14 +119,7 @@
     "menus": {
       "commandPalette": []
     },
-    "commands": [
-      {
-        "command": "positron-assistant.collectDiagnostics",
-        "title": "%commands.collectDiagnostics.title%",
-        "category": "%commands.category%",
-        "enablement": "chatAiFeaturesEnabled"
-      }
-    ],
+    "commands": [],
     "configuration": [
       {
         "type": "object",
