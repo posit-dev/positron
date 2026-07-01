@@ -331,6 +331,7 @@ import './contrib/output/browser/outputView.js';
 import './contrib/positronVariables/browser/positronVariables.contribution.js';
 import './contrib/positronHelp/browser/positronHelp.contribution.js';
 import './contrib/positronPackages/browser/positronPackages.contribution.js';
+import './contrib/positronMissingPackages/browser/positronMissingPackages.contribution.js';
 import './contrib/positronPreview/browser/positronPreview.contribution.js';
 import './contrib/positronPreviewEditor/browser/positronPreviewEditor.contribution.js';
 import './contrib/positronPlots/browser/positronPlots.contribution.js';

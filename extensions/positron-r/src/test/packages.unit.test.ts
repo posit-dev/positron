@@ -31,13 +31,16 @@ class FakeRSession {
 
 	/** R code passed to execute(), in order. */
 	readonly executed: string[] = [];
+	/** R code passed to evaluate(), in order. */
+	readonly evaluated: string[] = [];
 	invalidateCount = 0;
 
 	async packageVersion(pkgName: string): Promise<{ compatible: boolean } | null> {
 		return pkgName === 'pak' ? this.pak : null;
 	}
 
-	async evaluate(_code: string): Promise<{ result: boolean }> {
+	async evaluate(code: string): Promise<{ result: boolean }> {
+		this.evaluated.push(code);
 		return { result: this.isRenv };
 	}
 
@@ -150,6 +153,59 @@ suite('RPackageManager pak recommendation', () => {
 		assert.deepStrictEqual(
 			executeCommand.args,
 			[['workbench.action.openSettings', '@id:packages.r.installer']],
+		);
+	});
+});
+
+suite('RPackageManager renv detection', () => {
+	let sandbox: Sinon.SinonSandbox;
+	let session: FakeRSession;
+	let manager: RPackageManager;
+
+	setup(() => {
+		sandbox = Sinon.createSandbox();
+		session = new FakeRSession();
+		manager = new RPackageManager(session as unknown as RSession);
+		sandbox.stub(vscode.workspace, 'getConfiguration').returns({
+			// Disable the post-install renv snapshot so `executed` holds only the
+			// install command under test.
+			get: (key: string, def?: unknown) => key === 'renvAutoSnapshot' ? false : def,
+		} as unknown as vscode.WorkspaceConfiguration);
+		sandbox.stub(vscode.window, 'showInformationMessage').resolves(undefined);
+	});
+
+	teardown(() => sandbox.restore());
+
+	test('probes renv behind requireNamespace so a missing renv never errors, and caches the result', async () => {
+		// renv is not installed (isRenv stays false). Two operations that consult
+		// the renv state should probe R at most once -- the result is fixed for
+		// the session -- and the probe must guard on requireNamespace so an
+		// absent renv yields FALSE instead of "there is no package called 'renv'".
+		session.isRenv = false;
+
+		await manager.installPackages([{ name: 'dplyr' }]);
+		await manager.installPackages([{ name: 'tidyr' }]);
+
+		assert.deepStrictEqual(
+			{
+				probes: session.evaluated,
+				installs: session.executed,
+			},
+			{
+				probes: ['if (requireNamespace("renv", quietly = TRUE)) !is.null(renv::project()) else FALSE'],
+				installs: ['install.packages(c("dplyr"))', 'install.packages(c("tidyr"))'],
+			},
+		);
+	});
+
+	test('routes installs through renv when the session is an renv project', async () => {
+		session.isRenv = true;
+
+		await manager.installPackages([{ name: 'dplyr' }]);
+
+		assert.deepStrictEqual(
+			session.executed,
+			['renv::install(c("dplyr"), prompt = FALSE)'],
 		);
 	});
 });
