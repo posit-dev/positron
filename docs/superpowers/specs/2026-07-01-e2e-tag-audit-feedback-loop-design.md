@@ -137,18 +137,19 @@ pure check over the map keys, unit-tested alongside the primitives.
     for both), a header line + a link:
 
     ```
-    :label: *Test Tag Audit* - Week of Jun 23 - <run-url|view report>
+    :label: *<run-url|Test Tag Audit>* - Week of Jun 23
     Examined 41 merged PRs:
     - Clean: 33
     - Under-tagged: 2
     - Over-tagged: 6
     ```
 
-    `run-url` is `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
-    (the run page renders the full job-summary report, incl. the table). Slack
-    renders `-` lines as bullets. Title is `Test Tag Audit`; the `Week of <Mon D>`
-    date is the start of the 7-day window (abbreviated month, no leading zero, no
-    year). The job-summary `##` header uses the same title + week.
+    The **title** (`Test Tag Audit`) is the hyperlink, targeting `run-url` =
+    `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` (the
+    run page renders the full job-summary report, incl. the table). Slack renders
+    `-` lines as bullets. The `Week of <Mon D>` date is the start of the 7-day
+    window (abbreviated month, no leading zero, no year). The job-summary `##`
+    header uses the same title + week but is not linked (it *is* the report).
   - **Post every week, including clean weeks.** Unlike the nightly (which runs
     *daily* and skips no-op days to avoid spam), this runs *weekly* (~52/yr), so a
     clean-week post is low-noise, serves as a heartbeat that the job ran, and the
