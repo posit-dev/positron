@@ -85,10 +85,14 @@ pure check over the map keys, unit-tested alongside the primitives.
   - Compute gap and review via `csv_minus`.
 - Output (stdout, Markdown):
   1. **Delta table** - one row per divergent PR:
-     `PR | Author | Derived | Missing | Candidate entry | Title`. The `Missing`
-     column is the gap (author minus derived), so the delta is scannable at a
-     glance. `Candidate entry` is `longest_map_prefix` for the changed files;
-     rows whose gap is ancestor-explained are marked `(review)`.
+     `PR | Author | Derived | Missing | Candidate entry | Title`. The `PR` cell is
+     an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it resolves in both
+     the tracking issue and the job summary. The `Missing` column is the gap
+     (author minus derived), so the delta is scannable at a glance.
+     `Candidate entry` is `longest_map_prefix` for the changed files; rows whose
+     gap is ancestor-explained are marked `(review)`. (The repo URL is taken from
+     `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
+     `posit-dev/positron` origin for local runs.)
   2. **Summary counts** (PRs examined, with-gap, with-review, clean).
   3. **Suggested diffs** - one fenced JSON diff per gap, adding the missing
      tag(s) to the candidate entry, with the PR context as a comment. These are
@@ -136,8 +140,8 @@ job summary):
 >
 > | PR | Author | Derived | Missing | Candidate entry | Title |
 > |----|--------|---------|---------|-----------------|-------|
-> | 14248 | @:interpreter | @:ark | +@:interpreter | positron-r/ | Fix runtime cache missing R versions |
-> | 14336 | @:ark,@:test-explorer | @:test-explorer | +@:ark | positron-r/src/testing/ (review) | Multi-line desc in R test explorer |
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | @:interpreter | @:ark | +@:interpreter | positron-r/ | Fix runtime cache missing R versions |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | @:ark,@:test-explorer | @:test-explorer | +@:ark | positron-r/src/testing/ (review) | Multi-line desc in R test explorer |
 >
 > ### Suggested map edits (review before applying)
 >
