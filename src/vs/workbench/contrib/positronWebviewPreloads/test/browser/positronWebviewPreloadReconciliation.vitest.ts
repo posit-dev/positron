@@ -17,6 +17,7 @@ import { NotebookTextModel } from '../../../notebook/common/model/notebookTextMo
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronNotebookInstance } from '../../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
+import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
@@ -120,6 +121,17 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		return { textModel, instance };
 	}
 
+	/**
+	 * Wait for the webview a 'display'/'widget' result carries. Narrows the
+	 * NotebookPreloadOutputResults union (the 'preload' member has no webview).
+	 */
+	async function awaitWebview(result: NotebookPreloadOutputResults | undefined) {
+		if (!result || result.preloadMessageType === 'preload') {
+			throw new Error(`expected a webview-bearing result, got ${result?.preloadMessageType}`);
+		}
+		return result.webview;
+	}
+
 	/** Clear the (only) cell's outputs, the way the Clear Output action does. */
 	function clearOutputs(textModel: NotebookTextModel) {
 		textModel.applyEdits(
@@ -146,7 +158,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 		const result = service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs });
 		expect(result?.preloadMessageType).toBe('display');
-		await result!.webview;
+		await awaitWebview(result);
 		expect(disposedById.get('display-1'), 'webview is alive while the output exists').toBe(false);
 
 		clearOutputs(textModel);
@@ -160,7 +172,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 		const result = service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs });
 		expect(result?.preloadMessageType).toBe('display');
-		await result!.webview;
+		await awaitWebview(result);
 		expect(disposedById.get('display-1')).toBe(false);
 
 		// Re-running the cell replaces the plot output with a plain-text output
@@ -192,7 +204,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 		const result = service.addNotebookOutput({ instance, outputId: 'html-1', outputs: htmlOutput.outputs, rawHtml });
 		expect(result?.preloadMessageType).toBe('display');
-		await result!.webview;
+		await awaitWebview(result);
 		expect(disposedById.get('html-1'), 'webview is alive while the cell exists').toBe(false);
 
 		// Delete the whole cell, the way the Delete Cell action does.
@@ -220,7 +232,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 
 		const result = service.addNotebookOutput({ instance, outputId: 'widget-1', outputs: widgetOutput.outputs });
 		expect(result?.preloadMessageType).toBe('widget');
-		await result!.webview;
+		await awaitWebview(result);
 		expect(disposedById.get('widget-1')).toBe(false);
 
 		// Removing the widget's output triggers reconciliation. The widget owns
