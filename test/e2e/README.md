@@ -248,6 +248,17 @@ When creating a pull request, the test runner automatically scans the PR descrip
 > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 > For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
+### Automatic Tags (from changed files)
+
+In addition to scanning your PR description, the `pr-tags` job derives tags from the files your PR changes, so the right suites run even if you forget to tag them. Derived tags are **added to** (never replace) the tags you write, and `@:critical` always runs.
+
+- **Source / extension changes** map to feature tags via [`.github/workflows/e2e-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`). Test-file changes are not auto-tagged -- tag those PRs yourself (they are almost always deliberate test authoring).
+- **Opt out:** add `@:no-auto-tags` to the PR description to disable this derivation for the PR (the `@:critical` floor still applies).
+- **Unmapped dirs:** if your PR touches a Positron dir with no entry in the map, the E2E Tests comment will note it so you (or a maintainer) can add a mapping.
+
+> [!NOTE]
+> The description scan matches the literal `@:tag` text **anywhere** in the body, including prose and code spans. Writing something like `@:win` or `@:web` in a sentence will enable those runs. If a tag you didn't intend shows up, check your description for a stray mention.
+
 ### Running Windows and Browser Tests
 
 By default, only Linux E2E tests run. If you need to include additional environments:

@@ -23,7 +23,7 @@ jobs:
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Update PR Comment with Tags
-        run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ env.tags }}"
+        run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ env.tags }}" "${{ steps.pr-tags.outputs.no_matches }}" "${{ steps.pr-tags.outputs.unmapped_dirs }}"
         env:
           tags: ${{ steps.pr-tags.outputs.tags }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

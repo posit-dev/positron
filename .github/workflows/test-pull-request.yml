@@ -42,6 +42,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      # The advisory comment (no-match / unmapped-dir warnings) is posted from
+      # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
 
   e2e-ubuntu-electron:
     name: e2e
