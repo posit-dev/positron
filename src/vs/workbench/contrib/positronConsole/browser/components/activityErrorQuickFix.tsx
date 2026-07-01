@@ -16,37 +16,16 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
-// --- Start Quick Chat fallback ---
-import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
-// --- End Quick Chat fallback ---
+import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
 
 const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
 const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
 
-const NEW_CHAT_COMMAND = 'posit-assistant.newChat';
 const ATTACHMENT_NAME = 'console-error.txt';
-
-// --- Start Quick Chat fallback ---
-const quickChatFixPrompt = '/fix';
-const quickChatExplainPrompt = '/explain';
-const SIDEBAR_VIEW_SETTING = 'assistant.sidebarView';
-// --- End Quick Chat fallback ---
 
 interface ConsoleQuickFixProps {
 	outputLines: ANSIOutputLine[];
 	tracebackLines: ANSIOutputLine[];
-}
-
-interface NewChatFile {
-	uri: string;
-	name: string;
-}
-
-interface NewChatOptions {
-	prompt: string;
-	files?: NewChatFile[];
-	target: 'auto' | 'new';
-	behavior: 'submit' | 'prefill';
 }
 
 const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
@@ -72,62 +51,26 @@ const buildAttachment = (text: string): NewChatFile | undefined => {
 export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
 	const services = usePositronReactServicesContext();
-	const { commandService, notificationService } = services;
-	// --- Start Quick Chat fallback ---
-	const { quickChatService } = services;
-	const sidebarViewEnabled = usePositronConfiguration<boolean>(SIDEBAR_VIEW_SETTING);
-	// --- End Quick Chat fallback ---
+	const { commandService, logService, notificationService } = services;
 
 	const attachment = useMemo(
 		() => buildAttachment(formatOutput(props.outputLines, props.tracebackLines)),
 		[props.outputLines, props.tracebackLines]
 	);
 
-	const runNewChat = async (prompt: string) => {
+	const runNewChat = (prompt: string) => {
 		const options: NewChatOptions = {
 			prompt,
 			target: 'auto',
 			behavior: 'submit',
 			...(attachment && { files: [attachment] }),
 		};
-		try {
-			await commandService.executeCommand(NEW_CHAT_COMMAND, options);
-		} catch {
-			notificationService.error(
-				localize(
-					'positronConsoleAssistantUnavailable',
-					"Posit Assistant is not available. Install the Posit Assistant extension to use Fix and Explain."
-				)
-			);
-		}
+		return openPositAssistantChat(commandService, notificationService, logService, options);
 	};
 
-	// --- Start Quick Chat fallback ---
-	const runQuickChat = (slashPrompt: string) => {
-		const formatted = formatOutput(props.outputLines, props.tracebackLines);
-		quickChatService.open({
-			query: formatted ? `${slashPrompt}\n\`\`\`${formatted}\`\`\`` : slashPrompt,
-		});
-	};
-	// --- End Quick Chat fallback ---
+	const pressedFixHandler = () => runNewChat(fixPrompt);
 
-	const pressedFixHandler = () => {
-		// --- Start Quick Chat fallback ---
-		if (!sidebarViewEnabled) {
-			return runQuickChat(quickChatFixPrompt);
-		}
-		// --- End Quick Chat fallback ---
-		return runNewChat(fixPrompt);
-	};
-
-	const pressedExplainHandler = () => {
-		// --- Start Quick Chat fallback ---
-		if (!sidebarViewEnabled) {
-			return runQuickChat(quickChatExplainPrompt);
-		}
-		// --- End Quick Chat fallback ---
-		return runNewChat(explainPrompt);
-	};
+	const pressedExplainHandler = () => runNewChat(explainPrompt);
 
 	// Render.
 	return (

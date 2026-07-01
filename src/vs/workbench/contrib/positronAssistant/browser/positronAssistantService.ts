@@ -17,6 +17,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IChatService } from '../../chat/common/chatService/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
+import { isCompletionsEnabled } from '../../../../editor/common/services/completionsEnablement.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -287,22 +288,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	areCompletionsEnabled(uri: URI): boolean {
-		// First, check the language-specific enable setting
-		const enableSettings = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.inlineCompletions.enable');
-
-		if (enableSettings && typeof enableSettings === 'object') {
-			// Get the language ID from the URI
-			const languageId = this._languageService.guessLanguageIdByFilepathOrFirstLine(uri);
-
-			// Check if the specific language is disabled
-			if (languageId && enableSettings.hasOwnProperty(languageId) && !enableSettings[languageId]) {
-				return false; // Language is explicitly disabled
-			}
-
-			// Check if all languages are disabled via the "*" key
-			if (enableSettings.hasOwnProperty('*') && !enableSettings['*']) {
-				return false; // All languages are disabled
-			}
+		// First, check the completions enablement setting for the file's
+		// language. This reads the product-configured setting
+		// (`github.copilot.enable`), the single source of truth shared with
+		// Copilot, the Assistant's toggle command, and the chat status UI.
+		const languageId = this._languageService.guessLanguageIdByFilepathOrFirstLine(uri) ?? undefined;
+		if (!isCompletionsEnabled(this._configurationService, languageId)) {
+			return false; // Completions are disabled for this language
 		}
 
 		// Then, check the exclusion patterns

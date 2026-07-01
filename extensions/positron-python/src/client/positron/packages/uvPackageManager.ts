@@ -330,8 +330,13 @@ export class UvPackageManager implements IPackageManager {
                 token,
             },
         );
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
+        // Empty output is a valid empty environment, not a failure: `uv pip
+        // freeze` excludes pip/setuptools/wheel by default, so a fresh env with
+        // no user-installed packages prints nothing. Real failures (spawn
+        // errors) reject upstream, and a broken resolver surfaces at the actual
+        // `install` step.
+        if (!result.stdout) {
+            return [];
         }
         return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
     }

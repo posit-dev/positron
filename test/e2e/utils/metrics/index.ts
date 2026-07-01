@@ -10,3 +10,4 @@ export * from './api.js';
 export * from './metric-data-explorer.js';
 export * from './metric-notebooks.js';
 export * from './metric-sessions.js';
+export * from './metric-console.js';

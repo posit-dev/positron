@@ -284,14 +284,29 @@ export async function overrideWorkspaceName(
 }
 
 /**
+ * Hide the debug launch-configuration status bar item. Starting a Python
+ * session activates the Python Debugger extension, which registers a
+ * "Python Debugger: Current File …" picker in the status bar. It's not
+ * meaningful in a release screenshot and should not be visible.
+ */
+export async function hideDebugStatusBar(page: Page): Promise<void> {
+	const items = page.locator('.statusbar-item').filter({ hasText: 'Python Debugger' });
+	const count = await items.count();
+	for (let i = 0; i < count; i++) {
+		await items.nth(i).evaluate((el: HTMLElement) => { el.style.display = 'none'; });
+	}
+}
+
+/**
  * Standard pre-screenshot cleanup. Composes the smaller helpers in the order
  * that produces a clean, deterministic frame:
  *   1. Hide notification toasts (they cover real UI)
  *   2. Hide activity-bar notification badges (e.g. "sign in to GitHub" red dot)
  *   3. Hide text-insertion caret (blinking cursor causes pixel noise)
- *   4. Unhover (no spurious hover states)
- *   5. Wait for layout to settle (and any in-flight progress bars to clear)
- *   6. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
+ *   4. Hide debug launch-config status bar item (activated by Python sessions)
+ *   5. Unhover (no spurious hover states)
+ *   6. Wait for layout to settle (and any in-flight progress bars to clear)
+ *   7. Rewrite runtime labels (e.g. "(uv: positron)") to "(Venv: .venv)"
  *
  * The label rewrite goes last so React re-renders during the settle wait
  * don't undo it before the screenshot fires.
@@ -303,6 +318,7 @@ export async function prepareForScreenshot(app: Application, page: Page): Promis
 	await hideToasts(app);
 	await hideNotificationBadges(page);
 	await hideCaret(page);
+	await hideDebugStatusBar(page);
 	await unhoverAll(page);
 	await waitForStableUI(page);
 	await overrideRuntimeLabel(page);

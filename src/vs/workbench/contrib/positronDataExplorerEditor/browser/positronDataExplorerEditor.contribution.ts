@@ -17,6 +17,7 @@ import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPri
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
+import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
 import { PositronDataExplorerSheetSelector } from './positronDataExplorerSheetSelector.js';
 import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_XLSX } from './positronDataExplorerContextKeys.js';
 import { extname } from '../../../../base/common/resources.js';
@@ -146,6 +147,14 @@ registerWorkbenchContribution2(
 
 // Register actions.
 registerPositronDataExplorerActions();
+
+// Register the "Open in Data Explorer" code action provider for runtime
+// languages.
+registerWorkbenchContribution2(
+	PositronDataExplorerCodeActionContribution.ID,
+	PositronDataExplorerCodeActionContribution,
+	WorkbenchPhase.AfterRestored
+);
 
 // Register the worksheet selector widget in the editor action bar. It appears
 // on the right side of the action bar, only for Excel workbooks with more than

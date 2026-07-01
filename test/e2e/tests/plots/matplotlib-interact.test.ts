@@ -23,7 +23,7 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS
 
 		await hotKeys.closeSecondarySidebar();
 
-		await notebooksPositron.clickActionBarButtton('Run All');
+		await notebooksPositron.clickActionBarButtton('Run All Cells');
 		await notebooksPositron.expectNoActiveSpinners(30000);
 		await hotKeys.toggleBottomPanel();
 

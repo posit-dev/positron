@@ -296,8 +296,13 @@ export class PipPackageManager implements IPackageManager {
         // FORCE_COLOR/CLICOLOR_FORCE could lead to ANSI codes that would corrupt
         // the requirements file fed to `pip install -r` (as uv does -- see #14328).
         const result = await pythonService.execModule('pip', ['freeze', '--no-color'], { token });
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (pip freeze returned no output).');
+        // Empty output is a valid empty environment, not a failure: `pip freeze`
+        // excludes pip/setuptools/wheel by default, so a fresh env with no
+        // user-installed packages prints nothing. Real failures (missing pip,
+        // spawn errors) throw upstream in execModule, and a broken resolver
+        // surfaces at the actual `install` step.
+        if (!result.stdout) {
+            return [];
         }
         return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
     }

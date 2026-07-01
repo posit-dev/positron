@@ -64,11 +64,11 @@
 			},
 			{
 				"id": "google",
-				"label": "Gemini Code Assist"
+				"label": "Google Gemini"
 			},
 			{
 				"id": "google-cloud",
-				"label": "Google Vertex AI"
+				"label": "Gemini Enterprise Agent Platform"
 			},
 			{
 				"id": "deepseek-api",
@@ -152,10 +152,7 @@
 				"authentication.foundry.baseUrl": {
 					"type": "string",
 					"default": "",
-					"description": "%configuration.foundry.baseUrl.description%",
-					"tags": [
-						"preview"
-					]
+					"description": "%configuration.foundry.baseUrl.description%"
 				},
 				"authentication.foundry.customHeaders": {
 					"type": "object",
@@ -328,9 +325,6 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "%configuration.provider.msFoundry.enable.description%",
-					"tags": [
-						"preview"
-					],
 					"order": 5
 				},
 				"positron.assistant.provider.openAI.enable": {
@@ -487,9 +481,6 @@
 					"type": "array",
 					"default": [],
 					"markdownDescription": "%configuration.models.overrides.msFoundry.description%",
-					"tags": [
-						"preview"
-					],
 					"items": {
 						"type": "object",
 						"properties": {
