@@ -28,6 +28,12 @@ suite('parsePythonImports', () => {
             ['flask', 'foo', 'indented_within_block', 'numpy', 'os', 'pandas', 'requests', 'sklearn'].sort(),
         );
     });
+
+    test('extracts modules from multiple statements separated by semicolons on one line', () => {
+        const code = ['import pandas; import numpy', 'x = 1; import requests; from flask import Flask'].join('\n');
+
+        expect(parsePythonImports(code).sort()).to.deep.equal(['flask', 'numpy', 'pandas', 'requests'].sort());
+    });
 });
 
 suite('listMissingPythonPackages', () => {

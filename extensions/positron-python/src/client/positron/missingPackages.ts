@@ -22,11 +22,14 @@ const IMPORT_REGEX =
  * Extracts the set of top-level module names referenced by `import` /
  * `from ... import` statements in the given Python source. Submodule access
  * (`import foo.bar`) collapses to the top-level package (`foo`); `as` aliases
- * and relative imports are ignored.
+ * and relative imports are ignored. Statements separated by semicolons on a
+ * single line (`import pandas; import numpy`) are each considered.
  */
 export function parsePythonImports(code: string): string[] {
     const modules = new Set<string>();
-    for (const line of code.split(/\r?\n/)) {
+    // Split on both newlines and semicolons so compound one-line statements
+    // (`import pandas; import numpy`) surface every imported module.
+    for (const line of code.split(/\r?\n|;/)) {
         const match = IMPORT_REGEX.exec(line);
         if (!match?.groups) {
             continue;
