@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
@@ -18,6 +19,26 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
+ * Resolves a user-entered database path to an absolute path.
+ */
+function resolveDatabasePath(filePath: string): string {
+	// A leading `~/` is the home directory. `~` is a Unix shell convention with no native meaning on
+	// Windows, so this only applies on macOS and Linux. The result is absolute, so return it directly.
+	if (process.platform !== 'win32' && filePath.startsWith('~/')) {
+		return path.join(os.homedir(), filePath.slice(2));
+	}
+
+	// Absolute paths are used as-is.
+	if (path.isAbsolute(filePath)) {
+		return filePath;
+	}
+
+	// Resolve a relative path against the workspace folders.
+	const candidatePaths = (vscode.workspace.workspaceFolders ?? []).map(folder => path.join(folder.uri.fsPath, filePath));
+	return candidatePaths.find(candidate => existsSync(candidate)) ?? candidatePaths[0] ?? filePath;
+}
+
+/**
  * Escapes a value for embedding in a double-quoted Python or R string literal. Both languages
  * treat backslash as an escape character in double-quoted strings, so Windows paths such as
  * `C:\db.duckdb` must have their separators doubled.
@@ -25,6 +46,12 @@ function isNonEmptyString(value: unknown): value is string {
 function escapeDoubleQuoted(value: string): string {
 	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
+
+/**
+ * The id of the file-based connection mechanism. Used both in the driver's mechanism list and in
+ * the connect switch, so the two stay in sync.
+ */
+const FILE_MECHANISM_ID = 'file';
 
 /**
  * Creates the DuckDB DataConnectionDriver.
@@ -51,44 +78,61 @@ export function createDuckDBDriver(
 		description: vscode.l10n.t('Connect to a DuckDB database file'),
 		iconSvg,
 		supportedLanguageIds: ['python', 'r'],
-		parameters: [
+		mechanisms: [
 			{
-				id: 'databasePath',
+				id: FILE_MECHANISM_ID,
 				label: vscode.l10n.t('Database File'),
-				type: positron.DataConnectionParameterType.File,
-				required: true,
-				placeholder: databasePathPlaceholder,
-			},
-			{
-				id: 'readOnly',
-				label: vscode.l10n.t('Read Only'),
-				type: positron.DataConnectionParameterType.Boolean,
-				defaultValue: false,
+				description: vscode.l10n.t('Connect to a DuckDB database file on disk'),
+				parameters: [
+					{
+						id: 'databasePath',
+						label: vscode.l10n.t('Database File'),
+						type: positron.DataConnectionParameterType.File,
+						required: true,
+						placeholder: databasePathPlaceholder,
+					},
+					{
+						id: 'readOnly',
+						label: vscode.l10n.t('Read Only'),
+						type: positron.DataConnectionParameterType.Boolean,
+						defaultValue: false,
+					},
+				],
 			},
 		],
-		async connect(params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
-			// Extract parameters.
-			const databasePath = params.databasePath;
-			const readOnly = params.readOnly as boolean ?? false;
+		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
+			// Connect to the database based on the mechanism. The driver is expected to throw on failure; let it propagate.
+			switch (mechanismId) {
+				case FILE_MECHANISM_ID: {
+					// Extract parameters.
+					const rawDatabasePath = params.databasePath;
+					const readOnly = params.readOnly as boolean ?? false;
 
-			// Validate parameters.
-			if (!isNonEmptyString(databasePath)) {
-				throw new Error(vscode.l10n.t('Database file path is required'));
+					// Validate parameters.
+					if (!isNonEmptyString(rawDatabasePath)) {
+						throw new Error(vscode.l10n.t('Database file path is required'));
+					}
+
+					// Resolve `~` and workspace-relative paths to an absolute path before opening the file.
+					const databasePath = resolveDatabasePath(rawDatabasePath);
+
+					// Create the connection and establish it.
+					const connection = new DuckDBConnection({
+						databasePath,
+						readOnly,
+					}, dataExplorerHandler);
+
+					// Connect.
+					await connection.connect();
+
+					// Return the live connection.
+					return connection;
+				}
+				default:
+					throw new Error(vscode.l10n.t("Unknown connection mechanism '{0}'.", mechanismId));
 			}
-
-			// Create the connection and establish it.
-			const connection = new DuckDBConnection({
-				databasePath,
-				readOnly,
-			}, dataExplorerHandler);
-
-			// Connect.
-			await connection.connect();
-
-			// Return the live connection.
-			return connection;
 		},
-		async generateConnectionCode(languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+		async generateConnectionCode(_mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
 			// Extract parameters.
 			const databasePath = params.databasePath;
 			const readOnly = params.readOnly === true;
@@ -98,7 +142,10 @@ export function createDuckDBDriver(
 				return [];
 			}
 
-			const escapedPath = escapeDoubleQuoted(databasePath);
+			// Resolve `~` and workspace-relative paths so the generated code references a concrete,
+			// absolute path (Python and R do not expand `~`, and the console's working directory may
+			// differ from the workspace folder).
+			const escapedPath = escapeDoubleQuoted(resolveDatabasePath(databasePath));
 
 			// Generate code variants for supported languages. Return an empty array for
 			// unsupported languages or when code cannot be generated.

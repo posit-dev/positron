@@ -1108,10 +1108,10 @@ export const POSITRON_MODAL_DIALOG_CONTRAST_BACKGROUND = registerColor('positron
 
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
-	dark: selectBorder,
-	light: selectBorder,
-	hcDark: selectBorder,
-	hcLight: selectBorder
+	dark: widgetBorder,
+	light: widgetBorder,
+	hcDark: widgetBorder,
+	hcLight: widgetBorder
 }, localize('positronModalDialog.border', "Positron modal dialog border color."));
 
 // Positron modal dialog separator color.

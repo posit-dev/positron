@@ -242,10 +242,6 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J I', 'Import settings');
 	}
 
-	public async jupyterCellAddTag() {
-		await this.pressHotKeys('Cmd+J J', 'Add Jupyter cell tag');
-	}
-
 	public async newFolderFromTemplate() {
 		await this.pressHotKeys('Cmd+J F', 'New folder from template');
 	}

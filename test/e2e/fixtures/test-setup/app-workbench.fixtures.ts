@@ -3,9 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
 import { Application, createApp } from '../../infra';
+import { cloneTestRepo } from '../../infra/test-runner';
 import { AppFixtureOptions } from './app.fixtures';
 import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, RunResult } from './docker-utils';
 
@@ -118,6 +120,14 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 
 	// Create workspace directory (the settings directory is created by provisionUserSettings).
 	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
+
+	// The Playwright VS Code extension's "play" button does not run globalSetup, which is what
+	// normally clones qa-example-content into the temp workspace. When that step was skipped the
+	// tar below fails with "could not chdir to <workspace>". Stage it on demand from the clone
+	// cache (fast, works offline) so single-test runs from the extension behave like the CLI.
+	if (!fs.existsSync(DEFAULT_WORKSPACE_PATH)) {
+		cloneTestRepo(DEFAULT_WORKSPACE_PATH);
+	}
 
 	const src = DEFAULT_WORKSPACE_PATH;
 	const dst = WORKBENCH_WORKSPACE_PATH;

@@ -13,6 +13,9 @@ import { registerTerminalContribution, type IDetachedCompatibleTerminalContribut
 import { shouldPasteTerminalText } from './terminalClipboard.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { BrowserFeatures } from '../../../../../base/browser/canIUse.js';
+// --- Start PWB: avoid Firefox/Safari clipboard "Paste" popup ---
+import { isFirefox, isSafari } from '../../../../../base/browser/browser.js';
+// --- End PWB ---
 import { TerminalCapability, type ITerminalCommand } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TerminalSettingId } from '../../../../../platform/terminal/common/terminal.js';
@@ -297,7 +300,15 @@ if (BrowserFeatures.clipboard.readText) {
 		id: TerminalCommandId.Paste,
 		title: localize2('workbench.action.terminal.paste', 'Paste into Active Terminal'),
 		precondition: terminalAvailableWhenClause,
-		keybinding: [{
+		// --- Start PWB: avoid Firefox/Safari clipboard "Paste" popup ---
+		// navigator.clipboard.readText() shows a "Paste" permission affordance on every call in
+		// Firefox and Safari. Drop the Cmd/Ctrl+V keybinding on those browsers so the native
+		// paste event flows through to xterm instead (see the key event handler in
+		// terminalInstance.ts), which pastes without the popup. The command stays available via
+		// the context menu and the command palette (those still use readText() and so still show
+		// the popup, which is unavoidable for a programmatic clipboard read in those browsers).
+		keybinding: (isFirefox || isSafari) ? [] : [{
+			// --- End PWB ---
 			primary: KeyMod.CtrlCmd | KeyCode.KeyV,
 			win: { primary: KeyMod.CtrlCmd | KeyCode.KeyV, secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV] },
 			linux: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV },

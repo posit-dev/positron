@@ -62,6 +62,20 @@ test.describe('Release Screenshots - Open Folder', () => {
 		const menu = page.locator('.positron-modal-popup');
 		await expect(menu).toBeVisible();
 
+		// Rewrite recent-path entries in the dropdown: keep only one, renamed to a
+		// friendly data-science project name. Hides the user's full global history.
+		await page.evaluate(() => {
+			const items = document.querySelectorAll<HTMLElement>('.custom-folder-recently-used-menu-item');
+			items.forEach((item, i) => {
+				if (i === 0) {
+					const title = item.querySelector<HTMLElement>('.title');
+					if (title) { title.textContent = '~/predict-customer-churn'; }
+				} else {
+					item.style.display = 'none';
+				}
+			});
+		});
+
 		await annotate(page, [
 			{ selector: '.top-action-bar-container [aria-label="Open"]', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },
 			{ selector: '.top-action-bar-custom-folder-menu', label: '', color: ANNOTATION_COLOR, padding: 3, borderWidth: 3 },

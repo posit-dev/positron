@@ -154,26 +154,7 @@ export function isCompletionEnabled(accessor: ServicesAccessor): boolean | undef
 	return isCompletionEnabledForDocument(accessor, editor.document);
 }
 
-// --- Start Positron ---
-const PositronInlineCompletionsEnableConfigKey = 'positron.assistant.inlineCompletions.enable';
-const PositronInlineCompletionsEnableDefault: { [key: string]: boolean } = { '*': true };
-
-function isPositronCompletionEnabledForLanguage(languageId: string): boolean {
-	const enabledLanguages = vscode.workspace.getConfiguration().get<{ [key: string]: boolean }>(PositronInlineCompletionsEnableConfigKey) ?? PositronInlineCompletionsEnableDefault;
-	const enabledLanguagesMap = new Map(Object.entries(enabledLanguages));
-	if (!enabledLanguagesMap.has('*')) {
-		enabledLanguagesMap.set('*', false);
-	}
-	return enabledLanguagesMap.has(languageId) ? enabledLanguagesMap.get(languageId)! : enabledLanguagesMap.get('*')!;
-}
-// --- End Positron ---
-
 export function isCompletionEnabledForDocument(accessor: ServicesAccessor, document: vscode.TextDocument): boolean {
-	// --- Start Positron ---
-	if (!isPositronCompletionEnabledForLanguage(document.languageId)) {
-		return false;
-	}
-	// --- End Positron ---
 	return getEnabledConfig(accessor, document.languageId);
 }
 

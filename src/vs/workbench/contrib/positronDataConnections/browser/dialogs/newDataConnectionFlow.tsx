@@ -12,9 +12,10 @@ import { useState } from 'react';
 // Other dependencies.
 import { ConfigureDataConnection } from './configureDataConnection.js';
 import { SelectDataConnectionProvider } from './selectDataConnectionProvider.js';
+import { SelectDataConnectionMechanism } from './selectDataConnectionMechanism.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
-import { IDataConnectionDriver } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionDriver, IDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * NewDataConnectionFlowStep enumeration.
@@ -26,7 +27,13 @@ enum NewDataConnectionFlowStep {
 	SelectProvider,
 
 	/**
-	 * The user is configuring the connection settings for the selected provider.
+	 * The user is selecting which configuration mechanism to use for the selected provider. Skipped
+	 * when the driver exposes only one mechanism.
+	 */
+	SelectMechanism,
+
+	/**
+	 * The user is configuring the connection settings for the selected provider and mechanism.
 	 */
 	Configure,
 }
@@ -53,6 +60,7 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 	// State.
 	const [step, setStep] = useState(NewDataConnectionFlowStep.SelectProvider);
 	const [driver, setDriver] = useState<IDataConnectionDriver | undefined>(undefined);
+	const [mechanism, setMechanism] = useState<IDataConnectionMechanism | undefined>(undefined);
 
 	// Render the current step.
 	switch (step) {
@@ -62,21 +70,50 @@ export const NewDataConnectionFlow = (props: NewDataConnectionFlowProps) => {
 				<SelectDataConnectionProvider
 					renderer={props.renderer}
 					onNext={selectedDriver => {
-						// Remember the selected driver and transition to the configure step. The
-						// profile itself is constructed by ConfigureDataConnection on save.
+						// Remember the selected driver. If it has a single mechanism, skip the
+						// mechanism step and select it implicitly; otherwise go to the mechanism step.
 						setDriver(selectedDriver);
+						const mechanisms = selectedDriver.metadata.mechanisms;
+						if (mechanisms.length === 1) {
+							setMechanism(mechanisms[0]);
+							setStep(NewDataConnectionFlowStep.Configure);
+						} else {
+							setStep(NewDataConnectionFlowStep.SelectMechanism);
+						}
+					}}
+				/>
+			);
+
+		// Step 2: Select mechanism (only reached when the driver has multiple mechanisms).
+		case NewDataConnectionFlowStep.SelectMechanism:
+			return (
+				<SelectDataConnectionMechanism
+					driver={driver!}
+					renderer={props.renderer}
+					onBack={() => setStep(NewDataConnectionFlowStep.SelectProvider)}
+					onNext={selectedMechanism => {
+						// Remember the selected mechanism and transition to the configure step. The
+						// profile itself is constructed by ConfigureDataConnection on save.
+						setMechanism(selectedMechanism);
 						setStep(NewDataConnectionFlowStep.Configure);
 					}}
 				/>
 			);
 
-		// Step 2: Configure connection.
+		// Step 3: Configure connection.
 		case NewDataConnectionFlowStep.Configure:
 			return (
 				<ConfigureDataConnection
 					driver={driver!}
+					mechanism={mechanism!}
 					renderer={props.renderer}
-					onBack={() => setStep(NewDataConnectionFlowStep.SelectProvider)}
+					onBack={() => {
+						// Return to the mechanism step, unless it was skipped (single mechanism), in
+						// which case return to the provider step.
+						setStep(driver!.metadata.mechanisms.length === 1
+							? NewDataConnectionFlowStep.SelectProvider
+							: NewDataConnectionFlowStep.SelectMechanism);
+					}}
 					onSave={profile => {
 						// Add the connection profile in the service.
 						positronDataConnectionsService.addUpdateProfile(profile);

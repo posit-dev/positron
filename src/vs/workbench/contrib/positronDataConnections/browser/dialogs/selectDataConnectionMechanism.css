@@ -1,0 +1,67 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.select-data-connection-mechanism .mechanism-list {
+	gap: 8px;
+	display: flex;
+	flex-direction: column;
+}
+
+.select-data-connection-mechanism .mechanism-card {
+	gap: 4px;
+	display: flex;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+	padding: 12px;
+	border-radius: 6px;
+	flex-direction: column;
+	background: transparent;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.select-data-connection-mechanism .mechanism-card:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.select-data-connection-mechanism .mechanism-card.selected {
+	border-color: var(--vscode-focusBorder);
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+/*
+	Visually hide the radio input. The label is the visible click/focus surface; pulling the focus
+	ring up to the label keeps the visible focus indicator on the card.
+*/
+.select-data-connection-mechanism .mechanism-card-input {
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}
+
+.select-data-connection-mechanism .mechanism-card:has(.mechanism-card-input:focus-visible) {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.select-data-connection-mechanism .mechanism-card-label {
+	font-weight: 600;
+}
+
+.select-data-connection-mechanism .mechanism-card-description {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.select-data-connection-mechanism .mechanism-card.selected .mechanism-card-description {
+	color: inherit;
+}

@@ -484,6 +484,128 @@ fig
         assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
+def test_get_package_detail_installed(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns a dict with expected fields for an installed package."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["pytest"])
+    assert result is not None
+    assert isinstance(result, dict)
+    assert result["name"] == "pytest"
+    assert "title" in result
+    assert isinstance(result["title"], str)
+
+
+def test_get_package_detail_unknown(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail returns None for an unknown package name."""
+    from positron.ui import _get_package_detail
+
+    result = _get_package_detail(kernel, ["__no_such_package_xyz__"])
+    assert result is None
+
+
+def test_get_package_detail_invalid_params(kernel: PositronIPyKernel) -> None:
+    """_get_package_detail raises _InvalidParamsError for invalid params."""
+    from positron.ui import _get_package_detail, _InvalidParamsError
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [])
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, [42])  # type: ignore[list-item]
+
+    with pytest.raises(_InvalidParamsError):
+        _get_package_detail(kernel, "pytest")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # SPDX License-Expression is the top choice.
+        ({"License-Expression": "MIT"}, "MIT"),
+        # License-Expression beats a classifier.
+        (
+            {"License-Expression": "MIT", "Classifier": ["License :: OSI Approved :: GPL"]},
+            "MIT",
+        ),
+        # A short legacy License field is used.
+        ({"License": "BSD-3-Clause"}, "BSD-3-Clause"),
+        # An OSI license classifier is the fallback (last segment).
+        ({"Classifier": ["License :: OSI Approved :: MIT License"]}, "MIT License"),
+        # A multi-line legacy License (full text) is skipped in favour of a classifier.
+        (
+            {
+                "License": "Copyright ...\nfull license text\n...",
+                "Classifier": ["License :: OSI Approved :: Apache Software License"],
+            },
+            "Apache Software License",
+        ),
+        # A compound SPDX expression is reduced to its primary (first) license.
+        (
+            {"License-Expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"},
+            "BSD-3-Clause",
+        ),
+        ({"License-Expression": "MIT OR Apache-2.0"}, "MIT"),
+        ({"License-Expression": "Apache-2.0 WITH LLVM-exception"}, "Apache-2.0"),
+        ({"License-Expression": "(MIT OR Apache-2.0)"}, "MIT"),
+        # No license metadata of any kind.
+        ({}, None),
+    ],
+    ids=[
+        "spdx-expression",
+        "expression-beats-classifier",
+        "short-legacy-license",
+        "classifier-fallback",
+        "multiline-license-skipped",
+        "compound-spdx-and",
+        "compound-spdx-or",
+        "spdx-with-exception",
+        "compound-spdx-parens",
+        "none",
+    ],
+)
+def test_best_license(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_license prefers SPDX, then a one-line License, then a classifier."""
+    from positron.ui import _best_license
+
+    assert _best_license(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # The plain Author field is preferred over the *-email field.
+        ({"Author": "Jane Doe", "Author-email": "Other Name <other@x.com>"}, "Jane Doe"),
+        # Maintainer is used when there is no Author.
+        ({"Maintainer": "Bob Smith"}, "Bob Smith"),
+        # Falls back to the email field, stripping the address.
+        ({"Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # Multiple authors in the email field keep names, drop addresses.
+        (
+            {"Author-email": "Jane Doe <jane@x.com>, Bob Smith <bob@y.com>"},
+            "Jane Doe, Bob Smith",
+        ),
+        # "UNKNOWN" / empty placeholders are skipped in favour of a real field.
+        ({"Author": "UNKNOWN", "Author-email": "Jane Doe <jane@x.com>"}, "Jane Doe"),
+        # No usable author at all.
+        ({}, None),
+    ],
+    ids=[
+        "plain-author-preferred",
+        "maintainer-fallback",
+        "email-stripped",
+        "multiple-authors",
+        "unknown-skipped",
+        "none",
+    ],
+)
+def test_best_author(headers: Dict[str, Any], expected: Any) -> None:
+    """_best_author prefers plain-name fields and strips email addresses."""
+    from positron.ui import _best_author
+
+    assert _best_author(_StubDist(**headers).metadata) == expected  # type: ignore[arg-type]
+
+
 def test_is_not_plot_url_events(
     shell: PositronShell,
     ui_comm: DummyComm,

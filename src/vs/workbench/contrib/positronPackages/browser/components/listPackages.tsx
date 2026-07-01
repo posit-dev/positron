@@ -25,8 +25,6 @@ import { URI } from '../../../../../base/common/uri.js';
 import { matchesSomeScheme, Schemas } from '../../../../../base/common/network.js';
 import { usePositronPackagesContext } from '../positronPackagesContext.js';
 import { ILanguageRuntimePackage } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu, CustomContextMenuSubmenu, CustomContextMenuEntry } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -37,6 +35,7 @@ import { PositronList } from '../../../../browser/positronList/positronList.js';
 import { ListEntry, PositronListInstance, PositronListItemContext } from '../../../../browser/positronList/classes/positronListInstance.js';
 import { POSITRON_PACKAGES_IS_BUSY } from '../positronPackagesContextKeys.js';
 import { useContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { showPackageHelp } from '../packageHelp.js';
 
 const positronUninstallPackage = localize(
 	'positronUninstallPackage',
@@ -76,6 +75,10 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		});
 		return () => disposable.dispose();
 	}, [services.positronPackagesService]);
+
+	// Tracks the last package name opened as a detail editor. Used to avoid
+	// reopening the editor when a list refresh re-selects the same package.
+	const lastOpenedRef = useRef<string | undefined>(undefined);
 
 	// Progress Bar
 	const progressRef = useRef<HTMLDivElement>(null);
@@ -308,30 +311,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 		if (!session) {
 			return;
 		}
-		const languageId = session.runtimeMetadata.languageId;
-
-		// R: open the package's help index directly. The help comm only knows
-		// how to look up help *topics*, so bare "dplyr" usually finds nothing.
-		// `help(package = ...)` is the canonical entry point for package-level
-		// help; printing the result triggers ark's browseURL hook, which
-		// surfaces the page in the help pane.
-		if (languageId === 'r') {
-			session.execute(
-				`help(package = "${packageName}", help_type = "html")`,
-				generateUuid(),
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Stop,
-			);
-			return;
-		}
-
-		// Default behavior
-		const found = await services.positronHelpService.showHelpTopic(languageId, packageName);
-		if (!found) {
-			services.notificationService.info(
-				localize('positronPackages.noHelpFound', "No help found for '{0}'.", packageName)
-			);
-		}
+		await showPackageHelp(session, services.positronHelpService, services.notificationService, packageName);
 	}, [activeInstance, services]);
 
 	// Replace the item renderer whenever its closed-over deps change so the latest
@@ -441,6 +421,11 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						e.stopPropagation();
 						showRowContextMenu({ x: e.clientX, y: e.clientY });
 					}}
+					onDoubleClick={() => {
+						// Double-click pins the editor (matching the Extensions pane behaviour).
+						lastOpenedRef.current = pkg.name;
+						void services.commandService.executeCommand('positronPackages.openPackage', pkg.name, true);
+					}}
 				>
 					{attached !== undefined && (
 						<span
@@ -496,6 +481,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 
 	// Sync the currently-selected package's name into the packages service. onDidUpdate fires
 	// for any instance change (selection, cursor, scroll), so we dedupe before pushing.
+	// When the selection changes to a new non-empty package, also open a preview editor.
 	useEffect(() => {
 		const pushSelection = () => {
 			const name = listInstance.getSelectedItems()[0]?.name;
@@ -509,6 +495,13 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			if (name !== lastName) {
 				lastName = name;
 				services.positronPackagesService.setSelectedPackage(name);
+				// Open a preview (non-pinned) editor when the selected package changes.
+				// lastOpenedRef guards against reopening on list refreshes that
+				// re-select the same row without the user having changed selection.
+				if (name && name !== lastOpenedRef.current) {
+					lastOpenedRef.current = name;
+					void services.commandService.executeCommand('positronPackages.openPackage', name, false);
+				}
 			}
 		});
 		return () => {

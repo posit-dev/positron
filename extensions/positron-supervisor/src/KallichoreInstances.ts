@@ -168,7 +168,8 @@ export class KallichoreInstances {
 		}
 
 		const sortedResults = [...results].sort((left, right) => this.getIdleSeconds(left) - this.getIdleSeconds(right));
-		const items = sortedResults.map(result => this.createQuickPickItem(result));
+		const currentWindowPid = await this.getCurrentWindowSupervisorPid();
+		const items = sortedResults.map(result => this.createQuickPickItem(result, currentWindowPid));
 		const selection = await vscode.window.showQuickPick(items, {
 			placeHolder: vscode.l10n.t("Select a kernel supervisor to inspect"),
 			ignoreFocusOut: true
@@ -292,9 +293,10 @@ export class KallichoreInstances {
 	 * Shapes the information gathered from a supervisor into a Quick Pick entry.
 	 *
 	 * @param result The inspection result containing status/configuration data.
+	 * @param currentWindowPid The PID of the supervisor connected to this window, if any.
 	 * @returns The Quick Pick item bound to the supervisor.
 	 */
-	private static createQuickPickItem(result: SupervisorInspectionResult): SupervisorQuickPickItem {
+	private static createQuickPickItem(result: SupervisorInspectionResult, currentWindowPid: number | undefined): SupervisorQuickPickItem {
 		const workspaceLabel = result.record.workspaceName ?? vscode.l10n.t("Empty Workspace");
 		const uptimeLabel = this.formatUptime(result.status?.uptime_seconds);
 		const description = uptimeLabel
@@ -302,7 +304,7 @@ export class KallichoreInstances {
 			: vscode.l10n.t("PID {0} • {1}", result.record.state.server_pid, this.formatTransport(result.record.state.transport));
 
 		const detailParts: string[] = [];
-		const isCurrentWindowSupervisor = this.isCurrentWindowSupervisor(result.record);
+		const isCurrentWindowSupervisor = this.isCurrentWindowSupervisor(result.record, currentWindowPid);
 		if (result.status) {
 			if (result.status.sessions === 1) {
 				detailParts.push(vscode.l10n.t("1 session"));
@@ -640,10 +642,10 @@ export class KallichoreInstances {
 	 * Determines whether the supervisor is associated with the currently open workspace.
 	 *
 	 * @param record The stored supervisor record to evaluate.
+	 * @param currentPid The PID of the supervisor connected to this window, if any.
 	 * @returns  True if the supervisor is tied to the current window, false otherwise.
 	 */
-	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance): boolean {
-		const currentPid = this.getCurrentWindowSupervisorPid();
+	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance, currentPid: number | undefined): boolean {
 		if (currentPid === undefined || !record.state.server_pid) {
 			return false;
 		}
@@ -655,8 +657,8 @@ export class KallichoreInstances {
 	 *
 	 * @returns The supervisor PID if one is persisted, otherwise undefined.
 	 */
-	private static getCurrentWindowSupervisorPid(): number | undefined {
-		return this.getStoredSupervisorState()?.server_pid;
+	private static async getCurrentWindowSupervisorPid(): Promise<number | undefined> {
+		return (await this.getStoredSupervisorState())?.server_pid;
 	}
 
 	/**
@@ -664,8 +666,21 @@ export class KallichoreInstances {
 	 *
 	 * @returns The stored supervisor state, if any.
 	 */
-	private static getStoredSupervisorState(): KallichoreServerState | undefined {
+	private static async getStoredSupervisorState(): Promise<KallichoreServerState | undefined> {
 		const context = this.getContext();
+
+		// The current window's reconnect state may live in ephemeral storage
+		// (when the server shares the application's lifetime) rather than
+		// persistent storage, so check there first. Wait for the ephemeral
+		// store's initial load to complete first; a synchronous read before it
+		// is ready (e.g. just after a window reload) would race the load and
+		// miss the persisted value.
+		await positron.context.ephemeralState.whenReady;
+		const ephemeral = positron.context.ephemeralState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		if (ephemeral) {
+			return ephemeral;
+		}
+
 		if (vscode.workspace.workspaceFolders) {
 			return context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 		}
