@@ -176,8 +176,8 @@ job summary):
   - ancestor-explained check - true when a shorter matching prefix supplies the
     missing tag (the `positron-r/src/testing/` drops `@:ark` case), false for a
     genuine gap (14248 `@:interpreter`).
-- The `gh` fetch, table/diff formatting, and issue upsert are glue: validated by
-  a manual `workflow_dispatch` run, not unit-tested.
+- The `gh` fetch, table formatting, and issue upsert are glue: validated by a
+  manual `workflow_dispatch` run, not unit-tested.
 
 ### Testing from the feature branch (no merge required)
 
