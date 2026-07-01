@@ -19,11 +19,11 @@
   "src/vs/workbench/contrib/positronWelcome/": ["@:welcome"],
   "src/vs/workbench/contrib/positronModalDialogs/": ["@:modal"],
   "src/vs/workbench/services/positronModalDialogs/": ["@:modal"],
-  "src/vs/workbench/contrib/positronAssistant/": ["@:assistant", "@:posit-assistant"],
+  "src/vs/workbench/contrib/positronAssistant/": ["@:assistant"],
   "src/vs/workbench/contrib/positronRuntimeSessions/": ["@:sessions"],
   "src/vs/workbench/contrib/positronSession/": ["@:sessions"],
 
-  "extensions/positron-assistant/": ["@:assistant", "@:posit-assistant"],
+  "extensions/positron-assistant/": ["@:assistant"],
   "extensions/positron-connections/": ["@:connections"],
   "extensions/positron-notebooks/": ["@:positron-notebooks"],
   "extensions/positron-reticulate/": ["@:reticulate"],
