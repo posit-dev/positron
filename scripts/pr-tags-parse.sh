@@ -218,6 +218,13 @@ if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
 fi
 echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
 
+# De-duplicate the final tag list (order-stable). Author tags, the @:critical
+# floor, the @:ark submodule injection, and derived map tags can overlap (e.g. a
+# PR that both bumps the ark submodule and is authored with @:ark); union with an
+# empty list collapses any repeats so neither the --grep nor the PR comment shows
+# a tag twice.
+TAGS="$(union_csv_tags "$TAGS" "")"
+
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
 if [[ -n "$GITHUB_OUTPUT" ]]; then
 	echo "tags=$TAGS" >> "$GITHUB_OUTPUT"

@@ -14,10 +14,16 @@ TAGS="$2"                  # e.g., "@:critical,@:quarto"
 NO_MATCHES="${3:-false}"   # "true" when only @:critical resolved (no feature tags)
 UNMAPPED_DIRS="${4:-}"     # comma-joined Positron dirs with no entry in the tag map
 
-# Pure helpers (is_infra_only) used to gate the advisory warnings.
+# Pure helpers (is_infra_only, union_csv_tags) used below.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/lib/pr-tags-lib.sh"
+
+# Defensively de-duplicate the tags before rendering, so an overlap between
+# author-provided and auto-derived tags never shows a tag twice in the comment.
+# Order-stable; union with an empty list just collapses repeats. Empty (=@:all)
+# passes through unchanged.
+TAGS="$(union_csv_tags "$TAGS" "")"
 
 # Ensure required arguments are provided
 if [ -z "$COMMENT_MARKER" ]; then

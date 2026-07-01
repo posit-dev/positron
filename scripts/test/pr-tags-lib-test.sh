@@ -127,6 +127,11 @@ assert_eq "empty is not infra" "false" "$(is_infra_only "")"
 assert_eq "union dedup order-stable" "@:critical,@:console,@:plots" \
 	"$(union_csv_tags "@:critical,@:console" "@:console,@:plots")"
 assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
+# Single-list dedup (union with empty b) collapses an internal repeat -- the
+# idiom pr-tags-parse.sh / pr-e2e-comment.sh use so an author+derived overlap
+# (e.g. @:ark from both) isn't shown twice.
+assert_eq "union collapses internal dup" "@:critical,@:ark,@:debug" \
+	"$(union_csv_tags "@:critical,@:ark,@:debug,@:ark" "")"
 
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
