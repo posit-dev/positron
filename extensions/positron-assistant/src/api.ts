@@ -179,8 +179,6 @@ export function getEnabledTools(
 	// See IChatRuntimeSessionContext for the structure of the active
 	// session context objects
 	const activeSessions: Set<string> = new Set();
-	let hasVariables = false;
-	let hasConsoleSessions = false;
 	const allReferences = request?.references || [];
 	for (const reference of allReferences) {
 		const value = reference.value as any;
@@ -188,14 +186,6 @@ export function getEnabledTools(
 		// Build a list of languages for which we have active sessions.
 		if (value.activeSession) {
 			activeSessions.add(value.activeSession.languageId);
-			if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
-				hasConsoleSessions = true;
-			}
-		}
-
-		// Check if there are variables defined in the session.
-		if (value.variables && value.variables.length > 0) {
-			hasVariables = true;
 		}
 	}
 
@@ -235,13 +225,6 @@ export function getEnabledTools(
 		// If the tool requires a workspace, but no workspace is open, don't allow the tool.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
 			disabledTools.push({ name: tool.name, reason: 'Requires workspace but none is open' });
-			continue;
-		}
-
-		// If the tool requires an active session, but no active session
-		// is available, don't allow the tool.
-		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIVE_SESSION) && activeSessions.size === 0) {
-			disabledTools.push({ name: tool.name, reason: 'Requires active session but none available' });
 			continue;
 		}
 
@@ -285,11 +268,10 @@ export function getEnabledTools(
 			// to see if it requires confirmation, but that information isn't
 			// currently exposed in `vscode.LanguageModelChatTool`.
 			case PositronAssistantToolName.ExecuteCode:
-				// The tool can only be used with console sessions and
-				// when in agent mode; it does not currently support
-				// notebook mode.
-				if (!(inChatPane && hasConsoleSessions && isAgentMode)) {
-					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, console sessions, and agent mode' });
+				// Only available in the Chat pane in agent mode; it does not
+				// currently support notebook mode.
+				if (!(inChatPane && isAgentMode)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane and agent mode' });
 					continue;
 				}
 				break;
@@ -327,20 +309,6 @@ export function getEnabledTools(
 				// Only available in Edit or Agent mode (creates something)
 				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
 					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, notebook mode, and edit/agent mode' });
-					continue;
-				}
-				break;
-			// Only include the getTableSummary tool when there are variables available
-			case PositronAssistantToolName.GetTableSummary:
-				if (!hasVariables) {
-					disabledTools.push({ name: tool.name, reason: 'Requires variables in session' });
-					continue;
-				}
-				break;
-			// Only include the inspectVariables tool if there are variables defined.
-			case PositronAssistantToolName.InspectVariables:
-				if (!hasVariables) {
-					disabledTools.push({ name: tool.name, reason: 'Requires variables in session' });
 					continue;
 				}
 				break;

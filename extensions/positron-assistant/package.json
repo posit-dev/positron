@@ -189,7 +189,7 @@
           "properties": {
             "sessionIdentifier": {
               "type": "string",
-              "description": "The identifier of the session to execute the code in."
+              "description": "The identifier of the session to execute the code in. Optional; defaults to the active session for the language."
             },
             "code": {
               "type": "string",
@@ -223,7 +223,7 @@
           "properties": {
             "sessionIdentifier": {
               "type": "string",
-              "description": "The identifier of the session to inspect."
+              "description": "The identifier of the session to inspect. Optional; defaults to the active session."
             },
             "variableNames": {
               "type": "array",
@@ -235,7 +235,6 @@
             }
           },
           "required": [
-            "sessionIdentifier",
             "variableNames"
           ]
         },
@@ -270,7 +269,7 @@
           "properties": {
             "sessionIdentifier": {
               "type": "string",
-              "description": "The identifier of the session that contains the tables."
+              "description": "The identifier of the session that contains the tables. Optional; defaults to the active session."
             },
             "variableNames": {
               "type": "array",
@@ -282,7 +281,6 @@
             }
           },
           "required": [
-            "sessionIdentifier",
             "variableNames"
           ]
         },

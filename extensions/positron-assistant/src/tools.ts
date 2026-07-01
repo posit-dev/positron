@@ -73,6 +73,23 @@ export async function resolveVariableNamesToAccessKeys(
 	};
 }
 
+/**
+ * Resolves the session identifier a session tool should act on.
+ *
+ * Uses the identifier the model supplied, or falls back to the foreground
+ * session when none is given.
+ *
+ * @param sessionIdentifier The identifier supplied by the model, if any.
+ * @returns A session identifier, or undefined if no session is available.
+ */
+async function resolveSessionIdentifier(sessionIdentifier?: string): Promise<string | undefined> {
+	if (sessionIdentifier && sessionIdentifier !== 'undefined') {
+		return sessionIdentifier;
+	}
+	const foregroundSession = await positron.runtime.getForegroundSession();
+	return foregroundSession?.metadata.sessionId;
+}
+
 
 /**
  * Registers tools for the Positron Assistant.
@@ -240,8 +257,10 @@ export function registerAssistantTools(
 		 */
 		invoke: async (options, token) => {
 
-			// If no session identifier is provided, return an empty array.
-			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+			const sessionIdentifier = await resolveSessionIdentifier(options.input.sessionIdentifier);
+
+			// If no session is available, return an empty array.
+			if (!sessionIdentifier) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
@@ -253,7 +272,7 @@ export function registerAssistantTools(
 			let notFoundMessage = '';
 
 			if (variableNames.length > 0) {
-				const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+				const resolved = await resolveVariableNamesToAccessKeys(sessionIdentifier, variableNames);
 				accessKeys = resolved.accessKeys;
 				if (!resolved.allFound) {
 					notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available variables instead.\n\n`;
@@ -262,7 +281,7 @@ export function registerAssistantTools(
 
 			// Call the Positron API to get the session variables
 			const result = await positron.runtime.getSessionVariables(
-				options.input.sessionIdentifier,
+				sessionIdentifier,
 				accessKeys);
 
 			// Return the result as a JSON string to the model
@@ -283,14 +302,16 @@ export function registerAssistantTools(
 		 */
 		invoke: async (options, token) => {
 
-			// If no session identifier is provided, return an empty array.
-			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+			const sessionIdentifier = await resolveSessionIdentifier(options.input.sessionIdentifier);
+
+			// If no session is available, return an empty array.
+			if (!sessionIdentifier) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
 			}
 
-			const session = await positron.runtime.getSession(options.input.sessionIdentifier);
+			const session = await positron.runtime.getSession(sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
@@ -306,7 +327,7 @@ export function registerAssistantTools(
 
 			// Resolve variable names to access keys
 			const variableNames = options.input.variableNames || [];
-			const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+			const resolved = await resolveVariableNamesToAccessKeys(sessionIdentifier, variableNames);
 			let notFoundMessage = '';
 			if (!resolved.allFound) {
 				notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available table summaries instead.\n\n`;
@@ -314,7 +335,7 @@ export function registerAssistantTools(
 
 			// Call the Positron API to get the session variable data summaries
 			const result = await positron.runtime.querySessionTables(
-				options.input.sessionIdentifier,
+				sessionIdentifier,
 				resolved.accessKeys,
 				['summary_stats']);
 
