@@ -270,6 +270,11 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				provider: positron.StatementRangeProvider): vscode.Disposable {
 				return extHostLanguageFeatures.registerStatementRangeProvider(extension, selector, provider);
 			},
+			registerInputBoundaryProvider(
+				selector: vscode.DocumentSelector,
+				provider: positron.InputBoundaryProvider): vscode.Disposable {
+				return extHostLanguageFeatures.registerInputBoundaryProvider(extension, selector, provider);
+			},
 			registerHelpTopicProvider(
 				selector: vscode.DocumentSelector,
 				provider: positron.HelpTopicProvider): vscode.Disposable {
