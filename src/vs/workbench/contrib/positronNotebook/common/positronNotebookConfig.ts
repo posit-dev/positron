@@ -14,6 +14,10 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 // Configuration key for the Positron notebook setting
 export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 
+// Single switch that gates all AI features in Positron notebooks. Sits below the
+// global `ai.enabled` switch and above each feature's own settings.
+export const NOTEBOOK_AI_ENABLED_KEY = 'notebook.ai.enabled';
+
 // Configuration key for assistant auto-follow setting
 export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.assistant.notebook.autoFollow';
 
@@ -51,6 +55,17 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
 				'Use the Positron Notebook Editor for `.ipynb` files. When disabled, Positron uses the legacy notebook editor.'
+			),
+			tags: ['positronNotebook'],
+			scope: ConfigurationScope.WINDOW,
+		},
+		[NOTEBOOK_AI_ENABLED_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.notebook.ai.enabled',
+				'Enable AI features in notebooks, such as ghost cell suggestions, the notebook assistant, and Fix and Explain on cell errors. When disabled, all AI features in notebooks are turned off. The main AI features setting ({0}) must also be enabled.',
+				'`#ai.enabled#`'
 			),
 			tags: ['positronNotebook'],
 			scope: ConfigurationScope.WINDOW,

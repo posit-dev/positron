@@ -16,7 +16,7 @@ import { isUvInstalled } from '../../pythonEnvironments/common/environmentManage
 import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
-import { findWorkspaceRequirementsFile } from './workspaceRequirements';
+import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import {
     addInstalledToRequirements,
     isAutoUpdateRequirementsEnabled,
@@ -279,6 +279,12 @@ export class UvPackageManager implements IPackageManager {
      * Path to the workspace-root `requirements.txt` if present, else undefined.
      */
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        // Opt-out: when the setting is disabled, ignore requirements.txt so the
+        // env workflow falls back to the uv pip freeze re-resolve path. This does
+        // not affect the project (uv add) workflow, which is selected separately.
+        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+            return undefined;
+        }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
         return findWorkspaceRequirementsFile(workspaceService, fileSystem);

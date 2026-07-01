@@ -48,18 +48,41 @@ async function createWatchers(testingTools: TestingTools, packageRoot: vscode.Ur
 	const testFileWatcher = vscode.workspace.createFileSystemWatcher(testFilePattern);
 
 	testFileWatcher.onDidCreate((uri) => {
-		getOrCreateFileItem(testingTools, uri);
+		LOGGER.info(`testFileWatcher onDidCreate fired for ${uri.fsPath}`);
+		syncFileItemIfMaterialized(testingTools, uri);
 		// important to know when we go from 0 to 1 test file
 		refreshTestthatStatus();
 	});
-	testFileWatcher.onDidChange((uri) => parseTestsFromFile(testingTools, getOrCreateFileItem(testingTools, uri)));
+	testFileWatcher.onDidChange((uri) => {
+		LOGGER.info(`testFileWatcher onDidChange fired for ${uri.fsPath}`);
+		syncFileItemIfMaterialized(testingTools, uri);
+	});
 	testFileWatcher.onDidDelete((uri) => {
+		LOGGER.info(`testFileWatcher onDidDelete fired for ${uri.fsPath}`);
 		testingTools.controller.items.delete(uriToFileNodeId(uri));
 		// important to know if there are no test files left
 		refreshTestthatStatus();
 	});
 
 	return [dotRWatcher, folderWatcher, testFileWatcher];
+}
+
+/**
+ * Re-parse a test file's children in response to a watcher event, but only if
+ * the file node has been previously materialized. A node gains children only
+ * once it has been expanded (materialized); until then, it stays lazy and the
+ * resolve handler parses it on demand, so there's nothing to keep in sync. We
+ * handle both create and change events here. A typical edit surfaces via the
+ * expected onDidChange. But other out-of-band edits (e.g. by coding agents)
+ * might mutate a file in a way that surfaces via onDidCreate. An agent is
+ * likely to write the entire file to a temporary location, then rename
+ * (overwrite) the actual target, because an atomic write is safer.
+ */
+function syncFileItemIfMaterialized(testingTools: TestingTools, uri: vscode.Uri): void {
+	const fileItem = getOrCreateFileItem(testingTools, uri);
+	if (fileItem.children.size > 0) {
+		parseTestsFromFile(testingTools, fileItem);
+	}
 }
 
 export async function refreshTestthatStatus(): Promise<void> {
