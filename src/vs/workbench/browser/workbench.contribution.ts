@@ -14,7 +14,7 @@ import { NotificationsPosition, NotificationsSettings } from '../common/notifica
 import { CustomEditorLabelService } from '../services/editor/common/customEditorLabelService.js';
 // --- Start Positron ---
 // Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
-import { ActivityBarPosition, /*EditorActionsLocation,*/ EditorTabsMode, LayoutSettings } from '../services/layout/browser/layoutService.js';
+import { ActivityBarPosition, /*EditorActionsLocation,*/ EditorTabsMode, LayoutSettings, SecondarySideBarLocation } from '../services/layout/browser/layoutService.js';
 // --- End Positron ---
 import { defaultWindowTitle, defaultWindowTitleSeparator } from './parts/titlebar/windowTitle.js';
 
@@ -615,6 +615,17 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('workbench.secondarySideBar.defaultVisibility.visible', "The secondary side bar is visible by default."),
 					localize('workbench.secondarySideBar.defaultVisibility.maximizedInWorkspace', "The secondary side bar is visible and maximized by default if a workspace is opened."),
 					localize('workbench.secondarySideBar.defaultVisibility.maximized', "The secondary side bar is visible and maximized by default.")
+				]
+			},
+			[LayoutSettings.SECONDARY_SIDE_BAR_LOCATION]: {
+				'type': 'string',
+				'enum': [SecondarySideBarLocation.OPPOSITE, SecondarySideBarLocation.LEFT, SecondarySideBarLocation.RIGHT],
+				'default': SecondarySideBarLocation.OPPOSITE,
+				'description': localize('secondarySideBarLocation', "Controls the location of the secondary side bar relative to the primary side bar."),
+				'enumDescriptions': [
+					localize('workbench.secondarySideBar.location.opposite', "Show the secondary side bar on the opposite side of the primary side bar."),
+					localize('workbench.secondarySideBar.location.left', "Show the secondary side bar on the left."),
+					localize('workbench.secondarySideBar.location.right', "Show the secondary side bar on the right.")
 				]
 			},
 			'workbench.secondarySideBar.forceMaximized': {
