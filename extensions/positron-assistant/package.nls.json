@@ -6,8 +6,6 @@
 	"commands.enableAssistant.title": "Open settings to enable Positron Assistant",
 	"commands.configureProviders.title": "Configure Language Model Providers",
 	"commands.logStoredModels.title": "Log the stored language models",
-	"commands.generateCommitMessage.title": "Generate Commit Message",
-	"commands.cancelGenerateCommitMessage.title": "Cancel Generate Commit Message",
 	"commands.managePromptFiles.title": "Manage Prompt Files",
 	"commands.collectDiagnostics.title": "Collect Diagnostics",
 	"commands.copilot.signin.title": "Copilot Sign In",

@@ -140,18 +140,6 @@
       }
     ],
     "menus": {
-      "scm/inputBox": [
-        {
-          "command": "positron-assistant.generateCommitMessage",
-          "group": "navigation",
-          "when": "!positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
-        },
-        {
-          "command": "positron-assistant.cancelGenerateCommitMessage",
-          "group": "navigation",
-          "when": "positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
-        }
-      ],
       "commandPalette": [
         {
           "command": "positron-assistant.configureProviders",
@@ -189,20 +177,6 @@
         "title": "%commands.logStoredModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
-      },
-      {
-        "command": "positron-assistant.generateCommitMessage",
-        "title": "%commands.generateCommitMessage.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
-        "icon": "$(sparkle)"
-      },
-      {
-        "command": "positron-assistant.cancelGenerateCommitMessage",
-        "title": "%commands.cancelGenerateCommitMessage.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
-        "icon": "$(stop)"
       },
       {
         "command": "positron-assistant.managePromptFiles",
