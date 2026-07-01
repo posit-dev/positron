@@ -86,8 +86,8 @@ pure check over the map keys, unit-tested alongside the primitives.
 - Output (stdout, Markdown) - two tables split by the action they imply:
   1. **Summary line** - PRs examined, gaps, over-tags, clean.
   2. **Gaps table** - PRs where the author set a tag the map did not derive
-     (consider *adding* to the map). Columns: `PR | Missing | Candidate entry |
-     Title`.
+     (consider *adding* to the map). Columns: `PR | Title | Missing | Candidate
+     entry`.
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
        resolves in both the tracking issue and the job summary. (Repo URL from
        `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
@@ -99,8 +99,8 @@ pure check over the map keys, unit-tested alongside the primitives.
      tag(s) to the candidate entry, PR context as a comment. *Proposals to review
      and apply by hand*, not auto-applied.
   4. **Over-tags table** - PRs where the map derived a tag the author did not set
-     (*review*: over-tag vs. good catch). Columns: `PR | Extra | Source entry |
-     Title`. `Extra` = derived minus author; `Source entry` = the entry that
+     (*review*: over-tag vs. good catch). Columns: `PR | Title | Extra | Source
+     entry`. `Extra` = derived minus author; `Source entry` = the entry that
      produced it. **Review-only: no suggested diffs**, because over-tag and
      good-catch are indistinguishable to the tool.
 - A PR with both a gap and an over-tag appears in both tables (each row targets a
@@ -147,10 +147,10 @@ job summary):
 >
 > ### Gaps - author set a tag the map did not derive (consider adding)
 >
-> | PR | Missing | Candidate entry | Title |
-> |----|---------|-----------------|-------|
-> | [#14248](https://github.com/posit-dev/positron/pull/14248) | @:interpreter | `extensions/positron-r/` | Fix runtime cache missing R versions |
-> | [#14336](https://github.com/posit-dev/positron/pull/14336) | @:ark | `extensions/positron-r/src/testing/` (review) | Multi-line desc in R test explorer |
+> | PR | Title | Missing | Candidate entry |
+> |----|-------|---------|-----------------|
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | `extensions/positron-r/` |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark | `extensions/positron-r/src/testing/` (review) |
 >
 > #### Suggested map edits (review before applying)
 >
@@ -167,10 +167,10 @@ job summary):
 >
 > ### Over-tags - map derived a tag the author did not set (review only)
 >
-> | PR | Extra | Source entry | Title |
-> |----|-------|--------------|-------|
-> | [#14502](https://github.com/posit-dev/positron/pull/14502) | @:console,@:interpreter | `extensions/positron-python/` | Filter Packages pane version picker |
-> | [#14447](https://github.com/posit-dev/positron/pull/14447) | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` | Gate AI on ai.enabled |
+> | PR | Title | Extra | Source entry |
+> |----|-------|-------|--------------|
+> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:console,@:interpreter | `extensions/positron-python/` |
+> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` |
 
 ## Testing
 
