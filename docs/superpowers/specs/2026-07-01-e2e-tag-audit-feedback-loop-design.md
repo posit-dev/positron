@@ -85,17 +85,17 @@ pure check over the map keys, unit-tested alongside the primitives.
     are excluded from the comparison).
   - Fetch changed files -> `derive_map_tags`.
   - Compute gap and review via `csv_minus`.
-  - **Suppress gaps on non-source PRs.** A `+gap` is only reported when the PR
-    changed derivable source (i.e. it has a non-empty `Entry` / `longest_map_prefix`
-    resolves for at least one changed file). Test-only, docs-only, and lockfile-only
-    PRs are QA/infra work that the author tags by hand; on those every author tag
-    would otherwise show as a false gap against an empty derivation. Over-tags
-    (`-`) are unaffected: they only exist when the map derived something, which
-    already implies a source change.
+  - **Suppress gaps on non-source PRs.** An `under:` gap is only reported when the
+    PR changed derivable source (i.e. it has a non-empty `Entry` /
+    `longest_map_prefix` resolves for at least one changed file). Test-only,
+    docs-only, and lockfile-only PRs are QA/infra work that the author tags by
+    hand; on those every author tag would otherwise show as a false gap against an
+    empty derivation. Over-tags are unaffected: they only exist when the map
+    derived something, which already implies a source change.
 - Output (stdout, Markdown) - one table, one row per divergent PR:
   1. **Summary** - PRs examined, then count bullets in order: `Clean`,
-     `Under-tagged` (the `+` rows), `Over-tagged` (the `-` rows). Same wording as
-     the Slack bullets so the two match.
+     `Under-tagged` (the `under:` rows), `Over-tagged` (the `over:` rows). Same
+     wording as the Slack bullets so the two match.
   2. **Delta table** - columns: `PR | Title | Author | Derived | Delta | Entry`.
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
        resolves in the job summary and any Slack link. (Repo URL from
@@ -103,20 +103,24 @@ pure check over the map keys, unit-tested alongside the primitives.
        `posit-dev/positron` origin locally.)
      - `Author` (what the PR was actually tagged) and `Derived` (what the map
        produced) are the baseline for reference.
-     - `Delta` = signed, comma-separated tags:
-       - **`+@:X`** = author had it, map missed it -> consider *adding* (gap).
-       - **`-@:X`** = map produced it, author did not set it -> *review*
-         (over-tag to narrow, or a good catch to keep).
-       A `+` that is ancestor-explained (a leaf deliberately narrowed the tag
-       away) is suffixed `(review)` so it isn't mistaken for a real gap.
+     - `Delta` = up to two labelled lines, stacked with `<br>` (labels match the
+       `Under-tagged`/`Over-tagged` counts, so there is no `+`/`-` sign to decode):
+       - **`under: <tags>`** = tags the author set that the map missed -> consider
+         *adding* at `Entry` (gap). A tag that is ancestor-explained (a leaf
+         deliberately narrowed it away) is suffixed `(review)` so it isn't
+         mistaken for a real gap.
+       - **`over: <tags>`** = tags the map produced that the author did not set ->
+         *review* (over-tag to narrow, or a good catch to keep).
+       A row shows the `under:` line, the `over:` line, or both.
      - `Entry` = `longest_map_prefix` for the changed source files - the map key
-       to act from (add a `+` there / narrow a `-` there). No auto-generated diff:
-       on multi-feature PRs the missing tag often belongs to a *different* feature
-       than the changed source dir (e.g. an author tagging a test's coverage), so
-       a generated diff attributes to the wrong entry. The human writes the edit
-       from `Entry`; for a clear gap like #14248 it's obvious, for a
-       cross-cutting one it's correctly a no-op.
-  3. **Legend** - a one-line key under the table explaining `+` / `-` / `(review)`.
+       to act from (add an `under:` tag there / narrow an `over:` tag there). No
+       auto-generated diff: on multi-feature PRs the missing tag often belongs to
+       a *different* feature than the changed source dir (e.g. an author tagging a
+       test's coverage), so a generated diff attributes to the wrong entry. The
+       human writes the edit from `Entry`; for a clear gap like #14248 it's
+       obvious, for a cross-cutting one it's correctly a no-op.
+  3. **Legend** - a one-line key under the table explaining `under:` / `over:` /
+     `(review)`.
 - Read-only. No writes to the map or GitHub.
 
 ### Component B: `.github/workflows/e2e-tag-audit.yml`
@@ -194,14 +198,14 @@ the summary block below and links to it):
 >
 > | PR | Title | Author | Derived | Delta | Entry |
 > |----|-------|--------|---------|-------|-------|
-> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | @:ark | +@:interpreter, -@:ark | `extensions/positron-r/` |
-> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark,@:test-explorer | @:test-explorer | +@:ark (review) | `extensions/positron-r/src/testing/` |
-> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | -@:console, -@:interpreter | `extensions/positron-python/` |
-> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | -@:console, -@:posit-assistant, -@:positron-notebooks | `positronConsole/`, `positronNotebook/` |
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | Fix runtime cache missing R versions | @:interpreter | @:ark | under: @:interpreter<br>over: @:ark | `extensions/positron-r/` |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | Multi-line desc in R test explorer | @:ark,@:test-explorer | @:test-explorer | under: @:ark (review) | `extensions/positron-r/src/testing/` |
+> | [#14502](https://github.com/posit-dev/positron/pull/14502) | Filter Packages pane version picker | @:packages-pane | @:console,@:interpreter,@:packages-pane | over: @:console, @:interpreter | `extensions/positron-python/` |
+> | [#14447](https://github.com/posit-dev/positron/pull/14447) | Gate AI on ai.enabled | @:assistant | @:assistant,@:console,@:posit-assistant,@:positron-notebooks | over: @:console, @:posit-assistant, @:positron-notebooks | `positronConsole/`, `positronNotebook/` |
 >
-> **Legend:** `+` author had it, map missed it (consider adding at `Entry`) - `-`
-> map produced it, author didn't (review: over-tag or good catch) - `(review)`
-> a leaf intentionally narrowed this tag away.
+> **Legend:** `under:` map missed a tag the author set (consider adding at
+> `Entry`) - `over:` map produced a tag the author didn't (review: over-tag or
+> good catch) - `(review)` a leaf intentionally narrowed this tag away.
 
 ## Testing
 
@@ -245,10 +249,10 @@ the summary block below and links to it):
   real-PR testing showed that on multi-feature PRs (e.g. #14319, a flaky
   session-state *test* that only changed `positronConsole/` source) a generated
   diff attributes the author's extra tags to the wrong entry. Deliberate.
-- **The `+` (gap) signal is noisier than `-` (over-tag).** Author tags can exceed
+- **The `under:` (gap) signal is noisier than `over:`.** Author tags can exceed
   what the changed source dir maps to (cross-cutting knowledge, test coverage);
-  the source-PR filter and the `(review)` flag remove the bulk, but some `+` rows
-  are still "author knew more than the dir implies," not map bugs. Triage
+  the source-PR filter and the `(review)` flag remove the bulk, but some `under:`
+  rows are still "author knew more than the dir implies," not map bugs. Triage
   accordingly.
 - **Cron DST drift** of 1 hour - accepted for a weekly report.
 - **Slack is ephemeral; the job summary is the record.** The message is the

@@ -70,24 +70,33 @@ while IFS=$'\t' read -r num title b64; do
 
 	if [[ -z "$gaps" && -z "$extras" ]]; then clean=$((clean + 1)); continue; fi
 
-	delta=""
+	# Delta cell: an "under:" line and/or an "over:" line, stacked with <br> so
+	# the two directions read on separate rows in the table cell. Labels match the
+	# summary's Under-tagged/Over-tagged counts, so no +/- sign to decode.
+	under_list=""; over_list=""
 	IFS=',' read -ra G <<< "$gaps"
 	for g in "${G[@]-}"; do
 		[[ -z "$g" ]] && continue
 		under=$((under + 1))
 		if tag_ancestor_explained "$g" "$files" "$MAP"; then
-			delta+="+$g (review), "
+			under_list+="$g (review), "
 		else
-			delta+="+$g, "
+			under_list+="$g, "
 		fi
 	done
 	IFS=',' read -ra E <<< "$extras"
 	for e in "${E[@]-}"; do
 		[[ -z "$e" ]] && continue
 		over=$((over + 1))
-		delta+="-$e, "
+		over_list+="$e, "
 	done
-	delta="${delta%, }"
+	under_list="${under_list%, }"; over_list="${over_list%, }"
+	delta=""
+	[[ -n "$under_list" ]] && delta="under: $under_list"
+	if [[ -n "$over_list" ]]; then
+		[[ -n "$delta" ]] && delta="$delta<br>"
+		delta="${delta}over: $over_list"
+	fi
 
 	rows+="| [#$num]($SERVER/$REPO/pull/$num) | $title | ${author:--} | ${auto:--} | $delta | \`${entry:--}\` |"$'\n'
 done <<< "$PRS"
@@ -102,7 +111,7 @@ if [[ -n "$rows" ]]; then
 	printf '| PR | Title | Author | Derived | Delta | Entry |\n'
 	printf '|----|-------|--------|---------|-------|-------|\n'
 	printf '%s\n' "${rows%$'\n'}"
-	printf '\n**Legend:** `+` author had it, map missed it (add at Entry)  -  `-` map produced it, author did not (review)  -  `(review)` a leaf intentionally narrowed it away\n'
+	printf '\n**Legend:** `under:` map missed a tag the author set (candidate to add at Entry)  -  `over:` map produced a tag the author did not set (review)  -  `(review)` a leaf intentionally narrowed the tag away\n'
 fi
 
 # --- machine-readable counts for the workflow (Slack) ---
