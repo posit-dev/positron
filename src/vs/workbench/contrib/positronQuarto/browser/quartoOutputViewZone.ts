@@ -115,6 +115,27 @@ export interface QuartoOutputViewZoneOptions {
 }
 
 /**
+ * Mark a webview overlay so it is hidden whenever its anchor element is not
+ * visible.
+ *
+ * Inline output webviews are absolutely positioned (via CSS anchor
+ * positioning) over a placeholder element inside the editor's view zone, but
+ * the webview itself is mounted at the workbench root so it can't be clipped by
+ * normal editor scrolling. When the view zone scrolls out of Monaco's rendered
+ * range its placeholder (the anchor) is removed from the DOM, at which point the
+ * fixed-position webview falls back to its static position and "sticks" in the
+ * corner of the editor. `position-visibility: anchors-visible` strongly hides
+ * the overlay whenever its anchor is scrolled out of view or removed, which
+ * fixes the sticking. See posit-dev/positron#13978.
+ *
+ * This is deliberately scoped to Quarto inline output webviews rather than
+ * applied to the shared overlay layout element.
+ */
+export function hideWebviewOverlayWhenAnchorHidden(overlayContent: HTMLElement): void {
+	overlayContent.style.setProperty('position-visibility', 'anchors-visible');
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -2047,9 +2068,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		for (const [outputId, webview] of this._webviewsByOutputId) {
 			const container = this._webviewContainersByOutputId.get(outputId);
 			if (container) {
-				webview.webview.setAnchorElement(container, this._clippingContainer);
+				this._anchorWebview(webview, container);
 			}
 		}
+	}
+
+	/**
+	 * Anchor an output webview over its placeholder container and clip it to the
+	 * editor, then ensure the overlay hides itself when its anchor is no longer
+	 * visible (see {@link hideWebviewOverlayWhenAnchorHidden}).
+	 */
+	private _anchorWebview(webview: INotebookOutputWebview, container: HTMLElement): void {
+		webview.webview.setAnchorElement(container, this._clippingContainer);
+		hideWebviewOverlayWhenAnchorHidden(webview.webview.container);
 	}
 
 	private _renderAllOutputs(): void {
@@ -2551,7 +2582,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+			this._anchorWebview(webview, webviewContainer);
 
 			// Listen for webview messages to get the actual content height
 			// The webview sends webviewMetrics messages with bodyScrollHeight when content loads/resizes
@@ -2564,7 +2595,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					webviewContainer.style.height = `${boundedHeight}px`;
 					// Update the view zone height and re-layout the webview
 					this._updateHeight();
-					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+					this._anchorWebview(webview, webviewContainer);
 				}
 			}));
 
@@ -2578,7 +2609,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.setAnchorElement(webviewContainer, this._clippingContainer);
+					this._anchorWebview(webview, webviewContainer);
 				}
 			}));
 
@@ -2640,7 +2671,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// Claim and position the webview
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
-			webview.webview.setAnchorElement(container, this._clippingContainer);
+			this._anchorWebview(webview, container);
 
 			// Listen for webview messages to get the actual content height
 			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
@@ -2649,7 +2680,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
 					container.style.height = `${boundedHeight}px`;
 					this._updateHeight();
-					webview.webview.setAnchorElement(container, this._clippingContainer);
+					this._anchorWebview(webview, container);
 				}
 			}));
 
@@ -2663,7 +2694,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			// but we keep this as a backup for any scroll events that might be missed
 			this._webviewDisposables.add(this._editor.onDidScrollChange(() => {
 				if (this._zoneId) {
-					webview.webview.setAnchorElement(container, this._clippingContainer);
+					this._anchorWebview(webview, container);
 				}
 			}));
 
