@@ -20,8 +20,8 @@ import { IEditorProgressService } from '../../../../../platform/progress/common/
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { PositronCellEditorOptions } from './PositronCellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
-import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { $, addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -93,14 +93,17 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 	</>;
 }
 
+interface ICellEditor extends IDisposable {
+	element: HTMLElement;
+}
+
 function createCellEditor(
-	container: HTMLDivElement,
 	cell: PositronNotebookCellGeneral,
 	instance: IPositronNotebookInstance,
 	configurationService: IConfigurationService,
 	contextKeyService: IContextKeyService,
 	logService: ILogService,
-): IDisposable {
+): ICellEditor {
 	if (!cell.scopedContextKeyService) {
 		throw new Error('Cell does not have a scoped context key service');
 	}
@@ -111,13 +114,9 @@ function createCellEditor(
 
 	// Create the editor DOM node. The editor owns its node (rather than React)
 	// so that it can be reparented to another CellEditorMonacoWidget.
-	const element = container.ownerDocument.createElement('div');
+	const element = $('.positron-cell-editor-monaco-widget');
 	element.className = 'positron-cell-editor-monaco-widget';
 	element.tabIndex = -1;
-
-	// Append the editor node to the container and ensure it's removed on dispose.
-	container.appendChild(element);
-	disposables.add(toDisposable(() => element.remove()));
 
 	// Create a scoped context key service for this editor as a child of the cell's scope.
 	// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
@@ -309,7 +308,10 @@ function createCellEditor(
 
 	logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
-	return disposables;
+	return {
+		element,
+		dispose: () => disposables.dispose(),
+	};
 }
 
 /**
@@ -329,18 +331,19 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	// Create the editor
 	React.useEffect(() => {
 		if (!containerRef.current || !cell.scopedContextKeyService) { return; }
-		const disposables = createCellEditor(
-			containerRef.current,
+		const editor = createCellEditor(
 			cell,
 			instance,
 			services.configurationService,
 			services.contextKeyService,
 			services.logService
 		);
+		containerRef.current.appendChild(editor.element);
 
 		return () => {
 			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
-			disposables.dispose();
+			editor.element.remove();
+			editor.dispose();
 			cell.detachEditor();
 		};
 	}, [cell, instance, services.configurationService, services.contextKeyService, services.logService]);
