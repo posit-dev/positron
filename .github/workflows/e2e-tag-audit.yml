@@ -27,8 +27,9 @@ jobs:
         id: audit
         env:
           GH_TOKEN: ${{ github.token }}
+          SINCE_INPUT: ${{ github.event.inputs.since }}
         run: |
-          SINCE="${{ github.event.inputs.since }}"
+          SINCE="$SINCE_INPUT"
           if [ -z "$SINCE" ]; then SINCE="$(date -u -d '7 days ago' +%Y-%m-%d)"; fi
           bash scripts/audit-e2e-tags.sh --since "$SINCE" | tee "$GITHUB_STEP_SUMMARY"
 

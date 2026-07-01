@@ -33,12 +33,12 @@ if [[ "$MODE" == "since" ]]; then
 	PRS="$(gh pr list --repo "$REPO" --state merged --base main --limit 500 \
 		--search "merged:>=$SINCE" \
 		--json number,title,body \
-		--jq '.[] | [(.number|tostring),(.title|gsub("\t";" ")),(.body // ""|@base64)] | @tsv')"
+		--jq '.[] | [(.number|tostring),(.title|gsub("\t";" ")|gsub("[|]";"\\|")),(.body // ""|@base64)] | @tsv')"
 	WEEK="Week of $(date -u -d "$SINCE" +'%b %-d' 2>/dev/null || echo "$SINCE")"
 else
 	PRS="$(gh pr list --repo "$REPO" --state merged --base main --limit "$((N + SKIP))" \
 		--json number,title,body \
-		--jq '.[] | [(.number|tostring),(.title|gsub("\t";" ")),(.body // ""|@base64)] | @tsv' \
+		--jq '.[] | [(.number|tostring),(.title|gsub("\t";" ")|gsub("[|]";"\\|")),(.body // ""|@base64)] | @tsv' \
 		| tail -n +"$((SKIP + 1))")"
 	WEEK="recent $N PRs"
 fi
