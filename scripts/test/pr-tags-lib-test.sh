@@ -136,6 +136,12 @@ assert_eq "unmapped extension flagged" "extensions/positron-bar/" \
 # services/ paths are handled like contrib/: mapped -> not flagged, unmapped -> flagged.
 assert_eq "unmapped services dir flagged" "src/vs/workbench/services/positronBaz/" \
 	"$(find_unmapped_positron_dirs "$(printf 'src/vs/workbench/services/positronConsole/a.ts\nsrc/vs/workbench/services/positronBaz/b.ts')" "$MAP2")"
+# Tree-wide: a positron dir outside contrib/services/extensions (e.g. editor/contrib) is still flagged.
+assert_eq "unmapped editor-contrib dir flagged" "src/vs/editor/contrib/positronFoo/" \
+	"$(find_unmapped_positron_dirs "src/vs/editor/contrib/positronFoo/browser/x.ts" "$MAP2")"
+# Test/build positron dirs are never flagged (not feature source).
+assert_eq "test-path positron dir ignored" "" \
+	"$(find_unmapped_positron_dirs "src/vs/base/test/common/positron/x.ts" "$MAP2")"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

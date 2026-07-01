@@ -116,26 +116,25 @@ derive_test_file_tags() {
 }
 
 # find_unmapped_positron_dirs <changed_files> <map_file>
-# Echoes (newline-separated, unique) the Positron source dirs/extensions this PR
-# touches that have NO key in the map. The dir is the path truncated to its
-# positron* / positron-* segment with a trailing slash. A dir counts as mapped
-# when its prefix is a key in the map (even with a [] value). Used for PR-time
-# map-rot feedback; test dirs are never considered (they are not in the map).
+# Echoes (newline-separated, unique) the Positron source dirs this PR touches
+# that have NO key in the map. The dir is the path truncated to its FIRST
+# positron* segment with a trailing slash, wherever it lives under src/ or
+# extensions/ (e.g. src/vs/editor/contrib/positronHelp/, not just contrib/
+# services/extensions). A dir counts as mapped when its prefix is a key in the
+# map (even with a [] value). Test/build/vendor dirs are skipped -- they're not
+# feature source and are not in the map (mirrors check-e2e-tag-map.sh).
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
 	local -a out=()
 	while IFS= read -r file; do
 		[[ -z "$file" ]] && continue
-		case "$file" in
-			src/vs/workbench/contrib/positron*/*)
-				dir="$(printf '%s' "$file" | sed -E 's#^(src/vs/workbench/contrib/[^/]+/).*#\1#')" ;;
-			src/vs/workbench/services/positron*/*)
-				dir="$(printf '%s' "$file" | sed -E 's#^(src/vs/workbench/services/[^/]+/).*#\1#')" ;;
-			extensions/positron-*/*)
-				dir="$(printf '%s' "$file" | sed -E 's#^(extensions/[^/]+/).*#\1#')" ;;
-			*) continue ;;
-		esac
+		case "$file" in src/*|extensions/*) ;; *) continue ;; esac
+		# Truncate to the first positron* path segment (sed matches leftmost).
+		dir="$(printf '%s' "$file" | sed -nE 's#(positron[^/]*)/.*#\1/#p')"
+		[[ -z "$dir" ]] && continue
+		case "$dir" in */out/*|*/node_modules/*) continue ;; esac
+		printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && continue
 		if ! jq -e --arg k "$dir" 'has($k)' "$map_file" >/dev/null 2>&1; then
 			out+=("$dir")
 		fi

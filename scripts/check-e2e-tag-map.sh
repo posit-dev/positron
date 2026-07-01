@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # LOCAL / MANUAL full-sweep audit utility (not run by CI). Lists every Positron
-# source dir/extension that has no entry in e2e-tag-paths-map.json. The
-# authoritative, automated check runs per-PR in pr-tags-parse.sh, scoped to the
-# dirs each PR touches; run this by hand for an initial audit or a full sweep.
+# source dir that has no entry in e2e-tag-paths-map.json. The per-PR check in
+# pr-tags-parse.sh is scoped to the dirs each PR touches; run this by hand for an
+# initial audit or a full sweep of the whole tree.
 # Usage: scripts/check-e2e-tag-map.sh [--warn-only]
 # Env: MAP_FILE overrides the map path (used by tests).
 set -uo pipefail
@@ -17,21 +17,23 @@ if [[ ! -f "$MAP_FILE" ]]; then
 	exit 1
 fi
 
-# Enumerate the SOURCE directories/extensions that should be mapped, as
-# repo-relative prefixes with a trailing slash (matching the map's key format).
-# Test directories (test/e2e/tests/*) are intentionally NOT enumerated -- they
-# are not in the map; their tags come from the files themselves (Task 3).
-# `while read` (not `mapfile`) so the script runs under bash 3.2 (macOS default).
+# Enumerate every Positron source dir (any `positron*` feature-root dir anywhere
+# under src/ or extensions/, wherever it lives) as a repo-relative prefix with a
+# trailing slash, matching the map's key format. `-prune` stops at each feature
+# root so nested positron subdirs aren't listed separately. Build output (out/),
+# vendored deps (node_modules/), and test dirs (test/, tests/, *-tests/) are
+# excluded -- they're not feature source. `while read` (not `mapfile`) keeps this
+# bash 3.2 compatible (macOS default).
 expected=()
 while IFS= read -r d; do
 	expected+=("$d")
 done < <(
 	cd "$REPO_ROOT" || exit 1
-	for d in src/vs/workbench/contrib/positron*/ \
-		src/vs/workbench/services/positron*/ \
-		extensions/positron-*/; do
-		[[ -d "$d" ]] && echo "$d"
-	done
+	find src extensions -type d \( -name node_modules -o -name out \) -prune \
+		-o -type d -iname 'positron*' -prune -print 2>/dev/null \
+		| grep -viE '(^|/)(test|tests)(/|$)' \
+		| grep -viE '(^|/)[a-z-]*-tests?(/|$)' \
+		| sed 's#$#/#' | sort -u
 )
 
 missing=()
