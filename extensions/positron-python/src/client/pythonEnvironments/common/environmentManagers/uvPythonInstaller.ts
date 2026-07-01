@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64 } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
 import { Commands } from '../../../common/constants';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
@@ -106,10 +106,12 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
         // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
         // See: https://github.com/astral-sh/uv/issues/12906
         const installTarget = identifier ?? version;
-        await exec('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
+        await execUv('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
 
-        // Get the path to the installed Python
-        const result = await exec('uv', ['python', 'find', version], { throwOnStdErr: false });
+        // Get the path to the installed Python. Route through execUv so uv does not wrap the
+        // path in ANSI color codes (uv honors FORCE_COLOR/CLICOLOR_FORCE even when piped),
+        // which would corrupt the interpreter path we parse below.
+        const result = await execUv('uv', ['python', 'find', version], { throwOnStdErr: false });
         const pythonPath = result?.stdout.trim();
 
         if (pythonPath) {
@@ -153,7 +155,7 @@ async function createGlobalVenv(
         // Create the venv using uv
         // --seed installs pip/setuptools for compatibility
         const args = ['venv', venvPath, '--seed', '-p', version];
-        await exec('uv', args, { throwOnStdErr: false });
+        await execUv('uv', args, { throwOnStdErr: false });
 
         // Return the path to the Python executable
         const pythonPath =
