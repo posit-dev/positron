@@ -16,7 +16,7 @@ import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
-import { PositronCellEditorOptions } from './PositronCellEditorOptions.js';
+import { getInitialCellEditorOptions, PositronCellEditorOptions } from './PositronCellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -119,7 +119,8 @@ function createCellEditor(
 		CodeEditorWidget,
 		element,
 		{
-			...editorOptions.getValue(),
+			...getInitialCellEditorOptions(),
+			// TODO: Do we need dim 0?
 			// Initially set the editor size to 0x0.
 			dimension: {
 				width: 0,
@@ -135,6 +136,7 @@ function createCellEditor(
 	disposables.add(editorOptions.onDidChange(() => {
 		editor.updateOptions(editorOptions.getValue());
 	}));
+	editor.updateOptions(editorOptions.getValue());
 
 	// Request model for cell and pass to editor.
 	cell.getTextEditorModel().then(model => {

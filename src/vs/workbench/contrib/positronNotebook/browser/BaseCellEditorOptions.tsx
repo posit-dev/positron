@@ -18,23 +18,23 @@ import { deepClone } from '../../../../base/common/objects.js';
 export const DEFAULT_LINE_NUMBERS_MIN_CHARS = 2;
 
 export class BaseCellEditorOptions extends Disposable implements IBaseCellEditorOptions {
-	private static fixedEditorOptions: IEditorOptions = {
+	static fixedEditorOptions = Object.freeze<IEditorOptions>({
 		scrollBeyondLastLine: false,
-		scrollbar: {
+		scrollbar: Object.freeze({
 			verticalScrollbarSize: 14,
 			horizontal: 'auto',
 			useShadows: true,
 			verticalHasArrows: false,
 			horizontalHasArrows: false,
 			alwaysConsumeMouseWheel: false
-		},
+		}),
 		renderLineHighlightOnlyWhenFocus: true,
 		overviewRulerLanes: 0,
 		folding: true,
 		fixedOverflowWidgets: true,
-		minimap: { enabled: false },
+		minimap: Object.freeze({ enabled: false }),
 		renderValidationDecorations: 'on'
-	};
+	});
 
 	private readonly _localDisposableStore = this._register(new DisposableStore());
 	private readonly _onDidChange = this._register(new Emitter<void>());

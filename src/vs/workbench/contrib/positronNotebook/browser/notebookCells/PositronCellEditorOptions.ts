@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
+import { BaseCellEditorOptions } from '../BaseCellEditorOptions.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 
 /**
@@ -39,21 +40,26 @@ export class PositronCellEditorOptions extends Disposable {
 
 	/** Get the current editor options. */
 	getValue(): IEditorOptions {
-		// Build the final editor options from the cell editor defaults merged with
-		// the Positron Notebook editor overrides. Used for both initial creation
-		// and live updates so the overrides are never lost on update.
-		const defaultOptions = this._options.getDefaultValue();
-		return {
-			...defaultOptions,
-			// Override padding for Positron notebooks to add breathing room between action bar and editor content
-			padding: { top: 16, bottom: 16 },
-			scrollbar: {
-				...defaultOptions.scrollbar,
-				// Smaller scrollbars since we embed many editor widgets
-				verticalScrollbarSize: 8,
-				horizontalScrollbarSize: 8
-			},
-			tabIndex: -1, // Remove editor from tab order - use Enter to focus
-		};
+		const value = this._options.getDefaultValue();
+		return withPositronOverrides(value);
 	}
+}
+
+export function getInitialCellEditorOptions(): IEditorOptions {
+	return withPositronOverrides(BaseCellEditorOptions.fixedEditorOptions);
+}
+
+function withPositronOverrides(options: IEditorOptions): IEditorOptions {
+	return {
+		...options,
+		// Override padding for Positron notebooks to add breathing room between action bar and editor content
+		padding: { top: 16, bottom: 16 },
+		// Smaller scrollbars since we embed many editor widgets
+		scrollbar: {
+			...options.scrollbar,
+			verticalScrollbarSize: 8,
+			horizontalScrollbarSize: 8,
+		},
+		tabIndex: -1, // Remove editor from tab order - use Enter to focus
+	};
 }
