@@ -78,7 +78,7 @@
   "extensions/positron-pdf-server/": ["@:pdf"],
   "extensions/positron-postgresql/": [],
   "extensions/positron-proxy/": [],
-  "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
+  "extensions/positron-python/": ["@:interpreter", "@:console"],
   "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
   "extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
   "extensions/positron-python/python_files/posit/positron/data_explorer": ["@:data-explorer"],
@@ -99,7 +99,7 @@
   "extensions/positron-r/src/testing/": ["@:test-explorer"],
   "extensions/positron-runtime-debugger/": ["@:debug"],
   "extensions/positron-sqlite/": [],
-  "extensions/positron-supervisor/": ["@:sessions"],
+  "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
   "extensions/positron-zed/": [],
 
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],
