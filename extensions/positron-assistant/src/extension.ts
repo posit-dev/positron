@@ -7,14 +7,11 @@ import * as vscode from 'vscode';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
-import { registerCopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { log } from './log.js';
 import { performSettingsMigrations } from './providerMigration.js';
-
-// (Authentication provider is registered via registerCopilotAuthProvider)
 
 let assistantEnabled = false;
 
@@ -41,9 +38,6 @@ async function initializeProviderConfiguration(): Promise<void> {
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
-	// Register Copilot service
-	registerCopilotService(context);
-
 	// Register chat participants
 	const participantService = registerParticipants(context);
 
