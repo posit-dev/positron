@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import * as vscode from 'vscode';
 
 /** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
@@ -12,27 +11,8 @@ export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 /** Directory containing markdown files (e.g. prompt templates). */
 export const MARKDOWN_DIR = path.join(EXTENSION_ROOT_DIR, 'src', 'md');
 
-/** Selects all documents. */
-export const ALL_DOCUMENTS_SELECTOR = [{ scheme: '*' }];
-
-/** The default max token input if a model's maximum is unknown */
-export const DEFAULT_MAX_TOKEN_INPUT = 100_000;
-
-/** The default max token output if a model's maximum is unknown */
-export const DEFAULT_MAX_TOKEN_OUTPUT = 4_096;
-
-/** The minimum allowed token limit for input/output tokens */
-export const MIN_TOKEN_LIMIT = 512;
-
 /** Tag used by tools to indicate a workspace must be open in order to use the tool */
 export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
-
-/**
- * Default patterns for selectable models
- * model-router is a special value for Foundry that indicates the endpoint
- * supports dynamic model selection that will be handled by Foundry
- */
-export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt', 'gemini', 'model-router'];
 
 /** Settings search string for provider enable settings */
 export const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
@@ -68,18 +48,3 @@ export const TOOL_TAG_REQUIRES_ACTIONS = 'requires-actions';
 
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;
-
-/** Default timeout for provider connections in seconds */
-export const DEFAULT_PROVIDER_TIMEOUT_SEC = 60;
-
-/**
- * Default capabilities for language models supporting image input, tool calling, and agent mode.
- */
-export const DEFAULT_MODEL_CAPABILITIES: vscode.LanguageModelChatCapabilities & { agentMode?: boolean } = {
-	imageInput: true,
-	toolCalling: true,
-	agentMode: true,
-} as const;
-
-/** The default max steps for an agent execution */
-export const DEFAULT_MAX_STEPS = 50;
