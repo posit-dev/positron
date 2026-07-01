@@ -144,12 +144,16 @@ pure check over the map keys, unit-tested alongside the primitives.
     - Over-tagged: 6
     ```
 
-    The **title** (`Test Tag Audit`) is the hyperlink, targeting `run-url` =
-    `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` (the
-    run page renders the full job-summary report, incl. the table). Slack renders
-    `-` lines as bullets. The `Week of <Mon D>` date is the start of the 7-day
-    window (abbreviated month, no leading zero, no year). The job-summary `##`
-    header uses the same title + week but is not linked (it *is* the report).
+    **Canonical header (one contract, both surfaces):**
+    `🏷️ Test Tag Audit - Week of <Mon D>`. The emoji and the
+    `Test Tag Audit - Week of <Mon D>` text are identical on both surfaces. The
+    *only* difference is linking: in Slack the title word `Test Tag Audit` is
+    wrapped in the run link (`<run-url|Test Tag Audit>`); in the job summary the
+    same header is rendered plain as an `##` heading (it *is* the report, so no
+    link). `run-url` =
+    `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`.
+    The `Week of <Mon D>` date is the start of the 7-day window (abbreviated
+    month, no leading zero, no year). Slack renders `-` lines as bullets.
   - **Post every week, including clean weeks.** Unlike the nightly (which runs
     *daily* and skips no-op days to avoid spam), this runs *weekly* (~52/yr), so a
     clean-week post is low-noise, serves as a heartbeat that the job ran, and the
