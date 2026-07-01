@@ -13,7 +13,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
-import { IMcpCallToolResult, McpContent } from '../../../../platform/positronMcp/common/positronMcpTools.js';
+import { IMcpCallToolResult, McpContent, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -54,7 +54,11 @@ function errorResult(text: string): IMcpCallToolResult {
 export class PositronMcpToolService extends Disposable implements IPositronMcpToolService {
 	declare readonly _serviceBrand: undefined;
 
-	private readonly _handlers = new Map<string, ToolHandler>();
+	/**
+	 * One handler per advertised tool. Keyed by the descriptor-name union, so the
+	 * compiler rejects a descriptor without a handler and vice versa.
+	 */
+	private readonly _handlers: Record<PositronMcpToolName, ToolHandler>;
 
 	/** Gates AI-initiated code execution behind a user-consent prompt. */
 	private readonly _consent: UserConsentManager;
@@ -83,31 +87,32 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		this._notebookTools = new PositronMcpNotebookTools(
 			this._editorService, fileService, notebookService, path => this._resolveWorkspacePath(path));
 
-		this._handlers.set('get-session', () => this._getSession());
-		this._handlers.set('get-variables', () => this._getVariables());
-		this._handlers.set('inspect-variable', args => this._inspectVariable(args));
-		this._handlers.set('profile-data', args => this._profileData(args));
-		this._handlers.set('get-packages', () => this._getPackages());
-		this._handlers.set('get-active-document', args => this._getActiveDocument(args));
-		this._handlers.set('get-workspace-info', () => this._getWorkspaceInfo());
-		this._handlers.set('get-diagnostics', args => this._getDiagnostics(args));
-		this._handlers.set('get-plot', () => this._getPlot());
-
-		// Phase 4: mutating tools.
-		this._handlers.set('execute-code', args => this._executeCode(args));
-		this._handlers.set('open-document', args => this._openDocument(args));
-		this._handlers.set('enlarge-plots-pane', () => this._enlargePlotsPane());
-		this._handlers.set('session-start', args => this._startSession(args));
-		this._handlers.set('session-interrupt', () => this._interruptSession());
-		this._handlers.set('session-restart', () => this._restartSession());
-		this._handlers.set('notebook-read', args => this._notebookTools.read(args));
-		this._handlers.set('notebook-edit', args => this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)));
-		this._handlers.set('notebook-run-cells', args => this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)));
-		this._handlers.set('notebook-create', args => this._notebookTools.create(args));
+		this._handlers = {
+			'get-session': () => this._getSession(),
+			'get-variables': () => this._getVariables(),
+			'inspect-variable': args => this._inspectVariable(args),
+			'profile-data': args => this._profileData(args),
+			'get-packages': () => this._getPackages(),
+			'get-active-document': args => this._getActiveDocument(args),
+			'get-workspace-info': () => this._getWorkspaceInfo(),
+			'get-diagnostics': args => this._getDiagnostics(args),
+			'get-plot': () => this._getPlot(),
+			'execute-code': args => this._executeCode(args),
+			'open-document': args => this._openDocument(args),
+			'enlarge-plots-pane': () => this._enlargePlotsPane(),
+			'session-start': args => this._startSession(args),
+			'session-interrupt': () => this._interruptSession(),
+			'session-restart': () => this._restartSession(),
+			'notebook-read': args => this._notebookTools.read(args),
+			'notebook-edit': args => this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)),
+			'notebook-run-cells': args => this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)),
+			'notebook-create': args => this._notebookTools.create(args),
+		};
 	}
 
 	async callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		const handler = this._handlers.get(name);
+		// hasOwn (not a bare index) so inherited Object members can't pose as tools.
+		const handler = Object.hasOwn(this._handlers, name) ? this._handlers[name as PositronMcpToolName] : undefined;
 		if (!handler) {
 			return errorResult(`Tool '${name}' is not implemented in this Positron window.`);
 		}

@@ -72,9 +72,10 @@ const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: fal
 /**
  * The full set of MCP tools Positron advertises. Ported verbatim from the
  * positron-mcp extension's `buildTools()` (metadata only). The renderer binds a
- * handler to each `name`.
+ * handler to each `name`; {@link PositronMcpToolName} ties the two at compile
+ * time, so a descriptor without a handler (or vice versa) is a type error.
  */
-export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
+export const POSITRON_MCP_TOOLS = [
 	{
 		name: 'get-session',
 		description: 'Get the active runtime session: its language, name, and ID. Call this first to learn which language (Python or R) is running before running code or inspecting variables.',
@@ -272,4 +273,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 		},
 		annotations: { readOnlyHint: true },
 	},
-];
+] as const satisfies readonly IPositronMcpToolDescriptor[];
+
+/** The name of an advertised MCP tool; the renderer's handler table is keyed by this union. */
+export type PositronMcpToolName = typeof POSITRON_MCP_TOOLS[number]['name'];
