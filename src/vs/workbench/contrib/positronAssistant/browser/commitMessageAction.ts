@@ -21,7 +21,7 @@ import { IQuickInputService } from '../../../../platform/quickinput/common/quick
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { FastCheap, IHeadlessLanguageModelService, intentFromSetting, ModelSelection, UnavailableReason } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
+import { IHeadlessLanguageModelService, intentFromSetting, ModelSelection, UnavailableReason } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { showHeadlessModelPicker } from '../../../services/positronHeadlessLanguageModel/browser/headlessModelPicker.js';
 import { ISCMService } from '../../scm/common/scm.js';
 import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
