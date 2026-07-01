@@ -1984,6 +1984,75 @@ class StatementRangeAdapter {
 	}
 }
 
+function isInputBoundaryKind(kind: unknown): kind is languages.InputBoundaryKind {
+	return kind === 'whitespace' ||
+		kind === 'complete' ||
+		kind === 'incomplete' ||
+		kind === 'invalid';
+}
+
+/**
+ * Adapter for the `InputBoundaryProvider` API.
+ */
+class InputBoundaryAdapter {
+
+	constructor(
+		private readonly _documents: ExtHostDocuments,
+		private readonly _provider: positron.InputBoundaryProvider
+	) { }
+
+	async provideInputBoundaries(resource: URI, range: IRange, token: CancellationToken): Promise<languages.IInputBoundary[] | undefined> {
+		const document = this._documents.getDocument(resource);
+		const apiRange = typeConvert.Range.to(range);
+		const result = await this._provider.provideInputBoundaries(document, apiRange, token);
+
+		if (!Array.isArray(result)) {
+			return undefined;
+		}
+
+		const boundaries: languages.IInputBoundary[] = [];
+		for (const boundary of result) {
+			if (!isObject(boundary)) {
+				continue;
+			}
+
+			const boundaryCandidate = boundary as Partial<positron.InputBoundary>;
+			const boundaryRange = boundaryCandidate.range;
+			if (!isObject(boundaryRange) ||
+				typeof boundaryRange.start !== 'number' ||
+				typeof boundaryRange.end !== 'number'
+			) {
+				continue;
+			}
+
+			if (!isInputBoundaryKind(boundaryCandidate.kind)) {
+				continue;
+			}
+
+			const converted: languages.IInputBoundary = {
+				range: {
+					start: boundaryRange.start,
+					end: boundaryRange.end,
+				},
+				kind: boundaryCandidate.kind,
+			};
+
+			if (isObject(boundaryCandidate.data) && typeof boundaryCandidate.data.message === 'string') {
+				boundaries.push({
+					...converted,
+					data: {
+						message: boundaryCandidate.data.message,
+					},
+				});
+			} else {
+				boundaries.push(converted);
+			}
+		}
+
+		return boundaries;
+	}
+}
+
 
 /**
  * Adapter for the `HelpTopicProvider` API.
@@ -2286,8 +2355,8 @@ type Adapter = DocumentSymbolAdapter | CodeLensAdapter | DefinitionAdapter | Hov
 	| EvaluatableExpressionAdapter | InlineValuesAdapter
 	| LinkedEditingRangeAdapter | InlayHintsAdapter | InlineCompletionAdapter
 	// --- Start Positron ---
-	// Add 'StatementRangeAdapter and 'HelpTopicAdapter' to the list of adapters
-	| StatementRangeAdapter | HelpTopicAdapter
+	// Add Positron adapters to the list of adapters
+	| StatementRangeAdapter | InputBoundaryAdapter | HelpTopicAdapter
 	// --- End Positron ---
 	| DocumentDropEditAdapter | NewSymbolNamesAdapter;
 
@@ -3003,6 +3072,16 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 
 	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
 		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
+	}
+
+	registerInputBoundaryProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.InputBoundaryProvider): vscode.Disposable {
+		const handle = this._addNewAdapter(new InputBoundaryAdapter(this._documents, provider), extension);
+		this._proxy.$registerInputBoundaryProvider(handle, this._transformDocumentSelector(selector, extension));
+		return this._createDisposable(handle);
+	}
+
+	$provideInputBoundaries(handle: number, resource: UriComponents, range: IRange, token: CancellationToken): Promise<languages.IInputBoundary[] | undefined> {
+		return this._withAdapter(handle, InputBoundaryAdapter, adapter => adapter.provideInputBoundaries(URI.revive(resource), range, token), undefined, token);
 	}
 
 	registerHelpTopicProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.HelpTopicProvider): vscode.Disposable {
