@@ -93,8 +93,9 @@ pure check over the map keys, unit-tested alongside the primitives.
     (`-`) are unaffected: they only exist when the map derived something, which
     already implies a source change.
 - Output (stdout, Markdown) - one table, one row per divergent PR:
-  1. **Summary** - PRs examined, then count bullets: `Under-tags (gaps)`,
-     `Over-tags`, `Clean`. Same wording as the Slack bullets so the two match.
+  1. **Summary** - PRs examined, then count bullets in order: `Clean`,
+     `Under-tagged` (the `+` rows), `Over-tagged` (the `-` rows). Same wording as
+     the Slack bullets so the two match.
   2. **Delta table** - columns: `PR | Title | Author | Derived | Delta | Entry`.
      - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
        resolves in the job summary and any Slack link. (Repo URL from
@@ -138,9 +139,9 @@ pure check over the map keys, unit-tested alongside the primitives.
     ```
     :label: *e2e tag audit* - week of 2026-06-23..29 - <run-url|view report>
     Examined 41 merged PRs:
-    - Under-tags (gaps): 2
-    - Over-tags: 6
     - Clean: 33
+    - Under-tagged: 2
+    - Over-tagged: 6
     ```
 
     `run-url` is `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
@@ -180,9 +181,9 @@ the summary block below and links to it):
 > ## e2e tag audit - week of 2026-06-23..2026-06-29
 >
 > Examined 41 merged PRs:
-> - Under-tags (gaps): 2
-> - Over-tags: 6
 > - Clean: 33
+> - Under-tagged: 2
+> - Over-tagged: 6
 >
 > | PR | Title | Author | Derived | Delta | Entry |
 > |----|-------|--------|---------|-------|-------|
