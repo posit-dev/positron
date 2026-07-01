@@ -132,21 +132,24 @@ pure check over the map keys, unit-tested alongside the primitives.
   - Post to `#positron-dev` via `chat.postMessage` with the
     `SLACK_TOKEN_TEST_STATUS` bot token (same `curl -X POST
     https://slack.com/api/chat.postMessage` + `jq` payload the nightly uses).
-  - Message is a header line + count bullets (mirrors the nightly's `$bullets`
-    appended to the message `text`):
+  - Message is the **same summary block** the job summary opens with (one format
+    for both), a header line + a link:
 
     ```
     :label: *e2e tag audit* - week of 2026-06-23..29 - <run-url|view report>
-    - Under-tags (gaps): 3
+    Examined 41 merged PRs:
+    - Under-tags (gaps): 2
     - Over-tags: 6
+    - Clean: 33
     ```
 
     `run-url` is `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
-    (the run page renders the job-summary report). Slack renders `-`/`*` lines as
-    bullets.
-  - **Skip the Slack post on a clean week** (no gaps and no over-tags), mirroring
-    the nightly's "skip repost when nothing new." The job summary is still
-    written every run.
+    (the run page renders the full job-summary report, incl. the table). Slack
+    renders `-` lines as bullets.
+  - **Post every week, including clean weeks.** Unlike the nightly (which runs
+    *daily* and skips no-op days to avoid spam), this runs *weekly* (~52/yr), so a
+    clean-week post is low-noise, serves as a heartbeat that the job ran, and the
+    `Clean: N` line makes it a positive signal rather than silence.
   - A `slack-workflow-status@v3.1.3` job notifies `#positron-test-results` on
     workflow **failure**, same as the nightly.
 - **No tracking issue** (dropped): a weekly report is a rolling snapshot - fixed
@@ -166,13 +169,13 @@ cron (Mon 12:00 UTC)
       -> csv_minus -> gap / over-tag
     -> Markdown report
       -> $GITHUB_STEP_SUMMARY  (always; canonical record)
-      -> Slack #positron-dev  (chat.postMessage, only if divergences; links to run)
+      -> Slack #positron-dev  (chat.postMessage every week; summary block + run link)
 ```
 
 ## Report format (illustrative)
 
-The full report renders as Markdown in the job summary (the Slack post is just a
-one-line headline linking to it):
+The full report renders as Markdown in the job summary (the Slack post repeats
+the summary block below and links to it):
 
 > ## e2e tag audit - week of 2026-06-23..2026-06-29
 >
@@ -240,6 +243,6 @@ one-line headline linking to it):
   are still "author knew more than the dir implies," not map bugs. Triage
   accordingly.
 - **Cron DST drift** of 1 hour - accepted for a weekly report.
-- **Slack is ephemeral; the job summary is the record.** The message is a headline
-  + link, skipped on clean weeks. If someone misses the Slack ping, the run's
-  summary still holds the full report.
+- **Slack is ephemeral; the job summary is the record.** The message is the
+  summary block + link, posted every week. If someone misses the Slack ping, the
+  run's summary still holds the full report (incl. the table).
