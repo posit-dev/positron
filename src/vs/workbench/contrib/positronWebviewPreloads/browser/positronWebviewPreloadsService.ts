@@ -29,6 +29,15 @@ import { URI } from '../../../../base/common/uri.js';
  * Format of output from a notebook cell
  */
 type NotebookOutput = { outputId: string; outputs: { mime: string; data: VSBuffer }[] };
+
+/** A tracked overlay webview together with the state needed to reconcile and dispose it. */
+interface OverlayWebviewEntry {
+	readonly webview: Promise<INotebookOutputWebview>;
+	/** Fingerprint of the content the webview was built from. */
+	readonly contentKey: string;
+	/** ID of the notebook that owns this overlay. */
+	readonly notebookId: string;
+}
 export class PositronWebviewPreloadService extends Disposable implements IPositronWebviewPreloadService {
 	/** Needed for service branding in dependency injector. */
 	_serviceBrand: undefined;
@@ -52,19 +61,17 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	 * own, so the service owns their lifecycle: they are reconciled against the
 	 * notebook model and disposed when their output disappears. Widget and PDF
 	 * webviews are deliberately excluded -- they manage their own lifecycle.
+	 *
+	 * Each entry carries the content fingerprint it was built from (to detect a
+	 * content change under the same output ID, e.g. a Jupyter
+	 * update_display_data, so the stale webview is rebuilt rather than reused)
+	 * and its owning notebook ID (so disposal can drop the output from the
+	 * per-notebook set without the caller having to).
 	 */
-	private readonly _overlayWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+	private readonly _overlayWebviewsByOutputId = new Map<string, OverlayWebviewEntry>();
 
 	/** Map tracking which overlay output IDs belong to which notebook for reconciliation. */
 	private readonly _overlayOutputIdsByNotebookId = new Map<string, Set<string>>();
-
-	/**
-	 * Fingerprint of the content each tracked overlay webview was created from,
-	 * keyed by output ID. Used to detect when an output's content changes under
-	 * the same output ID (e.g. a Jupyter update_display_data) so the stale
-	 * webview is rebuilt rather than reused.
-	 */
-	private readonly _overlayContentByOutputId = new Map<string, string>();
 
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
@@ -246,23 +253,24 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		for (const outputId of Array.from(overlayOutputIds)) {
 			if (!liveOutputIds.has(outputId)) {
 				this._disposeOverlayWebview(outputId);
-				overlayOutputIds.delete(outputId);
 			}
 		}
 	}
 
 	/**
-	 * Dispose a tracked overlay webview and drop it from the cache. Disposal is
-	 * chained off the cached Promise so a webview still being created is torn
-	 * down once it resolves.
+	 * Dispose a tracked overlay webview and remove it from all overlay tracking
+	 * (the webview cache and its notebook's output-ID set). Disposal is chained
+	 * off the cached Promise so a webview still being created is torn down once
+	 * it resolves.
 	 */
 	private _disposeOverlayWebview(outputId: string): void {
-		const webviewPromise = this._overlayWebviewsByOutputId.get(outputId);
-		if (webviewPromise) {
-			webviewPromise.then(webview => webview.dispose(), () => { /* creation failed; nothing to dispose */ });
+		const entry = this._overlayWebviewsByOutputId.get(outputId);
+		if (!entry) {
+			return;
 		}
+		entry.webview.then(webview => webview.dispose(), () => { /* creation failed; nothing to dispose */ });
 		this._overlayWebviewsByOutputId.delete(outputId);
-		this._overlayContentByOutputId.delete(outputId);
+		this._overlayOutputIdsByNotebookId.get(entry.notebookId)?.delete(outputId);
 	}
 
 	/**
@@ -295,8 +303,8 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		create: () => Promise<INotebookOutputWebview>,
 	): Promise<INotebookOutputWebview> {
 		const existingOverlay = this._overlayWebviewsByOutputId.get(outputId);
-		if (existingOverlay && this._overlayContentByOutputId.get(outputId) === contentKey) {
-			return existingOverlay;
+		if (existingOverlay && existingOverlay.contentKey === contentKey) {
+			return existingOverlay.webview;
 		}
 		if (existingOverlay) {
 			this._disposeOverlayWebview(outputId);
@@ -306,16 +314,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			// Drop from the cache on failure, but only if still the current entry
 			// -- a newer create for the same output ID may have replaced it while
 			// this one was pending.
-			if (this._overlayWebviewsByOutputId.get(outputId) === webviewPromise) {
-				this._overlayWebviewsByOutputId.delete(outputId);
-				this._overlayContentByOutputId.delete(outputId);
-				this._overlayOutputIdsByNotebookId.get(instance.getId())?.delete(outputId);
+			if (this._overlayWebviewsByOutputId.get(outputId)?.webview === webviewPromise) {
+				this._disposeOverlayWebview(outputId);
 			}
 			throw err;
 		});
 
-		this._overlayWebviewsByOutputId.set(outputId, webviewPromise);
-		this._overlayContentByOutputId.set(outputId, contentKey);
+		this._overlayWebviewsByOutputId.set(outputId, { webview: webviewPromise, contentKey, notebookId: instance.getId() });
 		this._overlayOutputIdsByNotebookId.get(instance.getId())?.add(outputId);
 		return webviewPromise;
 	}
