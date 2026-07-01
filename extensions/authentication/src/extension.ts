@@ -41,6 +41,7 @@ import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 import { AuthProviderLogger } from './authProviderLogger';
 import { resolveGoogleVertexCredential } from './googleVertexResolver';
+import { applyPwbPositAIDefault } from './pwbDefaults';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -223,6 +224,13 @@ function registerPositAIProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
 	logger.info('Registered auth provider');
+
+	// On PWB, Posit AI defaults to disabled so admins control AI access.
+	// We apply this once on first activation and skip it afterwards so user
+	// or admin choices are never overwritten.
+	applyPwbPositAIDefault(context).catch(err =>
+		logger.logOperationError('apply PWB Posit AI default', err)
+	);
 }
 
 async function registerAwsProvider(
