@@ -376,12 +376,19 @@ jobs:
             ${{ runner.os }}-r-4.4.0-
 
       - name: Install R packages for 4.4.0
+        env:
+          # Pin to a frozen PPM snapshot instead of `latest`. `latest` is a rolling
+          # target: pak resolves a version from the metadata, but by the time it
+          # downloads the binary PPM may have published a newer release and rotated
+          # the old binary out, yielding intermittent 404s (e.g. performance,
+          # RSQLite). A dated snapshot keeps metadata and binaries consistent.
+          PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
-          Rscript -e "install.packages('pak')"
+          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); install.packages('pak')"
           # openssl 2.4.1 Windows binary was never published to the package manager; pin to 2.4.2
           # so pak doesn't attempt to download the missing binary.
-          Rscript -e "pak::pak('openssl@2.4.2')"
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::pak('openssl@2.4.2')"
+          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       - name: Save R packages cache
         if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}

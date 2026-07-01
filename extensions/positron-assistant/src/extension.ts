@@ -15,7 +15,6 @@ import { performSettingsMigrations } from './providerMigration.js';
 
 let assistantEnabled = false;
 
-
 function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
