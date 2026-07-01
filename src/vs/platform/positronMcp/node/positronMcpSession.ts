@@ -142,6 +142,10 @@ export class PositronMcpSession extends Disposable {
 	 * message instead of the call hanging or failing the transport.
 	 */
 	private async _callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+		// Audit line: record every tool call (name + argument keys) so the "Positron
+		// MCP" log channel is a timeline of what the agent did in the session.
+		this._logger.info(`[PositronMcpSession ${this.id}] tools/call ${name}(${Object.keys(args).join(', ')})`);
+
 		// Re-resolve if the pinned window is gone (or was never set).
 		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
 			const reResolved = this._broker.resolveTargetWindow();

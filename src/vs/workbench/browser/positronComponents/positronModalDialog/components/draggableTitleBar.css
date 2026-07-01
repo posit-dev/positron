@@ -17,6 +17,29 @@
 }
 
 .positron-modal-dialog-box .simple-title-bar .simple-title-bar-title {
+	flex: 1 1 auto;
+	min-width: 0;
 	overflow: hidden;
 	color: var(--vscode-positronModalDialog-titleBarForeground);
+}
+
+.positron-modal-dialog-box .simple-title-bar .simple-title-bar-close-button {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	margin-left: 8px;
+	/*
+		Pull the icon back by the centering gap inside the 22px hover box so it sits the same 16px
+		from the right edge as the title sits from the left edge (the title bar's 16px padding).
+	*/
+	margin-right: -3px;
+	border-radius: 5px;
+	color: var(--vscode-positronModalDialog-titleBarForeground);
+}
+
+.positron-modal-dialog-box .simple-title-bar .simple-title-bar-close-button:hover {
+	background: var(--vscode-toolbar-hoverBackground);
 }

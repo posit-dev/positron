@@ -79,6 +79,27 @@ export class PositronMcpWorkspace {
 	}
 
 	/**
+	 * Whether every agent-instruction file already carries the guidance marker, so
+	 * addAgentGuidance would be a no-op (and the "Add Agent Guidance" button can be
+	 * hidden). False when no folder is open.
+	 */
+	async hasGuidance(): Promise<boolean> {
+		const folder = this._firstFolder();
+		if (!folder) {
+			return false;
+		}
+		const present = await Promise.all(GUIDANCE_FILES.map(async file => {
+			try {
+				const content = (await this._fileService.readFile(URI.joinPath(folder, file))).value.toString();
+				return content.includes(GUIDANCE_MARKER);
+			} catch {
+				return false;
+			}
+		}));
+		return present.every(Boolean);
+	}
+
+	/**
 	 * Create or update the first folder's `.mcp.json` so it points at the server,
 	 * preserving any other servers it already lists. Returns the file path on
 	 * success, or undefined when no folder is open.
@@ -120,9 +141,12 @@ export class PositronMcpWorkspace {
 	}
 }
 
+/** The agent-instruction files the guidance command writes and checks. */
+export const GUIDANCE_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
+
 // A marker comment so re-running the guidance command is idempotent.
 const GUIDANCE_MARKER = '<!-- positron-mcp -->';
-const GUIDANCE_TEXT = 'This workspace has a Positron MCP server available. Use its `positron` MCP tools to run code, inspect variables and data, create plots, and edit notebooks in the user\'s live Positron session -- prefer them over your own shell for any data exploration or modeling work.';
+const GUIDANCE_TEXT = 'This workspace has a Positron MCP server available. Use its `positron` MCP tools to run code, inspect variables and data, create plots, and edit notebooks in the user\'s live Positron session -- prefer them over your own shell for any data exploration or modeling work. Work step by step, running and checking each step in the session, rather than writing one big script and sourcing it.';
 
 /** The guidance block to append, with a separator matching the file's current trailing whitespace. */
 function appendedGuidanceBlock(existing: string): string {

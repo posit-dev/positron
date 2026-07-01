@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-mcp-status {
-	padding: 10px 6px;
+	/* Fill below the 32px title bar with symmetric padding (like ContentArea) so the panel is centered, not hugging the left. */
+	position: absolute;
+	inset: 32px 0 0 0;
+	padding: 16px;
+	overflow: auto;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;

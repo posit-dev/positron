@@ -14,6 +14,12 @@ export const POSITRON_MCP_DEFAULT_PORT = 43123;
 export const PositronMcpChannelName = 'positronMcp';
 
 /**
+ * Id of the log output channel the main-process server writes to. Shared so the
+ * renderer's "Show Logs" action reveals the same channel the server logs into.
+ */
+export const POSITRON_MCP_LOG_ID = 'positronMcp';
+
+/**
  * Name of the renderer-registered channel the main-process server calls back
  * into to invoke a window's MCP tools. The server picks the destination window
  * by matching the IPC client context, so tool calls run in the renderer where

@@ -26,6 +26,8 @@ export interface IMcpStatusData {
 	readonly port: number;
 	/** Whether the first workspace folder has an `.mcp.json` with a positron entry. */
 	readonly workspaceConfig: WorkspaceConfigState;
+	/** Whether the agent-instruction files already carry the MCP guidance block. */
+	readonly guidancePresent: boolean;
 	/** Name the most recently connected client reported (e.g. "claude-code"), if any. */
 	readonly lastClientName?: string;
 	/** Version the most recently connected client reported, if any. */
@@ -150,6 +152,7 @@ const McpStatusPanel = (props: McpStatusPanelProps) => {
 			title={title}
 			width={560}
 			onCancel={() => props.renderer.dispose()}
+			onClose={() => props.renderer.dispose()}
 		>
 			<div className='positron-mcp-status'>
 				<div className='status-header'>
@@ -188,7 +191,7 @@ const McpStatusPanel = (props: McpStatusPanelProps) => {
 						<Button className={`button action-button ${configIsPrimary ? 'primary' : 'secondary'}`} onPressed={() => handleAction('addConfig')}>
 							{localize('positron.mcp.status.action.addConfig', "Add .mcp.json")}
 						</Button>}
-					{status && status.workspaceConfig !== 'no-workspace' &&
+					{status && status.workspaceConfig !== 'no-workspace' && !status.guidancePresent &&
 						<Button className='button action-button secondary' onPressed={() => handleAction('addGuidance')}>
 							{localize('positron.mcp.status.action.addGuidance', "Add Agent Guidance")}
 						</Button>}

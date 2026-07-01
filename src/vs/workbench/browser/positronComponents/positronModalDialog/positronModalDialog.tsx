@@ -43,6 +43,8 @@ export interface PositronModalDialogProps {
 	height: number;
 	closeOnClickOutside?: boolean;
 	onCancel?: () => void;
+	/** When set, the title bar shows a close (X) button that invokes this handler. */
+	onClose?: () => void;
 }
 
 /**

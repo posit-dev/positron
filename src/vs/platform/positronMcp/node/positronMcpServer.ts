@@ -9,7 +9,7 @@ import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
-import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT } from '../common/positronMcp.js';
+import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
@@ -59,7 +59,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		@ILoggerService loggerService: ILoggerService,
 	) {
 		super();
-		this._logger = this._register(loggerService.createLogger('positronMcp', { name: 'Positron MCP', logLevel: 'always' }));
+		this._logger = this._register(loggerService.createLogger(POSITRON_MCP_LOG_ID, { name: 'Positron MCP', logLevel: 'always' }));
 		this._logger.info('[PositronMcpServer] Initialized');
 	}
 
