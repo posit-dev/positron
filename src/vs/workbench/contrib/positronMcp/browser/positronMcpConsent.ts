@@ -67,12 +67,14 @@ export class UserConsentManager {
 			return false;
 		}
 
-		// If allowed, ask whether to allow all for this session.
+		// If allowed, ask whether to allow all for this session. Keep the button
+		// labels short: the modal action bar uses a fixed 80px-wide button, so
+		// longer labels wrap and clip. The "this session" scope is in the message.
 		const allowAllSession = await this._modalDialogsService.showSimpleModalDialogPrompt(
 			'Allow All Code Execution?',
 			'Allow all AI code execution this session? (Reset via command palette)',
-			'Allow All (This Session)',
-			'Just This Once',
+			'Allow All',
+			'Just Once',
 		);
 
 		if (allowAllSession) {
