@@ -65,12 +65,7 @@ suite('requirementsEditor', () => {
         });
 
         test('removes a multi-line entry including continuation and hash lines', () => {
-            const content = [
-                'requests \\',
-                '    --hash=sha256:abc',
-                'flask==2.2.0',
-                '',
-            ].join('\n');
+            const content = ['requests \\', '    --hash=sha256:abc', 'flask==2.2.0', ''].join('\n');
             expect(removePackage(content, 'requests')).to.equal('flask==2.2.0\n');
         });
 

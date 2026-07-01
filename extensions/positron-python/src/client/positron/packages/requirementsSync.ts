@@ -21,9 +21,7 @@ import { normalizePackageName } from './requirementsFile';
  * live so a mid-session toggle takes effect without a reload.
  */
 export function isAutoUpdateRequirementsEnabled(): boolean {
-    return vscode.workspace
-        .getConfiguration('packages.python')
-        .get<boolean>('autoUpdateRequirements', true);
+    return vscode.workspace.getConfiguration('packages.python').get<boolean>('autoUpdateRequirements', true);
 }
 
 /**

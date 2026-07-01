@@ -50,7 +50,12 @@ export function parseRequirements(content: string): RequirementEntry[] {
             endLine += 1;
         }
         // Trailing `--hash` option lines belong to this requirement too.
-        while (endLine + 1 < lines.length && stripCr(lines[endLine + 1]).trim().startsWith('--hash')) {
+        while (
+            endLine + 1 < lines.length &&
+            stripCr(lines[endLine + 1])
+                .trim()
+                .startsWith('--hash')
+        ) {
             endLine += 1;
         }
         const name = extractRequirementName(logical);
