@@ -257,6 +257,19 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 
 		const editor = this._editorService.activeTextEditorControl;
 		if (!isCodeEditor(editor)) {
+			// No focused text editor. A notebook is not a text editor, so an open
+			// notebook never appears as the active text editor -- report it here so
+			// the agent doesn't conclude nothing is open (which sends it hunting the
+			// filesystem) when the user is working in a notebook with the console or
+			// another view focused.
+			const notebook = this._notebookTools.resolveNotebook();
+			if (notebook) {
+				return textResult(JSON.stringify({
+					document: { uri: notebook.uri.toString(), fileName: notebook.uri.fsPath, kind: 'notebook' },
+					selection: null,
+					hint: 'A Positron notebook is open. Use notebook-read to read its cells; get-active-document does not return notebook contents.',
+				}));
+			}
 			return textResult(JSON.stringify({ document: null, selection: null }));
 		}
 		const model = editor.getModel();

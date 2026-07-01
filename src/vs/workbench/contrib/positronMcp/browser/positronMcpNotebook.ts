@@ -58,8 +58,12 @@ export class PositronMcpNotebookTools {
 	 * the one the user touched most recently; most-recently-active order puts the
 	 * focused notebook first, so this also matches the focused notebook when one
 	 * is focused.
+	 *
+	 * Public so the get-active-document tool can report an open notebook: a
+	 * notebook is not a text editor, so it never shows up as the active text
+	 * editor, and that tool would otherwise report nothing open.
 	 */
-	private _resolveNotebook(): IPositronNotebookInstance | undefined {
+	resolveNotebook(): IPositronNotebookInstance | undefined {
 		const instances = this._notebookService.listInstances();
 		if (instances.length <= 1) {
 			return instances[0];
@@ -79,7 +83,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async read(args: Record<string, unknown>): Promise<string> {
-		const instance = this._resolveNotebook();
+		const instance = this.resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}
@@ -117,7 +121,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async edit(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
-		const instance = this._resolveNotebook();
+		const instance = this.resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}
@@ -194,7 +198,7 @@ export class PositronMcpNotebookTools {
 	}
 
 	async runCells(args: Record<string, unknown>, consent: ConsentFn): Promise<string> {
-		const instance = this._resolveNotebook();
+		const instance = this.resolveNotebook();
 		if (!instance) {
 			return 'No notebook is open in the editor. Open a notebook, then try again.';
 		}

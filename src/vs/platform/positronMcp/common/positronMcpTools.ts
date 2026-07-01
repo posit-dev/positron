@@ -61,7 +61,7 @@ Running code: use execute-code to run code in the active session. Variables, imp
 
 Plots: after running code that produces a plot, call get-plot to see the rendered image from the Plots pane.
 
-Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
+Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. A notebook can be open while the console or another view has focus, and get-active-document does not report notebooks; these tools act on the open notebook regardless of focus, so to work with the user's notebook just call notebook-read directly rather than assuming none is open. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
 
 Files: after writing a script or other file to disk, call open-document to open it in the user's editor so your work is visible to them.
 
@@ -136,7 +136,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'get-active-document',
-		description: 'Get information about the editor document the user is currently focused on: its path, language, and optionally its content or selected text.',
+		description: 'Get information about the editor document the user is currently working in: its path, language, and optionally its content or selected text. If the open editor is a notebook, this reports the notebook\'s path and points you to notebook-read for its cell contents.',
 		inputSchema: {
 			type: 'object',
 			properties: {
