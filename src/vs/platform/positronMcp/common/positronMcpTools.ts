@@ -55,15 +55,15 @@ export const POSITRON_MCP_SERVER_INFO = { name: 'positron-mcp-server', version: 
  * whole string well under the ~2KB clients retain. Keep it in sync with
  * {@link POSITRON_MCP_TOOLS}.
  */
-export const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session running Python and/or R that the user is working in interactively. For any data exploration or data modeling work -- finding, downloading, loading, cleaning, analyzing, plotting, or modeling data -- always do it inside Positron: run code with execute-code in the user's session (or in a notebook), and write scripts to files and open them with open-document so they stay visible. Never run Python or R in your own shell or spawn a separate interpreter to do the work yourself; that hides it from the user and loses the session's shared state. More generally, when a task involves running code, inspecting data, plotting, or editing notebooks, use these tools rather than your own shell or file-editing tools.
+export const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session (Python and/or R) the user is working in. Do all data work -- finding, loading, cleaning, analyzing, plotting, and modeling data -- inside Positron with these tools, not your own shell or file editor: run code in the user's session and write scripts to files, then open them with open-document so the user can see them. Running Python or R yourself, in your own shell or a separate interpreter, hides the work from the user and loses the session's shared state.
 
-Running code: use execute-code to run code in the active session. Variables, imports, and loaded data persist across calls and are shared with the user -- do not spawn a separate interpreter. Use get-session to see the active language/session and get-variables to inspect what is defined. If no session is active, use session-start to begin one.
+Running code: execute-code runs in the user's console session; variables and imports persist across calls and are shared with the user. The console session is a different runtime from a notebook's kernel, so do NOT run notebook cells with execute-code -- use the notebook tools below. Use get-session for the active language and get-variables to see what is defined; session-start if none is active.
 
-Plots: after running code that produces a plot, call get-plot to see the rendered image from the Plots pane.
+Plots: after plotting with execute-code, call get-plot to see the image from the Plots pane. A plot from a notebook cell renders inline as a cell output (not in the Plots pane) and is returned directly by notebook-run-cells / notebook-edit(run) -- get-plot will not show it.
 
-Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create. A notebook can be open while the console or another view has focus, and get-active-document does not report notebooks; these tools act on the open notebook regardless of focus, so to work with the user's notebook just call notebook-read directly rather than assuming none is open. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
+Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create; run cells with notebook-run-cells or notebook-edit(run:true), never execute-code. A notebook can be open while the console or another view has focus, and get-active-document does not report notebooks; these tools act on the open notebook regardless of focus, so call notebook-read directly rather than reopening it or assuming none is open. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
 
-Files: after writing a script or other file to disk, call open-document to open it in the user's editor so your work is visible to them.
+Files: after writing a script or file to disk, call open-document to show it to the user.
 
 Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use profile-data for a dataframe's per-column summary statistics (min, max, mean, unique counts) the way the Data Explorer computes them, instead of running df.describe() / summary(). Use get-packages to see which packages are installed instead of running pip list / installed.packages(). Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
 
@@ -122,7 +122,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'execute-code',
-		description: 'Execute code in the active runtime session. Runs in the user\'s live, shared session, so variables and imports persist across calls; prefer this over spawning a separate interpreter. Call get-session first to confirm the active language.',
+		description: 'Execute code in the user\'s active console session. Runs in the live, shared console runtime, so variables and imports persist across calls. This is separate from a notebook\'s kernel -- do not use it to run notebook cells; use notebook-run-cells or notebook-edit(run) for those. Call get-session first to confirm the active language.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -149,7 +149,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'open-document',
-		description: 'Open a file in the Positron editor so the user can see it. Use this after writing or modifying a script file to bring it up in front of the user.',
+		description: 'Open a file in the Positron editor so the user can see it, e.g. after writing or modifying a script file. The file may already be open; for a notebook, use notebook-read to see its cells instead of reopening it (this tool does not read cell contents).',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -168,12 +168,12 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'notebook-read',
-		description: 'Read cells of the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab). Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their text outputs. Use this instead of opening the .ipynb file directly.',
+		description: 'Read cells of the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab). Returns each cell\'s index, type, content, and execution status. Optionally read specific cells by index and include their outputs (text, plus any plots as images). Use this instead of opening the .ipynb file directly.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				cellIndices: { type: 'array', items: { type: 'integer' }, description: '0-based cell indices to read. If omitted, reads all cells.' },
-				includeOutputs: { type: 'boolean', default: false, description: 'Include the text outputs of executed code cells.' },
+				includeOutputs: { type: 'boolean', default: false, description: 'Include the outputs of executed code cells: text, plus any plots as images.' },
 			},
 			additionalProperties: false,
 		},
@@ -189,7 +189,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 				cellIndex: { type: 'integer', description: '0-based index. Required for update and delete. For insert, the position to insert at (omit to append at the end).' },
 				content: { type: 'string', description: 'Cell content. Required for insert and update.' },
 				cellType: { type: 'string', enum: ['code', 'markdown'], description: 'Cell type. Required for insert.' },
-				run: { type: 'boolean', default: false, description: 'If inserting a code cell, execute it immediately and return its output.' },
+				run: { type: 'boolean', default: false, description: 'If inserting a code cell, execute it immediately and return its output (text, plus any plot as an image).' },
 			},
 			required: ['editMode'],
 			additionalProperties: false,
@@ -198,7 +198,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'notebook-run-cells',
-		description: 'Execute one or more cells in the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab) and return their text outputs.',
+		description: 'Execute one or more cells in the Positron notebook the user is working in (the open notebook -- it does not need to be the focused tab) and return their outputs: text, plus any plots as images. This is how you run notebook code -- do not use execute-code, which targets the separate console session.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -225,7 +225,7 @@ export const POSITRON_MCP_TOOLS: readonly IPositronMcpToolDescriptor[] = [
 	},
 	{
 		name: 'get-plot',
-		description: 'Get the plot currently shown in the Positron Plots pane as an image. Run plotting code with execute-code first, then call this to see the result.',
+		description: 'Get the plot currently shown in the Positron Plots pane as an image. Run plotting code with execute-code first, then call this to see the result. This is for console plots only: a plot produced by a notebook cell is returned inline by notebook-run-cells / notebook-edit(run), not here.',
 		inputSchema: EMPTY_SCHEMA,
 		annotations: { readOnlyHint: true },
 	},
