@@ -83,21 +83,28 @@ pure check over the map keys, unit-tested alongside the primitives.
     are excluded from the comparison).
   - Fetch changed files -> `derive_map_tags`.
   - Compute gap and review via `csv_minus`.
-- Output (stdout, Markdown):
-  1. **Delta table** - one row per divergent PR:
-     `PR | Author | Derived | Missing | Candidate entry | Title`. The `PR` cell is
-     an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it resolves in both
-     the tracking issue and the job summary. The `Missing` column is the gap
-     (author minus derived), so the delta is scannable at a glance.
-     `Candidate entry` is `longest_map_prefix` for the changed files; rows whose
-     gap is ancestor-explained are marked `(review)`. (The repo URL is taken from
-     `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
-     `posit-dev/positron` origin for local runs.)
-  2. **Summary counts** (PRs examined, with-gap, with-review, clean).
-  3. **Suggested diffs** - one fenced JSON diff per gap, adding the missing
-     tag(s) to the candidate entry, with the PR context as a comment. These are
-     *proposals to review and apply by hand*, not auto-applied; ancestor-explained
-     ones carry a `(review: ...)` comment so they are dismissed, not pasted.
+- Output (stdout, Markdown) - two tables split by the action they imply:
+  1. **Summary line** - PRs examined, gaps, over-tags, clean.
+  2. **Gaps table** - PRs where the author set a tag the map did not derive
+     (consider *adding* to the map). Columns: `PR | Missing | Candidate entry |
+     Title`.
+     - `PR` is an explicit Markdown link (`[#N](<repo-url>/pull/N)`) so it
+       resolves in both the tracking issue and the job summary. (Repo URL from
+       `GITHUB_SERVER_URL`/`GITHUB_REPOSITORY` in CI, defaulting to the
+       `posit-dev/positron` origin locally.)
+     - `Missing` = author minus derived. `Candidate entry` = `longest_map_prefix`
+       for the changed files (where an add would land). Ancestor-explained rows
+       are marked `(review)` so intentional narrowing isn't mistaken for a gap.
+  3. **Suggested diffs** - one fenced JSON diff per gap row, adding the missing
+     tag(s) to the candidate entry, PR context as a comment. *Proposals to review
+     and apply by hand*, not auto-applied.
+  4. **Over-tags table** - PRs where the map derived a tag the author did not set
+     (*review*: over-tag vs. good catch). Columns: `PR | Extra | Source entry |
+     Title`. `Extra` = derived minus author; `Source entry` = the entry that
+     produced it. **Review-only: no suggested diffs**, because over-tag and
+     good-catch are indistinguishable to the tool.
+- A PR with both a gap and an over-tag appears in both tables (each row targets a
+  different decision).
 - Read-only. No writes to the map or GitHub.
 
 ### Component B: `.github/workflows/e2e-tag-audit.yml`
@@ -136,14 +143,16 @@ job summary):
 
 > ## e2e tag audit - week of 2026-06-23..2026-06-29
 >
-> Examined 41 merged PRs: 3 gaps, 6 review, 32 clean.
+> Examined 41 merged PRs: 2 gaps, 6 over-tags, 33 clean.
 >
-> | PR | Author | Derived | Missing | Candidate entry | Title |
-> |----|--------|---------|---------|-----------------|-------|
-> | [#14248](https://github.com/posit-dev/positron/pull/14248) | @:interpreter | @:ark | +@:interpreter | positron-r/ | Fix runtime cache missing R versions |
-> | [#14336](https://github.com/posit-dev/positron/pull/14336) | @:ark,@:test-explorer | @:test-explorer | +@:ark | positron-r/src/testing/ (review) | Multi-line desc in R test explorer |
+> ### Gaps - author set a tag the map did not derive (consider adding)
 >
-> ### Suggested map edits (review before applying)
+> | PR | Missing | Candidate entry | Title |
+> |----|---------|-----------------|-------|
+> | [#14248](https://github.com/posit-dev/positron/pull/14248) | @:interpreter | `extensions/positron-r/` | Fix runtime cache missing R versions |
+> | [#14336](https://github.com/posit-dev/positron/pull/14336) | @:ark | `extensions/positron-r/src/testing/` (review) | Multi-line desc in R test explorer |
+>
+> #### Suggested map edits (review before applying)
 >
 > ~~~diff
 > # 14248  author had @:interpreter, map did not derive it
@@ -155,6 +164,13 @@ job summary):
 > -  "extensions/positron-r/src/testing/": ["@:test-explorer"],
 > +  "extensions/positron-r/src/testing/": ["@:test-explorer", "@:ark"],
 > ~~~
+>
+> ### Over-tags - map derived a tag the author did not set (review only)
+>
+> | PR | Extra | Source entry | Title |
+> |----|-------|--------------|-------|
+> | [#14502](https://github.com/posit-dev/positron/pull/14502) | @:console,@:interpreter | `extensions/positron-python/` | Filter Packages pane version picker |
+> | [#14447](https://github.com/posit-dev/positron/pull/14447) | @:console,@:posit-assistant,@:positron-notebooks | `positronConsole/`,`positronNotebook/` | Gate AI on ai.enabled |
 
 ## Testing
 
