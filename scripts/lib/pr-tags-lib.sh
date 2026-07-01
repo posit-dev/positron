@@ -124,6 +124,32 @@ longest_map_prefix() {
 	printf '%s' "$best"
 }
 
+# tag_ancestor_explained <tag> <changed_files> <map_file>
+# Exit 0 (true) iff, for some changed derivable file, the LONGEST matching map
+# key does not supply <tag> but a SHORTER matching key does -- i.e. a leaf
+# deliberately narrowed <tag> away (e.g. positron-r/src/testing/ dropping
+# @:ark). Used to flag a "+gap" as (review) rather than a real gap.
+tag_ancestor_explained() {
+	local tag="$1" changed="$2" map_file="$3" file lp k
+	while IFS= read -r file; do
+		[[ -z "$file" ]] && continue
+		[[ "$(is_derivable_source "$file")" == "true" ]] || continue
+		lp="$(longest_map_prefix "$file" "$map_file")"
+		[[ -z "$lp" ]] && continue
+		# Winner already supplies the tag -> this file is not "narrowed".
+		jq -r --arg k "$lp" '.[$k][]?' "$map_file" | grep -qxF "$tag" && continue
+		while IFS= read -r k; do
+			[[ -z "$k" ]] && continue
+			[[ "$file" == "$k"* ]] || continue
+			(( ${#k} < ${#lp} )) || continue
+			if jq -r --arg k "$k" '.[$k][]?' "$map_file" | grep -qxF "$tag"; then
+				return 0
+			fi
+		done < <(jq -r 'keys[]' "$map_file")
+	done <<< "$changed"
+	return 1
+}
+
 # positron_dir_of <path>
 # THE single source of truth for "which mappable Positron dir does a path belong
 # to". Echoes the path truncated to its FIRST positron* segment with a trailing

@@ -147,6 +147,30 @@ assert_eq "longest_map_prefix: parent when no leaf" \
 assert_eq "longest_map_prefix: no match" "" \
 	"$(longest_map_prefix "src/vs/base/common/uri.ts" "$MAP")"
 
+# --- tag_ancestor_explained ---
+# @:interpreter is supplied by the positron-python parent but dropped by the
+# .../packages/ leaf, so a packages-only change makes @:interpreter "explained".
+if tag_ancestor_explained "@:interpreter" \
+	"extensions/positron-python/src/client/positron/packages/pip.ts" "$MAP"; then
+	echo "PASS: ancestor-explained true when leaf drops a parent tag"
+else
+	echo "FAIL: ancestor-explained should be true for dropped parent tag"; fail=1
+fi
+# The winner supplies @:packages-pane, so it is NOT ancestor-explained.
+if tag_ancestor_explained "@:packages-pane" \
+	"extensions/positron-python/src/client/positron/packages/pip.ts" "$MAP"; then
+	echo "FAIL: ancestor-explained should be false when winner supplies tag"; fail=1
+else
+	echo "PASS: ancestor-explained false when winner supplies the tag"
+fi
+# A tag no ancestor supplies is a genuine gap, not explained.
+if tag_ancestor_explained "@:plots" \
+	"extensions/positron-python/src/client/positron/packages/pip.ts" "$MAP"; then
+	echo "FAIL: ancestor-explained should be false for a genuine gap"; fail=1
+else
+	echo "PASS: ancestor-explained false for a genuine gap"
+fi
+
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"
