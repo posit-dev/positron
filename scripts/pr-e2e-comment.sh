@@ -77,7 +77,9 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
 fi
 
 # Build the new comment body with proper newlines (%s = tags, %b = warnings).
-NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>&nbsp;&nbsp;<sup>[why these tags?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files)</sup>%b" "$FORMATTED_TAGS" "$WARN_FMT")
+# Layout: tags -> advisory block (if any) -> footer links last, so the links
+# always sit at the bottom rather than wedged between the tags and the note.
+NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s%b\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>&nbsp;&nbsp;<sup>[why these tags?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files)</sup>" "$FORMATTED_TAGS" "$WARN_FMT")
 
 if [ -n "$COMMENT_ID" ]; then
   # Update the existing comment
