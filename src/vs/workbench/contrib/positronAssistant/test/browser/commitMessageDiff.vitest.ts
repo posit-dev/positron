@@ -130,19 +130,19 @@ describe('buildCommitMessageContext', () => {
 		const groups = [makeGroup('index', [makeAddedResource('big.ts')])];
 		const result = await buildCommitMessageContext(fileServiceReturning(huge), ROOT_URI, groups);
 		expect(result).toContain('[Some changes were omitted');
-		// The 200 KB input is truncated to the ~2 KB per-file budget (plus note).
-		expect(result.length).toBeLessThan(3 * 1024);
+		// The 200 KB input is truncated to the ~8 KB per-file budget (plus note).
+		expect(result.length).toBeLessThan(9 * 1024);
 	});
 
 	it('truncates each large file independently rather than sharing one budget', async () => {
 		const huge = `${'x'.repeat(50 * 1024)}\n`;
 		const resources = ['a.ts', 'b.ts', 'c.ts'].map(makeAddedResource);
 		const result = await buildCommitMessageContext(fileServiceReturning(huge), ROOT_URI, [makeGroup('index', resources)]);
-		// Each of the three files contributes up to ~2 KB, so all three appear.
+		// Each of the three files contributes up to ~8 KB, so all three appear.
 		expect(result).toContain('b/a.ts');
 		expect(result).toContain('b/b.ts');
 		expect(result).toContain('b/c.ts');
-		expect(result.length).toBeLessThan(3 * (2 * 1024) + 256);
+		expect(result.length).toBeLessThan(3 * (8 * 1024) + 256);
 	});
 
 	it('caps the number of files summarized and flags the omission', async () => {
