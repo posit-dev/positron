@@ -15,7 +15,7 @@ import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
-import { findWorkspaceRequirementsFile } from './workspaceRequirements';
+import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -280,6 +280,11 @@ export class PipPackageManager implements IPackageManager {
      * Path to the workspace-root `requirements.txt` if present, else undefined.
      */
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        // Opt-out: when the setting is disabled, ignore requirements.txt so all
+        // operations fall back to the pip freeze re-resolve path.
+        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+            return undefined;
+        }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
         return findWorkspaceRequirementsFile(workspaceService, fileSystem);
