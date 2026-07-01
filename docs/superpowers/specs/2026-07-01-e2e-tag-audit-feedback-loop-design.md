@@ -83,6 +83,13 @@ pure check over the map keys, unit-tested alongside the primitives.
     are excluded from the comparison).
   - Fetch changed files -> `derive_map_tags`.
   - Compute gap and review via `csv_minus`.
+  - **Suppress gaps on non-source PRs.** A `+gap` is only reported when the PR
+    changed derivable source (i.e. it has a non-empty `Entry` / `longest_map_prefix`
+    resolves for at least one changed file). Test-only, docs-only, and lockfile-only
+    PRs are QA/infra work that the author tags by hand; on those every author tag
+    would otherwise show as a false gap against an empty derivation. Over-tags
+    (`-`) are unaffected: they only exist when the map derived something, which
+    already implies a source change.
 - Output (stdout, Markdown) - one table, one row per divergent PR:
   1. **Summary line** - PRs examined, gaps (`+`), over-tags (`-`), clean.
   2. **Delta table** - columns: `PR | Title | Author | Derived | Delta | Entry`.
