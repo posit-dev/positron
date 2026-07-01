@@ -17,6 +17,11 @@ import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
+import {
+    addInstalledToRequirements,
+    isAutoUpdateRequirementsEnabled,
+    removeUninstalledFromRequirements,
+} from './requirementsSync';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -91,6 +96,15 @@ export class UvPackageManager implements IPackageManager {
                 // the target with the file; a conflict fails atomically.
                 const args = ['pip', 'install', ...packageSpecs, '-r', requirementsPath, '--python', this._pythonPath];
                 await this._executeUvInTerminal(args, token);
+                if (isAutoUpdateRequirementsEnabled()) {
+                    const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+                    await addInstalledToRequirements(
+                        this._serviceContainer.get<IFileSystem>(IFileSystem),
+                        requirementsPath,
+                        packages.map((pkg) => pkg.name),
+                        installed,
+                    );
+                }
             } else {
                 // Re-resolve against the full installed set: name every installed
                 // package (bare) plus the new package(s) so an inconsistent install
@@ -129,6 +143,17 @@ export class UvPackageManager implements IPackageManager {
             // Environment workflow: uv pip uninstall --python <path> <packages>
             const args = ['pip', 'uninstall', '--python', this._pythonPath, ...packages];
             await this._executeUvInTerminal(args, token);
+
+            const requirementsPath = await this._getWorkspaceRequirementsPath();
+            if (requirementsPath && isAutoUpdateRequirementsEnabled()) {
+                const installed = (await this.getPackages(token)).map((pkg) => pkg.name);
+                await removeUninstalledFromRequirements(
+                    this._serviceContainer.get<IFileSystem>(IFileSystem),
+                    requirementsPath,
+                    packages,
+                    installed,
+                );
+            }
         }
     }
 
@@ -257,7 +282,7 @@ export class UvPackageManager implements IPackageManager {
         // Opt-out: when the setting is disabled, ignore requirements.txt so the
         // env workflow falls back to the uv pip freeze re-resolve path. This does
         // not affect the project (uv add) workflow, which is selected separately.
-        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+        if (!vscode.workspace.getConfiguration('packages.python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
             return undefined;
         }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
