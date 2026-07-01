@@ -23,14 +23,10 @@ export const EXECUTION_TIMEOUT_KEY = 'positron.mcp.executionTimeout';
 /** Default for {@link EXECUTION_TIMEOUT_KEY} when unset. */
 export const DEFAULT_EXECUTION_TIMEOUT = 30000;
 
-// The `positron.mcp.*` keys keep their existing namespace rather than dropping
-// the `positron.` prefix the configuration guidance would otherwise call for:
-// the keys are a public contract (users' settings and `.mcp.json` files already
-// use them, and the positron-mcp extension declares the same keys), so renaming
-// would break existing configs and the coexistence story. While the extension
-// is enabled it registers these keys first and core's registration is a no-op
-// (duplicate property keys are skipped); once the extension is removed in a
-// later phase, this registration keeps the settings alive.
+// The `positron.mcp.*` keys keep the `positron.` prefix the configuration
+// guidance would otherwise drop: a bare `mcp.*` namespace would collide with
+// upstream VS Code's own MCP-server settings, and these keys name a distinct
+// feature (Positron exposing itself as an MCP server, not consuming ones).
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 configurationRegistry.registerConfiguration({
 	id: 'positron.mcp',

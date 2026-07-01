@@ -11,9 +11,8 @@ import '../common/positronMcpConfiguration.js';
 import { registerPositronMcpCommands } from './positronMcpCommands.js';
 import { PositronMcpStatusBarContribution } from './positronMcpStatusBar.js';
 
-// Register the MCP commands (enable/disable, .mcp.json, guidance, status, logs).
-// Each registration is skipped if the positron-mcp extension already claimed the
-// command id, so the two can coexist for a release.
+// Register the MCP commands (enable/disable, .mcp.json, guidance, status, logs,
+// consent reset).
 registerPositronMcpCommands();
 
 // Register the status bar entry (hidden unless the server is enabled).

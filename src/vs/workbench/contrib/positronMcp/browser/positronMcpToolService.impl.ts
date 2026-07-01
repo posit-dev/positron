@@ -110,6 +110,10 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		};
 	}
 
+	resetConsent(): void {
+		this._consent.reset();
+	}
+
 	async callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
 		// hasOwn (not a bare index) so inherited Object members can't pose as tools.
 		const handler = Object.hasOwn(this._handlers, name) ? this._handlers[name as PositronMcpToolName] : undefined;

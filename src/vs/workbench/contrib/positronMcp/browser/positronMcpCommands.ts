@@ -5,7 +5,6 @@
 
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -15,11 +14,11 @@ import { IPositronMcpService, POSITRON_MCP_LOG_ID } from '../../../../platform/p
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IOutputService } from '../../../services/output/common/output.js';
 import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
+import { IPositronMcpToolService } from './positronMcpToolService.js';
 import { IMcpStatusData, McpPanelAction, showMcpStatusModal } from './positronMcpStatusModal.js';
 import { GUIDANCE_FILES, PositronMcpWorkspace } from './positronMcpWorkspace.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
-/** Command IDs, matching the positron-mcp extension's so configs/keybindings carry over. */
 const COMMAND_ID = {
 	enableServer: 'positron.mcp.enableServer',
 	disableServer: 'positron.mcp.disableServer',
@@ -27,6 +26,7 @@ const COMMAND_ID = {
 	addAgentGuidance: 'positron.mcp.addAgentGuidance',
 	showStatus: 'positron.mcp.showStatus',
 	showLogs: 'positron.mcp.showLogs',
+	resetConsent: 'positron.mcp.resetConsent',
 } as const;
 
 const MCP_CATEGORY = localize2('positron.mcp.category', "Positron MCP");
@@ -114,42 +114,37 @@ async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction
 	}
 }
 
-/**
- * Register the Positron MCP commands, skipping any whose id the positron-mcp
- * extension already registered (registerAction2 throws on a duplicate id). When
- * the extension is disabled -- the normal way to run the core server -- core owns
- * the ids; when it is enabled, the extension's versions stand in.
- */
+/** Register the Positron MCP commands. */
 export function registerPositronMcpCommands(): void {
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.enableServer, title: localize2('positron.mcp.enableServer', "Enable Server"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return setEnabled(accessor, true); }
-	}, COMMAND_ID.enableServer);
+	});
 
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.disableServer, title: localize2('positron.mcp.disableServer', "Disable Server"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return setEnabled(accessor, false); }
-	}, COMMAND_ID.disableServer);
+	});
 
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.addConfigFile, title: localize2('positron.mcp.addConfigFile', "Add .mcp.json to Workspace"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return addConfigFile(accessor); }
-	}, COMMAND_ID.addConfigFile);
+	});
 
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.addAgentGuidance, title: localize2('positron.mcp.addAgentGuidance', "Add Guidance to AGENTS.md or CLAUDE.md"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return addAgentGuidance(accessor); }
-	}, COMMAND_ID.addAgentGuidance);
+	});
 
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.showStatus, title: localize2('positron.mcp.showStatus', "Show Status"), category: MCP_CATEGORY, f1: true });
 		}
@@ -164,19 +159,23 @@ export function registerPositronMcpCommands(): void {
 				action => instantiationService.invokeFunction(acc => runPanelAction(acc, action)),
 			);
 		}
-	}, COMMAND_ID.showStatus);
+	});
 
-	registerIfAbsent(class extends Action2 {
+	registerAction2(class extends Action2 {
 		constructor() {
 			super({ id: COMMAND_ID.showLogs, title: localize2('positron.mcp.showLogs', "Show Logs"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return showLogs(accessor); }
-	}, COMMAND_ID.showLogs);
-}
+	});
 
-/** Register an action unless its command id is already taken (by the extension). */
-function registerIfAbsent(ctor: { new(): Action2 }, id: string): void {
-	if (!CommandsRegistry.getCommand(id)) {
-		registerAction2(ctor);
-	}
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.resetConsent, title: localize2('positron.mcp.resetConsent', "Reset Code Execution Consent"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) {
+			// The consent dialog's "allow all" option points users here to undo it.
+			accessor.get(IPositronMcpToolService).resetConsent();
+			accessor.get(INotificationService).info(localize('positron.mcp.consentReset', "Code execution consent has been reset. You will be prompted again the next time an agent runs code."));
+		}
+	});
 }

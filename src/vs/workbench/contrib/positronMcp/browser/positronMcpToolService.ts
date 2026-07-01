@@ -21,4 +21,7 @@ export interface IPositronMcpToolService {
 
 	/** Run a tool by name and return its MCP result. Unknown tools return an error result. */
 	callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult>;
+
+	/** Clear all cached code-execution consent, so the next agent-run code prompts again. */
+	resetConsent(): void;
 }

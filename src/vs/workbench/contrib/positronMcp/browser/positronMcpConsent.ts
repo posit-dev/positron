@@ -85,7 +85,7 @@ export class UserConsentManager {
 		return true;
 	}
 
-	/** Reset all consent state (wired to the "reset consent" command in Phase 5). */
+	/** Reset all consent state (wired to the positron.mcp.resetConsent command). */
 	reset(): void {
 		this._consentCache.clear();
 		this._allowAll = false;
