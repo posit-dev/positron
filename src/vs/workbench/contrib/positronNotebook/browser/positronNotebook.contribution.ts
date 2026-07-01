@@ -13,12 +13,13 @@ import './contrib/commands/NotebookCommandsAction.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
+import './notebookImageOutputActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 import './contrib/cellTags/actions.js';
 import './AssistantPanel/notebookSuggestionsConfig.js';
 
-import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
+import { copyImageToClipboard } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from './getOutputContents.js';
 import { getActiveWindow, isEditableElement, isHTMLElement } from '../../../../base/browser/dom.js';
@@ -2064,71 +2065,6 @@ export class CopyOutputAction extends NotebookAction2 {
 	}
 }
 registerAction2(CopyOutputAction);
-
-// Copy output image to clipboard (menu-driven, e.g. right-click on specific image)
-class CopyOutputImageAction extends NotebookAction2 {
-	constructor() {
-		super({
-			id: PositronNotebookActionId.CopyOutputImage,
-			title: localize2('positronNotebook.cell.copyOutputImage', "Copy Image"),
-			icon: ThemeIcon.fromId('copy'),
-			grabFocusOnRun: false,
-			menu: [
-				{
-					id: MenuId.PositronNotebookCellOutputActionBar,
-					group: PositronNotebookCellOutputActionGroup.Copy,
-					order: 1,
-					when: ContextKeyExpr.and(
-						// Show the static "Copy Image" action only when there is exactly one
-						// image output. For multiple images, users can right-click individual
-						// images to copy them.
-						ContextKeyExpr.equals(CellContextKeys.imageOutputCount.key, 1),
-						CellContextKeys.outputIsCollapsed.toNegated()
-					)
-				},
-				{
-					id: MenuId.PositronNotebookCellOutputActionContext,
-					group: PositronNotebookCellOutputActionGroup.Copy,
-					order: 1,
-					when: ContextKeyExpr.and(
-						CellContextKeys.outputImageTargeted,
-						CellContextKeys.outputIsCollapsed.toNegated()
-					)
-				},
-			],
-		});
-	}
-
-	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
-		const clipboardService = accessor.get(IClipboardService);
-		const logService = accessor.get(ILogService);
-		const notificationService = accessor.get(INotificationService);
-
-		// Look for a CopyImageMenuArg forwarded from the context menu
-		const menuArg = args.find(isCopyImageMenuArg);
-		let dataUrl = menuArg?.imageDataUrl;
-
-		// Fall back to the first image output (e.g. from ellipsis menu)
-		if (!dataUrl) {
-			const state = notebook.selectionStateMachine.state.get();
-			const cell = getActiveCell(state);
-			if (!cell?.isCodeCell()) {
-				return;
-			}
-			const imageOutput = cell.outputs.get().find(o => o.parsed.type === 'image');
-			if (imageOutput?.parsed.type === 'image') {
-				dataUrl = imageOutput.parsed.dataUrl;
-			}
-		}
-
-		if (!dataUrl) {
-			return;
-		}
-
-		await copyImageToClipboard(dataUrl, clipboardService, logService, notificationService);
-	}
-}
-registerAction2(CopyOutputImageAction);
 
 // Copy JSON output to clipboard
 registerAction2(class extends NotebookAction2 {
