@@ -15,8 +15,6 @@ import { localize } from '../../../../../nls.js';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
-import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { PositronCellEditorOptions } from './PositronCellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -109,48 +107,15 @@ function createCellEditor(
 
 	const language = cell.model.language;
 
-	const cellEditor = disposables.add(new CellEditor());
+	const cellEditor = disposables.add(new CellEditor(
+		cell.scopedContextKeyService,
+		instance.scopedInstantiationService
+	));
 	const { element } = cellEditor;
 
-	// Create a scoped context key service for this editor as a child of the cell's scope.
-	// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
-	// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
-	// from this one for editor-specific keys.
-	const editorContextKeyService = cell.scopedContextKeyService.createScoped(element);
-	disposables.add(editorContextKeyService);
-
-	// CRITICAL: Set the inCompositeEditor flag to change editor behavior
-	// This tells Monaco it's part of a composite (notebook) and not a standalone editor
-	// Without this flag, certain standalone editor keybindings would still fire
-	EditorContextKeys.inCompositeEditor.bindTo(editorContextKeyService).set(true);
-
-	// We need to ensure the EditorProgressService (or a fake) is available
-	// in the service collection because monaco editors will try and access
-	// it even though it's not available in the notebook context. This feels
-	// hacky but VSCode notebooks do the same thing so I guess it's easier
-	// than fixing it at the monaco level.
-	const serviceCollection = new ServiceCollection(
-		[
-			IEditorProgressService,
-			// Create a simple no-op IEditorProgressService for editor contributions
-			// Based on pattern from codeBlockPart.ts in chat contrib
-			new class implements IEditorProgressService {
-				_serviceBrand: undefined;
-				show() {
-					// No-op progress indicator for notebook cell editors
-					return { done: () => { }, total: () => { }, worked: () => { } };
-				}
-				async showWhile(promise: Promise<any>): Promise<void> {
-					await promise;
-				}
-			}],
-		[IContextKeyService, editorContextKeyService]
-	);
-
-	const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
 	const editorOptions = disposables.add(new PositronCellEditorOptions(instance, language, configurationService));
 
-	const editor = disposables.add(editorInstaService.createInstance(
+	const editor = disposables.add(cellEditor.scopedInstantiationService.createInstance(
 		CodeEditorWidget,
 		element,
 		{
