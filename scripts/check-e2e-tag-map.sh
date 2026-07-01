@@ -7,6 +7,10 @@
 # Env: MAP_FILE overrides the map path (used by tests).
 set -uo pipefail
 
+# positron_dir_of: the shared "path -> mappable positron dir (or nothing)" rule.
+# shellcheck source=/dev/null
+source "$(cd "$(dirname "$0")" && pwd)/lib/pr-tags-lib.sh"
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAP_FILE="${MAP_FILE:-$REPO_ROOT/.github/workflows/e2e-tag-paths-map.json}"
 WARN_ONLY=false
@@ -17,23 +21,20 @@ if [[ ! -f "$MAP_FILE" ]]; then
 	exit 1
 fi
 
-# Enumerate every Positron source dir (any `positron*` feature-root dir anywhere
-# under src/ or extensions/, wherever it lives) as a repo-relative prefix with a
-# trailing slash, matching the map's key format. `-prune` stops at each feature
-# root so nested positron subdirs aren't listed separately. Build output (out/),
-# vendored deps (node_modules/), and test dirs (test/, tests/, *-tests/) are
-# excluded -- they're not feature source. `while read` (not `mapfile`) keeps this
-# bash 3.2 compatible (macOS default).
+# Discover every `positron*` feature-root dir under src/ and extensions/
+# (`-prune` stops at each root so nested subdirs aren't listed; node_modules is
+# pruned for speed). Each is normalized through positron_dir_of, which owns the
+# trailing-slash format and the test/build/vendor exclusions -- the same rule
+# find_unmapped_positron_dirs uses, so the two can't drift. `while read` (not
+# `mapfile`) keeps this bash 3.2 compatible (macOS default).
 expected=()
 while IFS= read -r d; do
-	expected+=("$d")
+	dir="$(positron_dir_of "$d")"
+	[[ -n "$dir" ]] && expected+=("$dir")
 done < <(
 	cd "$REPO_ROOT" || exit 1
-	find src extensions -type d \( -name node_modules -o -name out \) -prune \
-		-o -type d -iname 'positron*' -prune -print 2>/dev/null \
-		| grep -viE '(^|/)(test|tests)(/|$)' \
-		| grep -viE '(^|/)[a-z-]*-tests?(/|$)' \
-		| sed 's#$#/#' | sort -u
+	find src extensions -type d -name node_modules -prune \
+		-o -type d -iname 'positron*' -prune -print 2>/dev/null | sort -u
 )
 
 missing=()

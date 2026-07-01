@@ -115,26 +115,40 @@ derive_test_file_tags() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++' | paste -sd, -
 }
 
+# positron_dir_of <path>
+# THE single source of truth for "which mappable Positron dir does a path belong
+# to". Echoes the path truncated to its FIRST positron* segment with a trailing
+# slash (e.g. src/vs/editor/contrib/positronHelp/browser/x.ts -> src/vs/editor/
+# contrib/positronHelp/), or nothing if the path has no positron segment, isn't
+# under src/ or extensions/, or lives in a non-feature location (test/build/
+# vendor). Accepts a file path OR a bare dir path. Shared by both
+# find_unmapped_positron_dirs (per changed file) and check-e2e-tag-map.sh (per
+# enumerated dir), so the "what's a positron dir + what's excluded" rule lives
+# in exactly one place.
+positron_dir_of() {
+	local path="$1" dir
+	case "$path" in src/*|extensions/*) ;; *) return 0 ;; esac
+	# Append a slash so a bare dir path (positron segment last) matches the same
+	# way a file path (positron segment mid-path) does. sed matches leftmost.
+	dir="$(printf '%s/' "$path" | sed -nE 's#(positron[^/]*)/.*#\1/#p')"
+	[[ -z "$dir" ]] && return 0
+	case "$dir" in */out/*|*/node_modules/*) return 0 ;; esac
+	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	printf '%s\n' "$dir"
+}
+
 # find_unmapped_positron_dirs <changed_files> <map_file>
 # Echoes (newline-separated, unique) the Positron source dirs this PR touches
-# that have NO key in the map. The dir is the path truncated to its FIRST
-# positron* segment with a trailing slash, wherever it lives under src/ or
-# extensions/ (e.g. src/vs/editor/contrib/positronHelp/, not just contrib/
-# services/extensions). A dir counts as mapped when its prefix is a key in the
-# map (even with a [] value). Test/build/vendor dirs are skipped -- they're not
-# feature source and are not in the map (mirrors check-e2e-tag-map.sh).
+# that have NO key in the map (even a [] value counts as mapped). Uses
+# positron_dir_of for the dir rule, so it stays in lockstep with the guardrail.
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
 	local -a out=()
 	while IFS= read -r file; do
 		[[ -z "$file" ]] && continue
-		case "$file" in src/*|extensions/*) ;; *) continue ;; esac
-		# Truncate to the first positron* path segment (sed matches leftmost).
-		dir="$(printf '%s' "$file" | sed -nE 's#(positron[^/]*)/.*#\1/#p')"
+		dir="$(positron_dir_of "$file")"
 		[[ -z "$dir" ]] && continue
-		case "$dir" in */out/*|*/node_modules/*) continue ;; esac
-		printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && continue
 		if ! jq -e --arg k "$dir" 'has($k)' "$map_file" >/dev/null 2>&1; then
 			out+=("$dir")
 		fi

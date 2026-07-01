@@ -115,6 +115,19 @@ else
 	echo "FAIL: guardrail should exit 0 on the complete map"; fail=1
 fi
 
+# --- positron_dir_of (shared primitive) ---
+assert_eq "dir_of: file under contrib" "src/vs/workbench/contrib/positronConsole/" \
+	"$(positron_dir_of "src/vs/workbench/contrib/positronConsole/browser/x.ts")"
+assert_eq "dir_of: bare dir path (positron last)" "src/vs/workbench/browser/positronDataExplorer/" \
+	"$(positron_dir_of "src/vs/workbench/browser/positronDataExplorer")"
+assert_eq "dir_of: editor/contrib file" "src/vs/editor/contrib/positronHelp/" \
+	"$(positron_dir_of "src/vs/editor/contrib/positronHelp/x.ts")"
+assert_eq "dir_of: extension" "extensions/positron-python/" \
+	"$(positron_dir_of "extensions/positron-python/src/x.ts")"
+assert_eq "dir_of: non-positron -> empty" "" "$(positron_dir_of "src/vs/base/common/uri.ts")"
+assert_eq "dir_of: test-path -> empty" "" "$(positron_dir_of "src/vs/base/test/common/positron/x.ts")"
+assert_eq "dir_of: outside src/extensions -> empty" "" "$(positron_dir_of "docs/x.md")"
+
 # --- find_unmapped_positron_dirs ---
 MAP2="$(mktemp)"
 cat > "$MAP2" <<'JSON'
