@@ -128,6 +128,19 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		);
 	}
 
+	/**
+	 * Let reconciliation run to completion. The listener fires synchronously on
+	 * the model-change event, but disposal is chained off an already-resolved
+	 * webview Promise, so it lands on a later microtask. A macrotask hop drains
+	 * all pending microtasks; a few extra hops keep a correct multi-await fix
+	 * from producing a false negative.
+	 */
+	async function flushReconciliation() {
+		for (let i = 0; i < 3; i++) {
+			await timeout(0);
+		}
+	}
+
 	it('disposes an orphaned display webview when its output is cleared', async () => {
 		const { textModel, instance } = setupNotebook([plotlyOutput]);
 
@@ -137,9 +150,36 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		expect(disposedById.get('display-1'), 'webview is alive while the output exists').toBe(false);
 
 		clearOutputs(textModel);
-		await timeout(0);
+		await flushReconciliation();
 
 		expect(disposedById.get('display-1'), 'cleared output must dispose its overlay webview').toBe(true);
+	});
+
+	it('disposes an orphaned display webview when the output type changes (re-run)', async () => {
+		const { textModel, instance } = setupNotebook([plotlyOutput]);
+
+		const result = service.addNotebookOutput({ instance, outputId: 'display-1', outputs: plotlyOutput.outputs });
+		expect(result?.preloadMessageType).toBe('display');
+		await result!.webview;
+		expect(disposedById.get('display-1')).toBe(false);
+
+		// Re-running the cell replaces the plot output with a plain-text output
+		// under a new output ID -- the original overlay is now orphaned.
+		textModel.applyEdits(
+			[{
+				editType: CellEditType.Output,
+				index: 0,
+				outputs: [{
+					outputId: 'text-2',
+					outputs: [{ mime: 'application/vnd.code.notebook.stdout', data: VSBuffer.fromString('done') }],
+				}],
+				append: false,
+			}],
+			true, undefined, () => undefined, undefined, false,
+		);
+		await flushReconciliation();
+
+		expect(disposedById.get('display-1'), 'a changed output type must dispose the stale overlay webview').toBe(true);
 	});
 
 	it('disposes an orphaned raw HTML webview when its cell is deleted', async () => {
@@ -160,7 +200,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 			[{ editType: CellEditType.Replace, index: 0, count: 1, cells: [] }],
 			true, undefined, () => undefined, undefined, false,
 		);
-		await timeout(0);
+		await flushReconciliation();
 
 		expect(disposedById.get('html-1'), 'deleting the cell must dispose its overlay webview').toBe(true);
 	});
@@ -186,7 +226,7 @@ describe('Positron - PositronWebviewPreloadService output reconciliation (#12887
 		// Removing the widget's output triggers reconciliation. The widget owns
 		// its own lifecycle, so reconciliation must leave it alone.
 		clearOutputs(textModel);
-		await timeout(0);
+		await flushReconciliation();
 
 		expect(disposedById.get('widget-1'), 'reconciliation must not dispose widget webviews').toBe(false);
 	});
