@@ -137,6 +137,16 @@ assert_eq "csv_minus no overlap" "@:a" "$(csv_minus "@:a" "@:b")"
 assert_eq "csv_minus full overlap" "" "$(csv_minus "@:a,@:b" "@:b,@:a")"
 assert_eq "csv_minus dedups a" "@:a" "$(csv_minus "@:a,@:a" "")"
 
+# --- longest_map_prefix ---
+assert_eq "longest_map_prefix: leaf wins over parent" \
+	"extensions/positron-python/src/client/positron/packages/" \
+	"$(longest_map_prefix "extensions/positron-python/src/client/positron/packages/pip.ts" "$MAP")"
+assert_eq "longest_map_prefix: parent when no leaf" \
+	"extensions/positron-python/" \
+	"$(longest_map_prefix "extensions/positron-python/src/client/positron/session.ts" "$MAP")"
+assert_eq "longest_map_prefix: no match" "" \
+	"$(longest_map_prefix "src/vs/base/common/uri.ts" "$MAP")"
+
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"

@@ -110,6 +110,20 @@ csv_minus() {
 	}'
 }
 
+# longest_map_prefix <file> <map_file>
+# Echoes the single longest map key that prefixes <file> (the most-specific-wins
+# winner derive_map_tags would pick for this file), or nothing.
+longest_map_prefix() {
+	local file="$1" map_file="$2" prefix best=""
+	while IFS= read -r prefix; do
+		[[ -z "$prefix" ]] && continue
+		if [[ "$file" == "$prefix"* ]] && (( ${#prefix} > ${#best} )); then
+			best="$prefix"
+		fi
+	done < <(jq -r 'keys[]' "$map_file")
+	printf '%s' "$best"
+}
+
 # positron_dir_of <path>
 # THE single source of truth for "which mappable Positron dir does a path belong
 # to". Echoes the path truncated to its FIRST positron* segment with a trailing
