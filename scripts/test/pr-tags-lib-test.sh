@@ -28,6 +28,8 @@ cat > "$MAP" <<'JSON'
 {
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
   "extensions/positron-assistant/": ["@:assistant", "@:posit-assistant"],
+  "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
+  "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
   "src/vs/workbench/contrib/positronTelemetry/": []
 }
 JSON
@@ -43,6 +45,45 @@ assert_eq "empty-value entry yields nothing" "" \
 	"$(derive_map_tags "src/vs/workbench/contrib/positronTelemetry/t.ts" "$MAP")"
 assert_eq "no match" "" \
 	"$(derive_map_tags "src/vs/base/common/uri.ts" "$MAP")"
+
+# Most-specific-wins: a file under a deeper leaf gets ONLY the leaf's tags, not
+# the broad parent's -- the leaf overrides the parent for that path.
+assert_eq "longest-prefix leaf overrides parent" "@:packages-pane" \
+	"$(derive_map_tags "extensions/positron-python/src/client/positron/packages/pipPackageManager.ts" "$MAP")"
+# A file under the parent but outside the leaf still gets the parent's full set.
+assert_eq "parent still applies outside the leaf" "@:interpreter,@:console,@:packages-pane" \
+	"$(derive_map_tags "extensions/positron-python/src/client/positron/session.ts" "$MAP")"
+# Two files, one leaf one parent: union of the winning entry per file.
+assert_eq "leaf + parent union across files" "@:packages-pane,@:interpreter,@:console" \
+	"$(derive_map_tags "$(printf 'extensions/positron-python/src/client/positron/packages/x.ts\nextensions/positron-python/src/client/positron/session.ts')" "$MAP")"
+
+# Test files and lockfiles never contribute to derivation (a test-only or
+# lockfile-only change should not auto-select a feature suite).
+assert_eq "co-located vitest ignored" "" \
+	"$(derive_map_tags "src/vs/workbench/contrib/positronConsole/test/browser/x.vitest.ts" "$MAP")"
+assert_eq "co-located .test.ts ignored" "" \
+	"$(derive_map_tags "extensions/positron-python/src/test/positron/x.unit.test.ts" "$MAP")"
+assert_eq "lockfile ignored" "" \
+	"$(derive_map_tags "extensions/positron-assistant/package-lock.json" "$MAP")"
+# Source plus its co-located test: source still derives, test contributes nothing.
+assert_eq "source derives, its test is skipped" "@:packages-pane" \
+	"$(derive_map_tags "$(printf 'extensions/positron-python/src/client/positron/packages/uv.ts\nextensions/positron-python/src/test/positron/uv.unit.test.ts')" "$MAP")"
+
+# --- is_derivable_source ---
+assert_eq "derivable: plain source" "true" \
+	"$(is_derivable_source "src/vs/workbench/contrib/positronConsole/x.ts")"
+assert_eq "non-derivable: test dir" "false" \
+	"$(is_derivable_source "src/vs/foo/test/browser/x.ts")"
+assert_eq "non-derivable: tests dir" "false" \
+	"$(is_derivable_source "extensions/positron-python/src/tests/x.py")"
+assert_eq "non-derivable: .test.ts" "false" \
+	"$(is_derivable_source "src/vs/foo/x.test.ts")"
+assert_eq "non-derivable: .vitest.tsx" "false" \
+	"$(is_derivable_source "src/vs/foo/x.vitest.tsx")"
+assert_eq "non-derivable: package-lock" "false" \
+	"$(is_derivable_source "extensions/positron-assistant/package-lock.json")"
+assert_eq "non-derivable: uv.lock" "false" \
+	"$(is_derivable_source "extensions/positron-python/python_files/posit/uv.lock")"
 
 # --- scan_added_platform_tags ---
 PATCH_WIN=$'@@ -1 +1,2 @@\n+test.describe("x", { tag: [tags.WIN] }, () => {})\n-old line'

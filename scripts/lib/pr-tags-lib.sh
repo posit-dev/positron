@@ -4,26 +4,52 @@
 # so it can be unit-tested without network or GitHub Actions context.
 # Source this file; do not execute it.
 
+# is_derivable_source <path>
+# Echoes "true" iff a changed path should contribute to tag derivation. Test
+# files (co-located unit/vitest tests under a test/ dir or named *.test.* /
+# *.vitest.*) and lockfiles are excluded: a test-only or lockfile-only change
+# should not auto-select a feature suite. This is derivation-only -- the map-rot
+# guardrail excludes test/build dirs separately via positron_dir_of.
+is_derivable_source() {
+	local path="$1"
+	case "$path" in
+		*/test/*|*/tests/*) echo false; return 0 ;;
+		*.test.*|*.vitest.*) echo false; return 0 ;;
+		package-lock.json|*/package-lock.json) echo false; return 0 ;;
+		uv.lock|*/uv.lock) echo false; return 0 ;;
+	esac
+	echo true
+}
+
 # derive_map_tags <changed_files> <map_file>
 #   changed_files: newline-separated repo-relative paths
 #   map_file: e2e-tag-paths-map.json -> { "<prefix>": ["@:tag", ...], ... }
 # Echoes comma-separated, de-duplicated, order-stable matched tags (empty if
-# none). A file matches a map entry when the path starts with the entry's key.
+# none). For each file, the MOST SPECIFIC (longest) map prefix that matches wins;
+# a deeper leaf entry overrides its broad parent rather than unioning with it, so
+# a narrow entry can drop tags the parent would over-select. Tags are unioned
+# across files. Non-source paths (tests, lockfiles) are skipped -- see
+# is_derivable_source.
 derive_map_tags() {
 	local changed="$1" map_file="$2"
-	local file prefix tag keys
+	local file prefix tag keys best
 	local -a out=()
 	keys="$(jq -r 'keys[]' "$map_file")"
 	while IFS= read -r file; do
 		[[ -z "$file" ]] && continue
+		[[ "$(is_derivable_source "$file")" == "true" ]] || continue
+		# Pick the single longest key that prefixes this file (most-specific-wins).
+		best=""
 		while IFS= read -r prefix; do
 			[[ -z "$prefix" ]] && continue
-			if [[ "$file" == "$prefix"* ]]; then
-				while IFS= read -r tag; do
-					[[ -n "$tag" ]] && out+=("$tag")
-				done < <(jq -r --arg k "$prefix" '.[$k][]?' "$map_file")
+			if [[ "$file" == "$prefix"* ]] && (( ${#prefix} > ${#best} )); then
+				best="$prefix"
 			fi
 		done <<< "$keys"
+		[[ -z "$best" ]] && continue
+		while IFS= read -r tag; do
+			[[ -n "$tag" ]] && out+=("$tag")
+		done < <(jq -r --arg k "$best" '.[$k][]?' "$map_file")
 	done <<< "$changed"
 	[[ ${#out[@]} -eq 0 ]] && return 0
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++' | paste -sd, -
