@@ -51,6 +51,9 @@ function createMockShape() {
 		override $emitPerfMark(_extensionId: string, _name: string): void {
 			// no-op
 		}
+		override $completeLanguageRuntimeDiscovery(): void {
+			// no-op
+		}
 	};
 }
 
@@ -128,6 +131,61 @@ describe('ExtHostLanguageRuntime - onDidRegisterRuntime', function () {
 		expect(shape.registrations[0].runtimeId).toBe(meta.runtimeId);
 		// ...but the public event has not fired yet (it would on broadcast back).
 		expect(seen).toEqual([]);
+	});
+});
+
+/**
+ * A manager whose `discoverAllRuntimes` yields a fixed set of runtimes. Used to
+ * exercise the discovery-completion enumeration paths.
+ */
+class DiscoveringManager extends mock<positron.LanguageRuntimeManager>() {
+	constructor(private readonly _runtimes: positron.LanguageRuntimeMetadata[]) { super(); }
+	override async *discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+		for (const runtime of this._runtimes) {
+			yield runtime;
+		}
+	}
+}
+
+describe('ExtHostLanguageRuntime - discovery completion', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	let shape: ReturnType<typeof createMockShape>;
+	let runtime: ExtHostLanguageRuntime;
+
+	beforeEach(() => {
+		shape = createMockShape();
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+	});
+
+	it('enumerates a manager registered before warm-start completion', async () => {
+		// The race this guards: a runtime manager registered via the public API
+		// before discovery completed is parked in `_runtimeManagers`, waiting
+		// for an enumeration pass. On the warm-start fast path the main thread
+		// served every cached language from cache and signals completion via
+		// `$markRuntimeDiscoveryComplete` -- without enumerating here, the parked
+		// manager (whose language isn't cache-backed) would be stranded forever.
+		const testRuntime = fakeMetadata({ runtimeId: 'test-1', languageId: 'test' }) as unknown as positron.LanguageRuntimeMetadata;
+		const manager = new DiscoveringManager([testRuntime]);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'test', manager));
+
+		// Warm start completes; cached languages (r) are supplied in the skip set.
+		await runtime.$markRuntimeDiscoveryComplete(['r']);
+
+		expect(shape.registrations.map(r => r.runtimeId)).toEqual(['test-1']);
+	});
+
+	it('does not re-enumerate cache-satisfied managers on warm-start completion', async () => {
+		// A manager whose language was served from cache must not be re-walked:
+		// that is the whole point of the warm-start optimization.
+		const rRuntime = fakeMetadata({ runtimeId: 'r-1', languageId: 'r' }) as unknown as positron.LanguageRuntimeMetadata;
+		const manager = new DiscoveringManager([rRuntime]);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager));
+
+		await runtime.$markRuntimeDiscoveryComplete(['r']);
+
+		expect(shape.registrations).toEqual([]);
 	});
 });
 

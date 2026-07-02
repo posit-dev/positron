@@ -1002,14 +1002,18 @@ export interface IRuntimeManager {
 	discoverAllRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): Promise<void>;
 
 	/**
-	 * Mark the manager's discovery-complete flag without running a real
-	 * enumeration. Used by the warm-start fast path: the discovery cache
-	 * already satisfied every bucket, so no manager needs to enumerate, but
-	 * the ext host still needs to know that initial discovery is over so
-	 * runtime managers registered later (via `registerLanguageRuntimeManager`)
-	 * self-trigger their own discovery.
+	 * Mark the manager's discovery-complete flag on the warm-start fast path:
+	 * the discovery cache already satisfied every cache-backed bucket, so those
+	 * languages don't need to enumerate. The ext host still enumerates any
+	 * managers whose language is *not* in `skipLanguageIds` -- this catches
+	 * runtime managers registered via `registerLanguageRuntimeManager` before
+	 * the warm-start completion signal, whose languages aren't cache-backed and
+	 * would otherwise be stranded -- and records that initial discovery is over
+	 * so managers registered later self-trigger their own discovery.
+	 *
+	 * @param skipLanguageIds The cache-satisfied languages to skip enumerating.
 	 */
-	markDiscoveryComplete(): void;
+	markDiscoveryComplete(skipLanguageIds?: string[]): void;
 
 	/**
 	 * Recommend runtimes for this specific workspace.
