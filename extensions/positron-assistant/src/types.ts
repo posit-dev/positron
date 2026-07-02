@@ -7,22 +7,10 @@ import { type RuntimeVariable } from 'positron';
 import * as vscode from 'vscode';
 
 export enum PositronAssistantToolName {
-	DocumentEdit = 'documentEdit',
-	EditFile = 'positron_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetTableSummary = 'getTableSummary',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
-	SelectionEdit = 'selectionEdit',
-	ProjectTree = 'getProjectTree',
-	GetChangedFiles = 'getChangedFiles',
-	DocumentCreate = 'documentCreate',
-	TextSearch = 'positron_findTextInProject_internal',
-	FileContents = 'positron_getFileContents_internal',
-	ExecuteNotebook = 'executeNotebook',
-	EditNotebook = 'editNotebook',
-	GetNotebookInfo = 'getNotebookInfo',
-	CreateNotebook = 'createNotebook',
 }
 
 /**
@@ -93,7 +81,6 @@ export interface RuntimeSessionReference {
 		language: string;
 		version: string;
 		mode: string;
-		notebookUri?: any;
 		executions: {
 			input: string;
 			output: string;

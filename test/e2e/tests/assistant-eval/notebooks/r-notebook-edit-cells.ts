@@ -64,7 +64,7 @@ export const rNotebookEditCells: EvalTestCase = {
 	evaluationCriteria: {
 		required: [
 			'The `editNotebook` tool must appear in the "Tools Called:" section',
-			'The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)',
+			'The `editFile` tool must NOT appear (wrong tool for notebooks)',
 		],
 		optional: [
 			'Correctly identifies the R error (object "undefined_variable" not found)',
