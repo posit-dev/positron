@@ -17,6 +17,7 @@ const LANGUAGES = [
 const SCENARIOS = [
 	{
 		name: 'simple expression',
+		variant: 'simple_expression',
 		python: '2 ** 32',
 		r: '2 ^ 32',
 		// Both expressions evaluate to 4294967296
@@ -29,6 +30,7 @@ const SCENARIOS = [
 		// (posit-dev/positron#9852). Running below the default 10,000-line cap would never
 		// trigger trimming and would leave the regression undetected.
 		name: 'scrollback trim',
+		variant: 'scrollback_trim',
 		python: 'print("\\n".join(str(i) for i in range(1, 3001)))',
 		r: 'cat(paste(seq_len(3000), collapse = "\\n"), "\\n")',
 		// '2999' appears in both outputs but not in either code string
@@ -80,6 +82,7 @@ test.describe('Console Performance: Code Execution', {
 					}, target, {
 						language: lang,
 						description: `${lang}: ${scenario.name}`,
+						additionalContext: { variant: scenario.variant },
 					});
 
 					expect(duration_ms).toBeGreaterThan(0);
