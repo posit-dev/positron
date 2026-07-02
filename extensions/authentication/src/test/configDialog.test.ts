@@ -428,7 +428,18 @@ suite('configDialog', () => {
 
 			assert.deepStrictEqual(updateCalls.at(-1), {
 				id: 'copilot-auth',
-				update: { signedIn: false, status: null, statusMessage: undefined },
+				update: {
+					signedIn: false,
+					status: null,
+					statusMessage: undefined,
+					defaults: {
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: 'the Accounts menu.',
+							signedIn: false,
+						},
+					},
+				},
 			});
 		});
 	});

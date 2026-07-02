@@ -146,6 +146,18 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         // This prevents paths with -m (or other dash options) from being misinterpreted
                         const command = `%run -- ${JSON.stringify(filePath)}`;
                         const fileUri = vscode.Uri.file(filePath);
+
+                        // Offer to install missing packages before running. The
+                        // preflight runs in the Positron frontend and returns
+                        // whether to proceed (false only if the user cancels).
+                        const shouldRun = await vscode.commands.executeCommand<boolean>(
+                            'positron.missingPackages.preflight',
+                            fileUri,
+                        );
+                        if (shouldRun === false) {
+                            return;
+                        }
+
                         positron.runtime.executeCode(
                             'python',
                             command,
