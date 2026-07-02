@@ -770,7 +770,6 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 		// Access services
 		const commandService = accessor.get(ICommandService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const notificationService = accessor.get(INotificationService);
 
 		// Get the current foreground session.
 		const currentSession = runtimeSessionService.foregroundSession;
@@ -778,24 +777,35 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 			return;
 		}
 
-		if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
-			notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
-			return;
-		}
-
 		// Drive focus into the Positron console.
 		commandService.executeCommand('workbench.panel.positronConsole.focus');
 
-		// Duplicate the current session with the `startNewRuntimeSession` method.
-		await runtimeSessionService.startNewRuntimeSession(
-			currentSession.runtimeMetadata.runtimeId,
-			currentSession.dynState.sessionName,
-			currentSession.metadata.sessionMode,
-			undefined,
-			`Duplicated session: ${currentSession.dynState.sessionName}`,
-			RuntimeStartMode.Starting,
-			true
-		);
+		// Start a new console session using the current session's runtime
+		// information. When the current session is itself a console session,
+		// this duplicates it. When it's a non-console session (e.g. a notebook
+		// console), this starts a fresh console session in the same environment
+		// rather than treating it as an error.
+		if (currentSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			await runtimeSessionService.startNewRuntimeSession(
+				currentSession.runtimeMetadata.runtimeId,
+				currentSession.dynState.sessionName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				`Duplicated session: ${currentSession.dynState.sessionName}`,
+				RuntimeStartMode.Starting,
+				true
+			);
+		} else {
+			await runtimeSessionService.startNewRuntimeSession(
+				currentSession.runtimeMetadata.runtimeId,
+				currentSession.runtimeMetadata.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				`Started console session from notebook session: ${currentSession.dynState.sessionName}`,
+				RuntimeStartMode.Starting,
+				true
+			);
+		}
 	}
 }
 
