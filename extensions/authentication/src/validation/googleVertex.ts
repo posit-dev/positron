@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { resolveGoogleVertexCredential } from '../googleVertexResolver';
+import { resolveGoogleVertexCredential } from '../credentials/googleVertex';
 
 class GoogleVertexValidationError extends Error {
 	constructor(message: string) {

@@ -32,7 +32,12 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
+import {
+	detectSnowflakeCredentials,
+	getSnowflakeConnectionsTomlPath,
+	resolveAwsChainInit,
+	resolveGoogleVertexCredential,
+} from './credentials';
 import { PositOAuthProvider } from './positOAuthProvider';
 import * as fs from 'fs';
 import { log } from './log';
@@ -40,7 +45,6 @@ import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 import { AuthProviderLogger } from './authProviderLogger';
-import { resolveGoogleVertexCredential } from './googleVertexResolver';
 import { applyPwbPositAIDefault } from './pwbDefaults';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -248,14 +252,11 @@ async function registerAwsProvider(
 			'credentials', {}
 		);
 
-	const profile = awsConfig?.AWS_PROFILE
-		?? process.env.AWS_PROFILE;
-	const region = awsConfig?.AWS_REGION
-		?? process.env.AWS_REGION ?? 'us-east-1';
-
-	const credentialProvider = fromNodeProviderChain(
-		profile ? { profile } : {}
+	const { region, profile, chainInit } = resolveAwsChainInit(
+		awsConfig, process.env
 	);
+
+	const credentialProvider = fromNodeProviderChain(chainInit);
 
 	logger.info(
 		`Credential chain initialized ` +
