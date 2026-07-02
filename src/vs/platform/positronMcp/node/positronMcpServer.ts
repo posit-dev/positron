@@ -8,7 +8,7 @@ import { DeferredPromise } from '../../../base/common/async.js';
 import { Emitter } from '../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
-import { generateUuid } from '../../../base/common/uuid.js';
+import { generateUuid, isUUID } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
 import { formatAuditLine, McpAuditEvent, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
@@ -51,10 +51,11 @@ export function isLocalHostHeader(hostHeader: string | undefined): boolean {
 /**
  * Node implementation of the Positron MCP server.
  *
- * Phase 0: owns the HTTP listener lifecycle on a fixed localhost port and
- * answers a `/health` probe; every other route is 404. JSON-RPC sessions and
- * tool brokering are layered on in later phases. The `windowSelector` is wired
- * now so later phases can route tool calls without changing the constructor.
+ * Owns the HTTP listener lifecycle on a fixed localhost port. POST carries the
+ * JSON-RPC traffic, GET answers a `/health` probe, DELETE tears down a session;
+ * any other method gets 405 with an `Allow` header (per the Streamable HTTP
+ * spec for servers that offer no SSE stream -- some clients auto-open a GET
+ * stream and mishandle a 404 there).
  */
 export class PositronMcpServer extends Disposable implements IPositronMcpService {
 	declare readonly _serviceBrand: undefined;
@@ -184,7 +185,35 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			void this._handlePost(req, res);
 			return;
 		}
-		this._sendJson(res, 404, { error: 'Not found' });
+		if (req.method === 'DELETE') {
+			this._handleDelete(req, res);
+			return;
+		}
+		// 405, not 404: a 404 here collides with the stale-session status that
+		// Claude Code and Codex mishandle, and the spec says a server offering no
+		// GET SSE stream must answer 405.
+		res.writeHead(405, { 'Allow': 'POST, DELETE, OPTIONS', 'Content-Type': 'application/json' })
+			.end(JSON.stringify({ error: 'Method not allowed' }));
+	}
+
+	/**
+	 * DELETE is session teardown in the Streamable HTTP transport (VS Code sends
+	 * it on shutdown). Idempotent: deleting an unknown or already-gone session
+	 * succeeds, since the requested end state holds either way.
+	 */
+	private _handleDelete(req: http.IncomingMessage, res: http.ServerResponse): void {
+		const sessionId = this._getSessionId(req);
+		if (!sessionId) {
+			this._sendJson(res, 400, { error: 'Missing Mcp-Session-Id header' });
+			return;
+		}
+		const session = this._sessions.get(sessionId);
+		if (session) {
+			const { clientName, clientVersion } = session;
+			this._sessions.deleteAndDispose(sessionId);
+			this._recordAudit({ type: 'session-closed', timestamp: Date.now(), sessionId, clientName, clientVersion });
+		}
+		this._sendJson(res, 200, { status: 'ok' });
 	}
 
 	private async _handlePost(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -226,16 +255,30 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	/**
 	 * Find the session for a POST, or create one for an `initialize` request that
 	 * arrives without a session id. Other id-less requests are rejected.
+	 *
+	 * A well-formed but unknown session id is resumed rather than 404'd: sessions
+	 * are in-memory, so a Positron restart invalidates every connected agent's id,
+	 * and the strict-spec 404 is exactly the status Claude Code and Codex fail to
+	 * recover from (they break until a manual reconnect). Sessions carry almost no
+	 * state -- client name and a pinned window, both re-derivable -- so leniency
+	 * costs nothing. 404 is kept for ids we could never have issued.
 	 */
 	private _resolveSession(req: http.IncomingMessage, message: JsonRpcMessage | JsonRpcMessage[], res: http.ServerResponse): PositronMcpSession | undefined {
 		const headerSessionId = this._getSessionId(req);
 		if (headerSessionId) {
 			const existing = this._sessions.get(headerSessionId);
-			if (!existing) {
+			if (existing) {
+				return existing;
+			}
+			if (!isUUID(headerSessionId)) {
 				this._sendJson(res, 404, { error: 'Session not found' });
 				return undefined;
 			}
-			return existing;
+			this._logger.warn(`[PositronMcpServer] Unknown session id ${headerSessionId}; resuming it as a fresh session (stale id from a previous run?)`);
+			const resumed = this._createSession(headerSessionId);
+			resumed.resume();
+			this._recordAudit({ type: 'session-resumed', timestamp: Date.now(), sessionId: headerSessionId });
+			return resumed;
 		}
 
 		if (!isInitializeMessage(message)) {
@@ -244,9 +287,14 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		}
 
 		const sessionId = generateUuid();
+		const session = this._createSession(sessionId);
+		this._recordAudit({ type: 'session-created', timestamp: Date.now(), sessionId });
+		return session;
+	}
+
+	private _createSession(sessionId: string): PositronMcpSession {
 		const session = new PositronMcpSession(sessionId, this._logger, this._broker, { record: e => this._recordAudit(e) });
 		this._sessions.set(sessionId, session);
-		this._recordAudit({ type: 'session-created', timestamp: Date.now(), sessionId });
 		return session;
 	}
 

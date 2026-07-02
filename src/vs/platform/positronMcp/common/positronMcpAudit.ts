@@ -54,7 +54,7 @@ export interface IMcpToolCallStartEvent {
 
 /** Session lifecycle markers. */
 export interface IMcpLifecycleAuditEvent {
-	readonly type: 'session-created' | 'client-identified' | 'window-repinned';
+	readonly type: 'session-created' | 'session-resumed' | 'session-closed' | 'client-identified' | 'window-repinned';
 	readonly timestamp: number;
 	readonly sessionId: string;
 	readonly clientName?: string;
@@ -144,6 +144,10 @@ export function formatAuditLine(event: McpAuditEvent): string {
 		}
 		case 'session-created':
 			return `${prefix} session created`;
+		case 'session-resumed':
+			return `${prefix} session resumed from a stale id (client unknown until it re-initializes)`;
+		case 'session-closed':
+			return `${prefix} session closed by client`;
 		case 'client-identified':
 			return `${prefix} client identified: ${clientLabel(event.clientName, event.clientVersion) ?? 'unknown'} (window ${event.pinnedWindowId ?? 'none'})`;
 		case 'window-repinned':

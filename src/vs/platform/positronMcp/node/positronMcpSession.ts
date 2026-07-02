@@ -104,6 +104,18 @@ export class PositronMcpSession extends Disposable {
 		));
 	}
 
+	/**
+	 * Mark this session as already initialized. Used when the server leniently
+	 * resumes a stale session id after a restart: the client believes it completed
+	 * the handshake long ago and will send `tools/call` straight away, so the
+	 * session must not reject it as uninitialized. The client stays anonymous
+	 * until (unless) it re-initializes; the window is pinned lazily by the first
+	 * tool call's re-pin path.
+	 */
+	resume(): void {
+		this._initialized = true;
+	}
+
 	/** Handle an incoming message (or batch) and return the JSON-RPC responses. */
 	async handleIncoming(message: JsonRpcMessage | JsonRpcMessage[]): Promise<JsonRpcResponse[]> {
 		this._lastActivityAt = Date.now();
