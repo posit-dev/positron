@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter } from '../../../../base/common/event.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
@@ -18,17 +20,23 @@ const CONSENT_TIMEOUT_MS = 5 * 60 * 1000;
  * core-side equivalent of one MCP session's worth of consent. The prompt renders
  * in this (the pinned) window because the service runs in its renderer.
  */
-export class UserConsentManager {
+export class UserConsentManager extends Disposable {
 	/** Per-(language+code-hash) decisions, each expiring after the timeout. */
 	private readonly _consentCache = new Map<string, boolean>();
 
 	/** Whether the user has allowed all code execution for this session. */
 	private _allowAll = false;
 
+	private readonly _onDidChangeAllowAll = this._register(new Emitter<boolean>());
+	/** Fires with the new value when the allow-all decision is granted or reset. */
+	readonly onDidChangeAllowAll = this._onDidChangeAllowAll.event;
+
 	constructor(
 		private readonly _modalDialogsService: IPositronModalDialogsService,
 		private readonly _logService: ILogService,
-	) { }
+	) {
+		super();
+	}
 
 	/**
 	 * Request consent to run `code` in `languageId`. Returns true if the user
@@ -77,8 +85,9 @@ export class UserConsentManager {
 			'Just Once',
 		);
 
-		if (allowAllSession) {
+		if (allowAllSession && !this._allowAll) {
 			this._allowAll = true;
+			this._onDidChangeAllowAll.fire(true);
 		}
 
 		this._cacheConsent(cacheKey, true);
@@ -93,7 +102,10 @@ export class UserConsentManager {
 	/** Reset all consent state (wired to the positron.mcp.resetConsent command). */
 	reset(): void {
 		this._consentCache.clear();
-		this._allowAll = false;
+		if (this._allowAll) {
+			this._allowAll = false;
+			this._onDidChangeAllowAll.fire(false);
+		}
 	}
 
 	private _cacheConsent(cacheKey: string, value: boolean): void {

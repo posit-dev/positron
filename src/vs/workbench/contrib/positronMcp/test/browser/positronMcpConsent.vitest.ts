@@ -65,4 +65,19 @@ describe('UserConsentManager', () => {
 		expect(await consent.requestCodeExecutionConsent('python', 'a = 1')).toBe(false);
 		expect(prompt).toHaveBeenCalledTimes(3);
 	});
+
+	it('onDidChangeAllowAll fires on grant and reset, but not on a redundant reset', async () => {
+		const { consent } = consentManager([true, true]);
+		const changes: boolean[] = [];
+		consent.onDidChangeAllowAll(value => changes.push(value));
+
+		// No allow-all yet, so a reset is a no-op for the event.
+		consent.reset();
+		expect(changes).toEqual([]);
+
+		await consent.requestCodeExecutionConsent('python', 'a = 1');
+		consent.reset();
+		consent.reset();
+		expect(changes).toEqual([true, false]);
+	});
 });

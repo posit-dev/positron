@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Event } from '../../../../base/common/event.js';
 import { isAbsolute, join } from '../../../../base/common/path.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -63,6 +64,9 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 	/** Gates AI-initiated code execution behind a user-consent prompt. */
 	private readonly _consent: UserConsentManager;
 
+	/** Fires with the new value when the allow-all consent decision changes. */
+	readonly onDidChangeAllowAllConsent: Event<boolean>;
+
 	/** The notebook-* tools, which act on the active Positron notebook. */
 	private readonly _notebookTools: PositronMcpNotebookTools;
 
@@ -83,7 +87,8 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		@ILogService logService: ILogService,
 	) {
 		super();
-		this._consent = new UserConsentManager(this._modalDialogsService, logService);
+		this._consent = this._register(new UserConsentManager(this._modalDialogsService, logService));
+		this.onDidChangeAllowAllConsent = this._consent.onDidChangeAllowAll;
 		this._notebookTools = new PositronMcpNotebookTools(
 			this._editorService, fileService, notebookService, path => this._resolveWorkspacePath(path));
 

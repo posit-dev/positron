@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMcpCallToolResult } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 
@@ -27,4 +28,7 @@ export interface IPositronMcpToolService {
 
 	/** Whether the user has allowed all agent code execution for this session. */
 	isAllowAllConsentActive(): boolean;
+
+	/** Fires with the new value when the allow-all consent decision is granted or reset. */
+	readonly onDidChangeAllowAllConsent: Event<boolean>;
 }
