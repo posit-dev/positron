@@ -24,4 +24,7 @@ export interface IPositronMcpToolService {
 
 	/** Clear all cached code-execution consent, so the next agent-run code prompts again. */
 	resetConsent(): void;
+
+	/** Whether the user has allowed all agent code execution for this session. */
+	isAllowAllConsentActive(): boolean;
 }

@@ -47,6 +47,15 @@ describe('UserConsentManager', () => {
 		expect(prompt).toHaveBeenCalledTimes(2);
 	});
 
+	it('isAllowAllActive tracks the allow-all decision and reset', async () => {
+		const { consent } = consentManager([true, true]);
+		expect(consent.isAllowAllActive()).toBe(false);
+		await consent.requestCodeExecutionConsent('python', 'a = 1');
+		expect(consent.isAllowAllActive()).toBe(true);
+		consent.reset();
+		expect(consent.isAllowAllActive()).toBe(false);
+	});
+
 	it('reset clears the cache and the allow-all decision', async () => {
 		const { consent, prompt } = consentManager([true, true, false]);
 		await consent.requestCodeExecutionConsent('python', 'a = 1');

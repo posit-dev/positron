@@ -85,6 +85,11 @@ export class UserConsentManager {
 		return true;
 	}
 
+	/** Whether "allow all code execution this session" is currently in effect. */
+	isAllowAllActive(): boolean {
+		return this._allowAll;
+	}
+
 	/** Reset all consent state (wired to the positron.mcp.resetConsent command). */
 	reset(): void {
 		this._consentCache.clear();
