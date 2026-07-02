@@ -6,9 +6,11 @@
 import { Emitter } from '../../../../base/common/event.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMcpCallerContext, mcpClientDisplayName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { AUDIT_LOG_DETAIL_KEY } from '../common/positronMcpConfiguration.js';
 
 /** How long a per-code consent decision is cached before being asked again. */
 const CONSENT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -39,6 +41,7 @@ export class UserConsentManager extends Disposable {
 
 	constructor(
 		private readonly _modalDialogsService: IPositronModalDialogsService,
+		private readonly _configurationService: IConfigurationService,
 		private readonly _logService: ILogService,
 	) {
 		super();
@@ -73,10 +76,17 @@ export class UserConsentManager extends Disposable {
 			? code.substring(0, 100).replace(/\n/g, ' ') + '...'
 			: code.replace(/\n/g, ' ');
 
+		// Point at what the logs actually contain: the complete code reaches the
+		// audit file only when the detail setting is 'full'; otherwise the logs
+		// hold a truncated preview.
+		const logsNote = this._configurationService.getValue<string>(AUDIT_LOG_DETAIL_KEY) === 'full'
+			? '(Full code in the MCP audit log)'
+			: '(Code preview in MCP logs)';
+
 		// First ask whether to allow this specific execution.
 		const allowExecution = await this._modalDialogsService.showSimpleModalDialogPrompt(
 			`Execute ${languageId.toUpperCase()} Code?`,
-			`${agent} wants to run ${codeLines} lines of code. Preview: "${codePreview}" (Full code in MCP logs)`,
+			`${agent} wants to run ${codeLines} lines of code. Preview: "${codePreview}" ${logsNote}`,
 			'Allow',
 			'Deny',
 		);

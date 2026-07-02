@@ -7,12 +7,15 @@
  * Audit-event types and formatting for the Positron MCP server. One structured
  * event is recorded per tool call at the main-process choke point
  * (PositronMcpSession._callTool), plus session-lifecycle markers. Events fan out
- * to the "Positron MCP" log channel (via {@link formatAuditLine}) and to an
- * in-memory {@link McpAuditRingBuffer} surfaced through the server status.
+ * to the "Positron MCP" log channel (via {@link formatAuditLine}), to an
+ * in-memory {@link McpAuditRingBuffer} surfaced through the server status, and
+ * to a JSONL audit file (via {@link toJsonlRecord}).
  *
  * Every event field is a scalar or optional scalar: events cross the
  * main->renderer ProxyChannel and the `getStatus()` poll, so they must stay
- * JSON-serializable -- never add URI or class instances here.
+ * JSON-serializable -- never add URI or class instances here. The one exception
+ * is {@link IMcpToolCallAuditEvent.args}, which the server strips before any
+ * fan-out beyond the JSONL file sink.
  */
 
 import { IMcpCallToolResult } from './positronMcpTools.js';
@@ -30,6 +33,13 @@ export interface IMcpToolCallAuditEvent {
 	readonly toolName: string;
 	/** Argument keys + safe scalars + truncated code preview; never full values. */
 	readonly argsSummary: string;
+	/**
+	 * Complete tool arguments, verbatim (JSON-safe by construction: they arrive
+	 * parsed from the request body). Reaches disk only through the JSONL sink
+	 * when the audit detail is 'full'; the server strips it before the ring
+	 * buffer, the status poll, and the renderer-facing activity emitter.
+	 */
+	readonly args?: Record<string, unknown>;
 	readonly outcome: 'ok' | 'error';
 	readonly durationMs: number;
 	readonly pinnedWindowId?: number;
@@ -67,6 +77,31 @@ export type McpAuditEvent = IMcpToolCallAuditEvent | IMcpToolCallStartEvent | IM
 /** The sink a session records events into; the server owns the implementation. */
 export interface IPositronMcpAuditLog {
 	record(event: McpAuditEvent): void;
+}
+
+/**
+ * How much the JSONL audit file records per tool call: 'summary' keeps the
+ * argument summary only, 'full' additionally keeps complete arguments (code and
+ * paths -- never result data), 'off' writes no file at all. Mirrors the
+ * `positron.mcp.auditLog.detail` setting.
+ */
+export type McpAuditLogDetail = 'summary' | 'full' | 'off';
+
+/**
+ * Shape an audit event into one JSONL audit-file line, or undefined when the
+ * event should not be persisted: transient `tool-call-start` events never are,
+ * and 'off' disables the file entirely. Full arguments survive only at 'full'
+ * detail; any other value behaves as 'summary'.
+ */
+export function toJsonlRecord(event: McpAuditEvent, detail: McpAuditLogDetail): string | undefined {
+	if (detail === 'off' || event.type === 'tool-call-start') {
+		return undefined;
+	}
+	if (event.type === 'tool-call' && detail !== 'full') {
+		const { args: _args, ...summaryOnly } = event;
+		return JSON.stringify(summaryOnly);
+	}
+	return JSON.stringify(event);
 }
 
 /** Max preview length for code-carrying string arguments. */

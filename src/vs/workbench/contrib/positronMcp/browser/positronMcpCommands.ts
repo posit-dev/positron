@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -52,6 +53,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 		sessions: serverStatus.sessions,
 		recentActivity: serverStatus.recentActivity,
 		allowAllConsent: toolService.isAllowAllConsentActive(),
+		auditLogPath: serverStatus.auditLogPath,
 	};
 }
 
@@ -106,6 +108,23 @@ async function showLogs(accessor: ServicesAccessor): Promise<void> {
 }
 
 /**
+ * Open the JSONL audit file in an editor. The file exists once the server has
+ * recorded any audit event (and the detail setting is not 'off'); the panel
+ * only shows the button then, so the notification is a fallback for races.
+ */
+async function openAuditLog(accessor: ServicesAccessor): Promise<void> {
+	const mcpService = accessor.get(IPositronMcpService);
+	const notificationService = accessor.get(INotificationService);
+	const editorService = accessor.get(IEditorService);
+	const status = await mcpService.getStatus();
+	if (!status.auditLogPath) {
+		notificationService.info(localize('positron.mcp.noAuditLog', "The audit log appears once the Positron MCP server has recorded some activity."));
+		return;
+	}
+	await editorService.openEditor({ resource: URI.file(status.auditLogPath) });
+}
+
+/**
  * Append MCP guidance to a single agent-instruction file (for the panel's
  * per-file checklist rows) and open it when changed.
  */
@@ -126,6 +145,7 @@ async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction
 		case 'addConfig': return addConfigFile(accessor);
 		case 'addGuidance': return addGuidanceToFile(accessor, action.file);
 		case 'showLogs': return showLogs(accessor);
+		case 'openAuditLog': return openAuditLog(accessor);
 		// No notification here: the panel's consent banner disappearing is the feedback.
 		case 'resetConsent': return accessor.get(IPositronMcpToolService).resetConsent();
 	}

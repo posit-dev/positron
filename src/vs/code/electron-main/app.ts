@@ -1407,7 +1407,10 @@ export class CodeApplication extends Disposable {
 			mainProcessElectronServer,
 			() => this.windowsMainService?.getLastActiveWindow()?.id,
 		);
-		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
+		// The JSONL audit file sits next to the server's log file in this session's
+		// logs folder, so it is cleaned up with the rest of the session logs.
+		const positronMcpAuditPath = URI.joinPath(this.environmentMainService.logsHome, 'positron-mcp-audit.jsonl').fsPath;
+		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, positronMcpAuditPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
 		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServer, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---

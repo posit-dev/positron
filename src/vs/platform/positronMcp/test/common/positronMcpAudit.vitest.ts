@@ -12,6 +12,7 @@ import {
 	McpAuditRingBuffer,
 	summarizeArgs,
 	summarizeResult,
+	toJsonlRecord,
 } from '../../common/positronMcpAudit.js';
 
 function makeToolCallEvent(overrides: Partial<IMcpToolCallAuditEvent> = {}): IMcpToolCallAuditEvent {
@@ -112,6 +113,37 @@ describe('formatAuditLine', () => {
 			.toBe('[PositronMcpSession ab12] pinned window unavailable; re-pinned to none');
 		expect(formatAuditLine({ ...base, type: 'tool-call-start', callId: 'c1', toolName: 'get-plot', clientName: 'claude-code' }))
 			.toBe('[PositronMcpSession ab12] tools/call get-plot by claude-code started');
+	});
+});
+
+describe('toJsonlRecord', () => {
+	const code = 'import pandas as pd\n' + 'x = 1\n'.repeat(100);
+	const event = makeToolCallEvent({ args: { languageId: 'python', code } });
+
+	it('at summary detail keeps the argument summary but drops the full arguments', () => {
+		const record = JSON.parse(toJsonlRecord(event, 'summary')!);
+		expect(record.argsSummary).toBe(event.argsSummary);
+		expect(record.args).toBeUndefined();
+		expect(toJsonlRecord(event, 'summary')).not.toContain('import pandas');
+	});
+
+	it('at full detail keeps the complete arguments verbatim', () => {
+		const record = JSON.parse(toJsonlRecord(event, 'full')!);
+		expect(record.args).toEqual({ languageId: 'python', code });
+	});
+
+	it('persists nothing at off detail or for transient start events', () => {
+		expect(toJsonlRecord(event, 'off')).toBeUndefined();
+		expect(toJsonlRecord(
+			{ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot' },
+			'full',
+		)).toBeUndefined();
+	});
+
+	it('persists lifecycle events as-is at every detail level', () => {
+		const lifecycle: McpAuditEvent = { type: 'session-created', timestamp: 2, sessionId: 's' };
+		expect(JSON.parse(toJsonlRecord(lifecycle, 'summary')!)).toEqual(lifecycle);
+		expect(JSON.parse(toJsonlRecord(lifecycle, 'full')!)).toEqual(lifecycle);
 	});
 });
 

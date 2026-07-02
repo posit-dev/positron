@@ -5,7 +5,7 @@
 
 import { Event } from '../../../base/common/event.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
-import { McpAuditEvent } from './positronMcpAudit.js';
+import { McpAuditEvent, McpAuditLogDetail } from './positronMcpAudit.js';
 
 export const IPositronMcpService = createDecorator<IPositronMcpService>('positronMcpService');
 
@@ -86,6 +86,12 @@ export interface IPositronMcpServerStatus {
 	 * first, capped server-side. Survives a server stop.
 	 */
 	readonly recentActivity: readonly McpAuditEvent[];
+	/**
+	 * Filesystem path of the JSONL audit file, once something has been written
+	 * to it this Positron session; absent while no file exists (no MCP activity
+	 * yet, or the audit detail is 'off').
+	 */
+	readonly auditLogPath?: string;
 }
 
 /**
@@ -113,6 +119,13 @@ export interface IPositronMcpService {
 
 	/** Stop the HTTP server if it is listening. Idempotent. */
 	stop(): Promise<void>;
+
+	/**
+	 * Adopt the renderer's `positron.mcp.auditLog.detail` value for the JSONL
+	 * audit-file sink. Pushed by the lifecycle contribution because the main
+	 * process cannot read workbench settings.
+	 */
+	setAuditLogDetail(detail: McpAuditLogDetail): Promise<void>;
 
 	/** Current server status. */
 	getStatus(): Promise<IPositronMcpServerStatus>;

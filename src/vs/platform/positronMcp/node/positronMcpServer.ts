@@ -12,8 +12,9 @@ import { generateUuid, isUUID } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
-import { formatAuditLine, McpAuditEvent, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
+import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
 import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
+import { McpAuditFileWriter } from './positronMcpAuditFile.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
@@ -82,14 +83,28 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	// events with a for...in scan of own enumerable properties (ipc.ts).
 	readonly onDidRecordActivity = this._onDidRecordActivity.event;
 
+	private readonly _auditFile: McpAuditFileWriter;
+
 	constructor(
 		private readonly _broker: IPositronMcpToolBroker,
+		auditFilePath: string,
 		@ILoggerService loggerService: ILoggerService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
 		this._logger = this._register(loggerService.createLogger(POSITRON_MCP_LOG_ID, { name: 'Positron MCP', logLevel: 'always' }));
+		this._auditFile = this._register(new McpAuditFileWriter(auditFilePath, this._logger));
 		this._logger.info('[PositronMcpServer] Initialized');
+	}
+
+	/**
+	 * Adopt the renderer's `positron.mcp.auditLog.detail` value. The main process
+	 * cannot read workbench settings, so the lifecycle contribution pushes it here
+	 * at startup and whenever it changes; multiple windows push the same value
+	 * idempotently. Applies from the next audit event.
+	 */
+	async setAuditLogDetail(detail: McpAuditLogDetail): Promise<void> {
+		this._auditFile.detail = detail;
 	}
 
 	async start(): Promise<void> {
@@ -152,15 +167,24 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			port: this._port,
 			sessions: [...this._sessions.values()].map(session => session.info),
 			recentActivity: this._recentActivity.snapshot(),
+			auditLogPath: this._auditFile.path,
 		};
 	}
 
 	/**
 	 * The audit sink every session records into. Start events only feed the live
 	 * activity emitter (transient in-flight state); completed calls and lifecycle
-	 * events also land in the log channel and the ring buffer.
+	 * events also land in the log channel, the ring buffer, and the JSONL audit
+	 * file. Only the file sink ever sees complete tool arguments: everything
+	 * downstream of it gets the summary-only event, so full argument values
+	 * never reach the ring buffer, the status poll, or the renderer emitter.
 	 */
 	private _recordAudit(event: McpAuditEvent): void {
+		this._auditFile.write(event);
+		if (event.type === 'tool-call' && event.args !== undefined) {
+			const { args: _args, ...summaryOnly } = event;
+			event = summaryOnly;
+		}
 		if (event.type === 'tool-call-start') {
 			this._logger.debug(formatAuditLine(event));
 		} else {

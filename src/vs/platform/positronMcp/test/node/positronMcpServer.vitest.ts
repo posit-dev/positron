@@ -5,10 +5,14 @@
 
 /// <reference types="vitest/globals" />
 
+import * as fs from 'fs';
 import type * as http from 'http';
+import * as os from 'os';
+import { dirname, join } from '../../../../base/common/path.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { NullLoggerService } from '../../../log/common/log.js';
 import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
+import { IMcpToolCallAuditEvent } from '../../common/positronMcpAudit.js';
 import { IMcpCallToolResult } from '../../common/positronMcpTools.js';
 import { isLocalHostHeader, PositronMcpServer } from '../../node/positronMcpServer.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -85,11 +89,13 @@ describe('PositronMcpServer HTTP transport', () => {
 	const port = 30000 + Math.floor(Math.random() * 20000);
 	let broker: StubBroker;
 	let server: PositronMcpServer;
+	let auditPath: string;
 
 	beforeAll(async () => {
 		process.env.POSITRON_MCP_PORT = String(port);
+		auditPath = join(fs.mkdtempSync(join(os.tmpdir(), 'positron-mcp-test-')), 'positron-mcp-audit.jsonl');
 		broker = new StubBroker();
-		server = new PositronMcpServer(broker, new NullLoggerService(), NullTelemetryService);
+		server = new PositronMcpServer(broker, auditPath, new NullLoggerService(), NullTelemetryService);
 		await server.start();
 	});
 
@@ -97,6 +103,7 @@ describe('PositronMcpServer HTTP transport', () => {
 		delete process.env.POSITRON_MCP_PORT;
 		await server.stop();
 		server.dispose();
+		fs.rmSync(dirname(auditPath), { recursive: true, force: true });
 	});
 
 	/** Run the initialize handshake and return the issued session id. */
@@ -186,5 +193,56 @@ describe('PositronMcpServer HTTP transport', () => {
 	it('rejects DELETE without a session id', async () => {
 		const response = await request(port, 'DELETE', '/');
 		expect(response.status).toBe(400);
+	});
+
+	/** Wait for the write stream to flush, then parse the JSONL audit file. */
+	async function auditRecords(): Promise<Record<string, unknown>[]> {
+		await vi.waitFor(() => expect(fs.existsSync(auditPath)).toBe(true));
+		return fs.readFileSync(auditPath, 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
+	}
+
+	it('writes completed tool calls to the JSONL audit file, summary-only by default', async () => {
+		const sessionId = await initialize();
+		const code = 'import pandas as pd\n' + 'df.head()\n'.repeat(50);
+		await request(port, 'POST', '/', {
+			sessionId,
+			body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'execute-code', arguments: { code, languageId: 'python' } } },
+		});
+
+		await vi.waitFor(async () => {
+			const call = (await auditRecords()).find(r => r.type === 'tool-call' && r.sessionId === sessionId);
+			expect(call).toBeDefined();
+			// At the default 'summary' detail the line has the truncated summary
+			// but never the complete arguments.
+			expect(call!.argsSummary).toContain('code: "import pandas as pd\\n');
+			expect(call!.args).toBeUndefined();
+		});
+		// Once the file exists, the status advertises it for the panel's button.
+		expect((await server.getStatus()).auditLogPath).toBe(auditPath);
+	});
+
+	it('captures complete arguments in the audit file only at full detail', async () => {
+		await server.setAuditLogDetail('full');
+		try {
+			const sessionId = await initialize();
+			const code = 'x <- rnorm(100)\nplot(x)';
+			await request(port, 'POST', '/', {
+				sessionId,
+				body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'execute-code', arguments: { code, languageId: 'r' } } },
+			});
+
+			await vi.waitFor(async () => {
+				const call = (await auditRecords()).find(r => r.type === 'tool-call' && r.sessionId === sessionId);
+				expect(call?.args).toEqual({ code, languageId: 'r' });
+			});
+			// Full arguments stay in the file: the status poll's ring buffer never
+			// carries them at any detail level.
+			const activity = (await server.getStatus()).recentActivity
+				.filter((e): e is IMcpToolCallAuditEvent => e.type === 'tool-call');
+			expect(activity.length).toBeGreaterThan(0);
+			expect(activity.every(e => e.args === undefined)).toBe(true);
+		} finally {
+			await server.setAuditLogDetail('summary');
+		}
 	});
 });

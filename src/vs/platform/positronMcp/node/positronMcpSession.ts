@@ -207,6 +207,7 @@ export class PositronMcpSession extends Disposable {
 				clientVersion: this.clientVersion,
 				toolName: name,
 				argsSummary: summarizeArgs(args),
+				args,
 				outcome: result.isError ? 'error' : 'ok',
 				durationMs: Date.now() - startedAt,
 				pinnedWindowId: this._pinnedWindowId,

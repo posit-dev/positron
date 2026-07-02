@@ -88,7 +88,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		@ILogService logService: ILogService,
 	) {
 		super();
-		this._consent = this._register(new UserConsentManager(this._modalDialogsService, logService));
+		this._consent = this._register(new UserConsentManager(this._modalDialogsService, this._configurationService, logService));
 		this.onDidChangeAllowAllConsent = this._consent.onDidChangeAllowAll;
 		this._notebookTools = new PositronMcpNotebookTools(
 			this._editorService, fileService, notebookService, path => this._resolveWorkspacePath(path));

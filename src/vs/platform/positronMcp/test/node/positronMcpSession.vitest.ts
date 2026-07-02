@@ -188,6 +188,9 @@ describe('PositronMcpSession', () => {
 		expect(end.argsSummary).toContain('code: "import pandas as pd\\n');
 		expect(end.argsSummary).toContain('languageId: "python"');
 		expect(end.argsSummary.length).toBeLessThan(300);
+		// The complete arguments ride along for the server's JSONL file sink,
+		// which strips them unless the audit detail setting is 'full'.
+		expect(end.args).toEqual({ code, languageId: 'python' });
 	});
 
 	it('isInitializeMessage detects initialize in single and batch messages', () => {

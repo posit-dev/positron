@@ -8,10 +8,11 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronMcpService, PositronMcpToolBrokerChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { McpAuditLogDetail } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
-import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
+import { AUDIT_LOG_DETAIL_KEY, MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
 import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
 
 /**
@@ -41,8 +42,22 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 			if (e.affectsConfiguration(MCP_ENABLE_KEY) || e.affectsConfiguration(AI_ENABLED_KEY)) {
 				this._sync();
 			}
+			if (e.affectsConfiguration(AUDIT_LOG_DETAIL_KEY)) {
+				this._syncAuditLogDetail();
+			}
 		}));
+		this._syncAuditLogDetail();
 		this._sync();
+	}
+
+	/**
+	 * Push the audit-file detail setting to the main-process server, which cannot
+	 * read workbench settings itself. All windows push the same value.
+	 */
+	private _syncAuditLogDetail(): void {
+		const detail = this._configurationService.getValue<McpAuditLogDetail>(AUDIT_LOG_DETAIL_KEY) ?? 'summary';
+		this._mcpService.setAuditLogDetail(detail)
+			.catch(err => this._logService.error('[PositronMcp] Failed to update audit log detail', err));
 	}
 
 	/** Whether the server should be running given the current settings. */

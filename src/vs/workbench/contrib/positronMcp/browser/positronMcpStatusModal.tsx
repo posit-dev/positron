@@ -37,11 +37,13 @@ export interface IMcpStatusData {
 	readonly recentActivity: readonly McpAuditEvent[];
 	/** Whether the user has allowed all agent code execution for this session. */
 	readonly allowAllConsent: boolean;
+	/** Path of the JSONL audit file, once one exists for this Positron session. */
+	readonly auditLogPath?: string;
 }
 
 /** The actions the panel triggers; the host runs the matching command and reports back. */
 export type McpPanelAction =
-	| { readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'resetConsent' }
+	| { readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'openAuditLog' | 'resetConsent' }
 	| { readonly id: 'addGuidance'; readonly file: GuidanceFile };
 
 /** The MCP clients the connect card offers setup snippets for. */
@@ -249,6 +251,10 @@ export const McpStatusContent = (props: McpStatusContentProps) => {
 				<Button className='button action-button secondary' onPressed={() => onAction({ id: 'showLogs' })}>
 					{localize('positron.mcp.status.action.showLogs', "Show Logs")}
 				</Button>
+				{status?.auditLogPath &&
+					<Button className='button action-button secondary' onPressed={() => onAction({ id: 'openAuditLog' })}>
+						{localize('positron.mcp.status.action.openAuditLog', "Open Audit Log")}
+					</Button>}
 			</div>
 		</div>
 	);

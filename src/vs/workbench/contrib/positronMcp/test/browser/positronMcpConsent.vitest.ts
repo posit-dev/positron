@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -16,10 +17,11 @@ describe('UserConsentManager', () => {
 	 * consent flow asks at most two prompts (allow-this, then allow-all), so a
 	 * queue is enough to script each scenario.
 	 */
-	function consentManager(answers: boolean[]) {
+	function consentManager(answers: boolean[], auditDetail = 'summary') {
 		const prompt = vi.fn(async () => answers.shift() ?? false);
 		const modal = stubInterface<IPositronModalDialogsService>({ showSimpleModalDialogPrompt: prompt });
-		return { consent: new UserConsentManager(modal, new NullLogService()), prompt };
+		const configuration = stubInterface<IConfigurationService>({ getValue: () => auditDetail });
+		return { consent: new UserConsentManager(modal, configuration, new NullLogService()), prompt };
 	}
 
 	it('returns false and does not cache when the first prompt is denied', async () => {
@@ -91,6 +93,18 @@ describe('UserConsentManager', () => {
 			'Execute PYTHON Code?', expect.stringContaining('Claude Code wants to run 1 lines'), 'Allow', 'Deny');
 		expect(prompt).toHaveBeenNthCalledWith(2,
 			'Allow All Code Execution?', expect.stringContaining('from Claude Code'), 'Allow All', 'Just Once');
+	});
+
+	it('claims full code in the logs only when the audit detail setting is full', async () => {
+		const summary = consentManager([false]);
+		await summary.consent.requestCodeExecutionConsent('python', 'a = 1');
+		expect(summary.prompt).toHaveBeenCalledWith(
+			expect.anything(), expect.stringContaining('(Code preview in MCP logs)'), 'Allow', 'Deny');
+
+		const full = consentManager([false], 'full');
+		await full.consent.requestCodeExecutionConsent('python', 'a = 1');
+		expect(full.prompt).toHaveBeenCalledWith(
+			expect.anything(), expect.stringContaining('(Full code in the MCP audit log)'), 'Allow', 'Deny');
 	});
 
 	it('scopes allow-all to the granting client: one agent cannot ride on another', async () => {
