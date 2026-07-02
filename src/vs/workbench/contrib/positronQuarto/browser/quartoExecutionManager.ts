@@ -42,6 +42,7 @@ import { getWebviewMessageType } from '../../../services/positronIPyWidgets/comm
 import { DeferredPromise, raceCancellationError, RunOnceScheduler, timeout } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IMissingPackagesPreflightService } from '../../positronMissingPackages/browser/missingPackagesPreflightService.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { TerminalCapability, ICommandDetectionCapability } from '../../../../platform/terminal/common/capabilities/capabilities.js';
@@ -162,6 +163,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IModelService private readonly _modelService: IModelService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
+		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
 	) {
 		super();
 
@@ -194,6 +196,13 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		// Filter cells based on eval option when running multiple cells.
 		// When a single cell is executed, always execute regardless of eval option (explicit user action).
 		const isMultiCellExecution = cells.length > 1;
+
+		// On a run-all-style gesture (multiple cells), offer to install any
+		// missing packages first. Single-cell runs are explicit and skip this.
+		if (isMultiCellExecution &&
+			!await this._missingPackagesPreflightService.confirmBeforeRun(documentUri)) {
+			return;
+		}
 		let filteredCells = cells;
 		if (isMultiCellExecution) {
 			const textModel = await this._getTextModel(documentUri);
