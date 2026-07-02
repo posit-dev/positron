@@ -7,11 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
-import { ProjectTreeTool } from './tools/projectTreeTool.js';
-import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
-import { DocumentCreateTool } from './tools/documentCreate.js';
-import { registerNotebookTools } from './tools/notebookTools.js';
-import { CreateNotebookTool } from './tools/createNotebook.js';
 
 
 /**
@@ -76,112 +71,32 @@ export async function resolveVariableNamesToAccessKeys(
 	};
 }
 
+/**
+ * Resolves the session identifier a session tool should act on.
+ *
+ * Uses the identifier the model supplied, or falls back to the foreground
+ * session when none is given.
+ *
+ * @param sessionIdentifier The identifier supplied by the model, if any.
+ * @returns A session identifier, or undefined if no session is available.
+ */
+async function resolveSessionIdentifier(sessionIdentifier?: string): Promise<string | undefined> {
+	if (sessionIdentifier && sessionIdentifier !== 'undefined') {
+		return sessionIdentifier;
+	}
+	const foregroundSession = await positron.runtime.getForegroundSession();
+	return foregroundSession?.metadata.sessionId;
+}
+
 
 /**
  * Registers tools for the Positron Assistant.
  *
  * @param context The extension context for registering disposables
- * @param participants The Positron Assistant chat participants.
  */
 export function registerAssistantTools(
 	context: vscode.ExtensionContext,
-	participantService: ParticipantService,
 ): void {
-	const documentEditTool = vscode.lm.registerTool<{
-		deltas: { delete: string; replace: string }[];
-	}>(PositronAssistantToolName.DocumentEdit, {
-		prepareInvocation: async (options, token) => {
-			return {
-				// Hide the tool invocation message from the user.
-				presentation: 'hidden',
-			};
-		},
-
-		invoke: async (options, token) => {
-			if (!options.input.deltas) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No edits to apply.'),
-				]);
-			}
-
-			// Get the active chat request data
-			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
-			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-				throw new Error('This tool can only be invoked from an editor.');
-			}
-
-			// Get the text of the document to edit
-			const document = request.location2.document;
-			const documentText = document.getText();
-
-			// Process each change, emitting text edits for each one
-			let numTextEdits = 0;
-			for (const delta of options.input.deltas) {
-				const deleteText = delta.delete;
-				const startPos = documentText.indexOf(deleteText!);
-				if (startPos === -1) {
-					// If the delete text is not found in the document,
-					// we can't apply this edit; ignore.
-					continue;
-				}
-				const startPosition = document.positionAt(startPos);
-				const endPosition = document.positionAt(startPos + deleteText!.length);
-				const range = new vscode.Range(startPosition, endPosition);
-				const textEdit = vscode.TextEdit.replace(range, delta.replace!);
-				response.textEdit(document.uri, textEdit);
-				numTextEdits++;
-			}
-
-			if (numTextEdits > 0) {
-				// Complete the text edit group.
-				response.textEdit(document.uri, true);
-
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(`Applied ${numTextEdits} of ${options.input.deltas.length} edits.`),
-				]);
-			} else {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No edits applied.'),
-				]);
-			}
-		}
-	});
-
-	context.subscriptions.push(documentEditTool);
-
-	const selectionEditTool = vscode.lm.registerTool<{ code: string }>(PositronAssistantToolName.SelectionEdit, {
-		prepareInvocation: async (options, token) => {
-			// Hide the tool invocation message from the user.
-			return {
-				presentation: 'hidden',
-			};
-		},
-
-		invoke: async (options, token) => {
-			// Get the active chat request data.
-			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
-			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-				throw new Error('This tool can only be invoked from an editor.');
-			}
-
-			const document = request.location2.document;
-			const selection = request.location2.selection;
-
-			// Apply the edit to the selected text.
-			const edits = vscode.TextEdit.replace(selection, options.input.code);
-			response.textEdit(document.uri, edits);
-
-			// Complete the text edit group.
-			response.textEdit(document.uri, true);
-
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart('Selection edited.'),
-			]);
-		}
-	});
-
-	context.subscriptions.push(selectionEditTool);
-
 	const executeCodeTool = vscode.lm.registerTool<{
 		sessionIdentifier: string;
 		code: string;
@@ -338,8 +253,10 @@ export function registerAssistantTools(
 		 */
 		invoke: async (options, token) => {
 
-			// If no session identifier is provided, return an empty array.
-			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+			const sessionIdentifier = await resolveSessionIdentifier(options.input.sessionIdentifier);
+
+			// If no session is available, return an empty array.
+			if (!sessionIdentifier) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
@@ -351,7 +268,7 @@ export function registerAssistantTools(
 			let notFoundMessage = '';
 
 			if (variableNames.length > 0) {
-				const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+				const resolved = await resolveVariableNamesToAccessKeys(sessionIdentifier, variableNames);
 				accessKeys = resolved.accessKeys;
 				if (!resolved.allFound) {
 					notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available variables instead.\n\n`;
@@ -360,7 +277,7 @@ export function registerAssistantTools(
 
 			// Call the Positron API to get the session variables
 			const result = await positron.runtime.getSessionVariables(
-				options.input.sessionIdentifier,
+				sessionIdentifier,
 				accessKeys);
 
 			// Return the result as a JSON string to the model
@@ -369,21 +286,6 @@ export function registerAssistantTools(
 			]);
 		}
 	});
-
-	const getChangedFilesTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetChangedFiles, {
-		invoke: async (options, token) => {
-			const repoChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
-			const textChanges = repoChanges.map((({ changes }) => {
-				return changes.map((change) => change.summary).join('\n');
-			})).join('\n\n');
-
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(textChanges)
-			]);
-		},
-	});
-
-	context.subscriptions.push(getChangedFilesTool);
 
 	context.subscriptions.push(inspectVariablesTool);
 
@@ -396,14 +298,16 @@ export function registerAssistantTools(
 		 */
 		invoke: async (options, token) => {
 
-			// If no session identifier is provided, return an empty array.
-			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+			const sessionIdentifier = await resolveSessionIdentifier(options.input.sessionIdentifier);
+
+			// If no session is available, return an empty array.
+			if (!sessionIdentifier) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
 			}
 
-			const session = await positron.runtime.getSession(options.input.sessionIdentifier);
+			const session = await positron.runtime.getSession(sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
@@ -419,7 +323,7 @@ export function registerAssistantTools(
 
 			// Resolve variable names to access keys
 			const variableNames = options.input.variableNames || [];
-			const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+			const resolved = await resolveVariableNamesToAccessKeys(sessionIdentifier, variableNames);
 			let notFoundMessage = '';
 			if (!resolved.allFound) {
 				notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available table summaries instead.\n\n`;
@@ -427,7 +331,7 @@ export function registerAssistantTools(
 
 			// Call the Positron API to get the session variable data summaries
 			const result = await positron.runtime.querySessionTables(
-				options.input.sessionIdentifier,
+				sessionIdentifier,
 				resolved.accessKeys,
 				['summary_stats']);
 
@@ -438,21 +342,6 @@ export function registerAssistantTools(
 		}
 	});
 	context.subscriptions.push(getTableSummaryTool);
-
-
-	context.subscriptions.push(ProjectTreeTool);
-
-	context.subscriptions.push(DocumentCreateTool);
-
-	// Register notebook-specific tools for notebook participant
-	// These tools enable the assistant to interact with Jupyter notebooks:
-	// - ExecuteNotebook: Execute cells and retrieve outputs
-	// - EditNotebook: Add, update, delete, or reorder cells
-	// - GetNotebookInfo: Retrieve cell info, outputs, and kernel status
-	registerNotebookTools(context, participantService);
-
-	// Register the CreateNotebook tool for creating new notebooks
-	context.subscriptions.push(CreateNotebookTool);
 }
 
 /**

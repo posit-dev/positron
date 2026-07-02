@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { log } from './log.js';
-import { getModelProviders } from './providers/index.js';
+import { PROVIDER_METADATA } from './providerMetadata.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
 /**
@@ -23,8 +23,8 @@ function normalizeToEntries<T>(oldValue: string[] | Record<string, T>): Array<[s
 
 export function getProviderIdToSettingNameMap(): Map<string, string> {
 	const map = new Map<string, string>();
-	for (const provider of getModelProviders()) {
-		const { id, settingName } = provider.source.provider;
+	for (const metadata of Object.values(PROVIDER_METADATA)) {
+		const { id, settingName } = metadata;
 		if (settingName) {
 			map.set(id, settingName);
 		}
@@ -35,7 +35,6 @@ export function getProviderIdToSettingNameMap(): Map<string, string> {
 export async function performSettingsMigrations(): Promise<void> {
 	await Promise.all([
 		performProviderMigration(),
-		performModelPreferencesMigration(),
 		performCustomModelsMigration()
 	]);
 }
@@ -153,16 +152,6 @@ export async function performProviderMigration(): Promise<void> {
 		'hideProviderMigrationNotification',
 		vscode.l10n.t(`The 'positron.assistant.enabledProviders' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
 		PROVIDER_ENABLE_SETTINGS_SEARCH
-	);
-}
-
-export async function performModelPreferencesMigration(): Promise<void> {
-	await migrateSettings<string>(
-		'models.preference.byProvider',
-		'models.preference.{name}',
-		'hideModelPreferencesMigrationNotification',
-		vscode.l10n.t(`The 'positron.assistant.models.preference.byProvider' setting has been deprecated, and your settings file has been updated to use individual settings for each provider.`),
-		'positron.assistant.models.preference'
 	);
 }
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,7 @@ import { Parts } from '../../../layout/browser/layoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
+import { ChatContextKeys } from '../../../../contrib/chat/common/actions/chatContextKeys.js';
 
 
 export const positronAssistantLayout: PositronLayoutInfo = {
@@ -21,7 +22,7 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 	codicon: 'positron-assistant-layout',
 	label: localize2('choseLayout.assistant', 'Assistant Layout'),
 	precondition: ContextKeyExpr.or(
-		ContextKeyExpr.has('config.positron.assistant.enable'),
+		ChatContextKeys.aiFeaturesEnabled,
 		ContextKeyExpr.has('config.assistant.enabled'),
 	)!,
 	layoutDescriptor: {
