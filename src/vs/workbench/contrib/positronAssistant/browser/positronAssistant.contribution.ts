@@ -23,6 +23,7 @@ import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constant
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
+import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
 
 // Register the `ai.enabled` main switch for Positron's AI features.
 import '../common/positronAIConfiguration.js';
@@ -30,6 +31,9 @@ import '../common/positronAIConfiguration.js';
 // Register the migration from the deprecated
 // `positron.assistant.inlineCompletions.enable` setting to `github.copilot.enable`.
 import './inlineCompletionsMigration.js';
+
+// Register the commit message generation feature.
+registerCommitMessageGeneration();
 
 const consoleLanguageIds = ['r', 'python'];
 
@@ -116,3 +120,4 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantContribution, LifecyclePhase.Restored);
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(NextEditSuggestionsStatusBarEntry, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(CommitMessageMenuContribution, LifecyclePhase.Restored);

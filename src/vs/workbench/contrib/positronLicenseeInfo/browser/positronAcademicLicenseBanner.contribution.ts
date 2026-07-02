@@ -3,10 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
-import { FileAccess } from '../../../../base/common/network.js';
 import { isWeb, isWorkbench } from '../../../../base/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -32,10 +30,9 @@ class PositronAcademicLicenseBannerContribution extends Disposable implements IW
 	) {
 		super();
 
-		const hasWebUi = fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
-
-		// Only show on web builds that are not Posit Workbench, nor remote ssh (which doesn't have web ui)
-		if (!isWeb || isWorkbench || !hasWebUi) {
+		// Only show on web builds that are not Posit Workbench. Remote SSH runs the UI in
+		// desktop Electron (isWeb === false), so it is already excluded by the !isWeb check.
+		if (!isWeb || isWorkbench) {
 			return;
 		}
 
