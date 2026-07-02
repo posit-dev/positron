@@ -172,6 +172,11 @@ put unique/free-form/timestamped strings there, and don't smuggle a grouping
 distinction into `target_description` to make it show up in the dashboard — that
 belongs in `variant` (label) or a numeric field (number).
 
+**Naming convention:** make a numeric field's quantity obvious in its name —
+counts as countable nouns (`*_rows`, `*_cols`, `*_lines`), other magnitudes with
+an explicit unit (`*_ms`, `*_bytes`). Never a bare `size`/`length`. Categorical
+(variant) fields get plain names.
+
 ## Files
 
 - `metric-factory.ts` - The main factory that eliminates boilerplate
