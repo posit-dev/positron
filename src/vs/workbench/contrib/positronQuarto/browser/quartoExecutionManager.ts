@@ -662,6 +662,12 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 					: RuntimeErrorBehavior.Continue;
 
 				for (let index = 0; index < codeFragments.length; index++) {
+					// Stop dispatching fragments if execution was cancelled between
+					// fragments (e.g. a cancellation that raced a fragment's idle).
+					if (cts.token.isCancellationRequested) {
+						break;
+					}
+
 					const fragment = codeFragments[index];
 					const fragmentExecutionId = codeFragments.length === 1
 						? executionId
