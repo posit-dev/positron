@@ -143,6 +143,30 @@ The factory automatically captures success/error status and re-throws errors to 
 
 Metrics are logged in the background without affecting test performance.
 
+## Choosing the right dimension
+
+When a performance metric varies, put that variation in the right field so the
+dashboard can group and analyze it:
+
+- **`target_type`** — *what* is being acted upon (a data structure, file format,
+  session kind). Use the `MetricTargetType` union; add a member for a genuinely
+  different target.
+- **`variant`** (in `context_json`) — a *named scenario* that shares the same
+  `(action, target_type)` but exercises a different code path or condition
+  (e.g. `simple_expression` vs `scrollback_trim`). Use when one target has 2+
+  meaningful scenarios you want compared side by side. Keep values short,
+  stable, `snake_case`, low-cardinality. Do **not** put unique/free-form/
+  timestamped strings here.
+- **Numeric context (`data_rows`, `input_rows`, …)** — workload *magnitude* you
+  expect duration to scale with. Use when the variation is a number you'd want
+  on an axis, not a named case.
+- **`target_description`** — a human-readable label for display only. Never rely
+  on it for grouping or aggregation; it is optional free text.
+
+Rule of thumb: if you're tempted to encode a distinction in `target_description`
+so it shows up separately in the dashboard, that distinction belongs in
+`variant` (categorical) or a numeric context field (magnitude).
+
 ## Files
 
 - `metric-factory.ts` - The main factory that eliminates boilerplate
