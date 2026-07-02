@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from 'chai';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { listMissingPythonPackages, parsePythonImports } from '../../client/positron/missingPackages';
 import { IPackageManager, PackageSession } from '../../client/positron/packages/types';
 
@@ -92,14 +94,19 @@ suite('listMissingPythonPackages', () => {
         const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
         const manager = makeManager({});
 
+        // Build the URI from a real path so the expected root is derived with the
+        // same (platform-specific) filesystem semantics as the code under test.
+        const fileUri = vscode.Uri.file(path.join(path.resolve('project'), 'app.py'));
+        const expectedRoot = path.dirname(fileUri.fsPath);
+
         await listMissingPythonPackages(session, manager, {
-            uri: 'file:///home/user/project/app.py',
+            uri: fileUri.toString(),
             code: 'from helper.helper_functions import say_hello',
         });
 
         // The kernel is asked about `helper` with the file's directory as a root
         // so a sibling `helper` package is recognized instead of flagged missing.
-        expect(callMethod.calledOnceWith('getMissingImports', ['helper'], ['/home/user/project'])).to.be.true;
+        expect(callMethod.calledOnceWith('getMissingImports', ['helper'], [expectedRoot])).to.be.true;
     });
 
     test('returns empty when there are no imports', async () => {
