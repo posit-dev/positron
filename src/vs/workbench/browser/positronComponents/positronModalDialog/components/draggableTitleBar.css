@@ -40,6 +40,12 @@
 	color: var(--vscode-positronModalDialog-titleBarForeground);
 }
 
+/* Overrides the global `.monaco-workbench .codicon` rule, which sets color directly on the icon
+	and so wins over the inherited color above regardless of the button rule's specificity. */
+.positron-modal-dialog-box .simple-title-bar .simple-title-bar-close-button .codicon {
+	color: var(--vscode-positronModalDialog-titleBarForeground);
+}
+
 .positron-modal-dialog-box .simple-title-bar .simple-title-bar-close-button:hover {
 	background: var(--vscode-toolbar-hoverBackground);
 }
