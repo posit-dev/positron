@@ -76,6 +76,35 @@ describe('PositronMcpSession', () => {
 		expect(responses).toEqual([]);
 	});
 
+	it('reports client identity, timestamps, and pinned window via info', async () => {
+		vi.useFakeTimers({ now: 1000 });
+		try {
+			const session = createSession();
+			await session.handleIncoming(initializeRequest);
+			vi.setSystemTime(5000);
+			await session.handleIncoming({ jsonrpc: '2.0', id: 2, method: 'ping' });
+			expect(session.info).toEqual({
+				sessionId: 'test-session',
+				clientName: 'test-client',
+				clientVersion: '1.0.0',
+				createdAt: 1000,
+				lastActivityAt: 5000,
+				pinnedWindowId: 1,
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('reports an anonymous session before initialize names the client', () => {
+		const session = createSession();
+		expect(session.info).toMatchObject({
+			sessionId: 'test-session',
+			clientName: undefined,
+			pinnedWindowId: undefined,
+		});
+	});
+
 	it('isInitializeMessage detects initialize in single and batch messages', () => {
 		expect(isInitializeMessage(initializeRequest)).toBe(true);
 		expect(isInitializeMessage([initializeRequest])).toBe(true);

@@ -14,6 +14,7 @@ import { localize } from '../../../../nls.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { IMcpSessionInfo } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { WorkspaceConfigState, serverUrl } from './positronMcpWorkspace.js';
 
 /** The live status the panel renders. Computed by the command and refreshed on demand. */
@@ -28,12 +29,8 @@ export interface IMcpStatusData {
 	readonly workspaceConfig: WorkspaceConfigState;
 	/** Whether the agent-instruction files already carry the MCP guidance block. */
 	readonly guidancePresent: boolean;
-	/** Name the most recently connected client reported (e.g. "claude-code"), if any. */
-	readonly lastClientName?: string;
-	/** Version the most recently connected client reported, if any. */
-	readonly lastClientVersion?: string;
-	/** Epoch milliseconds of the most recent request from any client, if any. */
-	readonly lastActivityAt?: number;
+	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
+	readonly sessions: IMcpSessionInfo[];
 }
 
 /** The actions the panel buttons trigger; the host runs the matching command and reports back. */
@@ -134,11 +131,15 @@ const McpStatusPanel = (props: McpStatusPanelProps) => {
 			? localize('positron.mcp.status.workspace.configured', "Configured (.mcp.json)")
 			: localize('positron.mcp.status.workspace.notConfigured', "Not configured");
 
+	// Interim single-row summary of the newest session; replaced by the
+	// connections table in the panel restructure.
+	const lastSession = status?.sessions.reduce<IMcpSessionInfo | undefined>(
+		(latest, s) => !latest || s.lastActivityAt > latest.lastActivityAt ? s : latest, undefined);
 	const clientValue = !status || !status.running
 		? localize('positron.mcp.status.client.unavailable', "Not available")
-		: status.lastClientName
-			? formatClientLabel(status.lastClientName, status.lastClientVersion)
-			+ (status.lastActivityAt ? ` - ${formatRelativeTime(status.lastActivityAt)}` : '')
+		: lastSession?.clientName
+			? formatClientLabel(lastSession.clientName, lastSession.clientVersion)
+			+ ` - ${formatRelativeTime(lastSession.lastActivityAt)}`
 			: localize('positron.mcp.status.client.none', "No requests yet");
 
 	// Highlight the most useful next step: enabling when off, or configuring the

@@ -14,6 +14,7 @@ import {
 } from '../../../base/common/jsonRpcProtocol.js';
 import { hasKey } from '../../../base/common/types.js';
 import { ILogger } from '../../log/common/log.js';
+import { IMcpSessionInfo } from '../common/positronMcp.js';
 import {
 	IMcpCallToolResult,
 	McpContent,
@@ -66,6 +67,23 @@ export class PositronMcpSession extends Disposable {
 	/** Version the client reported at `initialize`, for status UI. */
 	public clientVersion: string | undefined;
 
+	/** When the session was created; a session is created by its `initialize` request. */
+	private readonly _createdAt = Date.now();
+	/** When the session last received a message. */
+	private _lastActivityAt = this._createdAt;
+
+	/** A status-UI snapshot of this session. */
+	get info(): IMcpSessionInfo {
+		return {
+			sessionId: this.id,
+			clientName: this.clientName,
+			clientVersion: this.clientVersion,
+			createdAt: this._createdAt,
+			lastActivityAt: this._lastActivityAt,
+			pinnedWindowId: this._pinnedWindowId,
+		};
+	}
+
 	constructor(
 		public readonly id: string,
 		private readonly _logger: ILogger,
@@ -85,6 +103,7 @@ export class PositronMcpSession extends Disposable {
 
 	/** Handle an incoming message (or batch) and return the JSON-RPC responses. */
 	async handleIncoming(message: JsonRpcMessage | JsonRpcMessage[]): Promise<JsonRpcResponse[]> {
+		this._lastActivityAt = Date.now();
 		return this._rpc.handleMessage(message);
 	}
 

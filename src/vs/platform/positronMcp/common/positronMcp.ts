@@ -27,18 +27,30 @@ export const POSITRON_MCP_LOG_ID = 'positronMcp';
  */
 export const PositronMcpToolBrokerChannelName = 'positronMcpToolBroker';
 
+/** One live MCP session, as surfaced in the status UI. */
+export interface IMcpSessionInfo {
+	/** The session id clients echo back in the Mcp-Session-Id header. */
+	readonly sessionId: string;
+	/** Name the client reported at `initialize` (e.g. "claude-code"), if any. */
+	readonly clientName?: string;
+	/** Version the client reported at `initialize`, if any. */
+	readonly clientVersion?: string;
+	/** Epoch milliseconds the session was created (the client's `initialize`). */
+	readonly createdAt: number;
+	/** Epoch milliseconds of the session's most recent request. */
+	readonly lastActivityAt: number;
+	/** Id of the window the session's tool calls run in, if one was resolved. */
+	readonly pinnedWindowId?: number;
+}
+
 /** A snapshot of the server's runtime state, for status UI. */
 export interface IPositronMcpServerStatus {
 	/** Whether the HTTP server is currently listening. */
 	readonly running: boolean;
 	/** The port the server listens on (or would, when started). */
 	readonly port: number;
-	/** Name the most recently connected client reported (e.g. "claude-code"), if any. */
-	readonly lastClientName?: string;
-	/** Version the most recently connected client reported, if any. */
-	readonly lastClientVersion?: string;
-	/** Epoch milliseconds of the most recent request from any client, if any. */
-	readonly lastActivityAt?: number;
+	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
+	readonly sessions: IMcpSessionInfo[];
 }
 
 /**

@@ -67,12 +67,6 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	private _startPromise: Promise<void> | undefined;
 	private readonly _sessions = this._register(new DisposableMap<string, PositronMcpSession>());
 
-	// Most-recent client activity, surfaced in the status UI. Cleared on stop so a
-	// stopped server never reports a stale client.
-	private _lastClientName: string | undefined;
-	private _lastClientVersion: string | undefined;
-	private _lastActivityAt: number | undefined;
-
 	constructor(
 		private readonly _broker: IPositronMcpToolBroker,
 		@ILoggerService loggerService: ILoggerService,
@@ -130,20 +124,17 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		}
 		this._server = undefined;
 		this._sessions.clearAndDisposeAll();
-		this._lastClientName = undefined;
-		this._lastClientVersion = undefined;
-		this._lastActivityAt = undefined;
 		await new Promise<void>(resolve => server.close(() => resolve()));
 		this._logger.info('[PositronMcpServer] Stopped');
 	}
 
 	async getStatus(): Promise<IPositronMcpServerStatus> {
+		// Sessions are cleared on stop, so a stopped server never reports a stale
+		// client. Map insertion order is creation order, giving oldest-first.
 		return {
 			running: this._server?.listening ?? false,
 			port: this._port,
-			lastClientName: this._lastClientName,
-			lastClientVersion: this._lastClientVersion,
-			lastActivityAt: this._lastActivityAt,
+			sessions: [...this._sessions.values()].map(session => session.info),
 		};
 	}
 
@@ -190,13 +181,6 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 
 		try {
 			const responses = await session.handleIncoming(message);
-			// Record the request for the status UI. The client name is set once the
-			// session sees `initialize`, so this reflects it from that point on.
-			this._lastActivityAt = Date.now();
-			if (session.clientName) {
-				this._lastClientName = session.clientName;
-				this._lastClientVersion = session.clientVersion;
-			}
 			const headers = { 'Content-Type': 'application/json', 'Mcp-Session-Id': session.id };
 			// A notification (no id) yields no response body: acknowledge with 202
 			// per the Streamable HTTP transport.

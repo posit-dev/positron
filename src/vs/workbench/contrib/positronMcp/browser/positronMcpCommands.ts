@@ -47,9 +47,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 		port: serverStatus.port,
 		workspaceConfig,
 		guidancePresent,
-		lastClientName: serverStatus.lastClientName,
-		lastClientVersion: serverStatus.lastClientVersion,
-		lastActivityAt: serverStatus.lastActivityAt,
+		sessions: serverStatus.sessions,
 	};
 }
 
