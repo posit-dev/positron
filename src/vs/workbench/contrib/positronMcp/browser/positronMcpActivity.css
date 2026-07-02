@@ -163,6 +163,7 @@
 	align-items: center;
 	gap: 7px;
 	width: 100%;
+	box-sizing: border-box;
 	padding: 3px 10px;
 	font-size: 12px;
 	white-space: nowrap;
