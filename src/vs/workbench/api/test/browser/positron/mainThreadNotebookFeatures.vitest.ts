@@ -7,7 +7,7 @@
 
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { constObservable } from '../../../../../base/common/observable.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -69,6 +69,34 @@ describe('MainThreadNotebookFeatures $getCellOutputs SVG handling', () => {
 
 		expect(mockRasterizeSvgToPng).toHaveBeenCalledWith(SVG_TEXT);
 		expect(outputs).toEqual([{ mimeType: 'image/png', data: PNG_BASE64 }]);
+		features.dispose();
+	});
+
+	it('rasterizes SVG outputs whose MIME type carries parameters', async () => {
+		mockRasterizeSvgToPng.mockResolvedValue(PNG_BASE64);
+		const features = createFeatures([{ mime: 'image/svg+xml; charset=utf-8', data: VSBuffer.fromString(SVG_TEXT) }]);
+
+		const outputs = await features.$getCellOutputs(NOTEBOOK_URI, 0);
+
+		expect(outputs).toEqual([{ mimeType: 'image/png', data: PNG_BASE64 }]);
+		features.dispose();
+	});
+
+	it('does not rasterize an SVG that has a raster image sibling in the same output', async () => {
+		// Both items represent the same plot; rasterizing the SVG too would send
+		// the model two identical images.
+		const features = createFeatures([
+			{ mime: 'image/png', data: VSBuffer.fromString('rawpngbytes') },
+			{ mime: 'image/svg+xml', data: VSBuffer.fromString(SVG_TEXT) },
+		]);
+
+		const outputs = await features.$getCellOutputs(NOTEBOOK_URI, 0);
+
+		expect(mockRasterizeSvgToPng).not.toHaveBeenCalled();
+		expect(outputs).toEqual([
+			{ mimeType: 'image/png', data: encodeBase64(VSBuffer.fromString('rawpngbytes')) },
+			{ mimeType: 'image/svg+xml', data: SVG_TEXT },
+		]);
 		features.dispose();
 	});
 

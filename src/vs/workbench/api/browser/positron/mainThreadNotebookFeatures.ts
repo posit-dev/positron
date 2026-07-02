@@ -401,6 +401,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Convert outputs to structured DTOs
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
+			// Items within one output are alternative representations of the same
+			// data. When a binary image representation already exists, don't also
+			// rasterize an SVG sibling into a duplicate image; it stays raw text.
+			const hasRasterImageSibling = output.outputs.some(item => isImageMimeType(item.mime));
 			for (const item of output.outputs) {
 				const mimeType = item.mime;
 
@@ -414,7 +418,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 				// Rasterize SVG outputs to PNG so assistants can attach them as images;
 				// model providers reject image/svg+xml. Fall back to the raw SVG text
 				// when rasterization fails (#12096).
-				else if (isSvgMimeType(mimeType)) {
+				else if (isSvgMimeType(mimeType) && !hasRasterImageSibling) {
 					const svgText = item.data.toString();
 					const pngData = await rasterizeSvgToPng(svgText);
 					if (pngData !== undefined) {

@@ -3,6 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { createTrustedTypesPolicy } from '../../../../base/browser/trustedTypes.js';
+
+/**
+ * The workbench enforces Trusted Types, so DOMParser.parseFromString needs a
+ * policy-blessed value. The policy name must be allowlisted in the workbench
+ * CSP (see src/vs/code/electron-browser/workbench/workbench.html).
+ */
+const ttPolicy = createTrustedTypesPolicy('positronSvgToPng', { createHTML: value => value });
+
 /**
  * Default raster size (in CSS pixels) for SVGs that declare no usable
  * width/height or viewBox.
@@ -43,7 +52,8 @@ export interface SvgDimensions {
  *   a parseable SVG document.
  */
 export function parseSvgDimensions(svgText: string): SvgDimensions | undefined {
-	const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+	const trustedSvgText = (ttPolicy?.createHTML(svgText) ?? svgText) as string;
+	const doc = new DOMParser().parseFromString(trustedSvgText, 'image/svg+xml');
 	const root = doc.documentElement;
 	// eslint-disable-next-line no-restricted-syntax -- inspecting a freshly parsed XML document for DOMParser's standard parsererror element, not traversing workbench DOM
 	if (doc.getElementsByTagName('parsererror').length > 0 || root.tagName.toLowerCase() !== 'svg') {
@@ -98,12 +108,12 @@ function parseSvgLength(value: string | null): number | undefined {
  *   cannot be parsed or rendered (callers should fall back to the SVG text).
  */
 export async function rasterizeSvgToPng(svgText: string): Promise<string | undefined> {
-	const dimensions = parseSvgDimensions(svgText);
-	if (!dimensions) {
-		return undefined;
-	}
-
 	try {
+		const dimensions = parseSvgDimensions(svgText);
+		if (!dimensions) {
+			return undefined;
+		}
+
 		const scale = Math.min(
 			RASTER_SCALE,
 			MAX_RASTER_DIMENSION / dimensions.width,
@@ -139,6 +149,12 @@ export async function rasterizeSvgToPng(svgText: string): Promise<string | undef
 }
 
 /**
+ * Bound on SVG image decode time. rasterizeSvgToPng is awaited on an RPC path
+ * ($getCellOutputs), so a decode that never settles must not hang the caller.
+ */
+const SVG_LOAD_TIMEOUT_MS = 10_000;
+
+/**
  * Loads an SVG document into an image element via a blob URL.
  */
 function loadSvgImage(svgText: string): Promise<HTMLImageElement> {
@@ -146,14 +162,17 @@ function loadSvgImage(svgText: string): Promise<HTMLImageElement> {
 		const blob = new Blob([svgText], { type: 'image/svg+xml' });
 		const url = URL.createObjectURL(blob);
 		const image = new Image();
-		image.onload = () => {
+		const settle = (complete: () => void) => {
+			clearTimeout(timer);
 			URL.revokeObjectURL(url);
-			resolve(image);
+			complete();
 		};
-		image.onerror = () => {
-			URL.revokeObjectURL(url);
-			reject(new Error('Failed to load SVG image'));
-		};
+		const timer = setTimeout(
+			() => settle(() => reject(new Error('Timed out loading SVG image'))),
+			SVG_LOAD_TIMEOUT_MS
+		);
+		image.onload = () => settle(() => resolve(image));
+		image.onerror = () => settle(() => reject(new Error('Failed to load SVG image')));
 		image.src = url;
 	});
 }
