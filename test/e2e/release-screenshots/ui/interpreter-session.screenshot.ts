@@ -107,7 +107,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 	test('Release Screenshot - active-interpreter-session.png', async ({ app, page, openFile }) => {
 		const { sessions, hotKeys, layouts } = app.workbench;
 
-		await setScreenshotWindowSize(app, { width: 1280, height: 800 });
+		await setScreenshotWindowSize(app, { width: 900, height: 700 });
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
 
@@ -117,8 +117,8 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// customize the layout
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
-		await layouts.resizePanelToHeight(375);
-		await sessions.resizeSessionList({ x: -80 });
+		await layouts.resizePanelToHeight(320);
+		await sessions.resizeSessionList({ x: -180 });
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);

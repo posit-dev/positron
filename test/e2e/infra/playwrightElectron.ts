@@ -51,7 +51,7 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 }
 
 async function launchElectron(configuration: IElectronConfiguration, options: LaunchOptions) {
-	const { logger, tracing, snapshots } = options;
+	const { logger, tracing, customTracing, snapshots } = options;
 
 	if (!fs.existsSync(configuration.electronPath || '')) {
 		throw new Error(`Cannot find Positron at ${configuration.electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
@@ -77,6 +77,12 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 	if (tracing) {
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots }), 'context.tracing.start()', logger);
+			// Open the first chunk now so startup is captured. A failure during startup
+			// lands in the trace exported by the app fixture; otherwise the per-test
+			// tracing fixture re-slices from here.
+			if (customTracing) {
+				await context.tracing.startChunk({ title: 'startup' });
+			}
 		} catch (error) {
 			logger.log(`Playwright (Electron): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

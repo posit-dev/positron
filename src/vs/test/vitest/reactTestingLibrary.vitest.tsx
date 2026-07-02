@@ -8,6 +8,7 @@
 import { Emitter } from '../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../base/browser/positronReactRendererContext.js';
 import { setupRTLRenderer } from './reactTestingLibrary.js';
+import { screen } from '@testing-library/dom';
 
 // Shared emitters for minimalServices(). Declared at module scope and
 // disposed in afterAll so we don't leak emitters per test or per describe
@@ -75,6 +76,23 @@ describe('setupRTLRenderer', () => {
 			// showcase for destructure pattern -- this file demonstrates both idioms
 			// eslint-disable-next-line testing-library/prefer-screen-queries
 			expect(getByText('hello from props')).toBeInTheDocument();
+		});
+	});
+
+	describe('custom container', () => {
+		const rtl = setupRTLRenderer();
+
+		it('renders into the provided container', () => {
+			const container = document.createElement('div');
+			document.body.appendChild(container);
+
+			rtl.render(<PropLabel text='hello in container' />, { container });
+
+			// The element is rendered inside the supplied container rather than
+			// a default RTL-created container.
+			const label = screen.getByText('hello in container');
+			expect(label).toBeInTheDocument();
+			expect(container).toContainElement(label);
 		});
 	});
 });

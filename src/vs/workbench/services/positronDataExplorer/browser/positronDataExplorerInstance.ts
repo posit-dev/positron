@@ -149,10 +149,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * @param _languageName The language name.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
+	 * @param _isInline Whether this instance backs an inline/embedded view (e.g. a notebook
+	 * cell output) whose comm is shared and runtime-owned.
 	 */
 	constructor(
 		private readonly _languageName: string,
-		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
+		private readonly _isInline: boolean = false
 	) {
 		// Call the base class's constructor.
 		super();
@@ -251,6 +254,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	get dataExplorerClientInstance() {
 		return this._dataExplorerClientInstance;
+	}
+
+	/**
+	 * Gets whether this instance backs an inline/embedded view (e.g. a notebook
+	 * cell output). Inline comms are shared with the embedding view, whose
+	 * lifetime outlives any editor tab opened against the same comm; their
+	 * lifecycle is owned by the runtime (closed on cell re-execution or session
+	 * end). An editor tab must not dispose the client for an inline instance.
+	 */
+	get isInline() {
+		return this._isInline;
 	}
 
 	/**

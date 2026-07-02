@@ -7,16 +7,11 @@
 
 import React from 'react';
 import { screen } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
-import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
-import { observableValue } from '../../../../../base/common/observable.js';
+import userEvent from '@testing-library/user-event';
 import { assertDefined } from '../../../../../base/common/types.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
 import { NotebookMarkdownCell } from '../../browser/notebookCells/NotebookMarkdownCell.js';
 import { PositronNotebookMarkdownCell } from '../../browser/PositronNotebookCells/PositronNotebookMarkdownCell.js';
@@ -68,15 +63,9 @@ describe('NotebookMarkdownCell', () => {
 		const markdownCell = cell as unknown as PositronNotebookMarkdownCell;
 		markdownCell.editorShown.set(editorShown, undefined);
 
-		const environmentBundle = {
-			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
-			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
-		};
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
-				<EnvironentProvider environmentBundle={environmentBundle}>
-					<NotebookMarkdownCell cell={markdownCell} />
-				</EnvironentProvider>
+				<NotebookMarkdownCell cell={markdownCell} />
 			</NotebookInstanceProvider>
 		);
 

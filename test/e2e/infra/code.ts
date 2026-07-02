@@ -45,6 +45,13 @@ export interface LaunchOptions {
 	readonly remote?: boolean;
 	readonly web?: boolean;
 	readonly tracing?: boolean;
+	/**
+	 * When true, we manage tracing ourselves via per-test chunks (Positron desktop
+	 * runs and all command-line runs) and open the first chunk at context creation
+	 * so early startup is captured. When false, Playwright's built-in tracing
+	 * handles it (browser-based runs in UI mode or the VS Code extension).
+	 */
+	readonly customTracing?: boolean;
 	snapshots?: boolean;
 	readonly headless?: boolean;
 	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';

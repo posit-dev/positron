@@ -190,6 +190,7 @@ import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
 // --- Start Positron ---
 import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
 import './contrib/positronLicenseeInfo/browser/positronLicenseeInfo.contribution.js';
+import './contrib/positronLicenseeInfo/browser/positronAcademicLicenseBanner.contribution.js';
 import './contrib/positronIdleReporter/browser/positronIdleReporter.js';
 // --- End Positron ---
 

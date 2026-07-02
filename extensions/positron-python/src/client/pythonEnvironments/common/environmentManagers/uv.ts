@@ -44,16 +44,47 @@ class UvUtils {
     }
 
     private static async locate(): Promise<UvUtils | undefined> {
-        const uvPath = 'uv';
-        traceVerbose(`Probing uv binary ${uvPath}`);
-        const uv = new UvUtils(uvPath);
-        const uvDir = await uv.getUvDir();
-        if (uvDir !== undefined) {
-            traceVerbose(`Found uv binary ${uvPath}`);
-            return uv;
+        // Probe `uv` on PATH first, then fall back to uv's known install locations.
+        // The official installer drops the binary at ~/.local/bin/uv (or ~/.cargo/bin/uv)
+        // and only updates shell rc files, so a freshly installed uv is not reachable on
+        // the already-running extension host's PATH. Probing the known locations lets us
+        // find it without waiting for a restart.
+        for (const candidate of ['uv', ...UvUtils.knownInstallLocations()]) {
+            // Absolute-path candidates come from known install locations; only probe ones
+            // that actually exist on disk to avoid spawning processes for missing paths.
+            if (path.isAbsolute(candidate) && !(await pathExists(candidate))) {
+                continue;
+            }
+            traceVerbose(`Probing uv binary ${candidate}`);
+            if (await UvUtils.canRun(candidate)) {
+                traceVerbose(`Found uv binary ${candidate}`);
+                return new UvUtils(candidate);
+            }
         }
         traceVerbose(`No uv binary found`);
         return undefined;
+    }
+
+    /** Default locations the official uv installer writes the binary to. */
+    private static knownInstallLocations(): string[] {
+        const home = os.homedir();
+        const binary = process.platform === 'win32' ? 'uv.exe' : 'uv';
+        return [path.join(home, '.local', 'bin', binary), path.join(home, '.cargo', 'bin', binary)];
+    }
+
+    /**
+     * Probes whether the given uv command is runnable. Runs `uv python dir` directly
+     * rather than through the cached `getUvDir()`, whose cache key ignores the command
+     * and would otherwise return a stale result across candidate probes.
+     */
+    private static async canRun(command: string): Promise<boolean> {
+        try {
+            const result = await exec(command, ['python', 'dir'], { throwOnStdErr: true });
+            return result?.stdout.trim() !== undefined;
+        } catch (ex) {
+            traceVerbose(ex);
+            return false;
+        }
     }
 
     @cache(-1)

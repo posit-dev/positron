@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
-import { MetricTargetType } from '../../utils/metrics/metric-base.js';
-import { TestTags } from '../../infra/index.js';
+import { test, tags } from '../../_test.setup';
+import { MetricTargetType } from '../../../utils/metrics/metric-base.js';
+import { TestTags } from '../../../infra/index.js';
 
 const testCases: {
 	env: 'Python' | 'R' | 'DuckDB';

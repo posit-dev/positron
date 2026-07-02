@@ -10,6 +10,7 @@ import * as playwright from '@playwright/test';
 import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser, StorageFile } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
+import { shouldUseCustomTracing } from './reporting.fixtures.js';
 
 export interface CustomTestOptions {
 	artifactDir: string;
@@ -64,6 +65,7 @@ export function OptionsFixture() {
 			headless: project.headless,
 			browser,
 			tracing: true,
+			customTracing: shouldUseCustomTracing(workerInfo.project),
 			snapshots,
 			quality: Quality.Dev,
 			version,

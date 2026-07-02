@@ -524,8 +524,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._register(
 			dataExplorerRuntime.onDidOpenDataExplorerClient(event => {
 				if (event.inlineOnly) {
-					// For inline-only data explorers, register without opening editor
-					this.registerDataExplorerClient(session.runtimeMetadata.languageName, event.client);
+					// For inline-only data explorers, register without opening editor.
+					// Mark as inline so an editor tab later opened against this shared
+					// comm (e.g. via the Variables pane or "Open in Data Explorer") does
+					// not dispose it on close -- see issue #13283.
+					this.registerDataExplorerClient(session.runtimeMetadata.languageName, event.client, true);
 				} else {
 					// Normal behavior: register and open editor
 					this.openEditor(session.runtimeMetadata.languageName, event.client);
@@ -587,10 +590,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Registers a DataExplorerClientInstance so that it is available when the
 	 * PositronDataExplorerEditor is instantiated.
 	 */
-	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance) {
+	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance, inline: boolean = false) {
 		const instance = this._register(new PositronDataExplorerInstance(
 			languageName,
-			client
+			client,
+			inline
 		));
 
 		// Set the Positron data explorer client instance.

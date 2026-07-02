@@ -12,25 +12,23 @@ import { ExtensionIdentifier } from '../../platform/extensions/common/extensions
 /**
  * usePositronConfiguration hook.
  * @param key Configuration key to retrieve.
- * @param watch Whether to watch for changes. Default true.
  * @returns The configuration value.
  */
-export const usePositronConfiguration = <T,>(key: string, watch: boolean = true): T => {
+export const usePositronConfiguration = <T,>(key: string): T => {
 	const { configurationService } = usePositronReactServicesContext();
 	const [value, setValue] = useState(() => configurationService.getValue<T>(key));
 
 	useEffect(() => {
-		if (!watch) {
-			return;
-		}
 		const disposable = configurationService.onDidChangeConfiguration(e => {
-			e.affectsConfiguration(key) && setValue(configurationService.getValue<T>(key));
+			if (e.affectsConfiguration(key)) {
+				setValue(configurationService.getValue<T>(key));
+			}
 		});
 		return () => disposable.dispose();
-	}, [configurationService, key, watch]);
+	}, [configurationService, key]);
 
 	return value;
-}
+};
 
 /**
  * usePositronExtensionInstalled hook.

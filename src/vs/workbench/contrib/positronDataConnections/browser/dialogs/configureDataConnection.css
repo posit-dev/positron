@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .configure-data-connection-container {
-	padding: 16px;
-	border-radius: 6px;
-	border: 1px solid var(--vscode-widget-border);
+	/* padding: 16px; */
+	/* border-radius: 6px; */
+	/* border: 1px solid var(--vscode-widget-border); */
 }
 
 .configure-data-connection {
@@ -57,6 +57,19 @@
 .configure-data-connection .parameter-label {
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
+}
+
+.configure-data-connection .parameter-description {
+	font-size: 11px;
+	opacity: 0.8;
+	margin-top: 2px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.configure-data-connection .parameter-optional {
+	margin-left: 4px;
+	opacity: 0.7;
+	font-style: italic;
 }
 
 .configure-data-connection .parameter-input {

@@ -1263,6 +1263,15 @@ declare module 'positron' {
 		 * (http/https only) and surfaces it via the row's external-link button.
 		 */
 		url?: string;
+
+		/** One-line title/summary, richer than `description`. From the detail RPC. */
+		title?: string;
+
+		/** Display-ready author/maintainer string (already normalized by the runtime). */
+		author?: string;
+
+		/** Source repository label or URL (e.g. "CRAN", or a Project-URL). */
+		sourceRepository?: string;
 	}
 
 	/**
@@ -1342,6 +1351,18 @@ declare module 'positron' {
 			packageNames: string[],
 			token?: vscode.CancellationToken,
 		): Thenable<Map<string, Partial<LanguageRuntimePackage>>>;
+
+		/**
+		 * Fetch detailed metadata for a single package, called when the package
+		 * detail editor opens. Cheap, kernel-local fields only. Returns a partial
+		 * package to merge over the list entry, or undefined when unsupported.
+		 * @param name Package name
+		 * @param token Optional cancellation token
+		 */
+		getPackageDetail?(
+			name: string,
+			token?: vscode.CancellationToken,
+		): Thenable<Partial<LanguageRuntimePackage> | undefined>;
 	}
 
 	/**
@@ -1854,6 +1875,13 @@ declare module 'positron' {
 		label: string;
 
 		/**
+		 * An optional, longer help text shown beneath the field to explain the parameter's purpose or
+		 * its behavior when left blank (e.g. "Defaults to your operating system account if empty").
+		 * Distinct from `placeholder`, which shows an example of the expected value.
+		 */
+		description?: string;
+
+		/**
 		 * Whether this parameter is required.
 		 */
 		required?: boolean;
@@ -1902,6 +1930,14 @@ declare module 'positron' {
 			type: DataConnectionParameterType.String;
 			secret: true;
 			placeholder?: string;
+
+			/**
+			 * Whether the input is masked (rendered like a password field). Defaults to `true` for
+			 * secret strings. Set to `false` to render the value in plaintext while still storing it
+			 * in secret storage -- useful for values the user should be able to read back as they
+			 * type, such as a connection string.
+			 */
+			masked?: boolean;
 		}
 	);
 
@@ -1909,6 +1945,34 @@ declare module 'positron' {
 	 * DataConnectionParameterValues is a key-value map of parameter id to parameter value.
 	 */
 	export type DataConnectionParameterValues = Record<string, string | number | boolean>;
+
+	/**
+	 * A configuration mechanism for a data connection driver. A driver exposes one or more
+	 * mechanisms, each describing a distinct way to configure a connection (for example, a
+	 * PostgreSQL driver may offer separate mechanisms for user/password and certificate-based
+	 * authentication). Each mechanism carries its own set of parameters.
+	 */
+	export interface DataConnectionMechanism {
+		/**
+		 * A stable identifier for the mechanism, unique within the driver.
+		 */
+		id: string;
+
+		/**
+		 * A short user-facing label for the mechanism (e.g. 'Username & Password').
+		 */
+		label: string;
+
+		/**
+		 * A user-facing description of the mechanism, shown as supporting text.
+		 */
+		description: string;
+
+		/**
+		 * The parameters required to configure a connection using this mechanism.
+		 */
+		parameters: DataConnectionParameter[];
+	}
 
 	/**
 	 * A driver that provides data connections through the 'New Database' dialog.
@@ -1958,9 +2022,11 @@ declare module 'positron' {
 		iconSvg: string;
 
 		/**
-		 * The driver parameters.
+		 * The configuration mechanisms this driver supports. Each mechanism describes a distinct
+		 * way to configure a connection and carries its own set of parameters. A driver must expose
+		 * at least one mechanism.
 		 */
-		parameters: DataConnectionParameter[];
+		mechanisms: DataConnectionMechanism[];
 
 		/**
 		 * The language identifiers this driver supports.
@@ -1968,23 +2034,45 @@ declare module 'positron' {
 		supportedLanguageIds: string[];
 
 		/**
-		 * Connects using the provided parameter values.
+		 * Connects using the selected mechanism and the provided parameter values.
+		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
 		 */
-		connect(parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		connect(mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 
 		/**
 		 * Generates one or more named code variants that connect to this data source in the given
-		 * language, using the provided parameter values. The language is one of the driver's
-		 * `supportedLanguageIds`; drivers that report no supported languages need not implement this
-		 * method. Variants are returned in preference order, so the first is treated as the default.
+		 * language, using the selected mechanism and the provided parameter values. The language is
+		 * one of the driver's `supportedLanguageIds`; drivers that report no supported languages need
+		 * not implement this method. Variants are returned in preference order, so the first is
+		 * treated as the default.
 		 *
+		 * @param mechanismId The id of the mechanism the user selected. One of this driver's
+		 *   `mechanisms`.
 		 * @param languageId The language to generate code for (e.g. 'python', 'r'). Always one of
 		 *   the driver's `supportedLanguageIds`.
-		 * @param parameters The current values of the connection parameters defined in `parameters`.
+		 * @param parameters The current values of the parameters defined by the selected mechanism.
 		 * @returns The available code variants, or an empty array if code cannot be generated from
 		 *   the given parameters (for example, when a required parameter is missing).
 		 */
-		generateConnectionCode?(languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+		generateConnectionCode?(mechanismId: string, languageId: string, parameters: DataConnectionParameterValues): Thenable<ConnectionCodeVariant[]>;
+
+		/**
+		 * Produces a display-safe, redacted form of a stored secret parameter value, shown in the
+		 * configuration dialog when editing an existing connection (for example, masking the password
+		 * embedded in a connection string). Only called for secret parameters that render in plaintext
+		 * (`masked: false`); the redacted string is used as the field's placeholder. The cleartext
+		 * value never leaves the extension host -- only the returned string is sent to the dialog.
+		 *
+		 * @param mechanismId The id of the mechanism the connection was configured with. One of this
+		 *   driver's `mechanisms`.
+		 * @param parameterId The id of the parameter to redact.
+		 * @param value The stored cleartext parameter value.
+		 * @returns The redacted string to display, or undefined to show no placeholder.
+		 */
+		redactParameterValue?(mechanismId: string, parameterId: string, value: string): vscode.ProviderResult<string>;
 	}
 
 	/**
@@ -2076,8 +2164,8 @@ declare module 'positron' {
 		// The driver description.
 		description: string;
 
-		// The driver parameters.
-		parameters: DataConnectionParameter[];
+		// The configuration mechanisms this driver supports.
+		mechanisms: DataConnectionMechanism[];
 
 		// The language identifiers this driver supports.
 		supportedLanguageIds: string[];
@@ -2944,15 +3032,16 @@ declare module 'positron' {
 		export function getDrivers(): Thenable<DataConnectionDriverSummary[]>;
 
 		/**
-		 * Connects to a data connection driver with the given parameters.
+		 * Connects to a data connection driver using the selected mechanism and the given parameters.
 		 * The connection goes through the main thread service and exercises
 		 * the full RPC pipeline.
 		 *
 		 * @param driverId The driver identifier.
+		 * @param mechanismId The id of the mechanism to connect with. One of the driver's mechanisms.
 		 * @param parameters The connection parameters.
 		 * @returns A data connection.
 		 */
-		export function connect(driverId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
+		export function connect(driverId: string, mechanismId: string, parameters: DataConnectionParameterValues): Thenable<DataConnection>;
 	}
 
 	/**
