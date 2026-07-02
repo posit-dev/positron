@@ -240,6 +240,20 @@ describe('MissingPackagesService', () => {
 		expect(listMissingPackages).toHaveBeenCalledTimes(1);
 	});
 
+	it('forwards the file URI in the script target so local modules can be resolved', async () => {
+		const service = createService();
+
+		await service.ensure(resource);
+
+		// The script target carries the resource URI alongside the live code so the
+		// runtime can treat the file's directory as an import root and avoid
+		// flagging local (sibling) modules as missing packages.
+		expect(listMissingPackages).toHaveBeenCalledWith(
+			{ code: 'import requests', uri: resource.toString() },
+			expect.anything(),
+		);
+	});
+
 	it('analyzeCode returns empty for an unknown session without analyzing', async () => {
 		const service = createService();
 

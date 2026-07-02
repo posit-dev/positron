@@ -87,6 +87,21 @@ suite('listMissingPythonPackages', () => {
         expect(result).to.deep.equal([]);
     });
 
+    test('passes the file directory as an import root so local modules resolve', async () => {
+        const callMethod = sinon.stub().resolves([]);
+        const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+        const manager = makeManager({});
+
+        await listMissingPythonPackages(session, manager, {
+            uri: 'file:///home/user/project/app.py',
+            code: 'from helper.helper_functions import say_hello',
+        });
+
+        // The kernel is asked about `helper` with the file's directory as a root
+        // so a sibling `helper` package is recognized instead of flagged missing.
+        expect(callMethod.calledOnceWith('getMissingImports', ['helper'], ['/home/user/project'])).to.be.true;
+    });
+
     test('returns empty when there are no imports', async () => {
         const session = makeSession([]);
         const manager = makeManager({});
