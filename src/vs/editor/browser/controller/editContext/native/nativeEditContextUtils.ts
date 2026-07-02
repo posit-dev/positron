@@ -3,7 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { addDisposableListener, getActiveElement, getShadowRoot } from '../../../../../base/browser/dom.js';
+// --- Start Positron ---
+// Also import saveParentsScrollTop/restoreParentsScrollTop for the focus() fix below.
+import { addDisposableListener, getActiveElement, getShadowRoot, restoreParentsScrollTop, saveParentsScrollTop } from '../../../../../base/browser/dom.js';
+// --- End Positron ---
 import { IDisposable, Disposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 
@@ -61,7 +64,20 @@ export class FocusTracker extends Disposable {
 	}
 
 	public focus(): void {
+		// --- Start Positron ---
+		// If focus is outside the edit context node, browsers will try really hard
+		// to reveal it by scrolling every scrollable ancestor. The node is parked at
+		// the editor's last cursor position, so in an embedded editor whose ancestors
+		// scroll natively (e.g. a Positron notebook cell taller than the viewport)
+		// that reveal shifts the layout between Monaco's mouse-down hit tests and the
+		// click lands the cursor on the wrong line (posit-dev/positron#14085).
+		// Mirror the guard the textarea input uses (see writeNativeTextAreaContent in
+		// textAreaEditContextInput.ts): save ancestor scroll positions, focus, restore.
+		// this._domNode.focus();
+		const scrollState = saveParentsScrollTop(this._domNode);
 		this._domNode.focus();
+		restoreParentsScrollTop(this._domNode, scrollState);
+		// --- End Positron ---
 		this.refreshFocusState();
 	}
 
