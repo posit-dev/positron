@@ -13,9 +13,6 @@ import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
 
 export enum ChatConfiguration {
 	AIDisabled = 'chat.disableAIFeatures',
-	// --- Start Positron ---
-	UseCopilotParticipantsWithOtherProviders = 'chat.useCopilotParticipantsWithOtherProviders',
-	// --- End Positron ---
 	PluginsEnabled = 'chat.plugins.enabled',
 	PluginLocations = 'chat.pluginLocations',
 	PluginMarketplaces = 'chat.plugins.marketplaces',

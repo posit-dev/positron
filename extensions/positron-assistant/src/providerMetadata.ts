@@ -10,16 +10,6 @@
  * (`extensions/authentication/src/providerSources.ts`) as part of moving
  * provider configuration ownership there. When positron-assistant is
  * removed, this duplication will no longer exist.
- *
- * This file exists to break a circular dependency:
- *
- * - modelDefinitions.ts and modelResolutionHelpers.ts need providerId → settingName mapping
- * - Previously they imported from providerMigration.ts which imports providers/index.ts
- * - providers/index.ts imports provider classes which extend ModelProvider
- * - ModelProvider imports from modelDefinitions.ts → circular dependency
- *
- * By defining provider metadata here, both the provider classes and the helper functions
- * can import from this single source without creating a cycle.
  */
 
 /**
@@ -109,18 +99,3 @@ export const PROVIDER_METADATA = {
 		providerVariablesSettingName: 'authentication.snowflake.credentials',
 	},
 } as const satisfies Record<string, ProviderInfo>;
-
-/**
- * Get the setting name for a provider ID.
- *
- * @param providerId - The provider ID (e.g., 'anthropic-api', 'openai-api')
- * @returns The setting name (e.g., 'anthropic', 'openAI') or undefined if not found
- */
-export function getSettingNameForProvider(providerId: string): string | undefined {
-	for (const metadata of Object.values(PROVIDER_METADATA)) {
-		if (metadata.id === providerId) {
-			return metadata.settingName;
-		}
-	}
-	return undefined;
-}

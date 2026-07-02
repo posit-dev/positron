@@ -10,7 +10,6 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './log.js';
-import { SerializedNotebookContext } from './tools/notebookUtils.js';
 import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
@@ -25,7 +24,6 @@ type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: st
 interface AugmentedRenderData {
 	hasRSession: boolean;
 	hasPythonSession: boolean;
-	hasNotebookContext: boolean;
 }
 
 /**
@@ -39,15 +37,10 @@ class PromptTemplateEngine {
 		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
 		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
 
-		// Only track whether notebook context exists, not its content.
-		// Dynamic notebook content is injected as a user message for caching.
-		const hasNotebookContext = !!data.notebookContext;
-
 		return {
 			...data,
 			hasRSession,
 			hasPythonSession,
-			hasNotebookContext,
 		};
 	}
 
@@ -269,7 +262,6 @@ interface PromptRenderData {
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
-	notebookContext?: SerializedNotebookContext;
 	mode?: PromptMetadataMode;
 }
 
@@ -401,73 +393,6 @@ export class PromptRenderer {
 	}
 
 	/**
-	 * Get combined prompt metadata for a specific command
-	 */
-	static getCommandMetadata(command: string): PromptMetadata<PromptMetadataMode[]> {
-		return PromptRenderer.instance._getCommandMetadata(command);
-	}
-
-	private _getCommandMetadata(command: string): PromptMetadata<PromptMetadataMode[]> {
-		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
-		const documents = this.loadPromptDocuments(commandsPath);
-		const matchingDocuments: ParsedPromptDocument[] = [];
-		const allCommands = new Set<string>();
-		for (const doc of documents) {
-			if (doc.metadata.command) {
-				allCommands.add(doc.metadata.command);
-			}
-			if (doc.metadata.command === command) {
-				matchingDocuments.push(doc);
-			}
-		}
-
-		if (matchingDocuments.length === 0) {
-			throw new Error(`No prompt documents found for command: ${command} in ${commandsPath} (available commands: ${Array.from(allCommands).join(', ')})`);
-		}
-		return this.mergeMetadata(matchingDocuments);
-	}
-
-	/**
-	 * Get combined prompt for a specific command
-	 */
-	static renderCommandPrompt(command: string, request: vscode.ChatRequest): PromptDocument {
-		return PromptRenderer.instance._renderCommandPrompt(command, request);
-	}
-
-	private _renderCommandPrompt(command: string, request: vscode.ChatRequest): PromptDocument {
-		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
-		const documents = this.loadPromptDocuments(commandsPath);
-		const matchingDocuments: ParsedPromptDocument[] = [];
-		const allCommands = new Set<string>();
-		for (const doc of documents) {
-			if (doc.metadata.command) {
-				allCommands.add(doc.metadata.command);
-			}
-			if (doc.metadata.command === command) {
-				matchingDocuments.push(doc);
-			}
-		}
-
-		if (matchingDocuments.length === 0) {
-			throw new Error(`No prompt documents found for command: ${command} in ${commandsPath} (available commands: ${Array.from(allCommands).join(', ')})`);
-		}
-
-		// Merge prompts
-		const mergedContent = this.mergeContent(matchingDocuments);
-		const mergedMetadata = this.mergeMetadata(matchingDocuments);
-
-		// Render prompt template
-		const data: PromptRenderData = { request };
-		log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
-		const result = PromptTemplateEngine.render(mergedContent, data);
-
-		return {
-			content: result,
-			metadata: mergedMetadata,
-		};
-	}
-
-	/**
 	 * Get all prompt documents for a specific mode, optionally filtering by saved selections
 	 */
 	getModePromptDocuments(mode: PromptMetadataMode, fromSaved: boolean = true): ParsedPromptDocument[] {
@@ -518,104 +443,4 @@ export class PromptRenderer {
 			metadata: mergedMetadata,
 		};
 	}
-}
-
-//#region Prompt management
-
-async function showInitialPromptPick(renderer: PromptRenderer) {
-	const context = renderer.extensionContext;
-	const quickPick = vscode.window.createQuickPick();
-	quickPick.placeholder = vscode.l10n.t('Select a mode');
-
-	quickPick.items = [
-		{ label: 'Built-in Modes', kind: vscode.QuickPickItemKind.Separator },
-		{ label: 'Ask', description: vscode.l10n.t('Ask mode in the chat panel') },
-		{ label: 'Edit', description: vscode.l10n.t('Edit mode in the chat panel') },
-		{ label: 'Agent', description: vscode.l10n.t('Agent mode in the chat panel') },
-		{ label: 'Editor', description: vscode.l10n.t('Inline editor chat') },
-		{ label: 'Terminal', description: vscode.l10n.t('Inline Terminal chat') },
-		{ label: 'Notebook', description: vscode.l10n.t('Notebook chat') },
-		{ label: 'Miscellaneous', kind: vscode.QuickPickItemKind.Separator },
-		{ label: 'Reset', description: vscode.l10n.t('Reset all prompt configuration to the default values.') },
-	];
-
-	quickPick.onDidAccept(() => {
-		const selected = quickPick.selectedItems[0];
-		quickPick.hide();
-
-		switch (selected?.label) {
-			case 'Ask':
-				showPromptModePick(context, positron.PositronChatMode.Ask);
-				break;
-			case 'Edit':
-				showPromptModePick(context, positron.PositronChatMode.Edit);
-				break;
-			case 'Agent':
-				showPromptModePick(context, positron.PositronChatMode.Agent);
-				break;
-			case 'Editor':
-				showPromptModePick(context, positron.PositronChatAgentLocation.Editor);
-				break;
-			case 'Terminal':
-				showPromptModePick(context, positron.PositronChatAgentLocation.Terminal);
-				break;
-			case 'Notebook':
-				showPromptModePick(context, positron.PositronChatAgentLocation.Notebook);
-				break;
-			case 'Reset':
-				context.globalState.update(PROMPT_MODE_SELECTIONS_KEY, undefined);
-				break;
-		}
-	});
-
-	quickPick.onDidHide(() => quickPick.dispose());
-	quickPick.show();
-}
-
-async function showPromptModePick(context: vscode.ExtensionContext, mode: PromptMetadataMode) {
-	const savedSelections = context.globalState?.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
-
-	const quickPick = vscode.window.createQuickPick();
-	quickPick.canSelectMany = true;
-	quickPick.placeholder = 'Select prompts';
-
-	// Built-in prompts
-	const docs = PromptRenderer.instance.getModePromptDocuments(mode, false);
-	const builtinItems = docs.map(doc => {
-		const label = path.basename(doc.filePath);
-		const description = doc.metadata.description;
-		const picked = savedSelections[mode]?.find(s => s.file === label)?.enabled ?? true;
-		return { label, picked, description };
-	});
-
-	quickPick.items = [
-		{ label: 'Built-in Prompts', kind: vscode.QuickPickItemKind.Separator },
-		...builtinItems,
-	];
-	quickPick.selectedItems = quickPick.items.filter(item => item.picked);
-
-	quickPick.onDidAccept(() => {
-		const selectedItems = quickPick.items
-			.filter(item => item.kind !== vscode.QuickPickItemKind.Separator)
-			.map(item => ({ file: item.label, enabled: quickPick.selectedItems.includes(item) }));
-
-		const newSelections = { ...savedSelections, [mode]: selectedItems };
-		context.globalState.update(PROMPT_MODE_SELECTIONS_KEY, newSelections);
-		quickPick.hide();
-	});
-
-	quickPick.onDidHide(() => quickPick.dispose());
-	quickPick.show();
-}
-
-export function registerPromptManagement(context: vscode.ExtensionContext) {
-	// Intialise prompt renderer
-	const renderer = new PromptRenderer(context);
-
-	// Register prompt management quickpick command
-	const disposable = vscode.commands.registerCommand(
-		'positron-assistant.managePromptFiles',
-		() => showInitialPromptPick(renderer)
-	);
-	context.subscriptions.push(disposable);
 }

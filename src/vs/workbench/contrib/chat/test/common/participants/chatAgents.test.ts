@@ -105,6 +105,8 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('chat.disableAIFeatures', false);
 		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
 		// --- End Positron ---
 	});
@@ -238,12 +240,11 @@ suite('ChatAgents', function () {
 			assert.deepStrictEqual(contextKeys(), { enabled: true, panelParticipantRegistered: true, aiFeaturesEnabled: true }, 'keys return when AI is re-enabled at runtime');
 		});
 
-		test('a default agent registers the panel participant even when positron.assistant.enable is off', () => {
+		test('a default agent registers the panel participant while AI features are enabled', () => {
 			// The chat panel previously registered only when `positron.assistant.enable`
 			// was on (or the upstream API test agent was present). That gate has been
 			// removed, so any default agent (e.g. GitHub Copilot) now registers the
 			// panel participant on its own while AI features are not disabled.
-			configurationService.setUserConfiguration('positron.assistant.enable', false);
 			store.add(chatAgentService.registerAgent(defaultAgentId, defaultAgentData));
 
 			assert.strictEqual(ChatContextKeys.panelParticipantRegistered.getValue(contextKeyService), true);
