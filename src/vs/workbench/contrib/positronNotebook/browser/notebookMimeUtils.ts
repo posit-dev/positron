@@ -56,6 +56,16 @@ export function isImageMimeType(mimeType: string): boolean {
 }
 
 /**
+ * Checks if a MIME type is SVG (image/svg+xml). SVG is text-based XML rather
+ * than binary image data, so it is classified separately from other images.
+ * @param mimeType The MIME type to check.
+ * @returns True if the MIME type is image/svg+xml.
+ */
+export function isSvgMimeType(mimeType: string): boolean {
+	return mimeType.toLowerCase() === 'image/svg+xml';
+}
+
+/**
  * Checks if a MIME type represents text-based content that should be handled as plain text.
  * Returns true for:
  * - MIME types in the TEXT_BASED_MIME_TYPES list
@@ -75,7 +85,7 @@ export function isTextBasedMimeType(mimeType: string): boolean {
 		return true;
 	}
 
-	if (lowerMimeType === 'image/svg+xml') {
+	if (isSvgMimeType(lowerMimeType)) {
 		return true;
 	}
 
