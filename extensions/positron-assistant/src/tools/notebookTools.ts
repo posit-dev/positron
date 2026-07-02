@@ -205,7 +205,7 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(
 
 						if (cellOutputs.length > 0) {
 							resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellIndex}:\n`));
-							const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
+							const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
 							resultParts.push(...outputParts);
 						}
 					}
@@ -314,7 +314,7 @@ async function runAllCells(
 			const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cell.index);
 			if (cellOutputs.length > 0) {
 				resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cell.index}:\n`));
-				const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
+				const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
 				resultParts.push(...outputParts);
 			}
 		}
@@ -644,7 +644,7 @@ function createEditNotebookTool(participantService: ParticipantService) {
 
 								const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, insertIndex);
 								if (cellOutputs.length > 0) {
-									const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
+									const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
 									resultParts.push(...outputParts);
 								} else {
 									resultParts.push(new vscode.LanguageModelTextPart('No outputs'));
@@ -1032,7 +1032,7 @@ export const GetNotebookInfoTool = vscode.lm.registerTool<{
 							);
 						} else {
 							resultParts.push(new vscode.LanguageModelTextPart(`Cell ${cellIndex}:\n`));
-							const outputParts = await convertOutputsToLanguageModelParts(outputs);
+							const outputParts = convertOutputsToLanguageModelParts(outputs);
 							resultParts.push(...outputParts);
 							resultParts.push(new vscode.LanguageModelTextPart('\n'));
 						}
