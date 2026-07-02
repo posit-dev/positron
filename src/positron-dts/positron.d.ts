@@ -1861,6 +1861,53 @@ declare module 'positron' {
 		constructor(line?: number);
 	}
 
+	export interface InputBoundaryRange {
+		/**
+		 * Zero indexed starting line of the input.
+		 */
+		readonly start: number;
+
+		/**
+		 * Zero indexed ending line of the input, exclusive.
+		 */
+		readonly end: number;
+	}
+
+	export type InputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
+
+	export interface InputBoundary {
+		/**
+		 * The line range of this input boundary, relative to the requested range.
+		 */
+		readonly range: InputBoundaryRange;
+
+		/**
+		 * The parse status of this input.
+		 */
+		readonly kind: InputBoundaryKind;
+
+		/**
+		 * Additional data for this input boundary.
+		 */
+		readonly data?: {
+			readonly message?: string;
+		};
+	}
+
+	export interface InputBoundaryProvider {
+		/**
+		 * Given a document range, return the input boundaries within that range.
+		 *
+		 * @param document The document containing the requested range.
+		 * @param range The range to split into input boundaries.
+		 * @param token A cancellation token.
+		 * @return The input boundaries within the requested range.
+		 */
+		provideInputBoundaries(document: vscode.TextDocument,
+			range: vscode.Range,
+			token: vscode.CancellationToken): vscode.ProviderResult<InputBoundary[]>;
+	}
+
 	export interface HelpTopicProvider {
 		/**
 		 * Given a cursor position, return the help topic relevant to the cursor
@@ -2378,6 +2425,17 @@ declare module 'positron' {
 		export function registerStatementRangeProvider(
 			selector: vscode.DocumentSelector,
 			provider: StatementRangeProvider): vscode.Disposable;
+
+		/**
+		 * Register an input boundary provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An input boundary provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerInputBoundaryProvider(
+			selector: vscode.DocumentSelector,
+			provider: InputBoundaryProvider): vscode.Disposable;
 
 		/**
 		 * Register a help topic provider.

@@ -153,6 +153,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		});
 	}
 
+	async callMethod(_method: string, ..._args: unknown[]): Promise<unknown> {
+		throw new Error('Not implemented.');
+	}
+
 	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
 		throw new Error('Not implemented.');
 	}

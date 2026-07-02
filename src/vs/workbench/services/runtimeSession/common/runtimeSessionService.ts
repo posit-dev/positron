@@ -193,6 +193,12 @@ export interface ILanguageRuntimeSession extends IDisposable {
 		executionMetadata?: Record<string, unknown>,
 	): void;
 
+	/**
+	 * Calls a runtime-specific method and returns the result.
+	 * Implementations may expose only a subset of methods.
+	 */
+	callMethod?(method: string, ...args: unknown[]): Thenable<unknown>;
+
 	/** Test a code fragment for completeness */
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
 
