@@ -360,6 +360,21 @@ version = "0.1.0"`;
             expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
             expect(args).to.not.include('--upgrade');
         });
+
+        test('installPackages proceeds on an empty environment (freeze returns nothing)', async () => {
+            // A fresh env (e.g. newly created via pyenv) has no user packages, so
+            // `uv pip freeze` prints nothing. The install must still proceed with
+            // only the target, not fail with "returned no output".
+            processService.exec
+                .withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze']))
+                .resolves({ stdout: '', stderr: '' });
+
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            expect((fileSystem as any).getWritten()).to.equal('cowsay==6.1\n');
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+        });
     });
 
     suite('Environment-workflow with requirements.txt', () => {
@@ -454,6 +469,81 @@ version = "0.1.0"`;
                 '--python',
                 '/path/to/python',
             ]);
+        });
+    });
+
+    suite('with python.packageManager.useRequirementsFile disabled', () => {
+        let processService: { exec: sinon.SinonStub };
+        let terminalService: { show: sinon.SinonStub; sendCommand: sinon.SinonStub; sendText: sinon.SinonStub };
+        let originalGetConfiguration: typeof vscode.workspace.getConfiguration;
+
+        setup(() => {
+            // Force the opt-out setting to false: requirements.txt is ignored and
+            // the env workflow falls back to the uv pip freeze re-resolve path.
+            originalGetConfiguration = vscode.workspace.getConfiguration;
+            vscode.workspace.getConfiguration = (section?: string) =>
+                ({
+                    get: (key: string, defaultValue?: unknown) =>
+                        section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                } as any);
+
+            sinon.stub(uvPackageManager, 'isUvAvailable').resolves(true);
+
+            processService = { exec: sinon.stub() };
+            processService.exec.withArgs('uv', sinon.match.array.startsWith(['pip', 'freeze'])).resolves({
+                stdout: 'flask==2.2.0\nwerkzeug==2.0.3\n',
+                stderr: '',
+            });
+            const processFactory = { create: sinon.stub().resolves(processService) };
+            terminalService = {
+                show: sinon.stub().resolves(),
+                sendCommand: sinon.stub().resolves(),
+                sendText: sinon.stub().resolves(),
+            };
+            const terminalFactory = { getTerminalService: sinon.stub().returns(terminalService) };
+            (serviceContainer.get as sinon.SinonStub)
+                .withArgs(IProcessServiceFactory)
+                .returns(processFactory)
+                .withArgs(ITerminalServiceFactory)
+                .returns(terminalFactory);
+        });
+
+        teardown(() => {
+            vscode.workspace.getConfiguration = originalGetConfiguration;
+        });
+
+        test('env workflow falls back to the freeze temp file, ignoring requirements.txt', async () => {
+            // requirements.txt present, no pyproject.toml -> env workflow.
+            const workspaceFolder = { uri: Uri.file('/workspace'), name: 'ws', index: 0 };
+            const reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(reqPath).resolves(true);
+
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const [, args] = terminalService.sendCommand.firstCall.args;
+            expect(args).to.include.members(['pip', 'install', '-r', '/tmp/reqs.txt', '--python', '/path/to/python']);
+            expect(args).to.not.include(reqPath);
+        });
+
+        test('project workflow is unaffected: uv add still runs when pyproject is valid', async () => {
+            // pyproject valid + no requirements.txt -> uv add project workflow. The
+            // setting must not flip this into the env workflow.
+            const workspaceFolder = { uri: Uri.file('/workspace'), name: 'ws', index: 0 };
+            const pyprojectPath = path.join(workspaceFolder.uri.fsPath, 'pyproject.toml');
+            const reqPath = path.join(workspaceFolder.uri.fsPath, 'requirements.txt');
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(pyprojectPath).resolves(true);
+            (fileSystem.fileExists as sinon.SinonStub).withArgs(reqPath).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub).withArgs(pyprojectPath).resolves(`[project]
+name = "test-project"
+version = "0.1.0"`);
+
+            await uvPackageManager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+            const [uvBin, args] = terminalService.sendCommand.firstCall.args;
+            expect(uvBin).to.equal('uv');
+            expect(args).to.include.members(['add', '--active', '--python', '/path/to/python', 'cowsay==6.1']);
         });
     });
 });

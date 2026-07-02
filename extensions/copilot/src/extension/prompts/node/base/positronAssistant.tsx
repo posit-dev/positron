@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { PromptElement, PromptSizing, SystemMessage, TextChunk } from '@vscode/prompt-tsx';
-import { ChatResponsePart } from '@vscode/prompt-tsx/dist/base/vscodeTypes.js';
+import type { ChatResponsePart } from '@vscode/prompt-tsx/dist/base/vscodeTypes.js';
 import * as vscode from 'vscode';
-import { GenericBasePromptElementProps } from '../../../context/node/resolvers/genericPanelIntentInvocation';
-import { IBuildPromptContext } from '../../../prompt/common/intents.js';
+import type { GenericBasePromptElementProps } from '../../../context/node/resolvers/genericPanelIntentInvocation';
+import type { IBuildPromptContext } from '../../../prompt/common/intents.js';
 
 /**
  * The Positron Assistant component; adds context from Positron as a prompt

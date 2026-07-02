@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .checkbox {
+.positron-modal-dialog-box .checkbox,
+.positron-dynamic-modal-dialog-box .checkbox {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 }
 
-.positron-modal-dialog-box .checkbox-button {
+.positron-modal-dialog-box .checkbox-button,
+.positron-dynamic-modal-dialog-box .checkbox-button {
 	width: 16px;
 	height: 16px;
 	border: none;
@@ -22,16 +24,19 @@
 	border: 1px solid var(--vscode-positronCheckbox-border);
 }
 
-.positron-modal-dialog-box .checkbox-button:focus {
+.positron-modal-dialog-box .checkbox-button:focus,
+.positron-dynamic-modal-dialog-box .checkbox-button:focus {
 	outline: none;
 }
 
-.positron-modal-dialog-box .checkbox-button:focus-visible {
+.positron-modal-dialog-box .checkbox-button:focus-visible,
+.positron-dynamic-modal-dialog-box .checkbox-button:focus-visible {
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.positron-modal-dialog-box .checkbox-button .codicon[class*="codicon-"] {
+.positron-modal-dialog-box .checkbox-button .codicon[class*="codicon-"],
+.positron-dynamic-modal-dialog-box .checkbox-button .codicon[class*="codicon-"] {
 	font-size: 12px;
 	font-weight: bold;
 	color: var(--vscode-positronCheckbox-foreground);

@@ -21,10 +21,12 @@ import { ActivityOutputHtml } from './activityOutputHtml.js';
 import { ActivityErrorStream } from './activityErrorStream.js';
 import { ActivityOutputStream } from './activityOutputStream.js';
 import { ActivityErrorMessage } from './activityErrorMessage.js';
+import { ActivityErrorSuggestion } from './activityErrorSuggestion.js';
 import { ActivityItemOutputPlot } from '../../../../services/positronConsole/browser/classes/activityItemOutputPlot.js';
 import { ActivityItemOutputHtml } from '../../../../services/positronConsole/browser/classes/activityItemOutputHtml.js';
 import { ActivityOutputMessage } from './activityOutputMessage.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
+import { ActivityItemErrorSuggestion } from '../../../../services/positronConsole/browser/classes/activityItemErrorSuggestion.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemOutputMessage } from '../../../../services/positronConsole/browser/classes/activityItemOutputMessage.js';
 import { ActivityItemStream, ActivityItemStreamType } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
@@ -107,6 +109,13 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 						<ActivityErrorMessage
 							key={activityItem.id}
 							activityItemErrorMessage={activityItem}
+						/>
+					);
+				} else if (activityItem instanceof ActivityItemErrorSuggestion) {
+					return (
+						<ActivityErrorSuggestion
+							key={activityItem.id}
+							activityItemErrorSuggestion={activityItem}
 						/>
 					);
 				} else {

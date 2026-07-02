@@ -472,6 +472,13 @@ export class Sessions {
 					await this.page.keyboard.press('Control+Shift+/');
 				}
 
+				// Wait for interpreter discovery to finish before filtering/selecting.
+				// Opening the picker right after a workspace load (e.g. openFolder)
+				// lands mid-discovery, when only fast-discovered sources are listed;
+				// a bare version-string match can then pick the wrong source (e.g. a
+				// uv base install) over the intended interpreter of the same version.
+				await this.quickinput.waitForInterpreterDiscoveryToComplete();
+
 				let input = language;
 				if (version) {
 					input += ` ${version}`;

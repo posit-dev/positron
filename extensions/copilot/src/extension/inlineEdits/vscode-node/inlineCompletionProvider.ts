@@ -52,9 +52,6 @@ import { InlineEditLogger } from './parts/inlineEditLogger';
 import { IVSCodeObservableDocument } from './parts/vscodeWorkspace';
 import { raceAndAll } from './raceAndAll';
 import { toExternalRange } from './utils/translations';
-// --- Start Positron ---
-import { PositronInlineCompletionsEnableConfigKey, PositronInlineCompletionsEnableDefault } from '../common/positronConfig';
-// --- End Positron ---
 
 const learnMoreAction: Command = {
 	title: l10n.t('Learn More'),
@@ -216,10 +213,7 @@ export class InlineCompletionProviderImpl extends Disposable implements InlineCo
 
 	// copied from `vscodeWorkspace.ts` `DocumentFilter#_enabledLanguages`
 	private _isCompletionsEnabled(document: TextDocument): boolean {
-		// --- Start Positron ---
-		// Use Positron's inline completions enable config key instead of Copilot's
-		const enabledLanguages = this._configurationService.getNonExtensionConfig<{ [key: string]: boolean }>(PositronInlineCompletionsEnableConfigKey) ?? PositronInlineCompletionsEnableDefault;
-		// --- End Positron ---
+		const enabledLanguages = this._configurationService.getConfig(ConfigKey.Enable);
 		const enabledLanguagesMap = new Map(Object.entries(enabledLanguages));
 		if (!enabledLanguagesMap.has('*')) {
 			enabledLanguagesMap.set('*', false);
@@ -259,15 +253,6 @@ export class InlineCompletionProviderImpl extends Disposable implements InlineCo
 		}
 
 		const isCompletionsEnabled = this._isCompletionsEnabled(document);
-
-		// --- Start Positron ---
-		// If inline completions are disabled for this language, don't
-		// provide any completions.
-		if (!isCompletionsEnabled) {
-			logger.trace('Return: inline completions disabled for this language');
-			return undefined;
-		}
-		// --- End Positron ---
 
 		const unification = this._configurationService.getExperimentBasedConfig(ConfigKey.TeamInternal.InlineEditsUnification, this._expService);
 

@@ -16,7 +16,7 @@ import { isUvInstalled } from '../../pythonEnvironments/common/environmentManage
 import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
-import { findWorkspaceRequirementsFile } from './workspaceRequirements';
+import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
@@ -254,6 +254,12 @@ export class UvPackageManager implements IPackageManager {
      * Path to the workspace-root `requirements.txt` if present, else undefined.
      */
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        // Opt-out: when the setting is disabled, ignore requirements.txt so the
+        // env workflow falls back to the uv pip freeze re-resolve path. This does
+        // not affect the project (uv add) workflow, which is selected separately.
+        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+            return undefined;
+        }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
         return findWorkspaceRequirementsFile(workspaceService, fileSystem);
@@ -330,8 +336,13 @@ export class UvPackageManager implements IPackageManager {
                 token,
             },
         );
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (uv pip freeze returned no output).');
+        // Empty output is a valid empty environment, not a failure: `uv pip
+        // freeze` excludes pip/setuptools/wheel by default, so a fresh env with
+        // no user-installed packages prints nothing. Real failures (spawn
+        // errors) reject upstream, and a broken resolver surfaces at the actual
+        // `install` step.
+        if (!result.stdout) {
+            return [];
         }
         return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
     }

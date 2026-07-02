@@ -148,6 +148,118 @@ export interface ConnectionInfo {
     'ip': string;
 }
 /**
+ * A single output message produced during code execution
+ */
+export interface ExecuteOutput {
+    /**
+     * The output message type
+     */
+    'type': ExecuteOutputTypeEnum;
+    /**
+     * The stream name (stdout or stderr), for stream output
+     */
+    'stream_name'?: string;
+    /**
+     * The text content, for stream output
+     */
+    'text'?: string;
+    /**
+     * MIME-keyed data, for display_data output
+     */
+    'data'?: { [key: string]: string; };
+    /**
+     * Metadata dictionary, for display_data output
+     */
+    'metadata'?: object;
+    /**
+     * The error name, for error output
+     */
+    'error_name'?: string;
+    /**
+     * The error message, for error output
+     */
+    'error_message'?: string;
+    /**
+     * The error traceback lines, for error output
+     */
+    'error_traceback'?: Array<string>;
+}
+
+export const ExecuteOutputTypeEnum = {
+    Stream: 'stream',
+    DisplayData: 'display_data',
+    Error: 'error'
+} as const;
+
+export type ExecuteOutputTypeEnum = typeof ExecuteOutputTypeEnum[keyof typeof ExecuteOutputTypeEnum];
+
+/**
+ * The result of executing code in a session
+ */
+export interface ExecuteReply {
+    /**
+     * Whether the execution succeeded or errored
+     */
+    'status': ExecuteReplyStatusEnum;
+    /**
+     * The kernel\'s execution counter
+     */
+    'execution_count': number;
+    /**
+     * All output messages produced during execution, in order
+     */
+    'output': Array<ExecuteOutput>;
+    /**
+     * The execution result as a MIME-keyed dictionary (from execute_result), if the execution produced a result
+     */
+    'data'?: { [key: string]: string; };
+    /**
+     * The error name, if the execution failed
+     */
+    'error_name'?: string;
+    /**
+     * The error message, if the execution failed
+     */
+    'error_message'?: string;
+    /**
+     * The error traceback, if the execution failed
+     */
+    'error_traceback'?: Array<string>;
+}
+
+export const ExecuteReplyStatusEnum = {
+    Ok: 'ok',
+    Error: 'error'
+} as const;
+
+export type ExecuteReplyStatusEnum = typeof ExecuteReplyStatusEnum[keyof typeof ExecuteReplyStatusEnum];
+
+/**
+ * A request to execute code in a session
+ */
+export interface ExecuteRequest {
+    /**
+     * The code to execute
+     */
+    'code': string;
+    /**
+     * If true, signals the kernel to execute quietly: no broadcast on iopub, no execute_result, and the execution_count is not incremented. Defaults to false.
+     */
+    'silent'?: boolean;
+    /**
+     * If true (default), the code is stored in the kernel\'s history. Set to false for throwaway executions.
+     */
+    'store_history'?: boolean;
+    /**
+     * If true (default), abort the execution queue on error. If false, queued execute requests will still be processed even if this one fails.
+     */
+    'stop_on_error'?: boolean;
+    /**
+     * Maximum number of seconds to wait for execution to complete. If not specified, the request will block indefinitely until execution finishes.
+     */
+    'timeout_seconds'?: number;
+}
+/**
  * The execution queue for a session
  */
 export interface ExecutionQueue {
@@ -331,6 +443,10 @@ export interface ServerStatus {
      * An ISO 8601 timestamp of when the server was started
      */
     'started': string;
+    /**
+     * A unique identifier generated when the server starts. Clients can compare this against a previously observed value to detect that they are talking to a different server instance (e.g. one that was restarted), and therefore that any persisted bearer token may be stale.
+     */
+    'server_id'?: string;
 }
 export interface SessionList {
     'total': number;
@@ -595,6 +711,46 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Execute code and return results
+         * @param {string} sessionId 
+         * @param {ExecuteRequest} executeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        executeCode: async (sessionId: string, executeRequest: ExecuteRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sessionId' is not null or undefined
+            assertParamExists('executeCode', 'sessionId', sessionId)
+            // verify required parameter 'executeRequest' is not null or undefined
+            assertParamExists('executeCode', 'executeRequest', executeRequest)
+            const localVarPath = `/sessions/{session_id}/execute`
+                .replace(`{${"session_id"}}`, encodeURIComponent(String(sessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(executeRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1044,6 +1200,20 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Execute code and return results
+         * @param {string} sessionId 
+         * @param {ExecuteRequest} executeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async executeCode(sessionId: string, executeRequest: ExecuteRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExecuteReply>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.executeCode(sessionId, executeRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.executeCode']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Get the server configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -1244,6 +1414,17 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
+         * @summary Execute code and return results
+         * @param {string} sessionId 
+         * @param {ExecuteRequest} executeRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        executeCode(sessionId: string, executeRequest: ExecuteRequest, options?: RawAxiosRequestConfig): AxiosPromise<ExecuteReply> {
+            return localVarFp.executeCode(sessionId, executeRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Get the server configuration
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -1410,6 +1591,18 @@ export class DefaultApi extends BaseAPI {
      */
     public deleteSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).deleteSession(sessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Execute code and return results
+     * @param {string} sessionId 
+     * @param {ExecuteRequest} executeRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public executeCode(sessionId: string, executeRequest: ExecuteRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).executeCode(sessionId, executeRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

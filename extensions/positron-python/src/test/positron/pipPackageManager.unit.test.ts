@@ -178,6 +178,21 @@ suite('PipPackageManager update Tests', () => {
         expect(writtenContent).to.not.contain('cowsay==');
     });
 
+    test('installPackages proceeds on an empty environment (freeze returns nothing)', async () => {
+        // A fresh env (e.g. newly created via pyenv) has no user packages, so
+        // `pip freeze` prints nothing. The install must still proceed with only
+        // the target, not fail with "returned no output".
+        pythonService.execModule
+            .withArgs('pip', sinon.match.array.startsWith(['freeze']))
+            .resolves({ stdout: '', stderr: '' });
+
+        await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+        expect(writtenContent).to.equal('cowsay==6.1\n');
+        const [, args] = terminalService.sendCommand.firstCall.args;
+        expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+    });
+
     test('installPackages propagates a resolver failure (no silent success)', async () => {
         terminalService.sendCommand.rejects(new Error('Command failed with errors'));
 
@@ -238,6 +253,50 @@ suite('PipPackageManager update Tests', () => {
             const [, args] = terminalService.sendCommand.firstCall.args;
             expect(args).to.include.members(['install', '--upgrade', '-r', reqPath]);
             expect(fileSystem.createTemporaryFile.called).to.equal(false);
+        });
+
+        suite('with python.packageManager.useRequirementsFile disabled', () => {
+            setup(() => {
+                // Force the opt-out setting to false so requirements.txt is ignored
+                // and operations fall back to the pip freeze re-resolve path, even
+                // though a requirements.txt is present.
+                vscode.workspace.getConfiguration = (section?: string) =>
+                    ({
+                        get: (key: string, defaultValue?: unknown) =>
+                            section === 'python' && key === 'packageManager.useRequirementsFile' ? false : defaultValue,
+                    } as any);
+            });
+
+            test('installPackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                await manager.installPackages([{ name: 'cowsay', version: '6.1' }]);
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
+
+            test('updatePackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                await manager.updatePackages([{ name: 'werkzeug', version: '3.1.8' }]);
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
+
+            test('updateAllPackages falls back to the freeze temp file, ignoring requirements.txt', async () => {
+                pythonService.execModule
+                    .withArgs('pip', sinon.match.array.startsWith(['list', '--outdated']))
+                    .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' });
+
+                await manager.updateAllPackages();
+
+                const [, args] = terminalService.sendCommand.firstCall.args;
+                expect(args).to.include.members(['install', '--upgrade', '-r', '/tmp/reqs.txt']);
+                expect(args).to.not.include(reqPath);
+                expect(fileSystem.createTemporaryFile.called).to.equal(true);
+            });
         });
     });
 });

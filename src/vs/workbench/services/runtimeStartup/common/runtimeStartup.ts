@@ -1039,9 +1039,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// `registerLanguageRuntimeManager` API) self-triggers its own
 			// discovery -- the IIFE inside the ext host is gated on a flag
 			// that, without this signal, would never flip on a warm start.
+			//
+			// Pass the cache-satisfied (and disabled) languages as the skip set.
+			// The ext host enumerates any manager whose language isn't in this
+			// set, so a manager registered via the public API *before* this
+			// signal arrived (its language isn't cache-backed) is still
+			// discovered rather than stranded, while the cache-backed languages
+			// we already served aren't needlessly re-enumerated.
+			const skipLanguageIds = Array.from(new Set([
+				...this._discoveryCache.getAllBuckets().map(bucket => bucket.languageId),
+				...disabledLanguages,
+			]));
 			for (const manager of this._runtimeManagers) {
 				this._discoveryCompleteByExtHostId.set(manager.id, true);
-				manager.markDiscoveryComplete();
+				manager.markDiscoveryComplete(skipLanguageIds);
 			}
 			this.setStartupPhase(RuntimeStartupPhase.Complete);
 		} else {

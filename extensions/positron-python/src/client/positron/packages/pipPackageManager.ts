@@ -15,7 +15,7 @@ import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
-import { findWorkspaceRequirementsFile } from './workspaceRequirements';
+import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -280,6 +280,11 @@ export class PipPackageManager implements IPackageManager {
      * Path to the workspace-root `requirements.txt` if present, else undefined.
      */
     private async _getWorkspaceRequirementsPath(): Promise<string | undefined> {
+        // Opt-out: when the setting is disabled, ignore requirements.txt so all
+        // operations fall back to the pip freeze re-resolve path.
+        if (!vscode.workspace.getConfiguration('python').get<boolean>(USE_REQUIREMENTS_FILE_SETTING, true)) {
+            return undefined;
+        }
         const workspaceService = this._serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this._serviceContainer.get<IFileSystem>(IFileSystem);
         return findWorkspaceRequirementsFile(workspaceService, fileSystem);
@@ -296,8 +301,13 @@ export class PipPackageManager implements IPackageManager {
         // FORCE_COLOR/CLICOLOR_FORCE could lead to ANSI codes that would corrupt
         // the requirements file fed to `pip install -r` (as uv does -- see #14328).
         const result = await pythonService.execModule('pip', ['freeze', '--no-color'], { token });
-        if (!result.stdout || result.stdout.trim() === '') {
-            throw new Error('Failed to read the installed package list (pip freeze returned no output).');
+        // Empty output is a valid empty environment, not a failure: `pip freeze`
+        // excludes pip/setuptools/wheel by default, so a fresh env with no
+        // user-installed packages prints nothing. Real failures (missing pip,
+        // spawn errors) throw upstream in execModule, and a broken resolver
+        // surfaces at the actual `install` step.
+        if (!result.stdout) {
+            return [];
         }
         return result.stdout.split(/\r?\n/).filter((line) => line.trim() !== '');
     }

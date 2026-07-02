@@ -112,6 +112,16 @@ export async function updateProviderFromSessions(
 					},
 				},
 			});
+		} else if (providerId === 'copilot-auth') {
+			// Copilot's sign-in is always an auto-session, so sync its
+			// autoconfigure default to the current signed-in state. Update on
+			// sign-out too, otherwise a stale signedIn flag keeps the
+			// "authenticated automatically" banner up. Preserve the registered
+			// autoconfigure type/message, which updateProvider replaces wholesale.
+			const autoconfigure = getProviderSources().find(s => s.provider.id === providerId)?.defaults.autoconfigure;
+			positron.ai.updateProvider(providerId, autoconfigure
+				? { signedIn, status, statusMessage, defaults: { autoconfigure: { ...autoconfigure, signedIn } } }
+				: { signedIn, status, statusMessage });
 		} else {
 			// Generic autoconfigure (e.g. env-var credentials): mark the
 			// provider's autoconfigure default as signed in so the dialog shows

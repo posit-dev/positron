@@ -25,6 +25,9 @@ export class KallichoreApiInstance {
 	/** The API instance itself */
 	private _api: DefaultApi | undefined;
 
+	/** The base path the API instance is configured to talk to, if any */
+	private _basePath: string | undefined;
+
 	/** The current server state, if any */
 	private _serverState: KallichoreServerState | undefined;
 
@@ -52,6 +55,18 @@ export class KallichoreApiInstance {
 	 */
 	get transport(): KallichoreTransport {
 		return this._transport;
+	}
+
+	/**
+	 * Get the base path the API instance is configured to talk to.
+	 *
+	 * This is the base path computed by {@link loadState} (which may differ
+	 * from `state.base_path`, e.g. for named pipes on Windows), or undefined if
+	 * the API has not been created yet or the transport does not use one (e.g.
+	 * domain sockets, which route via the socket path instead).
+	 */
+	get basePath(): string | undefined {
+		return this._basePath;
 	}
 
 	/**
@@ -127,7 +142,14 @@ export class KallichoreApiInstance {
 			}
 		}
 
-		// Create the API instance
+		// Remember the base path the API is configured with so callers can
+		// round-trip it back into the saved server state.
+		this._basePath = basePath;
+
+		// Create the API instance. An empty base path (e.g. for domain socket
+		// connections, which route via the socket path rather than a host) is
+		// passed as undefined so `DefaultApi` applies its default base path,
+		// matching the behavior when no base path is supplied at all.
 		this._api = new DefaultApi(
 			new Configuration({
 				// This access token is currently not used by the Axios
@@ -135,7 +157,7 @@ export class KallichoreApiInstance {
 				accessToken: state.bearer_token,
 				baseOptions,
 			}),
-			basePath,
+			basePath || undefined,
 			axiosInstance // Use custom axios instance for named pipes, undefined for others
 		);
 	}

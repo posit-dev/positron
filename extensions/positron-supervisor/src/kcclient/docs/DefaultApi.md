@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 |[**clientHeartbeat**](#clientheartbeat) | **POST** /client_heartbeat | Notify the server that a client is connected|
 |[**connectionInfo**](#connectioninfo) | **GET** /sessions/{session_id}/connection_info | Get Jupyter connection information for the session|
 |[**deleteSession**](#deletesession) | **DELETE** /sessions/{session_id} | Delete session|
+|[**executeCode**](#executecode) | **POST** /sessions/{session_id}/execute | Execute code and return results|
 |[**getServerConfiguration**](#getserverconfiguration) | **GET** /server_configuration | Get the server configuration|
 |[**getSession**](#getsession) | **GET** /sessions/{session_id} | Get session details|
 |[**interruptSession**](#interruptsession) | **POST** /sessions/{session_id}/interrupt | Interrupt session|
@@ -285,6 +286,64 @@ No authorization required
 |**400** | Failed to delete session |  -  |
 |**401** | Unauthorized |  -  |
 |**404** | Session not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **executeCode**
+> ExecuteReply executeCode(executeRequest)
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    ExecuteRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let sessionId: string; // (default to undefined)
+let executeRequest: ExecuteRequest; //
+
+const { status, data } = await apiInstance.executeCode(
+    sessionId,
+    executeRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **executeRequest** | **ExecuteRequest**|  | |
+| **sessionId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**ExecuteReply**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Execution completed |  -  |
+|**400** | Invalid request |  -  |
+|**401** | Unauthorized |  -  |
+|**404** | Session not found |  -  |
+|**408** | Execution timed out |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

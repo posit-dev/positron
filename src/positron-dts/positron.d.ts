@@ -1366,6 +1366,33 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Describes a package that is referenced by code but not installed in a
+	 * session's environment, and that the session knows how to install.
+	 */
+	export interface RuntimeMissingPackage {
+		/** Name to pass to installPackages (the installable/repository name). */
+		readonly name: string;
+
+		/**
+		 * The symbol as referenced in code, when it differs from `name` (e.g.
+		 * python import `cv2` -> install `opencv-python`). Used for display only.
+		 */
+		readonly referencedName?: string;
+	}
+
+	/**
+	 * Describes the code to analyze for missing packages. Callers supply either
+	 * raw code or the URI of a saved file (not both).
+	 */
+	export interface RuntimeMissingPackagesTarget {
+		/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+		readonly code?: string;
+
+		/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+		readonly uri?: string;
+	}
+
+	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
 	 * runtime with which it is associated.
@@ -1583,6 +1610,20 @@ declare module 'positron' {
 		 * Returns undefined if the runtime does not support package management.
 		 */
 		getPackageManager?(): LanguageRuntimePackageManager;
+
+		/**
+		 * Statically analyze code (or a file) and return packages that are
+		 * referenced but NOT installed AND that can be installed in this
+		 * session's environment.
+		 *
+		 * MUST NOT return packages that cannot be resolved/installed (e.g.
+		 * GitHub-only R packages, unknown PyPI names). SHOULD be fast and cache
+		 * internally; callers will not block UI on it.
+		 *
+		 * @param target The code or file to analyze.
+		 * @param token Optional cancellation token.
+		 */
+		listMissingPackages?(target: RuntimeMissingPackagesTarget, token?: vscode.CancellationToken): Thenable<RuntimeMissingPackage[]>;
 	}
 
 
@@ -1818,6 +1859,53 @@ declare module 'positron' {
 		 * @param line Zero indexed line number where the syntax error occurred.
 		 */
 		constructor(line?: number);
+	}
+
+	export interface InputBoundaryRange {
+		/**
+		 * Zero indexed starting line of the input.
+		 */
+		readonly start: number;
+
+		/**
+		 * Zero indexed ending line of the input, exclusive.
+		 */
+		readonly end: number;
+	}
+
+	export type InputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
+
+	export interface InputBoundary {
+		/**
+		 * The line range of this input boundary, relative to the requested range.
+		 */
+		readonly range: InputBoundaryRange;
+
+		/**
+		 * The parse status of this input.
+		 */
+		readonly kind: InputBoundaryKind;
+
+		/**
+		 * Additional data for this input boundary.
+		 */
+		readonly data?: {
+			readonly message?: string;
+		};
+	}
+
+	export interface InputBoundaryProvider {
+		/**
+		 * Given a document range, return the input boundaries within that range.
+		 *
+		 * @param document The document containing the requested range.
+		 * @param range The range to split into input boundaries.
+		 * @param token A cancellation token.
+		 * @return The input boundaries within the requested range.
+		 */
+		provideInputBoundaries(document: vscode.TextDocument,
+			range: vscode.Range,
+			token: vscode.CancellationToken): vscode.ProviderResult<InputBoundary[]>;
 	}
 
 	export interface HelpTopicProvider {
@@ -2339,6 +2427,17 @@ declare module 'positron' {
 			provider: StatementRangeProvider): vscode.Disposable;
 
 		/**
+		 * Register an input boundary provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider An input boundary provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerInputBoundaryProvider(
+			selector: vscode.DocumentSelector,
+			provider: InputBoundaryProvider): vscode.Disposable;
+
+		/**
 		 * Register a help topic provider.
 		 *
 		 * @param selector A selector that defines the documents this provider is applicable to.
@@ -2552,6 +2651,15 @@ declare module 'positron' {
 			 * Remove all stored keys for this extension's ephemeral storage.
 			 */
 			clear(): Thenable<void>;
+
+			/**
+			 * A promise that resolves when the ephemeral storage has finished
+			 * loading its initial values from the backing store. Synchronous
+			 * reads via {@link vscode.Memento.get get} are only guaranteed to
+			 * reflect previously persisted values once this has resolved, so
+			 * await it before reading at startup (e.g. after a window reload).
+			 */
+			readonly whenReady: Thenable<unknown>;
 		}
 	}
 

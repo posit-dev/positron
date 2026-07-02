@@ -8512,6 +8512,28 @@ declare namespace monaco.languages {
 		readonly line?: number;
 	}
 
+	export type InputBoundaryKind = 'whitespace' | 'complete' | 'incomplete' | 'invalid';
+
+	export interface IInputBoundaryRange {
+		readonly start: number;
+		readonly end: number;
+	}
+
+	export interface IInputBoundary {
+		readonly range: IInputBoundaryRange;
+		readonly kind: InputBoundaryKind;
+		readonly data?: {
+			readonly message?: string;
+		};
+	}
+
+	export interface InputBoundaryProvider {
+		/**
+		 * Provide input boundaries within the given range.
+		 */
+		provideInputBoundaries(model: editor.ITextModel, range: Range, token: CancellationToken): ProviderResult<IInputBoundary[]>;
+	}
+
 	export interface HelpTopicProvider {
 		/**
 		 * Provide a help topic relevant to the current cursor position.

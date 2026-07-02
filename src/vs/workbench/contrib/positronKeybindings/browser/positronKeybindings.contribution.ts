@@ -238,11 +238,12 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 
-		// Reindent selected lines. We only bind this if Assistant is not enabled,
-		// since this binding is used to invoke inline chat with Assistant.
-		const positronAssistantEnabled =
-			this._configurationService.getValue('positron.assistant.enable');
-		if (!positronAssistantEnabled) {
+		// Reindent selected lines. We only bind this if inline chat is not available
+		// (i.e. AI is off or Copilot chat is disabled), since Ctrl+I invokes inline chat.
+		const inlineChatDisabled =
+			this._configurationService.getValue('ai.enabled') === false
+			|| this._configurationService.getValue('chat.disableAIFeatures') === true;
+		if (inlineChatDisabled) {
 			this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 				id: 'editor.action.reindentselectedlines',
 				weight: KeybindingWeight.BuiltinExtension,
