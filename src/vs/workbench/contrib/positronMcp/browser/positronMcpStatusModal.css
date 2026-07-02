@@ -158,6 +158,41 @@
 	font-weight: 500;
 }
 
+.positron-mcp-status .activity-list {
+	margin-top: 10px;
+}
+
+.positron-mcp-status .activity-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+	font-size: 12px;
+}
+
+.positron-mcp-status .activity-outcome.codicon-pass-filled {
+	color: var(--vscode-charts-green, #89d185);
+}
+
+.positron-mcp-status .activity-outcome.codicon-error {
+	color: var(--vscode-errorForeground);
+}
+
+.positron-mcp-status .activity-tool {
+	font-family: monospace;
+	font-weight: 500;
+}
+
+.positron-mcp-status .activity-client {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-status .activity-meta {
+	margin-left: auto;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
 .positron-mcp-status .status-error {
 	margin: 0;
 	color: var(--vscode-errorForeground);

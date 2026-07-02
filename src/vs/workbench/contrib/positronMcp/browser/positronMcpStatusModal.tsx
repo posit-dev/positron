@@ -16,6 +16,7 @@ import { Button } from '../../../../base/browser/ui/positronComponents/button/bu
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IMcpSessionInfo } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IMcpToolCallAuditEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { GuidanceFile, IGuidanceFileState, WorkspaceConfigState, serverUrl } from './positronMcpWorkspace.js';
 
 /** The live status the panel renders. Computed by the command and polled while open. */
@@ -32,6 +33,8 @@ export interface IMcpStatusData {
 	readonly guidance: IGuidanceFileState[];
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
+	/** Recent audit events (completed tool calls + lifecycle), oldest first. */
+	readonly recentActivity: readonly McpAuditEvent[];
 	/** Whether the user has allowed all agent code execution for this session. */
 	readonly allowAllConsent: boolean;
 }
@@ -230,7 +233,7 @@ export const McpStatusContent = (props: McpStatusContentProps) => {
 					</Button>
 				</div>}
 
-			{status?.running && <ConnectionsSection sessions={status.sessions} />}
+			{status?.running && <ConnectionsSection recentActivity={status.recentActivity} sessions={status.sessions} />}
 
 			{error &&
 				<p className='status-error'>{localize('positron.mcp.status.error', "Could not read server status: {0}", error)}</p>}
@@ -323,56 +326,90 @@ const SetupSection = (props: { status: IMcpStatusData; onAction: (action: McpPan
 	);
 };
 
+/** How many recent tool calls the connections section lists. */
+const RECENT_ACTIVITY_LIMIT = 10;
+
 /**
  * The live connections table: one row per MCP session with the client identity,
  * age, and last activity. The window column appears only when the sessions span
- * more than one Positron window.
+ * more than one Positron window. Below the table, the last few tool calls from
+ * the server's audit ring buffer, newest first.
  */
-// TODO(positron-mcp): once the main process keeps a recent-activity ring buffer
-// (see docs proposal 2b), list the last ~10 tool calls below this table.
-const ConnectionsSection = (props: { sessions: IMcpSessionInfo[] }) => {
-	const { sessions } = props;
-
-	if (sessions.length === 0) {
-		return (
-			<div className='status-card connections-section'>
-				<p className='section-title'>{localize('positron.mcp.status.connections.title', "Connections")}</p>
-				<p className='connections-empty'>{localize('positron.mcp.status.connections.none', "No agents connected yet.")}</p>
-			</div>
-		);
-	}
+const ConnectionsSection = (props: { sessions: IMcpSessionInfo[]; recentActivity: readonly McpAuditEvent[] }) => {
+	const { sessions, recentActivity } = props;
 
 	const showWindow = new Set(sessions.map(s => s.pinnedWindowId)).size > 1;
 	return (
 		<div className='status-card connections-section'>
 			<p className='section-title'>{localize('positron.mcp.status.connections.title', "Connections")}</p>
-			<table className='connections-table'>
-				<thead>
-					<tr>
-						<th>{localize('positron.mcp.status.connections.client', "Client")}</th>
-						<th>{localize('positron.mcp.status.connections.connected', "Connected")}</th>
-						<th>{localize('positron.mcp.status.connections.lastActivity', "Last activity")}</th>
-						{showWindow && <th>{localize('positron.mcp.status.connections.window', "Window")}</th>}
-					</tr>
-				</thead>
-				<tbody>
-					{sessions.map(session => (
-						<tr key={session.sessionId}>
-							<td className='connections-client'>
-								{session.clientName
-									? formatClientLabel(session.clientName, session.clientVersion)
-									: localize('positron.mcp.status.connections.unknownClient', "unknown client")}
-							</td>
-							<td>{formatRelativeTime(session.createdAt)}</td>
-							<td>{formatRelativeTime(session.lastActivityAt)}</td>
-							{showWindow &&
-								<td>{session.pinnedWindowId !== undefined
-									? String(session.pinnedWindowId)
-									: localize('positron.mcp.status.connections.noWindow', "none")}</td>}
+			{sessions.length === 0
+				? <p className='connections-empty'>{localize('positron.mcp.status.connections.none', "No agents connected yet.")}</p>
+				: <table className='connections-table'>
+					<thead>
+						<tr>
+							<th>{localize('positron.mcp.status.connections.client', "Client")}</th>
+							<th>{localize('positron.mcp.status.connections.connected', "Connected")}</th>
+							<th>{localize('positron.mcp.status.connections.lastActivity', "Last activity")}</th>
+							{showWindow && <th>{localize('positron.mcp.status.connections.window', "Window")}</th>}
 						</tr>
-					))}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{sessions.map(session => (
+							<tr key={session.sessionId}>
+								<td className='connections-client'>
+									{session.clientName
+										? formatClientLabel(session.clientName, session.clientVersion)
+										: localize('positron.mcp.status.connections.unknownClient', "unknown client")}
+								</td>
+								<td>{formatRelativeTime(session.createdAt)}</td>
+								<td>{formatRelativeTime(session.lastActivityAt)}</td>
+								{showWindow &&
+									<td>{session.pinnedWindowId !== undefined
+										? String(session.pinnedWindowId)
+										: localize('positron.mcp.status.connections.noWindow', "none")}</td>}
+							</tr>
+						))}
+					</tbody>
+				</table>}
+			<RecentActivityList recentActivity={recentActivity} />
+		</div>
+	);
+};
+
+/**
+ * The last few completed tool calls, newest first. Lifecycle events stay in the
+ * log channel; this list answers "what has the agent just been doing" at a
+ * glance. Renders nothing when there is no activity yet.
+ */
+const RecentActivityList = (props: { recentActivity: readonly McpAuditEvent[] }) => {
+	const calls = props.recentActivity
+		.filter((event): event is IMcpToolCallAuditEvent => event.type === 'tool-call')
+		.slice(-RECENT_ACTIVITY_LIMIT)
+		.reverse();
+
+	if (calls.length === 0) {
+		return null;
+	}
+
+	return (
+		<div className='activity-list'>
+			<p className='section-title'>{localize('positron.mcp.status.activity.title', "Recent activity")}</p>
+			{calls.map(call => (
+				<div key={call.callId} className='activity-row'>
+					<span className={`activity-outcome codicon ${call.outcome === 'ok' ? 'codicon-pass-filled' : 'codicon-error'}`} />
+					<span className='activity-tool'>{call.toolName}</span>
+					<span className='activity-client'>
+						{call.clientName
+							? formatClientLabel(call.clientName, call.clientVersion)
+							: localize('positron.mcp.status.connections.unknownClient', "unknown client")}
+					</span>
+					<span className='activity-meta'>
+						{localize('positron.mcp.status.activity.duration', "{0}ms", call.durationMs)}
+						{' - '}
+						{formatRelativeTime(call.timestamp)}
+					</span>
+				</div>
+			))}
 		</div>
 	);
 };

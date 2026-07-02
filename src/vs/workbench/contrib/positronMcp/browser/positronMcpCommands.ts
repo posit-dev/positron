@@ -50,6 +50,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 		workspaceConfig,
 		guidance,
 		sessions: serverStatus.sessions,
+		recentActivity: serverStatus.recentActivity,
 		allowAllConsent: toolService.isAllowAllConsentActive(),
 	};
 }

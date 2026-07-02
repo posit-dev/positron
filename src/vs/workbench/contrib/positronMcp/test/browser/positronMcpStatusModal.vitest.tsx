@@ -9,6 +9,7 @@ import React from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IMcpSessionInfo } from '../../../../../platform/positronMcp/common/positronMcp.js';
+import { IMcpToolCallAuditEvent } from '../../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { connectSnippet, IMcpStatusData, McpStatusContent } from '../../browser/positronMcpStatusModal.js';
 
@@ -27,7 +28,26 @@ describe('McpStatusContent', () => {
 				{ file: 'CLAUDE.md', present: true },
 			],
 			sessions: [],
+			recentActivity: [],
 			allowAllConsent: false,
+			...overrides,
+		};
+	}
+
+	function makeToolCallEvent(overrides: Partial<IMcpToolCallAuditEvent> = {}): IMcpToolCallAuditEvent {
+		return {
+			type: 'tool-call',
+			callId: 'call-1',
+			timestamp: Date.now() - 5_000,
+			sessionId: 'session-1',
+			clientName: 'claude-code',
+			clientVersion: '1.2.3',
+			toolName: 'execute-code',
+			argsSummary: '{languageId: "python"}',
+			outcome: 'ok',
+			durationMs: 840,
+			pinnedWindowId: 1,
+			resultSummary: 'text(12 chars)',
 			...overrides,
 		};
 	}
@@ -157,6 +177,41 @@ describe('McpStatusContent', () => {
 		it('hides the connections section while the server is not running', () => {
 			renderContent(makeStatus({ running: false }));
 			expect(screen.queryByText('Connections')).not.toBeInTheDocument();
+		});
+	});
+
+	describe('recent activity', () => {
+		it('renders nothing when there is no activity yet', () => {
+			renderContent(makeStatus({ recentActivity: [] }));
+			expect(screen.queryByText('Recent activity')).not.toBeInTheDocument();
+		});
+
+		it('lists completed tool calls with client, duration, and outcome', () => {
+			renderContent(makeStatus({
+				recentActivity: [
+					makeToolCallEvent({ callId: 'a', toolName: 'execute-code', durationMs: 840 }),
+					makeToolCallEvent({ callId: 'b', toolName: 'get-plot', clientName: 'codex-mcp-client', clientVersion: undefined, outcome: 'error', durationMs: 12 }),
+				],
+			}));
+			expect(screen.getByText('Recent activity')).toBeInTheDocument();
+			expect(screen.getByText('execute-code')).toBeInTheDocument();
+			expect(screen.getByText('get-plot')).toBeInTheDocument();
+			expect(screen.getByText('codex-mcp-client')).toBeInTheDocument();
+			expect(screen.getByText(/840ms/)).toBeInTheDocument();
+		});
+
+		it('shows only the last 10 calls, newest first, and skips lifecycle events', () => {
+			const recentActivity = [
+				{ type: 'session-created' as const, timestamp: Date.now(), sessionId: 'session-1' },
+				...Array.from({ length: 12 }, (_, i) => makeToolCallEvent({ callId: `call-${i}`, toolName: `tool-${i}` })),
+			];
+			renderContent(makeStatus({ recentActivity }));
+			// Oldest two of the twelve calls fall outside the 10-row window.
+			expect(screen.queryByText('tool-0')).not.toBeInTheDocument();
+			expect(screen.queryByText('tool-1')).not.toBeInTheDocument();
+			// Newest call renders first.
+			const tools = screen.getAllByText(/^tool-\d+$/).map(el => el.textContent);
+			expect(tools).toEqual(['tool-11', 'tool-10', 'tool-9', 'tool-8', 'tool-7', 'tool-6', 'tool-5', 'tool-4', 'tool-3', 'tool-2']);
 		});
 	});
 
