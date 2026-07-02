@@ -1,0 +1,273 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-mcp-activity-container {
+	height: 100%;
+}
+
+.positron-mcp-activity {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	font-size: 12px;
+}
+
+/* Connections header */
+
+.positron-mcp-activity .connections-header {
+	flex: none;
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.positron-mcp-activity .connections-empty {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-activity .connection-row {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 2px 0;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.positron-mcp-activity .connection-dot {
+	flex: none;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--vscode-charts-green, #89d185);
+}
+
+.positron-mcp-activity .connection-client {
+	font-weight: 600;
+}
+
+.positron-mcp-activity .connection-meta {
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Consent banner */
+
+.positron-mcp-activity .consent-banner {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 6px 10px 0;
+	padding: 6px 10px;
+	border-radius: 5px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-charts-yellow));
+	background: var(--vscode-inputValidation-warningBackground, transparent);
+}
+
+.positron-mcp-activity .consent-banner .codicon-warning {
+	flex: none;
+	color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.positron-mcp-activity .consent-text {
+	flex: 1;
+}
+
+.positron-mcp-activity .row-action {
+	flex: none;
+	padding: 2px 9px;
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.positron-mcp-activity .row-action:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Filter bar */
+
+.positron-mcp-activity .filter-bar {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+}
+
+.positron-mcp-activity .filter-input {
+	flex: 1;
+	min-width: 60px;
+	padding: 3px 7px;
+	border-radius: 3px;
+	border: 1px solid var(--vscode-input-border, transparent);
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 12px;
+	font-family: inherit;
+	outline: none;
+}
+
+.positron-mcp-activity .filter-input:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.positron-mcp-activity .filter-input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.positron-mcp-activity .outcome-chips {
+	flex: none;
+	display: flex;
+	gap: 3px;
+}
+
+.positron-mcp-activity .outcome-chip {
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-activity .outcome-chip:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.positron-mcp-activity .outcome-chip.selected {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: transparent;
+}
+
+/* Feed */
+
+.positron-mcp-activity .activity-feed {
+	flex: 1;
+	overflow-y: auto;
+	padding: 2px 0 6px;
+}
+
+.positron-mcp-activity .feed-empty {
+	margin: 8px 10px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.4;
+}
+
+.positron-mcp-activity .activity-row {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	width: 100%;
+	padding: 3px 10px;
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+/* The expandable tool-call rows are buttons; strip the native chrome. */
+.positron-mcp-activity button.activity-row {
+	border: none;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.positron-mcp-activity button.activity-row:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.positron-mcp-activity button.activity-row:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.positron-mcp-activity .activity-outcome {
+	flex: none;
+}
+
+.positron-mcp-activity .activity-outcome.codicon-pass-filled {
+	color: var(--vscode-charts-green, #89d185);
+}
+
+.positron-mcp-activity .activity-outcome.codicon-error {
+	color: var(--vscode-errorForeground);
+}
+
+.positron-mcp-activity .activity-tool {
+	flex: none;
+	font-family: var(--monaco-monospace-font);
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.positron-mcp-activity .activity-client {
+	flex: 1;
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.positron-mcp-activity .activity-meta {
+	flex: none;
+	margin-left: auto;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-activity .activity-row.lifecycle {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-activity .activity-row.lifecycle .activity-outcome {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-activity .activity-lifecycle-label {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.positron-mcp-activity .activity-row.in-flight .activity-outcome {
+	color: var(--vscode-progressBar-background, var(--vscode-charts-blue));
+}
+
+/* Expanded detail */
+
+.positron-mcp-activity .activity-detail {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin: 0 10px 4px;
+	padding: 6px 8px 6px 25px;
+	border-radius: 4px;
+	background: var(--vscode-editorWidget-background, var(--vscode-textCodeBlock-background));
+}
+
+.positron-mcp-activity .detail-field {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+}
+
+.positron-mcp-activity .detail-label {
+	flex: none;
+	width: 64px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+}
+
+.positron-mcp-activity .detail-value {
+	flex: 1;
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
