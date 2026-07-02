@@ -1407,7 +1407,7 @@ export class CodeApplication extends Disposable {
 			mainProcessElectronServer,
 			() => this.windowsMainService?.getLastActiveWindow()?.id,
 		);
-		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, accessor.get(ILoggerService)));
+		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
 		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServer, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---

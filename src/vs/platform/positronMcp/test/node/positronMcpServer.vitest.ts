@@ -8,6 +8,7 @@
 import type * as http from 'http';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { NullLoggerService } from '../../../log/common/log.js';
+import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
 import { IMcpCallToolResult } from '../../common/positronMcpTools.js';
 import { isLocalHostHeader, PositronMcpServer } from '../../node/positronMcpServer.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -88,7 +89,7 @@ describe('PositronMcpServer HTTP transport', () => {
 	beforeAll(async () => {
 		process.env.POSITRON_MCP_PORT = String(port);
 		broker = new StubBroker();
-		server = new PositronMcpServer(broker, new NullLoggerService());
+		server = new PositronMcpServer(broker, new NullLoggerService(), NullTelemetryService);
 		await server.start();
 	});
 

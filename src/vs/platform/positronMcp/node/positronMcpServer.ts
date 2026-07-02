@@ -10,8 +10,10 @@ import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
 import { generateUuid, isUUID } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
+import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
 import { formatAuditLine, McpAuditEvent, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
+import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
@@ -83,6 +85,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	constructor(
 		private readonly _broker: IPositronMcpToolBroker,
 		@ILoggerService loggerService: ILoggerService,
+		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
 		this._logger = this._register(loggerService.createLogger(POSITRON_MCP_LOG_ID, { name: 'Positron MCP', logLevel: 'always' }));
@@ -164,6 +167,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			this._logger.info(formatAuditLine(event));
 			this._recentActivity.push(event);
 		}
+		reportMcpTelemetry(this._telemetryService, event);
 		this._onDidRecordActivity.fire(event);
 	}
 
