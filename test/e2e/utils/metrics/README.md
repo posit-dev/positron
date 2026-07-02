@@ -145,27 +145,32 @@ Metrics are logged in the background without affecting test performance.
 
 ## Choosing the right dimension
 
-When a performance metric varies, put that variation in the right field so the
-dashboard can group and analyze it:
+Your test varies something — "where does it go?" Walk this in order:
 
-- **`target_type`** — *what* is being acted upon (a data structure, file format,
-  session kind). Use the `MetricTargetType` union; add a member for a genuinely
-  different target.
-- **`variant`** (in `context_json`) — a *named scenario* that shares the same
-  `(action, target_type)` but exercises a different code path or condition
-  (e.g. `simple_expression` vs `scrollback_trim`). Use when one target has 2+
-  meaningful scenarios you want compared side by side. Keep values short,
-  stable, `snake_case`, low-cardinality. Do **not** put unique/free-form/
-  timestamped strings here.
-- **Numeric context (`data_rows`, `input_rows`, …)** — workload *magnitude* you
-  expect duration to scale with. Use when the variation is a number you'd want
-  on an axis, not a named case.
-- **`target_description`** — a human-readable label for display only. Never rely
-  on it for grouping or aggregation; it is optional free text.
+1. Is it **what you're acting on** (a data structure, file format, session
+   kind)? → **`target_type`** (the `MetricTargetType` union; add a member for a
+   genuinely new target).
+2. Is it a **number** — a size/count you'd expect duration to scale with? →
+   a **numeric context field** (`data_rows`, `data_cols`, `input_rows`, …).
+   Keep it a number so the dashboard can plot duration against it.
+3. Is it a **label** — a named case or on/off condition you want to compare
+   side by side? → a **variant** (categorical). Use `variant` (in
+   `context_json`) for a named scenario like `simple_expression` vs
+   `scrollback_trim`; use a boolean like `filter_applied` / `sort_applied` for
+   an on/off condition. (Those booleans are just pre-named variants.)
+4. Is it **only a human-readable label** for the row? → **`target_description`**
+   (display only — never grouped or aggregated on).
 
-Rule of thumb: if you're tempted to encode a distinction in `target_description`
-so it shows up separately in the dashboard, that distinction belongs in
-`variant` (categorical) or a numeric context field (magnitude).
+The one call that trips people up is #2 vs #3: **number or label?** A number
+(`1_000_000` rows) keeps its magnitude — you can scatter, order, and fit a
+scaling curve. A label (`scrollback_trim`) is a discrete case with no
+in-between. Collapsing a number into a label is lossy and one-way, so keep
+numbers numeric; everything categorical is a variant.
+
+`variant` values should be short, stable, `snake_case`, low-cardinality. Never
+put unique/free-form/timestamped strings there, and don't smuggle a grouping
+distinction into `target_description` to make it show up in the dashboard — that
+belongs in `variant` (label) or a numeric field (number).
 
 ## Files
 
