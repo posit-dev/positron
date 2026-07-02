@@ -5,11 +5,13 @@
 
 import type * as http from 'http';
 import { DeferredPromise } from '../../../base/common/async.js';
+import { Emitter } from '../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
+import { formatAuditLine, McpAuditEvent, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
@@ -66,6 +68,16 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	private _server: http.Server | undefined;
 	private _startPromise: Promise<void> | undefined;
 	private readonly _sessions = this._register(new DisposableMap<string, PositronMcpSession>());
+
+	/**
+	 * Recent audit events for the status UI. Intentionally not cleared on
+	 * `stop()`: sessions are wiped but the history of what agents did is not.
+	 */
+	private readonly _recentActivity = new McpAuditRingBuffer(200);
+	private readonly _onDidRecordActivity = this._register(new Emitter<McpAuditEvent>());
+	// Must be an instance field (not a getter): ProxyChannel.fromService discovers
+	// events with a for...in scan of own enumerable properties (ipc.ts).
+	readonly onDidRecordActivity = this._onDidRecordActivity.event;
 
 	constructor(
 		private readonly _broker: IPositronMcpToolBroker,
@@ -135,7 +147,23 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			running: this._server?.listening ?? false,
 			port: this._port,
 			sessions: [...this._sessions.values()].map(session => session.info),
+			recentActivity: this._recentActivity.snapshot(),
 		};
+	}
+
+	/**
+	 * The audit sink every session records into. Start events only feed the live
+	 * activity emitter (transient in-flight state); completed calls and lifecycle
+	 * events also land in the log channel and the ring buffer.
+	 */
+	private _recordAudit(event: McpAuditEvent): void {
+		if (event.type === 'tool-call-start') {
+			this._logger.debug(formatAuditLine(event));
+		} else {
+			this._logger.info(formatAuditLine(event));
+			this._recentActivity.push(event);
+		}
+		this._onDidRecordActivity.fire(event);
 	}
 
 	private _handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -216,9 +244,9 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		}
 
 		const sessionId = generateUuid();
-		const session = new PositronMcpSession(sessionId, this._logger, this._broker);
+		const session = new PositronMcpSession(sessionId, this._logger, this._broker, { record: e => this._recordAudit(e) });
 		this._sessions.set(sessionId, session);
-		this._logger.info(`[PositronMcpServer] Created session ${sessionId}`);
+		this._recordAudit({ type: 'session-created', timestamp: Date.now(), sessionId });
 		return session;
 	}
 

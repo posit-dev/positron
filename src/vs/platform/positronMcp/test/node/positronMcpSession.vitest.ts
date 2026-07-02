@@ -7,6 +7,7 @@
 
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
+import { IMcpToolCallAuditEvent, IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
 import { IMcpCallToolResult, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
 import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -19,9 +20,15 @@ class StubBroker implements IPositronMcpToolBroker {
 	isWindowConnected(): boolean { return true; }
 }
 
+/** An audit sink that records events for assertions. */
+class RecordingAuditLog implements IPositronMcpAuditLog {
+	readonly events: McpAuditEvent[] = [];
+	record(event: McpAuditEvent): void { this.events.push(event); }
+}
+
 /** Build a session with a stub broker; returns both for assertions. */
-function createSession(broker: IPositronMcpToolBroker = new StubBroker()) {
-	return new PositronMcpSession('test-session', new NullLogger(), broker);
+function createSession(broker: IPositronMcpToolBroker = new StubBroker(), audit: IPositronMcpAuditLog = new RecordingAuditLog()) {
+	return new PositronMcpSession('test-session', new NullLogger(), broker, audit);
 }
 
 const initializeRequest: JsonRpcMessage = {
@@ -103,6 +110,83 @@ describe('PositronMcpSession', () => {
 			clientName: undefined,
 			pinnedWindowId: undefined,
 		});
+	});
+
+	it('records a client-identified audit event at initialize', async () => {
+		const audit = new RecordingAuditLog();
+		const session = createSession(new StubBroker(), audit);
+		await session.handleIncoming(initializeRequest);
+		expect(audit.events).toEqual([expect.objectContaining({
+			type: 'client-identified',
+			sessionId: 'test-session',
+			clientName: 'test-client',
+			clientVersion: '1.0.0',
+			pinnedWindowId: 1,
+		})]);
+	});
+
+	it('records one start and one completion audit event per tool call, sharing a callId', async () => {
+		vi.useFakeTimers({ now: 1000 });
+		try {
+			const broker = new StubBroker();
+			broker.invokeTool.mockImplementation(async () => {
+				vi.setSystemTime(1840);
+				return { content: [{ type: 'text', text: 'ok' }] };
+			});
+			const audit = new RecordingAuditLog();
+			const session = createSession(broker, audit);
+			await session.handleIncoming(initializeRequest);
+			audit.events.length = 0;
+
+			await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
+			const [start, end] = audit.events;
+			expect(start).toMatchObject({ type: 'tool-call-start', toolName: 'get-session', clientName: 'test-client', pinnedWindowId: 1 });
+			expect(end).toMatchObject({
+				type: 'tool-call',
+				toolName: 'get-session',
+				clientName: 'test-client',
+				clientVersion: '1.0.0',
+				outcome: 'ok',
+				durationMs: 840,
+				pinnedWindowId: 1,
+				argsSummary: '{foo: 1}',
+				resultSummary: 'text(2 chars)',
+			});
+			expect(audit.events).toHaveLength(2);
+			expect((end as IMcpToolCallAuditEvent).callId).toBe((start as IMcpToolCallAuditEvent).callId);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('records an error outcome when the tool result is an error or the broker throws', async () => {
+		const erroringBroker = new StubBroker();
+		erroringBroker.invokeTool.mockResolvedValue({ content: [{ type: 'text', text: 'boom' }], isError: true });
+		const audit1 = new RecordingAuditLog();
+		const session1 = createSession(erroringBroker, audit1);
+		await session1.handleIncoming(initializeRequest);
+		await session1.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+		expect(audit1.events.filter(e => e.type === 'tool-call')).toEqual([expect.objectContaining({ outcome: 'error' })]);
+
+		const throwingBroker = new StubBroker();
+		throwingBroker.invokeTool.mockRejectedValue(new Error('window closed'));
+		const audit2 = new RecordingAuditLog();
+		const session2 = createSession(throwingBroker, audit2);
+		await session2.handleIncoming(initializeRequest);
+		await session2.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+		expect(audit2.events.filter(e => e.type === 'tool-call')).toEqual([expect.objectContaining({ outcome: 'error' })]);
+	});
+
+	it('summarizes arguments in the audit event without full code values', async () => {
+		const code = 'import pandas as pd\n' + 'df = pd.DataFrame()\n'.repeat(50);
+		const audit = new RecordingAuditLog();
+		const session = createSession(new StubBroker(), audit);
+		await session.handleIncoming(initializeRequest);
+		await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'execute-code', arguments: { code, languageId: 'python' } } });
+		const end = audit.events.find(e => e.type === 'tool-call') as IMcpToolCallAuditEvent;
+		expect(end.argsSummary).toContain('code: "import pandas as pd\\n');
+		expect(end.argsSummary).toContain('languageId: "python"');
+		expect(end.argsSummary.length).toBeLessThan(300);
 	});
 
 	it('isInitializeMessage detects initialize in single and batch messages', () => {

@@ -13,8 +13,10 @@ import {
 	JsonRpcResponse,
 } from '../../../base/common/jsonRpcProtocol.js';
 import { hasKey } from '../../../base/common/types.js';
+import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger } from '../../log/common/log.js';
 import { IMcpSessionInfo } from '../common/positronMcp.js';
+import { IPositronMcpAuditLog, summarizeArgs, summarizeResult } from '../common/positronMcpAudit.js';
 import {
 	IMcpCallToolResult,
 	McpContent,
@@ -88,6 +90,7 @@ export class PositronMcpSession extends Disposable {
 		public readonly id: string,
 		private readonly _logger: ILogger,
 		private readonly _broker: IPositronMcpToolBroker,
+		private readonly _audit: IPositronMcpAuditLog,
 	) {
 		super();
 		// The session is request/response over POST: responses come back from
@@ -120,8 +123,15 @@ export class PositronMcpSession extends Disposable {
 			if (clientInfo?.name) {
 				this.clientName = String(clientInfo.name);
 				this.clientVersion = clientInfo.version !== undefined ? String(clientInfo.version) : undefined;
-				this._logger.info(`[PositronMcpSession ${this.id}] initialize from ${this.clientName}${this.clientVersion ? ` ${this.clientVersion}` : ''} (window ${this._pinnedWindowId ?? 'none'})`);
 			}
+			this._audit.record({
+				type: 'client-identified',
+				timestamp: Date.now(),
+				sessionId: this.id,
+				clientName: this.clientName,
+				clientVersion: this.clientVersion,
+				pinnedWindowId: this._pinnedWindowId,
+			});
 			return {
 				protocolVersion: POSITRON_MCP_PROTOCOL_VERSION,
 				capabilities: { tools: {} },
@@ -160,27 +170,63 @@ export class PositronMcpSession extends Disposable {
 	 * message instead of the call hanging or failing the transport.
 	 */
 	private async _callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
-		// Audit line: record every tool call (name + argument keys) so the "Positron
-		// MCP" log channel is a timeline of what the agent did in the session.
-		this._logger.info(`[PositronMcpSession ${this.id}] tools/call ${name}(${Object.keys(args).join(', ')})`);
+		const callId = generateUuid();
+		const startedAt = Date.now();
+		this._logger.debug(`[PositronMcpSession ${this.id}] tools/call ${name}(${Object.keys(args).join(', ')})`);
+		this._audit.record({
+			type: 'tool-call-start',
+			callId,
+			timestamp: startedAt,
+			sessionId: this.id,
+			clientName: this.clientName,
+			toolName: name,
+			pinnedWindowId: this._pinnedWindowId,
+		});
+
+		// Every exit path funnels through this so exactly one completion event is
+		// recorded per call -- the status bar pairs it with the start event above.
+		const complete = (result: IMcpCallToolResult): IMcpCallToolResult => {
+			this._audit.record({
+				type: 'tool-call',
+				callId,
+				timestamp: Date.now(),
+				sessionId: this.id,
+				clientName: this.clientName,
+				clientVersion: this.clientVersion,
+				toolName: name,
+				argsSummary: summarizeArgs(args),
+				outcome: result.isError ? 'error' : 'ok',
+				durationMs: Date.now() - startedAt,
+				pinnedWindowId: this._pinnedWindowId,
+				resultSummary: summarizeResult(result),
+			});
+			return result;
+		};
 
 		// Re-resolve if the pinned window is gone (or was never set).
 		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
 			const reResolved = this._broker.resolveTargetWindow();
-			this._logger.info(`[PositronMcpSession ${this.id}] pinned window unavailable; re-pinned to ${reResolved ?? 'none'}`);
 			this._pinnedWindowId = reResolved;
+			this._audit.record({
+				type: 'window-repinned',
+				timestamp: Date.now(),
+				sessionId: this.id,
+				clientName: this.clientName,
+				clientVersion: this.clientVersion,
+				pinnedWindowId: reResolved,
+			});
 		}
 
 		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
-			return toolError('No Positron window is available to run this. Open a Positron window and try again.');
+			return complete(toolError('No Positron window is available to run this. Open a Positron window and try again.'));
 		}
 
 		try {
-			return await this._broker.invokeTool(this._pinnedWindowId, name, args);
+			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args));
 		} catch (error) {
 			// A window that closes mid-call rejects the pending IPC call; surface it
 			// as a recoverable tool error rather than a transport failure.
-			return toolError(`Failed to run ${name} in the Positron window: ${error instanceof Error ? error.message : String(error)}`);
+			return complete(toolError(`Failed to run ${name} in the Positron window: ${error instanceof Error ? error.message : String(error)}`));
 		}
 	}
 }

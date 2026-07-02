@@ -7,6 +7,7 @@
 
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
+import { IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
 import { IMcpCallToolResult } from '../../common/positronMcpTools.js';
 import { PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -39,9 +40,15 @@ class FakeBroker implements IPositronMcpToolBroker {
 	}
 }
 
+/** An audit sink that records events for assertions. */
+class RecordingAuditLog implements IPositronMcpAuditLog {
+	readonly events: McpAuditEvent[] = [];
+	record(event: McpAuditEvent): void { this.events.push(event); }
+}
+
 /** Build an initialized session bound to the given fake broker. */
-async function initializedSession(broker: IPositronMcpToolBroker): Promise<PositronMcpSession> {
-	const session = new PositronMcpSession('s', new NullLogger(), broker);
+async function initializedSession(broker: IPositronMcpToolBroker, audit: IPositronMcpAuditLog = new RecordingAuditLog()): Promise<PositronMcpSession> {
+	const session = new PositronMcpSession('s', new NullLogger(), broker, audit);
 	await session.handleIncoming(initializeRequest);
 	return session;
 }
@@ -79,25 +86,31 @@ describe('PositronMcpSession window pinning', () => {
 		const broker = new FakeBroker();
 		broker.target = 1;
 		broker.connected = new Set([1]);
-		const session = await initializedSession(broker);
+		const audit = new RecordingAuditLog();
+		const session = await initializedSession(broker, audit);
 
 		// Pinned window 1 closes; last-active is now 5.
 		broker.connected = new Set([5]);
 		broker.target = 5;
 		await callGetSession(session);
 		expect(broker.invocations).toEqual([{ windowId: 5, name: 'get-session' }]);
+		expect(audit.events.filter(e => e.type === 'window-repinned'))
+			.toEqual([expect.objectContaining({ sessionId: 's', pinnedWindowId: 5 })]);
 	});
 
 	it('returns a clean error (no throw) when no window is available', async () => {
 		const broker = new FakeBroker();
 		broker.target = undefined;
 		broker.connected = new Set();
-		const session = await initializedSession(broker);
+		const audit = new RecordingAuditLog();
+		const session = await initializedSession(broker, audit);
 
 		const result = await callGetSession(session);
 		expect(result.isError).toBe(true);
 		expect(result.content[0]).toMatchObject({ type: 'text' });
 		expect(broker.invocations).toEqual([]);
+		expect(audit.events.filter(e => e.type === 'tool-call'))
+			.toEqual([expect.objectContaining({ outcome: 'error', pinnedWindowId: undefined })]);
 	});
 
 	it('surfaces a window-closed-mid-call failure as a tool error, not a transport error', async () => {

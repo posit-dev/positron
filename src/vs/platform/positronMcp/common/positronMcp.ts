@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../base/common/event.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
+import { McpAuditEvent } from './positronMcpAudit.js';
 
 export const IPositronMcpService = createDecorator<IPositronMcpService>('positronMcpService');
 
@@ -51,6 +53,11 @@ export interface IPositronMcpServerStatus {
 	readonly port: number;
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
+	/**
+	 * Recent audit events (completed tool calls + session lifecycle), oldest
+	 * first, capped server-side. Survives a server stop.
+	 */
+	readonly recentActivity: readonly McpAuditEvent[];
 }
 
 /**
@@ -65,6 +72,13 @@ export interface IPositronMcpServerStatus {
  */
 export interface IPositronMcpService {
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Fires for every audit event, including transient `tool-call-start` events
+	 * that never reach {@link IPositronMcpServerStatus.recentActivity}. Bridged
+	 * to renderers automatically by the ProxyChannel.
+	 */
+	readonly onDidRecordActivity: Event<McpAuditEvent>;
 
 	/** Start the HTTP server if it is not already listening. Idempotent. */
 	start(): Promise<void>;
