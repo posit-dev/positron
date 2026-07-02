@@ -11,7 +11,7 @@
 	overflow: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 14px;
 }
 
 .positron-mcp-status .status-header {
@@ -62,52 +62,100 @@
 .positron-mcp-status .status-card {
 	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
 	border-radius: 8px;
-	padding: 2px 14px;
+	padding: 10px 14px;
 	background: var(--vscode-editorWidget-background, transparent);
 }
 
-.positron-mcp-status .status-row {
+.positron-mcp-status .section-title {
+	margin: 0 0 6px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-status .setup-row {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	padding: 11px 0;
+	gap: 9px;
+	padding: 5px 0;
+}
+
+.positron-mcp-status .setup-check.done {
+	color: var(--vscode-charts-green, #89d185);
+}
+
+.positron-mcp-status .setup-check.attention {
+	color: var(--vscode-charts-yellow, #cca700);
+}
+
+.positron-mcp-status .setup-check.todo {
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-status .setup-text {
+	flex: 1;
+}
+
+.positron-mcp-status .row-action {
+	padding: 3px 10px;
+	border-radius: 5px;
+	font-size: 12px;
+	flex: none;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.positron-mcp-status .row-action:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.positron-mcp-status .consent-banner {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	padding: 9px 14px;
+	border-radius: 8px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-charts-yellow));
+	background: var(--vscode-inputValidation-warningBackground, transparent);
+}
+
+.positron-mcp-status .consent-banner .codicon-warning {
+	color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.positron-mcp-status .consent-text {
+	flex: 1;
+	font-size: 12px;
+}
+
+.positron-mcp-status .connections-empty {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+}
+
+.positron-mcp-status .connections-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.positron-mcp-status .connections-table th {
+	text-align: left;
+	font-weight: 600;
+	color: var(--vscode-descriptionForeground);
+	padding: 3px 12px 3px 0;
 	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
 }
 
-.positron-mcp-status .status-row:last-child {
-	border-bottom: none;
+.positron-mcp-status .connections-table td {
+	padding: 5px 12px 5px 0;
 }
 
-.positron-mcp-status .status-label {
-	color: var(--vscode-descriptionForeground);
-	font-size: 11px;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-}
-
-.positron-mcp-status .status-value {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+.positron-mcp-status .connections-client {
 	font-weight: 500;
-	text-align: right;
-}
-
-.positron-mcp-status .status-dot {
-	width: 9px;
-	height: 9px;
-	border-radius: 50%;
-	flex: none;
-	background: var(--vscode-descriptionForeground);
-}
-
-.positron-mcp-status .status-dot.running {
-	background: var(--vscode-charts-green, #89d185);
-}
-
-.positron-mcp-status .status-dot.restart {
-	background: var(--vscode-charts-yellow, #cca700);
 }
 
 .positron-mcp-status .status-error {
@@ -127,15 +175,6 @@
 	padding: 7px 14px;
 	border-radius: 6px;
 	border: 1px solid transparent;
-}
-
-.positron-mcp-status .action-button.primary {
-	background: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
-}
-
-.positron-mcp-status .action-button.primary:hover {
-	background: var(--vscode-button-hoverBackground);
 }
 
 .positron-mcp-status .action-button.secondary {
@@ -163,6 +202,31 @@
 	color: var(--vscode-descriptionForeground);
 }
 
+.positron-mcp-status .client-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0 0 8px;
+}
+
+.positron-mcp-status .client-picker-button {
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-mcp-status .client-picker-button:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.positron-mcp-status .client-picker-button.selected {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: transparent;
+}
+
 .positron-mcp-status .connect-hint {
 	color: var(--vscode-descriptionForeground);
 	font-size: 12px;
@@ -170,9 +234,16 @@
 	margin: 0;
 }
 
+.positron-mcp-status .connect-snippet {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	margin: 8px 0;
+}
+
 .positron-mcp-status .connect-command {
 	display: block;
-	margin: 8px 0;
+	flex: 1;
 	padding: 9px 12px;
 	background: var(--vscode-textCodeBlock-background);
 	border-radius: 6px;

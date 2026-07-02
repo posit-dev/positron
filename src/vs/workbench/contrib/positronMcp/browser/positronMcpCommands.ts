@@ -5,6 +5,7 @@
 
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -16,7 +17,7 @@ import { IOutputService } from '../../../services/output/common/output.js';
 import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
 import { IPositronMcpToolService } from './positronMcpToolService.js';
 import { IMcpStatusData, McpPanelAction, showMcpStatusModal } from './positronMcpStatusModal.js';
-import { GUIDANCE_FILES, PositronMcpWorkspace } from './positronMcpWorkspace.js';
+import { GUIDANCE_FILES, GuidanceFile, PositronMcpWorkspace } from './positronMcpWorkspace.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 const COMMAND_ID = {
@@ -35,19 +36,21 @@ const MCP_CATEGORY = localize2('positron.mcp.category', "Positron MCP");
 async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const configurationService = accessor.get(IConfigurationService);
 	const mcpService = accessor.get(IPositronMcpService);
+	const toolService = accessor.get(IPositronMcpToolService);
 	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
 
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
 	const serverStatus = await mcpService.getStatus();
 	const workspaceConfig = await workspace.getConfigState();
-	const guidancePresent = (await workspace.getGuidanceState()).every(state => state.present);
+	const guidance = await workspace.getGuidanceState();
 	return {
 		enabled,
 		running: serverStatus.running,
 		port: serverStatus.port,
 		workspaceConfig,
-		guidancePresent,
+		guidance,
 		sessions: serverStatus.sessions,
+		allowAllConsent: toolService.isAllowAllConsentActive(),
 	};
 }
 
@@ -101,14 +104,29 @@ async function showLogs(accessor: ServicesAccessor): Promise<void> {
 	await outputService.showChannel(POSITRON_MCP_LOG_ID);
 }
 
+/**
+ * Append MCP guidance to a single agent-instruction file (for the panel's
+ * per-file checklist rows) and open it when changed.
+ */
+async function addGuidanceToFile(accessor: ServicesAccessor, file: GuidanceFile): Promise<void> {
+	const editorService = accessor.get(IEditorService);
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+	const uri = await workspace.appendGuidance(file);
+	if (uri) {
+		await editorService.openEditor({ resource: uri, options: { pinned: true } });
+	}
+}
+
 /** Run a status-panel button by delegating to the matching command. */
 async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction): Promise<void> {
-	switch (action) {
+	switch (action.id) {
 		case 'enable': return setEnabled(accessor, true);
 		case 'disable': return setEnabled(accessor, false);
 		case 'addConfig': return addConfigFile(accessor);
-		case 'addGuidance': return addAgentGuidance(accessor);
+		case 'addGuidance': return addGuidanceToFile(accessor, action.file);
 		case 'showLogs': return showLogs(accessor);
+		// No notification here: the panel's consent banner disappearing is the feedback.
+		case 'resetConsent': return accessor.get(IPositronMcpToolService).resetConsent();
 	}
 }
 
@@ -150,11 +168,13 @@ export function registerPositronMcpCommands(): void {
 			// Capture the instantiation service so the panel's status reads and
 			// button actions resolve fresh services each time they run.
 			const instantiationService = accessor.get(IInstantiationService);
+			const clipboardService = accessor.get(IClipboardService);
 			const renderer = new PositronModalReactRenderer();
 			showMcpStatusModal(
 				renderer,
 				() => instantiationService.invokeFunction(readStatus),
 				action => instantiationService.invokeFunction(acc => runPanelAction(acc, action)),
+				text => clipboardService.writeText(text),
 			);
 		}
 	});
