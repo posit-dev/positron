@@ -10,6 +10,7 @@ import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_
 import { isFileExcludedFromAI } from '../fileExclusion.js';
 import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../log.js';
+import { rasterizeSvgToPng } from './svgRasterizer.js';
 
 /**
  * MIME types for notebook cell output classification.
@@ -33,7 +34,6 @@ const TEXT_MIME_TYPES = new Set([
 	'application/x.notebook.stream',
 	'application/json',
 	'application/xml',
-	'image/svg+xml',
 ]);
 
 /**
@@ -65,6 +65,22 @@ export function isTextMime(mimeType: string): boolean {
 	return normalized.startsWith('text/') ||
 		TEXT_MIME_TYPES.has(normalized) ||
 		ERROR_MIME_TYPES.has(normalized);
+}
+
+/**
+ * Returns true if the MIME type represents output presented to the language
+ * model as an image. Includes image/svg+xml: SVG outputs are rasterized to
+ * PNG before being attached (see convertOutputsToLanguageModelParts).
+ */
+export function isImageMime(mimeType: string): boolean {
+	return normalizeMime(mimeType).startsWith('image/');
+}
+
+/**
+ * Returns true if the MIME type is image/svg+xml (ignoring parameters).
+ */
+function isSvgMime(mimeType: string): boolean {
+	return normalizeMime(mimeType) === 'image/svg+xml';
 }
 
 /**
@@ -321,10 +337,10 @@ export function formatCells(options: FormatCellsOptions): string {
  * @param prefixText Optional text to prepend before the outputs
  * @returns Array of LanguageModel parts ready for use in tool results
  */
-export function convertOutputsToLanguageModelParts(
+export async function convertOutputsToLanguageModelParts(
 	outputs: positron.notebooks.NotebookCellOutput[],
 	prefixText?: string
-): (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] {
+): Promise<(vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[]> {
 	const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 
 	// Add prefix text if provided
@@ -332,28 +348,40 @@ export function convertOutputsToLanguageModelParts(
 		resultParts.push(new vscode.LanguageModelTextPart(prefixText));
 	}
 
+	const pushText = (textContent: string) => {
+		// Add newline before text output if there are already parts (for readability)
+		if (resultParts.length > 0) {
+			textContent = '\n' + textContent;
+		}
+		resultParts.push(new vscode.LanguageModelTextPart(textContent));
+	};
+
 	// Convert each output to appropriate LanguageModel part
 	for (const output of outputs) {
-		// SVG (image/svg+xml) classification is inconsistent -- isTextMime
-		// treats it as text, but we want it as an image here. Uses
-		// startsWith as a workaround; proper fix deferred to #12096.
-		if (output.mimeType.startsWith('image/')) {
-			// Handle image outputs - convert base64 to binary
+		if (isImageMime(output.mimeType)) {
 			if (!output.data) {
 				resultParts.push(new vscode.LanguageModelTextPart('[Image data unavailable]'));
 				continue;
 			}
+			if (isSvgMime(output.mimeType)) {
+				// SVG arrives as raw XML text, not base64, and providers drop
+				// image/svg+xml data parts. Rasterize to PNG so the model can
+				// see the plot; fall back to the SVG source as text (#12096).
+				const png = await rasterizeSvgToPng(output.data);
+				if (png) {
+					resultParts.push(new vscode.LanguageModelDataPart(png, 'image/png'));
+				} else {
+					pushText(output.data);
+				}
+				continue;
+			}
+			// Handle image outputs - convert base64 to binary
 			const imageBuffer = Buffer.from(output.data, 'base64');
 			const imageData = new Uint8Array(imageBuffer);
 			resultParts.push(new vscode.LanguageModelDataPart(imageData, output.mimeType));
 		} else {
 			// Handle text outputs
-			let textContent = output.data;
-			// Add newline before text output if there are already parts (for readability)
-			if (resultParts.length > 0) {
-				textContent = '\n' + textContent;
-			}
-			resultParts.push(new vscode.LanguageModelTextPart(textContent));
+			pushText(output.data);
 		}
 	}
 

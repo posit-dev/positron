@@ -923,6 +923,7 @@
   "dependencies": {
     "@ai-sdk/provider-utils": "^2.1.3",
     "@anthropic-ai/sdk": "^0.57.0",
+    "@resvg/resvg-wasm": "^2.6.2",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "yaml": "^2.8.1"
   },

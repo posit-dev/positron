@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../log.js';
 import { isFileExcludedFromAI } from '../fileExclusion.js';
-import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isTextMime } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH, isErrorMime, isImageMime, isTextMime } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
 import { resolveShowDiff } from '../notebookAssistantMetadata.js';
@@ -205,7 +205,7 @@ export const ExecuteNotebookTool = vscode.lm.registerTool<ExecuteNotebookInput>(
 
 						if (cellOutputs.length > 0) {
 							resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellIndex}:\n`));
-							const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+							const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
 							resultParts.push(...outputParts);
 						}
 					}
@@ -314,7 +314,7 @@ async function runAllCells(
 			const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cell.index);
 			if (cellOutputs.length > 0) {
 				resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cell.index}:\n`));
-				const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+				const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
 				resultParts.push(...outputParts);
 			}
 		}
@@ -338,10 +338,7 @@ async function runAllCells(
 				const status = hasError ? 'Error' : 'OK';
 				// Show first line of first text output or indicator for non-text types
 				const firstOutput = cellOutputs[0];
-				// SVG (image/svg+xml) classification is inconsistent -- isTextMime
-				// treats it as text, but we want it as an image here. Uses
-				// startsWith as a workaround; proper fix deferred to #12096.
-				if (firstOutput.mimeType.startsWith('image/')) {
+				if (isImageMime(firstOutput.mimeType)) {
 					resultParts.push(
 						new vscode.LanguageModelTextPart(`Cell ${cell.index}: [${status}] [Image output]\n`)
 					);
@@ -647,7 +644,7 @@ function createEditNotebookTool(participantService: ParticipantService) {
 
 								const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, insertIndex);
 								if (cellOutputs.length > 0) {
-									const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+									const outputParts = await convertOutputsToLanguageModelParts(cellOutputs);
 									resultParts.push(...outputParts);
 								} else {
 									resultParts.push(new vscode.LanguageModelTextPart('No outputs'));
@@ -1035,7 +1032,7 @@ export const GetNotebookInfoTool = vscode.lm.registerTool<{
 							);
 						} else {
 							resultParts.push(new vscode.LanguageModelTextPart(`Cell ${cellIndex}:\n`));
-							const outputParts = convertOutputsToLanguageModelParts(outputs);
+							const outputParts = await convertOutputsToLanguageModelParts(outputs);
 							resultParts.push(...outputParts);
 							resultParts.push(new vscode.LanguageModelTextPart('\n'));
 						}
