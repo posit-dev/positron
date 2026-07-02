@@ -2108,7 +2108,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	private _anchorWebview(webview: INotebookOutputWebview, container: HTMLElement): void {
 		const overlay = webview.webview.container;
-		if (isWebviewOverlayShown(this.domNode, container)) {
+		if (!this._isCollapsed && isWebviewOverlayShown(this.domNode, container)) {
 			overlay.style.visibility = 'visible';
 			webview.webview.setAnchorElement(container, this._clippingContainer);
 		} else {
