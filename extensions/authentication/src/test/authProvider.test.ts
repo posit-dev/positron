@@ -476,7 +476,7 @@ suite('AuthProvider - credential chain refresh', () => {
 		assert.strictEqual(count, 2);
 	});
 
-	test('a provider that refreshes on a timer still works (Vertex-style)', async () => {
+	test('a provider that refreshes on a timer still works (GEAP-style)', async () => {
 		const clock = sinon.useFakeTimers();
 		let count = 0;
 		// Not tracked for teardown disposal: dispose() clears the interval and

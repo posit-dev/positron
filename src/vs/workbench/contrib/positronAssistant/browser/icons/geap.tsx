@@ -5,7 +5,7 @@
 
 import type { SVGProps } from 'react';
 
-export const VertexAI = (props: SVGProps<SVGSVGElement>) => (
+export const Geap = (props: SVGProps<SVGSVGElement>) => (
 	<svg
 		fill='currentColor'
 		fillRule='evenodd'
@@ -19,7 +19,7 @@ export const VertexAI = (props: SVGProps<SVGSVGElement>) => (
 		xmlns='http://www.w3.org/2000/svg'
 		{...props}
 	>
-		<title>VertexAI</title>
+		<title>Gemini Enterprise Agent Platform</title>
 		<path d='M11.995 20.216a1.892 1.892 0 100 3.785 1.892 1.892 0 000-3.785zm0 2.806a.927.927 0 11.927-.914.914.914 0 01-.927.914z' />
 		<path clipRule='evenodd' d='M21.687 14.144c.237.038.452.16.605.344a.978.978 0 01-.18 1.3l-8.24 6.082a1.892 1.892 0 00-1.147-1.508l8.28-6.08a.991.991 0 01.682-.138z' />
 		<path clipRule='evenodd' d='M10.122 21.842l-8.217-6.066a.952.952 0 01-.206-1.287.978.978 0 011.287-.206l8.28 6.08a1.893 1.893 0 00-1.144 1.479z' />
@@ -30,4 +30,4 @@ export const VertexAI = (props: SVGProps<SVGSVGElement>) => (
 		<path d='M8.121 15.853a.978.978 0 100-1.956.978.978 0 000 1.956zM8.121 7.783a.978.978 0 100-1.956.978.978 0 000 1.956zM8.121 4.913a.978.978 0 100-1.957.978.978 0 000 1.957zM8.134 12.996a.978.978 0 01-.978-.94V9.611a.965.965 0 011.93 0v2.445a.966.966 0 01-.952.94z' />
 	</svg>
 );
-export default VertexAI;
+export default Geap;
