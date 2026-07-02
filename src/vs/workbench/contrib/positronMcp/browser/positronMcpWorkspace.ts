@@ -79,24 +79,24 @@ export class PositronMcpWorkspace {
 	}
 
 	/**
-	 * Whether every agent-instruction file already carries the guidance marker, so
-	 * addAgentGuidance would be a no-op (and the "Add Agent Guidance" button can be
-	 * hidden). False when no folder is open.
+	 * Per-file guidance state: for each agent-instruction file, whether it already
+	 * carries the guidance marker. Lets the status panel render each file as a
+	 * checked row or an inline add action, instead of one all-files-or-nothing
+	 * button. All files report absent when no folder is open.
 	 */
-	async hasGuidance(): Promise<boolean> {
+	async getGuidanceState(): Promise<IGuidanceFileState[]> {
 		const folder = this._firstFolder();
-		if (!folder) {
-			return false;
-		}
-		const present = await Promise.all(GUIDANCE_FILES.map(async file => {
+		return Promise.all(GUIDANCE_FILES.map(async file => {
+			if (!folder) {
+				return { file, present: false };
+			}
 			try {
 				const content = (await this._fileService.readFile(URI.joinPath(folder, file))).value.toString();
-				return content.includes(GUIDANCE_MARKER);
+				return { file, present: content.includes(GUIDANCE_MARKER) };
 			} catch {
-				return false;
+				return { file, present: false };
 			}
 		}));
-		return present.every(Boolean);
 	}
 
 	/**
@@ -121,7 +121,7 @@ export class PositronMcpWorkspace {
 	 * was changed (so the caller can open it), or undefined when nothing changed
 	 * or no folder is open.
 	 */
-	async appendGuidance(fileName: string): Promise<URI | undefined> {
+	async appendGuidance(fileName: GuidanceFile): Promise<URI | undefined> {
 		const folder = this._firstFolder();
 		if (!folder) {
 			return undefined;
@@ -143,6 +143,15 @@ export class PositronMcpWorkspace {
 
 /** The agent-instruction files the guidance command writes and checks. */
 export const GUIDANCE_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
+
+/** One agent-instruction file the guidance command manages. */
+export type GuidanceFile = typeof GUIDANCE_FILES[number];
+
+/** Whether one agent-instruction file already carries the guidance marker. */
+export interface IGuidanceFileState {
+	readonly file: GuidanceFile;
+	readonly present: boolean;
+}
 
 // A marker comment so re-running the guidance command is idempotent.
 const GUIDANCE_MARKER = '<!-- positron-mcp -->';

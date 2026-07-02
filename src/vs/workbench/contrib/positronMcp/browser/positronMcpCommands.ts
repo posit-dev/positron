@@ -40,7 +40,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
 	const serverStatus = await mcpService.getStatus();
 	const workspaceConfig = await workspace.getConfigState();
-	const guidancePresent = await workspace.hasGuidance();
+	const guidancePresent = (await workspace.getGuidanceState()).every(state => state.present);
 	return {
 		enabled,
 		running: serverStatus.running,

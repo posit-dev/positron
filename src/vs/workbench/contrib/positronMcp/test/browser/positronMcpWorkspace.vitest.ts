@@ -89,6 +89,49 @@ describe('positronMcp workspace helpers', () => {
 		});
 	});
 
+	describe('getGuidanceState', () => {
+		const marker = '<!-- positron-mcp -->';
+		const AGENTS = URI.joinPath(FOLDER, 'AGENTS.md').toString();
+		const CLAUDE = URI.joinPath(FOLDER, 'CLAUDE.md').toString();
+
+		it('reports every file absent with no workspace open', async () => {
+			expect(await workspace(undefined, new Map()).instance.getGuidanceState()).toEqual([
+				{ file: 'AGENTS.md', present: false },
+				{ file: 'CLAUDE.md', present: false },
+			]);
+		});
+
+		it('reports per-file presence in a partial state', async () => {
+			const files = new Map([[CLAUDE, `# Notes\n\n${marker}\nguidance\n`]]);
+			expect(await workspace(FOLDER, files).instance.getGuidanceState()).toEqual([
+				{ file: 'AGENTS.md', present: false },
+				{ file: 'CLAUDE.md', present: true },
+			]);
+		});
+
+		it('reports a file without the marker as absent', async () => {
+			const files = new Map([
+				[AGENTS, '# Agents, no marker\n'],
+				[CLAUDE, `${marker}\nguidance\n`],
+			]);
+			expect(await workspace(FOLDER, files).instance.getGuidanceState()).toEqual([
+				{ file: 'AGENTS.md', present: false },
+				{ file: 'CLAUDE.md', present: true },
+			]);
+		});
+
+		it('reports all files present when each carries the marker', async () => {
+			const files = new Map([
+				[AGENTS, `${marker}\nguidance\n`],
+				[CLAUDE, `${marker}\nguidance\n`],
+			]);
+			expect(await workspace(FOLDER, files).instance.getGuidanceState()).toEqual([
+				{ file: 'AGENTS.md', present: true },
+				{ file: 'CLAUDE.md', present: true },
+			]);
+		});
+	});
+
 	describe('appendGuidance', () => {
 		const GUIDANCE = URI.joinPath(FOLDER, 'CLAUDE.md').toString();
 
