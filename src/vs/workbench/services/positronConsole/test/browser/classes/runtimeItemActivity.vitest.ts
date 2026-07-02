@@ -184,6 +184,21 @@ describe('RuntimeItemActivity.addActivityItem - version bump semantics', () => {
 		expect(activity.version).toBe(baselineVersion + 1);
 	});
 
+	it('replacement inherits the attribution label from the replaced input', () => {
+		// The provisional input carries the provenance label (only the execution
+		// site knows the attribution); the runtime's rebroadcast input does not.
+		// The replacement must not lose the label.
+		const provisional = new ActivityItemInput(
+			'i1', 'p', new Date(0), ActivityItemInputState.Provisional, '>', '+', 'x', 'Claude Code');
+		const activity = new RuntimeItemActivity('activity', provisional);
+
+		const executing = input('i2', 'p', ActivityItemInputState.Executing);
+		activity.addActivityItem(executing);
+
+		expect(activity.activityItems[0], 'slot holds the replacement').toBe(executing);
+		expect(executing.attributionLabel, 'label propagated to replacement').toBe('Claude Code');
+	});
+
 	it('non-provisional input with no matching predecessor: plain append', () => {
 		const activity = new RuntimeItemActivity('activity', stream('s1', 'p', 'hi'));
 		const baselineVersion = activity.version;

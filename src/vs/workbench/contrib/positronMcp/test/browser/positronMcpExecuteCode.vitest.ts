@@ -148,6 +148,48 @@ describe('executeCodeWithObserver', () => {
 		expect(await promise).toEqual({ kind: 'timeout', started: true, streamed: '' });
 	});
 
+	it('attributes the execution to the external agent that asked for it', async () => {
+		const f = fakeSession();
+		const { consoleService, sessionService, executeCode, executionId } = services(f.session);
+
+		const promise = executeCodeWithObserver(consoleService, sessionService, 'python', 'x = 1', 1000,
+			{ mcpSessionId: 's1', clientName: 'claude-code', clientVersion: '1.2.3' });
+		await Promise.resolve();
+		f.result.fire(resultMsg(executionId(), {}));
+		await promise;
+
+		// The attribution is executeCode's 4th argument.
+		expect(vi.mocked(executeCode).mock.calls[0]?.[3]).toEqual({
+			source: 'external-agent',
+			metadata: {
+				source: 'positron-mcp',
+				clientName: 'claude-code',
+				clientVersion: '1.2.3',
+				displayName: 'Claude Code',
+			},
+		});
+	});
+
+	it('attributes an anonymous caller as an external agent with no client identity', async () => {
+		const f = fakeSession();
+		const { consoleService, sessionService, executeCode, executionId } = services(f.session);
+
+		const promise = executeCodeWithObserver(consoleService, sessionService, 'python', 'x = 1', 1000);
+		await Promise.resolve();
+		f.result.fire(resultMsg(executionId(), {}));
+		await promise;
+
+		expect(vi.mocked(executeCode).mock.calls[0]?.[3]).toEqual({
+			source: 'external-agent',
+			metadata: {
+				source: 'positron-mcp',
+				clientName: undefined,
+				clientVersion: undefined,
+				displayName: undefined,
+			},
+		});
+	});
+
 	it('reports a dispatch-time rejection as an error outcome', async () => {
 		const f = fakeSession();
 		const failing = vi.fn(async () => { throw new Error('no runtime registered'); });

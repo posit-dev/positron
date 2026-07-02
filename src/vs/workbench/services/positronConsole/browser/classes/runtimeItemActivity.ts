@@ -147,6 +147,12 @@ export class RuntimeItemActivity extends RuntimeItem {
 							if (activityItemToCheck.state === ActivityItemInputState.Completed) {
 								activityItem.state = ActivityItemInputState.Completed;
 							}
+							// Propagate the provenance label: the runtime's
+							// input rebroadcast doesn't know the attribution;
+							// only the original item did.
+							if (!activityItem.attributionLabel) {
+								activityItem.attributionLabel = activityItemToCheck.attributionLabel;
+							}
 							this._activityItems[i] = activityItem;
 							return;
 						}

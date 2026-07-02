@@ -222,12 +222,17 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		);
 	}
 
+	// The provenance label rendered when an external agent executed the code.
+	const attributionLabel = props.activityItemInput.attributionLabel &&
+		<span className='attribution-label'>{props.activityItemInput.attributionLabel}</span>;
+
 	// Render lines.
 	if (colorizedOutputLines.length) {
 		// Render colorized lines.
 		return (
 			<div className={classNames}>
 				<div className='progress-bar' />
+				{attributionLabel}
 				{colorizedOutputLines.map((outputLine, index) =>
 					<div key={`outputLine-${index}`}>
 						<Prompt index={index} />
@@ -244,6 +249,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		return (
 			<div className={classNames}>
 				<div className='progress-bar' />
+				{attributionLabel}
 				{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 					<div key={outputLine.id}>
 						<Prompt index={index} />

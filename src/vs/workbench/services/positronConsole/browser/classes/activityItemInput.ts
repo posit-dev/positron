@@ -90,6 +90,10 @@ export class ActivityItemInput extends ActivityItem {
 	 * @param inputPrompt The input prompt.
 	 * @param continuationPrompt The continuation prompt.
 	 * @param code The code.
+	 * @param attributionLabel The provenance label shown next to the input
+	 * (e.g. "Claude Code"), if the code was executed by an external agent.
+	 * Mutable so the label survives when the runtime's input rebroadcast
+	 * replaces this item (see RuntimeItemActivity.addActivityItem).
 	 */
 	constructor(
 		id: string,
@@ -98,7 +102,8 @@ export class ActivityItemInput extends ActivityItem {
 		state: ActivityItemInputState,
 		readonly inputPrompt: string,
 		readonly continuationPrompt: string,
-		readonly code: string
+		readonly code: string,
+		public attributionLabel?: string
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

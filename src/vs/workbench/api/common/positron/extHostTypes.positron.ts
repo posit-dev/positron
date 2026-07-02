@@ -430,6 +430,7 @@ export enum PositronChatAgentLocation {
 export enum CodeAttributionSource {
 	Assistant = 'assistant',
 	Extension = 'extension',
+	ExternalAgent = 'external-agent',
 	Interactive = 'interactive',
 	Notebook = 'notebook',
 	Paste = 'paste',

@@ -12,6 +12,7 @@ import {
 	RuntimeErrorBehavior,
 	RuntimeOnlineState,
 } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IMcpCallerContext, mcpClientDisplayName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -51,6 +52,7 @@ export async function executeCodeWithObserver(
 	languageId: string,
 	code: string,
 	timeoutMs: number,
+	caller?: IMcpCallerContext,
 ): Promise<ExecuteCodeOutcome> {
 	const executionId = generateUuid();
 	const store = new DisposableStore();
@@ -112,9 +114,19 @@ export async function executeCodeWithObserver(
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
+		// Attribute the execution to the external agent that asked for it, so
+		// consumers (and the console's provenance label) can tell it apart from
+		// Posit Assistant. `displayName` is the console-facing name; resumed
+		// sessions that never re-identified themselves have no client name and
+		// fall back to the console's generic external-agent label.
 		const attribution: IConsoleCodeAttribution = {
-			source: CodeAttributionSource.Assistant,
-			metadata: { source: 'positron-mcp' },
+			source: CodeAttributionSource.ExternalAgent,
+			metadata: {
+				source: 'positron-mcp',
+				clientName: caller?.clientName,
+				clientVersion: caller?.clientVersion,
+				displayName: caller?.clientName ? mcpClientDisplayName(caller.clientName) : undefined,
+			},
 		};
 
 		// allowIncomplete=true: we submit whole blocks, not REPL lines, so bypass

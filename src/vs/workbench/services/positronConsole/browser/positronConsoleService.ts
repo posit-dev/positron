@@ -48,7 +48,7 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, externalAgentLabel, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
 
@@ -3378,7 +3378,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				ActivityItemInputState.Provisional,
 				this._session.dynState.inputPrompt,
 				this._session.dynState.continuationPrompt,
-				code
+				code,
+				externalAgentLabel(attribution)
 			);
 
 			// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be

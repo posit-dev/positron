@@ -1003,6 +1003,13 @@ declare module 'positron' {
 		/** The code was executed by a Positron extension. */
 		Extension = 'extension',
 
+		/**
+		 * The code was executed by an external agent driving Positron from
+		 * outside the IDE (e.g. via the Positron MCP server). The attribution
+		 * metadata identifies the agent when it is known.
+		 */
+		ExternalAgent = 'external-agent',
+
 		/** The code was executed interactively (the user typed it in). */
 		Interactive = 'interactive',
 

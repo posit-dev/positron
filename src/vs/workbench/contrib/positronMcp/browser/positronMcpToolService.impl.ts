@@ -394,7 +394,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		await this._requireExecutionConsent(languageId, code, caller);
 
 		const outcome = await executeCodeWithObserver(
-			this._consoleService, this._runtimeSessionService, languageId, code, this._timeoutMs);
+			this._consoleService, this._runtimeSessionService, languageId, code, this._timeoutMs, caller);
 
 		switch (outcome.kind) {
 			case 'success':

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
 
 /**
@@ -14,6 +15,7 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRu
 export const enum CodeAttributionSource {
 	Assistant = 'assistant',
 	Extension = 'extension',
+	ExternalAgent = 'external-agent',
 	Interactive = 'interactive',
 	Notebook = 'notebook',
 	Paste = 'paste',
@@ -29,6 +31,22 @@ export interface IConsoleCodeAttribution {
 
 	/** An optional dictionary of addition source-specific metadata*/
 	metadata?: Record<string, any>;
+}
+
+/**
+ * The provenance label the Console shows next to code an external agent
+ * executed (e.g. "Claude Code"), or undefined when the execution should carry
+ * no label. External agents name themselves via `metadata.displayName`;
+ * executions from an agent that never identified itself get a generic label.
+ */
+export function externalAgentLabel(attribution: IConsoleCodeAttribution): string | undefined {
+	if (attribution.source !== CodeAttributionSource.ExternalAgent) {
+		return undefined;
+	}
+	const displayName = attribution.metadata?.displayName;
+	return typeof displayName === 'string' && displayName.length > 0
+		? displayName
+		: localize('positron.console.externalAgentLabel', "External Agent");
 }
 
 /**

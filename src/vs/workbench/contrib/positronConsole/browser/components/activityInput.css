@@ -48,3 +48,12 @@
 .activity-input.cancelled {
 	color: var(--vscode-positronActionBar-disabledForeground);
 }
+
+.activity-input .attribution-label {
+	position: absolute;
+	top: 0;
+	right: 8px;
+	font-size: 0.85em;
+	color: var(--vscode-descriptionForeground);
+	user-select: none;
+}
