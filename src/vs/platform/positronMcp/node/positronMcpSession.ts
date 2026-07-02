@@ -234,7 +234,8 @@ export class PositronMcpSession extends Disposable {
 		}
 
 		try {
-			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args));
+			const caller = { mcpSessionId: this.id, clientName: this.clientName, clientVersion: this.clientVersion };
+			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args, caller));
 		} catch (error) {
 			// A window that closes mid-call rejects the pending IPC call; surface it
 			// as a recoverable tool error rather than a transport failure.

@@ -14,6 +14,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
+import { IMcpCallerContext } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpCallToolResult, McpContent, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -40,8 +41,8 @@ import {
 	textResult,
 } from './positronMcpFormat.js';
 
-/** A tool handler: receives its arguments, returns an MCP result. */
-type ToolHandler = (args: Record<string, unknown>) => Promise<IMcpCallToolResult>;
+/** A tool handler: receives its arguments and the caller context, returns an MCP result. */
+type ToolHandler = (args: Record<string, unknown>, caller: IMcpCallerContext | undefined) => Promise<IMcpCallToolResult>;
 
 function errorResult(text: string): IMcpCallToolResult {
 	const content: McpContent[] = [{ type: 'text', text }];
@@ -102,15 +103,15 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 			'get-workspace-info': () => this._getWorkspaceInfo(),
 			'get-diagnostics': args => this._getDiagnostics(args),
 			'get-plot': () => this._getPlot(),
-			'execute-code': args => this._executeCode(args),
+			'execute-code': (args, caller) => this._executeCode(args, caller),
 			'open-document': args => this._openDocument(args),
 			'enlarge-plots-pane': () => this._enlargePlotsPane(),
 			'session-start': args => this._startSession(args),
 			'session-interrupt': () => this._interruptSession(),
 			'session-restart': () => this._restartSession(),
 			'notebook-read': args => this._notebookTools.read(args),
-			'notebook-edit': args => this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code)),
-			'notebook-run-cells': args => this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code)),
+			'notebook-edit': (args, caller) => this._notebookTools.edit(args, (lang, code) => this._requireExecutionConsent(lang, code, caller)),
+			'notebook-run-cells': (args, caller) => this._notebookTools.runCells(args, (lang, code) => this._requireExecutionConsent(lang, code, caller)),
 			'notebook-create': args => this._notebookTools.create(args),
 		};
 	}
@@ -123,14 +124,14 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		return this._consent.isAllowAllActive();
 	}
 
-	async callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+	async callTool(name: string, args: Record<string, unknown>, caller?: IMcpCallerContext): Promise<IMcpCallToolResult> {
 		// hasOwn (not a bare index) so inherited Object members can't pose as tools.
 		const handler = Object.hasOwn(this._handlers, name) ? this._handlers[name as PositronMcpToolName] : undefined;
 		if (!handler) {
 			return errorResult(`Tool '${name}' is not implemented in this Positron window.`);
 		}
 		try {
-			return await handler(args);
+			return await handler(args, caller);
 		} catch (error) {
 			return errorResult(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
@@ -373,14 +374,14 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 	// --- Execute code / consent ----------------------------------------------
 
 	/** Ask for code-execution consent; throw a clean error if the user declines. */
-	private async _requireExecutionConsent(languageId: string, code: string): Promise<void> {
-		const consented = await this._consent.requestCodeExecutionConsent(languageId, code);
+	private async _requireExecutionConsent(languageId: string, code: string, caller: IMcpCallerContext | undefined): Promise<void> {
+		const consented = await this._consent.requestCodeExecutionConsent(languageId, code, caller);
 		if (!consented) {
 			throw new Error('Code execution denied by user');
 		}
 	}
 
-	private async _executeCode(args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+	private async _executeCode(args: Record<string, unknown>, caller: IMcpCallerContext | undefined): Promise<IMcpCallToolResult> {
 		const languageId = typeof args.languageId === 'string' ? args.languageId : '';
 		const code = typeof args.code === 'string' ? args.code : '';
 		if (!languageId.trim()) {
@@ -390,7 +391,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 			throw new Error('code is required');
 		}
 
-		await this._requireExecutionConsent(languageId, code);
+		await this._requireExecutionConsent(languageId, code, caller);
 
 		const outcome = await executeCodeWithObserver(
 			this._consoleService, this._runtimeSessionService, languageId, code, this._timeoutMs);

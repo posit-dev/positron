@@ -80,4 +80,55 @@ describe('UserConsentManager', () => {
 		consent.reset();
 		expect(changes).toEqual([true, false]);
 	});
+
+	const claude = { mcpSessionId: 's1', clientName: 'claude-code', clientVersion: '1.0.0' };
+	const codex = { mcpSessionId: 's2', clientName: 'codex-mcp-client', clientVersion: '0.9.0' };
+
+	it('names the agent in the consent prompts', async () => {
+		const { consent, prompt } = consentManager([true, true]);
+		await consent.requestCodeExecutionConsent('python', 'a = 1', claude);
+		expect(prompt).toHaveBeenNthCalledWith(1,
+			'Execute PYTHON Code?', expect.stringContaining('Claude Code wants to run 1 lines'), 'Allow', 'Deny');
+		expect(prompt).toHaveBeenNthCalledWith(2,
+			'Allow All Code Execution?', expect.stringContaining('from Claude Code'), 'Allow All', 'Just Once');
+	});
+
+	it('scopes allow-all to the granting client: one agent cannot ride on another', async () => {
+		// Claude: allow + allow-all; Codex: deny.
+		const { consent, prompt } = consentManager([true, true, false]);
+		await consent.requestCodeExecutionConsent('python', 'a = 1', claude);
+		// Same code from another agent still prompts, and the denial holds.
+		expect(await consent.requestCodeExecutionConsent('python', 'a = 1', codex)).toBe(false);
+		expect(prompt).toHaveBeenCalledTimes(3);
+		// Claude's allow-all still covers new Claude code without a prompt.
+		expect(await consent.requestCodeExecutionConsent('python', 'b = 2', claude)).toBe(true);
+		expect(prompt).toHaveBeenCalledTimes(3);
+	});
+
+	it('scopes cached per-code decisions to the client', async () => {
+		// Claude: allow once (no allow-all); Codex: allow once (no allow-all).
+		const { consent, prompt } = consentManager([true, false, true, false]);
+		await consent.requestCodeExecutionConsent('python', 'a = 1', claude);
+		// Codex running the identical code does not skip the prompt.
+		await consent.requestCodeExecutionConsent('python', 'a = 1', codex);
+		expect(prompt).toHaveBeenCalledTimes(4);
+	});
+
+	it('scopes an anonymous caller by its session id, not a shared bucket', async () => {
+		// Two sessions that never identified themselves (e.g. resumed after a restart).
+		const { consent, prompt } = consentManager([true, true, true, false]);
+		await consent.requestCodeExecutionConsent('python', 'a = 1', { mcpSessionId: 'anon-1' });
+		// The other anonymous session gets neither the cache hit nor the allow-all.
+		await consent.requestCodeExecutionConsent('python', 'a = 1', { mcpSessionId: 'anon-2' });
+		expect(prompt).toHaveBeenCalledTimes(4);
+	});
+
+	it('isAllowAllActive reflects any client, and reset clears every client', async () => {
+		const { consent } = consentManager([true, true, true, true]);
+		await consent.requestCodeExecutionConsent('python', 'a = 1', claude);
+		await consent.requestCodeExecutionConsent('python', 'b = 2', codex);
+		expect(consent.isAllowAllActive()).toBe(true);
+		consent.reset();
+		expect(consent.isAllowAllActive()).toBe(false);
+	});
 });

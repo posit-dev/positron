@@ -5,6 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IMcpCallerContext } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpCallToolResult } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 
 export const IPositronMcpToolService = createDecorator<IPositronMcpToolService>('positronMcpToolService');
@@ -20,8 +21,12 @@ export const IPositronMcpToolService = createDecorator<IPositronMcpToolService>(
 export interface IPositronMcpToolService {
 	readonly _serviceBrand: undefined;
 
-	/** Run a tool by name and return its MCP result. Unknown tools return an error result. */
-	callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult>;
+	/**
+	 * Run a tool by name and return its MCP result. Unknown tools return an error
+	 * result. The caller context, when present, names the agent for consent
+	 * dialogs and per-client consent scoping.
+	 */
+	callTool(name: string, args: Record<string, unknown>, caller?: IMcpCallerContext): Promise<IMcpCallToolResult>;
 
 	/** Clear all cached code-execution consent, so the next agent-run code prompts again. */
 	resetConsent(): void;

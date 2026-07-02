@@ -29,6 +29,34 @@ export const POSITRON_MCP_LOG_ID = 'positronMcp';
  */
 export const PositronMcpToolBrokerChannelName = 'positronMcpToolBroker';
 
+/**
+ * Who is asking: the identity of the MCP session behind a tool call, threaded
+ * from the main-process server through the broker into the renderer so consent
+ * dialogs, attribution, and logs can name the agent instead of a generic "AI".
+ */
+export interface IMcpCallerContext {
+	/** The MCP session id the call arrived on. */
+	readonly mcpSessionId: string;
+	/** Name the client reported at `initialize` (e.g. "claude-code"), if any. */
+	readonly clientName?: string;
+	/** Version the client reported at `initialize`, if any. */
+	readonly clientVersion?: string;
+}
+
+/**
+ * Human-readable name for a client's `clientInfo.name`, for dialog and UI copy
+ * ("Claude Code wants to run..."). Unknown names pass through unchanged.
+ */
+export function mcpClientDisplayName(clientName: string): string {
+	switch (clientName) {
+		case 'claude-code': return 'Claude Code';
+		case 'codex-mcp-client': return 'Codex';
+		case 'gemini-cli-mcp-client': return 'Gemini CLI';
+		case 'cursor-vscode': return 'Cursor';
+		default: return clientName;
+	}
+}
+
 /** One live MCP session, as surfaced in the status UI. */
 export interface IMcpSessionInfo {
 	/** The session id clients echo back in the Mcp-Session-Id header. */

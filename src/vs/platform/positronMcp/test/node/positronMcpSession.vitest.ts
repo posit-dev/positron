@@ -68,12 +68,13 @@ describe('PositronMcpSession', () => {
 		expect(response).toMatchObject({ id: 9, error: { code: -32600 } });
 	});
 
-	it('forwards tools/call to the broker with name and arguments', async () => {
+	it('forwards tools/call to the broker with name, arguments, and caller identity', async () => {
 		const broker = new StubBroker();
 		const session = createSession(broker);
 		await session.handleIncoming(initializeRequest);
 		await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
-		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', { foo: 1 });
+		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', { foo: 1 },
+			{ mcpSessionId: 'test-session', clientName: 'test-client', clientVersion: '1.0.0' });
 	});
 
 	it('returns no response for a notification (202 path)', async () => {

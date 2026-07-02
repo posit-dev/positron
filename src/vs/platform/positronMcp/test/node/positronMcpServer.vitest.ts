@@ -153,7 +153,10 @@ describe('PositronMcpServer HTTP transport', () => {
 			body: { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'get-session' } },
 		});
 		expect(response.status).toBe(200);
-		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', {});
+		// The client stays anonymous until it re-initializes, but its session id
+		// still travels with the call.
+		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', {},
+			{ mcpSessionId: staleId, clientName: undefined, clientVersion: undefined });
 	});
 
 	it('still 404s a malformed session id (an id we could never have issued)', async () => {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IChannel, IPCServer } from '../../../base/parts/ipc/common/ipc.js';
-import { PositronMcpToolBrokerChannelName } from '../common/positronMcp.js';
+import { IMcpCallerContext, PositronMcpToolBrokerChannelName } from '../common/positronMcp.js';
 import { IMcpCallToolResult } from '../common/positronMcpTools.js';
 
 /**
@@ -26,8 +26,12 @@ export interface IPositronMcpToolBroker {
 	/** Whether the given window's renderer is currently connected. */
 	isWindowConnected(windowId: number): boolean;
 
-	/** Invoke a tool in the given window's renderer and return its MCP result. */
-	invokeTool(windowId: number, name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult>;
+	/**
+	 * Invoke a tool in the given window's renderer and return its MCP result. The
+	 * caller context identifies which agent's session is asking, so renderer-side
+	 * consent and attribution can name it.
+	 */
+	invokeTool(windowId: number, name: string, args: Record<string, unknown>, caller: IMcpCallerContext): Promise<IMcpCallToolResult>;
 }
 
 /** The IPC context string a renderer registers under (see ElectronIPCMainProcessService). */
@@ -59,7 +63,7 @@ export class PositronMcpToolBroker implements IPositronMcpToolBroker {
 		return this._ipcServer.connections.some(connection => connection.ctx === ctx);
 	}
 
-	async invokeTool(windowId: number, name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
+	async invokeTool(windowId: number, name: string, args: Record<string, unknown>, caller: IMcpCallerContext): Promise<IMcpCallToolResult> {
 		const ctx = windowContext(windowId);
 		// Guard the wait-forever behavior of getChannel(filter): if no connection
 		// matches, the underlying call would block until one appears. We only call
@@ -70,6 +74,6 @@ export class PositronMcpToolBroker implements IPositronMcpToolBroker {
 			throw new Error(`Target window ${windowId} is no longer connected`);
 		}
 		const channel: IChannel = this._ipcServer.getChannel(PositronMcpToolBrokerChannelName, connection => connection.ctx === ctx);
-		return channel.call<IMcpCallToolResult>('callTool', { name, args });
+		return channel.call<IMcpCallToolResult>('callTool', { name, args, caller });
 	}
 }

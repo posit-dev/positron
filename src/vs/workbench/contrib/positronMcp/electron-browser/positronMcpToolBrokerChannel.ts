@@ -5,6 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { IServerChannel } from '../../../../base/parts/ipc/common/ipc.js';
+import { IMcpCallerContext } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
 
 /**
@@ -22,11 +23,11 @@ export class PositronMcpToolBrokerChannel implements IServerChannel<string> {
 
 	async call<T>(_ctx: string, command: string, arg?: unknown): Promise<T> {
 		if (command === 'callTool') {
-			const { name, args } = (arg ?? {}) as { name?: string; args?: Record<string, unknown> };
+			const { name, args, caller } = (arg ?? {}) as { name?: string; args?: Record<string, unknown>; caller?: IMcpCallerContext };
 			if (!name) {
 				throw new Error('[PositronMcpToolBrokerChannel] callTool requires a tool name');
 			}
-			return this._toolService.callTool(name, args ?? {}) as Promise<T>;
+			return this._toolService.callTool(name, args ?? {}, caller) as Promise<T>;
 		}
 		throw new Error(`[PositronMcpToolBrokerChannel] Call not found: ${command}`);
 	}

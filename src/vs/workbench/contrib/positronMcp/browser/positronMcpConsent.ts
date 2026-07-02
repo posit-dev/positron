@@ -7,6 +7,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { StringSHA1 } from '../../../../base/common/hash.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IMcpCallerContext, mcpClientDisplayName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 /** How long a per-code consent decision is cached before being asked again. */
@@ -19,13 +20,18 @@ const CONSENT_TIMEOUT_MS = 5 * 60 * 1000;
  * choice lives in memory for the life of this window's tool service, which is the
  * core-side equivalent of one MCP session's worth of consent. The prompt renders
  * in this (the pinned) window because the service runs in its renderer.
+ *
+ * All consent is scoped per client: "Allow All" granted to Claude Code does not
+ * cover Codex, and one agent's cached per-code decision never skips another
+ * agent's prompt. The scope key is the client name when the agent identified
+ * itself, else its MCP session id, so anonymous sessions never pool consent.
  */
 export class UserConsentManager extends Disposable {
-	/** Per-(language+code-hash) decisions, each expiring after the timeout. */
+	/** Per-(client+language+code-hash) decisions, each expiring after the timeout. */
 	private readonly _consentCache = new Map<string, boolean>();
 
-	/** Whether the user has allowed all code execution for this session. */
-	private _allowAll = false;
+	/** The client scope keys the user has granted "allow all code execution" to. */
+	private readonly _allowAll = new Set<string>();
 
 	private readonly _onDidChangeAllowAll = this._register(new Emitter<boolean>());
 	/** Fires with the new value when the allow-all decision is granted or reset. */
@@ -39,24 +45,28 @@ export class UserConsentManager extends Disposable {
 	}
 
 	/**
-	 * Request consent to run `code` in `languageId`. Returns true if the user
-	 * allows it (or has allowed all execution this session), false if denied.
+	 * Request consent to run `code` in `languageId` on behalf of `caller`.
+	 * Returns true if the user allows it (or has allowed all execution for that
+	 * client this session), false if denied.
 	 */
-	async requestCodeExecutionConsent(languageId: string, code: string): Promise<boolean> {
-		const cacheKey = `${languageId}:${hashCode(code)}`;
+	async requestCodeExecutionConsent(languageId: string, code: string, caller?: IMcpCallerContext): Promise<boolean> {
+		const clientKey = consentScopeKey(caller);
+		const cacheKey = `${clientKey}:${languageId}:${hashCode(code)}`;
 
 		const cached = this._consentCache.get(cacheKey);
 		if (cached !== undefined) {
 			return cached;
 		}
 
-		if (this._allowAll) {
+		if (this._allowAll.has(clientKey)) {
 			this._cacheConsent(cacheKey, true);
 			return true;
 		}
 
+		const agent = caller?.clientName ? mcpClientDisplayName(caller.clientName) : 'AI';
+
 		// Log the request for transparency.
-		this._logService.info(`[PositronMcp] Code execution request: ${languageId}, ${code.split('\n').length} lines`);
+		this._logService.info(`[PositronMcp] Code execution request from ${agent}: ${languageId}, ${code.split('\n').length} lines`);
 
 		const codeLines = code.split('\n').length;
 		const codePreview = code.length > 100
@@ -66,7 +76,7 @@ export class UserConsentManager extends Disposable {
 		// First ask whether to allow this specific execution.
 		const allowExecution = await this._modalDialogsService.showSimpleModalDialogPrompt(
 			`Execute ${languageId.toUpperCase()} Code?`,
-			`AI wants to run ${codeLines} lines of code. Preview: "${codePreview}" (Full code in MCP logs)`,
+			`${agent} wants to run ${codeLines} lines of code. Preview: "${codePreview}" (Full code in MCP logs)`,
 			'Allow',
 			'Deny',
 		);
@@ -80,30 +90,33 @@ export class UserConsentManager extends Disposable {
 		// longer labels wrap and clip. The "this session" scope is in the message.
 		const allowAllSession = await this._modalDialogsService.showSimpleModalDialogPrompt(
 			'Allow All Code Execution?',
-			'Allow all AI code execution this session? (Reset via command palette)',
+			`Allow all code execution from ${agent} this session? (Reset via command palette)`,
 			'Allow All',
 			'Just Once',
 		);
 
-		if (allowAllSession && !this._allowAll) {
-			this._allowAll = true;
-			this._onDidChangeAllowAll.fire(true);
+		if (allowAllSession && !this._allowAll.has(clientKey)) {
+			const wasActive = this._allowAll.size > 0;
+			this._allowAll.add(clientKey);
+			if (!wasActive) {
+				this._onDidChangeAllowAll.fire(true);
+			}
 		}
 
 		this._cacheConsent(cacheKey, true);
 		return true;
 	}
 
-	/** Whether "allow all code execution this session" is currently in effect. */
+	/** Whether "allow all code execution this session" is in effect for any client. */
 	isAllowAllActive(): boolean {
-		return this._allowAll;
+		return this._allowAll.size > 0;
 	}
 
-	/** Reset all consent state (wired to the positron.mcp.resetConsent command). */
+	/** Reset all consent state, for every client (wired to the positron.mcp.resetConsent command). */
 	reset(): void {
 		this._consentCache.clear();
-		if (this._allowAll) {
-			this._allowAll = false;
+		if (this._allowAll.size > 0) {
+			this._allowAll.clear();
 			this._onDidChangeAllowAll.fire(false);
 		}
 	}
@@ -112,6 +125,16 @@ export class UserConsentManager extends Disposable {
 		this._consentCache.set(cacheKey, value);
 		setTimeout(() => this._consentCache.delete(cacheKey), CONSENT_TIMEOUT_MS);
 	}
+}
+
+/**
+ * The scope a consent decision applies to: the client name when the agent
+ * identified itself (all of one agent's MCP sessions share consent), else the
+ * MCP session id (an anonymous session's consent is its own), else a fixed
+ * bucket for calls with no caller context at all.
+ */
+function consentScopeKey(caller: IMcpCallerContext | undefined): string {
+	return caller?.clientName ?? caller?.mcpSessionId ?? 'unknown';
 }
 
 /** Stable hash of a code string, for the consent cache key. */
