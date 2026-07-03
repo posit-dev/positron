@@ -25,7 +25,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
+import { autorun, autorunDelta, runOnChange } from '../../../../../base/common/observable.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
@@ -102,7 +102,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Create the editor
 	React.useEffect(() => {
-		if (!editorPartRef.current || !cell.scopedContextKeyService) { return; }
+		const node = editorPartRef.current;
+		if (!node || !cell.scopedContextKeyService) { return; }
 
 		const disposables = new DisposableStore();
 
@@ -112,7 +113,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// This ensures cell-level context keys (e.g. positronNotebookCellIsFirst) are visible
 		// to menus evaluated inside the editor. CodeEditorWidget will create its own child scope
 		// from this one for editor-specific keys.
-		const editorContextKeyService = cell.scopedContextKeyService.createScoped(editorPartRef.current);
+		const editorContextKeyService = cell.scopedContextKeyService.createScoped(node);
 		disposables.add(editorContextKeyService);
 
 		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
@@ -146,19 +147,25 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
 		const editorOptions = disposables.add(new PositronCellEditorOptions(instance, language, services.configurationService));
 
+		/** Get or measure the cell editor width. See {@link instance.getCellEditorWidth} for details. */
+		const getCellEditorWidth = () => instance.getCellEditorWidth(() => node.offsetWidth);
+
 		const editor = disposables.add(editorInstaService.createInstance(
 			CodeEditorWidget,
-			editorPartRef.current,
+			node,
 			{
 				...editorOptions.getValue(),
-				// Initially set the editor size to 0x0.
 				dimension: {
-					width: 0,
+					width: getCellEditorWidth(),
+					// Start the editor at 0 height then drive it from the editor's content size
+					// initially after setModel below and thereafter in the onDidContentSizeChange handler.
 					height: 0,
-				}
+				},
+				tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			},
 			{ contributions: getNotebookEditorContributions() }
 		));
+
 		cell.attachEditor(editor);
 
 		// Re-apply options when they change so the open notebook
@@ -166,11 +173,6 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		disposables.add(editorOptions.onDidChange(() => {
 			editor.updateOptions(editorOptions.getValue());
 		}));
-
-		// Request model for cell and pass to editor.
-		cell.getTextEditorModel().then(model => {
-			editor.setModel(model);
-		});
 
 		// Bind the cell editor focused context key to the editor's internal scoped service
 		// (CodeEditorWidget creates this synchronously in its constructor)
@@ -278,24 +280,36 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		 * @param height Height to set. Defaults to checking content height.
 		 */
 		function resizeEditor(height: number = editor.getContentHeight()) {
-			if (!editorPartRef.current) { return; }
+			const node = editorPartRef.current;
+			if (!node) { return; }
 			editor.layout({
 				height,
-				width: editorPartRef.current.offsetWidth,
-			});
+				width: getCellEditorWidth(),
+				// postponeRendering=true synchronously records the new size but coalesces
+				// rendering to the next animation frame. Also prevents alternating between
+				// reading and writing to the DOM, which is expensive and amplified by the
+				// number of editors in a notebook.
+				// Mirrors upstream codeBlockPart.ts and codeCell.ts.
+			}, true);
 		}
 
-		// Resize the editor when its content size changes
+		// Vertically resize the editor when its content height changes.
 		disposables.add(editor.onDidContentSizeChange(e => {
-			if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
+			if (!e.contentHeightChanged) { return; }
 			resizeEditor(e.contentHeight);
 		}));
 
-		// Resize the editor as the window resizes.
-		disposables.add(autorun(reader => {
-			instance.size.read(reader);
+		// Horizontally resize the editor as the editor pane width changes.
+		disposables.add(runOnChange(instance.width, () => resizeEditor()));
+
+		// Request model for cell and pass to editor.
+		cell.getTextEditorModel().then(model => {
+			editor.setModel(model);
+			// Initially resize the editor.
+			// setModel first sets the editor's content height (no onDidContentSizeChange)
+			// then updates the content width (onDidContentSizeChange with contentHeightChanged=false).
 			resizeEditor();
-		}));
+		});
 
 		services.logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 

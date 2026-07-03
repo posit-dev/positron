@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IObservable } from '../../../../base/common/observable.js';
-import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { useObservedValue } from './useObservedValue.js';
 import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 
@@ -17,9 +16,9 @@ import { usePositronConfiguration } from '../../../../base/browser/positronReact
  * Returns undefined when the setting is disabled so CSS controls the default bottom padding.
  */
 export function useScrollBeyondLastLinePadding(
-	size: IObservable<ISize>,
+	heightObs: IObservable<number>,
 ): number | undefined {
-	const { height } = useObservedValue(size);
+	const height = useObservedValue(heightObs);
 	const enabled = usePositronConfiguration('editor.scrollBeyondLastLine');
 	if (!enabled) {
 		return undefined;

@@ -53,7 +53,6 @@ export class PositronCellEditorOptions extends Disposable {
 				verticalScrollbarSize: 8,
 				horizontalScrollbarSize: 8
 			},
-			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 		};
 	}
 }

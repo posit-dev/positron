@@ -13,6 +13,7 @@ import { createTestPositronNotebookInstance, TestPositronNotebookInstance } from
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getSelectedCells, SelectionState } from '../../browser/selectionMachine.js';
+import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 
 describe('PositronNotebookInstance', () => {
 	const ctx = createTestContainer().withNotebookEditorServices().build();
@@ -339,10 +340,10 @@ describe('PositronNotebookInstance', () => {
 			const viewType = 'jupyter-notebook';
 
 			const a = ctx.disposables.add(ctx.instantiationService.createInstance(
-				TestPositronNotebookInstance, uri, viewType, undefined,
+				TestPositronNotebookInstance, uri, viewType, { width: 800, height: 600 }, undefined,
 			));
 			const b = ctx.disposables.add(ctx.instantiationService.createInstance(
-				TestPositronNotebookInstance, uri, viewType, undefined,
+				TestPositronNotebookInstance, uri, viewType, { width: 800, height: 600 }, undefined,
 			));
 
 			expect(a.getId()).not.toBe(b.getId());
@@ -355,6 +356,7 @@ describe('PositronNotebookInstance', () => {
 				TestPositronNotebookInstance,
 				URI.parse(`test:///attach-view.ipynb`),
 				'jupyter-notebook',
+				{ width: 800, height: 600 },
 				undefined,
 			));
 			notebook.instantiationService = ctx.instantiationService;
@@ -404,6 +406,81 @@ describe('PositronNotebookInstance', () => {
 			notebook.attachView(editorContainer, new MockScopableContextKeyService(), notebookContainer, overlayContainer);
 
 			expect(notebook.scopedInstantiationService).not.toBe(isBefore);
+		});
+	});
+
+	describe('layout', () => {
+		/** Single-cell notebook with a given size. */
+		function createNotebook(size: ISize) {
+			return createTestPositronNotebookInstance([['x = 1', 'python', CellKind.Code]], ctx, size);
+		}
+
+		function measureCellEditorWidth(notebook: TestPositronNotebookInstance): number {
+			return notebook.width.get() - 160;  // assumed width for tests
+		}
+
+		it('width and height observables initialize from the constructor size', () => {
+			const size = { width: 800, height: 600 };
+			const notebook = createNotebook(size);
+
+			expect(notebook.width.get()).toBe(size.width);
+			expect(notebook.height.get()).toBe(size.height);
+		});
+
+		it('layout updates both the width and height observables', () => {
+			const notebook = createNotebook({ width: 800, height: 600 });
+
+			const size = { width: 400, height: 300 };
+			notebook.layout(size);
+
+			expect(notebook.width.get()).toBe(size.width);
+			expect(notebook.height.get()).toBe(size.height);
+		});
+
+		it('caches the cell editor width so repeated reads measure only once', () => {
+			const notebook = createNotebook({ width: 800, height: 600 });
+			const expected = measureCellEditorWidth(notebook);
+			const measure = vi.fn().mockReturnValue(expected);
+
+			const measured = notebook.getCellEditorWidth(measure);
+			const remeasured = notebook.getCellEditorWidth(measure);
+
+			expect(measured).toBe(expected);
+			expect(remeasured).toBe(expected);
+			expect(measure.mock.calls.length).toBe(1);
+		});
+
+		it('remeasures the cell editor width after the notebook width changes', () => {
+			const notebook = createNotebook({ width: 800, height: 600 });
+			const measure = vi.fn().mockReturnValue(measureCellEditorWidth(notebook));
+
+			// First call measures.
+			notebook.getCellEditorWidth(measure);
+
+			// A width change invalidates the cache; the next read measures again.
+			notebook.layout({ width: 500, height: 600 });
+			const expected = measureCellEditorWidth(notebook);
+			measure.mockReturnValue(expected);
+			const remeasured = notebook.getCellEditorWidth(measure);
+
+			expect(remeasured).toBe(expected);
+			expect(measure.mock.calls.length).toBe(2);
+		});
+
+		it('keeps the cached cell editor width when only the height changes', () => {
+			const notebook = createNotebook({ width: 800, height: 600 });
+			const expected = measureCellEditorWidth(notebook);
+			const measure = vi.fn().mockReturnValue(expected);
+
+			// First call measures.
+			notebook.getCellEditorWidth(measure);
+
+			// A height-only change must not invalidate the width cache.
+			notebook.layout({ width: 800, height: 300 });
+			const remeasured = notebook.getCellEditorWidth(measure);
+
+			expect(remeasured).toBe(expected);
+			expect(measure.mock.calls.length).toBe(1);
 		});
 	});
 });

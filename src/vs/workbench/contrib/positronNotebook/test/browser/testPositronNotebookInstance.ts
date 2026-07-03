@@ -21,6 +21,7 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { PLAINTEXT_LANGUAGE_ID } from '../../../../../editor/common/languages/modesRegistry.js';
+import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
 
 /**
  * Test subclass of PositronNotebookInstance that exposes disposable registration.
@@ -83,8 +84,9 @@ function cellToDto(cell: TestCellInput): ICellDto2 {
 export function createTestPositronNotebookInstance(
 	cells: TestCellInput[],
 	ctx: { instantiationService: ITestInstantiationService; disposables: Pick<DisposableStore, 'add'> },
+	size: ISize = { width: 800, height: 600 },
 ): TestPositronNotebookInstance {
-	return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables);
+	return instantiateTestNotebookInstance(cells, ctx.instantiationService, ctx.disposables, size);
 }
 
 /**
@@ -117,6 +119,7 @@ export function instantiateTestNotebookInstance(
 	cells: TestCellInput[],
 	instantiationService: ITestInstantiationService,
 	disposables: Pick<DisposableStore, 'add'>,
+	size: ISize = { width: 800, height: 600 }
 ): TestPositronNotebookInstance {
 	// Create the notebook instance with a unique ID and URI so multiple
 	// instances can coexist in the same ModelService without collisions.
@@ -127,6 +130,7 @@ export function instantiateTestNotebookInstance(
 		TestPositronNotebookInstance,
 		uri,
 		viewType,
+		size,
 		undefined, // creationOptions
 	));
 	notebook.instantiationService = instantiationService;

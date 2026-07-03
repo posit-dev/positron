@@ -5,7 +5,7 @@
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { NotebookRenderCache } from './notebookRenderCache.js';
 import { disposeNotebookRenderCacheEntry } from './notebookRenderCacheDispose.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
@@ -62,6 +62,7 @@ class ManagedNotebookInstance extends Disposable {
 
 	constructor(
 		input: PositronNotebookEditorInput,
+		size: ISize,
 		private readonly _onWillDispose: () => void,
 		@IInstantiationService instantiationService: IInstantiationService,
 	) {
@@ -71,6 +72,7 @@ class ManagedNotebookInstance extends Disposable {
 			PositronNotebookInstance,
 			input.resource,
 			input.viewType,
+			size,
 			undefined,
 		));
 
@@ -140,6 +142,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private _notebookInstance: PositronNotebookInstance | undefined;
 
 	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
+
+	/**
+	 * The current size of the editor pane.
+	 */
+	private _size: ISize | undefined;
 
 	/**
 	 * Expose the notebook's scoped context to the editor pane so that `when`
@@ -299,7 +306,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 			return;
 		}
 		DOM.size(this._editorContainer, dimension.width, dimension.height);
-
+		this._size = dimension;
 		this._notebookInstance?.layout(dimension);
 	}
 
@@ -391,9 +398,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<IPositro
 	private _getOrCreateNotebookInstance(input: PositronNotebookEditorInput): PositronNotebookInstance {
 		let managedInstance = this._notebookInstanceByUri.get(input.resource);
 		if (!managedInstance) {
+			if (!this._size) {
+				throw new Error('Editor size is not set. layout() should have been called before setInput().');
+			}
 			managedInstance = this.instantiationService.createInstance(
 				ManagedNotebookInstance,
 				input,
+				this._size,
 				// Clear the notebook instance when it's disposed.
 				() => this._notebookInstanceByUri.delete(input.resource),
 			);

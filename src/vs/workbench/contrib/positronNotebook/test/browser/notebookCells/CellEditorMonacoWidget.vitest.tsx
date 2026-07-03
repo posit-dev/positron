@@ -216,8 +216,13 @@ describe('CellEditorMonacoWidget', () => {
 
 	it('applies the Positron notebook option overrides', async () => {
 		const { cell } = await renderWidget();
+		const scrollbars = cell.currentEditor!.getOption(EditorOption.scrollbar);
 		expect({
 			padding: cell.currentEditor!.getOption(EditorOption.padding),
+			scrollbars: {
+				horizontalScrollbarSize: scrollbars.horizontalScrollbarSize,
+				verticalScrollbarSize: scrollbars.verticalScrollbarSize,
+			},
 			tabIndex: cell.currentEditor!.getRawOptions().tabIndex,
 		}).toMatchInlineSnapshot(`
 			{
@@ -225,17 +230,27 @@ describe('CellEditorMonacoWidget', () => {
 			    "bottom": 16,
 			    "top": 16,
 			  },
+			  "scrollbars": {
+			    "horizontalScrollbarSize": 8,
+			    "verticalScrollbarSize": 8,
+			  },
 			  "tabIndex": -1,
 			}
 		`);
 	});
 
-	it('re-applies the overrides when the cell options change', async () => {
+	it('applies an editor setting change without losing the Positron overrides', async () => {
 		const { cell } = await renderWidget();
-		const updateOptions = vi.spyOn(cell.currentEditor!, 'updateOptions');
+		const editor = cell.currentEditor!;
 
+		// First check that the editor is not already at the
+		// line height we're about to set.
+		expect(editor.getOption(EditorOption.lineHeight)).not.toBe(31);
+
+		// Change `editor.lineHeight` in the user config.
 		await act(async () => {
 			const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+			await configurationService.setUserConfiguration('editor', { lineHeight: 31 });
 			configurationService.onDidChangeConfigurationEmitter.fire(
 				stubInterface<IConfigurationChangeEvent>({
 					affectsConfiguration: (key: string) => key === 'editor',
@@ -243,25 +258,29 @@ describe('CellEditorMonacoWidget', () => {
 			);
 		});
 
-		// The re-applied options must still carry the Positron overrides -- the
-		// whole point of rebuilding them on every change is that the overrides are
-		// never lost on update. Project to just the override fields so unrelated
-		// default editor options don't make this brittle.
-		const reappliedOptions = updateOptions.mock.calls[0]?.[0] ?? {};
+		// Check that the new line height reaches the editor without losing the
+		// Positron notebook overrides.
+		const scrollbars = editor.getOption(EditorOption.scrollbar);
 		expect({
-			padding: reappliedOptions.padding,
-			tabIndex: reappliedOptions.tabIndex,
-			verticalScrollbarSize: reappliedOptions.scrollbar?.verticalScrollbarSize,
-			horizontalScrollbarSize: reappliedOptions.scrollbar?.horizontalScrollbarSize,
+			lineHeight: editor.getOption(EditorOption.lineHeight),
+			padding: editor.getOption(EditorOption.padding),
+			scrollbars: {
+				horizontalScrollbarSize: scrollbars.horizontalScrollbarSize,
+				verticalScrollbarSize: scrollbars.verticalScrollbarSize,
+			},
+			tabIndex: editor.getRawOptions().tabIndex,
 		}).toMatchInlineSnapshot(`
 			{
-			  "horizontalScrollbarSize": 8,
+			  "lineHeight": 31,
 			  "padding": {
 			    "bottom": 16,
 			    "top": 16,
 			  },
+			  "scrollbars": {
+			    "horizontalScrollbarSize": 8,
+			  			  "verticalScrollbarSize": 8,
+			  },
 			  "tabIndex": -1,
-			  "verticalScrollbarSize": 8,
 			}
 		`);
 	});
@@ -269,7 +288,8 @@ describe('CellEditorMonacoWidget', () => {
 	it('disposes and detaches the editor when unmounted', async () => {
 		const { cell, result } = await renderWidget();
 		const editor = cell.currentEditor!;
-		const dispose = vi.spyOn(editor, 'dispose');
+		const dispose = vi.fn();
+		ctx.disposables.add(editor.onDidDispose(dispose));
 
 		result.unmount();
 

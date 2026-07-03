@@ -37,7 +37,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorun, autorunDelta, IObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorun, autorunDelta, IObservable, ISettableObservable, observableFromEvent, observableValue, runOnChange, transaction } from '../../../../base/common/observable.js';
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
@@ -116,10 +116,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
 	/**
-	 * Observable size of the notebook editor container.
+	 * Observable width of the notebook editor container.
 	 */
-	private readonly _size = observableValue<ISize>('positronNotebookSize', { width: 0, height: 0 });
-	public readonly size: IObservable<ISize> = this._size;
+	private readonly _width: ISettableObservable<number>;
+
+	/**
+	 * Observable height of the notebook editor container.
+	 */
+	private readonly _height: ISettableObservable<number>;
+
+	/**
+	 * The cached width of a code cell editor. Invalidated when the notebook width changes
+	 * and remeasured on the next {@link getCellEditorWidth} call.
+	 */
+	private _cellEditorWidth: number | undefined;
 
 	/**
 	 * Whether cell tags are hidden across this notebook. Transient view state (not
@@ -211,6 +221,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._overlayContainer;
 	}
 
+	get width(): IObservable<number> {
+		return this._width;
+	}
+
+	get height(): IObservable<number> {
+		return this._height;
+	}
+
 	getFocusedCell(): IPositronNotebookCell | null {
 		if (!this.currentContainer) {
 			return null;
@@ -259,7 +277,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Notify the notebook instance that its container size has changed.
 	 */
 	layout(size: ISize): void {
-		this._size.set(size, undefined);
+		transaction((tx) => {
+			this._width.set(size.width, tx);
+			this._height.set(size.height, tx);
+		});
 	}
 
 	/**
@@ -465,6 +486,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	constructor(
 		public readonly uri: URI,
 		public readonly viewType: string,
+		size: ISize,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
 		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -484,6 +506,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IMissingPackagesPreflightService private readonly _missingPackagesPreflightService: IMissingPackagesPreflightService,
 	) {
 		super();
+
+		this._width = observableValue('positronNotebookWidth', size.width);
+		this._height = observableValue('positronNotebookHeight', size.height);
+
+		// Invalidate the cached cell editor width when the notebook width changes.
+		this._register(runOnChange(this._width, () => {
+			this._cellEditorWidth = undefined;
+		}));
 
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
@@ -1001,6 +1031,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	getId(): string {
 		return this._id;
+	}
+
+	getCellEditorWidth(measure: () => number): number {
+		if (this._cellEditorWidth === undefined) {
+			this._cellEditorWidth = measure();
+		}
+		return this._cellEditorWidth;
 	}
 
 	/**

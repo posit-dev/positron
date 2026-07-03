@@ -144,7 +144,7 @@ export function PositronNotebookComponent() {
 	}, [notebookInstance]);
 
 	const scrollBeyondLastLinePadding = useScrollBeyondLastLinePadding(
-		notebookInstance.size,
+		notebookInstance.height,
 	);
 
 	return (

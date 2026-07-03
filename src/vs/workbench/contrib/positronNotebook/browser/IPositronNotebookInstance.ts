@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
@@ -147,9 +146,14 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly container: IObservable<HTMLElement | undefined>;
 
 	/**
-	 * Observable size of the notebook editor container.
+	 * Observable width of the notebook editor container.
 	 */
-	readonly size: IObservable<ISize>;
+	readonly width: IObservable<number>;
+
+	/**
+	 * Observable height of the notebook editor container.
+	 */
+	readonly height: IObservable<number>;
 
 	/**
 	 * Instantiation service scoped to this notebook instance.
@@ -162,6 +166,19 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * scoped context keys, allowing contributions to access notebook-specific context.
 	 */
 	readonly overlayContainer: HTMLElement | undefined;
+
+	/**
+	 * Get the cached width of a code cell editor, or measure if there is no cached value.
+	 *
+	 * The cached width is invalidated when the notebook width changes.
+	 *
+	 * Cached since all cell editors share the same width, but the browser doesn't
+	 * know that which may lead to unnecesary reflows if every cell measures.
+	 *
+	 * @param measure A function that measures the width of a code cell editor.
+	 *  Called only if the cached width is not available.
+	 */
+	getCellEditorWidth(measure: () => number): number;
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.
