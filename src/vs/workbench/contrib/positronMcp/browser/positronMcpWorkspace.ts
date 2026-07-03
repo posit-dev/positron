@@ -42,10 +42,10 @@ export function hasPositronServer(parsed: unknown): boolean {
 }
 
 /**
- * Reads and writes the `.mcp.json` config and agent-guidance files in the first
- * workspace folder, and reports the workspace's MCP-config state. The `.mcp.json`
- * merge and guidance-append logic live in the pure functions above; this class
- * is the thin file-system shell around them.
+ * Reads and writes the `.mcp.json` config in the first workspace folder, and
+ * reports the workspace's MCP-config state. The `.mcp.json` merge logic lives
+ * in the pure functions above; this class is the thin file-system shell around
+ * them.
  */
 export class PositronMcpWorkspace {
 	constructor(
@@ -79,27 +79,6 @@ export class PositronMcpWorkspace {
 	}
 
 	/**
-	 * Per-file guidance state: for each agent-instruction file, whether it already
-	 * carries the guidance marker. Lets the status panel render each file as a
-	 * checked row or an inline add action, instead of one all-files-or-nothing
-	 * button. All files report absent when no folder is open.
-	 */
-	async getGuidanceState(): Promise<IGuidanceFileState[]> {
-		const folder = this._firstFolder();
-		return Promise.all(GUIDANCE_FILES.map(async file => {
-			if (!folder) {
-				return { file, present: false };
-			}
-			try {
-				const content = (await this._fileService.readFile(URI.joinPath(folder, file))).value.toString();
-				return { file, present: content.includes(GUIDANCE_MARKER) };
-			} catch {
-				return { file, present: false };
-			}
-		}));
-	}
-
-	/**
 	 * Create or update the first folder's `.mcp.json` so it points at the server,
 	 * preserving any other servers it already lists. Returns the file path on
 	 * success, or undefined when no folder is open.
@@ -114,51 +93,4 @@ export class PositronMcpWorkspace {
 		await this._fileService.writeFile(uri, VSBuffer.fromString(JSON.stringify(merged, null, 2) + '\n'));
 		return uri.fsPath;
 	}
-
-	/**
-	 * Append the MCP usage note to an agent-instruction file (creating it if
-	 * needed), unless the marker is already present. Returns the file URI when it
-	 * was changed (so the caller can open it), or undefined when nothing changed
-	 * or no folder is open.
-	 */
-	async appendGuidance(fileName: GuidanceFile): Promise<URI | undefined> {
-		const folder = this._firstFolder();
-		if (!folder) {
-			return undefined;
-		}
-		const uri = URI.joinPath(folder, fileName);
-		let existing = '';
-		try {
-			existing = (await this._fileService.readFile(uri)).value.toString();
-		} catch {
-			// File does not exist yet -- it will be created.
-		}
-		if (existing.includes(GUIDANCE_MARKER)) {
-			return undefined;
-		}
-		await this._fileService.writeFile(uri, VSBuffer.fromString(existing + appendedGuidanceBlock(existing)));
-		return uri;
-	}
-}
-
-/** The agent-instruction files the guidance command writes and checks. */
-export const GUIDANCE_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
-
-/** One agent-instruction file the guidance command manages. */
-export type GuidanceFile = typeof GUIDANCE_FILES[number];
-
-/** Whether one agent-instruction file already carries the guidance marker. */
-export interface IGuidanceFileState {
-	readonly file: GuidanceFile;
-	readonly present: boolean;
-}
-
-// A marker comment so re-running the guidance command is idempotent.
-const GUIDANCE_MARKER = '<!-- positron-mcp -->';
-const GUIDANCE_TEXT = 'This workspace has a Positron MCP server available. Use its `positron` MCP tools to run code, inspect variables and data, create plots, and edit notebooks in the user\'s live Positron session -- prefer them over your own shell for any data exploration or modeling work. Work step by step, running and checking each step in the session, rather than writing one big script and sourcing it.';
-
-/** The guidance block to append, with a separator matching the file's current trailing whitespace. */
-function appendedGuidanceBlock(existing: string): string {
-	const separator = existing.length === 0 ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
-	return `${separator}${GUIDANCE_MARKER}\n${GUIDANCE_TEXT}\n`;
 }

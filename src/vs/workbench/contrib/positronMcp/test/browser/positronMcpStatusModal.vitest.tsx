@@ -23,10 +23,6 @@ describe('McpStatusContent', () => {
 			running: true,
 			port: 43123,
 			workspaceConfig: 'configured',
-			guidance: [
-				{ file: 'AGENTS.md', present: true },
-				{ file: 'CLAUDE.md', present: true },
-			],
 			sessions: [],
 			recentActivity: [],
 			allowAllConsent: false,
@@ -78,19 +74,13 @@ describe('McpStatusContent', () => {
 				enabled: false,
 				running: false,
 				workspaceConfig: 'not-configured',
-				guidance: [
-					{ file: 'AGENTS.md', present: false },
-					{ file: 'CLAUDE.md', present: false },
-				],
 			}), { onAction });
 
 			expect(screen.getByText('Server disabled')).toBeInTheDocument();
 			expect(screen.getByText('.mcp.json not configured')).toBeInTheDocument();
-			expect(screen.getByText('AGENTS.md has no agent guidance')).toBeInTheDocument();
-			expect(screen.getByText('CLAUDE.md has no agent guidance')).toBeInTheDocument();
-			// One Enable action for the server, one Add per unchecked row.
+			// One Enable action for the server, one Add for the unchecked config row.
 			expect(screen.getByRole('button', { name: 'Enable' })).toBeInTheDocument();
-			expect(screen.getAllByRole('button', { name: 'Add' })).toHaveLength(3);
+			expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
 		});
 
 		it('fires enable when the server row action is pressed', async () => {
@@ -102,20 +92,13 @@ describe('McpStatusContent', () => {
 			expect(onAction).toHaveBeenCalledWith({ id: 'enable' });
 		});
 
-		it('renders done guidance as a check and offers Add only for the missing file', async () => {
+		it('fires addConfig when the .mcp.json row action is pressed', async () => {
 			const user = userEvent.setup();
 			const onAction = vi.fn();
-			renderContent(makeStatus({
-				guidance: [
-					{ file: 'AGENTS.md', present: false },
-					{ file: 'CLAUDE.md', present: true },
-				],
-			}), { onAction });
+			renderContent(makeStatus({ workspaceConfig: 'not-configured' }), { onAction });
 
-			expect(screen.getByText('CLAUDE.md has agent guidance')).toBeInTheDocument();
-			expect(screen.getByText('AGENTS.md has no agent guidance')).toBeInTheDocument();
 			await user.click(screen.getByRole('button', { name: 'Add' }));
-			expect(onAction).toHaveBeenCalledWith({ id: 'addGuidance', file: 'AGENTS.md' });
+			expect(onAction).toHaveBeenCalledWith({ id: 'addConfig' });
 		});
 
 		it('shows the restart hint while the server is enabled but not yet running', () => {

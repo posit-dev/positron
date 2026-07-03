@@ -21,14 +21,13 @@ import { MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
 import { POSITRON_MCP_ACTIVITY_VIEW_ID } from './positronMcpActivityView.js';
 import { IPositronMcpToolService } from './positronMcpToolService.js';
 import { IMcpStatusData, McpPanelAction, showMcpStatusModal } from './positronMcpStatusModal.js';
-import { GUIDANCE_FILES, GuidanceFile, PositronMcpWorkspace } from './positronMcpWorkspace.js';
+import { PositronMcpWorkspace } from './positronMcpWorkspace.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 const COMMAND_ID = {
 	enableServer: 'positron.mcp.enableServer',
 	disableServer: 'positron.mcp.disableServer',
 	addConfigFile: 'positron.mcp.addConfigFile',
-	addAgentGuidance: 'positron.mcp.addAgentGuidance',
 	showStatus: 'positron.mcp.showStatus',
 	showLogs: 'positron.mcp.showLogs',
 	openAuditLog: 'positron.mcp.openAuditLog',
@@ -47,13 +46,11 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
 	const serverStatus = await mcpService.getStatus();
 	const workspaceConfig = await workspace.getConfigState();
-	const guidance = await workspace.getGuidanceState();
 	return {
 		enabled,
 		running: serverStatus.running,
 		port: serverStatus.port,
 		workspaceConfig,
-		guidance,
 		sessions: serverStatus.sessions,
 		recentActivity: serverStatus.recentActivity,
 		allowAllConsent: toolService.isAllowAllConsentActive(),
@@ -76,28 +73,6 @@ async function addConfigFile(accessor: ServicesAccessor): Promise<void> {
 		return;
 	}
 	notificationService.info(localize('positron.mcp.configAdded', "An .mcp.json file in your workspace root now points at the Positron MCP server."));
-}
-
-/** Append MCP guidance to the agent-instruction files the user picks, opening any we changed. */
-async function addAgentGuidance(accessor: ServicesAccessor): Promise<void> {
-	const notificationService = accessor.get(INotificationService);
-	const editorService = accessor.get(IEditorService);
-	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
-
-	if (accessor.get(IWorkspaceContextService).getWorkspace().folders.length === 0) {
-		notificationService.warn(localize('positron.mcp.noWorkspaceGuidance', "Open a folder or workspace first, then add MCP usage guidance."));
-		return;
-	}
-
-	// Update both files agents commonly read; appendGuidance is idempotent.
-	const changed = (await Promise.all(GUIDANCE_FILES.map(file => workspace.appendGuidance(file))))
-		.filter((uri): uri is NonNullable<typeof uri> => uri !== undefined);
-	for (const uri of changed) {
-		await editorService.openEditor({ resource: uri, options: { pinned: true } });
-	}
-	notificationService.info(changed.length > 0
-		? localize('positron.mcp.guidanceAdded', "Added Positron MCP guidance to your agent instruction files.")
-		: localize('positron.mcp.guidancePresent', "Positron MCP guidance is already present in your agent instruction files."));
 }
 
 /** Reveal the Positron MCP server log output channel (the server's activity/audit log). */
@@ -128,26 +103,12 @@ async function openAuditLog(accessor: ServicesAccessor): Promise<void> {
 	await editorService.openEditor({ resource: URI.file(status.auditLogPath) });
 }
 
-/**
- * Append MCP guidance to a single agent-instruction file (for the panel's
- * per-file checklist rows) and open it when changed.
- */
-async function addGuidanceToFile(accessor: ServicesAccessor, file: GuidanceFile): Promise<void> {
-	const editorService = accessor.get(IEditorService);
-	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
-	const uri = await workspace.appendGuidance(file);
-	if (uri) {
-		await editorService.openEditor({ resource: uri, options: { pinned: true } });
-	}
-}
-
 /** Run a status-panel button by delegating to the matching command. */
 async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction): Promise<void> {
 	switch (action.id) {
 		case 'enable': return setEnabled(accessor, true);
 		case 'disable': return setEnabled(accessor, false);
 		case 'addConfig': return addConfigFile(accessor);
-		case 'addGuidance': return addGuidanceToFile(accessor, action.file);
 		case 'showLogs': return showLogs(accessor);
 		case 'openAuditLog': return openAuditLog(accessor);
 		// No notification here: the panel's consent banner disappearing is the feedback.
@@ -176,13 +137,6 @@ export function registerPositronMcpCommands(): void {
 			super({ id: COMMAND_ID.addConfigFile, title: localize2('positron.mcp.addConfigFile', "Add .mcp.json to Workspace"), category: MCP_CATEGORY, f1: true });
 		}
 		run(accessor: ServicesAccessor) { return addConfigFile(accessor); }
-	});
-
-	registerAction2(class extends Action2 {
-		constructor() {
-			super({ id: COMMAND_ID.addAgentGuidance, title: localize2('positron.mcp.addAgentGuidance', "Add Guidance to AGENTS.md or CLAUDE.md"), category: MCP_CATEGORY, f1: true });
-		}
-		run(accessor: ServicesAccessor) { return addAgentGuidance(accessor); }
 	});
 
 	registerAction2(class extends Action2 {

@@ -20,7 +20,7 @@ import { POSITRON_MCP_ACTIVITY_VIEW_ID, PositronMcpActivityViewPane } from './po
 import { registerPositronMcpCommands } from './positronMcpCommands.js';
 import { PositronMcpStatusBarContribution } from './positronMcpStatusBar.js';
 
-// Register the MCP commands (enable/disable, .mcp.json, guidance, status, logs,
+// Register the MCP commands (enable/disable, .mcp.json, status, logs,
 // audit log, consent reset).
 registerPositronMcpCommands();
 

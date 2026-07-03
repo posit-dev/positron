@@ -17,7 +17,7 @@ import { PositronModalReactRenderer } from '../../../../base/browser/positronMod
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IMcpSessionInfo } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpToolCallAuditEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
-import { GuidanceFile, IGuidanceFileState, WorkspaceConfigState, serverUrl } from './positronMcpWorkspace.js';
+import { WorkspaceConfigState, serverUrl } from './positronMcpWorkspace.js';
 
 /** The live status the panel renders. Computed by the command and polled while open. */
 export interface IMcpStatusData {
@@ -29,8 +29,6 @@ export interface IMcpStatusData {
 	readonly port: number;
 	/** Whether the first workspace folder has an `.mcp.json` with a positron entry. */
 	readonly workspaceConfig: WorkspaceConfigState;
-	/** Per-file presence of the MCP guidance block in the agent-instruction files. */
-	readonly guidance: IGuidanceFileState[];
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
 	/** Recent audit events (completed tool calls + lifecycle), oldest first. */
@@ -43,8 +41,7 @@ export interface IMcpStatusData {
 
 /** The actions the panel triggers; the host runs the matching command and reports back. */
 export type McpPanelAction =
-	| { readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'openAuditLog' | 'resetConsent' }
-	| { readonly id: 'addGuidance'; readonly file: GuidanceFile };
+	{ readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'openAuditLog' | 'resetConsent' };
 
 /** The MCP clients the connect card offers setup snippets for. */
 export type McpClientId = 'claude-code' | 'codex' | 'gemini-cli' | 'cursor' | 'vscode';
@@ -296,14 +293,6 @@ const SetupSection = (props: { status: IMcpStatusData; onAction: (action: McpPan
 				key: 'workspace', state: 'todo', label: localize('positron.mcp.status.workspace.notConfigured', ".mcp.json not configured"),
 				action: { label: localize('positron.mcp.status.action.add', "Add"), run: () => onAction({ id: 'addConfig' }) },
 			});
-		for (const { file, present } of status.guidance) {
-			rows.push(present
-				? { key: file, state: 'done', label: localize('positron.mcp.status.guidance.present', "{0} has agent guidance", file) }
-				: {
-					key: file, state: 'todo', label: localize('positron.mcp.status.guidance.missing', "{0} has no agent guidance", file),
-					action: { label: localize('positron.mcp.status.action.add', "Add"), run: () => onAction({ id: 'addGuidance', file }) },
-				});
-		}
 	}
 
 	if (rows.every(row => row.state === 'done')) {
