@@ -20,7 +20,7 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
-import { getProviderSources } from './providerSources';
+import { getEffectiveBaseUrl, getProviderSources } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
@@ -148,20 +148,6 @@ async function registerAnthropicProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('Anthropic');
 
-	// Sync ANTHROPIC_BASE_URL env var to the config setting before
-	// chain resolution so validation uses the correct endpoint.
-	const envBaseUrl = process.env.ANTHROPIC_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration('authentication.anthropic')
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				logger.logOperationError('sync Anthropic base URL', err)
-			);
-	}
-
 	const provider = new AuthProvider(
 		ANTHROPIC_AUTH_PROVIDER_ID, 'Anthropic', context,
 		undefined,
@@ -171,9 +157,7 @@ async function registerAnthropicProvider(
 				if (!apiKey) {
 					throw new Error('ANTHROPIC_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration('authentication.anthropic')
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getEffectiveBaseUrl('anthropic');
 				await validateAnthropicApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -455,18 +439,6 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 async function registerOpenaiProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.OPENAI_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync OpenAI base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		OPENAI_AUTH_PROVIDER_ID, 'OpenAI', context,
 		undefined,
@@ -476,9 +448,7 @@ async function registerOpenaiProvider(
 				if (!apiKey) {
 					throw new Error('OPENAI_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${OPENAI_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getEffectiveBaseUrl(OPENAI_AUTH_PROVIDER_ID);
 				await validateOpenaiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -516,18 +486,6 @@ async function registerOpenaiProvider(
 async function registerGeminiProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.GEMINI_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync Gemini base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		GEMINI_AUTH_PROVIDER_ID, 'Google Gemini', context,
 		undefined,
@@ -540,9 +498,7 @@ async function registerGeminiProvider(
 						'GEMINI_API_KEY or GOOGLE_API_KEY not set'
 					);
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${GEMINI_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getEffectiveBaseUrl(GEMINI_AUTH_PROVIDER_ID);
 				await validateGeminiApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},
@@ -581,17 +537,6 @@ async function registerGoogleVertexProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
 	const logger = new AuthProviderLogger('Google Vertex AI');
-	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration('authentication.googleVertex')
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global,
-			).then(undefined, err =>
-				log.error(`Failed to sync Vertex base URL: ${err}`)
-			);
-	}
 
 	const provider = new AuthProvider(
 		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
@@ -631,18 +576,6 @@ async function registerGoogleVertexProvider(
 async function registerDeepSeekProvider(
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const envBaseUrl = process.env.DEEPSEEK_BASE_URL;
-	if (envBaseUrl) {
-		await vscode.workspace
-			.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-			.update(
-				'baseUrl', envBaseUrl,
-				vscode.ConfigurationTarget.Global
-			).then(undefined, err =>
-				log.error(`Failed to sync DeepSeek base URL: ${err}`)
-			);
-	}
-
 	const provider = new AuthProvider(
 		DEEPSEEK_AUTH_PROVIDER_ID, 'DeepSeek', context,
 		undefined,
@@ -652,9 +585,7 @@ async function registerDeepSeekProvider(
 				if (!apiKey) {
 					throw new Error('DEEPSEEK_API_KEY not set');
 				}
-				const baseUrl = vscode.workspace
-					.getConfiguration(`authentication.${DEEPSEEK_AUTH_PROVIDER_ID}`)
-					.get<string>('baseUrl') || undefined;
+				const baseUrl = getEffectiveBaseUrl(DEEPSEEK_AUTH_PROVIDER_ID);
 				await validateDeepSeekApiKey(apiKey, { baseUrl });
 				return apiKey;
 			},

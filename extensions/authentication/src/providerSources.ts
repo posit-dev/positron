@@ -18,10 +18,35 @@ import {
 } from './constants';
 import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
 
-function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
-	return vscode.workspace
+/**
+ * Config section -> `*_BASE_URL` env var, for providers whose base URL can come
+ * from the environment. A provider missing here has no env-var source.
+ */
+const BASE_URL_ENV_VARS: Record<string, string> = {
+	'anthropic': 'ANTHROPIC_BASE_URL',
+	'openai-api': 'OPENAI_BASE_URL',
+	'google': 'GEMINI_BASE_URL',
+	'googleVertex': 'GOOGLE_VERTEX_BASE_URL',
+	'deepseek-api': 'DEEPSEEK_BASE_URL',
+};
+
+/**
+ * Effective base URL for a provider, with the precedence user setting > env var
+ * > fallback. A value the user set in settings (at any scope) wins; otherwise
+ * the provider's `*_BASE_URL` env var is read live; otherwise the fallback. The
+ * env var is never written to settings, so removing it reverts cleanly to the
+ * user's setting or the fallback (#12894).
+ */
+export function getEffectiveBaseUrl(configSection: string, fallback?: string): string | undefined {
+	const inspected = vscode.workspace
 		.getConfiguration(`authentication.${configSection}`)
-		.get<string>('baseUrl') || fallback;
+		.inspect<string>('baseUrl');
+	const userValue = inspected?.workspaceFolderValue
+		?? inspected?.workspaceValue
+		?? inspected?.globalValue;
+	const envVar = BASE_URL_ENV_VARS[configSection];
+	const envValue = envVar ? process.env[envVar] : undefined;
+	return userValue || envValue || fallback;
 }
 
 export interface ProviderMetadata {
@@ -115,7 +140,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'claude-sonnet-4-latest',
-				baseUrl: getSavedBaseUrl('anthropic', 'https://api.anthropic.com'),
+				baseUrl: getEffectiveBaseUrl('anthropic', 'https://api.anthropic.com'),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
@@ -149,7 +174,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'model-router',
-				baseUrl: getSavedBaseUrl('foundry'),
+				baseUrl: getEffectiveBaseUrl('foundry'),
 				toolCalls: true,
 			},
 		},
@@ -176,7 +201,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'openai',
-				baseUrl: getSavedBaseUrl('openai-api', 'https://api.openai.com/v1'),
+				baseUrl: getEffectiveBaseUrl('openai-api', 'https://api.openai.com/v1'),
 				toolCalls: true,
 			},
 		},
@@ -186,7 +211,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['baseUrl', 'apiKey'],
 			defaults: {
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('google', 'https://generativelanguage.googleapis.com/v1beta'),
+				baseUrl: getEffectiveBaseUrl('google', 'https://generativelanguage.googleapis.com/v1beta'),
 				apiKey: undefined,
 				toolCalls: true,
 			},
@@ -203,7 +228,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 				: ['baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'gemini-2.5-flash',
-				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
+				baseUrl: getEffectiveBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
 				...(vertexFromEnv && {
 					autoconfigure: {
@@ -233,7 +258,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'openai-compatible',
-				baseUrl: getSavedBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
+				baseUrl: getEffectiveBaseUrl('openai-compatible', 'https://localhost:1337/v1'),
 				toolCalls: true,
 			},
 		},
@@ -243,7 +268,7 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 			supportedOptions: ['apiKey', 'baseUrl', 'autoconfigure'],
 			defaults: {
 				model: 'deepseek-chat',
-				baseUrl: getSavedBaseUrl('deepseek-api', 'https://api.deepseek.com'),
+				baseUrl: getEffectiveBaseUrl('deepseek-api', 'https://api.deepseek.com'),
 				toolCalls: true,
 				autoconfigure: {
 					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
