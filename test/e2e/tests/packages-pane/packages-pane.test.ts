@@ -45,7 +45,7 @@ test.describe('Packages Pane', {
 		pythonRuntimes.forEach((runtime) => {
 			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
 				async function ({ app, sessions }) {
-					const { packages, toasts, console, terminal } = app.workbench;
+					const { packages, toasts, console } = app.workbench;
 
 					await sessions.start(runtime);
 
@@ -53,8 +53,20 @@ test.describe('Packages Pane', {
 
 					// install package and verify it shows up in the list
 					await packages.installPackage('cowsay');
-					await packages.searchPackages('cowsay');
 					// --- TEMP DIAGNOSTIC (remove before merge): CI fails here for uv only. ---
+					// Capture the package-manager terminal output NOW, while it is fresh and
+					// still visible (the uv install just ran there; swallowExceptions hides its
+					// exit). Capturing later in the catch misses it (panel no longer active).
+					const page = app.code.driver.currentPage;
+					let terminalText = 'unavailable';
+					try {
+						await page.locator('.xterm-rows').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => { });
+						terminalText = (await page.locator('.xterm-rows').allInnerTexts())
+							.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(-3000);
+					} catch (e) {
+						terminalText = `read_failed:${(e as Error).message?.slice(0, 80)}`;
+					}
+					await packages.searchPackages('cowsay');
 					try {
 						await packages.expectPackageInList('cowsay');
 					} catch (originalError) {
@@ -85,29 +97,9 @@ test.describe('Packages Pane', {
 							importable = `probe_failed:${(e as Error).message?.slice(0, 80)}`;
 						}
 						diag.push(`import=${importable}`);
-						// (3) Capture ALL terminal text (the uv install runs in a terminal;
-						// swallowExceptions hides its exit) folded into the thrown error so it
-						// survives in the JSON results (per-file logs get clobbered by retries).
-						const page = app.code.driver.currentPage;
-						let terminalText = 'unavailable';
-						try {
-							await terminal.logTerminalContents().catch(() => { });
-							terminalText = (await page.locator('.xterm-rows').allInnerTexts())
-								.join('\n').replace(/\n{2,}/g, '\n').trim().slice(-2500);
-						} catch (e) {
-							terminalText = `read_failed:${(e as Error).message?.slice(0, 80)}`;
-						}
-						// (4) Capture any visible notification/toast (an error surfaced by the
-						// install command would land here).
-						let notifText = 'none';
-						try {
-							const toasts = await page.locator('.notification-toast, .notifications-toasts .monaco-list-row').allInnerTexts();
-							notifText = toasts.join(' | ').slice(0, 600) || 'none';
-						} catch { /* best effort */ }
 						throw new Error(
 							`[DIAG runtime=${runtime}] ${diag.join(' ')}\n` +
-							`--- NOTIFICATIONS ---\n${notifText}\n` +
-							`--- TERMINAL (tail) ---\n${terminalText}\n` +
+							`--- TERMINAL (captured right after install) ---\n${terminalText}\n` +
 							`--- ORIGINAL ---\n${(originalError as Error).message}`);
 					}
 					// --- END TEMP DIAGNOSTIC ---
