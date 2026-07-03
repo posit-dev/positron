@@ -79,6 +79,13 @@ export interface IPositronMcpServerStatus {
 	readonly running: boolean;
 	/** The port the server listens on (or would, when started). */
 	readonly port: number;
+	/**
+	 * The per-user bearer token requests must carry. A local secret: the
+	 * renderer needs it to write `.mcp.json` entries and render connect
+	 * snippets, so it travels in the status rather than a separate getter.
+	 * Stable for the process lifetime.
+	 */
+	readonly token: string;
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
 	/**

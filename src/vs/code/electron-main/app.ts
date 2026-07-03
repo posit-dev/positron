@@ -1410,7 +1410,11 @@ export class CodeApplication extends Disposable {
 		// The JSONL audit file sits next to the server's log file in this session's
 		// logs folder, so it is cleaned up with the rest of the session logs.
 		const positronMcpAuditPath = URI.joinPath(this.environmentMainService.logsHome, 'positron-mcp-audit.jsonl').fsPath;
-		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, positronMcpAuditPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
+		// The bearer token lives in the user data dir (not the session logs
+		// folder) because it must survive restarts: `.mcp.json` files reference
+		// it literally.
+		const positronMcpTokenPath = join(this.environmentMainService.userDataPath, 'positron-mcp.token');
+		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, positronMcpAuditPath, positronMcpTokenPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
 		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServer, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---

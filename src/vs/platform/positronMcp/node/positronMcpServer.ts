@@ -15,6 +15,7 @@ import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_POR
 import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
 import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
 import { McpAuditFileWriter } from './positronMcpAuditFile.js';
+import { isAuthorizedBearer, loadOrCreateMcpToken } from './positronMcpToken.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 
@@ -85,15 +86,24 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 
 	private readonly _auditFile: McpAuditFileWriter;
 
+	/**
+	 * The per-user bearer token every request (except OPTIONS and `/health`)
+	 * must present. Loaded once at construction; stable for the process
+	 * lifetime, so consumers may cache it.
+	 */
+	private readonly _token: string;
+
 	constructor(
 		private readonly _broker: IPositronMcpToolBroker,
 		auditFilePath: string,
+		tokenFilePath: string,
 		@ILoggerService loggerService: ILoggerService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
 		super();
 		this._logger = this._register(loggerService.createLogger(POSITRON_MCP_LOG_ID, { name: 'Positron MCP', logLevel: 'always' }));
 		this._auditFile = this._register(new McpAuditFileWriter(auditFilePath, this._logger));
+		this._token = loadOrCreateMcpToken(tokenFilePath, message => this._logger.warn(`[PositronMcpServer] ${message}`));
 		this._logger.info('[PositronMcpServer] Initialized');
 	}
 
@@ -165,6 +175,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		return {
 			running: this._server?.listening ?? false,
 			port: this._port,
+			token: this._token,
 			sessions: [...this._sessions.values()].map(session => session.info),
 			recentActivity: this._recentActivity.snapshot(),
 			auditLogPath: this._auditFile.path,
@@ -207,6 +218,18 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		}
 		if (req.method === 'GET' && req.url === '/health') {
 			this._sendJson(res, 200, { status: 'ok', server: 'positron-mcp-server' });
+			return;
+		}
+		// Everything else requires the bearer token: it is what stops another
+		// local user on a shared machine from reading session data through the
+		// consent-free read-only tools. 401 does send Claude Code down an OAuth
+		// probe that dead-ends here, but only a misconfigured client ever sees
+		// it (a correct config carries the header on every request), and the
+		// status panel detects a stale `.mcp.json` and offers the re-add.
+		if (!isAuthorizedBearer(req.headers.authorization, this._token)) {
+			this._logger.warn('[PositronMcpServer] Rejected request without a valid bearer token');
+			res.writeHead(401, { 'WWW-Authenticate': 'Bearer', 'Content-Type': 'application/json' })
+				.end(JSON.stringify({ error: 'Unauthorized: missing or invalid bearer token. Re-add this client\'s Positron MCP configuration from the MCP status panel in Positron.' }));
 			return;
 		}
 		if (req.method === 'POST') {

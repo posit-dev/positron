@@ -54,11 +54,18 @@ interface ITestResponse {
 	readonly body: string;
 }
 
+/** The token every test request authenticates with (written to the token file before start). */
+const TEST_TOKEN = 'test-token-0123456789abcdef-0123456789abcdef';
+
 /** Minimal HTTP client (fetch is happy-dom's here; node's http talks to the real socket). */
-async function request(port: number, method: string, path: string, options: { sessionId?: string; body?: object } = {}): Promise<ITestResponse> {
+async function request(port: number, method: string, path: string, options: { sessionId?: string; body?: object; authorization?: string | null } = {}): Promise<ITestResponse> {
 	const { request: httpRequest } = await import('http');
 	return new Promise((resolve, reject) => {
 		const headers: http.OutgoingHttpHeaders = { 'Content-Type': 'application/json' };
+		// Authenticated by default; `null` sends no Authorization header at all.
+		if (options.authorization !== null) {
+			headers['Authorization'] = options.authorization ?? `Bearer ${TEST_TOKEN}`;
+		}
 		if (options.sessionId) {
 			headers['Mcp-Session-Id'] = options.sessionId;
 		}
@@ -93,9 +100,12 @@ describe('PositronMcpServer HTTP transport', () => {
 
 	beforeAll(async () => {
 		process.env.POSITRON_MCP_PORT = String(port);
-		auditPath = join(fs.mkdtempSync(join(os.tmpdir(), 'positron-mcp-test-')), 'positron-mcp-audit.jsonl');
+		const dir = fs.mkdtempSync(join(os.tmpdir(), 'positron-mcp-test-'));
+		auditPath = join(dir, 'positron-mcp-audit.jsonl');
+		const tokenPath = join(dir, 'positron-mcp.token');
+		fs.writeFileSync(tokenPath, TEST_TOKEN + '\n');
 		broker = new StubBroker();
-		server = new PositronMcpServer(broker, auditPath, new NullLoggerService(), NullTelemetryService);
+		server = new PositronMcpServer(broker, auditPath, tokenPath, new NullLoggerService(), NullTelemetryService);
 		await server.start();
 	});
 
@@ -115,10 +125,30 @@ describe('PositronMcpServer HTTP transport', () => {
 		return sessionId as string;
 	}
 
-	it('answers the health probe', async () => {
-		const response = await request(port, 'GET', '/health');
+	it('answers the health probe, even unauthenticated (it leaks nothing)', async () => {
+		const response = await request(port, 'GET', '/health', { authorization: null });
 		expect(response.status).toBe(200);
 		expect(JSON.parse(response.body)).toEqual({ status: 'ok', server: 'positron-mcp-server' });
+	});
+
+	it('adopts the persisted token and reports it in the status', async () => {
+		expect((await server.getStatus()).token).toBe(TEST_TOKEN);
+	});
+
+	it('rejects requests without a bearer token with 401', async () => {
+		const sessionsBefore = (await server.getStatus()).sessions.length;
+		const response = await request(port, 'POST', '/', { body: initializeMessage, authorization: null });
+		expect(response.status).toBe(401);
+		expect(response.headers['www-authenticate']).toBe('Bearer');
+		// No session was created for the rejected initialize.
+		expect((await server.getStatus()).sessions.length).toBe(sessionsBefore);
+	});
+
+	it('rejects a wrong bearer token with 401, on POST and DELETE alike', async () => {
+		const post = await request(port, 'POST', '/', { body: initializeMessage, authorization: 'Bearer wrong-token-0123456789abcdef' });
+		expect(post.status).toBe(401);
+		const del = await request(port, 'DELETE', '/', { sessionId: generateUuid(), authorization: 'Bearer wrong-token-0123456789abcdef' });
+		expect(del.status).toBe(401);
 	});
 
 	it('issues a session id on initialize and honors it on later requests', async () => {
