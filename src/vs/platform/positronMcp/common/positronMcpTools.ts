@@ -52,20 +52,23 @@ export const POSITRON_MCP_SERVER_INFO = { name: 'positron-mcp-server', version: 
  * Guidance returned in the `initialize` response `instructions` field. MCP
  * clients (Claude Code, Codex) surface this to the model as server-wide guidance
  * and prioritize the opening, so keep the most important framing first and the
- * whole string well under the ~2KB clients retain. Keep it in sync with
- * {@link POSITRON_MCP_TOOLS}.
+ * whole string well under the ~2KB clients retain.
+ *
+ * Channel budgeting: this field holds only the framing that must land before
+ * the model picks a tool -- prefer the live session over its own shell, work
+ * incrementally, never touch .ipynb files directly. Per-tool mechanics live in
+ * the tool descriptions in {@link POSITRON_MCP_TOOLS}, which clients re-send
+ * with every request and never compact.
  */
 export const SERVER_INSTRUCTIONS = `These tools connect to a live Positron IDE session (Python and/or R) the user is working in. Do all data work -- finding, loading, cleaning, analyzing, plotting, and modeling data -- inside Positron with these tools, not your own shell or file editor. Running Python or R yourself hides the work from the user and loses the session's shared state.
 
-Running code: execute-code runs in the user's console session; variables and imports persist across calls and are shared with the user. Work incrementally -- load libraries, then load data, inspect it, then transform it -- running and checking each step before the next, instead of writing one big script and running it in one shot; this shows your work and catches errors early. To run a saved script, send its code to the session (open it with open-document so it stays visible), not source() or Rscript, which hide what ran. The console session is a different runtime from a notebook's kernel, so do NOT run notebook cells with execute-code -- use the notebook tools below. Use get-session for the active language and get-variables to see what is defined; session-start if none is active.
+Running code: execute-code runs in the user's console session; variables and imports persist across calls and are shared with the user. Work incrementally -- load libraries, then load data, inspect it, then transform it -- running and checking each step before the next, instead of writing one big script and running it in one shot. The console is a separate runtime from a notebook's kernel, so never run notebook cells with execute-code.
 
-Plots: after plotting with execute-code, call get-plot to see the image from the Plots pane. A plot from a notebook cell renders inline as a cell output (not in the Plots pane) and is returned directly by notebook-run-cells / notebook-edit(run) -- get-plot will not show it.
+Notebooks: work on the user's notebook with the notebook-* tools (read, edit, run cells, create) -- never read or hand-edit the .ipynb file with your own tools, which corrupts notebook state and misses the live outputs.
 
-Notebooks: use notebook-read, notebook-edit, notebook-run-cells, and notebook-create; run cells with notebook-run-cells or notebook-edit(run:true), never execute-code. A notebook can be open while the console or another view has focus, and get-active-document does not report notebooks; these tools act on the open notebook regardless of focus, so call notebook-read directly rather than reopening it or assuming none is open. Never read or hand-edit the .ipynb file or parse its JSON -- that corrupts notebook state. Cells are 0-indexed and indices shift after an insert or delete, so re-read before further edits.
+Data: before writing code against data, look first -- get-session for the active language, get-variables and inspect-variable for what is defined, profile-data for summary statistics, get-packages for installed packages -- instead of guessing column names or running mutating inspection code.
 
-Files: after writing a script or file to disk, call open-document to show it to the user.
-
-Data: list variables with get-variables, then inspect-variable for a specific dataframe's columns and types, before writing code against it -- do not guess column names. Use profile-data for a dataframe's per-column summary statistics (min, max, mean, unique counts) the way the Data Explorer computes them, instead of running df.describe() / summary(). Use get-packages to see which packages are installed instead of running pip list / installed.packages(). Use get-diagnostics for a file's errors/warnings, and session-interrupt / session-restart if the session hangs.`;
+Plots: after plotting with execute-code, call get-plot to see the image. After writing a file to disk, call open-document to show it to the user.`;
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
 
@@ -123,7 +126,7 @@ export const POSITRON_MCP_TOOLS = [
 	},
 	{
 		name: 'execute-code',
-		description: 'Execute code in the user\'s active console session. Runs in the live, shared console runtime, so variables and imports persist across calls. This is separate from a notebook\'s kernel -- do not use it to run notebook cells; use notebook-run-cells or notebook-edit(run) for those. Call get-session first to confirm the active language.',
+		description: 'Execute code in the user\'s active console session. Runs in the live, shared console runtime, so variables and imports persist across calls. This is separate from a notebook\'s kernel -- do not use it to run notebook cells; use notebook-run-cells or notebook-edit(run) for those. Call get-session first to confirm the active language; use session-start if no session is active. To run a saved script, send its code here (and open it with open-document so it stays visible to the user), not source() / Rscript / python file.py, which hide what ran.',
 		inputSchema: {
 			type: 'object',
 			properties: {
