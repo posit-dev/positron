@@ -73,10 +73,12 @@ Plots: after plotting with execute-code, call get-plot to see the image. After w
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
 
 /**
- * The full set of MCP tools Positron advertises. Ported verbatim from the
+ * The window-routed MCP tools Positron advertises. Ported verbatim from the
  * positron-mcp extension's `buildTools()` (metadata only). The renderer binds a
  * handler to each `name`; {@link PositronMcpToolName} ties the two at compile
  * time, so a descriptor without a handler (or vice versa) is a type error.
+ * Tools the main process serves itself (get-guidance, in positronMcpGuides.ts)
+ * live outside this list and are appended by the session at tools/list time.
  */
 export const POSITRON_MCP_TOOLS = [
 	{

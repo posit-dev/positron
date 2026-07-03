@@ -17,6 +17,7 @@ import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger } from '../../log/common/log.js';
 import { IMcpSessionInfo } from '../common/positronMcp.js';
 import { IPositronMcpAuditLog, summarizeArgs, summarizeResult } from '../common/positronMcpAudit.js';
+import { GET_GUIDANCE_TOOL, getGuidance } from '../common/positronMcpGuides.js';
 import {
 	IMcpCallToolResult,
 	McpContent,
@@ -162,7 +163,9 @@ export class PositronMcpSession extends Disposable {
 			case 'tools/list':
 				// The descriptor type is exactly the wire shape, so the list is
 				// returned as-is (JSON.stringify drops an absent `annotations`).
-				return { tools: POSITRON_MCP_TOOLS };
+				// get-guidance is appended here because it is served by the main
+				// process, not the renderer handler table behind POSITRON_MCP_TOOLS.
+				return { tools: [...POSITRON_MCP_TOOLS, GET_GUIDANCE_TOOL] };
 			case 'tools/call': {
 				const params = (request.params ?? {}) as { name?: string; arguments?: Record<string, unknown> };
 				if (!params.name) {
@@ -215,6 +218,13 @@ export class PositronMcpSession extends Disposable {
 			});
 			return result;
 		};
+
+		// get-guidance is static content served entirely by the main process:
+		// answer it before resolving a window, so it works with every window
+		// closed. It still flows through the audit choke point above and below.
+		if (name === GET_GUIDANCE_TOOL.name) {
+			return complete(getGuidance(args));
+		}
 
 		// Re-resolve if the pinned window is gone (or was never set).
 		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {

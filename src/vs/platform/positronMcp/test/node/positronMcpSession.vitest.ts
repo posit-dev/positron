@@ -8,6 +8,7 @@
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
 import { IMcpToolCallAuditEvent, IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
+import { GET_GUIDANCE_TOOL } from '../../common/positronMcpGuides.js';
 import { IMcpCallToolResult, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
 import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -54,12 +55,12 @@ describe('PositronMcpSession', () => {
 		});
 	});
 
-	it('lists every tool after initialize', async () => {
+	it('lists every tool after initialize, including the server-served get-guidance', async () => {
 		const session = createSession();
 		await session.handleIncoming(initializeRequest);
 		const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
 		const result = (response as { result: { tools: { name: string }[] } }).result;
-		expect(result.tools.map(t => t.name)).toEqual(POSITRON_MCP_TOOLS.map(t => t.name));
+		expect(result.tools.map(t => t.name)).toEqual([...POSITRON_MCP_TOOLS.map(t => t.name), GET_GUIDANCE_TOOL.name]);
 	});
 
 	it('rejects requests before initialize', async () => {
@@ -75,6 +76,23 @@ describe('PositronMcpSession', () => {
 		await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
 		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', { foo: 1 },
 			{ mcpSessionId: 'test-session', clientName: 'test-client', clientVersion: '1.0.0' });
+	});
+
+	it('serves get-guidance from the main process, with no window and no broker call', async () => {
+		const broker = new StubBroker();
+		broker.resolveTargetWindow = () => undefined;
+		broker.isWindowConnected = () => false;
+		const audit = new RecordingAuditLog();
+		const session = createSession(broker, audit);
+		await session.handleIncoming(initializeRequest);
+
+		const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-guidance', arguments: { topic: 'data-analysis-r' } } });
+		const result = (response as { result: IMcpCallToolResult }).result;
+		expect(result.isError).toBeUndefined();
+		expect(result.content[0]).toMatchObject({ type: 'text', text: expect.stringContaining('# Data analysis in R') });
+		expect(broker.invokeTool).not.toHaveBeenCalled();
+		// The call still flows through the audit choke point.
+		expect(audit.events.filter(e => e.type === 'tool-call')).toEqual([expect.objectContaining({ toolName: 'get-guidance', outcome: 'ok' })]);
 	});
 
 	it('returns no response for a notification (202 path)', async () => {
