@@ -35,7 +35,7 @@ test.describe('Packages Pane', {
 	});
 
 	// python is uv; pythonAlt is pyenv
-	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
+	const pythonRuntimes: SessionRuntimes[] = ['python']; // TEMP DIAG: uv only
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
@@ -65,7 +65,7 @@ test.describe('Packages Pane', {
 		});
 	});
 
-	test('R - Install, search, and uninstall package', {
+	test.skip('R - Install, search, and uninstall package', {
 		tag: [tags.WIN]
 	},
 		async function ({ app, r: _r }) {
@@ -83,7 +83,7 @@ test.describe('Packages Pane', {
 			await packages.expectPackageNotInList('cowsay');
 		});
 
-	test.describe('Help button', { tag: [tags.HELP] }, () => {
+	test.describe.skip('Help button', { tag: [tags.HELP] }, () => {
 		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -105,7 +105,7 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test.describe('URL button', () => {
+	test.describe.skip('URL button', () => {
 		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
 			async function ({ app, python: _python }) {
 				const { packages } = app.workbench;

@@ -230,12 +230,20 @@ export class QuickInput {
 			}
 			if (!preferred) {
 				const [languageCount, matchCount] = await Promise.all([languageRows.count(), matches.count()]);
+				// TEMP DIAG: log all match labels to understand the selection race.
+				const labels: string[] = [];
+				for (let i = 0; i < matchCount; i++) {
+					labels.push((await matches.nth(i).getAttribute('aria-label')) ?? '');
+				}
+				this.code.logger.log(`[SEL-DIAG] text="${text}" matchCount=${matchCount} languageCount=${languageCount} labels=${JSON.stringify(labels)}`);
 				if (languageCount > matchCount) {
 					throw new Error(
 						`Only deprioritized matches for "${text}" (${matchCount} of ${languageCount} ` +
 						`${languagePrefix} interpreters); the intended interpreter is likely still ` +
 						`resolving. Retrying to let discovery complete.`);
 				}
+			} else {
+				this.code.logger.log(`[SEL-DIAG] text="${text}" selected non-deprioritized: ${(await preferred.getAttribute('aria-label')) ?? ''}`);
 			}
 			target = preferred ?? matches.first();
 		}
