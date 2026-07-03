@@ -18,6 +18,7 @@ import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
 import { PositronDataExplorerCodeActionContribution } from './positronDataExplorerCodeActionProvider.js';
+import { PositronDataExplorerClickToViewContribution } from './positronDataExplorerClickToViewProvider.js';
 import { PositronDataExplorerSheetSelector } from './positronDataExplorerSheetSelector.js';
 import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_XLSX } from './positronDataExplorerContextKeys.js';
 import { extname } from '../../../../base/common/resources.js';
@@ -153,6 +154,15 @@ registerPositronDataExplorerActions();
 registerWorkbenchContribution2(
 	PositronDataExplorerCodeActionContribution.ID,
 	PositronDataExplorerCodeActionContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// Register the "Cmd/Ctrl+Click to open a data frame in the Data Explorer"
+// gesture. Gated on the RStudio keymap; takes precedence over go-to-definition
+// only for that cohort.
+registerWorkbenchContribution2(
+	PositronDataExplorerClickToViewContribution.ID,
+	PositronDataExplorerClickToViewContribution,
 	WorkbenchPhase.AfterRestored
 );
 
