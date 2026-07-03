@@ -172,9 +172,22 @@ export class QuickInput {
 		}
 	}
 
+	/**
+	 * Count quick-pick result rows whose aria-label contains `text`. Used to tell
+	 * an ambiguous multi-interpreter picker (where a non-deprioritized environment
+	 * should be preferred) from a single-interpreter one (where the only match --
+	 * possibly a deprioritized base install -- must be accepted).
+	 */
+	async countResultsContaining(text: string): Promise<number> {
+		return this.code.driver.currentPage
+			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
+			.count();
+	}
+
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
+		{ timeout, force = true, deprioritize, requirePreferred = false }:
+			{ timeout?: number; force?: boolean; deprioritize?: string[]; requirePreferred?: boolean } = {},
 	): Promise<string> {
 		const matches = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
@@ -191,26 +204,21 @@ export class QuickInput {
 		// already matchable. Selecting it then reads as success, so the caller's
 		// retry never re-fires and the wrong interpreter is used.
 		//
-		// To avoid that: poll briefly for a non-deprioritized match. If none
-		// appears but other interpreter rows for this language are still present
-		// (more language rows than version matches -- i.e. the intended one is
-		// likely still resolving), throw so the caller's retry (which re-runs
-		// discovery / refreshInterpreters) can re-fire. Only fall back to a
-		// deprioritized match when this is the sole interpreter for the language
-		// (e.g. a platform where just the base interpreter is installed), so
-		// single-interpreter setups still work without a long wait.
+		// So: poll briefly for a non-deprioritized match. If `requirePreferred` is
+		// set (the caller knows more than one interpreter exists, so a
+		// non-deprioritized one should appear) and none does, throw -- letting the
+		// caller's retry re-run discovery / refreshInterpreters until the intended
+		// environment resolves. Otherwise fall back to the first match, so
+		// single-interpreter setups (where the only interpreter is a deprioritized
+		// base install) still work without a long wait.
 		//
 		// Skip all of this when `text` already names a deprioritized source (e.g.
 		// "Python 3.12.10 (Pyenv)"): the caller asked for that interpreter
-		// explicitly, so there is no ambiguity to resolve -- select the match
-		// directly rather than treating it as a row to avoid.
+		// explicitly, so there is no ambiguity to resolve.
 		let target = matches.first();
 		const textSpecifiesSource = deprioritize?.some(source => text.includes(source)) ?? false;
 		if (deprioritize?.length && !textSpecifiesSource) {
 			await expect(target).toBeVisible({ timeout });
-			const languagePrefix = text.split(' ')[0];
-			const languageRows = this.code.driver.currentPage
-				.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${languagePrefix} "]`);
 			const findPreferred = async (): Promise<Locator | undefined> => {
 				const count = await matches.count();
 				for (let i = 0; i < count; i++) {
@@ -222,28 +230,16 @@ export class QuickInput {
 				}
 				return undefined;
 			};
-			const deadline = Date.now() + Math.max(timeout ?? 0, 5_000);
+			const deadline = Date.now() + Math.max(timeout ?? 0, 8_000);
 			let preferred = await findPreferred();
 			while (!preferred && Date.now() < deadline) {
 				await this.code.driver.currentPage.waitForTimeout(250);
 				preferred = await findPreferred();
 			}
-			if (!preferred) {
-				const [languageCount, matchCount] = await Promise.all([languageRows.count(), matches.count()]);
-				// TEMP DIAG: log all match labels to understand the selection race.
-				const labels: string[] = [];
-				for (let i = 0; i < matchCount; i++) {
-					labels.push((await matches.nth(i).getAttribute('aria-label')) ?? '');
-				}
-				this.code.logger.log(`[SEL-DIAG] text="${text}" matchCount=${matchCount} languageCount=${languageCount} labels=${JSON.stringify(labels)}`);
-				if (languageCount > matchCount) {
-					throw new Error(
-						`Only deprioritized matches for "${text}" (${matchCount} of ${languageCount} ` +
-						`${languagePrefix} interpreters); the intended interpreter is likely still ` +
-						`resolving. Retrying to let discovery complete.`);
-				}
-			} else {
-				this.code.logger.log(`[SEL-DIAG] text="${text}" selected non-deprioritized: ${(await preferred.getAttribute('aria-label')) ?? ''}`);
+			if (!preferred && requirePreferred) {
+				throw new Error(
+					`No non-deprioritized match for "${text}" yet; the intended interpreter ` +
+					`is likely still resolving. Retrying to let discovery complete.`);
 			}
 			target = preferred ?? matches.first();
 		}

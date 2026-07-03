@@ -487,6 +487,15 @@ export class Sessions {
 					input += ` ${options.disambiguator}`;
 				}
 
+				// Before filtering, note whether more than one interpreter for this
+				// language is listed. When several exist, a non-deprioritized one
+				// (e.g. a project venv) should be present, so selection should insist
+				// on it rather than fall back to a deprioritized source (e.g. a
+				// uv-managed standalone) that discovery happened to resolve first.
+				// When only one exists, accept it even if its source is deprioritized.
+				const multipleInterpreters = language === 'Python'
+					&& (await this.quickinput.countResultsContaining(`${language} `)) > 1;
+
 				await this.quickinput.type(input);
 
 				// Wait until the desired runtime appears in the list and select it.
@@ -496,6 +505,7 @@ export class Sessions {
 					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
 						timeout: 2000,
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+						requirePreferred: multipleInterpreters,
 					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
