@@ -22,6 +22,7 @@ describe('McpStatusContent', () => {
 			enabled: true,
 			running: true,
 			port: 43123,
+			token: 'test-token',
 			workspaceConfig: 'configured',
 			sessions: [],
 			recentActivity: [],
@@ -112,6 +113,18 @@ describe('McpStatusContent', () => {
 			expect(screen.getByText('Setup complete')).toBeInTheDocument();
 			expect(screen.queryByText('Setup')).not.toBeInTheDocument();
 			expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+		});
+
+		it('flags a stale .mcp.json and fires addConfig from its Update action', async () => {
+			const user = userEvent.setup();
+			const onAction = vi.fn();
+			renderContent(makeStatus({ workspaceConfig: 'stale' }), { onAction });
+
+			// Stale is not "configured": the setup list stays expanded with a warning row.
+			expect(screen.getByText('.mcp.json is missing the current access token')).toBeInTheDocument();
+			expect(screen.queryByText('Setup complete')).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Update' }));
+			expect(onAction).toHaveBeenCalledWith({ id: 'addConfig' });
 		});
 	});
 
@@ -221,9 +234,10 @@ describe('McpStatusContent', () => {
 			const onCopy = vi.fn().mockResolvedValue(undefined);
 			renderContent(makeStatus(), { onCopy });
 
-			expect(screen.getByText('claude mcp add --transport http positron http://localhost:43123')).toBeInTheDocument();
+			const oneLiner = 'claude mcp add --transport http positron http://localhost:43123 --header "Authorization: Bearer test-token"';
+			expect(screen.getByText(oneLiner)).toBeInTheDocument();
 			await user.click(screen.getByRole('button', { name: 'Copy' }));
-			expect(onCopy).toHaveBeenCalledWith('claude mcp add --transport http positron http://localhost:43123');
+			expect(onCopy).toHaveBeenCalledWith(oneLiner);
 			expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
 		});
 
@@ -239,32 +253,40 @@ describe('McpStatusContent', () => {
 });
 
 describe('connectSnippet', () => {
-	it('renders each client configuration against the server url', () => {
-		expect(connectSnippet('claude-code', 43123)).toMatchInlineSnapshot(
-			`"claude mcp add --transport http positron http://localhost:43123"`);
-		expect(connectSnippet('codex', 43123)).toMatchInlineSnapshot(`
+	it('renders each client configuration against the server url and token', () => {
+		expect(connectSnippet('claude-code', 43123, 'tok')).toMatchInlineSnapshot(
+			`"claude mcp add --transport http positron http://localhost:43123 --header "Authorization: Bearer tok""`);
+		expect(connectSnippet('codex', 43123, 'tok')).toMatchInlineSnapshot(`
 			"[mcp_servers.positron]
-			url = "http://localhost:43123""
+			url = "http://localhost:43123"
+			http_headers = { Authorization = "Bearer tok" }"
 		`);
-		expect(connectSnippet('gemini-cli', 43123)).toMatchInlineSnapshot(
-			`"gemini mcp add --transport http positron http://localhost:43123"`);
-		expect(connectSnippet('cursor', 43123)).toMatchInlineSnapshot(`
+		expect(connectSnippet('gemini-cli', 43123, 'tok')).toMatchInlineSnapshot(
+			`"gemini mcp add --transport http positron http://localhost:43123 --header "Authorization: Bearer tok""`);
+		expect(connectSnippet('cursor', 43123, 'tok')).toMatchInlineSnapshot(`
 			"{
 			  "mcpServers": {
-			    "positron": { "url": "http://localhost:43123" }
+			    "positron": {
+			      "url": "http://localhost:43123",
+			      "headers": { "Authorization": "Bearer tok" }
+			    }
 			  }
 			}"
 		`);
-		expect(connectSnippet('vscode', 43123)).toMatchInlineSnapshot(`
+		expect(connectSnippet('vscode', 43123, 'tok')).toMatchInlineSnapshot(`
 			"{
 			  "servers": {
-			    "positron": { "type": "http", "url": "http://localhost:43123" }
+			    "positron": {
+			      "type": "http",
+			      "url": "http://localhost:43123",
+			      "headers": { "Authorization": "Bearer tok" }
+			    }
 			  }
 			}"
 		`);
 	});
 
 	it('respects a non-default port', () => {
-		expect(connectSnippet('claude-code', 50000)).toContain('http://localhost:50000');
+		expect(connectSnippet('claude-code', 50000, 'tok')).toContain('http://localhost:50000');
 	});
 });

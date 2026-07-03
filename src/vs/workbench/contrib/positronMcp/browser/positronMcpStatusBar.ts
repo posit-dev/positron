@@ -55,7 +55,7 @@ export function computeMcpStatusEntry(state: IMcpStatusBarState): Pick<IStatusba
 		return undefined;
 	}
 
-	const needsAttention = state.configState === 'not-configured';
+	const needsAttention = state.configState === 'not-configured' || state.configState === 'stale';
 	const kind = state.allowAll || needsAttention ? 'warning' : 'standard';
 
 	if (state.inFlightCount > 0) {
@@ -78,7 +78,9 @@ export function computeMcpStatusEntry(state: IMcpStatusBarState): Pick<IStatusba
 	if (needsAttention) {
 		return {
 			text: '$(warning) MCP',
-			tooltip: localize('positron.mcp.statusbar.tooltip.attention', "MCP server enabled, but this workspace has no .mcp.json. Click for details."),
+			tooltip: state.configState === 'stale'
+				? localize('positron.mcp.statusbar.tooltip.stale', "MCP server enabled, but this workspace's .mcp.json is missing the current access token. Click for details.")
+				: localize('positron.mcp.statusbar.tooltip.attention', "MCP server enabled, but this workspace has no .mcp.json. Click for details."),
 			kind,
 		};
 	}
@@ -124,7 +126,7 @@ export class PositronMcpStatusBarContribution extends Disposable implements IWor
 		@IPositronMcpToolService toolService: IPositronMcpToolService,
 	) {
 		super();
-		this._workspace = new PositronMcpWorkspace(this._fileService, this._workspaceContextService);
+		this._workspace = new PositronMcpWorkspace(this._fileService, this._workspaceContextService, mcpService);
 		this._allowAll = toolService.isAllowAllConsentActive();
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {

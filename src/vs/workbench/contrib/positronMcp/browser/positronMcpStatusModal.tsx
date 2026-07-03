@@ -17,7 +17,7 @@ import { PositronModalReactRenderer } from '../../../../base/browser/positronMod
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IMcpSessionInfo } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpToolCallAuditEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
-import { WorkspaceConfigState, serverUrl } from './positronMcpWorkspace.js';
+import { WorkspaceConfigState, bearerHeader, serverUrl } from './positronMcpWorkspace.js';
 
 /** The live status the panel renders. Computed by the command and polled while open. */
 export interface IMcpStatusData {
@@ -27,7 +27,9 @@ export interface IMcpStatusData {
 	readonly running: boolean;
 	/** The port the server listens on (or would, when started). */
 	readonly port: number;
-	/** Whether the first workspace folder has an `.mcp.json` with a positron entry. */
+	/** The bearer token clients must send, embedded in configs and snippets. */
+	readonly token: string;
+	/** The state of the first workspace folder's `.mcp.json` positron entry. */
 	readonly workspaceConfig: WorkspaceConfigState;
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
@@ -58,21 +60,23 @@ export const MCP_CLIENTS: { readonly id: McpClientId; readonly label: string }[]
 /**
  * The copyable setup snippet for a client: a one-liner for CLIs with an `mcp add`
  * command, or the config stanza for file-configured clients. Syntaxes follow each
- * client's documented HTTP-transport configuration.
+ * client's documented HTTP-transport configuration, including how each one
+ * attaches the required Authorization header.
  */
-export function connectSnippet(client: McpClientId, port: number): string {
+export function connectSnippet(client: McpClientId, port: number, token: string): string {
 	const url = serverUrl(port);
+	const auth = bearerHeader(token);
 	switch (client) {
 		case 'claude-code':
-			return `claude mcp add --transport http positron ${url}`;
+			return `claude mcp add --transport http positron ${url} --header "Authorization: ${auth}"`;
 		case 'codex':
-			return `[mcp_servers.positron]\nurl = "${url}"`;
+			return `[mcp_servers.positron]\nurl = "${url}"\nhttp_headers = { Authorization = "${auth}" }`;
 		case 'gemini-cli':
-			return `gemini mcp add --transport http positron ${url}`;
+			return `gemini mcp add --transport http positron ${url} --header "Authorization: ${auth}"`;
 		case 'cursor':
-			return `{\n  "mcpServers": {\n    "positron": { "url": "${url}" }\n  }\n}`;
+			return `{\n  "mcpServers": {\n    "positron": {\n      "url": "${url}",\n      "headers": { "Authorization": "${auth}" }\n    }\n  }\n}`;
 		case 'vscode':
-			return `{\n  "servers": {\n    "positron": { "type": "http", "url": "${url}" }\n  }\n}`;
+			return `{\n  "servers": {\n    "positron": {\n      "type": "http",\n      "url": "${url}",\n      "headers": { "Authorization": "${auth}" }\n    }\n  }\n}`;
 	}
 }
 
@@ -238,7 +242,7 @@ export const McpStatusContent = (props: McpStatusContentProps) => {
 				<p className='status-error'>{localize('positron.mcp.status.error', "Could not read server status: {0}", error)}</p>}
 
 			{status && (status.running || status.enabled) &&
-				<ConnectCard port={status.port} workspaceConfig={status.workspaceConfig} onCopy={props.onCopy} />}
+				<ConnectCard port={status.port} token={status.token} workspaceConfig={status.workspaceConfig} onCopy={props.onCopy} />}
 
 			<div className='status-actions'>
 				{status?.enabled &&
@@ -286,13 +290,20 @@ const SetupSection = (props: { status: IMcpStatusData; onAction: (action: McpPan
 
 	if (status.workspaceConfig === 'no-workspace') {
 		rows.push({ key: 'workspace', state: 'todo', label: localize('positron.mcp.status.workspace.none', "No workspace open - open a folder to configure it") });
+	} else if (status.workspaceConfig === 'configured') {
+		rows.push({ key: 'workspace', state: 'done', label: localize('positron.mcp.status.workspace.configured', ".mcp.json configured") });
+	} else if (status.workspaceConfig === 'stale') {
+		// An entry written without (or with an old) token: the server rejects
+		// its requests, so surface it as broken rather than configured.
+		rows.push({
+			key: 'workspace', state: 'attention', label: localize('positron.mcp.status.workspace.stale', ".mcp.json is missing the current access token"),
+			action: { label: localize('positron.mcp.status.action.update', "Update"), run: () => onAction({ id: 'addConfig' }) },
+		});
 	} else {
-		rows.push(status.workspaceConfig === 'configured'
-			? { key: 'workspace', state: 'done', label: localize('positron.mcp.status.workspace.configured', ".mcp.json configured") }
-			: {
-				key: 'workspace', state: 'todo', label: localize('positron.mcp.status.workspace.notConfigured', ".mcp.json not configured"),
-				action: { label: localize('positron.mcp.status.action.add', "Add"), run: () => onAction({ id: 'addConfig' }) },
-			});
+		rows.push({
+			key: 'workspace', state: 'todo', label: localize('positron.mcp.status.workspace.notConfigured', ".mcp.json not configured"),
+			action: { label: localize('positron.mcp.status.action.add', "Add"), run: () => onAction({ id: 'addConfig' }) },
+		});
 	}
 
 	if (rows.every(row => row.state === 'done')) {
@@ -413,11 +424,11 @@ const RecentActivityList = (props: { recentActivity: readonly McpAuditEvent[] })
  * The connect card: a per-client picker showing the right setup one-liner or
  * config stanza, with a copy button.
  */
-const ConnectCard = (props: { port: number; workspaceConfig: WorkspaceConfigState; onCopy: (text: string) => Promise<void> }) => {
+const ConnectCard = (props: { port: number; token: string; workspaceConfig: WorkspaceConfigState; onCopy: (text: string) => Promise<void> }) => {
 	const [client, setClient] = useState<McpClientId>('claude-code');
 	const [copied, setCopied] = useState(false);
 
-	const snippet = connectSnippet(client, props.port);
+	const snippet = connectSnippet(client, props.port, props.token);
 
 	const handleCopy = async () => {
 		await props.onCopy(snippet);

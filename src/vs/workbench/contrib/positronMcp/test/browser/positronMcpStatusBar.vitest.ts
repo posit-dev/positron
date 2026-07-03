@@ -92,4 +92,12 @@ describe('computeMcpStatusEntry', () => {
 			tooltip: 'MCP server enabled, but this workspace has no .mcp.json. Click for details.',
 		});
 	});
+
+	it('warns about a stale .mcp.json that lacks the current token', () => {
+		expect(computeMcpStatusEntry(makeState({ configState: 'stale' }))).toMatchObject({
+			text: '$(warning) MCP',
+			kind: 'warning',
+			tooltip: 'MCP server enabled, but this workspace\'s .mcp.json is missing the current access token. Click for details.',
+		});
+	});
 });

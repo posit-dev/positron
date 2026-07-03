@@ -41,6 +41,7 @@ describe('PositronMcpActivity', () => {
 		return {
 			running: true,
 			port: 43123,
+			token: 'test-token',
 			sessions: [],
 			recentActivity: [],
 			...overrides,

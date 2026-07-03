@@ -41,7 +41,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const configurationService = accessor.get(IConfigurationService);
 	const mcpService = accessor.get(IPositronMcpService);
 	const toolService = accessor.get(IPositronMcpToolService);
-	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService), mcpService);
 
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
 	const serverStatus = await mcpService.getStatus();
@@ -50,6 +50,7 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 		enabled,
 		running: serverStatus.running,
 		port: serverStatus.port,
+		token: serverStatus.token,
 		workspaceConfig,
 		sessions: serverStatus.sessions,
 		recentActivity: serverStatus.recentActivity,
@@ -66,7 +67,7 @@ async function setEnabled(accessor: ServicesAccessor, enabled: boolean): Promise
 /** Write the workspace `.mcp.json`, notifying the result. */
 async function addConfigFile(accessor: ServicesAccessor): Promise<void> {
 	const notificationService = accessor.get(INotificationService);
-	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService));
+	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService), accessor.get(IPositronMcpService));
 	const path = await workspace.writeMcpConfig();
 	if (!path) {
 		notificationService.warn(localize('positron.mcp.noWorkspace', "Open a folder or workspace first, then add the .mcp.json file to it."));
