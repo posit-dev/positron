@@ -25,5 +25,17 @@ export const POSITRON_ASSISTANT_TOOL_TAG = 'positron-assistant';
 
 /**
  * Tag marking a tool that only makes sense when a runtime session is active.
+ * Also used as the prefix (`requires-session:<languageId>`) for tools that
+ * require an active session in a specific language.
  */
 export const TOOL_TAG_REQUIRES_SESSION = 'requires-session';
+
+/**
+ * Tag marking a tool that requires an open workspace.
+ */
+export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
+
+/**
+ * Tag marking a tool that performs actions and so is not available in Ask mode.
+ */
+export const TOOL_TAG_REQUIRES_ACTIONS = 'requires-actions';

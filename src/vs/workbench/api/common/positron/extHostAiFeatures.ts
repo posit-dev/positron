@@ -18,6 +18,8 @@ import { IExtensionDescription } from '../../../../platform/extensions/common/ex
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
+import { IExtHostWorkspace } from '../extHostWorkspace.js';
+import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -32,9 +34,20 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
 		private readonly _commands: ExtHostCommands,
+		private readonly _extHostWorkspace: IExtHostWorkspace,
 	) {
 		// Trigger creation of proxy to main thread
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadAiFeatures);
+	}
+
+	/**
+	 * Filters a chat request's tools down to those Positron considers enabled.
+	 * Runs synchronously in the extension host; used by chat clients such as
+	 * Copilot Chat.
+	 */
+	getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[] {
+		const isWorkspaceOpen = (this._extHostWorkspace.getWorkspaceFolders()?.length ?? 0) > 0;
+		return filterEnabledTools(request, tools, isWorkspaceOpen);
 	}
 
 	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
