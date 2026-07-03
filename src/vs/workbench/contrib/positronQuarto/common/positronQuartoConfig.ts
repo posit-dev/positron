@@ -25,6 +25,11 @@ export const POSITRON_QUARTO_INLINE_OUTPUT_KEY = 'positron.quarto.inlineOutput.e
 export const POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY = 'positron.quarto.inlineOutput.maxLines';
 
 /**
+ * Configuration key for sharing one execution session across compatible Quarto documents.
+ */
+export const POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY = 'positron.quarto.execution.useSharedSession';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -94,6 +99,15 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
+		[POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.quarto.execution.useSharedSession',
+				'Reuse a compatible execution session across Quarto documents when inline output is enabled. When disabled, each Quarto document uses an isolated execution session.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
 	},
 });
 
@@ -104,6 +118,15 @@ configurationRegistry.registerConfiguration({
  */
 export function usingQuartoInlineOutput(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+}
+
+/**
+ * Helper function to check if Quarto documents should reuse compatible sessions.
+ * @param configurationService The configuration service instance
+ * @returns true if shared Quarto execution sessions are enabled
+ */
+export function usingQuartoSharedExecutionSession(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY) ?? false;
 }
 
 /**

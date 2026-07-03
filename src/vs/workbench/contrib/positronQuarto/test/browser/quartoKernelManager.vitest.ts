@@ -24,6 +24,7 @@ import { IEditorIdentifier, IEditorCloseEvent } from '../../../../common/editor.
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY } from '../../common/positronQuartoConfig.js';
 
 function makeRuntime(id: string, languageId: string, name: string): ILanguageRuntimeMetadata {
 	return {
@@ -49,6 +50,8 @@ const pythonRuntime2 = makeRuntime('python-3.12', 'python', 'Python 3.12');
 const rRuntime1 = makeRuntime('r-4.4', 'r', 'R 4.4');
 
 const docUri = URI.file('/test/doc.qmd');
+const docUri2 = URI.file('/test/doc-two.qmd');
+const docUri3 = URI.file('/test/doc-three.qmd');
 
 describe('QuartoKernelManager', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -56,11 +59,15 @@ describe('QuartoKernelManager', () => {
 	let kernelManager: QuartoKernelManager;
 	let runtimeStartupService: TestRuntimeStartupService;
 	let storageService: InMemoryStorageService;
+	let configurationService: TestConfigurationService;
 
 	// Track calls to startNewRuntimeSession
 	let startedRuntimeIds: string[];
+	let sessionNames: string[];
 	let shutdownUris: URI[];
 	let nextSessionId: number;
+	let sessionsById: Map<string, ILanguageRuntimeSession>;
+	let notebookSessionsByUri: Map<string, ILanguageRuntimeSession>;
 
 	// Mutable state for mocks that tests can override
 	let primaryLanguage: string;
@@ -78,37 +85,69 @@ describe('QuartoKernelManager', () => {
 		runtimeStartupService.setPreferredRuntime('r', rRuntime1);
 
 		storageService = disposables.add(new InMemoryStorageService());
+		configurationService = new TestConfigurationService();
 
 		startedRuntimeIds = [];
+		sessionNames = [];
 		shutdownUris = [];
 		nextSessionId = 0;
+		sessionsById = new Map();
+		notebookSessionsByUri = new Map();
 		primaryLanguage = 'python';
 		registeredRuntimes = [pythonRuntime1, pythonRuntime2, rRuntime1];
 
 		const mockRuntimeSessionService = stubInterface<IRuntimeSessionService>({
-			async startNewRuntimeSession(runtimeId: string, _name: string, _mode: LanguageRuntimeSessionMode, _notebookUri?: URI) {
+			async startNewRuntimeSession(runtimeId: string, name: string, mode: LanguageRuntimeSessionMode, notebookUri?: URI) {
 				startedRuntimeIds.push(runtimeId);
-				return `session-${nextSessionId++}`;
-			},
-			getSession(_id: string) {
-				// Return a minimal session that passes the _waitForSessionReady check
-				// by being already idle, and supports shutdown/state queries.
-				return stubInterface<ILanguageRuntimeSession>({
-					sessionId: `session-${nextSessionId - 1}`,
-					runtimeMetadata: startedRuntimeIds.length > 0
-						? findRuntimeById(startedRuntimeIds[startedRuntimeIds.length - 1])
-						: pythonRuntime1,
+				sessionNames.push(name);
+
+				const sessionId = `session-${nextSessionId++}`;
+				const metadata = {
+					sessionId,
+					sessionMode: mode,
+					notebookUri,
+					createdTimestamp: Date.now(),
+					startReason: 'test',
+				};
+				const runtime = findRuntimeById(runtimeId);
+				const session = stubInterface<ILanguageRuntimeSession>({
+					sessionId,
+					metadata,
+					runtimeMetadata: runtime,
 					getRuntimeState() { return RuntimeState.Idle; },
 					onDidChangeRuntimeState: Event.None,
 					onDidCompleteStartup: Event.None,
 					onDidEncounterStartupFailure: Event.None,
 					onDidEndSession: Event.None,
-					async shutdown(_reason: RuntimeExitReason) { /* no-op */ },
+					async shutdown(_reason?: RuntimeExitReason) {
+						sessionsById.delete(sessionId);
+						if (notebookUri) {
+							notebookSessionsByUri.delete(notebookUri.toString());
+						}
+					},
+					interrupt() { /* no-op */ },
 				});
+				sessionsById.set(sessionId, session);
+				if (notebookUri) {
+					notebookSessionsByUri.set(notebookUri.toString(), session);
+				}
+				return sessionId;
 			},
-			getNotebookSessionForNotebookUri(_uri: URI) { return undefined; },
+			getSession(id: string) {
+				return sessionsById.get(id);
+			},
+			getNotebookSessionForNotebookUri(uri: URI) {
+				return notebookSessionsByUri.get(uri.toString());
+			},
 			getActiveSessions() { return []; },
-			async shutdownNotebookSession(uri: URI) { shutdownUris.push(uri); },
+			async shutdownNotebookSession(uri: URI) {
+				shutdownUris.push(uri);
+				const session = notebookSessionsByUri.get(uri.toString());
+				if (session) {
+					sessionsById.delete(session.sessionId);
+					notebookSessionsByUri.delete(uri.toString());
+				}
+			},
 			onDidStartRuntime: Event.None,
 		});
 
@@ -129,7 +168,7 @@ describe('QuartoKernelManager', () => {
 				return [stubInterface<IEditorIdentifier>({
 					editor: stubInterface<EditorInput>({
 						resolve: async () => ({
-							textEditorModel: { uri: docUri, getLanguageId: () => 'quarto' },
+							textEditorModel: { uri: _uri, getLanguageId: () => 'quarto' },
 							dispose() { },
 						}),
 					}),
@@ -148,7 +187,7 @@ describe('QuartoKernelManager', () => {
 			mockEditorService,
 			new NullLogService(),
 			stubInterface<INotificationService>({ warn: vi.fn(), info: vi.fn(), notify: vi.fn() }),
-			new TestConfigurationService(),
+			configurationService,
 			storageService,
 			mockCacheService,
 		));
@@ -157,6 +196,65 @@ describe('QuartoKernelManager', () => {
 	it('ensureKernelForDocument uses preferred runtime by default', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 		expect(startedRuntimeIds).toEqual(['python-3.11']);
+	});
+
+	it('keeps separate sessions for separate documents by default', async () => {
+		const session1 = await kernelManager.ensureKernelForDocument(docUri);
+		const session2 = await kernelManager.ensureKernelForDocument(docUri2);
+
+		expect(session1?.sessionId).not.toBe(session2?.sessionId);
+		expect(startedRuntimeIds).toEqual(['python-3.11', 'python-3.11']);
+	});
+
+	it('reuses a compatible session when shared sessions are enabled', async () => {
+		await configurationService.setUserConfiguration(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY, true);
+
+		const session1 = await kernelManager.ensureKernelForDocument(docUri);
+		const session2 = await kernelManager.ensureKernelForDocument(docUri2);
+
+		expect(session2?.sessionId).toBe(session1?.sessionId);
+		expect(startedRuntimeIds).toEqual(['python-3.11']);
+		expect(sessionNames).toEqual(['Quarto: Python 3.11']);
+	});
+
+	it('does not share sessions across different runtimes', async () => {
+		await configurationService.setUserConfiguration(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY, true);
+
+		const pythonSession = await kernelManager.ensureKernelForDocument(docUri);
+		primaryLanguage = 'r';
+		const rSession = await kernelManager.ensureKernelForDocument(docUri3);
+
+		expect(rSession?.sessionId).not.toBe(pythonSession?.sessionId);
+		expect(startedRuntimeIds).toEqual(['python-3.11', 'r-4.4']);
+	});
+
+	it('changing one shared document kernel does not shut down a session still used by another document', async () => {
+		await configurationService.setUserConfiguration(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY, true);
+
+		const originalSession = await kernelManager.ensureKernelForDocument(docUri);
+		const sharedSession = await kernelManager.ensureKernelForDocument(docUri2);
+		expect(sharedSession?.sessionId).toBe(originalSession?.sessionId);
+
+		await kernelManager.changeKernelForDocument(docUri2, pythonRuntime2.runtimeId);
+
+		expect(shutdownUris).toEqual([]);
+		expect(kernelManager.getSessionForDocument(docUri)?.sessionId).toBe(originalSession?.sessionId);
+		expect(kernelManager.getSessionForDocument(docUri2)?.sessionId).not.toBe(originalSession?.sessionId);
+		expect(startedRuntimeIds).toEqual(['python-3.11', 'python-3.12']);
+	});
+
+	it('shutdown of a shared kernel clears all attached documents', async () => {
+		await configurationService.setUserConfiguration(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY, true);
+
+		const session1 = await kernelManager.ensureKernelForDocument(docUri);
+		const session2 = await kernelManager.ensureKernelForDocument(docUri2);
+		expect(session2?.sessionId).toBe(session1?.sessionId);
+
+		await kernelManager.shutdownKernelForDocument(docUri2);
+
+		expect(shutdownUris.map(uri => uri.toString())).toEqual([docUri.toString()]);
+		expect(kernelManager.getKernelState(docUri)).toBe(QuartoKernelState.None);
+		expect(kernelManager.getKernelState(docUri2)).toBe(QuartoKernelState.None);
 	});
 
 	it('changeKernelForDocument shuts down old session and starts new runtime', async () => {

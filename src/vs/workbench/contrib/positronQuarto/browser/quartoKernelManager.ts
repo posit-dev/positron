@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { ResourceMap } from '../../../../base/common/map.js';
+import { ResourceMap, ResourceSet } from '../../../../base/common/map.js';
 import { Action } from '../../../../base/common/actions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -26,7 +26,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ITextModel } from '../../../../editor/common/model.js';
 import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY, POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile, usingQuartoSharedExecutionSession } from '../common/positronQuartoConfig.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 
 export const IQuartoKernelManager = createDecorator<IQuartoKernelManager>('quartoKernelManager');
@@ -125,6 +125,15 @@ interface DocumentKernelInfo {
 	language: string | undefined;
 	disposables: DisposableStore;
 	startupCancellation: CancellationTokenSource | undefined;
+	sharedKey: string | undefined;
+}
+
+/**
+ * Runtime session shared by compatible Quarto documents.
+ */
+interface SharedKernelInfo {
+	session: ILanguageRuntimeSession;
+	documents: ResourceSet;
 }
 
 /** Storage key for persisted kernel selections. */
@@ -138,6 +147,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _documentKernels = new ResourceMap<DocumentKernelInfo>();
+
+	/** Shared Quarto sessions keyed by compatible runtime identity. */
+	private readonly _sharedKernels = new Map<string, SharedKernelInfo>();
+
+	/** Shared Quarto sessions currently starting, keyed by compatible runtime identity. */
+	private readonly _startingSharedKernels = new Map<string, Promise<ILanguageRuntimeSession | undefined>>();
 
 	/** Persisted runtime selections keyed by document URI string. */
 	private readonly _kernelBindings = new Map<string, string>();
@@ -190,7 +205,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 					const stillOpen = this._editorService.findEditors(uri).length > 0;
 					if (!stillOpen) {
 						this._logService.debug(`[QuartoKernelManager] Document closed, cleaning up: ${uri.toString()}`);
-						await this.shutdownKernelForDocument(uri);
+						await this._releaseKernelForDocument(uri);
 					}
 				}, 100);
 				this._pendingCleanupTimeouts.add(handle);
@@ -204,6 +219,11 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				if (!enabled) {
 					this._shutdownAllKernels();
 				}
+			}
+			if (e.affectsConfiguration(POSITRON_QUARTO_EXECUTION_USE_SHARED_SESSION_KEY) &&
+				!usingQuartoSharedExecutionSession(this._configurationService)
+			) {
+				this._shutdownAllKernels();
 			}
 		}));
 
@@ -235,11 +255,109 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		this._logService.debug('[QuartoKernelManager] Shutting down all kernels (feature disabled)');
 
 		const shutdownPromises: Promise<void>[] = [];
-		for (const [uri] of this._documentKernels) {
+		const seenSharedKeys = new Set<string>();
+		for (const [uri, info] of this._documentKernels) {
+			if (info.sharedKey) {
+				if (seenSharedKeys.has(info.sharedKey)) {
+					continue;
+				}
+				seenSharedKeys.add(info.sharedKey);
+			}
 			shutdownPromises.push(this.shutdownKernelForDocument(uri));
 		}
 
 		await Promise.allSettled(shutdownPromises);
+	}
+
+	/**
+	 * Release a document from its kernel session.
+	 *
+	 * For isolated sessions this preserves the current behavior and shuts down
+	 * the document session. For shared sessions it only detaches the released
+	 * document while other open documents still own the session.
+	 */
+	private async _releaseKernelForDocument(
+		documentUri: URI,
+		options?: { throwOnShutdownError?: boolean }
+	): Promise<void> {
+		const info = this._documentKernels.get(documentUri);
+		if (!info) {
+			return;
+		}
+
+		if (info.sharedKey) {
+			const sharedInfo = this._sharedKernels.get(info.sharedKey);
+			if (sharedInfo && sharedInfo.documents.size > 1) {
+				if (info.startupCancellation) {
+					info.startupCancellation.cancel();
+					info.startupCancellation.dispose();
+					info.startupCancellation = undefined;
+				}
+
+				this._unregisterSharedDocument(documentUri, info);
+				info.disposables.dispose();
+				this._setKernelState(documentUri, QuartoKernelState.None);
+				this._documentKernels.delete(documentUri);
+				return;
+			}
+		}
+
+		if (options?.throwOnShutdownError) {
+			await this.tryShutdownKernelForDocument(documentUri);
+		} else {
+			await this.shutdownKernelForDocument(documentUri);
+		}
+	}
+
+	/**
+	 * Shut down a shared session and clear every document attached to it.
+	 */
+	private async _shutdownSharedKernel(
+		sharedKey: string,
+		exitReason: RuntimeExitReason,
+		source: string
+	): Promise<void> {
+		const sharedInfo = this._sharedKernels.get(sharedKey);
+		if (!sharedInfo) {
+			return;
+		}
+
+		const documentUris = Array.from(sharedInfo.documents);
+		for (const uri of documentUris) {
+			this._setKernelState(uri, QuartoKernelState.ShuttingDown);
+		}
+
+		try {
+			const notebookUri = sharedInfo.session.metadata.notebookUri;
+			if (notebookUri) {
+				await this._runtimeSessionService.shutdownNotebookSession(
+					notebookUri,
+					exitReason,
+					source,
+				);
+			} else {
+				await sharedInfo.session.shutdown(exitReason);
+			}
+		} finally {
+			for (const uri of documentUris) {
+				const info = this._documentKernels.get(uri);
+				if (!info) {
+					continue;
+				}
+
+				if (info.startupCancellation) {
+					info.startupCancellation.cancel();
+					info.startupCancellation.dispose();
+					info.startupCancellation = undefined;
+				}
+
+				info.disposables.dispose();
+				info.sharedKey = undefined;
+				this._setKernelState(uri, QuartoKernelState.None);
+				this._documentKernels.delete(uri);
+			}
+			this._sharedKernels.delete(sharedKey);
+		}
 	}
 
 	/**
@@ -262,9 +380,19 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			language: session.runtimeMetadata.languageId,
 			disposables: new DisposableStore(),
 			startupCancellation: undefined,
+			sharedKey: undefined,
 		};
 
 		this._documentKernels.set(documentUri, info);
+
+		if (usingQuartoSharedExecutionSession(this._configurationService)) {
+			this._registerSharedDocument(
+				this._getSharedKernelKey(session.runtimeMetadata),
+				documentUri,
+				session,
+				info,
+			);
+		}
 
 		// Set up session event listeners
 		this._setupSessionListeners(documentUri, session, info);
@@ -349,6 +477,156 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			default:
 				return QuartoKernelState.None;
 		}
+	}
+
+	/**
+	 * Whether a runtime session can be used for Quarto execution.
+	 */
+	private _isUsableSession(session: ILanguageRuntimeSession): boolean {
+		const state = session.getRuntimeState();
+		return state !== RuntimeState.Exited && state !== RuntimeState.Uninitialized;
+	}
+
+	/**
+	 * Key used to find compatible shared Quarto sessions.
+	 *
+	 * Runtime IDs already include the interpreter/runtime identity selected by
+	 * the runtime infrastructure, so this stays language-agnostic while keeping
+	 * unrelated runtimes isolated.
+	 */
+	private _getSharedKernelKey(runtime: ILanguageRuntimeMetadata): string {
+		return runtime.runtimeId;
+	}
+
+	/**
+	 * Track a document as an owner of a shared session.
+	 */
+	private _registerSharedDocument(
+		sharedKey: string,
+		documentUri: URI,
+		session: ILanguageRuntimeSession,
+		info: DocumentKernelInfo
+	): void {
+		let sharedInfo = this._sharedKernels.get(sharedKey);
+		if (!sharedInfo ||
+			sharedInfo.session.sessionId !== session.sessionId ||
+			!this._isUsableSession(sharedInfo.session)
+		) {
+			sharedInfo = {
+				session,
+				documents: new ResourceSet(),
+			};
+			this._sharedKernels.set(sharedKey, sharedInfo);
+		}
+
+		sharedInfo.documents.add(documentUri);
+		info.sharedKey = sharedKey;
+	}
+
+	/**
+	 * Remove a document from its shared session owner set.
+	 */
+	private _unregisterSharedDocument(documentUri: URI, info: DocumentKernelInfo): SharedKernelInfo | undefined {
+		const sharedKey = info.sharedKey;
+		if (!sharedKey) {
+			return undefined;
+		}
+
+		const sharedInfo = this._sharedKernels.get(sharedKey);
+		sharedInfo?.documents.delete(documentUri);
+		info.sharedKey = undefined;
+
+		if (sharedInfo && sharedInfo.documents.size === 0) {
+			this._sharedKernels.delete(sharedKey);
+		}
+
+		return sharedInfo;
+	}
+
+	/**
+	 * Find an existing Quarto-owned session that can be shared by the requested runtime.
+	 */
+	private _findReusableSharedSession(runtime: ILanguageRuntimeMetadata): ILanguageRuntimeSession | undefined {
+		const sharedKey = this._getSharedKernelKey(runtime);
+		const sharedInfo = this._sharedKernels.get(sharedKey);
+		if (sharedInfo) {
+			if (this._isUsableSession(sharedInfo.session)) {
+				return sharedInfo.session;
+			}
+			this._sharedKernels.delete(sharedKey);
+		}
+
+		for (const [documentUri, info] of this._documentKernels) {
+			const session = info.session;
+			if (!session ||
+				session.runtimeMetadata.runtimeId !== runtime.runtimeId ||
+				!this._isUsableSession(session)
+			) {
+				continue;
+			}
+
+			this._registerSharedDocument(sharedKey, documentUri, session, info);
+			return session;
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Attach a document to an existing shared session.
+	 */
+	private async _useSharedSession(
+		documentUri: URI,
+		info: DocumentKernelInfo,
+		runtime: ILanguageRuntimeMetadata,
+		session: ILanguageRuntimeSession,
+		token: CancellationToken
+	): Promise<ILanguageRuntimeSession | undefined> {
+		if (!this._isUsableSession(session)) {
+			return undefined;
+		}
+		if (token.isCancellationRequested) {
+			return undefined;
+		}
+
+		const cleanupAttachment = () => {
+			this._unregisterSharedDocument(documentUri, info);
+			info.disposables.dispose();
+			info.disposables = new DisposableStore();
+			info.session = undefined;
+			this._setKernelState(documentUri, QuartoKernelState.None);
+		};
+
+		info.session = session;
+		info.language = session.runtimeMetadata.languageId;
+		this._registerSharedDocument(this._getSharedKernelKey(runtime), documentUri, session, info);
+		this._setupSessionListeners(documentUri, session, info);
+		this._setKernelState(documentUri, this._runtimeStateToKernelState(session.getRuntimeState()));
+
+		const state = session.getRuntimeState();
+		if (state !== RuntimeState.Ready && state !== RuntimeState.Idle) {
+			try {
+				await this._waitForSessionReady(session, token);
+			} catch (error) {
+				cleanupAttachment();
+				throw error;
+			}
+			if (token.isCancellationRequested) {
+				cleanupAttachment();
+				return undefined;
+			}
+			this._setKernelState(documentUri, QuartoKernelState.Ready);
+		}
+		if (token.isCancellationRequested) {
+			cleanupAttachment();
+			return undefined;
+		}
+
+		this._logService.debug(
+			`[QuartoKernelManager] Reusing shared ${runtime.languageId} kernel ` +
+			`${session.sessionId} for ${documentUri.toString()}`
+		);
+		return session;
 	}
 
 	/**
@@ -621,6 +899,15 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			return;
 		}
 
+		if (info.sharedKey) {
+			await this._shutdownSharedKernel(
+				info.sharedKey,
+				RuntimeExitReason.Shutdown,
+				'Quarto shared kernel shutdown',
+			);
+			return;
+		}
+
 		// Cancel any pending startup
 		if (info.startupCancellation) {
 			info.startupCancellation.cancel();
@@ -693,7 +980,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// so that the user can still switch to the new kernel.
 		const oldRuntimeName = this._documentKernels.get(documentUri)?.session?.runtimeMetadata.runtimeName;
 		try {
-			await this.tryShutdownKernelForDocument(documentUri);
+			await this._releaseKernelForDocument(documentUri, { throwOnShutdownError: true });
 		} catch (error) {
 			this._logService.error(`[QuartoKernelManager] Failed to shut down existing kernel for ${documentUri.toString()}:`, error);
 			this._notificationService.warn(
@@ -791,6 +1078,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				language: undefined,
 				disposables: new DisposableStore(),
 				startupCancellation: undefined,
+				sharedKey: undefined,
 			};
 			this._documentKernels.set(documentUri, info);
 		}
@@ -801,6 +1089,11 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		// Update state to starting
 		this._setKernelState(documentUri, QuartoKernelState.Starting);
+
+		let sharedKey: string | undefined;
+		let resolveSharedStart: ((session: ILanguageRuntimeSession | undefined) => void) | undefined;
+		let rejectSharedStart: ((error: unknown) => void) | undefined;
+		let sharedStartPromise: Promise<ILanguageRuntimeSession | undefined> | undefined;
 
 		try {
 			// Get the document's language from the Quarto document model
@@ -861,13 +1154,49 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				return undefined;
 			}
 
+			sharedKey = usingQuartoSharedExecutionSession(this._configurationService)
+				? this._getSharedKernelKey(runtime)
+				: undefined;
+			if (sharedKey) {
+				const reusableSession = this._findReusableSharedSession(runtime);
+				if (reusableSession) {
+					return this._useSharedSession(documentUri, info, runtime, reusableSession, cts.token);
+				}
+
+				const startingSharedSession = this._startingSharedKernels.get(sharedKey);
+				if (startingSharedSession) {
+					try {
+						const session = await startingSharedSession;
+						if (session && !cts.token.isCancellationRequested) {
+							return this._useSharedSession(documentUri, info, runtime, session, cts.token);
+						}
+					} catch (error) {
+						this._logService.debug(
+							`[QuartoKernelManager] Shared kernel startup failed for ${runtime.runtimeId}; starting a new session`,
+							error
+						);
+					}
+				}
+			}
+
 			// Use the filename (with extension) as the session name. Untitled
 			// Quarto URIs don't include the .qmd extension, so append it here.
 			let fileName = documentUri.path.split('/').pop() ?? '';
 			if (!isQuartoOrRmdFile(fileName)) {
 				fileName = `${fileName}.qmd`;
 			}
-			const sessionName = fileName;
+			const sessionName = sharedKey
+				? localize('quartoKernel.sharedSessionName', "Quarto: {0}", runtime.runtimeName)
+				: fileName;
+
+			if (sharedKey) {
+				sharedStartPromise = new Promise((resolve, reject) => {
+					resolveSharedStart = resolve;
+					rejectSharedStart = reject;
+				});
+				this._startingSharedKernels.set(sharedKey, sharedStartPromise);
+			}
+
 			const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 				runtime.runtimeId,
 				sessionName,
@@ -884,6 +1213,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				if (session) {
 					await session.shutdown();
 				}
+				resolveSharedStart?.(undefined);
 				return undefined;
 			}
 
@@ -893,6 +1223,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			}
 
 			info.session = session;
+			if (sharedKey) {
+				this._registerSharedDocument(sharedKey, documentUri, session, info);
+			}
 
 			// Set up session event listeners
 			this._setupSessionListeners(documentUri, session, info);
@@ -902,19 +1235,28 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 			if (cts.token.isCancellationRequested) {
 				await session.shutdown();
+				this._unregisterSharedDocument(documentUri, info);
+				resolveSharedStart?.(undefined);
 				return undefined;
 			}
 
 			this._setKernelState(documentUri, QuartoKernelState.Ready);
 			this._logService.debug(`[QuartoKernelManager] Kernel ready for ${documentUri.toString()}`);
+			resolveSharedStart?.(session);
 
 			return session;
 		} catch (error) {
 			if (cts.token.isCancellationRequested) {
+				resolveSharedStart?.(undefined);
 				return undefined;
 			}
+			rejectSharedStart?.(error);
 			throw error;
 		} finally {
+			if (sharedKey && sharedStartPromise && this._startingSharedKernels.get(sharedKey) === sharedStartPromise) {
+				this._startingSharedKernels.delete(sharedKey);
+			}
+
 			// Only clear the cancellation source if it's still the current one
 			if (info.startupCancellation === cts) {
 				info.startupCancellation = undefined;
@@ -939,6 +1281,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Listen for session end
 		info.disposables.add(session.onDidEndSession(() => {
 			this._logService.debug(`[QuartoKernelManager] Session ended for ${documentUri.toString()}`);
+			this._unregisterSharedDocument(documentUri, info);
 			info.session = undefined;
 			this._setKernelState(documentUri, QuartoKernelState.None);
 		}));
@@ -1177,17 +1520,21 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		this._pendingCleanupTimeouts.clear();
 
 		// Shutdown all sessions
+		const shuttingDownSessionIds = new Set<string>();
 		for (const [, info] of this._documentKernels) {
 			info.startupCancellation?.cancel();
 			info.startupCancellation?.dispose();
 			info.disposables.dispose();
-			if (info.session) {
+			if (info.session && !shuttingDownSessionIds.has(info.session.sessionId)) {
+				shuttingDownSessionIds.add(info.session.sessionId);
 				Promise.resolve(info.session.shutdown()).catch((e: unknown) => {
 					this._logService.warn(`[QuartoKernelManager] Error during disposal: ${e}`);
 				});
 			}
 		}
 		this._documentKernels.clear();
+		this._sharedKernels.clear();
+		this._startingSharedKernels.clear();
 		super.dispose();
 	}
 }
