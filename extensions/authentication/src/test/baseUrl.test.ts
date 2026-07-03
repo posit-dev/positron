@@ -8,16 +8,30 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { getEffectiveBaseUrl } from '../providerSources';
 
-suite('getEffectiveBaseUrl', () => {
-	// `anthropic` is backed by ANTHROPIC_BASE_URL; `foundry` has no env var.
-	const ENV_VAR = 'ANTHROPIC_BASE_URL';
+/**
+ * The section -> env var contract each provider relies on. Hardcoded here
+ * independently of the implementation's map so a typo in either the section key
+ * or the env var name is caught.
+ */
+const PROVIDER_ENV_VARS: ReadonlyArray<{ section: string; envVar: string }> = [
+	{ section: 'anthropic', envVar: 'ANTHROPIC_BASE_URL' },
+	{ section: 'openai-api', envVar: 'OPENAI_BASE_URL' },
+	{ section: 'google', envVar: 'GEMINI_BASE_URL' },
+	{ section: 'googleVertex', envVar: 'GOOGLE_VERTEX_BASE_URL' },
+	{ section: 'deepseek-api', envVar: 'DEEPSEEK_BASE_URL' },
+];
 
+suite('getEffectiveBaseUrl', () => {
 	let mockInspect: sinon.SinonStub;
-	let originalEnvValue: string | undefined;
+	const savedEnv = new Map<string, string | undefined>();
 
 	setup(() => {
-		originalEnvValue = process.env[ENV_VAR];
-		delete process.env[ENV_VAR];
+		// Snapshot and clear every mapped env var so the host environment can't
+		// leak into a test.
+		for (const { envVar } of PROVIDER_ENV_VARS) {
+			savedEnv.set(envVar, process.env[envVar]);
+			delete process.env[envVar];
+		}
 
 		mockInspect = sinon.stub();
 		const mockConfig = {
@@ -31,11 +45,14 @@ suite('getEffectiveBaseUrl', () => {
 
 	teardown(() => {
 		sinon.restore();
-		if (originalEnvValue === undefined) {
-			delete process.env[ENV_VAR];
-		} else {
-			process.env[ENV_VAR] = originalEnvValue;
+		for (const [envVar, value] of savedEnv) {
+			if (value === undefined) {
+				delete process.env[envVar];
+			} else {
+				process.env[envVar] = value;
+			}
 		}
+		savedEnv.clear();
 	});
 
 	function stubInspect(values: {
@@ -46,62 +63,76 @@ suite('getEffectiveBaseUrl', () => {
 		mockInspect.returns({ key: 'baseUrl', ...values });
 	}
 
-	test('user setting wins over the env var', () => {
-		stubInspect({ globalValue: 'https://user.example.com' });
-		process.env[ENV_VAR] = 'https://env.example.com';
+	suite('precedence', () => {
+		test('user setting wins over the env var', () => {
+			stubInspect({ globalValue: 'https://user.example.com' });
+			process.env.ANTHROPIC_BASE_URL = 'https://env.example.com';
 
-		assert.strictEqual(
-			getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
-			'https://user.example.com'
-		);
-	});
-
-	test('env var is used when the user has no setting', () => {
-		stubInspect({});
-		process.env[ENV_VAR] = 'https://env.example.com';
-
-		assert.strictEqual(
-			getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
-			'https://env.example.com'
-		);
-	});
-
-	test('workspace value takes precedence over the global value', () => {
-		stubInspect({
-			globalValue: 'https://global.example.com',
-			workspaceValue: 'https://workspace.example.com',
+			assert.strictEqual(
+				getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
+				'https://user.example.com'
+			);
 		});
 
-		assert.strictEqual(
-			getEffectiveBaseUrl('anthropic'),
-			'https://workspace.example.com'
-		);
+		test('env var is used when the user has no setting', () => {
+			stubInspect({});
+			process.env.ANTHROPIC_BASE_URL = 'https://env.example.com';
+
+			assert.strictEqual(
+				getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
+				'https://env.example.com'
+			);
+		});
+
+		test('workspace value takes precedence over the global value', () => {
+			stubInspect({
+				globalValue: 'https://global.example.com',
+				workspaceValue: 'https://workspace.example.com',
+			});
+
+			assert.strictEqual(
+				getEffectiveBaseUrl('anthropic'),
+				'https://workspace.example.com'
+			);
+		});
+
+		test('falls back when neither user setting nor env var is set', () => {
+			stubInspect({});
+
+			assert.strictEqual(
+				getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
+				'https://fallback.example.com'
+			);
+		});
+
+		test('returns undefined when nothing is set and no fallback is given', () => {
+			stubInspect({});
+
+			assert.strictEqual(getEffectiveBaseUrl('anthropic'), undefined);
+		});
 	});
 
-	test('falls back when neither user setting nor env var is set', () => {
-		stubInspect({});
+	suite('per-provider env var mapping', () => {
+		for (const { section, envVar } of PROVIDER_ENV_VARS) {
+			test(`${section} reads ${envVar}`, () => {
+				stubInspect({});
+				const expected = `https://${section}.example.com`;
+				process.env[envVar] = expected;
 
-		assert.strictEqual(
-			getEffectiveBaseUrl('anthropic', 'https://fallback.example.com'),
-			'https://fallback.example.com'
-		);
-	});
+				assert.strictEqual(getEffectiveBaseUrl(section), expected);
+			});
+		}
 
-	test('returns undefined when nothing is set and no fallback is given', () => {
-		stubInspect({});
+		test('ignores env vars for a section that has no mapping', () => {
+			stubInspect({});
+			// Even with a base-URL env var present, foundry has no mapping, so
+			// nothing from the environment must leak in.
+			process.env.ANTHROPIC_BASE_URL = 'https://env.example.com';
 
-		assert.strictEqual(getEffectiveBaseUrl('anthropic'), undefined);
-	});
-
-	test('ignores env vars for a section that has no mapping', () => {
-		stubInspect({});
-		// Even if an unrelated base-URL env var is present, foundry has no
-		// mapping, so it must not leak in.
-		process.env[ENV_VAR] = 'https://env.example.com';
-
-		assert.strictEqual(
-			getEffectiveBaseUrl('foundry', 'https://fallback.example.com'),
-			'https://fallback.example.com'
-		);
+			assert.strictEqual(
+				getEffectiveBaseUrl('foundry', 'https://fallback.example.com'),
+				'https://fallback.example.com'
+			);
+		});
 	});
 });
