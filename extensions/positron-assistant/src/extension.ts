@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import { validateProvidersEnabled } from './providerConfiguration.js';
 import { registerParticipants } from './participants';
-import { registerAssistantTools } from './tools.js';
 import { PositronAssistantApi } from './api.js';
 import { PromptRenderer } from './promptRender.js';
 import { log } from './log.js';
@@ -61,7 +60,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		// initialize.
 		try {
 			registerAssistant(context);
-			registerAssistantTools(context);
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(

@@ -8,9 +8,6 @@ import * as vscode from 'vscode';
 
 export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
-	GetTableSummary = 'getTableSummary',
-	GetPlot = 'getPlot',
-	InspectVariables = 'inspectVariables',
 }
 
 /**
