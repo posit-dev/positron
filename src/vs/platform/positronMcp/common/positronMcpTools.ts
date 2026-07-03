@@ -70,6 +70,14 @@ Data: before writing code against data, look first -- get-session for the active
 
 Plots: after plotting with execute-code, call get-plot to see the image. After writing a file to disk, call open-document to show it to the user.`;
 
+/**
+ * The get-session result text when no runtime session is active. Shared
+ * because two layers need the exact string: the renderer's handler serves it,
+ * and the main-process session compares against it at initialize time to skip
+ * appending a session snapshot to the instructions.
+ */
+export const NO_ACTIVE_SESSION_TEXT = 'No active runtime session. Use session-start to begin one.';
+
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false };
 
 /**

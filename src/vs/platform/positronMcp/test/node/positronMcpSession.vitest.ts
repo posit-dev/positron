@@ -9,7 +9,7 @@ import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
 import { IMcpToolCallAuditEvent, IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
 import { GET_GUIDANCE_TOOL } from '../../common/positronMcpGuides.js';
-import { IMcpCallToolResult, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
+import { IMcpCallToolResult, NO_ACTIVE_SESSION_TEXT, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
 import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
 
@@ -50,9 +50,44 @@ describe('PositronMcpSession', () => {
 				protocolVersion: '2025-06-18',
 				capabilities: { tools: {} },
 				serverInfo: { name: 'positron-mcp-server' },
-				instructions: SERVER_INSTRUCTIONS,
+				instructions: expect.stringContaining(SERVER_INSTRUCTIONS),
 			},
 		});
+	});
+
+	it('appends a live session snapshot from the pinned window to the instructions', async () => {
+		const broker = new StubBroker();
+		const session = createSession(broker);
+		const [response] = await session.handleIncoming(initializeRequest);
+		const instructions = (response as { result: { instructions: string } }).result.instructions;
+		expect(instructions.startsWith(SERVER_INSTRUCTIONS)).toBe(true);
+		// The snapshot is the get-session tool's output, fetched with this
+		// session's caller identity.
+		expect(instructions).toContain('called get-session');
+		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', {},
+			{ mcpSessionId: 'test-session', clientName: 'test-client', clientVersion: '1.0.0' });
+	});
+
+	it('serves the static instructions when no window is available', async () => {
+		const broker = new StubBroker();
+		broker.resolveTargetWindow = () => undefined;
+		broker.isWindowConnected = () => false;
+		const session = createSession(broker);
+		const [response] = await session.handleIncoming(initializeRequest);
+		expect((response as { result: { instructions: string } }).result.instructions).toBe(SERVER_INSTRUCTIONS);
+		expect(broker.invokeTool).not.toHaveBeenCalled();
+	});
+
+	it('serves the static instructions when the snapshot fails or reports no session', async () => {
+		const failing = new StubBroker();
+		failing.invokeTool.mockRejectedValue(new Error('window closed'));
+		const [failed] = await createSession(failing).handleIncoming(initializeRequest);
+		expect((failed as { result: { instructions: string } }).result.instructions).toBe(SERVER_INSTRUCTIONS);
+
+		const idle = new StubBroker();
+		idle.invokeTool.mockResolvedValue({ content: [{ type: 'text', text: NO_ACTIVE_SESSION_TEXT }] });
+		const [noSession] = await createSession(idle).handleIncoming(initializeRequest);
+		expect((noSession as { result: { instructions: string } }).result.instructions).toBe(SERVER_INSTRUCTIONS);
 	});
 
 	it('lists every tool after initialize, including the server-served get-guidance', async () => {
@@ -148,14 +183,16 @@ describe('PositronMcpSession', () => {
 		vi.useFakeTimers({ now: 1000 });
 		try {
 			const broker = new StubBroker();
-			broker.invokeTool.mockImplementation(async () => {
-				vi.setSystemTime(1840);
-				return { content: [{ type: 'text', text: 'ok' }] };
-			});
 			const audit = new RecordingAuditLog();
 			const session = createSession(broker, audit);
 			await session.handleIncoming(initializeRequest);
 			audit.events.length = 0;
+			// Installed after initialize so the handshake's snapshot fetch does
+			// not advance the clock this test measures.
+			broker.invokeTool.mockImplementation(async () => {
+				vi.setSystemTime(1840);
+				return { content: [{ type: 'text', text: 'ok' }] };
+			});
 
 			await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
 			const [start, end] = audit.events;

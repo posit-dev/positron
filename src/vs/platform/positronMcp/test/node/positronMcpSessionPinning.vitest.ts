@@ -47,9 +47,12 @@ class RecordingAuditLog implements IPositronMcpAuditLog {
 }
 
 /** Build an initialized session bound to the given fake broker. */
-async function initializedSession(broker: IPositronMcpToolBroker, audit: IPositronMcpAuditLog = new RecordingAuditLog()): Promise<PositronMcpSession> {
+async function initializedSession(broker: FakeBroker, audit: IPositronMcpAuditLog = new RecordingAuditLog()): Promise<PositronMcpSession> {
 	const session = new PositronMcpSession('s', new NullLogger(), broker, audit);
 	await session.handleIncoming(initializeRequest);
+	// The handshake fetches a get-session snapshot for the instructions; drop
+	// it so the tests assert only the routing of explicit tool calls.
+	broker.invocations.length = 0;
 	return session;
 }
 

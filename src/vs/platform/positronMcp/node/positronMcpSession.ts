@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../base/common/lifecycle.js';
+import { raceTimeout } from '../../../base/common/async.js';
 import {
 	IJsonRpcNotification,
 	IJsonRpcRequest,
@@ -21,6 +22,7 @@ import { GET_GUIDANCE_TOOL, getGuidance } from '../common/positronMcpGuides.js';
 import {
 	IMcpCallToolResult,
 	McpContent,
+	NO_ACTIVE_SESSION_TEXT,
 	POSITRON_MCP_PROTOCOL_VERSION,
 	POSITRON_MCP_SERVER_INFO,
 	POSITRON_MCP_TOOLS,
@@ -149,7 +151,7 @@ export class PositronMcpSession extends Disposable {
 				protocolVersion: POSITRON_MCP_PROTOCOL_VERSION,
 				capabilities: { tools: {} },
 				serverInfo: POSITRON_MCP_SERVER_INFO,
-				instructions: SERVER_INSTRUCTIONS,
+				instructions: await this._buildInstructions(),
 			};
 		}
 
@@ -176,6 +178,43 @@ export class PositronMcpSession extends Disposable {
 			default:
 				throw new JsonRpcError(MCP_METHOD_NOT_FOUND, `Method not found: ${request.method}`);
 		}
+	}
+
+	/**
+	 * How long the initialize handshake waits for the live session snapshot
+	 * before serving the static instructions. Short: a snapshot is a nicety,
+	 * and a slow renderer must not stall the client's connection.
+	 */
+	private static readonly SnapshotTimeoutMs = 1500;
+
+	/**
+	 * The static guidance plus, when the pinned window has a live runtime
+	 * session, a snapshot of it (language, version, interpreter path) so the
+	 * model runs the right language from its first message instead of guessing
+	 * or spending a tool call on get-session. Reuses the get-session tool over
+	 * the existing broker channel rather than adding IPC surface. Any failure
+	 * -- no window, timeout, error, or no active session -- falls back to the
+	 * static text; the handshake never fails because of the snapshot.
+	 */
+	private async _buildInstructions(): Promise<string> {
+		const windowId = this._pinnedWindowId;
+		if (windowId === undefined || !this._broker.isWindowConnected(windowId)) {
+			return SERVER_INSTRUCTIONS;
+		}
+		try {
+			const caller = { mcpSessionId: this.id, clientName: this.clientName, clientVersion: this.clientVersion };
+			const result = await raceTimeout(
+				this._broker.invokeTool(windowId, 'get-session', {}, caller),
+				PositronMcpSession.SnapshotTimeoutMs,
+			);
+			const first = result && !result.isError ? result.content[0] : undefined;
+			if (first?.type === 'text' && first.text !== NO_ACTIVE_SESSION_TEXT) {
+				return `${SERVER_INSTRUCTIONS}\n\nThe active session right now (a connection-time snapshot; re-check with get-session if the user may have switched):\n${first.text}`;
+			}
+		} catch {
+			// Fall through to the static instructions.
+		}
+		return SERVER_INSTRUCTIONS;
 	}
 
 	/**

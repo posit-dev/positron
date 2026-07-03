@@ -15,7 +15,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
 import { IMcpCallerContext } from '../../../../platform/positronMcp/common/positronMcp.js';
-import { IMcpCallToolResult, McpContent, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
+import { IMcpCallToolResult, McpContent, NO_ACTIVE_SESSION_TEXT, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -173,11 +173,16 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 	private async _getSession(): Promise<IMcpCallToolResult> {
 		const session = this._runtimeSessionService.foregroundSession;
 		if (!session) {
-			return textResult('No active runtime session. Use session-start to begin one.');
+			return textResult(NO_ACTIVE_SESSION_TEXT);
 		}
+		// The interpreter line pins down which environment is live (uv, Conda,
+		// venv, ...) so the agent matches it instead of guessing, e.g. when
+		// installing packages.
+		const { languageId, languageVersion, runtimePath, runtimeSource } = session.runtimeMetadata;
 		return textResult([
 			`Runtime Session: ${session.dynState.sessionName}`,
-			`Language: ${session.runtimeMetadata.languageId}`,
+			`Language: ${languageId} ${languageVersion}`,
+			`Interpreter: ${runtimePath} (${runtimeSource})`,
 			`Mode: ${session.metadata.sessionMode}`,
 			`Session ID: ${session.metadata.sessionId}`,
 		].join('\n'));
