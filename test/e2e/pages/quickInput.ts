@@ -185,18 +185,36 @@ export class QuickInput {
 		// none of the deprioritized source markers. Falls back to the first match
 		// when every match is deprioritized (e.g. a platform where only the base
 		// interpreter is installed).
+		//
+		// The filtered picker renders matches incrementally, so a deprioritized
+		// source (e.g. a uv-managed standalone "(Unknown)") can appear a moment
+		// before the intended environment (e.g. a venv "(uv: name)"). Poll for a
+		// non-deprioritized match before falling back, otherwise a transient
+		// "only the deprioritized row is rendered" state gets silently selected --
+		// which then reads as success, so the caller's retry never re-fires.
 		let target = matches.first();
 		if (deprioritize?.length) {
 			await expect(target).toBeVisible({ timeout });
-			const count = await matches.count();
-			for (let i = 0; i < count; i++) {
-				const row = matches.nth(i);
-				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
-				if (!deprioritize.some(source => ariaLabel.includes(source))) {
-					target = row;
-					break;
+			const findPreferred = async (): Promise<Locator | undefined> => {
+				const count = await matches.count();
+				for (let i = 0; i < count; i++) {
+					const row = matches.nth(i);
+					const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
+					if (!deprioritize.some(source => ariaLabel.includes(source))) {
+						return row;
+					}
 				}
+				return undefined;
+			};
+			// Wait at least 8s for a non-deprioritized match, independent of the
+			// click `timeout`; only genuine single-interpreter platforms exhaust it.
+			const deadline = Date.now() + Math.max(timeout ?? 0, 8_000);
+			let preferred = await findPreferred();
+			while (!preferred && Date.now() < deadline) {
+				await this.code.driver.currentPage.waitForTimeout(250);
+				preferred = await findPreferred();
 			}
+			target = preferred ?? matches.first();
 		}
 
 		const targetResult =
