@@ -85,11 +85,30 @@ test.describe('Packages Pane', {
 							importable = `probe_failed:${(e as Error).message?.slice(0, 80)}`;
 						}
 						diag.push(`import=${importable}`);
-						// (3) Capture terminal contents (uv install output, if any).
+						// (3) Capture ALL terminal text (the uv install runs in a terminal;
+						// swallowExceptions hides its exit) folded into the thrown error so it
+						// survives in the JSON results (per-file logs get clobbered by retries).
+						const page = app.code.driver.currentPage;
+						let terminalText = 'unavailable';
 						try {
-							await terminal.logTerminalContents();
+							await terminal.logTerminalContents().catch(() => { });
+							terminalText = (await page.locator('.xterm-rows').allInnerTexts())
+								.join('\n').replace(/\n{2,}/g, '\n').trim().slice(-2500);
+						} catch (e) {
+							terminalText = `read_failed:${(e as Error).message?.slice(0, 80)}`;
+						}
+						// (4) Capture any visible notification/toast (an error surfaced by the
+						// install command would land here).
+						let notifText = 'none';
+						try {
+							const toasts = await page.locator('.notification-toast, .notifications-toasts .monaco-list-row').allInnerTexts();
+							notifText = toasts.join(' | ').slice(0, 600) || 'none';
 						} catch { /* best effort */ }
-						throw new Error(`[DIAG runtime=${runtime}] ${diag.join(' ')} :: ${(originalError as Error).message}`);
+						throw new Error(
+							`[DIAG runtime=${runtime}] ${diag.join(' ')}\n` +
+							`--- NOTIFICATIONS ---\n${notifText}\n` +
+							`--- TERMINAL (tail) ---\n${terminalText}\n` +
+							`--- ORIGINAL ---\n${(originalError as Error).message}`);
 					}
 					// --- END TEMP DIAGNOSTIC ---
 
