@@ -45,7 +45,7 @@ test.describe('Packages Pane', {
 		pythonRuntimes.forEach((runtime) => {
 			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
 				async function ({ app, sessions }) {
-					const { packages, toasts } = app.workbench;
+					const { packages, toasts, console, terminal } = app.workbench;
 
 					await sessions.start(runtime);
 
@@ -54,7 +54,44 @@ test.describe('Packages Pane', {
 					// install package and verify it shows up in the list
 					await packages.installPackage('cowsay');
 					await packages.searchPackages('cowsay');
-					await packages.expectPackageInList('cowsay');
+					// --- TEMP DIAGNOSTIC (remove before merge): CI fails here for uv only. ---
+					try {
+						await packages.expectPackageInList('cowsay');
+					} catch (originalError) {
+						const diag: string[] = [];
+						// (1) List-refresh hypothesis: does an explicit refresh surface it?
+						let afterRefresh = 'unknown';
+						try {
+							await packages.clickRefreshPackagesButton();
+							await packages.searchPackages('cowsay');
+							await packages.expectPackageInList('cowsay', 15_000);
+							afterRefresh = 'VISIBLE_AFTER_REFRESH';
+						} catch {
+							afterRefresh = 'STILL_ABSENT_AFTER_REFRESH';
+						}
+						diag.push(`refresh=${afterRefresh}`);
+						// (2) Install hypothesis: is cowsay actually importable in the session?
+						let importable = 'unknown';
+						try {
+							await console.executeCode('Python',
+								'import importlib.util as _u; print("COWSAY_SPEC=" + str(_u.find_spec("cowsay") is not None))');
+							try {
+								await console.waitForConsoleContents('COWSAY_SPEC=True', { timeout: 10_000 });
+								importable = 'IMPORTABLE_TRUE';
+							} catch {
+								importable = 'IMPORTABLE_FALSE_OR_TIMEOUT';
+							}
+						} catch (e) {
+							importable = `probe_failed:${(e as Error).message?.slice(0, 80)}`;
+						}
+						diag.push(`import=${importable}`);
+						// (3) Capture terminal contents (uv install output, if any).
+						try {
+							await terminal.logTerminalContents();
+						} catch { /* best effort */ }
+						throw new Error(`[DIAG runtime=${runtime}] ${diag.join(' ')} :: ${(originalError as Error).message}`);
+					}
+					// --- END TEMP DIAGNOSTIC ---
 
 					// uninstall package and verify it is removed from the list
 					await packages.uninstallPackage('cowsay');
