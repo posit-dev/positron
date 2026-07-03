@@ -13,7 +13,7 @@ import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
-import { traceInfo, traceVerbose } from '../../logging';
+import { traceVerbose } from '../../logging';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
@@ -78,9 +78,6 @@ export class UvPackageManager implements IPackageManager {
 
         const packageSpecs = this._formatPackageSpecs(packages);
         const useProjectWorkflow = await this._shouldUseProjectWorkflow();
-        // TEMP DIAGNOSTIC: trace the uv install path to find why packages-pane
-        // cowsay installs silently no-op on CI. Remove before merge.
-        traceInfo(`[UV-DIAG] installPackages specs=${packageSpecs.join(',')} project=${useProjectWorkflow}`);
 
         if (useProjectWorkflow) {
             // Project workflow: uv add --active --python <path> <packages>
@@ -88,7 +85,6 @@ export class UvPackageManager implements IPackageManager {
             await this._executeUvInTerminal(args, token);
         } else {
             const requirementsPath = await this._getWorkspaceRequirementsPath();
-            traceInfo(`[UV-DIAG] requirementsPath=${requirementsPath ?? 'none'} token=${token ? 'yes' : 'no'}`);
             if (requirementsPath) {
                 // requirements.txt is the source of truth: pass the target on the
                 // command line plus -r <file> (verbatim). The resolver intersects
@@ -99,24 +95,12 @@ export class UvPackageManager implements IPackageManager {
                 // Re-resolve against the full installed set: name every installed
                 // package (bare) plus the new package(s) so an inconsistent install
                 // fails atomically instead of breaking the environment.
-                let freezeLines: string[];
-                try {
-                    freezeLines = await this._getInstalledFreeze(token);
-                } catch (e) {
-                    traceInfo(`[UV-DIAG] _getInstalledFreeze THREW: ${(e as Error).message}`);
-                    throw e;
-                }
-                traceInfo(`[UV-DIAG] freeze lines=${freezeLines.length}`);
+                const freezeLines = await this._getInstalledFreeze(token);
                 const content = buildRequirementsFile(freezeLines, packages);
                 const tempFile = await this._writeRequirementsTempFile(content);
                 try {
                     const args = ['pip', 'install', '-r', tempFile.filePath, '--python', this._pythonPath];
-                    traceInfo(`[UV-DIAG] running terminal install: uv ${args.join(' ')}`);
                     await this._executeUvInTerminal(args, token);
-                    traceInfo(`[UV-DIAG] terminal install returned (exit not captured; swallowExceptions)`);
-                } catch (e) {
-                    traceInfo(`[UV-DIAG] terminal install THREW: ${(e as Error).message}`);
-                    throw e;
                 } finally {
                     tempFile.dispose();
                 }

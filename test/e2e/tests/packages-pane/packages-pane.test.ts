@@ -35,9 +35,7 @@ test.describe('Packages Pane', {
 	});
 
 	// python is uv; pythonAlt is pyenv
-	// TEMP DIAGNOSTIC: run only the uv variant so its window logs (with [UV-DIAG]
-	// traces) are not clobbered by later tests in this file. Restore before merge.
-	const pythonRuntimes: SessionRuntimes[] = ['python'];
+	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
@@ -47,7 +45,7 @@ test.describe('Packages Pane', {
 		pythonRuntimes.forEach((runtime) => {
 			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
 				async function ({ app, sessions }) {
-					const { packages, toasts, console } = app.workbench;
+					const { packages, toasts } = app.workbench;
 
 					await sessions.start(runtime);
 
@@ -55,56 +53,8 @@ test.describe('Packages Pane', {
 
 					// install package and verify it shows up in the list
 					await packages.installPackage('cowsay');
-					// --- TEMP DIAGNOSTIC (remove before merge): CI fails here for uv only. ---
-					// Capture the package-manager terminal output NOW, while it is fresh and
-					// still visible (the uv install just ran there; swallowExceptions hides its
-					// exit). Capturing later in the catch misses it (panel no longer active).
-					const page = app.code.driver.currentPage;
-					let terminalText = 'unavailable';
-					try {
-						await page.locator('.xterm-rows').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => { });
-						terminalText = (await page.locator('.xterm-rows').allInnerTexts())
-							.join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim().slice(-3000);
-					} catch (e) {
-						terminalText = `read_failed:${(e as Error).message?.slice(0, 80)}`;
-					}
 					await packages.searchPackages('cowsay');
-					try {
-						await packages.expectPackageInList('cowsay');
-					} catch (originalError) {
-						const diag: string[] = [];
-						// (1) List-refresh hypothesis: does an explicit refresh surface it?
-						let afterRefresh = 'unknown';
-						try {
-							await packages.clickRefreshPackagesButton();
-							await packages.searchPackages('cowsay');
-							await packages.expectPackageInList('cowsay', 15_000);
-							afterRefresh = 'VISIBLE_AFTER_REFRESH';
-						} catch {
-							afterRefresh = 'STILL_ABSENT_AFTER_REFRESH';
-						}
-						diag.push(`refresh=${afterRefresh}`);
-						// (2) Install hypothesis: is cowsay actually importable in the session?
-						let importable = 'unknown';
-						try {
-							await console.executeCode('Python',
-								'import importlib.util as _u; print("COWSAY_SPEC=" + str(_u.find_spec("cowsay") is not None))');
-							try {
-								await console.waitForConsoleContents('COWSAY_SPEC=True', { timeout: 10_000 });
-								importable = 'IMPORTABLE_TRUE';
-							} catch {
-								importable = 'IMPORTABLE_FALSE_OR_TIMEOUT';
-							}
-						} catch (e) {
-							importable = `probe_failed:${(e as Error).message?.slice(0, 80)}`;
-						}
-						diag.push(`import=${importable}`);
-						throw new Error(
-							`[DIAG runtime=${runtime}] ${diag.join(' ')}\n` +
-							`--- TERMINAL (captured right after install) ---\n${terminalText}\n` +
-							`--- ORIGINAL ---\n${(originalError as Error).message}`);
-					}
-					// --- END TEMP DIAGNOSTIC ---
+					await packages.expectPackageInList('cowsay');
 
 					// uninstall package and verify it is removed from the list
 					await packages.uninstallPackage('cowsay');
@@ -115,8 +65,7 @@ test.describe('Packages Pane', {
 		});
 	});
 
-	// TEMP DIAGNOSTIC: skipped so they don't clobber the uv window logs. Restore before merge.
-	test.skip('R - Install, search, and uninstall package', {
+	test('R - Install, search, and uninstall package', {
 		tag: [tags.WIN]
 	},
 		async function ({ app, r: _r }) {
@@ -134,7 +83,7 @@ test.describe('Packages Pane', {
 			await packages.expectPackageNotInList('cowsay');
 		});
 
-	test.describe.skip('Help button', { tag: [tags.HELP] }, () => {
+	test.describe('Help button', { tag: [tags.HELP] }, () => {
 		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
@@ -156,7 +105,7 @@ test.describe('Packages Pane', {
 			});
 	});
 
-	test.describe.skip('URL button', () => {
+	test.describe('URL button', () => {
 		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
 			async function ({ app, python: _python }) {
 				const { packages } = app.workbench;
