@@ -182,19 +182,35 @@ export class QuickInput {
 		// By default select the first matching row. When `deprioritize` is set and
 		// several rows share `text` (e.g. a project venv and a base pyenv both
 		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
-		// none of the deprioritized source markers. Falls back to the first match
-		// when every match is deprioritized (e.g. a platform where only the base
-		// interpreter is installed).
+		// none of the deprioritized source markers.
 		//
-		// The filtered picker renders matches incrementally, so a deprioritized
-		// source (e.g. a uv-managed standalone "(Unknown)") can appear a moment
-		// before the intended environment (e.g. a venv "(uv: name)"). Poll for a
-		// non-deprioritized match before falling back, otherwise a transient
-		// "only the deprioritized row is rendered" state gets silently selected --
-		// which then reads as success, so the caller's retry never re-fires.
+		// Interpreter discovery resolves each environment's version asynchronously,
+		// so on a cold pass the intended environment (e.g. a venv "(uv: name)") may
+		// not yet be labelled with its version -- meanwhile a deprioritized source
+		// that shares the version (e.g. a uv-managed standalone "(Unknown)") is
+		// already matchable. Selecting it then reads as success, so the caller's
+		// retry never re-fires and the wrong interpreter is used.
+		//
+		// To avoid that: poll briefly for a non-deprioritized match. If none
+		// appears but other interpreter rows for this language are still present
+		// (more language rows than version matches -- i.e. the intended one is
+		// likely still resolving), throw so the caller's retry (which re-runs
+		// discovery / refreshInterpreters) can re-fire. Only fall back to a
+		// deprioritized match when this is the sole interpreter for the language
+		// (e.g. a platform where just the base interpreter is installed), so
+		// single-interpreter setups still work without a long wait.
+		//
+		// Skip all of this when `text` already names a deprioritized source (e.g.
+		// "Python 3.12.10 (Pyenv)"): the caller asked for that interpreter
+		// explicitly, so there is no ambiguity to resolve -- select the match
+		// directly rather than treating it as a row to avoid.
 		let target = matches.first();
-		if (deprioritize?.length) {
+		const textSpecifiesSource = deprioritize?.some(source => text.includes(source)) ?? false;
+		if (deprioritize?.length && !textSpecifiesSource) {
 			await expect(target).toBeVisible({ timeout });
+			const languagePrefix = text.split(' ')[0];
+			const languageRows = this.code.driver.currentPage
+				.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${languagePrefix} "]`);
 			const findPreferred = async (): Promise<Locator | undefined> => {
 				const count = await matches.count();
 				for (let i = 0; i < count; i++) {
@@ -206,13 +222,20 @@ export class QuickInput {
 				}
 				return undefined;
 			};
-			// Wait at least 8s for a non-deprioritized match, independent of the
-			// click `timeout`; only genuine single-interpreter platforms exhaust it.
-			const deadline = Date.now() + Math.max(timeout ?? 0, 8_000);
+			const deadline = Date.now() + Math.max(timeout ?? 0, 5_000);
 			let preferred = await findPreferred();
 			while (!preferred && Date.now() < deadline) {
 				await this.code.driver.currentPage.waitForTimeout(250);
 				preferred = await findPreferred();
+			}
+			if (!preferred) {
+				const [languageCount, matchCount] = await Promise.all([languageRows.count(), matches.count()]);
+				if (languageCount > matchCount) {
+					throw new Error(
+						`Only deprioritized matches for "${text}" (${matchCount} of ${languageCount} ` +
+						`${languagePrefix} interpreters); the intended interpreter is likely still ` +
+						`resolving. Retrying to let discovery complete.`);
+				}
 			}
 			target = preferred ?? matches.first();
 		}
