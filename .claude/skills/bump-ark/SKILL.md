@@ -12,7 +12,7 @@ it never force-pushes.
 
 ## Usage
 
-`/bump-ark <pr-number | main> [@:tag ...] [--confirm]`
+`/bump-ark <pr-number | main> [@:tag ...] [--confirm] [--dry-run]`
 
 - `<pr-number>` tracks one Ark PR across its whole life on a single branch
   `bump-ark/pr-<N>`. While the PR is open the bump points at its head commit, so
@@ -26,6 +26,10 @@ it never force-pushes.
   supplied tags are added and deduped.
 - `--confirm` advances the open `main` bump even when a colleague owns it (see
   below). Never pass it proactively.
+- `--dry-run` prints the assembled PR body to stdout and exits, touching no
+  branch, ref, or PR. Only read-only `gh` calls run. Use it to preview the
+  `Closes`/tags/release-notes/commits body for a target before deciding to open
+  or update anything, e.g. if the user wants to see it first.
 
 The merge-commit finalize works for squash, merge-commit, and rebase merges
 alike, since GitHub records `merge_commit_sha` for all three.
@@ -70,3 +74,8 @@ re-run the same command with `--confirm` appended.
 The script prints the Positron PR URL to stdout (progress goes to stderr).
 Relay that URL. If it reports that the submodule is already at the target,
 relay that as-is instead.
+
+With `--dry-run`, stdout is the PR body instead of a URL, and nothing is
+created or modified: not the tracked branch, not its ref, not the PR. Use it
+only when asked to preview a bump; the default `/bump-ark <args>` invocation
+should not pass it.

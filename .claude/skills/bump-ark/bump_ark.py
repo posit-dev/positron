@@ -22,13 +22,14 @@ from typing import Callable, Optional
 from bump_notes import build_notes
 
 USAGE = """\
-Usage: bump_ark.py <pr-number | main> [@:tag ...] [--confirm]
+Usage: bump_ark.py <pr-number | main> [@:tag ...] [--confirm] [--dry-run]
 
 Opens a PR against posit-dev/positron bumping the Ark submodule.
   <pr-number>  bump to the head commit of that Ark PR (its merge commit once merged)
   main         bump to latest posit-dev/ark@main
   @:tag        Positron e2e test tags (@:ark is always included)
-  --confirm    advance the open main bump even if a colleague owns it"""
+  --confirm    advance the open main bump even if a colleague owns it
+  --dry-run    print the PR body to stdout; no branch, ref, or PR is touched"""
 
 ARK_REPO = "posit-dev/ark"
 POSITRON_REPO = "posit-dev/positron"
@@ -61,14 +62,40 @@ def main():
 
 
 def run(argv: list[str]) -> int:
-    target_arg, tag_args, confirm = parse_args(argv)
+    target_arg, tag_args, confirm, dry_run = parse_args(argv)
     check_gh()
 
-    resolution = resolve_target(target_arg)
+    bump = build_bump(target_arg, tag_args)
+    if bump is None:
+        return 0
+    resolution, body = bump
+
+    if dry_run:
+        print(body)
+        return 0
 
     # Only main bumps are author-guarded; a PR bump is keyed on the Ark PR, so
     # collaborators converge on the same PR rather than clobber each other.
     enforce_author = not resolution.is_pr_bump
+
+    open_or_update_tracked_bump(
+        resolution.sha,
+        resolution.title,
+        resolution.branch,
+        body,
+        enforce_author,
+        confirm,
+    )
+    return 0
+
+
+# Resolve the target and assemble its PR body, using only read-only `gh` calls, no
+# branch, ref, or PR is created or modified. Returns None when the submodule is
+# already at the target, the one outcome that has no body to hand back.
+def build_bump(
+    target_arg: str, tag_args: list[str]
+) -> Optional[tuple[Resolution, str]]:
+    resolution = resolve_target(target_arg)
 
     current_sha = gh_json(
         "api", f"repos/{POSITRON_REPO}/contents/{SUBMODULE_PATH}?ref={BASE_BRANCH}"
@@ -77,7 +104,7 @@ def run(argv: list[str]) -> int:
         eprint(
             f"Submodule is already at {resolution.sha} on {POSITRON_REPO}@{BASE_BRANCH}. Nothing to bump."
         )
-        return 0
+        return None
 
     compare = check_ancestry(current_sha, resolution.sha)
     eprint(f"Bumping {SUBMODULE_PATH}: {current_sha} -> {resolution.sha}")
@@ -91,31 +118,26 @@ def run(argv: list[str]) -> int:
     closes = "\n".join(f"Closes #{n}" for n in notes["closes"])
     body = build_body(closes, tag_line(tag_args), notes["notes"], commit_lines)
 
-    open_or_update_tracked_bump(
-        resolution.sha,
-        resolution.title,
-        resolution.branch,
-        body,
-        enforce_author,
-        confirm,
-    )
-    return 0
+    return resolution, body
 
 
-# Pull `--confirm` out from anywhere in the args; what's left is the target (first
-# positional) and the e2e tags. Returns (target, tags, confirm).
-def parse_args(argv: list[str]) -> tuple[str, list[str], bool]:
+# Pull `--confirm`/`--dry-run` out from anywhere in the args; what's left is the
+# target (first positional) and the e2e tags. Returns (target, tags, confirm, dry_run).
+def parse_args(argv: list[str]) -> tuple[str, list[str], bool, bool]:
     confirm = False
+    dry_run = False
     rest = []
     for arg in argv:
         if arg == "--confirm":
             confirm = True
+        elif arg == "--dry-run":
+            dry_run = True
         else:
             rest.append(arg)
     if not rest:
         eprint(USAGE)
         sys.exit(1)
-    return rest[0], rest[1:], confirm
+    return rest[0], rest[1:], confirm, dry_run
 
 
 def check_gh():

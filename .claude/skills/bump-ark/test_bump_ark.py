@@ -262,17 +262,24 @@ class BuildBodyTest(unittest.TestCase):
 
 class ParseArgsTest(unittest.TestCase):
     def test_target_only(self):
-        self.assertEqual(parse_args(["main"]), ("main", [], False))
+        self.assertEqual(parse_args(["main"]), ("main", [], False, False))
 
     def test_target_and_tags(self):
         self.assertEqual(
             parse_args(["123", "@:win", "@:console"]),
-            ("123", ["@:win", "@:console"], False),
+            ("123", ["@:win", "@:console"], False, False),
         )
 
     def test_confirm_pulled_from_anywhere(self):
         self.assertEqual(
-            parse_args(["main", "--confirm", "@:win"]), ("main", ["@:win"], True)
+            parse_args(["main", "--confirm", "@:win"]),
+            ("main", ["@:win"], True, False),
+        )
+
+    def test_dry_run_pulled_from_anywhere(self):
+        self.assertEqual(
+            parse_args(["main", "--dry-run", "@:win"]),
+            ("main", ["@:win"], False, True),
         )
 
     def test_no_target_exits(self):
