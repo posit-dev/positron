@@ -172,22 +172,9 @@ export class QuickInput {
 		}
 	}
 
-	/**
-	 * Count quick-pick result rows whose aria-label contains `text`. Used to tell
-	 * an ambiguous multi-interpreter picker (where a non-deprioritized environment
-	 * should be preferred) from a single-interpreter one (where the only match --
-	 * possibly a deprioritized base install -- must be accepted).
-	 */
-	async countResultsContaining(text: string): Promise<number> {
-		return this.code.driver.currentPage
-			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`)
-			.count();
-	}
-
 	async selectQuickInputElementContaining(
 		text: string,
-		{ timeout, force = true, deprioritize, requirePreferred = false }:
-			{ timeout?: number; force?: boolean; deprioritize?: string[]; requirePreferred?: boolean } = {},
+		{ timeout, force = true, deprioritize }: { timeout?: number; force?: boolean; deprioritize?: string[] } = {},
 	): Promise<string> {
 		const matches = this.code.driver.currentPage
 			.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`);
@@ -201,18 +188,16 @@ export class QuickInput {
 		// so on a cold pass the intended environment (e.g. a venv "(uv: name)") may
 		// not yet be labelled with its version -- meanwhile a deprioritized source
 		// that shares the version (e.g. a uv-managed standalone "(Unknown)") is
-		// already matchable. Selecting it then reads as success, so the caller's
-		// retry never re-fires and the wrong interpreter is used.
+		// already matchable. Selecting it then reads as success, so the wrong
+		// interpreter is used and the (uv-only) package install fails silently.
+		// Poll for a non-deprioritized match so the intended environment has time
+		// to resolve, then fall back to the first match. The fallback keeps
+		// single-interpreter setups working, including when the only interpreter
+		// for a version is itself a deprioritized source (e.g. an alternate
+		// "3.13.0 (Unknown)" uv-managed Python) -- there is nothing better to wait
+		// for, so it is selected once the poll elapses.
 		//
-		// So: poll briefly for a non-deprioritized match. If `requirePreferred` is
-		// set (the caller knows more than one interpreter exists, so a
-		// non-deprioritized one should appear) and none does, throw -- letting the
-		// caller's retry re-run discovery / refreshInterpreters until the intended
-		// environment resolves. Otherwise fall back to the first match, so
-		// single-interpreter setups (where the only interpreter is a deprioritized
-		// base install) still work without a long wait.
-		//
-		// Skip all of this when `text` already names a deprioritized source (e.g.
+		// Skip the poll when `text` already names a deprioritized source (e.g.
 		// "Python 3.12.10 (Pyenv)"): the caller asked for that interpreter
 		// explicitly, so there is no ambiguity to resolve.
 		let target = matches.first();
@@ -230,16 +215,15 @@ export class QuickInput {
 				}
 				return undefined;
 			};
-			const deadline = Date.now() + Math.max(timeout ?? 0, 8_000);
+			// Poll for a non-deprioritized match, independent of the click `timeout`.
+			// Interpreter version resolution can lag several seconds under load, so
+			// allow generous time before falling back to the first (deprioritized)
+			// match.
+			const deadline = Date.now() + Math.max(timeout ?? 0, 15_000);
 			let preferred = await findPreferred();
 			while (!preferred && Date.now() < deadline) {
 				await this.code.driver.currentPage.waitForTimeout(250);
 				preferred = await findPreferred();
-			}
-			if (!preferred && requirePreferred) {
-				throw new Error(
-					`No non-deprioritized match for "${text}" yet; the intended interpreter ` +
-					`is likely still resolving. Retrying to let discovery complete.`);
 			}
 			target = preferred ?? matches.first();
 		}
