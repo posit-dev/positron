@@ -18,6 +18,17 @@ export type ConsoleMetric = BaseMetric & {
 	action: ConsoleAction;
 };
 
+/**
+ * Declared variants for console `execute_code` — a named sub-scenario that
+ * shares one (action, target_type) but exercises a different code path. This
+ * union is the contract: the e2e-test-insights dashboard groups the Duration
+ * Distribution box plot by `variant`, and a typo here won't compile, so the
+ * dashboard can trust the value without an allowlist. Add a member only for a
+ * genuinely new, deliberately-benchmarked scenario; keep values short, stable,
+ * and snake_case.
+ */
+export type ConsoleExecuteVariant = 'simple_expression' | 'scrollback_trim';
+
 //-----------------------
 // Create Feature Factory
 //-----------------------
@@ -44,6 +55,8 @@ export { recordConsoleMetric };
 export interface ConsoleShortcutOptions {
 	description?: string;
 	language?: string;
+	/** Declared sub-scenario for grouping in the dashboard. Typed so a typo won't compile. */
+	variant?: ConsoleExecuteVariant;
 	additionalContext?: MetricContext | (() => Promise<MetricContext>);
 }
 
@@ -58,11 +71,12 @@ export async function recordExecuteCode<T>(
 	logger: MultiLogger,
 	options: ConsoleShortcutOptions = {}
 ): Promise<MetricResult<T>> {
-	const { description, language, additionalContext } = options;
+	const { description, language, variant, additionalContext } = options;
 
-	const context_json = language !== undefined || additionalContext ? async (): Promise<MetricContext> => {
+	const context_json = language !== undefined || variant !== undefined || additionalContext ? async (): Promise<MetricContext> => {
 		const base: MetricContext = {};
 		if (language !== undefined) { base.language = language; }
+		if (variant !== undefined) { base.variant = variant; }
 
 		if (!additionalContext) {
 			return base;
