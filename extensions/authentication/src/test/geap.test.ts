@@ -91,18 +91,18 @@ function installGoogleAuthStub(): void {
 
 	// The extension may have already loaded the resolver with the real library.
 	// Evict it so the require() below gets a fresh load against the stub.
-	const resolverPath = require.resolve('../geapResolver');
+	const resolverPath = require.resolve('../credentials/geap');
 	delete require.cache[resolverPath];
 }
 
 suite('resolveGeapCredential', () => {
 	let envSnapshot: Record<string, string | undefined>;
-	let resolveGeapCredential: typeof import('../geapResolver').resolveGeapCredential;
+	let resolveGeapCredential: typeof import('../credentials/geap').resolveGeapCredential;
 
 	suiteSetup(() => {
 		installGoogleAuthStub();
 		// Now require the resolver so it picks up the stubbed library.
-		resolveGeapCredential = require('../geapResolver').resolveGeapCredential;
+		resolveGeapCredential = require('../credentials/geap').resolveGeapCredential;
 	});
 
 	setup(() => {

@@ -14,7 +14,7 @@ test.use({
 let newFileName: string;
 
 test.describe('Notebooks', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS, tags.VARIABLES]
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeAll(async function ({ app, settings }) {

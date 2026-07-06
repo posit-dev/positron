@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { resolveGeapCredential } from '../geapResolver';
+import { resolveGeapCredential } from '../credentials/geap';
 
 class GeapValidationError extends Error {
 	constructor(message: string) {

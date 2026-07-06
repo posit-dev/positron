@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
+test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.viewer.clearViewer();

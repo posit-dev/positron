@@ -10,7 +10,7 @@ import {
 	isValidSnowflakeAccount,
 	constructSnowflakeBaseUrl,
 	detectSnowflakeCredentials,
-} from '../snowflakeCredentials';
+} from '../credentials/snowflake';
 
 suite('Snowflake Credentials', () => {
 

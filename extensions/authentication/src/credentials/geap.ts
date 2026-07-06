@@ -5,8 +5,8 @@
 
 import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
-import { AuthProviderLogger } from './authProviderLogger';
-import { log } from './log';
+import { AuthProviderLogger } from '../authProviderLogger';
+import { log } from '../log';
 
 const GEAP_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
