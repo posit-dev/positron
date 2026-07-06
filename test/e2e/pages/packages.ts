@@ -263,9 +263,14 @@ export class Packages {
 
 		await this.quickInput.waitForQuickInputClosed();
 
-		// Wait for the "Installing packages..." toast to appear and then disappear
-		await this.toasts.waitForAppear('Installing packages...', { timeout: 30000 });
-		await this.toasts.waitForDisappear('Installing packages...', { timeout: 60000 });
+		// Best-effort wait for the "Installing packages..." toast to appear and then
+		// disappear, to settle before callers assert on the package list. A fast
+		// install (e.g. `uv` installing a small wheel in milliseconds) can raise and
+		// clear the toast before it is ever observed, so a missed toast is not a
+		// failure -- `expectPackageInList` / `expectPackageNotInList` poll the list
+		// with their own retries and are the real assertions.
+		await this.toasts.waitForAppear('Installing packages...', { timeout: 30000 }).catch(() => { });
+		await this.toasts.waitForDisappear('Installing packages...', { timeout: 60000 }).catch(() => { });
 	}
 
 	/**

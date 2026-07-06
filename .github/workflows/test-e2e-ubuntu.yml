@@ -84,11 +84,6 @@ on:
         description: "Number of parallel workers to use, defaults to 2."
         default: 2
         type: number
-      upload_logs:
-        required: false
-        description: "Whether or not to upload e2e test logs."
-        type: boolean
-        default: true
 
 permissions:
   id-token: write

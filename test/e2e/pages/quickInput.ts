@@ -182,50 +182,21 @@ export class QuickInput {
 		// By default select the first matching row. When `deprioritize` is set and
 		// several rows share `text` (e.g. a project venv and a base pyenv both
 		// labeled "Python 3.10.12"), prefer the first row whose aria-label contains
-		// none of the deprioritized source markers.
-		//
-		// Interpreter discovery resolves each environment's version asynchronously,
-		// so on a cold pass the intended environment (e.g. a venv "(uv: name)") may
-		// not yet be labelled with its version -- meanwhile a deprioritized source
-		// that shares the version (e.g. a uv-managed standalone "(Unknown)") is
-		// already matchable. Selecting it then reads as success, so the wrong
-		// interpreter is used and the (uv-only) package install fails silently.
-		// Poll for a non-deprioritized match so the intended environment has time
-		// to resolve, then fall back to the first match. The fallback keeps
-		// single-interpreter setups working, including when the only interpreter
-		// for a version is itself a deprioritized source (e.g. an alternate
-		// "3.13.0 (Unknown)" uv-managed Python) -- there is nothing better to wait
-		// for, so it is selected once the poll elapses.
-		//
-		// Skip the poll when `text` already names a deprioritized source (e.g.
-		// "Python 3.12.10 (Pyenv)"): the caller asked for that interpreter
-		// explicitly, so there is no ambiguity to resolve.
+		// none of the deprioritized source markers. Falls back to the first match
+		// when every match is deprioritized (e.g. a platform where only the base
+		// interpreter is installed).
 		let target = matches.first();
-		const textSpecifiesSource = deprioritize?.some(source => text.includes(source)) ?? false;
-		if (deprioritize?.length && !textSpecifiesSource) {
+		if (deprioritize?.length) {
 			await expect(target).toBeVisible({ timeout });
-			const findPreferred = async (): Promise<Locator | undefined> => {
-				const count = await matches.count();
-				for (let i = 0; i < count; i++) {
-					const row = matches.nth(i);
-					const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
-					if (!deprioritize.some(source => ariaLabel.includes(source))) {
-						return row;
-					}
+			const count = await matches.count();
+			for (let i = 0; i < count; i++) {
+				const row = matches.nth(i);
+				const ariaLabel = (await row.getAttribute('aria-label')) ?? '';
+				if (!deprioritize.some(source => ariaLabel.includes(source))) {
+					target = row;
+					break;
 				}
-				return undefined;
-			};
-			// Poll for a non-deprioritized match, independent of the click `timeout`.
-			// Interpreter version resolution can lag several seconds under load, so
-			// allow generous time before falling back to the first (deprioritized)
-			// match.
-			const deadline = Date.now() + Math.max(timeout ?? 0, 15_000);
-			let preferred = await findPreferred();
-			while (!preferred && Date.now() < deadline) {
-				await this.code.driver.currentPage.waitForTimeout(250);
-				preferred = await findPreferred();
 			}
-			target = preferred ?? matches.first();
 		}
 
 		const targetResult =
