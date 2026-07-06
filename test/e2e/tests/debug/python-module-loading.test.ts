@@ -12,8 +12,16 @@ test.use({
 });
 
 test.describe('Python Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
+
+	test.beforeEach(async function ({ settings }) {
+		// Disable the missing-packages preflight so the Run gesture doesn't open a
+		// blocking install modal (app.py's local `helper` import is flagged as a
+		// missing package once its cache warms). This test is about module auto
+		// reload, not package installation.
+		await settings.set({ 'packages.confirmMissingOnRun': false }, { keepOpen: false });
+	});
 
 	test.afterAll(async function ({ cleanup }) {
 

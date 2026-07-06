@@ -17,6 +17,8 @@ import { logMetric } from './api.js';
 export interface FeatureMetric<TAction extends string> extends BaseMetric {
 	feature_area: string;
 	action: TAction;
+	/** Optional top-level sub-scenario dimension (see api.ts PerfMetric.variant). */
+	variant?: string;
 }
 
 /**
@@ -26,6 +28,7 @@ export interface RecordMetricParams<TAction extends string> {
 	action: TAction;
 	target_type: MetricTargetType;
 	target_description?: string;
+	variant?: string;
 	context_json?: MetricContext | (() => Promise<MetricContext>);
 	status?: MetricStatus;
 }
@@ -85,6 +88,7 @@ export function createMetricRecorder<TAction extends string>(featureArea: string
 				action: params.action,
 				target_type: params.target_type,
 				target_description: params.target_description,
+				variant: params.variant,
 				duration_ms: duration,
 				status: params.status || operationStatus,
 				context_json: resolvedContext
