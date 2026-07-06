@@ -73,6 +73,10 @@ export async function recordExecuteCode<T>(
 ): Promise<MetricResult<T>> {
 	const { description, language, variant, additionalContext } = options;
 
+	// Dual-write during rollout: `variant` is sent as a top-level field (below)
+	// AND still written into context_json here, so the metric persists correctly
+	// whether or not the API's top-level `variant` param is deployed yet. Once the
+	// API is confirmed live, drop the context_json write (the `base.variant` line).
 	const context_json = language !== undefined || variant !== undefined || additionalContext ? async (): Promise<MetricContext> => {
 		const base: MetricContext = {};
 		if (language !== undefined) { base.language = language; }
@@ -90,6 +94,7 @@ export async function recordExecuteCode<T>(
 		action: 'execute_code',
 		target_type: targetType,
 		target_description: description || `Execute code: ${targetType}`,
+		variant,
 		context_json,
 	}, isElectronApp, logger);
 }
