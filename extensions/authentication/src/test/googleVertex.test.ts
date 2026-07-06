@@ -91,18 +91,18 @@ function installGoogleAuthStub(): void {
 
 	// The extension may have already loaded the resolver with the real library.
 	// Evict it so the require() below gets a fresh load against the stub.
-	const resolverPath = require.resolve('../googleVertexResolver');
+	const resolverPath = require.resolve('../credentials/googleVertex');
 	delete require.cache[resolverPath];
 }
 
 suite('resolveGoogleVertexCredential', () => {
 	let envSnapshot: Record<string, string | undefined>;
-	let resolveGoogleVertexCredential: typeof import('../googleVertexResolver').resolveGoogleVertexCredential;
+	let resolveGoogleVertexCredential: typeof import('../credentials/googleVertex').resolveGoogleVertexCredential;
 
 	suiteSetup(() => {
 		installGoogleAuthStub();
 		// Now require the resolver so it picks up the stubbed library.
-		resolveGoogleVertexCredential = require('../googleVertexResolver').resolveGoogleVertexCredential;
+		resolveGoogleVertexCredential = require('../credentials/googleVertex').resolveGoogleVertexCredential;
 	});
 
 	setup(() => {
