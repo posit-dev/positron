@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -122,6 +122,46 @@ describe('PackageDetail when session is not active', () => {
 		);
 		expect(screen.getByText(/not the active session/i)).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /uninstall/i })).toBeDisabled();
+	});
+});
+
+describe('PackageDetail after uninstall', () => {
+	const executeCommand = vi.fn();
+	const refresh = new Emitter<ILanguageRuntimePackage[]>();
+	// A current (not outdated) package, so `latestVersion` is unset -- the exact
+	// case where reading `latestVersion` used to leave the version undefined and
+	// drop the Install button into the search quick-pick.
+	const packages = [dplyr({ version: '1.1.2', outdated: false })];
+	const instance = stubInterface<IPositronPackagesInstance>({
+		packages,
+		session: makeSession(SESSION_ID),
+		onDidRefreshPackagesInstance: refresh.event,
+		getPackageDetail: vi.fn().mockResolvedValue(undefined),
+	});
+	const packagesService = stubInterface<IPositronPackagesService>({
+		getInstances: () => [instance],
+		activePackagesInstance: instance,
+		onDidChangeActivePackagesInstance: new Emitter<IPositronPackagesInstance | undefined>().event,
+		onDidStopPackagesInstance: new Emitter<IPositronPackagesInstance>().event,
+	});
+	const ctx = createTestContainer().withReactServices().stub(ICommandService, { executeCommand }).build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('reinstalls the previously-installed version when Install is clicked after uninstall', async () => {
+		rtl.render(
+			<PackageDetail languageId='r' packageName='dplyr' packagesService={packagesService} sessionId={SESSION_ID} />
+		);
+		const user = userEvent.setup();
+
+		// Uninstall: the package leaves the installed list and the refresh event
+		// drives the re-render. The detail view retains the last-known package data.
+		packages.length = 0;
+		act(() => refresh.fire([]));
+
+		// Clicking the Install button reinstalls the version that was installed
+		// (1.1.2) directly -- not `latestVersion`, and with no version quick-pick.
+		await user.click(screen.getByRole('button', { name: /install/i }));
+		expect(executeCommand).toHaveBeenCalledWith('positronPackages.installPackage', 'dplyr', '1.1.2');
 	});
 });
 

@@ -18,6 +18,7 @@ import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
 import { ArkComm } from './ark-comm';
 import { RPackageManager } from './packages';
+import { listMissingRPackages } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
 
 interface RPackageInstallation {
@@ -791,6 +792,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			throw new Error('Package manager not initialized');
 		}
 		return this._packageManager;
+	}
+
+	async listMissingPackages(
+		target: positron.RuntimeMissingPackagesTarget,
+		token?: vscode.CancellationToken,
+	): Promise<positron.RuntimeMissingPackage[]> {
+		if (!this._packageManager) {
+			return [];
+		}
+		return listMissingRPackages(this._packageManager, target, token);
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {

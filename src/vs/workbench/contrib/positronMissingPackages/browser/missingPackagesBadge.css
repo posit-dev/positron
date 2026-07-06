@@ -1,0 +1,148 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.missing-packages-badge {
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-right: 4px;
+	padding: 0 4px;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	column-gap: 4px;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+}
+
+/*
+ * Hidden tier: the document references missing packages but the action bar has
+ * no room for even the icon-only badge. The badge stays in the DOM (so its
+ * available width can still be measured and it can reappear when the editor is
+ * widened) but takes up no space.
+ */
+.missing-packages-badge.missing-packages-badge-hidden {
+	display: none;
+}
+
+/*
+ * The badge lives inside `.action-bar-widget`; the extra ancestor selector
+ * raises specificity above `.monaco-workbench button { color: inherit }`, which
+ * would otherwise force the warning icon to the default foreground color.
+ */
+.action-bar-widget .missing-packages-badge .codicon-warning {
+	color: var(--vscode-editorWarning-foreground);
+}
+
+/*
+ * The install sync icon uses the default foreground rather than the warning color
+ * so the badge reads as "working", not "warning", while the install runs.
+ */
+.action-bar-widget .missing-packages-badge .codicon-sync {
+	color: var(--vscode-foreground);
+}
+
+.missing-packages-badge .missing-packages-label {
+	flex: 1;
+	margin: 0;
+	line-height: 22px;
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+}
+
+.missing-packages-badge .codicon-positron-drop-down-arrow {
+	font-size: 14px;
+	color: var(--vscode-foreground);
+}
+
+/* Dialog popup */
+
+.missing-packages-dialog {
+	padding: 12px 16px;
+	display: flex;
+	flex-direction: column;
+	row-gap: 12px;
+}
+
+.missing-packages-dialog-message {
+	line-height: 18px;
+}
+
+.missing-packages-dialog-filename {
+	font-family: var(--monaco-monospace-font);
+}
+
+/* Installing dialog: the indeterminate progress bar under the message. */
+.missing-packages-installing-progress {
+	display: flex;
+}
+
+.missing-packages-installing-progress .progress-bar-item {
+	width: 100%;
+}
+
+.missing-packages-dialog-list {
+	margin: 0;
+	padding-left: 20px;
+	display: flex;
+	flex-direction: column;
+	row-gap: 2px;
+}
+
+/*
+ * Action bar: a secondary "Don't Show Again" button pinned to the left and the
+ * primary install action on the right, matching the convention used by the
+ * modal dialog action bars.
+ */
+.missing-packages-dialog-actions {
+	display: flex;
+	align-items: center;
+	column-gap: 10px;
+	justify-content: space-between;
+	margin-top: 4px;
+}
+
+/*
+ * The action buttons mirror the action button styling from
+ * positronModalDialog.css, which is scoped to `.positron-modal-dialog-box` and
+ * therefore not available inside a modal popup.
+ */
+.missing-packages-dialog .missing-packages-dialog-button {
+	height: 32px;
+	min-width: 80px;
+	padding: 0 14px;
+	display: flex;
+	white-space: nowrap;
+	align-items: center;
+	justify-content: center;
+	border-radius: 5px;
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-buttonBackground);
+}
+
+.missing-packages-dialog .missing-packages-dialog-button:hover {
+	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+}
+
+/*
+ * VS Code 1.109.0 made secondary buttons borderless in dark mode; restore a
+ * visible border so the "Don't Show Again" button reads as an action.
+ */
+.vs-dark .missing-packages-dialog .missing-packages-dialog-button:not(.default) {
+	border: 1px solid var(--vscode-button-border);
+}
+
+.missing-packages-dialog .missing-packages-dialog-button.default {
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+}
+
+.missing-packages-dialog .missing-packages-dialog-button.default:hover {
+	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+}

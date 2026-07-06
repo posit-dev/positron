@@ -9,10 +9,11 @@ import { URI } from '../../../../../../../base/common/uri.js';
 import { observableValue } from '../../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IContextKeyService } from '../../../../../../../platform/contextkey/common/contextkey.js';
 import { createTestContainer } from '../../../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IHeadlessLanguageModelService } from '../../../../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
-import { AI_ENABLED_KEY } from '../../../../../positronAssistant/common/positronAIConfiguration.js';
+import { NotebookContextKeys } from '../../../../common/notebookContextKeys.js';
 import { VisualizeDataFrameAction } from '../../../../browser/contrib/visualize/VisualizeAction.js';
 import type { IInlineDataExplorerActionContext } from '../../../../browser/notebookCells/InlineDataExplorerActions.js';
 import type { InlineTableDataGridInstance } from '../../../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
@@ -50,15 +51,17 @@ describe('VisualizeDataFrameAction', () => {
 		.build();
 
 	let configurationService: TestConfigurationService;
+	let contextKeyService: IContextKeyService;
 
 	beforeEach(() => {
 		configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		contextKeyService = ctx.get(IContextKeyService);
 		mockShowVisualizeModalDialog.mockReset();
 		mockApplyVisualizeResult.mockReset();
 		mockGenerateVisualizationSuggestion.mockReset().mockResolvedValue(null);
-		// Reset the AI state the shared describe-scope container carries: AI on
-		// (matching the registered default) and nothing excluded.
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, true);
+		// Reset the AI state the shared describe-scope container carries: the
+		// composite notebook AI gate on (matching the default) and nothing excluded.
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
 		configurationService.setUserConfiguration('positron.assistant.aiExcludes', []);
 	});
 
@@ -182,8 +185,11 @@ describe('VisualizeDataFrameAction', () => {
 		expect(mockShowVisualizeModalDialog).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not request a suggestion when AI is disabled, but still opens the dialog', async () => {
-		configurationService.setUserConfiguration(AI_ENABLED_KEY, false);
+	it('does not request a suggestion when the notebook AI gate is off, but still opens the dialog', async () => {
+		// The composite notebook AI gate (ai.enabled AND notebook.ai.enabled, whose
+		// composition is covered in notebookAIEnabledContextKey.vitest.ts) gates the
+		// model call; the manual wizard still opens.
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
 		mockShowVisualizeModalDialog.mockResolvedValue(undefined);
 
 		await run(buildContext());

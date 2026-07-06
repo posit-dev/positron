@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Footer: Cancel on the left, Install on the right. */
+.positron-dynamic-modal-dialog-box .missing-packages-install-footer {
+	height: 48px;
+	display: flex;
+	padding: 0 16px;
+	flex: 0 0 auto;
+	gap: 10px;
+	justify-content: flex-end;
+	align-items: flex-start;
+}

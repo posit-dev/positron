@@ -9,6 +9,7 @@ import { ActivityItemPrompt } from './activityItemPrompt.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
+import { ActivityItemErrorSuggestion } from './activityItemErrorSuggestion.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
 
@@ -24,6 +25,7 @@ export type ActivityItemOutput =
 export type ActivityItem =
 	ActivityItemStream |
 	ActivityItemErrorMessage |
+	ActivityItemErrorSuggestion |
 	ActivityItemInput |
 	ActivityItemOutput |
 	ActivityItemPrompt;

@@ -16,8 +16,8 @@ import { IChatEditingService } from '../../chat/common/editing/chatEditingServic
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IHeadlessLanguageModelService } from '../../../services/positronHeadlessLanguageModel/common/headlessLanguageModelService.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
-import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { openPositAssistantChat } from '../../positronAssistant/browser/positAssistantChat.js';
+import { NotebookContextKeys } from '../common/notebookContextKeys.js';
 import { PositronModalDialogReactRenderer } from '../../../../base/browser/positronModalDialogReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
@@ -42,9 +42,11 @@ export class AskAssistantAction extends Action2 {
 			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
 			icon: ThemeIcon.fromId('positron-assistant'),
 			f1: true,
-			// Gate the command palette entry and command execution on the AI main switch.
+			// Gate the command palette entry and command execution on the composite
+			// notebook AI switch (global `ai.enabled` AND notebooks-only
+			// `notebook.ai.enabled`, kept in sync by bindNotebookAIEnabledContextKey).
 			// The menu `when` below hides the toolbar button; precondition covers the rest.
-			precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+			precondition: NotebookContextKeys.aiEnabled,
 			category: localize2('positronNotebook.category', 'Notebook'),
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -56,7 +58,7 @@ export class AskAssistantAction extends Action2 {
 				order: 50,
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+					NotebookContextKeys.aiEnabled,
 				)
 			}
 		});

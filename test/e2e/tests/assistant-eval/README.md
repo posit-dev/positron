@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-05-26T20:27:20.941Z
+> 9 test cases · Auto-generated on 2026-06-30T22:42:21.543Z
 
 ## Hallucination
 
@@ -174,7 +174,7 @@ Fix the error in cell 2 of my notebook.
 #### Required
 
 - The `editNotebook` tool must appear in the "Tools Called:" section
-- The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)
+- The `editFile` tool must NOT appear (wrong tool for notebooks)
 
 #### Nice to have
 
@@ -236,7 +236,7 @@ Add a method to return today's date.
 
 #### Required
 
-- The `positron_editFile_internal` tool must appear in the "Tools Called:" section
+- The `editFile` tool must appear in the "Tools Called:" section
 - Code uses a valid Python date approach (datetime module or similar)
 
 #### Nice to have

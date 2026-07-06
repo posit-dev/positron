@@ -94,4 +94,34 @@ test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPM
 		await testExplorer.expectTestItems(['test-renamed.R'], WATCHER_TIMEOUT);
 		await testExplorer.expectNoTestItem('test-describe-it.R', WATCHER_TIMEOUT);
 	});
+
+	// Edge case of https://github.com/posit-dev/positron/issues/14499
+	test('Out-of-band edits to a test file update the tree', async function ({ app }, testInfo) {
+		const { testExplorer } = app.workbench;
+		const testthatDir = path.join(path.dirname(app.workspacePathOrFolder), fixtureFolderFor(testInfo.title, testInfo.workerIndex), 'tests', 'testthat');
+
+		// Make sure test-test-that.R has been materialized in the explorer.
+		await testExplorer.expandAllTests();
+		// These are the children nodes (the tests) in test-test-that.R.
+		await testExplorer.expectTestItems(['test_that number 1 passes', 'test_that number 2 fails']);
+
+		// Rewrite the file out-of-band via write-temp-then-rename, to imitate
+		// a coding agent.
+		const rewritten = [
+			'test_that("test_that number 1 passes", {',
+			'  expect_equal(2 * 2, 4)',
+			'})',
+			'',
+			'test_that("added out of band", {',
+			'  expect_true(TRUE)',
+			'})',
+			''
+		].join('\n');
+		const scratch = path.join(testthatDir, 'scratch-rewrite.R');
+		fs.writeFileSync(scratch, rewritten);
+		fs.renameSync(scratch, path.join(testthatDir, 'test-test-that.R'));
+
+		await testExplorer.expectTestItems(['added out of band'], WATCHER_TIMEOUT);
+		await testExplorer.expectNoTestItem('test_that number 2 fails', WATCHER_TIMEOUT);
+	});
 });
