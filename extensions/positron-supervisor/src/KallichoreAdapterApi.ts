@@ -19,6 +19,16 @@ import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
+import { HandshakeSocket } from './HandshakeSocket.js';
+
+/**
+ * The environment variable naming a handshake-broker socket. In web/server
+ * mode, `server-main.ts` launches kcserver at server startup, receives its
+ * connection details over a handshake socket, and re-serves those details to
+ * each window's extension host over the same socket. The socket path/pipe name
+ * is published here; the bearer token itself never crosses the env boundary.
+ */
+const HANDSHAKE_SOCKET_ENV_VAR = 'POSITRON_SUPERVISOR_HANDSHAKE_SOCKET';
 
 export const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
@@ -421,42 +431,39 @@ export class KCApi implements PositronSupervisorApi {
 	 * server is online.
 	 *
 	 * Waits up to the configured startup timeout for the terminal to start and
-	 * for the same timeout for the server to write the connection file and
+	 * for the same timeout for the server to connect to the handshake socket and
 	 * become responsive.
 	 *
 	 * @throws An error if the server cannot be started or reconnected to.
 	 */
 	async start() {
-		// Check the POSITRON_SUPERVISOR_CONNECTION_FILE environment variable to
+		// Check the POSITRON_SUPERVISOR_HANDSHAKE_SOCKET environment variable to
 		// see if we're trying to connect to an existing server.
 		//
 		// In web/server mode, the server is started concurrently with the node
-		// server, and its connection details are passed to Positron via an
-		// environment variable that points to a connection file.
-		let connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
-		if (connectionFile) {
-			if (fs.existsSync(connectionFile)) {
-				this.log(`Using connection file from ` +
-					`POSITRON_SUPERVISOR_CONNECTION_FILE: ${connectionFile}`);
-				try {
-					const connectionContents = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
-					if (await this.reconnect(connectionContents)) {
-						this.log(
-							`Connected to previously established supervisor.`);
-						return;
-					}
-					// No action if connection does not work; we will start a new
-					// server.
-				} catch (err) {
-					// Non-fatal. We can still start a new server if the connection file
-					// is invalid.
-					this.log(
-						`Error connecting to Kallichore (${connectionFile}): ${summarizeError(err)}`);
+		// server, and its connection details are brokered to Positron over a
+		// handshake socket named by this environment variable. We connect to the
+		// broker as a client and read the cached connection details from it.
+		const handshakeSocket = process.env[HANDSHAKE_SOCKET_ENV_VAR];
+		if (handshakeSocket) {
+			this.log(`Using handshake socket from ` +
+				`${HANDSHAKE_SOCKET_ENV_VAR}: ${handshakeSocket}`);
+			try {
+				const config = vscode.workspace.getConfiguration('kernelSupervisor');
+				const startupTimeout = config.get<number>('startupTimeout', 10) * 1000;
+				const connectionContents = await HandshakeSocket.connect(handshakeSocket, startupTimeout);
+				if (await this.reconnect(connectionContents)) {
+					this.log(`Connected to previously established supervisor.`);
+					return;
 				}
-			} else {
-				// Non-fatal, but not expected.
-				this.log(`Connection file named in ` +
-					`POSITRON_SUPERVISOR_CONNECTION_FILE does not exist: ${connectionFile}`);
+				// No action if connection does not work; we will start a new
+				// server.
+			} catch (err) {
+				// Non-fatal. We can still start a new server if the broker is
+				// unreachable or serves an invalid payload.
+				this.log(
+					`Error connecting to Kallichore over handshake socket ` +
+					`(${handshakeSocket}): ${summarizeError(err)}`);
 			}
 		}
 
@@ -497,11 +504,17 @@ export class KCApi implements PositronSupervisorApi {
 		// Create a server session ID (8 characters)
 		const sessionId = `${createUniqueId()}-${process.pid}`;
 
-		// If no connection file was provided, generate one using the process PID
-		if (!connectionFile) {
-			connectionFile = path.join(os.tmpdir(), `kallichore-${sessionId}.json`);
-			this.log(`Generated connection file path: ${connectionFile}`);
-		}
+		// Create and listen on a handshake socket. kcserver connects to this
+		// socket once at startup and writes its connection details (transport,
+		// address, bearer token, etc.); we await that payload below instead of
+		// polling the filesystem for a connection file. The socket is
+		// same-user-locked, so the token travels over a channel no other local
+		// user can open.
+		const handshake = await HandshakeSocket.create(`kallichore-${sessionId}`);
+		this.log(`Listening for supervisor handshake on ${handshake.socketPath}`);
+
+		// Ensure the handshake socket is cleaned up when the API is disposed.
+		this._disposables.push(handshake);
 
 		// Start a timer so we can track server startup time
 		const startTime = Date.now();
@@ -537,7 +550,7 @@ export class KCApi implements PositronSupervisorApi {
 		shellArgs.push(...[
 			'--log-level', logLevel,
 			'--log-file', logFile,
-			'--connection-file', connectionFile,
+			'--handshake-socket', handshake.socketPath,
 			'--resource-sample-interval', resourcePollInterval.toString()
 		]);
 
@@ -655,7 +668,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Start the server in a new terminal
 		this.log(`Starting Kallichore server ${shellPath} ` +
-			`with connection file ${connectionFile} and ` +
+			`with handshake socket ${handshake.socketPath} and ` +
 			`${startupTimeout}ms startup timeout`);
 
 		this._terminal = vscode.window.createTerminal({
@@ -693,52 +706,42 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Kallichore terminal started in ${Date.now() - startTime}ms with PID ${processId}`);
 		const supervisorStartTime = Date.now();
 
-		// Wait for the connection file to be written by the server
+		// Reads any captured stdout/stderr from the server process, formatted for
+		// appending to a startup error message. Preserves the "server exited
+		// during startup, here is its captured output" diagnostics that made
+		// startup failures debuggable under the old file-polling approach.
+		const readServerOutput = (): string => {
+			try {
+				if (fs.existsSync(outFile)) {
+					const contents = fs.readFileSync(outFile, 'utf8');
+					if (contents) {
+						return `; output:\n\n${contents}`;
+					}
+				}
+			} catch (err) {
+				this.log(`Error reading supervisor output file ${outFile}: ${err}`);
+			}
+			return '';
+		};
+
+		// Wait for the supervisor to connect to the handshake socket and report
+		// its connection details. Race the handshake payload against
+		// server-process-exit detection so a crashed kcserver fails fast with its
+		// captured output instead of waiting out the full startup timeout.
 		let connectionData: KallichoreServerState | undefined = undefined;
 		let basePath: string = '';
 		let serverPort: number = 0;
-
-		// Wait for the connection file to exist and be readable
 		let elapsed = 0;
-		let retry = 1;
-		do {
-			try {
-				if (fs.existsSync(connectionFile)) {
-					connectionData = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
-					if (!connectionData) {
-						this.log(`Connection file ${connectionFile} is empty or invalid`);
-						throw new Error(`Connection file ${connectionFile} is empty or invalid`);
-					}
+		let retry = 0;
 
-					// Handle base_path (TCP), socket_path (domain socket), and named_pipe (named pipe) formats
-					if (connectionData.base_path) {
-						// TCP connection with explicit base_path
-						basePath = connectionData.base_path;
-						serverPort = connectionData.port || 0;
-						this.log(`Read TCP connection information from ${connectionFile}: ${basePath}`);
-					} else if (connectionData.socket_path) {
-						// Domain socket connection - construct HTTP over Unix socket URL
-						basePath = `http://unix:${connectionData.socket_path}:`;
-						serverPort = 0; // No port for domain sockets
-						this.log(`Read domain socket connection information from ${connectionFile}: ${connectionData.socket_path}, constructed base path: ${basePath}`);
-					} else if (connectionData.named_pipe) {
-						// Named pipe connection - construct HTTP over named pipe URL
-						basePath = `http://npipe:${connectionData.named_pipe}:`;
-						serverPort = 0; // No port for named pipes
-						this.log(`Read named pipe connection information from ${connectionFile}: ${connectionData.named_pipe}, constructed base path: ${basePath}`);
-					} else {
-						this.log(`Connection file ${connectionFile} missing base_path, socket_path, and named_pipe`);
-						throw new Error(`Connection file ${connectionFile} missing base_path, socket_path, and named_pipe`);
-					}
-					break;
-				}
-			} catch (err) {
-				// Connection file might not be ready yet or might be invalid
-				this.log(`Error reading connection file (attempt ${retry}): ${err}`);
-			}
-
-			// Every 10 retries, check to see if the server process has exited.
-			if (!exited && processId && retry % 10 === 0) {
+		// Rejects if the supervisor process exits before it reports in. The
+		// `exited` flag is also set by the terminal close listener above.
+		let rejectOnExit!: (err: Error) => void;
+		const processExited = new Promise<never>((_, reject) => {
+			rejectOnExit = reject;
+		});
+		const exitPoller = setInterval(() => {
+			if (!exited && processId) {
 				try {
 					process.kill(processId, 0);
 				} catch (err) {
@@ -746,43 +749,55 @@ export class KCApi implements PositronSupervisorApi {
 					exited = true;
 				}
 			}
-
-			// Has the terminal exited? if it has, there's no point in continuing to retry.
 			if (exited) {
-				let message = `The supervisor process exited unexpectedly during startup`;
-
-				// Include any output from the server process to help diagnose the problem
-				if (fs.existsSync(outFile)) {
-					const contents = fs.readFileSync(outFile, 'utf8');
-					if (contents) {
-						message += `; output:\n\n${contents}`;
-					}
-				}
-				this.log(message);
-				throw new Error(message);
+				clearInterval(exitPoller);
+				rejectOnExit(new Error(
+					`The supervisor process exited unexpectedly during startup` +
+					readServerOutput()));
 			}
+		}, 100);
+		exitPoller.unref?.();
 
-			// Wait a bit and try again
-			if (elapsed + 100 < startupTimeout) {
-				await new Promise((resolve) => setTimeout(resolve, 100));
-			}
-
-			elapsed = Date.now() - supervisorStartTime;
-			retry++;
-		} while (elapsed < startupTimeout && !connectionData);
-
-		if (!connectionData) {
-			let message = `Connection file was not created after ${elapsed}ms`;
-
-			// Include any output from the server process to help diagnose the problem
-			if (fs.existsSync(outFile)) {
-				const contents = fs.readFileSync(outFile, 'utf8');
-				if (contents) {
-					message += `; output:\n\n${contents}`;
-				}
-			}
+		try {
+			connectionData = await Promise.race([
+				handshake.payload(startupTimeout),
+				processExited,
+			]);
+		} catch (err) {
+			// A process-exit rejection already includes the captured output; a
+			// handshake timeout does not, so append it here for diagnosability.
+			const base = err instanceof Error ? err.message : String(err);
+			const message = base.includes('output:') ? base : base + readServerOutput();
 			this.log(message);
 			throw new Error(message);
+		} finally {
+			clearInterval(exitPoller);
+		}
+
+		// The socket has served its one payload; close it and remove the backing
+		// socket file now rather than waiting for API disposal.
+		handshake.dispose();
+
+		// Construct the API base path from the reported connection details.
+		// Handle base_path (TCP), socket_path (domain socket), and named_pipe
+		// (named pipe) formats.
+		if (connectionData.base_path) {
+			// TCP connection with explicit base_path
+			basePath = connectionData.base_path;
+			serverPort = connectionData.port || 0;
+			this.log(`Received TCP connection information: ${basePath}`);
+		} else if (connectionData.socket_path) {
+			// Domain socket connection - construct HTTP over Unix socket URL
+			basePath = `http://unix:${connectionData.socket_path}:`;
+			serverPort = 0; // No port for domain sockets
+			this.log(`Received domain socket connection information: ${connectionData.socket_path}, constructed base path: ${basePath}`);
+		} else if (connectionData.named_pipe) {
+			// Named pipe connection - construct HTTP over named pipe URL
+			basePath = `http://npipe:${connectionData.named_pipe}:`;
+			serverPort = 0; // No port for named pipes
+			this.log(`Received named pipe connection information: ${connectionData.named_pipe}, constructed base path: ${basePath}`);
+		} else {
+			throw new Error(`Handshake payload missing base_path, socket_path, and named_pipe`);
 		}
 
 		// Create a bearer auth object with the token
@@ -1836,21 +1851,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Clear the saved state so we don't try to reconnect to the old server
 		await this.saveServerState(undefined);
-
-		// Do the same with the environment variable, and clean up the
-		// connection file if it exists.
-		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
-		if (connectionFile && fs.existsSync(connectionFile)) {
-			this.log(`Cleaning up connection file ${connectionFile}`);
-			try {
-				fs.unlinkSync(connectionFile);
-			} catch (err) {
-				// Not fatal; just log the error. We'll unset the environment
-				// variable so we don't try to use this file again in any case.
-				this.log(
-					`Failed to delete connection file ${connectionFile}: ${err}`);
-			}
-		}
 
 		// Shut down the server itself
 		try {

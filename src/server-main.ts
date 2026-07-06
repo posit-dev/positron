@@ -28,6 +28,15 @@ import * as https from 'https';
 import { spawn } from 'child_process';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
 import { FileAccess } from './vs/base/common/network.js';
+import { SupervisorHandshakeBroker } from './server-supervisor-handshake.js';
+
+/**
+ * How long the server waits for the kernel supervisor (kcserver) to connect to
+ * the handshake broker and report its connection details before giving up on
+ * the pre-warm. Mirrors the extension's default `kernelSupervisor.startupTimeout`
+ * (10s); the server has no access to workspace configuration here.
+ */
+const SUPERVISOR_HANDSHAKE_TIMEOUT_MS = 10_000;
 // --- End Positron ---
 
 perf.mark('code/server/start');
@@ -339,23 +348,19 @@ function prompt(question: string): Promise<boolean> {
  * when the first window connects.
  */
 async function startKernelSupervisor() {
-	// Create the connection and log file paths. We put these in the user data
-	// path rather than the temporary directory since some environments clean up
-	// the temporary directory aggressively.
+	// Create the log file path. We put this in the user data path rather than
+	// the temporary directory since some environments clean up the temporary
+	// directory aggressively.
 	const userDataPath = getUserDataPath(parsedArgs, product.nameShort || 'positron');
-	const connectionFile = path.join(userDataPath, `positron-supervisor-${process.pid}.json`);
 	const logFile = path.join(userDataPath, `positron-supervisor-${process.pid}.log`);
 
-	// Unlikely, but if the files already exist, delete them; they are stale.
-	if (fs.existsSync(connectionFile)) {
-		fs.unlinkSync(connectionFile);
-	}
+	// Unlikely, but if the log file already exists, delete it; it is stale.
 	if (fs.existsSync(logFile)) {
 		fs.unlinkSync(logFile);
 	}
 
 	// Create the user data dir
-	const userDataDir = path.dirname(connectionFile);
+	const userDataDir = path.dirname(logFile);
 	if (!fs.existsSync(userDataDir)) {
 		try {
 			fs.mkdirSync(userDataDir, { recursive: true });
@@ -363,9 +368,6 @@ async function startKernelSupervisor() {
 			console.error(`Failed to create user data directory for supervisor files: ${userDataDir}`, err);
 		}
 	}
-
-	// Pass the connection file path to the supervisor extension.
-	process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'] = connectionFile;
 
 	// Search local paths for the supervisor
 	const supervisorPaths = [
@@ -387,10 +389,26 @@ async function startKernelSupervisor() {
 		return;
 	}
 
+	// Host an in-memory handshake broker. kcserver connects to this socket once
+	// at startup and reports its connection details (transport, address, bearer
+	// token, etc.); we cache them in memory and re-serve them to each window's
+	// extension host over the same socket. The token never touches disk and
+	// never enters an environment variable -- only the socket path does. If the
+	// socket setup fails, we do not fall back to a file: we skip the pre-warm and
+	// let the per-window (desktop-style) launch path take over instead.
+	let broker: SupervisorHandshakeBroker;
+	try {
+		broker = await SupervisorHandshakeBroker.create(`positron-supervisor-${process.pid}`);
+	} catch (err) {
+		process.stderr.write(`Failed to create the Positron Kernel Supervisor handshake socket; ` +
+			`the supervisor will be started per-window instead. Error: ${err}\n`);
+		return;
+	}
+
 	// Start the supervisor process.
 	process.stdout.write(`\nStarting Positron Kernel Supervisor (${supervisorPath})...\n`);
 	const supervisorProcess = spawn(supervisorPath, [
-		'--connection-file', connectionFile,
+		'--handshake-socket', broker.socketPath,
 		'--log-file', logFile,
 		'--resource-sample-interval', '0']);
 	supervisorProcess.stdout.on('data', (data) => {
@@ -399,5 +417,26 @@ async function startKernelSupervisor() {
 	supervisorProcess.stderr.on('data', (data) => {
 		process.stderr.write(data);
 	});
+	supervisorProcess.on('error', (err) => {
+		process.stderr.write(`Failed to start the Positron Kernel Supervisor: ${err}\n`);
+		broker.dispose();
+	});
+
+	// Wait for kcserver to report its connection details before publishing the
+	// socket path. Windows inherit this environment variable only when their
+	// extension host is spawned (after server startup), so by publishing it only
+	// once the broker has the cached payload, a window that later connects always
+	// finds the details ready to read.
+	try {
+		await broker.ready(SUPERVISOR_HANDSHAKE_TIMEOUT_MS);
+		process.env['POSITRON_SUPERVISOR_HANDSHAKE_SOCKET'] = broker.socketPath;
+		process.stdout.write(`Positron Kernel Supervisor handshake complete.\n`);
+	} catch (err) {
+		// The pre-warm failed; tear down the broker and let each window launch
+		// its own supervisor via the desktop-style path.
+		process.stderr.write(`The Positron Kernel Supervisor did not report its connection ` +
+			`details; the supervisor will be started per-window instead. Error: ${err}\n`);
+		broker.dispose();
+	}
 }
 // --- End Positron ---
