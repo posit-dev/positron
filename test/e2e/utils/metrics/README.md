@@ -145,54 +145,24 @@ Metrics are logged in the background without affecting test performance.
 
 ## Choosing the right dimension
 
-Your test varies something — "where does it go?" Walk this in order:
+When a test varies something, use this to decide where it goes:
 
-1. Is it **what you're acting on** (a data structure, file format, session
-   kind)? → **`target_type`** (the `MetricTargetType` union; add a member for a
-   genuinely new target).
-2. Is it a **number** — a size/count you'd expect duration to scale with? →
-   a **numeric context field** (`data_rows`, `data_cols`, `input_rows`, …).
-   Keep it a number so the dashboard can plot duration against it.
-3. Is it a **named case** you deliberately benchmark and want as its own
-   box-plot group — one that shares the same `action`+`target_type` but has no
-   other field to distinguish it? → a **variant**. Use `variant` (in
-   `context_json`) for `simple_expression` vs `scrollback_trim`. The dashboard
-   groups the Duration Distribution box plot by it.
-4. Is it a **property/flag of the run** you might slice by occasionally, but not
-   the identity of the scenario? → an **attribute** — its own field in
-   `context_json` (`filter_applied`, `sort_applied`, `preview_enabled`, …).
-   Attributes are *not* a variant: the dashboard doesn't group by them by
-   default, and each is recoverable from its own field, so it never belongs in
-   `variant`.
-5. Is it **only a human-readable label** for the row? → **`target_description`**
-   (display only — never grouped or aggregated on).
+| What varies | Where it goes | Example |
+|---|---|---|
+| What you act on (structure, file format, session kind) | `target_type` (the `MetricTargetType` union) | `console.python`, `file.csv` |
+| A size or count that duration scales with | a numeric `context_json` field | `data_rows`, `input_rows` |
+| A named case you benchmark that shares the same action + target_type with nothing else to tell it apart | `variant` | `simple_expression` vs `scrollback_trim` |
+| A flag or property you occasionally slice by | its own `context_json` field | `filter_applied`, `preview_enabled` |
+| A human-readable row label | `target_description` (display only) | `"Python: scrollback trim"` |
 
-The calls that trip people up:
+The dashboard groups the Duration Distribution box plot by `variant` (alongside action and target_type). Two distinctions trip people up:
 
-- **#2 vs #3 — number or label?** A number (`1_000_000` rows) keeps its
-  magnitude — you can scatter, order, and fit a scaling curve. A label
-  (`scrollback_trim`) is a discrete case with no in-between. Collapsing a number
-  into a label is lossy and one-way, so keep numbers numeric.
-- **#3 vs #4 — variant or attribute?** A variant is the *identity* of a named
-  scenario that has nowhere else to live; an attribute is a flag/property that
-  already has (or could have) its own field. `filter_applied` is an attribute,
-  not a variant — nobody benchmarks "filter applied" vs "not applied" as
-  deliberately-compared box-plot groups, and the value is already in its own
-  field. If you truly wanted to compare, say, filter cost by dataset size,
-  that's a *number* (`data_rows`), bucketed at analysis time — still not a
-  variant.
+- **Number vs. variant:** keep a magnitude numeric (`data_rows`) so duration can be plotted against it. Reach for `variant` only when the cases are discrete and named. Don't bucket a number into a label.
+- **Variant vs. attribute:** a variant is a scenario with no other home. An attribute like `filter_applied` already has its own field, so it is never a variant, and the dashboard does not group by attributes.
 
-`variant` values should be short, stable, `snake_case`, low-cardinality, and
-declared as a typed union in the reporter (e.g. `ConsoleExecuteVariant`) so a
-typo won't compile. Never put unique/free-form/timestamped strings there, and
-don't smuggle a grouping distinction into `target_description` to make it show
-up in the dashboard — that belongs in `variant` (named case) or a numeric field
-(number).
+`variant` values are short, stable, snake_case, low-cardinality, and declared as a typed union in the reporter (e.g. `ConsoleExecuteVariant`) so a typo won't compile. Don't put free-form or timestamped strings there, and don't hide a grouping distinction in `target_description` to force it onto the dashboard.
 
-**Naming convention:** make a numeric field's quantity obvious in its name —
-counts as countable nouns (`*_rows`, `*_cols`, `*_lines`), other magnitudes with
-an explicit unit (`*_ms`, `*_bytes`). Never a bare `size`/`length`. Categorical
-(variant) fields get plain names.
+For numeric field names, make the quantity obvious: countable nouns (`*_rows`, `*_cols`, `*_lines`) or an explicit unit (`*_ms`, `*_bytes`). Never a bare `size` or `length`.
 
 ## Files
 
