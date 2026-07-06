@@ -33,7 +33,7 @@ import {
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { resolveAwsChainInit } from './credentials/aws';
-import { resolveGoogleVertexCredential } from './credentials/googleVertex';
+import { resolveGeapCredential } from './credentials/geap';
 import {
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
@@ -65,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
-	await registerGoogleVertexProvider(context);
+	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
@@ -571,10 +571,10 @@ async function registerGeminiProvider(
 	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
 }
 
-async function registerGoogleVertexProvider(
+async function registerGeapProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
-	const logger = new AuthProviderLogger('Google Vertex AI');
+	const logger = new AuthProviderLogger('Gemini Enterprise Agent Platform');
 	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
@@ -583,7 +583,7 @@ async function registerGoogleVertexProvider(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global,
 			).then(undefined, err =>
-				log.error(`Failed to sync Vertex base URL: ${err}`)
+				logger.logOperationError('sync Gemini Enterprise Agent Platform base URL', err)
 			);
 	}
 
@@ -591,7 +591,7 @@ async function registerGoogleVertexProvider(
 		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
 		undefined,
 		{
-			resolve: () => resolveGoogleVertexCredential(logger),
+			resolve: () => resolveGeapCredential(logger),
 			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);
@@ -616,10 +616,10 @@ async function registerGoogleVertexProvider(
 	});
 
 	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Google Vertex] Initial credential resolution: ${err}`)
+		logger.debug(`Initial credential resolution: ${err}`)
 	);
 
-	log.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
+	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
 
 async function registerDeepSeekProvider(
