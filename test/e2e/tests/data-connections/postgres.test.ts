@@ -41,7 +41,7 @@ const actorColumns = [
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
 test.describe('Data Connections - Postgres', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH, tags.DATA_EXPLORER]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
 	// Configuring the connection is a one-time, stateful action (re-running the new-connection flow
@@ -115,7 +115,7 @@ test.describe('Data Connections - Postgres', {
 		});
 	});
 
-	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a table in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.doubleClickNode('actor');
@@ -124,7 +124,7 @@ test.describe('Data Connections - Postgres', {
 		await dataExplorer.grid.expectColumnHeadersToBe(actorColumns.map(({ name }) => name));
 	});
 
-	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a column in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.expandNode('actor');

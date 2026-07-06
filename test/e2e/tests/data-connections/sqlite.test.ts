@@ -42,7 +42,7 @@ const detailColumns = [
 const detailIndexes = ['idx_customers_country'];
 
 test.describe('Data Connections - SQLite', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH, tags.DATA_EXPLORER]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
 	// SQLite connections are file-backed and stateful. Configure once and reuse across the
@@ -101,7 +101,7 @@ test.describe('Data Connections - SQLite', {
 		});
 	});
 
-	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a table in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.doubleClickNode(detailTable);
@@ -110,7 +110,7 @@ test.describe('Data Connections - SQLite', {
 		await dataExplorer.grid.expectColumnHeadersToBe(detailColumns.map(({ name }) => name));
 	});
 
-	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a column in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.expandNode(detailTable);
