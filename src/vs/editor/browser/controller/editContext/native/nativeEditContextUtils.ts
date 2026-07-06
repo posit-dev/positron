@@ -66,14 +66,10 @@ export class FocusTracker extends Disposable {
 
 	public focus(): void {
 		// --- Start Positron ---
-		// If focus is outside the edit context node, browsers will try really hard
-		// to reveal it by scrolling every scrollable ancestor. The node is parked at
-		// the editor's last cursor position, so in an embedded editor whose ancestors
-		// scroll natively (e.g. a Positron notebook cell taller than the viewport)
-		// that reveal shifts the layout between Monaco's mouse-down hit tests and the
-		// click lands the cursor on the wrong line (posit-dev/positron#14085).
-		// Mirror the guard the textarea input uses (see writeNativeTextAreaContent in
-		// textAreaEditContextInput.ts): save ancestor scroll positions, focus, restore.
+		// Focusing the hidden edit context node makes the browser scroll any natively
+		// scrolling ancestor to reveal it, shifting layout mid-click and misplacing
+		// the cursor in e.g. tall Positron notebook cells (posit-dev/positron#14085).
+		// Mirror the textarea path's guard (see writeNativeTextAreaContent).
 		// this._domNode.focus();
 		const scrollState = saveParentsScrollTop(this._domNode);
 		this._domNode.focus();
