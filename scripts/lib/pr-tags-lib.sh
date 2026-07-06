@@ -163,7 +163,7 @@ owner_root_dir_of() {
 is_posit_owned_file() {
 	local file="$1"
 	[[ -f "$file" ]] || { echo false; return 0; }
-	if head -8 "$file" 2>/dev/null | grep -qi "Copyright.*Posit"; then
+	if head -20 "$file" 2>/dev/null | grep -qi "Copyright.*Posit"; then
 		echo true
 	else
 		echo false

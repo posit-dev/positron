@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -23,11 +23,22 @@ assert_eq() {
 	fi
 }
 
+# Illustrative fixture, NOT synced to the live e2e-tag-paths-map.json -- it
+# exists to exercise derive_map_tags' layering rules, not to mirror current
+# map policy. In particular, the positron-python parent deliberately keeps
+# "@:packages-pane" even though the real map dropped it: without that extra
+# tag, the parent and the python_files default below would be identical, and
+# the "kernel default, no packages-pane" test further down would lose its
+# ability to catch a regression where python_files plumbing incorrectly falls
+# back to the parent instead of its own default. The "check-e2e-tag-map.sh
+# smoke" and "guardrail's tag validity check" sections below validate the
+# real, current map file directly.
 MAP="$(mktemp)"
 cat > "$MAP" <<'JSON'
 {
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
-  "extensions/positron-assistant/": ["@:assistant", "@:posit-assistant"],
+  "extensions/positron-assistant/": ["@:assistant"],
+  "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
   "extensions/positron-python/": ["@:interpreter", "@:console", "@:packages-pane"],
   "extensions/positron-python/src/client/positron/packages/": ["@:packages-pane"],
   "extensions/positron-python/python_files/posit/positron/": ["@:console", "@:interpreter"],
@@ -42,8 +53,10 @@ JSON
 # --- derive_map_tags ---
 assert_eq "single source match" "@:console" \
 	"$(derive_map_tags "src/vs/workbench/contrib/positronConsole/foo.ts" "$MAP")"
-assert_eq "multi-tag extension" "@:assistant,@:posit-assistant" \
-	"$(derive_map_tags "extensions/positron-assistant/src/x.ts" "$MAP")"
+# Multi-tag propagation, using positron-supervisor's real, current map value
+# (@:sessions, @:console, @:interpreter) rather than a synthetic one.
+assert_eq "multi-tag extension" "@:sessions,@:console,@:interpreter" \
+	"$(derive_map_tags "extensions/positron-supervisor/src/x.ts" "$MAP")"
 assert_eq "dedupe across two source files" "@:console" \
 	"$(derive_map_tags "$(printf 'src/vs/workbench/contrib/positronConsole/a.ts\nsrc/vs/workbench/contrib/positronConsole/b.ts')" "$MAP")"
 assert_eq "empty-value entry yields nothing" "" \
@@ -312,6 +325,26 @@ HDR
 assert_eq "is_posit_owned_file: Posit header" "true" "$(is_posit_owned_file "$POSIT_FILE")"
 assert_eq "is_posit_owned_file: Microsoft header" "false" "$(is_posit_owned_file "$MSFT_FILE")"
 assert_eq "is_posit_owned_file: missing file" "false" "$(is_posit_owned_file "/nonexistent/file.ts")"
+# Must scan the same window as file-origin.sh (head -20), not less -- a header
+# past line 8 but within line 20 should still be detected.
+POSIT_FILE_LATE_HEADER="$(mktemp)"
+{
+	for _ in $(seq 1 9); do echo "// filler line"; done
+	echo "/*---------------------------------------------------------------------------------------------"
+	echo " *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved."
+	echo " *--------------------------------------------------------------------------------------------*/"
+} > "$POSIT_FILE_LATE_HEADER"
+assert_eq "is_posit_owned_file: Posit header past line 8, within line 20" "true" \
+	"$(is_posit_owned_file "$POSIT_FILE_LATE_HEADER")"
+# A header past line 20 is out of the scan window entirely -- matches
+# file-origin.sh's own boundary rather than being a looser/stricter copy of it.
+POSIT_FILE_TOO_LATE="$(mktemp)"
+{
+	for _ in $(seq 1 21); do echo "// filler line"; done
+	echo " *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved."
+} > "$POSIT_FILE_TOO_LATE"
+assert_eq "is_posit_owned_file: Posit header past line 20 not detected" "false" \
+	"$(is_posit_owned_file "$POSIT_FILE_TOO_LATE")"
 
 # --- find_unmapped_positron_dirs: naming-convention fallback ---
 # A Positron-owned file whose directory has no "positron" in its name is
