@@ -145,24 +145,17 @@ Metrics are logged in the background without affecting test performance.
 
 ## Choosing the right dimension
 
-When a test varies something, use this to decide where it goes:
+Answer these in order and stop at the first "yes" — that's where your value goes.
 
-| What varies | Where it goes | Example |
-|---|---|---|
-| What you act on (structure, file format, session kind) | `target_type` (the `MetricTargetType` union) | `console.python`, `file.csv` |
-| A size or count that duration scales with | a numeric `context_json` field | `data_rows`, `input_rows` |
-| A named case you benchmark that shares the same action + target_type with nothing else to tell it apart | `variant` | `simple_expression` vs `scrollback_trim` |
-| A flag or property you occasionally slice by | its own `context_json` field | `filter_applied`, `preview_enabled` |
-| A human-readable row label | `target_description` (display only) | `"Python: scrollback trim"` |
+1. **A distinct thing you act on** (data structure, file type, session kind)? → `target_type`, e.g. `console.python`, `file.csv`. (Add a member to `MetricTargetType` for a genuinely new one.)
+2. **A number** (size or count)? → a numeric `context_json` field named for the quantity: `data_rows`, `input_rows`. Keep it numeric so duration can be plotted against it.
+3. **A true/false condition**? → a boolean `context_json` field: `filter_applied`, `sort_applied`, `preview_enabled`.
+4. **One of a few named scenarios of the *same* operation** — same `action` + `target_type`, nothing else to tell them apart? → `variant`, e.g. `simple_expression` vs `scrollback_trim`. Declare it as a typed union in the reporter (`ConsoleExecuteVariant`) so a typo won't compile.
+5. **Just a label to read** on the row? → `target_description` (display only).
 
-The dashboard groups the Duration Distribution box plot by `variant` (alongside action and target_type). Two distinctions trip people up:
+The dashboard splits the Duration Distribution box plot by **`variant`** (with `action` + `target_type`). Numbers and booleans are for filtering in queries, not the default split — so `filter_applied` is step 3, never a variant.
 
-- **Number vs. variant:** keep a magnitude numeric (`data_rows`) so duration can be plotted against it. Reach for `variant` only when the cases are discrete and named. Don't bucket a number into a label.
-- **Variant vs. attribute:** a variant is a scenario with no other home. An attribute like `filter_applied` already has its own field, so it is never a variant, and the dashboard does not group by attributes.
-
-`variant` values are short, stable, snake_case, low-cardinality, and declared as a typed union in the reporter (e.g. `ConsoleExecuteVariant`) so a typo won't compile. Don't put free-form or timestamped strings there, and don't hide a grouping distinction in `target_description` to force it onto the dashboard.
-
-For numeric field names, make the quantity obvious: countable nouns (`*_rows`, `*_cols`, `*_lines`) or an explicit unit (`*_ms`, `*_bytes`). Never a bare `size` or `length`.
+Keep `variant` values short, stable, and snake_case; never put a free-form or timestamped string there.
 
 ## Files
 
