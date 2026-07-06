@@ -43,6 +43,7 @@
   "src/vs/workbench/contrib/positronEditorActions/": ["@:editor-action-bar"],
   "src/vs/workbench/contrib/positronHistory/": [],
   "src/vs/workbench/contrib/positronIPyWidgets/": ["@:positron-notebooks"],
+  "src/vs/workbench/contrib/positronMissingPackages/": [],
   "src/vs/workbench/contrib/positronNewProject/": ["@:new-folder-flow"],
   "src/vs/workbench/contrib/positronOutputWebview/": ["@:positron-notebooks"],
   "src/vs/workbench/contrib/positronPlotsGalleryEditor/": ["@:plots"],

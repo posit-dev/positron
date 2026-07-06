@@ -35,6 +35,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # Guardrail for the tag-derivation scripts themselves, run before we rely
+      # on them below: unit test the pure helpers, then validate the map's tags
+      # against the TestTags enum. Cheap and local (no gh api calls), so it's
+      # worth failing fast here rather than in a separate job.
+      - name: Unit test the tag-derivation helpers
+        run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Validate e2e-tag-paths-map.json tags against test-tags.ts
+        run: bash scripts/check-e2e-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -44,16 +52,6 @@ jobs:
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
       # The advisory comment (no-match / unmapped-dir warnings) is posted from
       # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
-
-  e2e-tag-scripts-guardrail:
-    name: e2e tag scripts guardrail
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Unit test the tag-derivation helpers
-        run: bash scripts/test/pr-tags-lib-test.sh
-      - name: Validate e2e-tag-paths-map.json tags against test-tags.ts
-        run: bash scripts/check-e2e-tag-map.sh --tags-only
 
   e2e-ubuntu-electron:
     name: e2e

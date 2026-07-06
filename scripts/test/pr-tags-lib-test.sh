@@ -186,11 +186,18 @@ if MAP_FILE="$TAGS_ONLY_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/
 else
 	echo "PASS: guardrail --tags-only fails on an invalid map tag"
 fi
-# The real (complete) map should pass -- also guards the map staying complete.
-if bash "$HERE/../check-e2e-tag-map.sh" >/dev/null 2>&1; then
-	echo "PASS: guardrail passes on the complete map"
+# The real map's tags should all be valid -- guards against tag rot (a typo'd
+# or renamed tag) as an automated CI gate. Deliberately --tags-only, NOT a full
+# dir-sweep: CI runs this against a merge-with-main tree, and the full sweep
+# depends on the ENTIRE tree staying mapped, including dirs added by unrelated
+# PRs that landed on main after this repo's map was last audited -- exactly the
+# live-tree coupling check-e2e-tag-map.sh's own header warns about (the full
+# sweep is LOCAL/MANUAL for that reason). Asserting it here would make this
+# suite fail on any PR whenever main drifts, regardless of what that PR touches.
+if bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+	echo "PASS: guardrail's tag validity check passes on the real map"
 else
-	echo "FAIL: guardrail should exit 0 on the complete map"; fail=1
+	echo "FAIL: guardrail should exit 0 on the real map's tags"; fail=1
 fi
 
 # --- positron_dir_of (shared primitive) ---
