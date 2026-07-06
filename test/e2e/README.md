@@ -263,6 +263,9 @@ New tests are not complete until they run successfully across operating systems 
 
 When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: error info, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
 
+> [!TIP]
+> To reproduce and debug a CI failure locally using the actual CI image, see [`.devcontainer/ci-arm/README.md`](../../.devcontainer/ci-arm/README.md).
+
 ## Notes About Updating Specific Tests
 
 ### Plot Tests That Use Resemblejs
