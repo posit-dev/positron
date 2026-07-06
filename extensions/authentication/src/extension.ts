@@ -589,7 +589,7 @@ async function registerGeapProvider(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global,
 			).then(undefined, err =>
-				log.error(`Failed to sync Gemini Enterprise Agent Platform base URL: ${err}`)
+				logger.logOperationError('sync Gemini Enterprise Agent Platform base URL', err)
 			);
 	}
 
@@ -622,10 +622,10 @@ async function registerGeapProvider(
 	});
 
 	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Gemini Enterprise Agent Platform] Initial credential resolution: ${err}`)
+		logger.debug(`Initial credential resolution: ${err}`)
 	);
 
-	log.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
+	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
 
 async function registerDeepSeekProvider(
