@@ -39,7 +39,7 @@ const detailColumns = [
 const detailIndexes = ['idx_customers_country'];
 
 test.describe('Data Connections - DuckDB', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH, tags.DATA_EXPLORER]
 }, () => {
 
 	// Configuring the connection is a one-time, stateful action. The connection and its expanded

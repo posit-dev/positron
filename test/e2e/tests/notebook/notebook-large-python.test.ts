@@ -13,7 +13,7 @@ test.use({
 
 // test is too heavy for web
 test.describe('Large Python Notebook', {
-	tag: [tags.NOTEBOOKS]
+	tag: [tags.NOTEBOOKS, tags.PLOTS]
 }, () => {
 
 	test.afterAll(async function ({ hotKeys }) {

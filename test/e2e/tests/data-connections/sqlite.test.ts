@@ -42,7 +42,7 @@ const detailColumns = [
 const detailIndexes = ['idx_customers_country'];
 
 test.describe('Data Connections - SQLite', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH, tags.DATA_EXPLORER]
 }, () => {
 
 	// SQLite connections are file-backed and stateful. Configure once and reuse across the

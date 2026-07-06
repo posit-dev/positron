@@ -41,7 +41,7 @@ const actorColumns = [
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
 test.describe('Data Connections - Postgres', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH, tags.DATA_EXPLORER]
 }, () => {
 
 	// Configuring the connection is a one-time, stateful action (re-running the new-connection flow

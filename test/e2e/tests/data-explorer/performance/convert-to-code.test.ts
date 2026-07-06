@@ -87,7 +87,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 
 	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataObjectType, expectedGeneratedCode }) => {
 
-		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
+		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, { tag: environment === 'DuckDB' ? [tags.DUCK_DB] : [] }, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
 			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
 
 			if (environment === 'DuckDB') {
