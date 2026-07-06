@@ -14,9 +14,8 @@ const LANGUAGES = [
 	{ lang: 'R', runtime: 'r', target: 'console.r', prompt: '>' },
 ] as const;
 
-// `variant` is the stable, snake_case key the e2e-test-insights dashboard groups
-// the Duration Distribution box plot by. Keep it stable even if `name` (the
-// human-readable label) changes — they're intentionally decoupled.
+// `variant` is the stable grouping key; `name` is the display label. Keep them
+// decoupled. See utils/metrics/README.md for choosing dimensions.
 const SCENARIOS = [
 	{
 		name: 'simple expression',
