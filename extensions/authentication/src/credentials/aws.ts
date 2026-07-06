@@ -24,10 +24,14 @@ export function resolveAwsChainInit(
 	const profile = awsConfig?.AWS_PROFILE ?? env.AWS_PROFILE;
 	const region = awsConfig?.AWS_REGION ?? env.AWS_REGION ?? DEFAULT_AWS_REGION;
 
+    // The region is passed to the STS `clientConfig` only when web identity token
+    // auth is in use (AWS_WEB_IDENTITY_TOKEN_FILE set), so the STS exchange targets
+    // the configured region. For SSO profiles, the region is read from sso_region
+    // in ~/.aws/config and must not be overridden via clientConfig.
 	const chainInit: ChainInit = {
-		...(profile ? { profile } : {}),
-		clientConfig: { region },
-	};
+        ...(profile ? { profile } : {}),
+        ...(env.AWS_WEB_IDENTITY_TOKEN_FILE ? { clientConfig: { region } } : {}),
+    };
 
 	return { region, profile, chainInit };
 }
