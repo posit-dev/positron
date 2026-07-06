@@ -23,16 +23,11 @@ assert_eq() {
 	fi
 }
 
-# Illustrative fixture, NOT synced to the live e2e-tag-paths-map.json -- it
-# exists to exercise derive_map_tags' layering rules, not to mirror current
-# map policy. In particular, the positron-python parent deliberately keeps
-# "@:packages-pane" even though the real map dropped it: without that extra
-# tag, the parent and the python_files default below would be identical, and
-# the "kernel default, no packages-pane" test further down would lose its
-# ability to catch a regression where python_files plumbing incorrectly falls
-# back to the parent instead of its own default. The "check-e2e-tag-map.sh
-# smoke" and "guardrail's tag validity check" sections below validate the
-# real, current map file directly.
+# Illustrative fixture, not synced to the live map. positron-python's parent
+# keeps "@:packages-pane" on purpose even though the real map dropped it --
+# without it, the parent would match the python_files default below and the
+# "kernel default, no packages-pane" test couldn't catch a fallback-to-parent
+# regression.
 MAP="$(mktemp)"
 cat > "$MAP" <<'JSON'
 {
