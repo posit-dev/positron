@@ -46,6 +46,12 @@ export type MetricContext = {
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
 
+	// General: a named sub-scenario that shares one (action, target_type) but
+	// exercises a different code path. Rides in context_json; the
+	// e2e-test-insights dashboard groups the Duration Distribution box plot by
+	// it. Keep values short, stable, snake_case, low-cardinality.
+	variant?: string;
+
 	// Language runtime session fields
 	runtime_version?: string;
 	interpreter_kind?: 'system' | 'venv' | 'conda' | 'uv' | 'renv' | 'other';
