@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -178,6 +178,33 @@ if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/nu
 else
 	echo "FAIL: guardrail --tags-only should exit 0 on an empty map"; fail=1
 fi
+# A map with one genuinely-tracked key and one that points nowhere: --tags-only
+# skips staleness (same tree-wide-coupling reasoning as the dir sweep), full
+# mode catches the stale one and leaves the real one alone.
+STALE_MAP="$(mktemp)"
+cat > "$STALE_MAP" <<'JSON'
+{
+  "scripts/lib/pr-tags-lib.sh": [],
+  "definitely/not/a/real/path/": []
+}
+JSON
+if MAP_FILE="$STALE_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+	echo "PASS: guardrail --tags-only skips the staleness check"
+else
+	echo "FAIL: guardrail --tags-only should exit 0 despite a stale entry"; fail=1
+fi
+STALE_OUTPUT="$(MAP_FILE="$STALE_MAP" bash "$HERE/../check-e2e-tag-map.sh" 2>&1)"
+if printf '%s' "$STALE_OUTPUT" | grep -qF "definitely/not/a/real/path/"; then
+	echo "PASS: guardrail flags a stale map entry"
+else
+	echo "FAIL: guardrail should flag the stale entry"; fail=1
+fi
+if printf '%s' "$STALE_OUTPUT" | grep -qF "scripts/lib/pr-tags-lib.sh"; then
+	echo "FAIL: guardrail should not flag a genuinely-tracked entry as stale"; fail=1
+else
+	echo "PASS: guardrail leaves a genuinely-tracked entry alone"
+fi
+
 # --tags-only still fails on a map tag that isn't a real TestTags member.
 TAGS_ONLY_MAP="$(mktemp)"
 echo '{"foo/bar/": ["@:not-a-real-tag"]}' > "$TAGS_ONLY_MAP"

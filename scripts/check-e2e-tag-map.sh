@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# Guardrail for e2e-tag-paths-map.json. Two independent checks:
+# Guardrail for e2e-tag-paths-map.json. Three independent checks:
 #   1. Dir coverage: every Positron source dir has a map entry. LOCAL/MANUAL
-#      full-sweep only (not run by CI) -- the per-PR check in pr-tags-parse.sh
+#      full-sweep only (not run per-PR) -- the per-PR check in pr-tags-parse.sh
 #      is scoped to the dirs each PR touches and is the CI-facing equivalent.
-#      Run this by hand for an initial audit or a full sweep of the whole tree.
-#   2. Tag validity: every tag the map uses is a real tag declared in
+#      Run this by hand, or on a schedule (see e2e-tag-map-check-weekly.yml).
+#   2. Staleness: every map entry still points at a real, tracked path. Same
+#      LOCAL/MANUAL scope as #1, for the same reason -- a directory can go
+#      stale from a PR that never touches the map (a rename/delete elsewhere),
+#      so this can't be pinned on "the current PR" the way tag validity can.
+#   3. Tag validity: every tag the map uses is a real tag declared in
 #      test-tags.ts. This check IS run by CI (`--tags-only`, in
 #      test-pull-request.yml) since it's static and doesn't need PR scoping --
 #      a typo'd or deleted tag is a genuine error the moment it's introduced.
 # Usage: scripts/check-e2e-tag-map.sh [--warn-only] [--tags-only]
 #   --warn-only: report failures but exit 0 (used for local/manual runs).
-#   --tags-only: skip check #1 (the tree-wide dir sweep) and run only check #2.
+#   --tags-only: skip checks #1 and #2 (the tree-wide sweeps) and run only #3.
 # Env: MAP_FILE overrides the map path (used by tests).
 set -uo pipefail
 
@@ -60,6 +64,24 @@ if ! $TAGS_ONLY; then
 	done
 fi
 
+stale=()
+if ! $TAGS_ONLY; then
+	# A map key is stale once no tracked file matches its prefix anymore --
+	# e.g. the extension/dir it pointed at was deleted or renamed elsewhere
+	# and nobody cleaned up the map entry. Glob-match via git ls-files rather
+	# than `[[ -d ]]` since several keys are file/name prefixes, not real
+	# directories (e.g. the python_files leaf entries with no trailing slash).
+	# Capture full output rather than piping into `grep -q`/`head`: this script
+	# runs with `pipefail`, and a short-circuiting reader can SIGPIPE `git
+	# ls-files` mid-write on a large match set, which pipefail then reports as
+	# a pipeline failure -- misclassifying a real match as no match.
+	while IFS= read -r key; do
+		[[ -z "$key" ]] && continue
+		match="$(git -C "$REPO_ROOT" ls-files -- "${key}*" 2>/dev/null)"
+		[[ -z "$match" ]] && stale+=("$key")
+	done < <(jq -r 'keys[]' "$MAP_FILE")
+fi
+
 # Tag health. HARD (#1): every tag the map uses must be a real tag declared in
 # test-tags.ts -- a typo'd or deleted tag is a genuine error. ADVISORY (#2): a
 # valid tag that no e2e test currently carries is surfaced but NOT failed -- the
@@ -92,8 +114,8 @@ if [[ ${#untested_tags[@]} -gt 0 ]]; then
 	echo ""
 fi
 
-if [[ ${#missing[@]} -eq 0 && ${#invalid_tags[@]} -eq 0 ]]; then
-	$TAGS_ONLY && echo "Every mapped tag is valid." || echo "All Positron dirs are mapped and every mapped tag is valid."
+if [[ ${#missing[@]} -eq 0 && ${#stale[@]} -eq 0 && ${#invalid_tags[@]} -eq 0 ]]; then
+	$TAGS_ONLY && echo "Every mapped tag is valid." || echo "All Positron dirs are mapped, no map entries are stale, and every mapped tag is valid."
 	exit 0
 fi
 
@@ -101,6 +123,12 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 	echo "The following paths are missing from $(basename "$MAP_FILE"):"
 	printf '  - %s\n' "${missing[@]}"
 	echo "Add each to the map: a feature tag list (e.g. [\"@:console\"]) or [] if it has no e2e coverage."
+	echo ""
+fi
+if [[ ${#stale[@]} -gt 0 ]]; then
+	echo "The following map entries no longer match any tracked file (dir renamed or deleted elsewhere):"
+	printf '  - %s\n' "${stale[@]}"
+	echo "Remove each from the map, or update the path if it moved."
 	echo ""
 fi
 if [[ ${#invalid_tags[@]} -gt 0 ]]; then

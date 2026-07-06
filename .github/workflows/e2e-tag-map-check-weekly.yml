@@ -1,0 +1,32 @@
+name: "Weekly: e2e Tag Map Check"
+
+# Full-tree health check for e2e-tag-paths-map.json: flags Positron dirs with
+# no map entry, and map entries that no longer point at any real file (renamed
+# or deleted elsewhere without updating the map).
+#
+# Not run per-PR on purpose: both checks depend on the WHOLE tree's current
+# state, not just what one PR touched, so a per-PR gate would fail unrelated
+# PRs over drift they didn't cause (see e2e-tag-paths-map.json's git history
+# for why the per-PR version of this was scoped down instead). A weekly
+# cadence is enough since neither problem gets more urgent by sitting a few
+# more days -- this just needs someone to notice and clean it up eventually.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1" # Mondays, 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check e2e tag map coverage and staleness
+        # PIPESTATUS, not $?: piping into tee means $? would reflect tee's
+        # exit code, not the check's -- this job needs to actually go red.
+        run: |
+          bash scripts/check-e2e-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
