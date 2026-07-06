@@ -38,6 +38,7 @@ export const IMPORT_TO_DISTRIBUTION: Readonly<Record<string, string>> = {
     gdal: 'GDAL',
     mpl_toolkits: 'matplotlib',
     faiss: 'faiss-cpu',
+    ibis: 'ibis-framework',
 
     // Serialization / config / data formats.
     yaml: 'PyYAML',
