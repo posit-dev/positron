@@ -85,7 +85,7 @@ test.describe('Console Performance: Code Execution', {
 					}, target, {
 						language: lang,
 						description: `${lang}: ${scenario.name}`,
-						additionalContext: { variant: scenario.variant },
+						variant: scenario.variant,
 					});
 
 					expect(duration_ms).toBeGreaterThan(0);
