@@ -140,6 +140,26 @@ describe('toJsonlRecord', () => {
 		)).toBeUndefined();
 	});
 
+	it('at summary detail drops the context-alert line alongside the arguments', () => {
+		const alerted = makeToolCallEvent({ args: { languageId: 'python' }, contextAlert: '[context: 1 new console execution | seq 5]' });
+		const record = JSON.parse(toJsonlRecord(alerted, 'summary')!);
+		expect(record.contextAlert).toBeUndefined();
+		expect(JSON.parse(toJsonlRecord(alerted, 'full')!).contextAlert).toBe('[context: 1 new console execution | seq 5]');
+	});
+
+	it('records console-content calls at full detail even at summary (the sensitive-read guarantee)', () => {
+		const sensitive = makeToolCallEvent({
+			toolName: 'get-user-context',
+			args: { include: ['console'], since: 3 },
+			returnedConsoleContent: true,
+		});
+		const record = JSON.parse(toJsonlRecord(sensitive, 'summary')!);
+		expect(record.args).toEqual({ include: ['console'], since: 3 });
+		expect(record.returnedConsoleContent).toBe(true);
+		// 'off' still writes nothing: the user disabled the file entirely.
+		expect(toJsonlRecord(sensitive, 'off')).toBeUndefined();
+	});
+
 	it('persists lifecycle events as-is at every detail level', () => {
 		const lifecycle: McpAuditEvent = { type: 'session-created', timestamp: 2, sessionId: 's' };
 		expect(JSON.parse(toJsonlRecord(lifecycle, 'summary')!)).toEqual(lifecycle);

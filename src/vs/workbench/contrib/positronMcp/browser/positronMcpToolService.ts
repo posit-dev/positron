@@ -36,4 +36,15 @@ export interface IPositronMcpToolService {
 
 	/** Fires with the new value when the allow-all consent decision is granted or reset. */
 	readonly onDidChangeAllowAllConsent: Event<boolean>;
+
+	/**
+	 * The caller of the tool call currently executing in this window, if any.
+	 * The context observer reads this to attribute workbench events an MCP tool
+	 * causes (an editor opened by open-document, a notebook created by
+	 * notebook-create) to the client behind it, so that client is never alerted
+	 * about its own actions. When calls from several clients overlap, the most
+	 * recently started one wins -- a rare ambiguity that only softens alert
+	 * attribution, never consent.
+	 */
+	readonly activeCaller: IMcpCallerContext | undefined;
 }

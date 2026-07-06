@@ -12,6 +12,8 @@
  * Keep this list and {@link SERVER_INSTRUCTIONS} in sync with each other.
  */
 
+import { DEFAULT_MAX_CONSOLE_ENTRIES, MAX_CONSOLE_ENTRIES_LIMIT, MCP_USER_CONTEXT_SECTIONS } from './positronMcpContext.js';
+
 /** A block of MCP tool-result content (the wire shape sent to the client). */
 export type McpContent =
 	| { type: 'text'; text: string }
@@ -21,6 +23,24 @@ export type McpContent =
 export interface IMcpCallToolResult {
 	content: McpContent[];
 	isError?: boolean;
+	/**
+	 * Internal handler-to-server metadata; never part of the wire shape. The
+	 * session's audit choke point reads it, then strips it before the response
+	 * leaves the server.
+	 */
+	auditHint?: {
+		/**
+		 * The result carries console history (code/output the user typed). Such
+		 * calls are recorded in the JSONL audit file at full detail regardless
+		 * of the `positron.mcp.auditLog.detail` setting's summary mode.
+		 */
+		returnedConsoleContent?: boolean;
+		/**
+		 * The result already reports the context events the client was owed:
+		 * advance its alert cursor and skip the `[context: ...]` line.
+		 */
+		advanceContextCursor?: boolean;
+	};
 }
 
 /**
@@ -68,7 +88,9 @@ Notebooks: work on the user's notebook with the notebook-* tools (read, edit, ru
 
 Data: before writing code against data, look first -- get-session for the active language, get-variables and inspect-variable for what is defined, profile-data for summary statistics, get-packages for installed packages -- instead of guessing column names or running mutating inspection code.
 
-Plots: after plotting with execute-code, call get-plot to see the image. After writing a file to disk, call open-document to show it to the user.`;
+Plots: after plotting with execute-code, call get-plot to see the image. After writing a file to disk, call open-document to show it to the user.
+
+Context updates: tool results may end with a [context: ...] line summarizing user activity in Positron since your last call. If it reports new errors, call get-user-context (include: ["errors", "console"], since: <the seq from that line>) before continuing. For routine executions, only investigate if your current task depends on session state.`;
 
 /**
  * The get-session result text when no runtime session is active. Shared
@@ -93,6 +115,34 @@ export const POSITRON_MCP_TOOLS = [
 		name: 'get-session',
 		description: 'Get the active runtime session: its language, name, and ID. Call this first to learn which language (Python or R) is running before running code or inspecting variables.',
 		inputSchema: EMPTY_SCHEMA,
+		annotations: { readOnlyHint: true },
+	},
+	{
+		name: 'get-user-context',
+		description: 'Get what the user has been doing in Positron: the active session, the focused editor (path, cursor, selection), recent console executions (who ran what, with output and status), recent uncaught errors with tracebacks, and open notebooks. Call this when a tool result\'s [context: ...] line reports activity you need to see, passing that line\'s seq as `since` to get only what changed; without `since` it returns a full snapshot. Outputs are truncated per entry - use inspect-variable to read large values.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				include: {
+					type: 'array',
+					items: { type: 'string', enum: MCP_USER_CONTEXT_SECTIONS },
+					description: 'Sections to return. Omit for all sections.',
+				},
+				since: {
+					type: 'integer',
+					minimum: 0,
+					description: 'An event seq from a [context: ...] line or a previous response. console/errors return only events after it; session/editor/notebooks are included only if they changed after it.',
+				},
+				maxConsoleEntries: {
+					type: 'integer',
+					default: DEFAULT_MAX_CONSOLE_ENTRIES,
+					minimum: 1,
+					maximum: MAX_CONSOLE_ENTRIES_LIMIT,
+					description: 'Cap on console and errors entries returned (most recent kept).',
+				},
+			},
+			additionalProperties: false,
+		},
 		annotations: { readOnlyHint: true },
 	},
 	{

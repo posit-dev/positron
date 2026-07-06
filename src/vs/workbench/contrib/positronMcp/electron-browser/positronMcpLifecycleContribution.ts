@@ -3,14 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { IPositronMcpService, PositronMcpToolBrokerChannelName } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { McpAuditLogDetail } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
+import { PositronMcpContextObserver } from '../browser/positronMcpContextObserver.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
 import { AUDIT_LOG_DETAIL_KEY, MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
 import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
@@ -25,12 +28,21 @@ import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js'
  * windows are open they each drive the same shared server idempotently.
  */
 export class PositronMcpLifecycleContribution extends Disposable implements IWorkbenchContribution {
+	/**
+	 * This window's user-activity observer, alive exactly while the server
+	 * should be running so no console content is streamed to the main process
+	 * while MCP is off.
+	 */
+	private readonly _contextObserver = this._register(new MutableDisposable<PositronMcpContextObserver>());
+
 	constructor(
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronMcpService private readonly _mcpService: IPositronMcpService,
 		@IPositronMcpToolService toolService: IPositronMcpToolService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@INativeHostService private readonly _nativeHostService: INativeHostService,
 	) {
 		super();
 
@@ -69,6 +81,12 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 
 	private _sync(): void {
 		const run = this._shouldRun();
+		if (run && !this._contextObserver.value) {
+			this._contextObserver.value = this._instantiationService.createInstance(
+				PositronMcpContextObserver, this._nativeHostService.windowId);
+		} else if (!run) {
+			this._contextObserver.clear();
+		}
 		const action = run ? this._mcpService.start() : this._mcpService.stop();
 		action.catch(err => this._logService.error(`[PositronMcp] Failed to ${run ? 'start' : 'stop'} server`, err));
 	}

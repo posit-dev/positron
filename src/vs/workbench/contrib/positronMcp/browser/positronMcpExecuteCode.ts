@@ -126,6 +126,10 @@ export async function executeCodeWithObserver(
 				clientName: caller?.clientName,
 				clientVersion: caller?.clientVersion,
 				displayName: caller?.clientName ? mcpClientDisplayName(caller.clientName) : undefined,
+				// The context observer reads this to attribute the execution to
+				// its MCP session, so alerts never echo a client's own runs back
+				// at it and other clients never see them.
+				mcpSessionId: caller?.mcpSessionId,
 			},
 		};
 

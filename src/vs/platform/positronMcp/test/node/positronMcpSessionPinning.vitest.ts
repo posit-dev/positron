@@ -8,6 +8,7 @@
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
 import { IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
+import { McpContextLedger } from '../../common/positronMcpContext.js';
 import { IMcpCallToolResult } from '../../common/positronMcpTools.js';
 import { PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
@@ -48,7 +49,7 @@ class RecordingAuditLog implements IPositronMcpAuditLog {
 
 /** Build an initialized session bound to the given fake broker. */
 async function initializedSession(broker: FakeBroker, audit: IPositronMcpAuditLog = new RecordingAuditLog()): Promise<PositronMcpSession> {
-	const session = new PositronMcpSession('s', new NullLogger(), broker, audit);
+	const session = new PositronMcpSession('s', new NullLogger(), broker, audit, new McpContextLedger());
 	await session.handleIncoming(initializeRequest);
 	// The handshake fetches a get-session snapshot for the instructions; drop
 	// it so the tests assert only the routing of explicit tool calls.

@@ -8,6 +8,7 @@
 import { JsonRpcMessage } from '../../../../base/common/jsonRpcProtocol.js';
 import { NullLogger } from '../../../log/common/log.js';
 import { IMcpToolCallAuditEvent, IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
+import { IMcpConsoleExecutionEvent, McpContextLedger } from '../../common/positronMcpContext.js';
 import { GET_GUIDANCE_TOOL } from '../../common/positronMcpGuides.js';
 import { IMcpCallToolResult, NO_ACTIVE_SESSION_TEXT, POSITRON_MCP_TOOLS, SERVER_INSTRUCTIONS } from '../../common/positronMcpTools.js';
 import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
@@ -28,8 +29,22 @@ class RecordingAuditLog implements IPositronMcpAuditLog {
 }
 
 /** Build a session with a stub broker; returns both for assertions. */
-function createSession(broker: IPositronMcpToolBroker = new StubBroker(), audit: IPositronMcpAuditLog = new RecordingAuditLog()) {
-	return new PositronMcpSession('test-session', new NullLogger(), broker, audit);
+function createSession(broker: IPositronMcpToolBroker = new StubBroker(), audit: IPositronMcpAuditLog = new RecordingAuditLog(), ledger: McpContextLedger = new McpContextLedger()) {
+	return new PositronMcpSession('test-session', new NullLogger(), broker, audit, ledger);
+}
+
+/** A user console execution in window 1 (the StubBroker's pinned window). */
+function userExecution(overrides: Partial<IMcpConsoleExecutionEvent> = {}): IMcpConsoleExecutionEvent {
+	return {
+		kind: 'console-execution',
+		windowId: 1,
+		timestamp: 1000,
+		languageId: 'python',
+		code: 'x = 1',
+		executedBy: 'user',
+		status: 'ok',
+		...overrides,
+	};
 }
 
 const initializeRequest: JsonRpcMessage = {
@@ -246,6 +261,88 @@ describe('PositronMcpSession', () => {
 		// The complete arguments ride along for the server's JSONL file sink,
 		// which strips them unless the audit detail setting is 'full'.
 		expect(end.args).toEqual({ code, languageId: 'python' });
+	});
+
+	describe('context alerts', () => {
+		it('appends a [context: ...] block for user activity since the last call, then goes quiet', async () => {
+			const ledger = new McpContextLedger();
+			const session = createSession(new StubBroker(), new RecordingAuditLog(), ledger);
+			await session.handleIncoming(initializeRequest);
+			ledger.record(userExecution());
+			ledger.record(userExecution({ status: 'error', error: { name: 'ValueError', message: 'bad', traceback: [] } }));
+
+			const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+			const result = (response as { result: IMcpCallToolResult }).result;
+			expect(result.content).toEqual([
+				{ type: 'text', text: 'called get-plot' },
+				{ type: 'text', text: '[context: 2 new console executions (1 error) | seq 2]' },
+			]);
+
+			// Nothing new since: the next result carries no alert block at all.
+			const [second] = await session.handleIncoming({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((second as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
+		});
+
+		it('never alerts about the session\'s own or another client\'s events', async () => {
+			const ledger = new McpContextLedger();
+			const session = createSession(new StubBroker(), new RecordingAuditLog(), ledger);
+			await session.handleIncoming(initializeRequest);
+			ledger.record(userExecution({ causedByMcpSession: 'test-session', executedBy: 'test-client' }));
+			ledger.record(userExecution({ causedByMcpSession: 'other-session', executedBy: 'Codex' }));
+
+			const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((response as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
+		});
+
+		it('ignores activity from before the session connected', async () => {
+			const ledger = new McpContextLedger();
+			ledger.record(userExecution());
+			const session = createSession(new StubBroker(), new RecordingAuditLog(), ledger);
+			await session.handleIncoming(initializeRequest);
+
+			const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((response as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
+		});
+
+		it('records the alert line on the tool-call audit event', async () => {
+			const ledger = new McpContextLedger();
+			const audit = new RecordingAuditLog();
+			const session = createSession(new StubBroker(), audit, ledger);
+			await session.handleIncoming(initializeRequest);
+			ledger.record(userExecution());
+
+			await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
+			const end = audit.events.find(e => e.type === 'tool-call') as IMcpToolCallAuditEvent;
+			expect(end.contextAlert).toBe('[context: 1 new console execution | seq 1]');
+		});
+
+		it('strips auditHint from the wire and advances the cursor when the result reported events itself', async () => {
+			const ledger = new McpContextLedger();
+			const audit = new RecordingAuditLog();
+			const broker = new StubBroker();
+			broker.invokeTool.mockResolvedValue({
+				content: [{ type: 'text', text: '{"seq":1}' }],
+				auditHint: { returnedConsoleContent: true, advanceContextCursor: true },
+			});
+			const session = createSession(broker, audit, ledger);
+			await session.handleIncoming(initializeRequest);
+			ledger.record(userExecution());
+
+			const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-user-context' } });
+			const result = (response as { result: IMcpCallToolResult }).result;
+			// No alert block echoing what the tool just returned, and no internal
+			// metadata on the wire.
+			expect(result).toEqual({ content: [{ type: 'text', text: '{"seq":1}' }] });
+
+			const end = audit.events.find(e => e.type === 'tool-call') as IMcpToolCallAuditEvent;
+			expect(end.returnedConsoleContent).toBe(true);
+			expect(end.contextAlert).toBeUndefined();
+
+			// The cursor advanced past the event, so a later call stays quiet.
+			broker.invokeTool.mockResolvedValue({ content: [{ type: 'text', text: 'called get-plot' }] });
+			const [second] = await session.handleIncoming({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((second as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
+		});
 	});
 
 	it('isInitializeMessage detects initialize in single and batch messages', () => {

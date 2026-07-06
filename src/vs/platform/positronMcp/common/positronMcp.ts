@@ -6,6 +6,7 @@
 import { Event } from '../../../base/common/event.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import { McpAuditEvent, McpAuditLogDetail } from './positronMcpAudit.js';
+import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput } from './positronMcpContext.js';
 
 export const IPositronMcpService = createDecorator<IPositronMcpService>('positronMcpService');
 
@@ -136,4 +137,19 @@ export interface IPositronMcpService {
 
 	/** Current server status. */
 	getStatus(): Promise<IPositronMcpServerStatus>;
+
+	/**
+	 * Record one user-activity event in the context ledger. Called by each
+	 * window's context observer (console executions, editor/selection changes,
+	 * notebook open/close, foreground session changes -- a fixed, bounded set).
+	 * The ledger assigns the event its sequence number.
+	 */
+	recordContextEvent(event: McpContextEventInput): Promise<void>;
+
+	/**
+	 * Answer a get-user-context query from the ledger, scoped to the requesting
+	 * MCP session's pinned window and attribution (its own events and the
+	 * user's, never another client's). Called by the renderer tool handler.
+	 */
+	queryUserContext(query: IMcpUserContextQuery): Promise<IMcpUserContextData>;
 }

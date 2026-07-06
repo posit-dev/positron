@@ -18,6 +18,7 @@ import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger } from '../../log/common/log.js';
 import { IMcpSessionInfo } from '../common/positronMcp.js';
 import { IPositronMcpAuditLog, summarizeArgs, summarizeResult } from '../common/positronMcpAudit.js';
+import { McpContextLedger } from '../common/positronMcpContext.js';
 import { GET_GUIDANCE_TOOL, getGuidance } from '../common/positronMcpGuides.js';
 import {
 	IMcpCallToolResult,
@@ -94,8 +95,12 @@ export class PositronMcpSession extends Disposable {
 		private readonly _logger: ILogger,
 		private readonly _broker: IPositronMcpToolBroker,
 		private readonly _audit: IPositronMcpAuditLog,
+		private readonly _contextLedger: McpContextLedger,
 	) {
 		super();
+		// New sessions are only alerted about activity from this point on; a
+		// session resumed under a known id keeps its existing cursor.
+		this._contextLedger.ensureCursor(id);
 		// The session is request/response over POST: responses come back from
 		// handleMessage's return value, so the send callback is a no-op sink.
 		this._rpc = this._register(new JsonRpcProtocol(
@@ -239,7 +244,22 @@ export class PositronMcpSession extends Disposable {
 
 		// Every exit path funnels through this so exactly one completion event is
 		// recorded per call -- the status bar pairs it with the start event above.
+		// This is also where the user-context alert is appended: the ledger's
+		// per-client cursor means each event is alerted at most once, and a
+		// result that itself reported context events (auditHint) advances the
+		// cursor instead of echoing them back as an alert.
 		const complete = (result: IMcpCallToolResult): IMcpCallToolResult => {
+			const auditHint = result.auditHint;
+			delete result.auditHint; // Internal metadata; never part of the wire response.
+			let contextAlert: string | undefined;
+			if (auditHint?.advanceContextCursor) {
+				this._contextLedger.advanceCursor(this.id);
+			} else {
+				contextAlert = this._contextLedger.consumeAlert(this.id, this._pinnedWindowId);
+				if (contextAlert !== undefined) {
+					result.content.push({ type: 'text', text: contextAlert });
+				}
+			}
 			this._audit.record({
 				type: 'tool-call',
 				callId,
@@ -254,6 +274,8 @@ export class PositronMcpSession extends Disposable {
 				durationMs: Date.now() - startedAt,
 				pinnedWindowId: this._pinnedWindowId,
 				resultSummary: summarizeResult(result),
+				contextAlert,
+				returnedConsoleContent: auditHint?.returnedConsoleContent,
 			});
 			return result;
 		};

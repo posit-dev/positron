@@ -158,6 +158,27 @@ describe('PositronMcpServer HTTP transport', () => {
 		expect(JSON.parse(response.body).result.tools.length).toBeGreaterThan(0);
 	});
 
+	it('scopes queryUserContext to the querying session\'s pinned window and keeps seqs across sessions', async () => {
+		const sessionId = await initialize(); // Pins to the StubBroker's window 1.
+		const execution = {
+			kind: 'console-execution' as const,
+			timestamp: 1000,
+			languageId: 'python' as const,
+			executedBy: 'user',
+			status: 'ok' as const,
+		};
+		await server.recordContextEvent({ ...execution, windowId: 1, code: 'in window 1' });
+		await server.recordContextEvent({ ...execution, windowId: 2, code: 'in window 2' });
+
+		const data = await server.queryUserContext({ mcpSessionId: sessionId });
+		expect(data.consoleEvents.map(e => e.code)).toEqual(['in window 1']);
+		// The ledger is shared and server-lifetime: an unknown session sees the
+		// same high-water seq, unscoped.
+		const unscoped = await server.queryUserContext({ mcpSessionId: generateUuid() });
+		expect(unscoped.seq).toBe(data.seq);
+		expect(unscoped.consoleEvents.length).toBe(2);
+	});
+
 	it('answers GET on the MCP endpoint with 405 and an Allow header, not 404', async () => {
 		const response = await request(port, 'GET', '/');
 		expect(response.status).toBe(405);
@@ -274,5 +295,17 @@ describe('PositronMcpServer HTTP transport', () => {
 		} finally {
 			await server.setAuditLogDetail('summary');
 		}
+	});
+
+	it('keeps the context ledger (and its seqs) across a server stop/start, like window reloads', async () => {
+		const before = (await server.queryUserContext({ mcpSessionId: generateUuid() })).seq;
+		await server.recordContextEvent({
+			kind: 'session-change', windowId: 1, timestamp: Date.now(),
+		});
+		await server.stop();
+		await server.start();
+		// The seq did not reset: `since` values agents hold stay valid for the
+		// whole Positron run; they only reset when the app quits.
+		expect((await server.queryUserContext({ mcpSessionId: generateUuid() })).seq).toBe(before + 1);
 	});
 });

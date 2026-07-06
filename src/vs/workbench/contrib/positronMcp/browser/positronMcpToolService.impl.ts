@@ -14,7 +14,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
-import { IMcpCallerContext } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IMcpCallerContext, IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpCallToolResult, McpContent, NO_ACTIVE_SESSION_TEXT, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -32,6 +32,7 @@ import { IPositronMcpToolService } from './positronMcpToolService.js';
 import { UserConsentManager } from './positronMcpConsent.js';
 import { executeCodeWithObserver } from './positronMcpExecuteCode.js';
 import { PositronMcpNotebookTools } from './positronMcpNotebook.js';
+import { PositronMcpUserContextTool } from './positronMcpUserContext.js';
 import {
 	formatPackages,
 	formatTableProfile,
@@ -71,6 +72,9 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 	/** The notebook-* tools, which act on the active Positron notebook. */
 	private readonly _notebookTools: PositronMcpNotebookTools;
 
+	/** The get-user-context tool: live state here, event data from the main process. */
+	private readonly _userContext: PositronMcpUserContextTool;
+
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
@@ -86,15 +90,19 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService logService: ILogService,
+		@IPositronMcpService mcpService: IPositronMcpService,
 	) {
 		super();
 		this._consent = this._register(new UserConsentManager(this._modalDialogsService, this._configurationService, logService));
 		this.onDidChangeAllowAllConsent = this._consent.onDidChangeAllowAll;
 		this._notebookTools = new PositronMcpNotebookTools(
 			this._editorService, fileService, notebookService, path => this._resolveWorkspacePath(path));
+		this._userContext = new PositronMcpUserContextTool(
+			this._runtimeSessionService, this._editorService, notebookService, this._notebookTools, mcpService);
 
 		this._handlers = {
 			'get-session': () => this._getSession(),
+			'get-user-context': (args, caller) => this._userContext.handle(args, caller),
 			'get-variables': () => this._getVariables(),
 			'inspect-variable': args => this._inspectVariable(args),
 			'profile-data': args => this._profileData(args),
@@ -124,16 +132,33 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		return this._consent.isAllowAllActive();
 	}
 
+	/** Callers of the tool calls currently in flight in this window, oldest first. */
+	private readonly _activeCallers: IMcpCallerContext[] = [];
+
+	get activeCaller(): IMcpCallerContext | undefined {
+		return this._activeCallers[this._activeCallers.length - 1];
+	}
+
 	async callTool(name: string, args: Record<string, unknown>, caller?: IMcpCallerContext): Promise<IMcpCallToolResult> {
 		// hasOwn (not a bare index) so inherited Object members can't pose as tools.
 		const handler = Object.hasOwn(this._handlers, name) ? this._handlers[name as PositronMcpToolName] : undefined;
 		if (!handler) {
 			return errorResult(`Tool '${name}' is not implemented in this Positron window.`);
 		}
+		if (caller) {
+			this._activeCallers.push(caller);
+		}
 		try {
 			return await handler(args, caller);
 		} catch (error) {
 			return errorResult(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
+		} finally {
+			if (caller) {
+				const index = this._activeCallers.lastIndexOf(caller);
+				if (index >= 0) {
+					this._activeCallers.splice(index, 1);
+				}
+			}
 		}
 	}
 

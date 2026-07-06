@@ -13,9 +13,10 @@
  *
  * Every event field is a scalar or optional scalar: events cross the
  * main->renderer ProxyChannel and the `getStatus()` poll, so they must stay
- * JSON-serializable -- never add URI or class instances here. The one exception
- * is {@link IMcpToolCallAuditEvent.args}, which the server strips before any
- * fan-out beyond the JSONL file sink.
+ * JSON-serializable -- never add URI or class instances here. The exceptions
+ * are {@link IMcpToolCallAuditEvent.args} and
+ * {@link IMcpToolCallAuditEvent.contextAlert}, which the server strips before
+ * any fan-out beyond the JSONL file sink.
  */
 
 import { IMcpCallToolResult } from './positronMcpTools.js';
@@ -45,6 +46,21 @@ export interface IMcpToolCallAuditEvent {
 	readonly pinnedWindowId?: number;
 	/** Content-block types + sizes; never content. */
 	readonly resultSummary: string;
+	/**
+	 * The `[context: ...]` alert line appended to this result, if one was.
+	 * Categories and counts only (never content), but like {@link args} it
+	 * reaches disk only through the JSONL sink at 'full' detail; the server
+	 * strips it before every other fan-out.
+	 */
+	readonly contextAlert?: string;
+	/**
+	 * The result carried console history (a get-user-context call with a
+	 * non-empty console/errors section) -- the most sensitive read this server
+	 * exposes. Such calls are written to the JSONL file at full detail even
+	 * when the detail setting is 'summary', so the audit trail always shows
+	 * exactly what was asked for.
+	 */
+	readonly returnedConsoleContent?: boolean;
 }
 
 /**
@@ -90,15 +106,17 @@ export type McpAuditLogDetail = 'summary' | 'full' | 'off';
 /**
  * Shape an audit event into one JSONL audit-file line, or undefined when the
  * event should not be persisted: transient `tool-call-start` events never are,
- * and 'off' disables the file entirely. Full arguments survive only at 'full'
- * detail; any other value behaves as 'summary'.
+ * and 'off' disables the file entirely. Full arguments (and the context-alert
+ * line) survive only at 'full' detail -- any other value behaves as 'summary'
+ * -- except that a call which returned console content is always recorded at
+ * full detail, so the sensitive read is fully accounted for.
  */
 export function toJsonlRecord(event: McpAuditEvent, detail: McpAuditLogDetail): string | undefined {
 	if (detail === 'off' || event.type === 'tool-call-start') {
 		return undefined;
 	}
-	if (event.type === 'tool-call' && detail !== 'full') {
-		const { args: _args, ...summaryOnly } = event;
+	if (event.type === 'tool-call' && detail !== 'full' && !event.returnedConsoleContent) {
+		const { args: _args, contextAlert: _contextAlert, ...summaryOnly } = event;
 		return JSON.stringify(summaryOnly);
 	}
 	return JSON.stringify(event);

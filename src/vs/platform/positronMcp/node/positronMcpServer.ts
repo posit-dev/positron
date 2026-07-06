@@ -13,6 +13,7 @@ import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
 import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
+import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput, McpContextLedger } from '../common/positronMcpContext.js';
 import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
 import { McpAuditFileWriter } from './positronMcpAuditFile.js';
 import { isAuthorizedBearer, loadOrCreateMcpToken } from './positronMcpToken.js';
@@ -79,6 +80,14 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	 * `stop()`: sessions are wiped but the history of what agents did is not.
 	 */
 	private readonly _recentActivity = new McpAuditRingBuffer(200);
+
+	/**
+	 * The user-activity ledger behind get-user-context and the `[context: ...]`
+	 * alert lines. A server-lifetime field like the activity buffer: it survives
+	 * `stop()` and window reloads, so event seqs stay monotonic for the whole
+	 * Positron run and only reset when the app quits.
+	 */
+	private readonly _contextLedger = new McpContextLedger();
 	private readonly _onDidRecordActivity = this._register(new Emitter<McpAuditEvent>());
 	// Must be an instance field (not a getter): ProxyChannel.fromService discovers
 	// events with a for...in scan of own enumerable properties (ipc.ts).
@@ -182,6 +191,18 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		};
 	}
 
+	async recordContextEvent(event: McpContextEventInput): Promise<void> {
+		this._contextLedger.record(event);
+	}
+
+	async queryUserContext(query: IMcpUserContextQuery): Promise<IMcpUserContextData> {
+		// Scope to the requesting session's pinned window so a client only sees
+		// activity from the window its tools run in. An unknown session (or one
+		// with no pinned window yet) gets the unscoped view.
+		const windowId = this._sessions.get(query.mcpSessionId)?.info.pinnedWindowId;
+		return this._contextLedger.query(query, windowId);
+	}
+
 	/**
 	 * The audit sink every session records into. Start events only feed the live
 	 * activity emitter (transient in-flight state); completed calls and lifecycle
@@ -192,8 +213,8 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	 */
 	private _recordAudit(event: McpAuditEvent): void {
 		this._auditFile.write(event);
-		if (event.type === 'tool-call' && event.args !== undefined) {
-			const { args: _args, ...summaryOnly } = event;
+		if (event.type === 'tool-call' && (event.args !== undefined || event.contextAlert !== undefined)) {
+			const { args: _args, contextAlert: _contextAlert, ...summaryOnly } = event;
 			event = summaryOnly;
 		}
 		if (event.type === 'tool-call-start') {
@@ -344,7 +365,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	}
 
 	private _createSession(sessionId: string): PositronMcpSession {
-		const session = new PositronMcpSession(sessionId, this._logger, this._broker, { record: e => this._recordAudit(e) });
+		const session = new PositronMcpSession(sessionId, this._logger, this._broker, { record: e => this._recordAudit(e) }, this._contextLedger);
 		this._sessions.set(sessionId, session);
 		return session;
 	}

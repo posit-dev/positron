@@ -166,6 +166,7 @@ describe('executeCodeWithObserver', () => {
 				clientName: 'claude-code',
 				clientVersion: '1.2.3',
 				displayName: 'Claude Code',
+				mcpSessionId: 's1',
 			},
 		});
 	});
@@ -186,6 +187,7 @@ describe('executeCodeWithObserver', () => {
 				clientName: undefined,
 				clientVersion: undefined,
 				displayName: undefined,
+				mcpSessionId: undefined,
 			},
 		});
 	});
