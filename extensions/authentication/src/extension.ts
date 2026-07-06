@@ -252,16 +252,9 @@ async function registerAwsProvider(
 			'credentials', {}
 		);
 
-	const { region, profile, chainInit } = resolveAwsChainInit(
-		awsConfig, process.env
-	);
+	const chainInit = resolveAwsChainInit(awsConfig, process.env);
 
 	const credentialProvider = fromNodeProviderChain(chainInit);
-
-	logger.info(
-		`Credential chain initialized ` +
-		`(region=${region}, profile=${profile ?? '(default)'})`
-	);
 
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,

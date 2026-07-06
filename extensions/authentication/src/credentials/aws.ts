@@ -4,15 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { AuthProviderLogger } from '../authProviderLogger';
 
 type ChainInit = Parameters<typeof fromNodeProviderChain>[0];
 
 const DEFAULT_AWS_REGION = 'us-east-1';
 
+const logger = new AuthProviderLogger('AWS');
+
 /**
- * Resolve the AWS region, profile, and the init object for
- * `fromNodeProviderChain` from the `authentication.aws.credentials` setting
- * and the process environment.
+ * Resolve the init object for `fromNodeProviderChain` from the
+ * `authentication.aws.credentials` setting and the process environment, and
+ * log the resolved region and profile.
  *
  * The region is passed to the STS `clientConfig` only for web-identity auth
  * (`AWS_WEB_IDENTITY_TOKEN_FILE` set), so the STS exchange targets the
@@ -22,7 +25,7 @@ const DEFAULT_AWS_REGION = 'us-east-1';
 export function resolveAwsChainInit(
 	awsConfig: { AWS_PROFILE?: string; AWS_REGION?: string } | undefined,
 	env: NodeJS.ProcessEnv,
-): { region: string; profile: string | undefined; chainInit: ChainInit } {
+): ChainInit {
 	const profile = awsConfig?.AWS_PROFILE ?? env.AWS_PROFILE;
 	const region = awsConfig?.AWS_REGION ?? env.AWS_REGION ?? DEFAULT_AWS_REGION;
 
@@ -31,5 +34,10 @@ export function resolveAwsChainInit(
 		...(env.AWS_WEB_IDENTITY_TOKEN_FILE ? { clientConfig: { region } } : {}),
 	};
 
-	return { region, profile, chainInit };
+	logger.info(
+		`Credential chain initialized ` +
+		`(region=${region}, profile=${profile ?? '(default)'})`
+	);
+
+	return chainInit;
 }

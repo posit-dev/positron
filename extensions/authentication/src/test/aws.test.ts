@@ -16,11 +16,7 @@ suite('resolveAwsChainInit', () => {
 			{ AWS_REGION: 'eu-west-1' }, WEB_IDENTITY_ENV
 		);
 
-		assert.deepStrictEqual(result, {
-			region: 'eu-west-1',
-			profile: undefined,
-			chainInit: { clientConfig: { region: 'eu-west-1' } },
-		});
+		assert.deepStrictEqual(result, { clientConfig: { region: 'eu-west-1' } });
 	});
 
 	test('prefers the setting region over the AWS_REGION env var', () => {
@@ -28,18 +24,15 @@ suite('resolveAwsChainInit', () => {
 			{ AWS_REGION: 'eu-west-1' }, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2' }
 		);
 
-		assert.strictEqual(result.region, 'eu-west-1');
-		assert.deepStrictEqual(result.chainInit, {
-			clientConfig: { region: 'eu-west-1' },
-		});
+		assert.deepStrictEqual(result, { clientConfig: { region: 'eu-west-1' } });
 	});
 
 	test('falls back to the AWS_REGION env var, then us-east-1', () => {
-		const fromEnv = resolveAwsChainInit({}, { AWS_REGION: 'us-west-2' });
-		assert.strictEqual(fromEnv.region, 'us-west-2');
+		const fromEnv = resolveAwsChainInit({}, { ...WEB_IDENTITY_ENV, AWS_REGION: 'us-west-2' });
+		assert.deepStrictEqual(fromEnv, { clientConfig: { region: 'us-west-2' } });
 
-		const fallback = resolveAwsChainInit(undefined, {});
-		assert.strictEqual(fallback.region, 'us-east-1');
+		const fallback = resolveAwsChainInit(undefined, WEB_IDENTITY_ENV);
+		assert.deepStrictEqual(fallback, { clientConfig: { region: 'us-east-1' } });
 	});
 
 	test('includes the profile when set, still passing the region', () => {
@@ -48,9 +41,8 @@ suite('resolveAwsChainInit', () => {
 		);
 
 		assert.deepStrictEqual(result, {
-			region: 'ap-southeast-2',
 			profile: 'dev',
-			chainInit: { profile: 'dev', clientConfig: { region: 'ap-southeast-2' } },
+			clientConfig: { region: 'ap-southeast-2' },
 		});
 	});
 
@@ -59,10 +51,6 @@ suite('resolveAwsChainInit', () => {
 			{ AWS_PROFILE: 'sso-dev', AWS_REGION: 'eu-west-1' }, {}
 		);
 
-		assert.deepStrictEqual(result, {
-			region: 'eu-west-1',
-			profile: 'sso-dev',
-			chainInit: { profile: 'sso-dev' },
-		});
+		assert.deepStrictEqual(result, { profile: 'sso-dev' });
 	});
 });
