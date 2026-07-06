@@ -112,7 +112,7 @@ def build_bump(
     walk = first_parent_commits(
         compare.merge_base, resolution.sha, compare.commit_map, compare.total_commits
     )
-    commit_lines = "\n".join(f"- {subject}" for _, subject in walk)
+    commit_lines = "\n".join(commit_line(sha, subject) for sha, subject in walk)
 
     notes = collect_release_notes(walk, resolution.open_pr_number)
     closes = "\n".join(f"Closes #{n}" for n in notes["closes"])
@@ -434,6 +434,16 @@ def tag_line(tags: list[str]) -> str:
         if normalized not in result:
             result.append(normalized)
     return " ".join(result)
+
+
+# Render a walked commit as a markdown link to the Ark commit. The link does
+# double duty: it points at the Ark side, and it stops GitHub from autolinking the
+# `(#NNNN)` Ark PR reference in the subject to a Positron issue of the same number,
+# since autolinking doesn't fire inside link text. Brackets in the subject are
+# escaped so a stray `[`/`]` (e.g. `[skip ci]`) can't break the link syntax.
+def commit_line(sha: str, subject: str) -> str:
+    text = subject.replace("[", r"\[").replace("]", r"\]")
+    return f"- [{text}](https://github.com/{ARK_REPO}/commit/{sha})"
 
 
 # Assemble the PR body. `Closes` lines go first (GitHub reads closing keywords

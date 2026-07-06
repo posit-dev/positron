@@ -21,6 +21,7 @@ from bump_ark import (  # noqa: E402
     blocked_by_pr_owner,
     build_body,
     classify_ancestry,
+    commit_line,
     commit_summary,
     first_parent_commits,
     parse_args,
@@ -258,6 +259,26 @@ class BuildBodyTest(unittest.TestCase):
         body = build_body("Closes #1", "@:ark", "NOTES", "- commit")
         self.assertTrue(body.startswith("Closes #1\n\n@:ark\n\n"))
         self.assertTrue(body.endswith("### Commits\n\n- commit"))
+
+
+class CommitLineTest(unittest.TestCase):
+    def test_links_subject_to_the_ark_commit(self):
+        line = commit_line("abc123", "Fix the thing")
+        self.assertEqual(
+            line, f"- [Fix the thing](https://github.com/{ARK_REPO}/commit/abc123)"
+        )
+
+    def test_pr_reference_stays_inside_the_link_text(self):
+        # The `(#1308)` must land inside the link text, not trail after it, so
+        # GitHub renders it as literal text instead of autolinking a Positron issue.
+        line = commit_line("abc123", "Prevent forking (#1308)")
+        self.assertIn("[Prevent forking (#1308)]", line)
+
+    def test_escapes_brackets_in_subject(self):
+        line = commit_line("abc123", "Tweak CI [skip ci]")
+        self.assertEqual(
+            line, r"- [Tweak CI \[skip ci\]](https://github.com/" + ARK_REPO + "/commit/abc123)"
+        )
 
 
 class ParseArgsTest(unittest.TestCase):
