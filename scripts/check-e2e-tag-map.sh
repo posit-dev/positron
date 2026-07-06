@@ -91,6 +91,7 @@ ENUM_FILE="${ENUM_FILE:-$REPO_ROOT/test/e2e/infra/test-runner/test-tags.ts}"
 TESTS_DIR="${TESTS_DIR:-$REPO_ROOT/test/e2e/tests}"
 invalid_tags=()
 untested_tags=()
+unresolved_tags=()
 if [[ -f "$ENUM_FILE" ]]; then
 	valid_tags="$(valid_enum_tags "$ENUM_FILE")"
 	while IFS= read -r tag; do
@@ -99,9 +100,19 @@ if [[ -f "$ENUM_FILE" ]]; then
 			invalid_tags+=("$tag")
 			continue
 		fi
-		# Resolve the tag value to its enum NAME, then look for a tags.NAME reference.
-		name="$(grep -E "= '${tag}'," "$ENUM_FILE" | sed -nE 's/^[[:space:]]*([A-Z0-9_]+)[[:space:]]*=.*/\1/p' | head -1)"
-		if [[ -n "$name" ]] && ! grep -rqE "tags\.${name}\b" "$TESTS_DIR" 2>/dev/null; then
+		# Resolve the tag value to its enum NAME, then look for a tags.NAME
+		# reference. Match end-of-line as well as a trailing comma: the enum's
+		# LAST member has no trailing comma before the closing brace, so a
+		# comma-only match would silently skip it every time. The closing
+		# quote right before (,|$) still anchors the match, so a tag that's a
+		# prefix of another (e.g. @:web vs @:web-only) can't cross-match.
+		name="$(grep -E "= '${tag}'(,|\$)" "$ENUM_FILE" | sed -nE 's/^[[:space:]]*([A-Z0-9_]+)[[:space:]]*=.*/\1/p' | head -1)"
+		if [[ -z "$name" ]]; then
+			# Tag is confirmed valid above, so an unresolved name here is an
+			# unexpected formatting mismatch, not a typo -- surface it instead
+			# of silently skipping the untested-tag check for this tag.
+			unresolved_tags+=("$tag")
+		elif ! grep -rqE "tags\.${name}\b" "$TESTS_DIR" 2>/dev/null; then
 			untested_tags+=("$tag")
 		fi
 	done < <(jq -r '.[][]?' "$MAP_FILE" | sort -u)
@@ -111,6 +122,14 @@ fi
 if [[ ${#untested_tags[@]} -gt 0 ]]; then
 	echo "Note: mapped tag(s) with no e2e test yet (ok if a suite is mid-migration or planned):"
 	printf '  - %s\n' "${untested_tags[@]}"
+	echo ""
+fi
+# Advisory (never fails): valid tags whose enum member name didn't resolve, so
+# the untested-tag check above was skipped for them. Shouldn't happen for a
+# well-formed enum; surfaced so it's visible rather than silently dropped.
+if [[ ${#unresolved_tags[@]} -gt 0 ]]; then
+	echo "Note: could not resolve the enum member name for these tag(s) (untested-tag check skipped):"
+	printf '  - %s\n' "${unresolved_tags[@]}"
 	echo ""
 fi
 

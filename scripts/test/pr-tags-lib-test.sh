@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -233,6 +233,31 @@ if bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail's tag validity check passes on the real map"
 else
 	echo "FAIL: guardrail should exit 0 on the real map's tags"; fail=1
+fi
+
+# The enum's LAST member has no trailing comma before the closing brace --
+# the untested-tag check must still resolve its name instead of silently
+# skipping it (regression check for the comma-anchored grep).
+LAST_MEMBER_ENUM="$(mktemp)"
+cat > "$LAST_MEMBER_ENUM" <<'TS'
+export enum TestTags {
+	FOO = '@:foo',
+	LAST_ONE = '@:last-one'
+}
+TS
+LAST_MEMBER_MAP="$(mktemp)"
+echo '{"some/dir/": ["@:last-one"]}' > "$LAST_MEMBER_MAP"
+EMPTY_TESTS_DIR="$(mktemp -d)"
+LAST_MEMBER_OUTPUT="$(MAP_FILE="$LAST_MEMBER_MAP" ENUM_FILE="$LAST_MEMBER_ENUM" TESTS_DIR="$EMPTY_TESTS_DIR" bash "$HERE/../check-e2e-tag-map.sh" --tags-only 2>&1)"
+if printf '%s' "$LAST_MEMBER_OUTPUT" | grep -qF "@:last-one"; then
+	echo "PASS: guardrail resolves the enum's last member (no trailing comma)"
+else
+	echo "FAIL: guardrail should flag @:last-one as untested, not skip it silently"; fail=1
+fi
+if printf '%s' "$LAST_MEMBER_OUTPUT" | grep -q "could not resolve"; then
+	echo "FAIL: guardrail should not report an unresolved lookup for a well-formed enum"; fail=1
+else
+	echo "PASS: guardrail reports no unresolved lookups for a well-formed enum"
 fi
 
 # --- positron_dir_of (shared primitive) ---
