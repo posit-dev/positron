@@ -10,7 +10,7 @@ The script creates a Positron-side PR that bumps the submodule ref, and fills th
 
 - A "Closes #XXX" line for every issue mentioned in the release notes, and every "Addresses #XXX" mention in the Ark PRs.
 
-- A commit section listing every commit since the last bump.
+- A commit section listing every commit since the last bump. The commits are gathered with a `--first-parent` walk, so that only squash merges, merge commits, and commits directly pushed to main are included.
 
 
 #### Usage
