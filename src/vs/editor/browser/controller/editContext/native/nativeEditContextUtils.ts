@@ -5,6 +5,7 @@
 
 // --- Start Positron ---
 // Also import saveParentsScrollTop/restoreParentsScrollTop for the focus() fix below.
+// import { addDisposableListener, getActiveElement, getShadowRoot } from '../../../../../base/browser/dom.js';
 import { addDisposableListener, getActiveElement, getShadowRoot, restoreParentsScrollTop, saveParentsScrollTop } from '../../../../../base/browser/dom.js';
 // --- End Positron ---
 import { IDisposable, Disposable } from '../../../../../base/common/lifecycle.js';
