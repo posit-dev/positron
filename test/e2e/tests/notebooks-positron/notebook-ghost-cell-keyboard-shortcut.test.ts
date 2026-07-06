@@ -16,7 +16,7 @@ test.use({
 });
 
 test.describe('Notebook: Ghost Cell Keyboard Shortcut', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.ASSISTANT]
 }, () => {
 	test('Cmd+Shift+G triggers ghost cell suggestion', async function ({ app, hotKeys, page, python }) {
 		const { notebooksPositron } = app.workbench;
