@@ -7,13 +7,10 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ParticipantID } from './participants.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
+import { TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
-import path = require('path');
-import fs = require('fs');
 import { log } from './log.js';
-import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -35,61 +32,6 @@ export class PositronAssistantApi {
 			PositronAssistantApi._instance = new PositronAssistantApi();
 		}
 		return PositronAssistantApi._instance;
-	}
-
-	/**
-	 * Generates assistant prompt content.
-	 *
-	 * @param request The chat request to generate content for.
-	 * @returns A string containing the assistant prompt content.
-	 */
-	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Use the currently selected mode in the chat UI
-		const chatMode = await positron.ai.getCurrentChatMode();
-		const mode = validateChatMode(chatMode);
-
-		// Start with the system prompt
-		const activeSessions = await positron.runtime.getActiveSessions();
-		const sessions = activeSessions.map(session => session.runtimeMetadata);
-
-		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits: true }).content;
-
-		// Get the IDE context for the request.
-		const positronContext = await positron.ai.getPositronChatContext(request);
-		const contextPrompts = getPositronContextPrompts(positronContext);
-		prompt += contextPrompts.join('\n');
-		if (contextPrompts.length > 0) {
-			prompt += xml.node('context', contextPrompts.join('\n\n'));
-		}
-
-		// Add context about the active sessions
-		let sessionCount = 0;
-		let allSessions = '';
-		const allReferences = request?.references || [];
-		for (const reference of allReferences) {
-			const value = reference.value as any;
-			if (value.activeSession) {
-				const sessionSummary = JSON.stringify(value.activeSession, null, 2);
-				let sessionContent = sessionSummary;
-				if (value.variables) {
-					// Include the session variables in the session content.
-					const variablesSummary = JSON.stringify(value.variables, null, 2);
-					sessionContent += '\n' + xml.node('variables', variablesSummary);
-				}
-				allSessions += xml.node('session', sessionContent);
-				sessionCount++;
-			}
-		}
-
-		if (sessionCount > 0) {
-			const sessionText = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
-			prompt += sessionText + '\n' + xml.node('sessions', allSessions);
-		}
-
-		log.debug(`Generated Positron context for prompt (${sessionCount} sessions, ` +
-			`${prompt.length} characters)`);
-
-		return prompt;
 	}
 
 	/**
@@ -329,18 +271,4 @@ export function getPositronContextPrompts(positronContext: positron.ai.ChatConte
 		log.debug(`[context] adding date context: ${dateNode.length} characters`);
 	}
 	return result;
-}
-
-function isEnumMember<T extends Record<string, unknown>>(
-	value: unknown | undefined,
-	enumObj: T
-): value is T[keyof T] {
-	return value !== undefined && Object.values(enumObj).includes(value);
-}
-
-function validateChatMode(mode: string | undefined): PromptMetadataMode {
-	if (isEnumMember(mode, positron.PositronChatMode) || isEnumMember(mode, positron.PositronChatAgentLocation)) {
-		return mode;
-	}
-	return positron.PositronChatMode.Agent;
 }

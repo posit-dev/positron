@@ -488,6 +488,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[] {
 				return extHostAiFeatures.getEnabledTools(request, tools);
 			},
+			generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string> {
+				return extHostAiFeatures.generateAssistantPrompt(request);
+			},
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},

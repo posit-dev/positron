@@ -3514,6 +3514,16 @@ declare module 'positron' {
 		export function getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): string[];
 
 		/**
+		 * Generate the Positron assistant prompt for a chat request: the
+		 * Positron-specific system instructions and IDE context to embed in a
+		 * chat prompt. Used by chat clients such as Copilot Chat.
+		 *
+		 * @param request The chat request to generate prompt content for.
+		 * @returns The assembled prompt content.
+		 */
+		export function generateAssistantPrompt(request: vscode.ChatRequest): Thenable<string>;
+
+		/**
 		 * Send a progress response to the chat response stream.
 		 */
 		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
