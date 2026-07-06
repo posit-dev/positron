@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPackageManager, PackageSession } from './packages/types';
@@ -88,7 +89,12 @@ export async function listMissingPythonPackages(
     }
 
     // Ask the kernel which of these modules cannot be imported in this session.
-    const missing = (await session.callMethod('getMissingImports', modules)) as string[];
+    // The file's directory is passed as an extra import root so sibling modules
+    // (local `helper`-style packages) are recognized as importable rather than
+    // misreported as missing installable packages; running the file adds the
+    // same directory to sys.path.
+    const roots = importRoots(target);
+    const missing = (await session.callMethod('getMissingImports', modules, roots)) as string[];
     if (!Array.isArray(missing) || missing.length === 0) {
         return [];
     }
@@ -169,6 +175,28 @@ async function searchExact(
     const canonical = canonicalizeName(query);
     const exact = matches.find((pkg) => canonicalizeName(pkg.name) === canonical);
     return exact?.name;
+}
+
+/**
+ * Extra import root directories to consider when deciding whether a module is
+ * importable. When analyzing a saved file, the file's own directory is included:
+ * running the file temporarily adds it to `sys.path`, so sibling modules there
+ * (a local `helper` package) are importable and must not be flagged as missing.
+ * Returns an empty list for inline code, which has no associated directory.
+ */
+function importRoots(target: positron.RuntimeMissingPackagesTarget): string[] {
+    if (!target.uri) {
+        return [];
+    }
+    try {
+        const uri = vscode.Uri.parse(target.uri);
+        if (uri.scheme !== 'file') {
+            return [];
+        }
+        return [path.dirname(uri.fsPath)];
+    } catch {
+        return [];
+    }
 }
 
 /** Reads the code to analyze from the target's inline code or file URI. */

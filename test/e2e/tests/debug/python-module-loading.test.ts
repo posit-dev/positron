@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,14 +14,6 @@ test.use({
 test.describe('Python Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
-
-	test.beforeEach(async function ({ settings }) {
-		// Disable the missing-packages preflight so the Run gesture doesn't open a
-		// blocking install modal (app.py's local `helper` import is flagged as a
-		// missing package once its cache warms). This test is about module auto
-		// reload, not package installation.
-		await settings.set({ 'packages.confirmMissingOnRun': false }, { keepOpen: false });
-	});
 
 	test.afterAll(async function ({ cleanup }) {
 

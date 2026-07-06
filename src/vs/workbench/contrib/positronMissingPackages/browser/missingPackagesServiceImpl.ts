@@ -292,7 +292,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		if (QUARTO_LANGUAGE_IDS.includes(languageId)) {
 			return this._buildQuartoTargets(model);
 		}
-		return this._buildScriptTargets(languageId, model.getValue());
+		return this._buildScriptTargets(languageId, model.getValue(), model.uri);
 	}
 
 	/**
@@ -360,15 +360,19 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	}
 
 	/**
-	 * Builds the analysis targets for a single-language chunk of code.
+	 * Builds the analysis targets for a single-language chunk of code. The source
+	 * URI, when known, is forwarded so the runtime can treat the file's directory
+	 * as an import root and avoid flagging local modules (a sibling `helper`
+	 * package) as missing packages. The live model text is still sent as `code`
+	 * so unsaved edits are analyzed.
 	 */
-	private _buildScriptTargets(languageId: string, content: string): IResolvedTarget[] {
+	private _buildScriptTargets(languageId: string, content: string, uri?: URI): IResolvedTarget[] {
 		const session = this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
 		if (!session || !session.listMissingPackages) {
 			return [];
 		}
 		const cacheKey = `${session.sessionId}:${hash(content)}`;
-		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code: content } }];
+		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code: content, uri: uri?.toString() } }];
 	}
 
 	/**

@@ -197,6 +197,22 @@ def test_get_missing_imports() -> None:
     assert result == ["garfblatz_not_a_real_module"]
 
 
+def test_get_missing_imports_local_module_root(tmp_path) -> None:
+    """A local module in a provided import root is not reported as missing."""
+    from positron.ui import _get_missing_imports
+
+    # A sibling package that only resolves via the extra import root (e.g. the
+    # directory of the file being analyzed), not via sys.path.
+    (tmp_path / "helper").mkdir()
+    (tmp_path / "helper" / "__init__.py").write_text("")
+
+    # Without the root, the local module is reported missing.
+    assert _get_missing_imports(None, [["helper"]]) == ["helper"]  # type: ignore[arg-type]
+
+    # With the root, it is recognized as importable and omitted.
+    assert _get_missing_imports(None, [["helper"], [str(tmp_path)]]) == []  # type: ignore[arg-type]
+
+
 def test_get_missing_imports_invalid_params() -> None:
     """`_get_missing_imports` rejects params that are not a list of names."""
     from positron.ui import _get_missing_imports, _InvalidParamsError
