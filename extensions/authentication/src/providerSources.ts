@@ -16,7 +16,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getConfiguredSnowflakeAccount } from './credentials';
+import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace

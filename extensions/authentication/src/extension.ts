@@ -32,12 +32,12 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
+import { resolveAwsChainInit } from './credentials/aws';
+import { resolveGoogleVertexCredential } from './credentials/googleVertex';
 import {
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
-	resolveAwsChainInit,
-	resolveGoogleVertexCredential,
-} from './credentials';
+} from './credentials/snowflake';
 import { PositOAuthProvider } from './positOAuthProvider';
 import * as fs from 'fs';
 import { log } from './log';
