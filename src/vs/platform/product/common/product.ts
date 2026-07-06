@@ -105,8 +105,8 @@ else {
 				'https://login.staging.posit.cloud'
 			],
 			defaultChatAgent: {
-				extensionId: 'positron.positron-assistant',
-				chatExtensionId: 'positron.positron-assistant',
+				extensionId: 'GitHub.copilot-chat',
+				chatExtensionId: 'GitHub.copilot-chat',
 				chatExtensionOutputId: '',
 				documentationUrl: '',
 				skusDocumentationUrl: '',
