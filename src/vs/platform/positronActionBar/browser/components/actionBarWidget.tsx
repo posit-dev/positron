@@ -7,7 +7,7 @@
 import './actionBarWidget.css';
 
 // React.
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 // Other dependencies.
 import { IPositronActionBarWidgetDescriptor } from '../positronActionBarWidgetRegistry.js';
@@ -93,7 +93,15 @@ export const ActionBarWidget = (props: ActionBarWidgetProps) => {
 	const services = usePositronReactServicesContext();
 	const commandService = services.get(ICommandService);
 
-	const WidgetComponent = props.descriptor.componentFactory(services);
+	// Memoize the widget component so its function identity is stable across
+	// action-bar re-renders. componentFactory returns a fresh function on every
+	// call; without memoization React would treat each render as a new component
+	// type and unmount/remount the widget subtree, tearing down any state or open
+	// popups the widget owns.
+	const WidgetComponent = useMemo(
+		() => props.descriptor.componentFactory(services),
+		[props.descriptor, services]
+	);
 
 	// Handler for command execution (only used for command-driven widgets)
 	const handleClick = useCallback(async () => {

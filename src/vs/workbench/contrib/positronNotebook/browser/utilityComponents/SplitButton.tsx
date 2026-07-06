@@ -38,6 +38,8 @@ export interface SplitButtonProps {
 	contextMenuService: IContextMenuService;
 	/** Custom dropdown icon class (defaults to codicon-chevron-down) */
 	dropdownIconClass?: string;
+	/** Notified when the dropdown menu opens (true) and closes (false). */
+	onMenuOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -57,6 +59,7 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 	dropdownActions,
 	contextMenuService,
 	dropdownIconClass = 'codicon-chevron-down',
+	onMenuOpenChange,
 	children
 }) => {
 	const dropdownRef = useRef<HTMLButtonElement>(null);
@@ -70,11 +73,13 @@ export const SplitButton: React.FC<PropsWithChildren<SplitButtonProps>> = ({
 		}
 
 		const rect = dropdownRef.current.getBoundingClientRect();
+		onMenuOpenChange?.(true);
 		contextMenuService.showContextMenu({
 			getActions: () => dropdownActions,
 			getAnchor: () => ({ x: rect.left, y: rect.bottom }),
 			anchorAlignment: AnchorAlignment.LEFT,
-			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+			onHide: () => onMenuOpenChange?.(false)
 		});
 	};
 

@@ -9,12 +9,14 @@ import './contrib/assistant/positronNotebookAssistant.contribution.js';
 import './contrib/ghostCell/positronNotebookGhostCell.contribution.js';
 import './contrib/outline/positronNotebookOutline.contribution.js';
 import './contrib/help/NotebookHelpAction.js';
+import './contrib/commands/NotebookCommandsAction.js';
 
 // Self-registering Action2 contributions
 import './notebookCells/InlineDataExplorerActions.js';
 import './SelectPositronNotebookKernelAction.js';
 import './contrib/visualize/VisualizeAction.js';
 import './contrib/cellTags/actions.js';
+import './AssistantPanel/notebookSuggestionsConfig.js';
 
 import { copyImageToClipboard, isCopyImageMenuArg } from './copyImageUtils.js';
 import { isCopyJsonMenuArg, serializeJsonOutput } from './copyJsonUtils.js';
@@ -60,6 +62,7 @@ import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_CATEGORY, POSITRON_
 import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { CellContextKeys } from '../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../common/notebookContextKeys.js';
+import { bindNotebookAIEnabledContextKey } from './notebookAIEnabledContextKey.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { Action2, registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInCellAction } from './ExecuteSelectionInCellAction.js';
@@ -134,6 +137,10 @@ class PositronNotebookContribution extends Disposable {
 			contextKeyService,
 			reader => positronNotebookService.experimentsEnabled.read(reader),
 		));
+
+		// Keep the composite notebook AI gate (ai.enabled AND notebook.ai.enabled)
+		// in sync so every notebook AI feature can read the single context key.
+		this._register(bindNotebookAIEnabledContextKey(contextKeyService, this.configurationService));
 
 		this.registerEditor();
 	}
@@ -2190,10 +2197,17 @@ export class RunAllCellsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.runAllCells',
-			title: localize2('runAllCells', 'Run All'),
+			title: localize2('runAllCells', 'Run All Cells'),
 			icon: ThemeIcon.fromId('notebook-execute-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while nothing is running, matching
+			// the run/stop toolbar toggle (stopAllCells gates on the inverse).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING.toNegated()
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
@@ -2228,10 +2242,19 @@ registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.stopAllCells',
-			title: localize2('stopAllCells', 'Stop'),
+			title: localize2('stopAllCells', 'Stop Execution'),
 			icon: ThemeIcon.fromId('primitive-square'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
+			// Mirror the toolbar `when` so the command palette and the notebook
+			// command picker only surface this while something is running. Without
+			// it the picker showed "Stop Execution" when idle, and selecting it ran
+			// all cells (runNotebookAction delegates to runAllCells, which only
+			// cancels when there are live executions to see).
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				NOTEBOOK_HAS_SOMETHING_RUNNING
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: false
@@ -2269,7 +2292,7 @@ export class ClearAllOutputsAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
-			title: localize2('clearAllOutputs', 'Clear Outputs'),
+			title: localize2('clearAllOutputs', 'Clear All Outputs'),
 			icon: ThemeIcon.fromId('clear-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,

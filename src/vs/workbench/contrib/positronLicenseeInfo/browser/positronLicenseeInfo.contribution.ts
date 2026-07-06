@@ -16,6 +16,8 @@ import { IRemoteAgentService } from '../../../services/remote/common/remoteAgent
  */
 const POSITRON_LICENSEE_INFO_STATUS_ID = 'status.positronLicenseeInfo';
 
+const SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID = 'positron.showAcademicLicenseBanner';
+
 /**
  * Workbench contribution that displays licensee info in the status bar.
  */
@@ -52,7 +54,8 @@ class PositronLicenseeInfoStatusBarContribution extends Disposable implements IW
 				name: localize('positronLicenseeInfo.name', "License Info"),
 				text: localize('positronLicenseeInfo.text', "Licensed to: {0}", licenseeInfo.licensee),
 				tooltip,
-				ariaLabel: tooltip
+				ariaLabel: tooltip,
+				command: SHOW_ACADEMIC_LICENSE_BANNER_COMMAND_ID
 			},
 			POSITRON_LICENSEE_INFO_STATUS_ID,
 			StatusbarAlignment.RIGHT,

@@ -814,6 +814,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Object.fromEntries(result);
 	}
 
+	async $listMissingPackages(
+		handle: number,
+		target: positron.RuntimeMissingPackagesTarget,
+		token: CancellationToken,
+	): Promise<positron.RuntimeMissingPackage[]> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot list missing packages: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		return (await session.listMissingPackages?.(target, token)) ?? [];
+	}
+
+	async $getPackageDetail(
+		handle: number,
+		name: string,
+		token: CancellationToken,
+	): Promise<Partial<positron.LanguageRuntimePackage> | undefined> {
+		const packageManager = this.getPackageManagerOrThrow(handle, 'get package detail');
+		if (!packageManager.getPackageDetail) {
+			return undefined;
+		}
+		return packageManager.getPackageDetail(name, token);
+	}
+
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
@@ -1078,15 +1102,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Set the discovery-complete flag without running an enumeration. Called
-	 * by the main thread on the warm-start fast path, where the discovery
-	 * cache has satisfied every manager and no real enumeration is needed.
-	 * Without this, late-registered runtime managers (those registered via
-	 * `registerLanguageRuntimeManager` after initial discovery) would never
-	 * see the flag flip and so would never self-discover.
+	 * Mark discovery complete on the warm-start fast path, where the main thread
+	 * served every cache-satisfied language from its discovery cache.
+	 *
+	 * This still runs a normal discovery pass, but with the cache-satisfied
+	 * languages in the skip set so they aren't needlessly re-walked. The point
+	 * is to catch a runtime manager registered via the public
+	 * `registerLanguageRuntimeManager` API *before* this signal arrived: its
+	 * language isn't cache-backed, so it was parked in `_runtimeManagers`
+	 * awaiting an enumeration pass that the warm start would otherwise skip,
+	 * stranding it forever. (Managers registered *after* the flag flips
+	 * self-discover via their own IIFE, so they were never at risk.)
+	 *
+	 * @param skipLanguageIds The cache-satisfied (and disabled) languages to
+	 * skip; supplied by the main thread.
 	 */
-	public $markRuntimeDiscoveryComplete(): void {
-		this._runtimeDiscoveryComplete = true;
+	public $markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): Promise<void> {
+		return this.$discoverLanguageRuntimes([], skipLanguageIds);
 	}
 
 	/**

@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -167,6 +167,13 @@ class ExtHostLanguageRuntimePackageManagerAdapter implements ILanguageRuntimePac
 		}
 		// Convert plain object back to Map from IPC
 		return new Map(Object.entries(result));
+	}
+
+	getPackageDetail(
+		name: string,
+		token: CancellationToken,
+	): Promise<Partial<ILanguageRuntimePackage> | undefined> {
+		return this._proxy.$getPackageDetail(this._handle, name, token);
 	}
 }
 
@@ -729,6 +736,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			this._packageManager = new ExtHostLanguageRuntimePackageManagerAdapter(this._proxy, this.handle);
 		}
 		return this._packageManager;
+	}
+
+	listMissingPackages(target: IRuntimeMissingPackagesTarget, token?: CancellationToken): Promise<IRuntimeMissingPackage[]> {
+		return this._proxy.$listMissingPackages(this.handle, target, token ?? CancellationToken.None);
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
@@ -1652,14 +1663,19 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
-	 * Tell the extension host that initial discovery is over without asking
-	 * it to enumerate. Used by the warm-start fast path in
+	 * Tell the extension host that initial discovery is over on the warm-start
+	 * fast path. The ext host enumerates any managers whose language isn't in
+	 * `skipLanguageIds` (the cache-satisfied set), so late-registered managers
+	 * aren't stranded, but skips the cache-backed languages the main thread
+	 * already served. Used by the warm-start fast path in
 	 * `RuntimeStartupService.discoverAllRuntimes`.
 	 *
 	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param skipLanguageIds The cache-satisfied languages to skip enumerating.
 	 */
-	markDiscoveryComplete(): void {
-		this._proxy.$markRuntimeDiscoveryComplete();
+	markDiscoveryComplete(skipLanguageIds?: string[]): void {
+		this._proxy.$markRuntimeDiscoveryComplete(skipLanguageIds);
 	}
 
 	/**

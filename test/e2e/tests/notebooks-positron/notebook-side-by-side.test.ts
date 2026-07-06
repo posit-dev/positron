@@ -20,7 +20,7 @@ test.use({
 });
 
 test.describe('Notebook Side-by-Side Isolation', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {

@@ -37,4 +37,26 @@ test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)',
 		const responseText = await app.workbench.positAssistant.getLastResponseText();
 		expect(responseText.length).toBeGreaterThan(0);
 	});
+
+	test('Foundry model from the models-overrides setting responds (Azure managed credentials)', async function ({ app }) {
+		// The msFoundry provider exposes the models declared in
+		// `positron.assistant.models.overrides.msFoundry` (pushed by the fixture
+		// via `enableFoundryAssistant`). Alongside `model-router`, that override
+		// declares the concrete `claude-sonnet-4-6` model. Selecting it confirms a
+		// specific overridden model -- not just the router -- resolves and responds
+		// through the managed credential, covering the model-overrides auth path.
+		await app.workbench.positAssistant.open();
+		await app.workbench.positAssistant.waitForReady();
+		await app.workbench.positAssistant.startNewConversation();
+
+		// The concrete model is collapsed under the "More models" disclosure in the
+		// picker; selectModel expands it automatically. `newConversation: false`
+		// keeps the model we just picked instead of resetting to a fresh chat.
+		await app.workbench.positAssistant.selectModel('claude-sonnet-4-6');
+		await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
+		await app.workbench.positAssistant.expectResponseVisible();
+
+		const responseText = await app.workbench.positAssistant.getLastResponseText();
+		expect(responseText.length).toBeGreaterThan(0);
+	});
 });

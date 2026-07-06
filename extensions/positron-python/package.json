@@ -821,6 +821,12 @@
                     "scope": "resource",
                     "type": "string"
                 },
+                "python.packageManager.useRequirementsFile": {
+                    "default": true,
+                    "markdownDescription": "%python.packageManager.useRequirementsFile.description%",
+                    "scope": "resource",
+                    "type": "boolean"
+                },
                 "python.locator": {
                     "default": "native",
                     "markdownDescription": "%python.locator.description%",
@@ -2287,7 +2293,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2026.4"
+            "pet": "2026.12"
         }
     }
 }

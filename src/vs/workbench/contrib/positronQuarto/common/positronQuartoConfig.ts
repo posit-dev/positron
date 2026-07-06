@@ -38,6 +38,11 @@ export const POSITRON_QUARTO_EQUATION_PREVIEW_KEY = 'positron.quarto.equationPre
 export const POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY = 'positron.quarto.inlineOutput.showCellToolbar';
 
 /**
+ * Configuration key for splitting Quarto inline code into language-defined statements.
+ */
+export const POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY = 'positron.quarto.inlineOutput.splitStatements';
+
+/**
  * Context key for whether Quarto inline output is enabled.
  * Used for conditionally showing commands and menus.
  */
@@ -121,6 +126,14 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.quarto.inlineOutput.showCellToolbar',
 				'Show the floating cell toolbar (Run Cell, Run Previous, etc.) on Quarto code cells.'
+			)
+		},
+		[POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.quarto.inlineOutput.splitStatements',
+				'Execute Quarto inline code statement by statement when the language provides input boundaries, so each statement can produce inline output.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
@@ -144,6 +157,15 @@ export function usingQuartoInlineOutput(configurationService: IConfigurationServ
  */
 export function usingQuartoCellToolbar(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY) ?? true;
+}
+
+/**
+ * Helper function to check if Quarto inline output should split code at statement boundaries.
+ * @param configurationService The configuration service instance
+ * @returns true if statement splitting is enabled
+ */
+export function usingQuartoInlineOutputStatementSplitting(configurationService: IConfigurationService): boolean {
+	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY) ?? true;
 }
 
 /**

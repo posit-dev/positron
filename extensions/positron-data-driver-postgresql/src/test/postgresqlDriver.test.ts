@@ -10,6 +10,7 @@ import { createSchemaNode } from '../postgresqlNodes.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: PostgreSQLConnectionConfig = {
+	kind: 'fields',
 	host: 'localhost',
 	port: 5432,
 	database: 'testdb',

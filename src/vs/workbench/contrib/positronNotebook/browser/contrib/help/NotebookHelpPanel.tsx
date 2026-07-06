@@ -13,8 +13,9 @@ import { ReactElement } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
-import { OKModalDialog } from '../../../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronDynamicModalDialog } from '../../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { OneButtonFooter } from '../../../../../browser/positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
+import { PositronModalDialogReactRenderer } from '../../../../../../base/browser/positronModalDialogReactRenderer.js';
 import { ResolvedChord, ResolvedKeybinding } from '../../../../../../base/common/keybindings.js';
 import { UILabelProvider } from '../../../../../../base/common/keybindingLabels.js';
 import { OS } from '../../../../../../base/common/platform.js';
@@ -96,9 +97,10 @@ export function resolveShortcutBindings(keybindingService: IKeybindingService): 
 }
 
 interface NotebookHelpPanelProps {
-	renderer: PositronModalReactRenderer;
+	renderer: PositronModalDialogReactRenderer;
 	resolvedBindings: ResolvedBindingsMap;
 	onOpenAllShortcuts: () => void;
+	onSeeAllCommands: () => void;
 }
 
 function getChordKeys(chord: ResolvedChord): string[] {
@@ -140,40 +142,49 @@ function KeybindingDisplay({ commandId, resolvedBindings }: { commandId: string;
 	return renderKeybinding(keybinding);
 }
 
-export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcuts }: NotebookHelpPanelProps): ReactElement {
+export function NotebookHelpPanel({ renderer, resolvedBindings, onOpenAllShortcuts, onSeeAllCommands }: NotebookHelpPanelProps): ReactElement {
 	return (
-		<OKModalDialog
-			closeOnClickOutside={true}
-			height={620}
-			okButtonTitle={localize('positron.notebookHelp.close', 'Close')}
-			renderer={renderer}
-			title={localize('positron.notebookHelp.title', 'Notebook Keyboard Shortcuts')}
-			width={500}
-			onAccept={() => renderer.dispose()}
-			onCancel={() => renderer.dispose()}
-		>
-			<div className='notebook-help-panel'>
-				{SHORTCUT_SECTIONS.map(section => (
-					<div key={section.title}>
-						<h2>{section.title}</h2>
-						<div className='shortcut-grid'>
-							{section.shortcuts.map(shortcut => (
-								<div key={shortcut.commandId} className='shortcut-row'>
-									<span className='shortcut-label'>{shortcut.label}</span>
-									<span className='shortcut-keys'>
-										<KeybindingDisplay commandId={shortcut.commandId} resolvedBindings={resolvedBindings} />
-									</span>
-								</div>
-							))}
-						</div>
+		<PositronDynamicModalDialog
+			content={
+				<div className='notebook-help-panel'>
+					<div className='notebook-help-browse-commands'>
+						<button className='notebook-help-link' type='button' onClick={() => { renderer.dispose(); onSeeAllCommands(); }}>
+							{localize('positron.notebookHelp.browseCommands', 'Browse All Notebook Commands...')}
+						</button>
 					</div>
-				))}
-				<div className='notebook-help-all-shortcuts'>
-					<button className='all-shortcuts-link' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
-						{localize('positron.notebookHelp.allShortcuts', 'View All Notebook Keyboard Shortcuts...')}
-					</button>
+					<div className='notebook-help-shortcuts'>
+						<h2>{localize('positron.notebookHelp.keyboardShortcuts', 'Keyboard Shortcuts')}</h2>
+						{SHORTCUT_SECTIONS.map(section => (
+							<div key={section.title}>
+								<h3>{section.title}</h3>
+								<div className='shortcut-grid'>
+									{section.shortcuts.map(shortcut => (
+										<div key={shortcut.commandId} className='shortcut-row'>
+											<span className='shortcut-label'>{shortcut.label}</span>
+											<span className='shortcut-keys'>
+												<KeybindingDisplay commandId={shortcut.commandId} resolvedBindings={resolvedBindings} />
+											</span>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+					<div className='notebook-help-all-shortcuts'>
+						<button className='notebook-help-link' type='button' onClick={() => { renderer.dispose(); onOpenAllShortcuts(); }}>
+							{localize('positron.notebookHelp.allShortcuts', 'View All Notebook Keyboard Shortcuts...')}
+						</button>
+					</div>
 				</div>
-			</div>
-		</OKModalDialog>
+			}
+			contentMaxHeight={540}
+			footer={
+				<OneButtonFooter buttonTitle={localize('positron.notebookHelp.close', 'Close')} onButton={() => renderer.dispose()} />
+			}
+			renderer={renderer}
+			title={localize('positron.notebookHelp.title', 'Notebook Help')}
+			width={500}
+			onSubmit={() => renderer.dispose()}
+		/>
 	);
 }

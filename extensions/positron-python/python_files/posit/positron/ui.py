@@ -9,6 +9,7 @@ import inspect
 import logging
 import os
 import platform
+import re
 import sys
 import types
 import webbrowser
@@ -80,6 +81,67 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
         for name in kernel.shell.user_ns
         if not name.startswith("_") and isinstance(kernel.shell.user_ns[name], type(sys))
     ]
+
+
+def _get_missing_imports(
+    _kernel: "PositronIPyKernel", params: List[JsonData]
+) -> Optional[JsonData]:
+    """Return the subset of the given top-level module names that cannot be imported.
+
+    A module is considered present if it is already loaded or if an import spec
+    can be found for it (which covers standard-library modules and installed
+    distributions whose import name differs from their distribution name, e.g.
+    `sklearn` for scikit-learn). Anything else is reported as missing.
+
+    An optional second parameter is a list of extra import root directories to
+    search in addition to `sys.path`. The frontend passes the directory of the
+    file being analyzed so that local modules (e.g. a sibling `helper` package)
+    are recognized as importable, mirroring how running a file temporarily adds
+    its directory to `sys.path`. Without this, a local module would be
+    misreported as a missing, installable package.
+
+    The caller (the frontend analyzer) is responsible for mapping a missing
+    import name back to an installable distribution; this method only answers
+    the per-session "is it importable here?" question.
+    """
+    if not (isinstance(params, list) and len(params) >= 1 and isinstance(params[0], list)):
+        raise _InvalidParamsError(f"Expected a list of module names, got: {params}")
+
+    import importlib.machinery
+    import importlib.util
+
+    modules = [name for name in params[0] if isinstance(name, str)]
+    roots = (
+        [root for root in params[1] if isinstance(root, str)]
+        if len(params) >= 2 and isinstance(params[1], list)
+        else []
+    )
+
+    def is_importable(name: str) -> bool:
+        try:
+            if importlib.util.find_spec(name) is not None:
+                return True
+        except (ImportError, ValueError, ModuleNotFoundError):
+            # find_spec raises (rather than returning None) when a parent
+            # package is missing; treat that as not found (yet).
+            pass
+        # Also search the caller-provided roots, which are not on sys.path at
+        # analysis time but will be when the file is actually run.
+        if roots:
+            try:
+                if importlib.machinery.PathFinder.find_spec(name, roots) is not None:
+                    return True
+            except (ImportError, ValueError, ModuleNotFoundError):
+                pass
+        return False
+
+    missing: List[JsonData] = []
+    for name in modules:
+        if name in sys.modules:
+            continue
+        if not is_importable(name):
+            missing.append(name)
+    return missing
 
 
 def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
@@ -203,6 +265,101 @@ def _best_package_url(dist: importlib.metadata.Distribution) -> Optional[str]:
     return best_url
 
 
+def _best_author(metadata: Any) -> Optional[str]:
+    """Normalize author/maintainer into a display string (names, no emails)."""
+    # Prefer the plain-name fields (no email to strip) over the RFC-style
+    # *-email fields, skipping empty / "UNKNOWN" placeholders in any field.
+    raw = None
+    for value in (
+        metadata.get("Author"),
+        metadata.get("Maintainer"),
+        metadata.get("Author-email"),
+        metadata.get("Maintainer-email"),
+    ):
+        if value and value.strip() and value.strip() != "UNKNOWN":
+            raw = value
+            break
+    if not raw:
+        return None
+    names = []
+    for part in raw.split(","):
+        part = part.strip()
+        name = part.split("<")[0].strip().strip('"')
+        names.append(name or part)
+    joined = ", ".join(n for n in names if n)
+    return joined or None
+
+
+def _source_repository(dist: importlib.metadata.Distribution) -> Optional[str]:
+    """Return the Source/Repository Project-URL if present."""
+    metadata: Any = dist.metadata
+    for entry in metadata.get_all("Project-URL") or []:
+        label, _, url = entry.partition(",")
+        if _normalize_url_label(label) in ("source", "repository", "sourcecode", "code"):
+            url = url.strip()
+            if url:
+                return url
+    return None
+
+
+def _primary_spdx(expr: str) -> str:
+    """The primary license id from a (possibly compound) SPDX expression.
+
+    e.g. "BSD-3-Clause AND 0BSD AND MIT" -> "BSD-3-Clause",
+    "(MIT OR Apache-2.0)" -> "MIT", "Apache-2.0 WITH LLVM-exception" -> "Apache-2.0".
+    """
+    first = re.split(r"\s+(?:AND|OR|WITH)\s+", expr.strip(), maxsplit=1)[0]
+    return first.strip().strip("()").strip()
+
+
+def _best_license(metadata: Any) -> Optional[str]:
+    """Best-effort short license string.
+
+    Prefers the primary id of the SPDX `License-Expression`, then a one-line
+    legacy `License` field, then an OSI license `Classifier`. Skips the legacy
+    `License` field when it holds the full multi-line license text rather than a
+    short name.
+    """
+    expr = metadata.get("License-Expression")
+    if expr and expr.strip():
+        primary = _primary_spdx(expr)
+        if primary:
+            return primary
+    legacy = metadata.get("License")
+    if legacy and legacy.strip() and legacy.strip() != "UNKNOWN" and "\n" not in legacy:
+        return legacy.strip()
+    for classifier in metadata.get_all("Classifier") or []:
+        if classifier.startswith("License :: "):
+            return classifier.split("::")[-1].strip()
+    return None
+
+
+def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) -> Optional[JsonData]:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected a package name, got: {params}")
+    name = params[0]
+    try:
+        dist = importlib.metadata.distribution(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+    metadata: Any = dist.metadata
+    detail: Dict[str, JsonData] = {"name": name}
+    summary = metadata.get("Summary")
+    if summary and summary != "UNKNOWN":
+        detail["title"] = summary
+    author = _best_author(metadata)
+    if author:
+        detail["author"] = author
+    repo = _source_repository(dist)
+    if repo:
+        detail["sourceRepository"] = repo
+    license_str = _best_license(metadata)
+    if license_str:
+        detail["license"] = license_str
+    return detail
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -273,7 +430,9 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getMissingImports": _get_missing_imports,
     "getPackagesInstalled": _get_packages_installed,
+    "getPackageDetail": _get_package_detail,
     "checkRequiresPython": _check_requires_python,
 }
 

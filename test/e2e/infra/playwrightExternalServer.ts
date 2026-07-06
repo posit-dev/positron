@@ -22,7 +22,7 @@ export async function launch(options: LaunchOptions, serverUrl: string): Promise
 }
 
 async function launchBrowser(options: LaunchOptions, serverUrl: string) {
-	const { logger, workspacePath, tracing, snapshots, headless } = options;
+	const { logger, workspacePath, tracing, customTracing, snapshots, headless } = options;
 
 	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
 	// WebKit doesn't support --disable-popup-blocking, but Chromium/Firefox do
@@ -46,6 +46,12 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 	if (tracing) {
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots }), 'context.tracing.start()', logger);
+			// Open the first chunk now so startup (server connect, sign-in, opening the
+			// workspace) is captured. A failure here lands in the trace exported by the
+			// app fixture; otherwise the per-test tracing fixture re-slices from here.
+			if (customTracing) {
+				await context.tracing.startChunk({ title: 'startup' });
+			}
 			// Prevent duplicate tracing start calls
 			context.tracing.start = async (...args) => {
 				logger.log('Tracing is already managed, skipping default tracing start.');

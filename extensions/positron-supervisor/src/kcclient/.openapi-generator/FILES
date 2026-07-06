@@ -9,6 +9,9 @@ docs/ClientHeartbeat.md
 docs/ConnectionInfo.md
 docs/DefaultApi.md
 docs/Error.md
+docs/ExecuteOutput.md
+docs/ExecuteReply.md
+docs/ExecuteRequest.md
 docs/ExecutionQueue.md
 docs/InterruptMode.md
 docs/NewSession.md

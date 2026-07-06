@@ -42,11 +42,12 @@ test.describe('Release Screenshots - Run App Button', () => {
 		await hotKeys.focusPreviewPanel();
 		await hotKeys.closePrimarySidebar();
 		await layouts.resizePanel({ y: -50 });
+		await page.getByRole('tab', { name: 'streamlit_example.py' }).click();
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
 		await annotate(page, [
-			{ selector: '.codicon-play', label: '', color: ANNOTATION_COLOR, padding: 4 },
+			{ selector: '.action-bar-button:has(.codicon-play)', label: '', color: ANNOTATION_COLOR, padding: 4 },
 		]);
 		await captureFullWindow(page, 'run-app-button.png');
 	});

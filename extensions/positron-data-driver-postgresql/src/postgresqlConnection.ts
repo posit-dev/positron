@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { readFileSync } from 'fs';
 import { Client } from 'pg';
 import * as positron from 'positron';
+import { ConnectionOptions } from 'tls';
 import { createSchemasGroupNode, IPostgresPreviewHost } from './postgresqlNodes.js';
 import { IPostgresDataExplorerHost, POSTGRESQL_DATA_EXPLORER_PROVIDER_ID } from './postgresqlDataExplorerRpcHandler.js';
 
@@ -12,15 +14,52 @@ import { IPostgresDataExplorerHost, POSTGRESQL_DATA_EXPLORER_PROVIDER_ID } from 
 let nextConnectionId = 1;
 
 /**
- * Connection configuration passed from the driver.
+ * The discrete connection fields, used when not connecting via a connection string. All are optional
+ * and mirror the pg client's own configuration: the local-server mechanism omits host, port, password,
+ * and SSL to connect over a local Unix domain socket, and the user/password mechanism may omit the
+ * user and password. When omitted, the pg client falls back to its defaults (local socket, port 5432,
+ * the operating system account via PGUSER, no password).
  */
-export interface PostgreSQLConnectionConfig {
-	host: string;
-	port: number;
-	database: string;
-	user: string;
-	password: string;
-	ssl: boolean;
+export interface PostgreSQLFieldConfig {
+	host?: string;
+	port?: number;
+	database?: string;
+	user?: string;
+	password?: string;
+	ssl?: boolean;
+	// Paths to the PEM files for client-certificate authentication. When any is set, SSL is enabled
+	// regardless of `ssl`, and the server certificate is verified only when `sslRootCert` is supplied.
+	sslRootCert?: string;
+	sslCert?: string;
+	sslKey?: string;
+}
+
+/**
+ * Connection configuration passed from the driver. Either a ready-made connection string or the
+ * discrete connection fields -- never both. The pg client is itself bimodal this way; the `kind`
+ * discriminant makes the two mutually exclusive by construction.
+ */
+export type PostgreSQLConnectionConfig =
+	// A libpq connection string (URL or key=value DSN), handed to the pg client as-is.
+	| { kind: 'connectionString'; connectionString: string }
+	| ({ kind: 'fields' } & PostgreSQLFieldConfig);
+
+/**
+ * Builds the `ssl` option for the pg Client from the discrete connection fields. Returns false when
+ * SSL is off, a permissive object when SSL is requested without certificates, and a full TLS option
+ * set (reading the certificate files into memory) for client-certificate authentication. The server
+ * certificate is verified only when a CA certificate is supplied.
+ */
+function buildSslConfig(config: PostgreSQLFieldConfig): boolean | ConnectionOptions {
+	if (config.sslRootCert || config.sslCert || config.sslKey) {
+		return {
+			rejectUnauthorized: Boolean(config.sslRootCert),
+			ca: config.sslRootCert ? readFileSync(config.sslRootCert) : undefined,
+			cert: config.sslCert ? readFileSync(config.sslCert) : undefined,
+			key: config.sslKey ? readFileSync(config.sslKey) : undefined,
+		};
+	}
+	return config.ssl ? { rejectUnauthorized: false } : false;
 }
 
 /**
@@ -46,14 +85,18 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresP
 		private readonly _config: PostgreSQLConnectionConfig,
 		private readonly _dataExplorerHandler: IPostgresDataExplorerHost
 	) {
-		this._client = new Client({
-			host: _config.host,
-			port: _config.port,
-			database: _config.database,
-			user: _config.user,
-			password: _config.password,
-			ssl: _config.ssl ? { rejectUnauthorized: false } : false,
-		});
+		// A connection string is handed to the pg client verbatim (it parses and applies any SSL
+		// options itself); otherwise the connection is built from the individual fields.
+		this._client = _config.kind === 'connectionString'
+			? new Client({ connectionString: _config.connectionString })
+			: new Client({
+				host: _config.host,
+				port: _config.port,
+				database: _config.database,
+				user: _config.user,
+				password: _config.password,
+				ssl: buildSslConfig(_config),
+			});
 	}
 
 	/**
@@ -67,7 +110,17 @@ export class PostgreSQLConnection implements positron.DataConnection, IPostgresP
 			await this._client.connect();
 		} catch (err: any) {
 			this._client = null;
-			throw new Error(`Failed to connect to PostgreSQL at ${this._config.host}:${this._config.port}: ${err.message}`);
+			// Report what we tried to connect to. A connection string hides the host; a socket-directory
+			// host (or no host) means a local-socket connection; otherwise report the host:port.
+			let target: string;
+			if (this._config.kind === 'connectionString') {
+				target = 'the server in the connection string';
+			} else if (this._config.host && !this._config.host.startsWith('/')) {
+				target = `${this._config.host}:${this._config.port ?? 5432}`;
+			} else {
+				target = 'the local socket';
+			}
+			throw new Error(`Failed to connect to PostgreSQL at ${target}: ${err.message}`);
 		}
 	}
 

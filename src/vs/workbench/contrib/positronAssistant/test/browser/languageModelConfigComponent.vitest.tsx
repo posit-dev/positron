@@ -12,24 +12,28 @@ import { LanguageModelConfigComponent } from '../../browser/components/languageM
 import { AuthMethod, AuthStatus } from '../../browser/types.js';
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 
+function makeSource(overrides?: Partial<Pick<IPositronLanguageModelSource, 'supportedOptions' | 'defaults'>> & { provider?: { id: string; displayName: string } }): IPositronLanguageModelSource {
+	const provider = overrides?.provider ?? { id: 'anthropic-api', displayName: 'Anthropic' };
+	return {
+		type: PositronLanguageModelType.Chat,
+		provider: { ...provider, settingName: provider.id },
+		supportedOptions: overrides?.supportedOptions ?? [],
+		defaults: overrides?.defaults ?? { model: '' },
+	};
+}
+
 describe('LanguageModelConfigComponent ProviderNotice', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderNotice(provider: { id: string; displayName: string }): HTMLElement {
-		const source: IPositronLanguageModelSource = {
-			type: PositronLanguageModelType.Chat,
-			provider: { ...provider, settingName: provider.id },
-			supportedOptions: [],
-			defaults: { name: '', model: '' },
-		};
 		rtl.render(
 			<LanguageModelConfigComponent
 				authMethod={AuthMethod.NONE}
 				authStatus={AuthStatus.SIGNED_OUT}
 				closeDialog={() => { }}
-				config={{ type: PositronLanguageModelType.Chat, provider: provider.id, name: '', model: '' }}
-				source={source}
+				config={{ model: '' }}
+				source={makeSource({ provider, supportedOptions: [] })}
 				onCancel={() => { }}
 				onChange={() => { }}
 				onSignIn={() => { }}
@@ -91,5 +95,37 @@ describe('LanguageModelConfigComponent ProviderNotice', () => {
 		expect(linkHrefs(notice)).toEqual({
 			'Posit EULA': 'https://posit.co/about/eula/',
 		});
+	});
+});
+
+describe('LanguageModelConfigComponent base-URL input', () => {
+	const ctx = createTestContainer().withReactServices().build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	function renderConfig(supportedOptions: string[]) {
+		rtl.render(
+			<LanguageModelConfigComponent
+				authMethod={AuthMethod.NONE}
+				authStatus={AuthStatus.SIGNED_OUT}
+				closeDialog={() => { }}
+				config={{ model: '' }}
+				source={makeSource({ supportedOptions })}
+				onCancel={() => { }}
+				onChange={() => { }}
+				onSignIn={() => { }}
+			/>
+		);
+	}
+
+	it('renders the base-URL input when supportedOptions includes baseUrl', () => {
+		renderConfig(['baseUrl']);
+
+		expect(screen.getByLabelText('Base URL')).toBeInTheDocument();
+	});
+
+	it('does not render the base-URL input when supportedOptions is empty', () => {
+		renderConfig([]);
+
+		expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
 	});
 });

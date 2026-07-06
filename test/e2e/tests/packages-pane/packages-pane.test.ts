@@ -34,27 +34,46 @@ test.describe('Packages Pane', {
 		await app.workbench.console.clickConsoleLabel();
 	});
 
-	// python is uv; pythonAlt is pyenv
-	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
+	// python is uv; pythonAlt is pyenv.
+	// pythonAlt runs first: the `python` (uv) case selects its interpreter via
+	// `python.setInterpreter` (see below), which sets the workspace's active
+	// interpreter and is sticky across tests in this worker. Running it last keeps
+	// that selection from leaking into the pythonAlt case, which relies on its own
+	// hotkey-started session.
+	const pythonRuntimes: SessionRuntimes[] = ['pythonAlt', 'python'];
 
-	pythonRuntimes.forEach((runtime) => {
-		test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
-			async function ({ app, sessions }) {
-				const { packages } = app.workbench;
+	test.describe('Python - Install, search, and uninstall package', () => {
+		test.beforeAll(async function ({ app, openFolder }) {
+			await openFolder('qa-example-content/workspaces/packages-pane-python');
+		});
 
-				await sessions.start(runtime);
+		pythonRuntimes.forEach((runtime) => {
+			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
+				async function ({ app, sessions }) {
+					const { packages, toasts } = app.workbench;
 
-				await packages.verifyPackagesList();
+					// The `python` (uv) runtime resolves to two 3.10.12 interpreters: the
+					// project venv (uv: root) and the uv-managed base standalone. The
+					// new-session (hotkey) picker only offers the preferred one, which is the
+					// base standalone -- an invalid install target (externally-managed; even
+					// `uv pip install` refuses it). Use `python.setInterpreter`, which lists
+					// all interpreters, so the venv is selected and package installs succeed.
+					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess' } : undefined);
 
-				// install package and verify it shows up in the list
-				await packages.installPackage('cowsay');
-				await packages.searchPackages('cowsay');
-				await packages.expectPackageInList('cowsay');
+					await packages.verifyPackagesList();
 
-				// uninstall package and verify it is removed from the list
-				await packages.uninstallPackage('cowsay');
-				await packages.expectPackageNotInList('cowsay');
-			});
+					// install package and verify it shows up in the list
+					await packages.installPackage('cowsay');
+					await packages.searchPackages('cowsay');
+					await packages.expectPackageInList('cowsay');
+
+					// uninstall package and verify it is removed from the list
+					await packages.uninstallPackage('cowsay');
+					await packages.expectPackageNotInList('cowsay');
+
+					await toasts.closeAll();
+				});
+		});
 	});
 
 	test('R - Install, search, and uninstall package', {

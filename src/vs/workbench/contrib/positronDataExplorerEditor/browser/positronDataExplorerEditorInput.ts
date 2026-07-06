@@ -50,11 +50,18 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		// Dispose the client when this editor tab closes (sole owner)
+		// Dispose the client when this editor tab closes, but only for explorers
+		// this tab exclusively owns. Inline/embedded explorers (e.g. notebook cell
+		// outputs) share their comm with the embedding view, whose lifetime
+		// outlives this tab; the runtime owns that comm's lifecycle (closed on
+		// cell re-execution or session end). Disposing it here would break the
+		// embedded view -- see issue #13283.
 		const identifier = PositronDataExplorerUri.parse(this.resource);
 		if (identifier) {
 			const instance = this._positronDataExplorerService.getInstance(identifier);
-			instance?.dataExplorerClientInstance.dispose();
+			if (instance && !instance.isInline) {
+				instance.dataExplorerClientInstance.dispose();
+			}
 		} else {
 			this._logService.warn(`PositronDataExplorerEditorInput: failed to parse URI on dispose, client instance may leak: ${this.resource.toString()}`);
 		}

@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **version** | **string** | The version of the server | [default to undefined]
 **process_id** | **number** | The server\&#39;s operating system process identifier | [default to undefined]
 **started** | **string** | An ISO 8601 timestamp of when the server was started | [default to undefined]
+**server_id** | **string** | A unique identifier generated when the server starts. Clients can compare this against a previously observed value to detect that they are talking to a different server instance (e.g. one that was restarted), and therefore that any persisted bearer token may be stale. | [optional] [default to undefined]
 
 ## Example
 
@@ -30,6 +31,7 @@ const instance: ServerStatus = {
     version,
     process_id,
     started,
+    server_id,
 };
 ```
 

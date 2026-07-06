@@ -19,6 +19,16 @@ export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
 export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
 export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
 
+// Python interpreter source markers to deprioritize when selecting an interpreter
+// by version. Several interpreters can share a version (e.g. a project venv and a
+// base pyenv both shown as "Python 3.10.12"); when that happens we want the real
+// environment, not the base install. The values match the "(<source>" portion of
+// the quick pick label produced by getRuntimeSourceAndShortName.
+//
+// '(uv)' keeps its closing paren so it matches only a standalone uv-managed Python,
+// not a uv project venv labeled "(uv: <name>)" -- the venv is what we want to keep.
+export const DEPRIORITIZED_PYTHON_SOURCES = ['(Pyenv', '(Global', '(System', '(Unknown', '(uv)'];
+
 // Quickpick labels - keep in sync with languageRuntimeActions.ts
 const INTERPRETER_SESSIONS_LABEL = 'Interpreter Sessions';
 const START_NEW_CONSOLE_SESSION_LABEL = 'Start New Console Session';
@@ -462,6 +472,13 @@ export class Sessions {
 					await this.page.keyboard.press('Control+Shift+/');
 				}
 
+				// Wait for interpreter discovery to finish before filtering/selecting.
+				// Opening the picker right after a workspace load (e.g. openFolder)
+				// lands mid-discovery, when only fast-discovered sources are listed;
+				// a bare version-string match can then pick the wrong source (e.g. a
+				// uv base install) over the intended interpreter of the same version.
+				await this.quickinput.waitForInterpreterDiscoveryToComplete();
+
 				let input = language;
 				if (version) {
 					input += ` ${version}`;
@@ -476,7 +493,10 @@ export class Sessions {
 				// We need to click instead of using 'enter' because the Python select interpreter command
 				// may include additional items above the desired interpreter string.
 				try {
-					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 2000 });
+					await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, {
+						timeout: 2000,
+						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
+					});
 				} catch (e) {
 					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
 					// can be missing from the quick pick on the first attempt. Force a

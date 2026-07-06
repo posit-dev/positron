@@ -101,7 +101,7 @@ test.describe('Data Connections - DuckDB', {
 		});
 	});
 
-	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a table in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.doubleClickNode(detailTable);
@@ -110,7 +110,7 @@ test.describe('Data Connections - DuckDB', {
 		await dataExplorer.grid.expectColumnHeadersToBe(detailColumns.map(({ name }) => name));
 	});
 
-	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a column in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.expandNode(detailTable);

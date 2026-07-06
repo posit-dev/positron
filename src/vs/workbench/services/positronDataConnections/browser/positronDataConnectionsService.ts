@@ -14,7 +14,7 @@ import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInst
 import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IDataConnectionProfile } from '../common/interfaces/dataConnectionDriver.js';
+import { IDataConnectionProfile, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../common/interfaces/dataConnectionsDriverManager.js';
 
 // Storage key prefix for persisted data connection profiles. Each data connection profile gets
@@ -200,6 +200,47 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Gets a display-safe, redacted form of a stored secret parameter value. Resolves the cleartext
+	 * from secret storage, hands it to the driver for format-specific redaction, and returns only the
+	 * redacted result. See {@link IPositronDataConnectionsService.getRedactedParameterValue}.
+	 * @param id The data connection profile id.
+	 * @param parameterId The id of the secret parameter to redact.
+	 */
+	async getRedactedParameterValue(id: string, parameterId: string): Promise<string | undefined> {
+		// Resolve the profile with its secret values pulled from secret storage.
+		const profile = await this.getProfileWithSecrets(id);
+		if (!profile) {
+			return undefined;
+		}
+
+		// Only string secret values can be redacted for display.
+		const value = profile.parameterValues[parameterId];
+		if (typeof value !== 'string') {
+			return undefined;
+		}
+
+		// Resolve the driver, and the mechanism the connection was configured with (falling back for
+		// profiles persisted before mechanisms existed).
+		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		if (!driver) {
+			return undefined;
+		}
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		if (!mechanism) {
+			return undefined;
+		}
+
+		// Ask the driver to redact the value. The cleartext stays within the service/driver; only the
+		// redacted string is returned to the caller.
+		try {
+			return await driver.redactParameterValue(mechanism.id, parameterId, value);
+		} catch (err) {
+			this._logService.error(`[DataConnections] Failed to redact ${id}/${parameterId}: ${err}`);
+			return undefined;
+		}
+	}
+
+	/**
 	 * Removes a data connection profile.
 	 * @param id The data connection profile id to remove.
 	 */
@@ -247,8 +288,16 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			throw new Error(`No data connection driver registered for '${profile.driverMetadata.id}'`);
 		}
 
+		// Resolve the mechanism (falling back to the first for pre-mechanisms profiles). Opening a
+		// profile that predates mechanisms is a good moment to persist the resolved id, so it is
+		// healed lazily without an eager migration pass.
+		const mechanism = resolveDataConnectionMechanism(driver.metadata, profile.mechanismId);
+		if (mechanism && !profile.mechanismId) {
+			this._backfillProfileMechanismId(profileId, mechanism.id);
+		}
+
 		// Open the connection. driver.connect throws on failure; let it propagate.
-		const handle = await driver.connect(profile.parameterValues);
+		const handle = await driver.connect(mechanism?.id ?? profile.mechanismId, profile.parameterValues);
 
 		// Build the live instance. Active starts true; an onDidChangeStatus emitter is wired so
 		// future status changes can fan out to listeners (currently nothing fires it).
@@ -353,6 +402,30 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Sets the mechanism id on an in-memory profile that lacks one (persisted before mechanisms
+	 * existed) and persists the change, preserving the existing secret parameter ids. A no-op if the
+	 * profile is not found. Does not fire onDidChangeProfiles: the mechanism id is internal metadata
+	 * and changing it does not affect how the profile is displayed.
+	 * @param id The data connection profile id.
+	 * @param mechanismId The mechanism id to backfill.
+	 */
+	private _backfillProfileMechanismId(id: string, mechanismId: string): void {
+		const profile = this._profiles.find(_ => _.id === id);
+		if (!profile) {
+			return;
+		}
+		profile.mechanismId = mechanismId;
+		const secretParameterIds = this._readPersistedProfile(id)?.secretParameterIds ?? [];
+		this._storageService.store(
+			profileStorageKey(id),
+			JSON.stringify({ profile, secretParameterIds } satisfies IPersistedDataConnectionProfile),
+			StorageScope.PROFILE,
+			StorageTarget.USER,
+		);
+		this._logService.trace(`[DataConnections] Backfilled mechanism id '${mechanismId}' for profile ${id}`);
+	}
+
+	/**
 	 * Reads the persisted form of a single data connection profile from storage, or returns
 	 * undefined if not found or unparseable. Used to look up the secret parameter id list at the points
 	 * where we need it (save / remove / read with secrets).
@@ -387,10 +460,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const previouslyPersistedProfile = this._readPersistedProfile(profile.id);
 		const previousSecretParameterIds = new Set(previouslyPersistedProfile?.secretParameterIds ?? []);
 
-		// Identify the current secret parameter ids from the driver.
+		// Identify the current secret parameter ids from the profile's mechanism. A profile is tied to
+		// a single mechanism, so only that mechanism's parameters define its secret schema.
 		const driver = this.driverManager.getDriver(profile.driverMetadata.id);
+		const mechanism = driver ? resolveDataConnectionMechanism(driver.metadata, profile.mechanismId) : undefined;
 		const secretParamIdSet = new Set(
-			driver?.metadata.parameters
+			mechanism?.parameters
 				.filter(_ => (_.type === 'password' || _.type === 'string') && _.secret === true)
 				.map(_ => _.id) ?? []
 		);

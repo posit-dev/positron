@@ -8,19 +8,15 @@
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { observableValue } from '../../../../../base/common/observable.js';
 import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ISize } from '../../../../../base/browser/positronReactRenderer.js';
-import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { CellContextKeys } from '../../common/cellContextKeys.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
 import { NotebookInstanceProvider } from '../../browser/NotebookInstanceProvider.js';
-import { EnvironentProvider } from '../../browser/EnvironmentProvider.js';
 import { NotebookCodeCell } from '../../browser/notebookCells/NotebookCodeCell.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CopyOutputAction } from '../../browser/positronNotebook.contribution.js';
@@ -70,18 +66,11 @@ describe('Notebook output focus state', () => {
 		const cells = notebook.cells.get();
 		notebook.selectionStateMachine.selectCell(cells[0], CellSelectionType.Normal);
 
-		const environmentBundle = {
-			size: observableValue<ISize>('test-size', { width: 800, height: 600 }),
-			scopedContextKeyProviderCallback: () => stubInterface<IScopedContextKeyService>({}),
-		};
-
 		rtl.render(
 			<NotebookInstanceProvider instance={notebook}>
-				<EnvironentProvider environmentBundle={environmentBundle}>
-					{cells.map(cell =>
-						<NotebookCodeCell key={cell.handle} cell={cell as unknown as PositronNotebookCodeCell} />
-					)}
-				</EnvironentProvider>
+				{cells.map(cell =>
+					<NotebookCodeCell key={cell.handle} cell={cell as unknown as PositronNotebookCodeCell} />
+				)}
 			</NotebookInstanceProvider>
 		);
 

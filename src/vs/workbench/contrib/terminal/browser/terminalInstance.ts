@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isFirefox } from '../../../../base/browser/browser.js';
+// --- Start PWB: avoid Firefox/Safari clipboard "Paste" popup ---
+import { isFirefox, isSafari } from '../../../../base/browser/browser.js';
+// --- End PWB ---
 import { BrowserFeatures } from '../../../../base/browser/canIUse.js';
 import { DataTransfers } from '../../../../base/browser/dnd.js';
 import * as dom from '../../../../base/browser/dom.js';
@@ -1180,6 +1182,17 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			if (!BrowserFeatures.clipboard.readText && event.key === 'v' && event.ctrlKey) {
 				return false;
 			}
+
+			// --- Start PWB: avoid Firefox/Safari clipboard "Paste" popup ---
+			// In Firefox and Safari, navigator.clipboard.readText() shows a "Paste" permission
+			// affordance on every paste. The Cmd/Ctrl+V Paste keybinding is dropped on those
+			// browsers (see terminal.clipboard.contribution.ts), so let the keystroke fall
+			// through to the native paste event, which xterm handles without the popup. Without
+			// this, xterm would consume the keystroke and send a literal ^V to the shell instead.
+			if ((isFirefox || isSafari) && event.key === 'v' && (event.ctrlKey || (isMacintosh && event.metaKey))) {
+				return false;
+			}
+			// --- End PWB ---
 
 			return true;
 		});

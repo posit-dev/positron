@@ -71,6 +71,24 @@ export class PlaywrightDriver {
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
 	) {
+		// When custom tracing is on, the launch code opens the first trace chunk
+		// (the "startup" chunk) right before constructing this driver, so a chunk
+		// is already recording. Tracking this lets startTracing() avoid clobbering
+		// that startup chunk (a duplicate startChunk silently discards the open one).
+		this._tracingChunkOpen = !!(options.tracing && options.customTracing);
+	}
+
+	// Whether a trace chunk is currently recording (see startTracing/stopTracing).
+	private _tracingChunkOpen = false;
+
+	/**
+	 * Whether a trace chunk is currently recording. Used to export the startup chunk
+	 * when the app fixture's setup hangs (times out) rather than throws -- in that
+	 * case neither the fixture's catch nor its finally run, so the export happens in
+	 * afterAll instead (see _test.setup.ts).
+	 */
+	get isTracingChunkOpen(): boolean {
+		return this._tracingChunkOpen;
 	}
 
 	get browserContext(): playwright.BrowserContext {
@@ -370,8 +388,16 @@ export class PlaywrightDriver {
 			return; // tracing disabled
 		}
 
+		// A chunk is already recording (e.g. the startup chunk, or the chunk from a
+		// test whose teardown hasn't run yet). Re-opening would silently discard it,
+		// so leave the current chunk in place.
+		if (this._tracingChunkOpen) {
+			return;
+		}
+
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing${name ? ` for ${name}` : ''}`, this.options.logger);
+			this._tracingChunkOpen = true;
 		} catch (error) {
 			// Tracing may not have initialized successfully on some browsers - ignore
 		}
@@ -395,6 +421,10 @@ export class PlaywrightDriver {
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
 		} catch (error) {
 			// Ignore
+		} finally {
+			// The chunk is closed (or failed to close); either way it is no longer the
+			// active chunk, so the next startTracing() should open a fresh one.
+			this._tracingChunkOpen = false;
 		}
 	}
 

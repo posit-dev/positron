@@ -16,7 +16,7 @@ import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, Settings, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
-	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
+	TracingFixture, shouldUseCustomTracing, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
@@ -26,7 +26,19 @@ import { runDockerCommand, RunResult, FOUNDRY_ASSISTANT_SETTINGS } from '../fixt
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
+let appFixtureTracePath: string | undefined;
 let renamedLogsPath = 'not-set';
+
+// Reference to the app while its worker fixture is live. Set as soon as the app is
+// created and cleared in the fixture's finally. If the fixture's setup *hangs* (times
+// out) rather than throws, neither its catch nor its finally run, so this stays set
+// and afterAll uses it to export the still-open startup trace (a hang is the common
+// workbench/jupyter failure mode: credential/OAuth/session flows time out).
+let activeApp: Application | undefined;
+
+// Basename of the trace exported when the app fixture's `start()` fails (see the
+// `app` fixture catch block); attached from the renamed logs dir in afterAll.
+const APP_START_FAILURE_TRACE = 'app-start-failure-trace.zip';
 
 // Test fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -120,7 +132,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				// setting, which requires a reload to take effect. Enable it before the
 				// app starts so no reload is needed. Suites opt in with
 				// `test.use({ enableDataConnections: true })`.
-				await settingsFile.append({ 'databases.enabled': true });
+				await settingsFile.append({ 'dataConnections.enabled': true });
 			}
 
 			if (enableFoundryAssistant) {
@@ -138,7 +150,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	app: [async ({ options, logsPath, logger, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, beforeApp: _beforeApp }, use, workerInfo) => {
 		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo, managedCredentials, useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant });
 
+		// Track the app so afterAll can export the startup trace if setup hangs (times
+		// out) -- in that case this fixture's catch/finally never run. Cleared below.
+		activeApp = app;
+
 		try {
+			// The first trace chunk is opened at context creation (see the driver's
+			// `context.tracing.start` + `startChunk`), so the whole of `start()` --
+			// server connect, sign-in, opening the workspace -- is recorded. Each
+			// test's tracing fixture then exports the current chunk and opens the
+			// next one (see TracingFixture).
 			await start();
 
 			await use(app);
@@ -155,8 +176,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				// ignore
 			}
 
+			// The per-test tracing fixture never runs when `start()` fails, so export
+			// the startup chunk here. This is the trace of the failing startup itself.
+			// It is written under logsPath, which `renameTempLogsDir` (below) renames,
+			// so remember the basename and attach it from renamedLogsPath in afterAll.
+			try {
+				if (shouldUseCustomTracing(workerInfo.project)) {
+					await app.stopTracing('app-start-failure', true, join(logsPath, APP_START_FAILURE_TRACE));
+					appFixtureTracePath = APP_START_FAILURE_TRACE;
+				}
+			} catch {
+				// ignore
+			}
+
 			throw error; // re-throw the error to ensure test failure
 		} finally {
+			// Reached on success or throw (but NOT on a setup timeout/hang, where the
+			// fixture is force-unwound). Clearing here leaves activeApp set only in the
+			// hang case, which is exactly when afterAll needs to export the trace.
+			activeApp = undefined;
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
@@ -415,6 +453,18 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 
 		try {
+			if (appFixtureTracePath) {
+				testInfo.attachments.push({
+					name: 'trace',
+					path: join(renamedLogsPath, appFixtureTracePath),
+					contentType: 'application/zip',
+				});
+			}
+		} catch (e) {
+			console.log(e);
+		}
+
+		try {
 			const attachLogs = AttachLogsToReportFixture();
 			await attachLogs({ suiteId, logsPath: renamedLogsPath, testInfo }, async () => { /* no-op */ });
 		} catch (e) {
@@ -423,7 +473,24 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 
 		appFixtureFailed = false;
 		appFixtureScreenshot = undefined;
+		appFixtureTracePath = undefined;
 	}
+
+	// Fallback for a hung app setup: when the `app` fixture times out during setup,
+	// it is force-unwound so its catch/finally never run and appFixtureFailed stays
+	// false. The startup chunk is still recording on the (still-open) context, so
+	// export it here. Bounded by a race so a wedged context can't hang afterAll.
+	if (activeApp && activeApp.code?.driver?.isTracingChunkOpen && shouldUseCustomTracing(testInfo.project)) {
+		try {
+			const tracePath = testInfo.outputPath(APP_START_FAILURE_TRACE);
+			const timeout = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('export timed out')), 30000));
+			await Promise.race([activeApp.stopTracing('app-start-failure', true, tracePath), timeout]);
+			testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+		} catch (e) {
+			console.log(`Failed to export startup trace after app setup hang: ${e}`);
+		}
+	}
+	activeApp = undefined;
 
 	// Dump active handles/requests to help debug worker teardown timeouts
 	// Enable with ENABLE_DIAGNOSTIC_LOGGING=true
