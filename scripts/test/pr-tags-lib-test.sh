@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -133,6 +133,30 @@ assert_eq "union with empty b" "@:critical" "$(union_csv_tags "@:critical" "")"
 assert_eq "union collapses internal dup" "@:critical,@:ark,@:debug" \
 	"$(union_csv_tags "@:critical,@:ark,@:debug,@:ark" "")"
 
+# --- valid_enum_tags / split_valid_invalid_tags ---
+ENUM="$(mktemp)"
+cat > "$ENUM" <<'TS'
+export enum TestTags {
+	CONSOLE = '@:console',
+	CRITICAL = '@:critical',
+	ASSISTANT = '@:assistant',
+}
+TS
+assert_eq "valid_enum_tags: parses and sorts enum values" "$(printf '@:assistant\n@:console\n@:critical')" \
+	"$(valid_enum_tags "$ENUM")"
+assert_eq "valid_enum_tags: missing file yields nothing" "" "$(valid_enum_tags "/nonexistent/test-tags.ts")"
+
+assert_eq "split: all valid, no invalid side" "@:console,@:critical|" \
+	"$(split_valid_invalid_tags "@:console,@:critical" "$ENUM")"
+assert_eq "split: one typo isolated to invalid side" "@:console|@:consle" \
+	"$(split_valid_invalid_tags "@:console,@:consle" "$ENUM")"
+assert_eq "split: all invalid, no valid side" "|@:foo,@:bar" \
+	"$(split_valid_invalid_tags "@:foo,@:bar" "$ENUM")"
+assert_eq "split: empty input yields both sides empty" "|" \
+	"$(split_valid_invalid_tags "" "$ENUM")"
+assert_eq "split: missing enum file treats all tags as invalid" "|@:console" \
+	"$(split_valid_invalid_tags "@:console" "/nonexistent/test-tags.ts")"
+
 # --- check-e2e-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"
@@ -146,6 +170,21 @@ if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --warn-only >/dev/nu
 	echo "PASS: guardrail --warn-only exits 0"
 else
 	echo "FAIL: guardrail --warn-only should exit 0"; fail=1
+fi
+# --tags-only skips the dir sweep entirely, so an empty map (no dirs, no tags)
+# passes -- it's the same PR-time check test-pull-request.yml runs.
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+	echo "PASS: guardrail --tags-only skips the dir sweep"
+else
+	echo "FAIL: guardrail --tags-only should exit 0 on an empty map"; fail=1
+fi
+# --tags-only still fails on a map tag that isn't a real TestTags member.
+TAGS_ONLY_MAP="$(mktemp)"
+echo '{"foo/bar/": ["@:not-a-real-tag"]}' > "$TAGS_ONLY_MAP"
+if MAP_FILE="$TAGS_ONLY_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+	echo "FAIL: guardrail --tags-only should fail on an invalid map tag"; fail=1
+else
+	echo "PASS: guardrail --tags-only fails on an invalid map tag"
 fi
 # The real (complete) map should pass -- also guards the map staying complete.
 if bash "$HERE/../check-e2e-tag-map.sh" >/dev/null 2>&1; then

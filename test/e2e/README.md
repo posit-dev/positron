@@ -255,6 +255,7 @@ In addition to scanning your PR description, the `pr-tags` job derives tags from
 - **Source / extension changes** map to feature tags via [`.github/workflows/e2e-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`). Test-file changes are not auto-tagged -- tag those PRs yourself (they are almost always deliberate test authoring).
 - **Opt out:** add `@:no-auto-tags` to the PR description to disable this derivation for the PR (the `@:critical` floor still applies).
 - **Unmapped dirs:** if your PR touches a Positron dir with no entry in the map, the E2E Tests comment will note it so you (or a maintainer) can add a mapping.
+- **Typo'd tags:** any `@:tag` in your description that isn't declared in [`test-tags.ts`](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts) is dropped and called out in the E2E Tests comment instead of silently matching nothing.
 
 > [!NOTE]
 > The description scan matches the literal `@:tag` text **anywhere** in the body, including prose and code spans. Writing something like `@:win` or `@:web` in a sentence will enable those runs. If a tag you didn't intend shows up, check your description for a stray mention.

@@ -3,8 +3,8 @@
 # Script to update or create the single E2E PR comment: the tags that will run,
 # plus advisory warnings (no feature tags auto-selected, and/or touched Positron
 # dirs missing from the tag map) folded into the same comment.
-# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>" [<no_matches>] [<unmapped_dirs>]
-# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto" "false" ""
+# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>" [<no_matches>] [<unmapped_dirs>] [<invalid_tags>]
+# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto" "false" "" ""
 
 set -e
 
@@ -13,6 +13,7 @@ COMMENT_MARKER="$1"        # e.g., "<!-- PR Tags -->"
 TAGS="$2"                  # e.g., "@:critical,@:quarto"
 NO_MATCHES="${3:-false}"   # "true" when only @:critical resolved (no feature tags)
 UNMAPPED_DIRS="${4:-}"     # comma-joined Positron dirs with no entry in the tag map
+INVALID_TAGS="${5:-}"      # comma-joined author-typed tags not in the TestTags enum
 
 # Pure helpers (is_infra_only, union_csv_tags) used below.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -67,6 +68,14 @@ RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t g
 # warnings would just be noise. Rebuilt every run, so they clear on a push that
 # resolves them.
 WARN_FMT=""
+# Unlike the warnings below, this is about the PR description itself, not the
+# changed files -- always show it regardless of infra-only status.
+if [ -n "$INVALID_TAGS" ]; then
+  BT='`'
+  TAGS_LINK="[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)"
+  INVALID_FORMATTED=$(echo "$INVALID_TAGS" | sed "s/,/\` \`/g" | sed "s/^/${BT}/" | sed "s/\$/${BT}/")
+  WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> Unrecognized tag(s) in the PR description, ignored: ${INVALID_FORMATTED}. Check for a typo, or see the ${TAGS_LINK} list."
+fi
 CHANGED_FILES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate --header "Authorization: token $GITHUB_TOKEN" --jq '.[].filename' || true)"
 if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
   if [ "$NO_MATCHES" = "true" ]; then

@@ -123,6 +123,42 @@ positron_dir_of() {
 	printf '%s\n' "$dir"
 }
 
+# valid_enum_tags <enum_file>
+# Echoes the newline-separated, unique set of tag strings declared in the
+# TestTags enum (test-tags.ts). Single source of truth for "is this a real
+# tag", shared by check-e2e-tag-map.sh (validating the map's tag values) and
+# split_valid_invalid_tags below (validating author-typed PR tags), so the two
+# can't disagree on what counts as valid. Missing file echoes nothing.
+valid_enum_tags() {
+	local enum_file="$1"
+	[[ -f "$enum_file" ]] || return 0
+	grep -oE "'@:[a-zA-Z0-9_-]+'" "$enum_file" | tr -d "'" | sort -u
+}
+
+# split_valid_invalid_tags <csv_tags> <enum_file>
+# Splits a comma-separated tag list against the TestTags enum. Echoes
+# "<valid_csv>|<invalid_csv>" (pipe-separated so an empty side is still a
+# distinct field). Order-preserving within each side. Used to catch typo'd or
+# removed author tags before they silently become a dead --grep alternative
+# that matches nothing and gives no feedback.
+split_valid_invalid_tags() {
+	local csv="$1" enum_file="$2" tag valid_set
+	local -a valid=() invalid=()
+	valid_set="$(valid_enum_tags "$enum_file")"
+	while IFS= read -r tag; do
+		[[ -z "$tag" ]] && continue
+		if printf '%s\n' "$valid_set" | grep -qxF "$tag"; then
+			valid+=("$tag")
+		else
+			invalid+=("$tag")
+		fi
+	done < <(printf '%s\n' "${csv//,/$'\n'}")
+	local valid_csv="" invalid_csv=""
+	[[ ${#valid[@]} -gt 0 ]] && valid_csv="$(printf '%s\n' "${valid[@]}" | paste -sd, -)"
+	[[ ${#invalid[@]} -gt 0 ]] && invalid_csv="$(printf '%s\n' "${invalid[@]}" | paste -sd, -)"
+	echo "${valid_csv}|${invalid_csv}"
+}
+
 # find_unmapped_positron_dirs <changed_files> <map_file>
 # Echoes (newline-separated, unique) the Positron source dirs this PR touches
 # that have NO key in the map (even a [] value counts as mapped). Uses

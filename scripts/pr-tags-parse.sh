@@ -117,6 +117,21 @@ else
 	# tag -- strip it so it never pollutes the grep string or the log line.
 	TAGS=$(printf '%s' "$TAGS" | tr ',' '\n' | grep -v '^@:no-auto-tags$' | paste -sd, -)
 
+	# Validate author-typed tags against the real TestTags enum. A typo (e.g.
+	# @:consle) would otherwise silently become a dead --grep alternative that
+	# matches nothing and gives no feedback -- and could even mask the no-match
+	# warning below (TAGS != "@:critical" even though nothing extra actually
+	# ran). Drop invalid tags and surface them so the PR comment can warn.
+	ENUM_FILE="$(dirname "$0")/../test/e2e/infra/test-runner/test-tags.ts"
+	INVALID_TAGS=""
+	if [[ -n "$TAGS" && -f "$ENUM_FILE" ]]; then
+		IFS='|' read -r TAGS INVALID_TAGS <<< "$(split_valid_invalid_tags "$TAGS" "$ENUM_FILE")"
+		if [[ -n "$INVALID_TAGS" ]]; then
+			echo "Warning: unrecognized tag(s) in PR description, ignoring: $INVALID_TAGS"
+		fi
+	fi
+	echo "invalid_tags=$INVALID_TAGS" >> "$GITHUB_OUTPUT"
+
 	# Always add @:critical if not already included
 	if [[ ! "$TAGS" =~ "@:critical" ]]; then
 		if [[ -n "$TAGS" ]]; then
