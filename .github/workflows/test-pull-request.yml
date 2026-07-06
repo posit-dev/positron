@@ -38,8 +38,8 @@ jobs:
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
-      - name: Validate e2e-tag-paths-map.json tags against test-tags.ts
-        run: bash scripts/check-e2e-tag-map.sh --tags-only
+      - name: Validate test-tag-paths-map.json tags against test-tags.ts
+        run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh

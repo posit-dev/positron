@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Guardrail for e2e-tag-paths-map.json. Three independent checks:
+# Guardrail for test-tag-paths-map.json. Three independent checks:
 #   1. Dir coverage: every Positron source dir has a map entry. LOCAL/MANUAL
 #      full-sweep only (not run per-PR) -- the per-PR check in pr-tags-parse.sh
 #      is scoped to the dirs each PR touches and is the CI-facing equivalent.
@@ -12,7 +12,7 @@
 #      test-tags.ts. This check IS run by CI (`--tags-only`, in
 #      test-pull-request.yml) since it's static and doesn't need PR scoping --
 #      a typo'd or deleted tag is a genuine error the moment it's introduced.
-# Usage: scripts/check-e2e-tag-map.sh [--warn-only] [--tags-only]
+# Usage: scripts/check-test-tag-map.sh [--warn-only] [--tags-only]
 #   --warn-only: report failures but exit 0 (used for local/manual runs).
 #   --tags-only: skip checks #1 and #2 (the tree-wide sweeps) and run only #3.
 # Env: MAP_FILE overrides the map path (used by tests).
@@ -24,7 +24,7 @@ set -uo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib/pr-tags-lib.sh"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MAP_FILE="${MAP_FILE:-$REPO_ROOT/.github/workflows/e2e-tag-paths-map.json}"
+MAP_FILE="${MAP_FILE:-$REPO_ROOT/.github/workflows/test-tag-paths-map.json}"
 WARN_ONLY=false
 TAGS_ONLY=false
 for arg in "$@"; do

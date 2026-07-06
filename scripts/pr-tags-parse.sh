@@ -160,7 +160,7 @@ else
 
 	# Resolve the path to the map (this script lives in scripts/).
 	SCRIPT_DIR="$(dirname "$0")"
-	MAP_FILE="$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json"
+	MAP_FILE="$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json"
 
 	# Auto-inject feature tags derived from the PR's changed SOURCE files, unless
 	# the author opted out with @:no-auto-tags. Additive only -- never removes
@@ -216,7 +216,7 @@ fi
 # Reuse SCRIPT_DIR/CHANGED_FILES if the else branch already set them; the @:all
 # branch skips that branch, so fall back to computing them here.
 SCRIPT_DIR="${SCRIPT_DIR:-$(dirname "$0")}"
-MAP_FILE="${MAP_FILE:-$SCRIPT_DIR/../.github/workflows/e2e-tag-paths-map.json}"
+MAP_FILE="${MAP_FILE:-$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json}"
 if [[ -z "${CHANGED_FILES+x}" ]]; then
 	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
 		--header "Authorization: token $GITHUB_TOKEN" \
@@ -227,7 +227,7 @@ UNMAPPED_DIRS=""
 if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
 	UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
 	if [[ -n "$UNMAPPED_DIRS" ]]; then
-		echo "Unmapped Positron dirs touched by this PR (add to e2e-tag-paths-map.json):"
+		echo "Unmapped Positron dirs touched by this PR (add to test-tag-paths-map.json):"
 		while IFS= read -r d; do [[ -n "$d" ]] && printf '  - %s\n' "$d"; done <<< "$UNMAPPED_DIRS"
 	fi
 fi

@@ -89,7 +89,7 @@ if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
     # monospaced (the token the reader acts on); the map filename is a plain link.
     # One dir reads inline; 2+ get a bulleted list so a long run doesn't wrap.
     BT='`'
-    MAP_LINK="[e2e-tag-paths-map.json](https://github.com/posit-dev/positron/blob/main/.github/workflows/e2e-tag-paths-map.json)"
+    MAP_LINK="[test-tag-paths-map.json](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json)"
     N="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | grep -c .)"
     if [ "$N" -ge 2 ]; then
       BULLETS="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | while IFS= read -r d || [ -n "$d" ]; do [ -n "$d" ] && printf '> - %s%s%s\\n' "$BT" "$d" "$BT"; done)"

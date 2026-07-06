@@ -23,7 +23,7 @@ is_derivable_source() {
 
 # derive_map_tags <changed_files> <map_file>
 #   changed_files: newline-separated repo-relative paths
-#   map_file: e2e-tag-paths-map.json -> { "<prefix>": ["@:tag", ...], ... }
+#   map_file: test-tag-paths-map.json -> { "<prefix>": ["@:tag", ...], ... }
 # Echoes comma-separated, de-duplicated, order-stable matched tags (empty if
 # none). For each file, the MOST SPECIFIC (longest) map prefix that matches wins;
 # a deeper leaf entry overrides its broad parent rather than unioning with it, so
@@ -102,7 +102,7 @@ union_csv_tags() {
 # contrib/positronHelp/), or nothing if the path has no positron segment, isn't
 # under src/ or extensions/, or lives in a non-feature location (test/build/
 # vendor). Accepts a file path OR a bare dir path. Shared by both
-# find_unmapped_positron_dirs (per changed file) and check-e2e-tag-map.sh (per
+# find_unmapped_positron_dirs (per changed file) and check-test-tag-map.sh (per
 # enumerated dir), so the "what's a positron dir + what's excluded" rule lives
 # in exactly one place.
 positron_dir_of() {
@@ -130,7 +130,7 @@ positron_dir_of() {
 # VS Code code once "positron" isn't in the path, so this is only ever used
 # paired with is_posit_owned_file (a copyright-header check) below -- never on
 # its own, since every upstream contrib/service dir would also match. Roots
-# mirror the actual root shapes used throughout e2e-tag-paths-map.json; extend
+# mirror the actual root shapes used throughout test-tag-paths-map.json; extend
 # the case statement if a new root shape shows up.
 owner_root_dir_of() {
 	local path="$1" dir
@@ -173,7 +173,7 @@ is_posit_owned_file() {
 # valid_enum_tags <enum_file>
 # Echoes the newline-separated, unique set of tag strings declared in the
 # TestTags enum (test-tags.ts). Single source of truth for "is this a real
-# tag", shared by check-e2e-tag-map.sh (validating the map's tag values) and
+# tag", shared by check-test-tag-map.sh (validating the map's tag values) and
 # split_valid_invalid_tags below (validating author-typed PR tags), so the two
 # can't disagree on what counts as valid. Missing file echoes nothing.
 valid_enum_tags() {

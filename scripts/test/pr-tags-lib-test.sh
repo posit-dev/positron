@@ -165,23 +165,23 @@ assert_eq "split: empty input yields both sides empty" "|" \
 assert_eq "split: missing enum file treats all tags as invalid" "|@:console" \
 	"$(split_valid_invalid_tags "@:console" "/nonexistent/test-tags.ts")"
 
-# --- check-e2e-tag-map.sh smoke ---
+# --- check-test-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"
 echo '{}' > "$TMP_MAP"
-if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" >/dev/null 2>&1; then
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-test-tag-map.sh" >/dev/null 2>&1; then
 	echo "FAIL: guardrail should exit non-zero on empty map"; fail=1
 else
 	echo "PASS: guardrail fails on empty map"
 fi
-if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --warn-only >/dev/null 2>&1; then
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-test-tag-map.sh" --warn-only >/dev/null 2>&1; then
 	echo "PASS: guardrail --warn-only exits 0"
 else
 	echo "FAIL: guardrail --warn-only should exit 0"; fail=1
 fi
 # --tags-only skips the dir sweep entirely, so an empty map (no dirs, no tags)
 # passes -- it's the same PR-time check test-pull-request.yml runs.
-if MAP_FILE="$TMP_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+if MAP_FILE="$TMP_MAP" bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail --tags-only skips the dir sweep"
 else
 	echo "FAIL: guardrail --tags-only should exit 0 on an empty map"; fail=1
@@ -196,12 +196,12 @@ cat > "$STALE_MAP" <<'JSON'
   "definitely/not/a/real/path/": []
 }
 JSON
-if MAP_FILE="$STALE_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+if MAP_FILE="$STALE_MAP" bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail --tags-only skips the staleness check"
 else
 	echo "FAIL: guardrail --tags-only should exit 0 despite a stale entry"; fail=1
 fi
-STALE_OUTPUT="$(MAP_FILE="$STALE_MAP" bash "$HERE/../check-e2e-tag-map.sh" 2>&1)"
+STALE_OUTPUT="$(MAP_FILE="$STALE_MAP" bash "$HERE/../check-test-tag-map.sh" 2>&1)"
 if printf '%s' "$STALE_OUTPUT" | grep -qF "definitely/not/a/real/path/"; then
 	echo "PASS: guardrail flags a stale map entry"
 else
@@ -216,7 +216,7 @@ fi
 # --tags-only still fails on a map tag that isn't a real TestTags member.
 TAGS_ONLY_MAP="$(mktemp)"
 echo '{"foo/bar/": ["@:not-a-real-tag"]}' > "$TAGS_ONLY_MAP"
-if MAP_FILE="$TAGS_ONLY_MAP" bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+if MAP_FILE="$TAGS_ONLY_MAP" bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "FAIL: guardrail --tags-only should fail on an invalid map tag"; fail=1
 else
 	echo "PASS: guardrail --tags-only fails on an invalid map tag"
@@ -226,10 +226,10 @@ fi
 # dir-sweep: CI runs this against a merge-with-main tree, and the full sweep
 # depends on the ENTIRE tree staying mapped, including dirs added by unrelated
 # PRs that landed on main after this repo's map was last audited -- exactly the
-# live-tree coupling check-e2e-tag-map.sh's own header warns about (the full
+# live-tree coupling check-test-tag-map.sh's own header warns about (the full
 # sweep is LOCAL/MANUAL for that reason). Asserting it here would make this
 # suite fail on any PR whenever main drifts, regardless of what that PR touches.
-if bash "$HERE/../check-e2e-tag-map.sh" --tags-only >/dev/null 2>&1; then
+if bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail's tag validity check passes on the real map"
 else
 	echo "FAIL: guardrail should exit 0 on the real map's tags"; fail=1
@@ -248,7 +248,7 @@ TS
 LAST_MEMBER_MAP="$(mktemp)"
 echo '{"some/dir/": ["@:last-one"]}' > "$LAST_MEMBER_MAP"
 EMPTY_TESTS_DIR="$(mktemp -d)"
-LAST_MEMBER_OUTPUT="$(MAP_FILE="$LAST_MEMBER_MAP" ENUM_FILE="$LAST_MEMBER_ENUM" TESTS_DIR="$EMPTY_TESTS_DIR" bash "$HERE/../check-e2e-tag-map.sh" --tags-only 2>&1)"
+LAST_MEMBER_OUTPUT="$(MAP_FILE="$LAST_MEMBER_MAP" ENUM_FILE="$LAST_MEMBER_ENUM" TESTS_DIR="$EMPTY_TESTS_DIR" bash "$HERE/../check-test-tag-map.sh" --tags-only 2>&1)"
 if printf '%s' "$LAST_MEMBER_OUTPUT" | grep -qF "@:last-one"; then
 	echo "PASS: guardrail resolves the enum's last member (no trailing comma)"
 else
