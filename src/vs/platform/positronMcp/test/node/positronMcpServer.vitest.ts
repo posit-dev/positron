@@ -276,6 +276,12 @@ describe('PositronMcpServer HTTP transport', () => {
 		await server.setAuditLogDetail('full');
 		try {
 			const sessionId = await initialize();
+			// A user event in the pinned window so the call carries a context
+			// alert: the file must keep it, the ring buffer must strip it.
+			await server.recordContextEvent({
+				kind: 'console-execution', windowId: 1, timestamp: Date.now(),
+				languageId: 'r', code: 'y <- 1', executedBy: 'user', status: 'ok',
+			});
 			const code = 'x <- rnorm(100)\nplot(x)';
 			await request(port, 'POST', '/', {
 				sessionId,
@@ -285,13 +291,14 @@ describe('PositronMcpServer HTTP transport', () => {
 			await vi.waitFor(async () => {
 				const call = (await auditRecords()).find(r => r.type === 'tool-call' && r.sessionId === sessionId);
 				expect(call?.args).toEqual({ code, languageId: 'r' });
+				expect(call?.contextAlert).toContain('[context:');
 			});
-			// Full arguments stay in the file: the status poll's ring buffer never
-			// carries them at any detail level.
+			// Full arguments and the context alert line stay in the file: the
+			// status poll's ring buffer never carries either at any detail level.
 			const activity = (await server.getStatus()).recentActivity
 				.filter((e): e is IMcpToolCallAuditEvent => e.type === 'tool-call');
 			expect(activity.length).toBeGreaterThan(0);
-			expect(activity.every(e => e.args === undefined)).toBe(true);
+			expect(activity.every(e => e.args === undefined && e.contextAlert === undefined)).toBe(true);
 		} finally {
 			await server.setAuditLogDetail('summary');
 		}

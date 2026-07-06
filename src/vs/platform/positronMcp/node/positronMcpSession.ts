@@ -248,13 +248,24 @@ export class PositronMcpSession extends Disposable {
 		// per-client cursor means each event is alerted at most once, and a
 		// result that itself reported context events (auditHint) advances the
 		// cursor instead of echoing them back as an alert.
-		const complete = (result: IMcpCallToolResult): IMcpCallToolResult => {
-			const auditHint = result.auditHint;
-			delete result.auditHint; // Internal metadata; never part of the wire response.
+		const complete = (handlerResult: IMcpCallToolResult): IMcpCallToolResult => {
+			const auditHint = handlerResult.auditHint;
+			// Rebuild the wire result by projecting the MCP wire fields, rather
+			// than deleting known-internal ones: any future internal field a
+			// handler attaches stays behind this choke point by construction.
+			// The content array is copied so the alert push below never mutates
+			// the handler's object.
+			const result: IMcpCallToolResult = { content: [...handlerResult.content], isError: handlerResult.isError };
 			let contextAlert: string | undefined;
-			if (auditHint?.advanceContextCursor) {
-				this._contextLedger.advanceCursor(this.id);
-			} else {
+			if (auditHint?.advanceContextCursor !== undefined) {
+				this._contextLedger.advanceCursorForReport(this.id, auditHint.advanceContextCursor.to, auditHint.advanceContextCursor.reportedSince);
+			} else if (this._pinnedWindowId !== undefined) {
+				// No alert before a window is pinned (a resumed session whose
+				// first call is main-served, e.g. get-guidance): an unscoped
+				// alert would count all windows' activity while the follow-up
+				// query is scoped to the eventually-pinned window, and skipping
+				// leaves the cursor untouched so the next pinned call alerts
+				// the same events properly scoped.
 				contextAlert = this._contextLedger.consumeAlert(this.id, this._pinnedWindowId);
 				if (contextAlert !== undefined) {
 					result.content.push({ type: 'text', text: contextAlert });

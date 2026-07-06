@@ -273,9 +273,11 @@ describe('PositronMcpSession', () => {
 
 			const [response] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
 			const result = (response as { result: IMcpCallToolResult }).result;
+			// The alert's seq is the pre-alert cursor (0 here), so passing it as
+			// get-user-context's since returns the two alerted events.
 			expect(result.content).toEqual([
 				{ type: 'text', text: 'called get-plot' },
-				{ type: 'text', text: '[context: 2 new console executions (1 error) | seq 2]' },
+				{ type: 'text', text: '[context: 2 new console executions (1 error) | seq 0]' },
 			]);
 
 			// Nothing new since: the next result carries no alert block at all.
@@ -304,6 +306,30 @@ describe('PositronMcpSession', () => {
 			expect((response as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
 		});
 
+		it('skips the alert (and keeps the cursor) on a call served before any window is pinned', async () => {
+			const broker = new StubBroker();
+			let window: number | undefined = undefined;
+			broker.resolveTargetWindow = () => window;
+			broker.isWindowConnected = () => window !== undefined;
+			const ledger = new McpContextLedger();
+			const session = createSession(broker, new RecordingAuditLog(), ledger);
+			await session.handleIncoming(initializeRequest); // no window to pin yet
+			ledger.record(userExecution());
+
+			// The main-served pre-pin call carries no alert: an unscoped one
+			// would count every window's activity while the documented follow-up
+			// query is scoped to the eventually-pinned window.
+			const [guidance] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: GET_GUIDANCE_TOOL.name } });
+			const guidanceResult = (guidance as { result: IMcpCallToolResult }).result;
+			expect(guidanceResult.content.some(c => c.type === 'text' && c.text.includes('[context:'))).toBe(false);
+
+			// And the cursor stayed put: the first pinned call alerts the event.
+			window = 1;
+			const [second] = await session.handleIncoming({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((second as { result: IMcpCallToolResult }).result.content).toContainEqual(
+				{ type: 'text', text: '[context: 1 new console execution | seq 0]' });
+		});
+
 		it('records the alert line on the tool-call audit event', async () => {
 			const ledger = new McpContextLedger();
 			const audit = new RecordingAuditLog();
@@ -313,7 +339,7 @@ describe('PositronMcpSession', () => {
 
 			await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-plot' } });
 			const end = audit.events.find(e => e.type === 'tool-call') as IMcpToolCallAuditEvent;
-			expect(end.contextAlert).toBe('[context: 1 new console execution | seq 1]');
+			expect(end.contextAlert).toBe('[context: 1 new console execution | seq 0]');
 		});
 
 		it('strips auditHint from the wire and advances the cursor when the result reported events itself', async () => {
@@ -322,7 +348,7 @@ describe('PositronMcpSession', () => {
 			const broker = new StubBroker();
 			broker.invokeTool.mockResolvedValue({
 				content: [{ type: 'text', text: '{"seq":1}' }],
-				auditHint: { returnedConsoleContent: true, advanceContextCursor: true },
+				auditHint: { returnedConsoleContent: true, advanceContextCursor: { to: 1 } },
 			});
 			const session = createSession(broker, audit, ledger);
 			await session.handleIncoming(initializeRequest);
@@ -338,10 +364,19 @@ describe('PositronMcpSession', () => {
 			expect(end.returnedConsoleContent).toBe(true);
 			expect(end.contextAlert).toBeUndefined();
 
-			// The cursor advanced past the event, so a later call stays quiet.
+			// The cursor advanced past the reported event, so a later call stays
+			// quiet about it -- but an event recorded after the report (e.g.
+			// while the response was in flight) still alerts.
 			broker.invokeTool.mockResolvedValue({ content: [{ type: 'text', text: 'called get-plot' }] });
 			const [second] = await session.handleIncoming({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get-plot' } });
 			expect((second as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
+
+			ledger.record(userExecution());
+			const [third] = await session.handleIncoming({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'get-plot' } });
+			expect((third as { result: IMcpCallToolResult }).result.content).toEqual([
+				{ type: 'text', text: 'called get-plot' },
+				{ type: 'text', text: '[context: 1 new console execution | seq 1]' },
+			]);
 		});
 	});
 

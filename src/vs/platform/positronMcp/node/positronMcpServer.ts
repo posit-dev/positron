@@ -87,7 +87,9 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	 * `stop()` and window reloads, so event seqs stay monotonic for the whole
 	 * Positron run and only reset when the app quits.
 	 */
-	private readonly _contextLedger = new McpContextLedger();
+	// Seqs are based at the run start time so a `since` replayed from a
+	// previous run is detectable; see the McpContextLedger constructor.
+	private readonly _contextLedger = new McpContextLedger(undefined, Date.now());
 	private readonly _onDidRecordActivity = this._register(new Emitter<McpAuditEvent>());
 	// Must be an instance field (not a getter): ProxyChannel.fromService discovers
 	// events with a for...in scan of own enumerable properties (ipc.ts).

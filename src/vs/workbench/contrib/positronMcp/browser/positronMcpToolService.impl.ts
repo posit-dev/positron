@@ -75,6 +75,9 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 	/** The get-user-context tool: live state here, event data from the main process. */
 	private readonly _userContext: PositronMcpUserContextTool;
 
+	/** The tool calls currently in flight in this window, oldest first. */
+	private readonly _activeCalls: { caller: IMcpCallerContext; toolName: string }[] = [];
+
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
@@ -132,11 +135,8 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		return this._consent.isAllowAllActive();
 	}
 
-	/** Callers of the tool calls currently in flight in this window, oldest first. */
-	private readonly _activeCallers: IMcpCallerContext[] = [];
-
-	get activeCaller(): IMcpCallerContext | undefined {
-		return this._activeCallers[this._activeCallers.length - 1];
+	get activeToolCall(): { readonly caller: IMcpCallerContext; readonly toolName: string } | undefined {
+		return this._activeCalls[this._activeCalls.length - 1];
 	}
 
 	async callTool(name: string, args: Record<string, unknown>, caller?: IMcpCallerContext): Promise<IMcpCallToolResult> {
@@ -145,18 +145,19 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		if (!handler) {
 			return errorResult(`Tool '${name}' is not implemented in this Positron window.`);
 		}
-		if (caller) {
-			this._activeCallers.push(caller);
+		const call = caller ? { caller, toolName: name } : undefined;
+		if (call) {
+			this._activeCalls.push(call);
 		}
 		try {
 			return await handler(args, caller);
 		} catch (error) {
 			return errorResult(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
-			if (caller) {
-				const index = this._activeCallers.lastIndexOf(caller);
+			if (call) {
+				const index = this._activeCalls.lastIndexOf(call);
 				if (index >= 0) {
-					this._activeCallers.splice(index, 1);
+					this._activeCalls.splice(index, 1);
 				}
 			}
 		}

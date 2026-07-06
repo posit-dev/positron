@@ -27,10 +27,12 @@ const caller = { mcpSessionId: 'mcp-1', clientName: 'claude-code' };
 function ledgerData(overrides: Partial<IMcpUserContextData> = {}): IMcpUserContextData {
 	return {
 		seq: 12,
-		sinceAheadOfSeq: false,
+		sinceOutOfRange: false,
 		eventsEvicted: false,
 		consoleEvents: [],
+		consoleEventsOmitted: 0,
 		errorEvents: [],
+		errorEventsOmitted: 0,
 		changed: { session: true, editor: true, notebooks: true },
 		...overrides,
 	};
@@ -86,7 +88,7 @@ async function response(tool: PositronMcpUserContextTool, args: Record<string, u
 }
 
 describe('PositronMcpUserContextTool', () => {
-	it('composes the live state snapshot: session, editor with cursor and selection, notebooks with the active one marked', async () => {
+	it('composes the live state snapshot: session, editor with cursor and selection, notebooks with the tool target marked', async () => {
 		const { tool } = createTool({
 			session: fakeForegroundSession(),
 			editor: fakeEditor({ selection: new Selection(5, 3, 5, 12) }),
@@ -104,8 +106,8 @@ describe('PositronMcpUserContextTool', () => {
 			},
 			console: [],
 			notebooks: [
-				{ path: '/work/a.ipynb', isActive: false },
-				{ path: '/work/b.ipynb', isActive: true },
+				{ path: '/work/a.ipynb', isToolTarget: false },
+				{ path: '/work/b.ipynb', isToolTarget: true },
 			],
 			errors: [],
 		});
@@ -135,10 +137,10 @@ describe('PositronMcpUserContextTool', () => {
 		expect((await response(tool)).editor).toEqual({ path: '/work/nb.ipynb', kind: 'notebook' });
 	});
 
-	it('threads the caller identity, since, and maxConsoleEntries into the ledger query', async () => {
+	it('threads the caller identity, since, maxConsoleEntries, and include into the ledger query', async () => {
 		const { tool, queryUserContext } = createTool();
 		await tool.handle({ include: ['console'], since: 8, maxConsoleEntries: 2 }, caller);
-		expect(queryUserContext).toHaveBeenCalledWith({ mcpSessionId: 'mcp-1', since: 8, maxConsoleEntries: 2 });
+		expect(queryUserContext).toHaveBeenCalledWith({ mcpSessionId: 'mcp-1', since: 8, maxConsoleEntries: 2, include: ['console'] });
 	});
 
 	it('refuses to run without a caller context (attribution cannot be scoped)', async () => {

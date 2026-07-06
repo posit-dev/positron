@@ -9,6 +9,7 @@ import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { MAX_CONTEXT_FIELD_LENGTH, McpContextEventInput } from '../../../../platform/positronMcp/common/positronMcpContext.js';
+import { CHANGE_CAUSING_TOOLS } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import {
 	ILanguageRuntimeMessage,
@@ -30,6 +31,9 @@ const SELECTION_DEBOUNCE_MS = 1000;
 
 /** Cap on executions awaiting settlement; beyond it the oldest is flushed as-is. */
 const MAX_PENDING_EXECUTIONS = 50;
+
+/** Cap on traceback lines carried across the IPC; the ledger budgets further. */
+const MAX_PENDING_TRACEBACK_LINES = 64;
 
 /** A console execution we saw submitted and are waiting to settle. */
 interface IPendingExecution {
@@ -109,35 +113,41 @@ export class PositronMcpContextObserver extends Disposable {
 
 		// --- Active editor / selection ------------------------------------------
 		this._register(this._editorService.onDidActiveEditorChange(() => {
-			this._push({ kind: 'editor-change', change: 'editor', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._activeCallerId() });
+			this._push({ kind: 'editor-change', change: 'editor', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._causedBy('editor') });
 			this._hookSelection();
 		}));
 		this._hookSelection();
 
 		// --- Notebooks ------------------------------------------------------------
 		this._register(notebookService.onDidAddNotebookInstance(() => {
-			this._push({ kind: 'notebook-open', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._activeCallerId() });
+			this._push({ kind: 'notebook-open', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._causedBy('notebook') });
 		}));
 		this._register(notebookService.onDidRemoveNotebookInstance(() => {
-			this._push({ kind: 'notebook-close', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._activeCallerId() });
+			this._push({ kind: 'notebook-close', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._causedBy('notebook') });
 		}));
 
 		// --- Foreground session ----------------------------------------------------
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => {
-			this._push({ kind: 'session-change', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._activeCallerId() });
+			this._push({ kind: 'session-change', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: this._causedBy('session') });
 		}));
 	}
 
 	override dispose(): void {
-		// Flush what we know about still-running executions rather than losing them.
-		for (const pending of [...this._pending.values()]) {
-			this._settle(pending, 'unknown');
-		}
+		// Drop (never push) still-pending executions: dispose means MCP was
+		// turned off or the window is closing, and the off state's guarantee --
+		// no console content leaves the renderer -- outranks completeness.
+		this._pending.clear();
 		super.dispose();
 	}
 
-	private _activeCallerId(): string | undefined {
-		return this._toolService.activeCaller?.mcpSessionId;
+	/**
+	 * The MCP session to attribute a change event to: the active tool call's,
+	 * but only when that tool plausibly causes this kind of event (see
+	 * {@link CHANGE_CAUSING_TOOLS}); otherwise the change is the user's.
+	 */
+	private _causedBy(kind: keyof typeof CHANGE_CAUSING_TOOLS): string | undefined {
+		const call = this._toolService.activeToolCall;
+		return call && CHANGE_CAUSING_TOOLS[kind].has(call.toolName) ? call.caller.mcpSessionId : undefined;
 	}
 
 	private _push(event: McpContextEventInput): void {
@@ -160,7 +170,9 @@ export class PositronMcpContextObserver extends Disposable {
 			sessionId: event.sessionId,
 			timestamp: Date.now(),
 			languageId: event.languageId,
-			code: event.code,
+			// Sliced to one char past the cap so a pasted megabyte of code never
+			// crosses the IPC; the extra char triggers the ledger's marker.
+			code: event.code.slice(0, MAX_CONTEXT_FIELD_LENGTH + 1),
 			executedBy: executedByLabel(event.attribution),
 			causedByMcpSession: mcpSessionId,
 			output: '',
@@ -185,23 +197,40 @@ export class PositronMcpContextObserver extends Disposable {
 
 		const pendingFor = (message: ILanguageRuntimeMessage) => this._pending.get(message.parent_id);
 
+		// Appends are sliced to one char past the cap (not just gated on the
+		// current length) so a single huge message can neither bloat renderer
+		// memory nor cross the IPC unbounded; the extra char makes the ledger's
+		// record-time truncation add its marker.
+		const appendOutput = (pending: IPendingExecution, text: string) => {
+			if (pending.output.length <= MAX_CONTEXT_FIELD_LENGTH) {
+				pending.output = (pending.output + text).slice(0, MAX_CONTEXT_FIELD_LENGTH + 1);
+			}
+		};
 		store.add(session.onDidReceiveRuntimeMessageStream(message => {
 			const pending = pendingFor(message);
-			if (pending && pending.output.length <= MAX_CONTEXT_FIELD_LENGTH) {
-				pending.output += message.text;
+			if (pending) {
+				appendOutput(pending, message.text);
 			}
 		}));
 		store.add(session.onDidReceiveRuntimeMessageOutput(message => {
 			const pending = pendingFor(message);
 			const text = pending && message.data['text/plain'];
-			if (pending && typeof text === 'string' && pending.output.length <= MAX_CONTEXT_FIELD_LENGTH) {
-				pending.output += text;
+			if (pending && typeof text === 'string') {
+				appendOutput(pending, text);
 			}
 		}));
 		store.add(session.onDidReceiveRuntimeMessageError(message => {
 			const pending = pendingFor(message);
 			if (pending) {
-				pending.error = { name: message.name, message: message.message, traceback: [...(message.traceback ?? [])] };
+				// Sliced like code/output so a runaway traceback (RecursionError)
+				// never crosses the IPC unbounded; the ledger's record-time
+				// truncation applies the final budget and markers.
+				pending.error = {
+					name: message.name,
+					message: message.message.slice(0, MAX_CONTEXT_FIELD_LENGTH + 1),
+					traceback: (message.traceback ?? []).slice(0, MAX_PENDING_TRACEBACK_LINES)
+						.map(line => line.slice(0, MAX_CONTEXT_FIELD_LENGTH + 1)),
+				};
 				this._settle(pending, 'error');
 			}
 		}));
@@ -253,12 +282,22 @@ export class PositronMcpContextObserver extends Disposable {
 		}
 		// Capture the causer when the selection moves, not when the debounce
 		// fires: a tool call that moved the selection may have returned by then.
+		// If any move within the window was the user's, the coalesced marker is
+		// the user's -- agent attribution must never mask user activity.
 		let causedByMcpSession: string | undefined;
+		let sawUserMove = false;
 		const scheduler = new RunOnceScheduler(() => {
-			this._push({ kind: 'editor-change', change: 'selection', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession });
+			this._push({ kind: 'editor-change', change: 'selection', windowId: this._windowId, timestamp: Date.now(), causedByMcpSession: sawUserMove ? undefined : causedByMcpSession });
+			causedByMcpSession = undefined;
+			sawUserMove = false;
 		}, SELECTION_DEBOUNCE_MS);
 		const listener = editor.onDidChangeCursorSelection(() => {
-			causedByMcpSession = this._activeCallerId();
+			const causer = this._causedBy('editor');
+			if (causer === undefined) {
+				sawUserMove = true;
+			} else {
+				causedByMcpSession = causer;
+			}
 			scheduler.schedule();
 		});
 		this._selectionListener.value = {

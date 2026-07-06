@@ -9,8 +9,8 @@ import {
 	buildUserContextResult,
 	IMcpUserContextEditorState,
 	IMcpUserContextStateSnapshot,
-	MAX_CONTEXT_FIELD_LENGTH,
 	parseUserContextArgs,
+	truncateContextField,
 } from '../../../../platform/positronMcp/common/positronMcpContext.js';
 import { IMcpCallToolResult } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -48,6 +48,7 @@ export class PositronMcpUserContextTool {
 			mcpSessionId: caller.mcpSessionId,
 			since: parsed.since,
 			maxConsoleEntries: parsed.maxConsoleEntries,
+			include: [...parsed.include],
 		});
 		return buildUserContextResult(parsed, data, this._snapshot());
 	}
@@ -68,7 +69,7 @@ export class PositronMcpUserContextTool {
 			editor: this._editorSnapshot(activeNotebook ? { path: activeNotebook.uri.fsPath } : undefined),
 			notebooks: instances.map(instance => ({
 				path: instance.uri.fsPath,
-				isActive: instance === activeNotebook,
+				isToolTarget: instance === activeNotebook,
 			})),
 		};
 	}
@@ -94,9 +95,7 @@ export class PositronMcpUserContextTool {
 			languageId: model.getLanguageId(),
 			cursor: position ? { line: position.lineNumber - 1, character: position.column - 1 } : undefined,
 			selection: selection && !selection.isEmpty() && selectionText !== undefined ? {
-				text: selectionText.length > MAX_CONTEXT_FIELD_LENGTH
-					? selectionText.slice(0, MAX_CONTEXT_FIELD_LENGTH) + '\n[selection truncated]'
-					: selectionText,
+				text: truncateContextField(selectionText, '\n[selection truncated]'),
 				range: {
 					start: { line: selection.startLineNumber - 1, character: selection.startColumn - 1 },
 					end: { line: selection.endLineNumber - 1, character: selection.endColumn - 1 },

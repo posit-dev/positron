@@ -36,10 +36,16 @@ export interface IMcpCallToolResult {
 		 */
 		returnedConsoleContent?: boolean;
 		/**
-		 * The result already reports the context events the client was owed:
-		 * advance its alert cursor and skip the `[context: ...]` line.
+		 * The result already reports everything an alert would have flagged,
+		 * up to and including seq `to`: advance the client's alert cursor there
+		 * and skip the `[context: ...]` line. The ledger owns the whole rule --
+		 * it computes this hint (query's `advanceCursor`) and validates it on
+		 * arrival (advanceCursorForReport); handlers and the session only carry
+		 * it. Events recorded after `to` stay pending, and the advance is
+		 * ignored entirely when `reportedSince` is ahead of the cursor (the
+		 * report skipped events the client was still owed).
 		 */
-		advanceContextCursor?: boolean;
+		advanceContextCursor?: { to: number; reportedSince?: number };
 	};
 }
 
@@ -90,7 +96,7 @@ Data: before writing code against data, look first -- get-session for the active
 
 Plots: after plotting with execute-code, call get-plot to see the image. After writing a file to disk, call open-document to show it to the user.
 
-Context updates: tool results may end with a [context: ...] line summarizing user activity in Positron since your last call. If it reports new errors, call get-user-context (include: ["errors", "console"], since: <the seq from that line>) before continuing. For routine executions, only investigate if your current task depends on session state.`;
+Context updates: tool results may end with a [context: ...] line summarizing user activity in Positron since your last call. If it reports new errors, call get-user-context (since: <the seq from that line>) before continuing. For routine executions, only investigate if your current task depends on session state.`;
 
 /**
  * The get-session result text when no runtime session is active. Shared
@@ -119,12 +125,13 @@ export const POSITRON_MCP_TOOLS = [
 	},
 	{
 		name: 'get-user-context',
-		description: 'Get what the user has been doing in Positron: the active session, the focused editor (path, cursor, selection), recent console executions (who ran what, with output and status), recent uncaught errors with tracebacks, and open notebooks. Call this when a tool result\'s [context: ...] line reports activity you need to see, passing that line\'s seq as `since` to get only what changed; without `since` it returns a full snapshot. Outputs are truncated per entry - use inspect-variable to read large values.',
+		description: 'Get what the user has been doing in Positron: the active session, the focused editor (path, cursor, selection), recent console executions (who ran what, with output and status), recent uncaught errors with tracebacks, and open notebooks. Call this when a tool result\'s [context: ...] line reports activity you need to see, passing that line\'s seq as `since` to get only what changed; without `since` it returns a full snapshot. Outputs are truncated per entry - use inspect-variable to read large values. If the response notes omitted entries, call again with a higher maxConsoleEntries.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				include: {
 					type: 'array',
+					minItems: 1,
 					items: { type: 'string', enum: MCP_USER_CONTEXT_SECTIONS },
 					description: 'Sections to return. Omit for all sections.',
 				},
@@ -340,3 +347,39 @@ export const POSITRON_MCP_TOOLS = [
 
 /** The name of an advertised MCP tool; the renderer's handler table is keyed by this union. */
 export type PositronMcpToolName = typeof POSITRON_MCP_TOOLS[number]['name'];
+
+/**
+ * Which in-flight tool plausibly causes each context change-event kind. The
+ * renderer's context observer attributes a workbench event to the active tool
+ * call only when its tool is in the matching set; otherwise it counts as the
+ * user's, even mid-call -- a user switching editors while an agent's
+ * execute-code runs is user activity, and over-attributing it to the agent
+ * would hide it from every alert.
+ *
+ * This lives next to the tool table because it is part of a tool's
+ * definition: when adding a tool that opens editors or notebooks or starts
+ * sessions, list it here, or its own effects are alerted back to its client
+ * as user activity. Constructing the sets against the tool-name union makes a
+ * renamed or removed tool fail to compile; it cannot catch a newly added tool
+ * that is missing here -- that is the by-hand step above. The declared type
+ * stays string-keyed for the lookup of arbitrary call names.
+ */
+export const CHANGE_CAUSING_TOOLS: Record<'editor' | 'notebook' | 'session', ReadonlySet<string>> = {
+	editor: new Set<PositronMcpToolName>(['open-document', 'notebook-create']),
+	// open-document included: an .ipynb path opens the notebook editor, which
+	// registers a notebook instance mid-call.
+	notebook: new Set<PositronMcpToolName>(['open-document', 'notebook-create']),
+	// The notebook tools are here too: opening an .ipynb synchronously flips
+	// the foreground session to that notebook's (running or last-used) kernel
+	// mid-call, which would otherwise self-echo as user activity. A flip that
+	// lands after the call returns (a fresh notebook's kernel reaching Ready)
+	// is out of attribution reach either way.
+	//
+	// execute-code and notebook-run-cells are deliberately absent even though
+	// both can foreground or auto-start a session mid-call: they run long
+	// (seconds to unbounded) and attribution spans the whole call, so listing
+	// them would hide a user's genuine session switch made during that window.
+	// The accepted cost is one true-but-self-caused "active session changed"
+	// alert to the caller.
+	session: new Set<PositronMcpToolName>(['session-start', 'session-restart', 'open-document', 'notebook-create']),
+};

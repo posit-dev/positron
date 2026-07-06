@@ -18,8 +18,9 @@
  *
  * Lifetime: the ledger lives on the main-process server object, so `seq` is
  * monotonic across window reloads and across server stop/start within one
- * Positron run. It resets when Positron quits; a `since` from a previous run
- * (ahead of the current seq) is detected and treated as "return everything".
+ * Positron run. The server bases each run's seqs at the run start time, so a
+ * `since` from a previous run falls outside the current run's seq range and
+ * is detected and treated as "return everything".
  *
  * Everything in this file is plain data + pure logic (no DOM, no Node), so it
  * is shared by the node server, the renderer observer, and the renderer tool
@@ -104,22 +105,40 @@ export interface IMcpUserContextQuery {
 	/** Return only events after this seq; state sections only if changed after it. */
 	readonly since?: number;
 	readonly maxConsoleEntries?: number;
+	/**
+	 * The sections the response will include. Drives the returned
+	 * {@link IMcpUserContextData.advanceCursor} hint; when omitted, no hint is
+	 * produced and the alert cursor stays put.
+	 */
+	readonly include?: readonly McpUserContextSection[];
 }
 
 /** The ledger's answer to a query; the renderer composes the tool result from it. */
 export interface IMcpUserContextData {
 	/** The current high-water seq. */
 	readonly seq: number;
-	/** `since` was ahead of the current seq (a stale value from a previous run). */
-	readonly sinceAheadOfSeq: boolean;
-	/** Events after `since` were already evicted; event sections may be incomplete. */
+	/** `since` was outside this run's seq range (a stale value from a previous run). */
+	readonly sinceOutOfRange: boolean;
+	/** User events in scope (after `since`, or ever for a full snapshot) were evicted. */
 	readonly eventsEvicted: boolean;
 	/** Console executions visible to the requester, oldest first, capped. */
 	readonly consoleEvents: readonly (IMcpConsoleExecutionEvent & { readonly seq: number })[];
+	/** How many older matching executions the maxConsoleEntries cap dropped. */
+	readonly consoleEventsOmitted: number;
 	/** The error subset of the above, capped independently so old errors survive. */
 	readonly errorEvents: readonly (IMcpConsoleExecutionEvent & { readonly seq: number })[];
+	/** How many older matching error executions the same cap dropped. */
+	readonly errorEventsOmitted: number;
 	/** Whether each state-like section changed after `since` (true when no since). */
 	readonly changed: { readonly session: boolean; readonly editor: boolean; readonly notebooks: boolean };
+	/**
+	 * Ready-made cursor-advance hint for the session's alert choke point:
+	 * present when a response carrying the queried `include` sections covers
+	 * everything a `[context: ...]` alert would flag, absent when advancing
+	 * would silently un-alert owed events. Computed by the ledger, next to the
+	 * alert taxonomy it must mirror.
+	 */
+	readonly advanceCursor?: { readonly to: number; readonly reportedSince?: number };
 }
 
 /** Retention: events kept in memory. Oldest are dropped first. */
@@ -128,7 +147,8 @@ const MAX_EVENTS = 300;
 /** Retention: per-client alert cursors kept (LRU) across session churn. */
 const MAX_CURSORS = 200;
 
-function truncateField(text: string, marker: string): string {
+/** Truncate one free-text field to the shared cap, appending `marker` when cut. */
+export function truncateContextField(text: string, marker: string): string {
 	return text.length > MAX_CONTEXT_FIELD_LENGTH ? text.slice(0, MAX_CONTEXT_FIELD_LENGTH) + marker : text;
 }
 
@@ -157,14 +177,14 @@ function truncateConsoleEvent(event: IMcpConsoleExecutionEvent): IMcpConsoleExec
 		}
 		error = {
 			name: error.name,
-			message: truncateField(error.message, '\n[message truncated]'),
+			message: truncateContextField(error.message, '\n[message truncated]'),
 			traceback,
 		};
 	}
 	return {
 		...event,
-		code: truncateField(event.code, '\n[code truncated]'),
-		output: event.output === undefined ? undefined : truncateField(event.output, '\n[output truncated - use inspect-variable to read large values]'),
+		code: truncateContextField(event.code, '\n[code truncated]'),
+		output: event.output === undefined ? undefined : truncateContextField(event.output, '\n[output truncated - use inspect-variable to read large values]'),
 		error,
 	};
 }
@@ -191,15 +211,35 @@ function plural(count: number): string {
  */
 export class McpContextLedger {
 	private readonly _events: McpContextEvent[] = [];
-	private _seq = 0;
-	/** Seq of the newest evicted event; queries older than this saw data loss. */
-	private _evictedThroughSeq = 0;
+	private _seq: number;
+	/** This run's first seq value; a `since` below it is from a previous run. */
+	private readonly _baseSeq: number;
+	/**
+	 * Seq of the newest evicted *unattributed* event per window; reads older
+	 * than it saw user-activity loss. MCP-attributed evictions are not
+	 * tracked: no alert would ever have flagged them, so losing them owes
+	 * nobody an "events dropped" signal (a client's own evicted executions go
+	 * unflagged too -- a documented tradeoff, it made those calls itself).
+	 */
+	private readonly _evictedThroughSeqByWindow = new Map<number, number>();
 	/** Alert cursor per MCP session id, LRU-bounded. */
 	private readonly _cursors = new Map<string, number>();
 
-	constructor(private readonly _capacity: number = MAX_EVENTS) { }
+	/**
+	 * @param _capacity Events retained; oldest are evicted first.
+	 * @param baseSeq The seq counter's starting value (the first event gets
+	 * baseSeq + 1). The production server passes the run start time in
+	 * milliseconds, keeping every run's seq range disjoint from and above all
+	 * earlier runs' (overtaking wall time would take a sustained 1000+ events
+	 * per second), so a client replaying a previous run's `since` is caught by
+	 * the range check in {@link query} instead of silently mis-filtering.
+	 */
+	constructor(private readonly _capacity: number = MAX_EVENTS, baseSeq: number = 0) {
+		this._seq = baseSeq;
+		this._baseSeq = baseSeq;
+	}
 
-	/** The seq of the most recently recorded event (0 before any event). */
+	/** The seq of the most recently recorded event (baseSeq before any event). */
 	get highWaterSeq(): number {
 		return this._seq;
 	}
@@ -222,10 +262,30 @@ export class McpContextLedger {
 		const seq = ++this._seq;
 		this._events.push({ ...event, seq });
 		while (this._events.length > this._capacity) {
-			this._evictedThroughSeq = this._events[0].seq;
+			const evicted = this._events[0];
+			if (evicted.causedByMcpSession === undefined) {
+				this._evictedThroughSeqByWindow.set(evicted.windowId, evicted.seq);
+			}
 			this._events.shift();
 		}
 		return seq;
+	}
+
+	/**
+	 * The newest evicted seq a reader scoped to `windowId` could have missed
+	 * (baseSeq when nothing in scope was evicted). Per-window so a busy window
+	 * evicting its own events never raises "events dropped" signals in a quiet
+	 * one.
+	 */
+	private _evictedThroughSeq(windowId: number | undefined): number {
+		if (windowId !== undefined) {
+			return this._evictedThroughSeqByWindow.get(windowId) ?? this._baseSeq;
+		}
+		let max = this._baseSeq;
+		for (const seq of this._evictedThroughSeqByWindow.values()) {
+			max = Math.max(max, seq);
+		}
+		return max;
 	}
 
 	/**
@@ -240,9 +300,22 @@ export class McpContextLedger {
 		}
 	}
 
-	/** Move a session's alert cursor to the current high-water seq. */
-	advanceCursor(sessionId: string): void {
-		this._setCursor(sessionId, this._seq);
+	/**
+	 * Advance a session's alert cursor because a tool result reported events
+	 * through `reportedThroughSeq` itself. The advance only happens when the
+	 * report actually covered what the client was owed: a `reportedSince`
+	 * ahead of the cursor means events between the cursor and it were skipped,
+	 * so the cursor stays put and those events alert normally later. Never
+	 * moves the cursor backward or past the high water mark.
+	 */
+	advanceCursorForReport(sessionId: string, reportedThroughSeq: number, reportedSince: number | undefined): void {
+		// A session without a cursor (LRU-evicted) starts at the high water
+		// mark, exactly as consumeAlert would seed it.
+		const cursor = this._cursors.get(sessionId) ?? this._seq;
+		if (reportedSince !== undefined && reportedSince > cursor) {
+			return;
+		}
+		this._setCursor(sessionId, Math.min(Math.max(cursor, reportedThroughSeq), this._seq));
 	}
 
 	/**
@@ -253,19 +326,32 @@ export class McpContextLedger {
 	 * Only events with no MCP attribution are reported (categories and counts
 	 * only -- never content), scoped to the session's pinned window. Errors are
 	 * flagged distinctly within the execution count.
+	 *
+	 * The trailing `seq N` is the pre-alert cursor -- the newest seq the client
+	 * had already been told about -- so passing it as get-user-context's `since`
+	 * returns exactly the events this alert summarized (`query` filters
+	 * `seq > since`). Reporting the new high-water here instead would make the
+	 * documented follow-up come back empty.
 	 */
 	consumeAlert(sessionId: string, windowId: number | undefined): string | undefined {
 		const cursor = this._cursors.get(sessionId) ?? this._seq;
 		this._setCursor(sessionId, this._seq);
+		// Events the cursor still owed but the bounded buffer no longer holds:
+		// say so rather than silently undercounting (or, when every retained
+		// event is filtered out below, staying silent about real activity).
+		const dropped = cursor < this._evictedThroughSeq(windowId);
 		const events = this._events.filter(event =>
 			event.seq > cursor
 			&& (windowId === undefined || event.windowId === windowId)
 			&& event.causedByMcpSession === undefined);
-		if (events.length === 0) {
+		if (events.length === 0 && !dropped) {
 			return undefined;
 		}
 
 		const parts: string[] = [];
+		if (dropped) {
+			parts.push('earlier events dropped (buffer full)');
+		}
 		const executions = events.filter(event => event.kind === 'console-execution');
 		const errors = executions.filter(event => event.kind === 'console-execution' && event.status === 'error');
 		if (executions.length > 0) {
@@ -289,22 +375,23 @@ export class McpContextLedger {
 		if (events.some(event => event.kind === 'session-change')) {
 			parts.push('active session changed');
 		}
-		if (parts.length === 0) {
-			return undefined;
-		}
-		parts.push(`seq ${this._seq}`);
+		parts.push(`seq ${cursor}`);
 		return `[context: ${parts.join(' | ')}]`;
 	}
 
 	/**
 	 * Answer a get-user-context query. `windowId` is the requesting session's
 	 * pinned window (resolved by the server); undefined means no window scoping.
-	 * Does not touch the alert cursor -- the session advances it separately when
-	 * the tool result actually reports events.
+	 * Does not touch the alert cursor -- when the query names the sections the
+	 * response will `include`, the returned `advanceCursor` hint tells the
+	 * session how to advance it once the result is actually delivered.
 	 */
 	query(query: IMcpUserContextQuery, windowId: number | undefined): IMcpUserContextData {
-		const sinceAheadOfSeq = query.since !== undefined && query.since > this._seq;
-		const since = query.since === undefined || sinceAheadOfSeq ? undefined : query.since;
+		// A since outside [baseSeq, seq] is from a previous run (whose seq range
+		// lies below this run's, see the constructor) or fabricated: ignore it
+		// and return everything rather than silently mis-filtering.
+		const sinceOutOfRange = query.since !== undefined && (query.since > this._seq || query.since < this._baseSeq);
+		const since = query.since === undefined || sinceOutOfRange ? undefined : query.since;
 		const maxEntries = Math.max(1, Math.min(query.maxConsoleEntries ?? DEFAULT_MAX_CONSOLE_ENTRIES, MAX_CONSOLE_ENTRIES_LIMIT));
 
 		const visible = this._events.filter(event =>
@@ -315,19 +402,51 @@ export class McpContextLedger {
 			event.causedByMcpSession === undefined || event.causedByMcpSession === query.mcpSessionId;
 		const executions = visible.filter((event): event is IMcpConsoleExecutionEvent & { seq: number } =>
 			event.kind === 'console-execution' && isOwnOrUsers(event));
+		const errors = executions.filter(event => event.status === 'error');
 
 		return {
 			seq: this._seq,
-			sinceAheadOfSeq,
-			eventsEvicted: since !== undefined && since < this._evictedThroughSeq,
+			sinceOutOfRange,
+			eventsEvicted: (since ?? this._baseSeq) < this._evictedThroughSeq(windowId),
 			consoleEvents: executions.slice(-maxEntries),
-			errorEvents: executions.filter(event => event.status === 'error').slice(-maxEntries),
+			consoleEventsOmitted: Math.max(0, executions.length - maxEntries),
+			errorEvents: errors.slice(-maxEntries),
+			errorEventsOmitted: Math.max(0, errors.length - maxEntries),
 			changed: {
 				session: since === undefined || visible.some(event => event.kind === 'session-change'),
 				editor: since === undefined || visible.some(event => event.kind === 'editor-change'),
 				notebooks: since === undefined || visible.some(event => event.kind === 'notebook-open' || event.kind === 'notebook-close'),
 			},
+			advanceCursor: this._coversAlerts(query.include, visible, executions, maxEntries)
+				? { to: this._seq, reportedSince: since }
+				: undefined,
 		};
+	}
+
+	/**
+	 * Whether a response carrying the `include` sections covers everything
+	 * {@link consumeAlert} would flag over the same range: each alert category
+	 * either has no unattributed events here, or its section is included --
+	 * and for console executions, none of the unattributed ones were cut by
+	 * the maxConsoleEntries cap (an omission count in a note is not the
+	 * content the client is owed). Lives next to consumeAlert so both sides of
+	 * the alert category taxonomy stay in this one class; the session's
+	 * choke point then merely forwards the resulting hint and
+	 * {@link advanceCursorForReport} guards it against a skipped-ahead since.
+	 */
+	private _coversAlerts(include: readonly McpUserContextSection[] | undefined, visible: readonly McpContextEvent[], executions: readonly (IMcpConsoleExecutionEvent & { seq: number })[], maxEntries: number): boolean {
+		if (include === undefined) {
+			return false;
+		}
+		const included = new Set(include);
+		const alertable = visible.filter(event => event.causedByMcpSession === undefined);
+		const coversExecutions = included.has('console')
+			? !executions.slice(0, Math.max(0, executions.length - maxEntries)).some(event => event.causedByMcpSession === undefined)
+			: !alertable.some(event => event.kind === 'console-execution');
+		return coversExecutions
+			&& (included.has('editor') || !alertable.some(event => event.kind === 'editor-change'))
+			&& (included.has('notebooks') || !alertable.some(event => event.kind === 'notebook-open' || event.kind === 'notebook-close'))
+			&& (included.has('session') || !alertable.some(event => event.kind === 'session-change'));
 	}
 
 	/** Set a cursor, refreshing its LRU position and bounding the map. */
@@ -362,6 +481,11 @@ export function parseUserContextArgs(args: Record<string, unknown>): IMcpUserCon
 	if (args.include === undefined) {
 		include = new Set(MCP_USER_CONTEXT_SECTIONS);
 	} else if (Array.isArray(args.include)) {
+		if (args.include.length === 0) {
+			// An empty include has no legitimate use; erroring gives the model
+			// a self-correction where a bare seq-only success gives no signal.
+			throw new Error(`include must not be empty; omit it for all sections, or pick from: ${MCP_USER_CONTEXT_SECTIONS.join(', ')}.`);
+		}
 		include = new Set();
 		for (const section of args.include) {
 			if (!MCP_USER_CONTEXT_SECTIONS.includes(section as McpUserContextSection)) {
@@ -383,10 +507,13 @@ export function parseUserContextArgs(args: Record<string, unknown>): IMcpUserCon
 
 	let maxConsoleEntries = DEFAULT_MAX_CONSOLE_ENTRIES;
 	if (args.maxConsoleEntries !== undefined) {
-		if (typeof args.maxConsoleEntries !== 'number' || !Number.isInteger(args.maxConsoleEntries) || args.maxConsoleEntries < 1) {
-			throw new Error('maxConsoleEntries must be a positive integer.');
+		if (typeof args.maxConsoleEntries !== 'number' || !Number.isInteger(args.maxConsoleEntries) || args.maxConsoleEntries < 1 || args.maxConsoleEntries > MAX_CONSOLE_ENTRIES_LIMIT) {
+			// Erroring names the valid range (matching the schema's declared
+			// maximum) where a silent clamp would send a client following the
+			// "raise maxConsoleEntries" note into a no-signal retry loop.
+			throw new Error(`maxConsoleEntries must be an integer between 1 and ${MAX_CONSOLE_ENTRIES_LIMIT}.`);
 		}
-		maxConsoleEntries = Math.min(args.maxConsoleEntries, MAX_CONSOLE_ENTRIES_LIMIT);
+		maxConsoleEntries = args.maxConsoleEntries;
 	}
 
 	return { include, since, maxConsoleEntries };
@@ -423,7 +550,12 @@ export interface IMcpUserContextStateSnapshot {
 		readonly sessionId: string;
 	} | null;
 	readonly editor: IMcpUserContextEditorState | null;
-	readonly notebooks: readonly { readonly path: string; readonly isActive: boolean }[];
+	/**
+	 * `isToolTarget` marks the notebook the notebook-* tools currently act on
+	 * (the most recently used one, focused or not). Deliberately not a focus
+	 * signal -- the `editor` section carries focus.
+	 */
+	readonly notebooks: readonly { readonly path: string; readonly isToolTarget: boolean }[];
 }
 
 /**
@@ -440,22 +572,33 @@ export interface IMcpUserContextStateSnapshot {
  */
 export function buildUserContextResult(args: IMcpUserContextArgs, data: IMcpUserContextData, snapshot: IMcpUserContextStateSnapshot): IMcpCallToolResult {
 	const notes: string[] = [];
-	if (data.sinceAheadOfSeq) {
-		notes.push(`since=${args.since} is ahead of the current seq ${data.seq} (sequence numbers reset when Positron restarts); returning all sections and all retained events.`);
+	if (data.sinceOutOfRange) {
+		notes.push(`since=${args.since} is not from this run (sequence numbers reset when Positron restarts); ignoring it.`);
 	}
 	if (data.eventsEvicted) {
-		notes.push('Some events after since were already dropped from the server\'s bounded event buffer; console/errors may be incomplete.');
+		notes.push('Events older than the retained window were already dropped from the server\'s bounded event buffer; console/errors may be incomplete.');
+	}
+	// At the cap there is nothing to raise: entries sliced off by the newest-N
+	// window have no paging path (since only filters newer), so say so instead
+	// of suggesting a value the parser would reject.
+	const omittedRemedy = args.maxConsoleEntries >= MAX_CONSOLE_ENTRIES_LIMIT
+		? `they are beyond the maxConsoleEntries cap (${MAX_CONSOLE_ENTRIES_LIMIT}) and not retrievable`
+		: `raise maxConsoleEntries (max ${MAX_CONSOLE_ENTRIES_LIMIT}) to see them`;
+	if (args.include.has('console') && data.consoleEventsOmitted > 0) {
+		notes.push(`${data.consoleEventsOmitted} older console execution${data.consoleEventsOmitted === 1 ? ' was' : 's were'} omitted; ${omittedRemedy}.`);
+	}
+	if (args.include.has('errors') && data.errorEventsOmitted > 0) {
+		notes.push(`${data.errorEventsOmitted} older error${data.errorEventsOmitted === 1 ? ' was' : 's were'} omitted; ${omittedRemedy}.`);
 	}
 
-	const ignoreSince = args.since === undefined || data.sinceAheadOfSeq;
 	const response: Record<string, unknown> = { seq: data.seq };
 	if (notes.length > 0) {
 		response.note = notes.join(' ');
 	}
-	if (args.include.has('session') && (ignoreSince || data.changed.session)) {
+	if (args.include.has('session') && data.changed.session) {
 		response.session = snapshot.session;
 	}
-	if (args.include.has('editor') && (ignoreSince || data.changed.editor)) {
+	if (args.include.has('editor') && data.changed.editor) {
 		response.editor = snapshot.editor;
 	}
 	if (args.include.has('console')) {
@@ -470,7 +613,7 @@ export function buildUserContextResult(args: IMcpUserContextArgs, data: IMcpUser
 			...(event.error ? { error: { name: event.error.name, message: event.error.message } } : {}),
 		}));
 	}
-	if (args.include.has('notebooks') && (ignoreSince || data.changed.notebooks)) {
+	if (args.include.has('notebooks') && data.changed.notebooks) {
 		response.notebooks = snapshot.notebooks;
 	}
 	if (args.include.has('errors')) {
@@ -495,9 +638,11 @@ export function buildUserContextResult(args: IMcpUserContextArgs, data: IMcpUser
 			// flag results that carry it so the audit file records the call at
 			// full detail regardless of the detail setting.
 			returnedConsoleContent: returnedConsoleContent || undefined,
-			// When event sections were served, the client is caught up: advance
-			// its alert cursor instead of alerting it about what it just read.
-			advanceContextCursor: (args.include.has('console') || args.include.has('errors')) || undefined,
+			// The ledger computed this hint alongside the query (and validates
+			// it again when the session applies it); a narrower response gets
+			// no hint, trading a possibly-repetitive next alert for never
+			// silently un-alerting events the client was owed.
+			advanceContextCursor: data.advanceCursor,
 		},
 	};
 }

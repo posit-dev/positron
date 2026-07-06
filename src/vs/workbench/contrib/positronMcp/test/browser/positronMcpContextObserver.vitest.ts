@@ -10,7 +10,7 @@ import { EditorType } from '../../../../../editor/common/editorCommon.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { IPositronMcpService } from '../../../../../platform/positronMcp/common/positronMcp.js';
-import { McpContextEventInput } from '../../../../../platform/positronMcp/common/positronMcpContext.js';
+import { IMcpConsoleExecutionEvent, McpContextEventInput } from '../../../../../platform/positronMcp/common/positronMcpContext.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import {
@@ -118,7 +118,7 @@ function createObserver(options: { activeEditor?: ICodeEditor } = {}) {
 	});
 
 	// Mutable so tests can simulate a tool call being in flight.
-	const toolService = stubInterface<IPositronMcpToolService>({ activeCaller: undefined });
+	const toolService = stubInterface<IPositronMcpToolService>({ activeToolCall: undefined });
 
 	const observer = new PositronMcpContextObserver(
 		7, mcpService, consoleService, sessionService, editorService, notebookService, toolService, new NullLogService());
@@ -169,6 +169,25 @@ describe('PositronMcpContextObserver', () => {
 			ctx.observer.dispose();
 		});
 
+		it('bounds error message and traceback before they cross the IPC, like code and output', () => {
+			const ctx = createObserver();
+			ctx.didExecuteCode.fire(executedEvent({ code: 'recurse()' }));
+			ctx.runtime.error.fire({
+				...base(LanguageRuntimeMessageType.Error, 'exec-1'),
+				name: 'RecursionError',
+				message: 'x'.repeat(100_000),
+				traceback: Array.from({ length: 3000 }, () => 'y'.repeat(5000)),
+			});
+
+			const [event] = ctx.recorded;
+			expect(event.kind).toBe('console-execution');
+			const error = (event as IMcpConsoleExecutionEvent).error!;
+			expect(error.message.length).toBeLessThanOrEqual(2049);
+			expect(error.traceback.length).toBeLessThanOrEqual(64);
+			expect(error.traceback.every(line => line.length <= 2049)).toBe(true);
+			ctx.observer.dispose();
+		});
+
 		it('ignores silent executions (invisible background inspections)', () => {
 			const ctx = createObserver();
 			ctx.didExecuteCode.fire(executedEvent({ mode: RuntimeCodeExecutionMode.Silent }));
@@ -204,11 +223,14 @@ describe('PositronMcpContextObserver', () => {
 			ctx.observer.dispose();
 		});
 
-		it('flushes still-pending executions on dispose', () => {
+		it('drops still-pending executions on dispose without pushing their content', () => {
+			// Dispose means MCP was turned off (or the window is closing): the
+			// "no console content leaves the renderer while off" guarantee wins
+			// over completeness.
 			const ctx = createObserver();
 			ctx.didExecuteCode.fire(executedEvent({ code: 'while True: pass' }));
 			ctx.observer.dispose();
-			expect(ctx.recorded).toEqual([expect.objectContaining({ code: 'while True: pass', status: 'unknown' })]);
+			expect(ctx.recorded).toEqual([]);
 		});
 	});
 
@@ -225,11 +247,30 @@ describe('PositronMcpContextObserver', () => {
 			ctx.observer.dispose();
 		});
 
-		it('attributes changes made during an in-flight tool call to that caller', () => {
+		it('attributes changes to an in-flight tool call only when that tool plausibly causes them', () => {
 			const ctx = createObserver();
-			(ctx.toolService as { activeCaller: unknown }).activeCaller = { mcpSessionId: 'mcp-1', clientName: 'claude-code' };
+			const toolService = ctx.toolService as { activeToolCall: unknown };
+
+			// open-document plausibly opens a notebook (.ipynb path): attributed.
+			toolService.activeToolCall = { caller: { mcpSessionId: 'mcp-1', clientName: 'claude-code' }, toolName: 'open-document' };
 			ctx.notebookAdd.fire(stubInterface<IPositronNotebookInstance>());
 			expect(ctx.recorded).toEqual([expect.objectContaining({ kind: 'notebook-open', causedByMcpSession: 'mcp-1' })]);
+
+			// A user switching editors during a long execute-code is user
+			// activity, not the agent's -- no attribution.
+			toolService.activeToolCall = { caller: { mcpSessionId: 'mcp-1', clientName: 'claude-code' }, toolName: 'execute-code' };
+			ctx.activeEditorChange.fire();
+			expect(ctx.recorded[1]).toEqual(expect.objectContaining({ kind: 'editor-change', causedByMcpSession: undefined }));
+
+			// open-document plausibly changes the active editor: attributed.
+			toolService.activeToolCall = { caller: { mcpSessionId: 'mcp-1', clientName: 'claude-code' }, toolName: 'open-document' };
+			ctx.activeEditorChange.fire();
+			expect(ctx.recorded[2]).toEqual(expect.objectContaining({ kind: 'editor-change', causedByMcpSession: 'mcp-1' }));
+
+			// ...and plausibly flips the foreground session mid-call (opening an
+			// .ipynb foregrounds its kernel): attributed, no self-echo.
+			ctx.foregroundChange.fire(undefined);
+			expect(ctx.recorded[3]).toEqual(expect.objectContaining({ kind: 'session-change', causedByMcpSession: 'mcp-1' }));
 			ctx.observer.dispose();
 		});
 
@@ -245,7 +286,36 @@ describe('PositronMcpContextObserver', () => {
 				expect(ctx.recorded).toEqual([]);
 				vi.advanceTimersByTime(1100);
 
-				expect(ctx.recorded).toEqual([expect.objectContaining({ kind: 'editor-change', change: 'selection' })]);
+				expect(ctx.recorded).toEqual([expect.objectContaining({ kind: 'editor-change', change: 'selection', causedByMcpSession: undefined })]);
+				ctx.observer.dispose();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('a user selection move within the debounce window outranks an agent-caused one', () => {
+			vi.useFakeTimers();
+			try {
+				const { editor, selection } = fakeCodeEditor();
+				const ctx = createObserver({ activeEditor: editor });
+				const toolService = ctx.toolService as { activeToolCall: unknown };
+
+				// An open-document call moves the selection...
+				toolService.activeToolCall = { caller: { mcpSessionId: 'mcp-1', clientName: 'claude-code' }, toolName: 'open-document' };
+				selection.fire(undefined);
+				// ...then the user moves it before the debounce fires: the
+				// coalesced marker must be the user's so it is never hidden.
+				toolService.activeToolCall = undefined;
+				selection.fire(undefined);
+				vi.advanceTimersByTime(1100);
+				expect(ctx.recorded).toEqual([expect.objectContaining({ change: 'selection', causedByMcpSession: undefined })]);
+
+				// Agent-only moves in the next window attribute to the agent
+				// again (the user-wins latch resets between markers).
+				toolService.activeToolCall = { caller: { mcpSessionId: 'mcp-1', clientName: 'claude-code' }, toolName: 'open-document' };
+				selection.fire(undefined);
+				vi.advanceTimersByTime(1100);
+				expect(ctx.recorded[1]).toEqual(expect.objectContaining({ change: 'selection', causedByMcpSession: 'mcp-1' }));
 				ctx.observer.dispose();
 			} finally {
 				vi.useRealTimers();
