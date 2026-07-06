@@ -123,8 +123,8 @@
   "src/vs/workbench/browser/positronModalDialogs/": ["@:modal"],
   "src/vs/workbench/browser/positronNewFolderFlow/": ["@:new-folder-flow"],
   "src/vs/workbench/browser/positronComponents/": [],
-  "src/vs/workbench/browser/positronList/": [],
-  "src/vs/workbench/browser/positronTree/": [],
+  "src/vs/workbench/browser/positronList/": ["@:packages-pane"],
+  "src/vs/workbench/browser/positronTree/": ["@:connections"],
   "src/vs/workbench/browser/positronViewPane/": [],
   "src/vs/workbench/common/positron/": []
 }

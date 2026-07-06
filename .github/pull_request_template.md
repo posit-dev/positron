@@ -43,14 +43,12 @@ main branch by either pulling or rebasing.
 ### Validation Steps
 
 <!--
-  Positron team members: please add relevant e2e test tags, so the tests can be
-  run when you open this pull request.
+  Positron team members: e2e feature tags are auto-added based on your changed
+  files, so tests run automatically when you open this pull request. Add tags
+  here yourself to run more, or use `@:no-auto-tags` to opt out.
 
   - Instructions: https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
   - Available tags: https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
-
-  e2e feature tags are auto-added based on your changed files. Add tags here to
-  run more, or `@:no-auto-tags` to opt out.
 -->
 
 
