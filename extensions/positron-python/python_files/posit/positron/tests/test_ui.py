@@ -186,6 +186,25 @@ def test_get_packages_installed_attached(
     assert numpy_entry["attached"] is expected_attached
 
 
+def test_get_missing_imports() -> None:
+    """`_get_missing_imports` reports only modules that cannot be imported."""
+    from positron.ui import _get_missing_imports
+
+    # `sys` is stdlib and `numpy` is installed in the test environment; both are
+    # importable. A clearly-bogus name is not importable and is reported missing.
+    result = _get_missing_imports(None, [["sys", "numpy", "garfblatz_not_a_real_module"]])  # type: ignore[arg-type]
+
+    assert result == ["garfblatz_not_a_real_module"]
+
+
+def test_get_missing_imports_invalid_params() -> None:
+    """`_get_missing_imports` rejects params that are not a list of names."""
+    from positron.ui import _get_missing_imports, _InvalidParamsError
+
+    with pytest.raises(_InvalidParamsError):
+        _get_missing_imports(None, ["not", "a", "nested", "list"])  # type: ignore[arg-type]
+
+
 class _StubMetadata:
     """Minimal `Distribution.metadata` stand-in (only the accessors we use)."""
 

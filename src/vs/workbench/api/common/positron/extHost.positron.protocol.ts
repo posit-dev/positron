@@ -13,7 +13,7 @@ import { IEditorContext } from '../../../services/frontendMethods/common/editorC
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -120,7 +120,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$showProfileLanguageRuntime(handle: number): void;
 	$getLaunchInfo(handle: number): Promise<ILanguageRuntimeLaunchInfo | undefined>;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
-	$markRuntimeDiscoveryComplete(): void;
+	$markRuntimeDiscoveryComplete(skipLanguageIds?: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
@@ -135,6 +135,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$searchPackages(handle: number, query: string, token: CancellationToken): Promise<LanguageRuntimePackage[]>;
 	$searchPackageVersions(handle: number, name: string, token: CancellationToken): Promise<string[]>;
 	$getPackageMetadata(handle: number, packageNames: string[], token: CancellationToken): Promise<Record<string, Partial<LanguageRuntimePackage>> | undefined>;
+	$listMissingPackages(handle: number, target: RuntimeMissingPackagesTarget, token: CancellationToken): Promise<RuntimeMissingPackage[]>;
 	$getPackageDetail(handle: number, name: string, token: CancellationToken): Promise<Partial<LanguageRuntimePackage> | undefined>;
 	$getRuntimePickerItems(handle: number): Promise<IRuntimePickerItem[]>;
 	$handleRuntimePickerSelection(handle: number, itemId: string): Promise<string | undefined>;

@@ -45,7 +45,7 @@ test.describe('Packages Pane', {
 		pythonRuntimes.forEach((runtime) => {
 			test(`Python - Install, search, and uninstall package (${runtime})`, { tag: [tags.WIN] },
 				async function ({ app, sessions }) {
-					const { packages } = app.workbench;
+					const { packages, toasts } = app.workbench;
 
 					await sessions.start(runtime);
 
@@ -59,6 +59,8 @@ test.describe('Packages Pane', {
 					// uninstall package and verify it is removed from the list
 					await packages.uninstallPackage('cowsay');
 					await packages.expectPackageNotInList('cowsay');
+
+					await toasts.closeAll();
 				});
 		});
 	});

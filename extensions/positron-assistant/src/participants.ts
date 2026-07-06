@@ -12,17 +12,10 @@ import * as xml from './xml.js';
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isMaxTokensFinishReason, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
-import { DefaultTextProcessor } from './defaultTextProcessor.js';
-import { ReplaceStringProcessor } from './replaceStringProcessor.js';
-import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './log.js';
-import { getRequestTokenUsage, TokenUsage } from './tokens.js';
-import { IChatRequestHandler } from './commands/index.js';
-import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { isFileExcludedFromAI } from './fileExclusion.js';
 import { PromptRenderer } from './promptRender.js';
-import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
 import { resolveToolInputPaths } from './pathUtils.js';
 
 export enum ParticipantID {
@@ -40,9 +33,6 @@ export enum ParticipantID {
 
 	/** The participant used in terminal inline chats. */
 	Terminal = 'positron.assistant.terminal',
-
-	/** The participant used in notebook inline chats. */
-	Notebook = 'positron.assistant.notebook',
 }
 
 export interface ChatRequestData {
@@ -143,7 +133,6 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 abstract class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	abstract id: ParticipantID;
 	private readonly _requests = new Map<string, ChatRequestData>();
-	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, IChatRequestHandler>>();
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -172,35 +161,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			// Get an extended Assistant-specific chat context
 			const assistantContext = await this.getAssistantContext(request, context, response);
 
-			// Select request handler based on the command issued by the user for this request
-			if (request.command) {
-				if (request.command in this.commandRegistry) {
-					const handler = this.commandRegistry[request.command];
-					const handleDefault = () => this.defaultRequestHandler(request, assistantContext, response, token);
-					return await handler(request, assistantContext, response, token, handleDefault);
-				} else {
-					log.warn(`[participant] No command handler registered in participant ${this.id} for command: ${request.command}`);
-				}
-			}
 			return await this.defaultRequestHandler(request, assistantContext, response, token);
 		} finally {
 			this._requests.delete(request.id);
 		}
-	}
-
-	protected get commandRegistry(): Record<string, IChatRequestHandler> {
-		const constructor = this.constructor as typeof PositronAssistantParticipant;
-		if (!PositronAssistantParticipant._commands.has(constructor)) {
-			PositronAssistantParticipant._commands.set(constructor, {});
-		}
-		return PositronAssistantParticipant._commands.get(constructor)!;
-	}
-
-	public static registerCommand(command: string, handler: IChatRequestHandler) {
-		if (!PositronAssistantParticipant._commands.has(this)) {
-			PositronAssistantParticipant._commands.set(this, {});
-		}
-		PositronAssistantParticipant._commands.get(this)![command] = handler;
 	}
 
 	public getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -286,24 +250,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		// The context message is fairly stable during iterative workflows, so it comes before
-		// the more volatile notebook context.
 		const contextInfo = await attachContextInfo(messages);
-
-		// Add notebook context as a separate user message with cache breakpoint.
-		// This is placed AFTER the general context message because notebook state (cells, selection)
-		// changes more frequently than session variables. By placing the most volatile content last,
-		// we maximize cache hits on the stable prefix (system prompt + context message).
-		const notebookContext = await getAttachedNotebookContext(request);
-		if (notebookContext) {
-			const notebookContextContent = serializeNotebookContextAsUserMessage(notebookContext);
-			const notebookMessage = vscode.LanguageModelChatMessage.User([
-				new vscode.LanguageModelTextPart(notebookContextContent),
-				languageModelCacheBreakpointPart(), // Cache breakpoint after notebook context
-			]);
-			messages.push(notebookMessage);
-			log.debug(`[participant] Added notebook context as user message (${notebookContextContent.length} chars)`);
-		}
 
 		// Add the user's prompt.
 		// The user's prompt is the last message in the chat messages.
@@ -312,12 +259,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
 		// Send the request to the language model.
-		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
+		await this.sendLanguageModelRequest(request, response, token, messages, tools);
 
 		return {
 			metadata: {
 				modelId: request.model.id,
-				tokenUsage: tokenUsage,
 				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
 				systemPrompt,
@@ -501,22 +447,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						attachmentPrompts.push(attachmentNode);
 						log.debug(`[context] adding file attachment context: ${attachmentNode.length} characters`);
 					}
-				} else if (value instanceof vscode.Uri && value.scheme === 'scm-history-item') {
-					// The user attached a specific git commit
-					const details = JSON.parse(value.query) as { historyItemId: string; historyItemParentId: string };
-					const diff = await getCommitChanges(value, details.historyItemId, details.historyItemParentId);
-
-					// Add as a reference to the response.
-					response.reference(value);
-
-					// Attach the git commit details.
-					const attachmentNode = xml.node('attachment', diff, {
-						historyItemId: details.historyItemId,
-						historyItemParentId: details.historyItemParentId,
-						description: 'Git commit details',
-					});
-					attachmentPrompts.push(attachmentNode);
-					log.debug(`[context] adding git commit details context: ${attachmentNode.length} characters`);
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
 						// The user attached an image - usually a pasted image or screenshot of the IDE.
@@ -607,7 +537,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
-	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
+	): Promise<void> {
 		if (token.isCancellationRequested) {
 			return;
 		}
@@ -635,11 +565,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		let finishReason: string | undefined;
 		let maxOutputTokens: number | undefined;
 
-		// Create a streaming text processor to allow the model to stream to the chat
-		// response e.g. using a loose XML format.
-		// This will be undefined if the current context does not require a text processor.
-		const textProcessor = this.createTextProcessor(request, response);
-
 		for await (const chunk of modelResponse.stream) {
 			if (token.isCancellationRequested) {
 				break;
@@ -647,7 +572,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
-				await textProcessor.process(chunk.value);
+				response.markdown(chunk.value);
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
 				toolRequests.push(chunk);
 			} else if (chunk instanceof vscode.LanguageModelDataPart) {
@@ -663,25 +588,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		}
 
-		// Flush the text processor, if needed.
-		if (textProcessor) {
-			await textProcessor.flush();
-		}
-
-		// Get actual token usage from the registry
-		const tokenUsage = getRequestTokenUsage(request.id);
-
 		// Warn if the response was truncated due to max output tokens
 		if (isMaxTokensFinishReason(finishReason)) {
-			const maxTokensArg = encodeURIComponent(JSON.stringify(['positron.assistant.maxOutputTokens']));
-			const maxTokensUri = `command:workbench.action.openSettings?${maxTokensArg}`;
 			const overridesArg = encodeURIComponent(JSON.stringify(['positron.assistant.models.overrides']));
 			const overridesUri = `command:workbench.action.openSettings?${overridesArg}`;
 			const tokenLimitSuffix = maxOutputTokens ? ` (${maxOutputTokens} tokens)` : '';
 			const message = new vscode.MarkdownString(
 				`This response may be incomplete because it reached the maximum output token limit${tokenLimitSuffix}. ` +
-				`To allow longer responses, increase [Max Output Tokens](${maxTokensUri}) or ` +
-				`configure [Model Overrides](${overridesUri}) in Settings.`
+				`To allow longer responses, configure [Model Overrides](${overridesUri}) in Settings.`
 			);
 			message.isTrusted = { enabledCommands: ['workbench.action.openSettings'] };
 			response.warning(message);
@@ -717,11 +631,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						chatRequestId: request.id,
 					}, token);
 				} catch (error) {
-					const propagateToolErrors = vscode.workspace.getConfiguration('positron.assistant.toolErrors').get('propagate', false);
-					if (propagateToolErrors) {
-						throw error;
-					}
-
 					const errorMessage = error instanceof Error ? error.message : String(error);
 					log.error(`[tool] Tool ${req.name} threw error: ${errorMessage}`);
 
@@ -748,37 +657,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			];
 			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
 		}
-
-		// Return token usage information
-		return tokenUsage;
-	}
-
-	/**
-	 * Create a streaming text processor for a given request.
-	 *
-	 * The text processor will be given chunks of text from the language model
-	 * and is expected to write to the chat response stream.
-	 *
-	 * @param request The current chat request.
-	 * @param response The chat response stream to write to.
-	 * @returns The appropriate processor for the request.
-	 */
-	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor {
-		const defaultTextProcessor = new DefaultTextProcessor(response);
-
-		// Check if streaming edits are enabled and we're in an editor context
-		if (isStreamingEditsEnabled() && isTextEditRequest(request)) {
-			if (request.location2.selection.isEmpty) {
-				// Process streaming edits to the whole document
-				return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
-			} else {
-				// Process streaming edits to the selected text
-				return new ReplaceSelectionProcessor(request.location2.document.uri, request.location2.selection, response, defaultTextProcessor);
-			}
-		}
-
-		// Process as default text, which may contain warning blocks
-		return defaultTextProcessor;
 	}
 
 	dispose(): void { }
@@ -793,15 +671,10 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Ask,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -816,15 +689,10 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Edit,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -839,15 +707,10 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available
-		const notebookContext = await getAttachedNotebookContext(request);
-
-		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatMode.Agent,
 			request,
-			sessions,
-			notebookContext
+			sessions
 		});
 
 		return prompt.content;
@@ -880,11 +743,10 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
-		const streamingEdits = isStreamingEditsEnabled();
 		const prompt = PromptRenderer.renderModePrompt({
 			mode: positron.PositronChatAgentLocation.Editor,
 			request,
-			streamingEdits
+			streamingEdits: true
 		});
 		return prompt.content;
 	}
@@ -939,28 +801,6 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 
 }
 
-/**
- * The participant used in notebook inline chats.
- *
- * Notebook context is injected as a separate user message in defaultRequestHandler()
- * rather than via getCustomPrompt(). This allows the system prompt to contain only
- * static instructions (cacheable), while dynamic notebook state is added as a user
- * message with its own cache breakpoint.
- */
-export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
-	id = ParticipantID.Notebook;
-
-	/**
-	 * Returns empty string to prevent the parent EditorParticipant from adding
-	 * cell content as if it were a standalone file. Notebook cells should be
-	 * presented as part of the notebook context (handled in defaultRequestHandler),
-	 * not as individual documents with selection/diagnostics.
-	 */
-	override async getCustomPrompt(_request: vscode.ChatRequest): Promise<string> {
-		return '';
-	}
-}
-
 export function registerParticipants(context: vscode.ExtensionContext) {
 	// Register the participants service.
 	const participantService = new ParticipantService();
@@ -971,7 +811,6 @@ export function registerParticipants(context: vscode.ExtensionContext) {
 	participantService.registerParticipant(new PositronAssistantAgentParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantEditorParticipant(context, participantService));
-	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context, participantService));
 	participantService.registerParticipant(new PositronAssistantEditParticipant(context, participantService));
 
 	return participantService;
@@ -993,21 +832,6 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 	return llmsDocument;
 }
 
-/**
- * Whether the experimental streaming edit mode is enabled.
- */
-export function isStreamingEditsEnabled(): boolean {
-	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', true);
-}
-
-/** Processes streaming text. */
-export interface TextProcessor {
-	/** Process a chunk of text. */
-	process(chunk: string): void | Promise<void>;
-
-	/** Process any unhandled text at the end of the stream. */
-	flush(): void | Promise<void>;
-}
 
 /**
  * Add cache breakpoints (for Anthropic prompt caching) to the last few user messages.

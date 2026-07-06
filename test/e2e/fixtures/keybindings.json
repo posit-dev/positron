@@ -144,7 +144,7 @@
     },
     {
         "key": "cmd+j r",
-        "command": "positron-assistant.configureProviders" // Configure Language Model Providers
+        "command": "authentication.configureProviders" // Configure Language Model Providers
     },
     // Custom keybinding for command palette to avoid browser shortcut conflicts.
     // The default Ctrl+Shift+P opens private browsing in Firefox, so we use a

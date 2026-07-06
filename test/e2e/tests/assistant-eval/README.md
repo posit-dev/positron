@@ -1,6 +1,6 @@
 # Positron: LLM Eval Test Catalog
 
-> 9 test cases · Auto-generated on 2026-05-26T20:27:20.941Z
+> 3 test cases · Auto-generated on 2026-07-06T10:46:32.975Z
 
 ## Hallucination
 
@@ -37,186 +37,6 @@ Extract the animal's primary color from their physical characteristics.
 
 </details>
 
-<details>
-<summary><strong>r-forested-hallucination</strong> · Agent · Ensure LLM does not hallucinate column names fo...</summary>
-
-### Intent
-
-Ensure LLM does not hallucinate column names for unknown R packages
-
-### User prompt
-
-```text
-Load the forested package and make some plots of the forested data
-```
-
-### Criteria
-
-#### Required
-
-- Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification. Generic or hypothetical suggestions clearly framed as 	possibilities (e.g., "common plots might include...") do NOT count as confident assumptions. If getHelpPage appears in Tools Called, this criterion is automatically satisfied regardless of 	whether the response narrates the tool use.
-- Takes at least ONE verification approach: (a) `getHelpPage` appears in `Tools Called` section — this alone is sufficient to satisfy this criterion AND prevent a fail-if trigger, even if 	the response does not explicitly acknowledge the tool call, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about 	uncertainty
-
-#### Nice to have
-
-- Loads the forested package with library(forested)
-- Visualization code is appropriate for the actual data structure (if known) or uses generic approaches
-- Explanations clearly distinguish between known facts and assumptions
-- Code is well-structured and would run correctly
-
-#### Fail if
-
-- Confidently assumes specific column names AND no verification approach was used (i.e., getHelpPage does not appear in Tools Called, no exploratory code is present, and no explicit caveats 	about uncertainty are included). A response that calls getHelpPage passes this criterion regardless of whether it narrates the tool use. Hypothetical suggestions explicitly conditioned on 	exploring the data first are not considered confident assumptions.
-
-</details>
-
-## Notebooks
-
-<details>
-<summary><strong>py-notebook-get-cells</strong> · Agent · Ensure getNotebookInfo is called for large note...</summary>
-
-### Intent
-
-Ensure getNotebookInfo is called for large notebooks
-
-### User prompt
-
-```text
-What is the value calculated in cell 21 (index 20) of my notebook?
-```
-
-### Criteria
-
-#### Required
-
-- The `getNotebookInfo` tool must appear in the "Tools Called:" section (required because large notebooks use sliding window)
-- Reports the correct value from cell 21 (index 20), which is 200, since it calculates x * 10 where x = 20)
-
-#### Nice to have
-
-- Explains what the code does or references the calculation
-- Does not hallucinate values from cells that don't exist
-- Correctly identifies cell 21 (index 20)
-
-</details>
-
-<details>
-<summary><strong>r-notebook-automatic-context</strong> · Agent · Ensure small notebooks have automatic context w...</summary>
-
-### Intent
-
-Ensure small notebooks have automatic context without tool calls
-
-### User prompt
-
-```text
-What is the total revenue shown in my notebook? Just tell me the answer, don't add or modify any cells.
-```
-
-### Criteria
-
-#### Required
-
-- Correctly identifies the total revenue as 145,500 (sum of 45000 + 52000 + 48500)
-- Response demonstrates the assistant can READ notebook contents by mentioning at least 2 of: specific revenue values (45000, 52000, 48500), months (January, February, March), or cell reference (cell 0)
-- The `editNotebook` tool must NOT appear in "Tools Called:" (we asked NOT to edit)
-
-#### Nice to have
-
-- Provides a clear, accurate calculation or explanation showing how the total was derived
-- Does not hallucinate columns or values not present in the notebook
-
-</details>
-
-<details>
-<summary><strong>r-notebook-create</strong> · Agent · Ensure createNotebook tool is used to create ne...</summary>
-
-### Intent
-
-Ensure createNotebook tool is used to create new notebooks
-
-### User prompt
-
-```text
-Create a new R notebook for me.
-```
-
-### Criteria
-
-#### Required
-
-- The `createNotebook` tool must appear in the "Tools Called:" section
-- Creates an R notebook (not Python)
-
-#### Nice to have
-
-- Confirms the notebook was created
-- Offers to help add content or explains next steps
-- Does not create a Python notebook when R was requested
-
-</details>
-
-<details>
-<summary><strong>r-notebook-edit-cells</strong> · Agent · Ensure editNotebook is used when editing notebo...</summary>
-
-### Intent
-
-Ensure editNotebook is used when editing notebook cells
-
-### User prompt
-
-```text
-Fix the error in cell 2 of my notebook.
-```
-
-### Criteria
-
-#### Required
-
-- The `editNotebook` tool must appear in the "Tools Called:" section
-- The `editFile` or `positron_editFile_internal` tool must NOT appear (wrong tool for notebooks)
-
-#### Nice to have
-
-- Correctly identifies the R error (object "undefined_variable" not found)
-- Provides a reasonable fix (define the variable, use a different value, or remove the reference)
-- Fix is applied to the correct cell (cell index 1, which is the second cell)
-- Explanation of what was wrong and how it was fixed
-
-#### Fail if
-
-- Uses editFile instead of editNotebook (indicates the assistant did not correctly identify the notebook context)
-
-</details>
-
-<details>
-<summary><strong>r-notebook-run-cells</strong> · Agent · Ensure executeNotebook is used to execute noteb...</summary>
-
-### Intent
-
-Ensure executeNotebook is used to execute notebook cells
-
-### User prompt
-
-```text
-Run cell 2 of my notebook and tell me what the output is.
-```
-
-### Criteria
-
-#### Required
-
-- The `executeNotebook` tool must appear in the "Tools Called:" section
-- Reports the correct output value (15, since x=10 and the code is result <- x + 5)
-
-#### Nice to have
-
-- Explains what the code does (adds x + 5 where x is 10)
-- Confirms the cell was executed successfully
-- Does not use editNotebook when only asked to run (should use executeNotebook)
-
-</details>
-
 ## Tools
 
 <details>
@@ -236,7 +56,7 @@ Add a method to return today's date.
 
 #### Required
 
-- The `positron_editFile_internal` tool must appear in the "Tools Called:" section
+- The `editFile` tool must appear in the "Tools Called:" section
 - Code uses a valid Python date approach (datetime module or similar)
 
 #### Nice to have
