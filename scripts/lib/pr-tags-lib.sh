@@ -123,6 +123,53 @@ positron_dir_of() {
 	printf '%s\n' "$dir"
 }
 
+# owner_root_dir_of <path>
+# Like positron_dir_of, but truncates to the first-level directory under a
+# KNOWN Positron root regardless of whether that directory's name contains
+# "positron". Naming alone can't distinguish Positron-owned code from upstream
+# VS Code code once "positron" isn't in the path, so this is only ever used
+# paired with is_posit_owned_file (a copyright-header check) below -- never on
+# its own, since every upstream contrib/service dir would also match. Roots
+# mirror the actual root shapes used throughout e2e-tag-paths-map.json; extend
+# the case statement if a new root shape shows up.
+owner_root_dir_of() {
+	local path="$1" dir
+	case "$path" in
+		extensions/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(extensions/[^/]+)/.*#\1/#p')" ;;
+		src/vs/workbench/contrib/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(src/vs/workbench/contrib/[^/]+)/.*#\1/#p')" ;;
+		src/vs/workbench/services/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(src/vs/workbench/services/[^/]+)/.*#\1/#p')" ;;
+		src/vs/workbench/browser/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(src/vs/workbench/browser/[^/]+)/.*#\1/#p')" ;;
+		src/vs/editor/contrib/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(src/vs/editor/contrib/[^/]+)/.*#\1/#p')" ;;
+		src/vs/platform/*)
+			dir="$(printf '%s\n' "$path" | sed -nE 's#^(src/vs/platform/[^/]+)/.*#\1/#p')" ;;
+		*) return 0 ;;
+	esac
+	[[ -z "$dir" ]] && return 0
+	printf '%s' "$dir" | grep -qiE '(^|/)(test|tests|[a-z-]*-tests?)(/|$)' && return 0
+	printf '%s\n' "$dir"
+}
+
+# is_posit_owned_file <file>
+# Echoes "true" iff the file's header carries a Posit copyright notice --
+# the same heuristic scripts/file-origin.sh uses, minus its "positron in path"
+# shortcut, since this is specifically for files where the path DOESN'T
+# already say positron. A missing file (e.g. deleted before this check runs,
+# or a path that was never checked out) echoes "false", never errors.
+is_posit_owned_file() {
+	local file="$1"
+	[[ -f "$file" ]] || { echo false; return 0; }
+	if head -8 "$file" 2>/dev/null | grep -qi "Copyright.*Posit"; then
+		echo true
+	else
+		echo false
+	fi
+}
+
 # valid_enum_tags <enum_file>
 # Echoes the newline-separated, unique set of tag strings declared in the
 # TestTags enum (test-tags.ts). Single source of truth for "is this a real
@@ -163,6 +210,13 @@ split_valid_invalid_tags() {
 # Echoes (newline-separated, unique) the Positron source dirs this PR touches
 # that have NO key in the map (even a [] value counts as mapped). Uses
 # positron_dir_of for the dir rule, so it stays in lockstep with the guardrail.
+#
+# Naming-convention fallback: if positron_dir_of finds no "positron" segment
+# (e.g. a legacy dir like languageRuntimeService/), fall back to
+# owner_root_dir_of + a copyright-header check. Without this, a Positron-owned
+# file that doesn't follow the naming convention is invisible to this check
+# entirely -- not just unmapped, undetectable -- and stays that way until
+# someone finds it by hand (as happened with #14604).
 find_unmapped_positron_dirs() {
 	local changed="$1" map_file="$2"
 	local file dir
@@ -170,7 +224,11 @@ find_unmapped_positron_dirs() {
 	while IFS= read -r file; do
 		[[ -z "$file" ]] && continue
 		dir="$(positron_dir_of "$file")"
-		[[ -z "$dir" ]] && continue
+		if [[ -z "$dir" ]]; then
+			dir="$(owner_root_dir_of "$file")"
+			[[ -z "$dir" ]] && continue
+			[[ "$(is_posit_owned_file "$file")" == "true" ]] || continue
+		fi
 		if ! jq -e --arg k "$dir" 'has($k)' "$map_file" >/dev/null 2>&1; then
 			out+=("$dir")
 		fi

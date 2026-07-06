@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -244,6 +244,76 @@ assert_eq "unmapped editor-contrib dir flagged" "src/vs/editor/contrib/positronF
 # Test/build positron dirs are never flagged (not feature source).
 assert_eq "test-path positron dir ignored" "" \
 	"$(find_unmapped_positron_dirs "src/vs/base/test/common/positron/x.ts" "$MAP2")"
+
+# --- owner_root_dir_of (pure, no FS access; naming-convention-independent) ---
+assert_eq "owner_root_dir_of: contrib, no positron in name" "src/vs/workbench/contrib/markdown/" \
+	"$(owner_root_dir_of "src/vs/workbench/contrib/markdown/common/x.ts")"
+assert_eq "owner_root_dir_of: services, no positron in name" "src/vs/workbench/services/runtimeSession/" \
+	"$(owner_root_dir_of "src/vs/workbench/services/runtimeSession/common/x.ts")"
+assert_eq "owner_root_dir_of: editor/contrib" "src/vs/editor/contrib/foo/" \
+	"$(owner_root_dir_of "src/vs/editor/contrib/foo/browser/x.ts")"
+assert_eq "owner_root_dir_of: extensions" "extensions/authentication/" \
+	"$(owner_root_dir_of "extensions/authentication/src/x.ts")"
+assert_eq "owner_root_dir_of: browser" "src/vs/workbench/browser/foo/" \
+	"$(owner_root_dir_of "src/vs/workbench/browser/foo/x.ts")"
+assert_eq "owner_root_dir_of: platform" "src/vs/platform/foo/" \
+	"$(owner_root_dir_of "src/vs/platform/foo/common/x.ts")"
+assert_eq "owner_root_dir_of: outside known roots -> empty" "" \
+	"$(owner_root_dir_of "src/vs/base/common/uri.ts")"
+# Matches positron_dir_of's own convention: a test/ subfolder NESTED inside a
+# real feature dir is not excluded (positron_dir_of doesn't exclude
+# "positronFoo/test/browser/x.ts" either) -- only a test/ dir AT the root
+# level is, since that's VS Code's shared test-fixture location, not a feature.
+assert_eq "owner_root_dir_of: first-level test dir -> empty" "" \
+	"$(owner_root_dir_of "src/vs/workbench/contrib/test/common/x.ts")"
+assert_eq "owner_root_dir_of: non-src/extensions -> empty" "" \
+	"$(owner_root_dir_of "docs/x.md")"
+
+# --- is_posit_owned_file ---
+POSIT_FILE="$(mktemp)"
+cat > "$POSIT_FILE" <<'HDR'
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+HDR
+MSFT_FILE="$(mktemp)"
+cat > "$MSFT_FILE" <<'HDR'
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+HDR
+assert_eq "is_posit_owned_file: Posit header" "true" "$(is_posit_owned_file "$POSIT_FILE")"
+assert_eq "is_posit_owned_file: Microsoft header" "false" "$(is_posit_owned_file "$MSFT_FILE")"
+assert_eq "is_posit_owned_file: missing file" "false" "$(is_posit_owned_file "/nonexistent/file.ts")"
+
+# --- find_unmapped_positron_dirs: naming-convention fallback ---
+# A Positron-owned file whose directory has no "positron" in its name is
+# invisible to positron_dir_of alone; owner_root_dir_of + is_posit_owned_file
+# should still catch it if unmapped. A same-shaped upstream (Microsoft) file
+# must NOT be flagged -- naming alone can't tell them apart, so the copyright
+# check is what keeps this from flagging every ordinary upstream contrib dir.
+# Uses a synthetic tree so this doesn't depend on real repo file contents.
+FALLBACK_ROOT="$(mktemp -d)"
+mkdir -p "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime" "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing"
+cat > "$FALLBACK_ROOT/src/vs/workbench/contrib/legacyRuntime/x.ts" <<'HDR'
+/*
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ */
+HDR
+cat > "$FALLBACK_ROOT/src/vs/workbench/contrib/upstreamThing/y.ts" <<'HDR'
+/*
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ */
+HDR
+EMPTY_MAP="$(mktemp)"
+echo '{}' > "$EMPTY_MAP"
+FALLBACK_RESULT="$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "$(printf 'src/vs/workbench/contrib/legacyRuntime/x.ts\nsrc/vs/workbench/contrib/upstreamThing/y.ts')" "$EMPTY_MAP")"
+assert_eq "fallback: Posit-owned non-positron-named dir flagged, upstream one isn't" \
+	"src/vs/workbench/contrib/legacyRuntime/" "$FALLBACK_RESULT"
+# A file that no longer exists on disk (e.g. a stale path) can't be checked
+# for a copyright header, so it's skipped rather than guessed at.
+assert_eq "fallback: nonexistent file not flagged" "" \
+	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/legacyRuntime/gone.ts" "$EMPTY_MAP")"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
