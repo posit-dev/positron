@@ -1,0 +1,9 @@
+{
+	"name": "test-tag-map-guesser-action",
+	"private": true,
+	"type": "module",
+	"description": "GH composite action that asks Claude to guess e2e tags for dirs missing from test-tag-paths-map.json.",
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.52.0"
+	}
+}

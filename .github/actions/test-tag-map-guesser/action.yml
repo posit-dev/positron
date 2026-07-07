@@ -1,0 +1,55 @@
+name: "Test Tag Map Guesser"
+description: "Ask Claude to guess likely e2e tags for Positron dirs missing from test-tag-paths-map.json."
+inputs:
+  missing-dirs-file:
+    description: "Path to a JSON array of missing dir paths (from check-test-tag-map.sh --json's 'missing' field)"
+    required: true
+  valid-tags-file:
+    description: "Path to a newline-separated list of valid tag values (from pr-tags-lib.sh's valid_enum_tags)"
+    required: true
+  map-file:
+    description: "Path to test-tag-paths-map.json, given to the model as few-shot precedent for tagging granularity"
+    required: true
+  repo-root:
+    description: "Repo checkout root, used to list each missing dir's files for context"
+    required: true
+  anthropic-api-key:
+    description: "Anthropic API key (resolved from 1Password by the caller)"
+    required: true
+  model:
+    description: "Anthropic model identifier. Must be a concrete model ID, not a tier alias -- this action calls the Messages API directly, not the Claude Agent SDK, which is the only thing here that resolves aliases like 'opus'."
+    required: false
+    default: "claude-haiku-4-5-20251001"
+  output-file:
+    description: "Where to write the guesses JSON: { \"<dir>\": [\"@:tag\", ...], ... }"
+    required: true
+outputs:
+  guess-count:
+    description: "Number of dirs a non-empty tag guess was made for"
+    value: ${{ steps.guess.outputs.guess-count }}
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: "20"
+
+    - name: Install action dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund
+
+    - name: Guess tags
+      id: guess
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        MISSING_DIRS_FILE: ${{ inputs.missing-dirs-file }}
+        VALID_TAGS_FILE: ${{ inputs.valid-tags-file }}
+        MAP_FILE: ${{ inputs.map-file }}
+        REPO_ROOT: ${{ inputs.repo-root }}
+        MODEL: ${{ inputs.model }}
+        OUTPUT_FILE: ${{ inputs.output-file }}
+      run: node guess.mjs

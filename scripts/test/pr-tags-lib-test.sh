@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -212,6 +212,53 @@ if printf '%s' "$STALE_OUTPUT" | grep -qF "scripts/lib/pr-tags-lib.sh"; then
 else
 	echo "PASS: guardrail leaves a genuinely-tracked entry alone"
 fi
+
+# --json emits a machine-readable envelope instead of the human report, for
+# the auto-fix workflow to consume. One entry exercises stale + invalid_tags
+# together; missing[] is left unasserted on content (the real repo tree makes
+# it large against this near-empty map) beyond "is an array".
+JSON_MAP="$(mktemp)"
+cat > "$JSON_MAP" <<'JSON'
+{
+  "scripts/lib/pr-tags-lib.sh": [],
+  "definitely/not/a/real/path/": ["@:not-a-real-tag"]
+}
+JSON
+JSON_OUTPUT="$(MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json 2>&1)"
+if printf '%s' "$JSON_OUTPUT" | jq -e '.stale == ["definitely/not/a/real/path/"]' >/dev/null 2>&1; then
+	echo "PASS: --json reports the stale entry"
+else
+	echo "FAIL: --json should report the stale entry"; fail=1
+fi
+if printf '%s' "$JSON_OUTPUT" | jq -e '.invalid_tags == ["@:not-a-real-tag"]' >/dev/null 2>&1; then
+	echo "PASS: --json reports the invalid tag"
+else
+	echo "FAIL: --json should report the invalid tag"; fail=1
+fi
+if printf '%s' "$JSON_OUTPUT" | jq -e '.missing | type == "array" and length > 0' >/dev/null 2>&1; then
+	echo "PASS: --json reports missing as a non-empty array"
+else
+	echo "FAIL: --json should report missing as a non-empty array"; fail=1
+fi
+if MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json >/dev/null 2>&1; then
+	echo "FAIL: --json should still exit non-zero on drift"; fail=1
+else
+	echo "PASS: --json still exits non-zero on drift"
+fi
+if MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json --warn-only >/dev/null 2>&1; then
+	echo "PASS: --json --warn-only exits 0"
+else
+	echo "FAIL: --json --warn-only should exit 0"; fail=1
+fi
+EMPTY_JSON_MAP="$(mktemp)"
+echo '{}' > "$EMPTY_JSON_MAP"
+EMPTY_JSON_OUTPUT="$(MAP_FILE="$EMPTY_JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json --tags-only 2>&1)"
+if printf '%s' "$EMPTY_JSON_OUTPUT" | jq -e '. == {missing: [], stale: [], invalid_tags: []}' >/dev/null 2>&1; then
+	echo "PASS: --json --tags-only on an empty map reports all-empty arrays"
+else
+	echo "FAIL: --json --tags-only on an empty map should report all-empty arrays"; fail=1
+fi
+rm -f "$JSON_MAP" "$EMPTY_JSON_MAP"
 
 # --tags-only still fails on a map tag that isn't a real TestTags member.
 TAGS_ONLY_MAP="$(mktemp)"
@@ -424,6 +471,88 @@ else
 	echo "FAIL: guardrail should flag the tracked-but-unmapped dir"; fail=1
 fi
 rm -rf "$CRUFT_ROOT" "$CRUFT_MAP"
+
+# --- apply-test-tag-map-fixes.mjs ---
+# Node (not bash/jq) because the map is hand-curated with blank-line grouping
+# that a jq round-trip would flatten -- see the script's own header comment.
+APPLY_SCRIPT="$HERE/../apply-test-tag-map-fixes.mjs"
+APPLY_DIR="$(mktemp -d)"
+cat > "$APPLY_DIR/map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
+
+  "extensions/positron-gone/": [],
+  "extensions/positron-real/": ["@:reticulate"]
+}
+JSON
+echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
+echo '{"src/vs/workbench/contrib/positronNewThing/": ["@:console", "@:not-a-real-tag"]}' > "$APPLY_DIR/guesses.json"
+printf '@:console\n@:plots\n@:reticulate\n' > "$APPLY_DIR/valid-tags.txt"
+APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" --guesses "$APPLY_DIR/guesses.json" --valid-tags "$APPLY_DIR/valid-tags.txt" 2>&1)"
+if node -e "JSON.parse(require('fs').readFileSync('$APPLY_DIR/map.json','utf8')); console.log('ok')" >/dev/null 2>&1; then
+	echo "PASS: apply script leaves valid JSON behind"
+else
+	echo "FAIL: apply script should leave valid JSON behind"; fail=1
+fi
+if grep -qF '"extensions/positron-gone/"' "$APPLY_DIR/map.json"; then
+	echo "FAIL: apply script should remove the stale entry"; fail=1
+else
+	echo "PASS: apply script removes the stale entry"
+fi
+# The removed entry opened its blank-line-separated group -- the group
+# boundary before "positron-real" must survive even though the entry that
+# used to carry it is gone (regression check for the pendingBlank carry-over).
+if [[ "$(grep -c '^$' "$APPLY_DIR/map.json")" -eq 2 ]]; then
+	echo "PASS: apply script preserves the blank-line group boundary after removing its first entry"
+else
+	echo "FAIL: apply script should preserve two blank-line group boundaries (one original, one before the new group)"; fail=1
+fi
+if grep -qF '"src/vs/workbench/contrib/positronNewThing/": ["@:console"]' "$APPLY_DIR/map.json"; then
+	echo "PASS: apply script adds the guessed dir with the invalid tag dropped"
+else
+	echo "FAIL: apply script should add the guessed dir, keeping only the valid tag"; fail=1
+fi
+if printf '%s' "$APPLY_OUTPUT" | grep -q "dropped invalid guessed tag"; then
+	echo "PASS: apply script logs the dropped invalid tag"
+else
+	echo "FAIL: apply script should log the dropped invalid tag"; fail=1
+fi
+cp "$APPLY_DIR/map.json" "$APPLY_DIR/map.before-noop.json"
+NOOP_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" 2>&1)"
+if printf '%s' "$NOOP_OUTPUT" | grep -qF '"added":[],"removed":[]'; then
+	echo "PASS: apply script reports no-op with no stale/guesses args"
+else
+	echo "FAIL: apply script should report a no-op with no stale/guesses args"; fail=1
+fi
+if diff -q "$APPLY_DIR/map.before-noop.json" "$APPLY_DIR/map.json" >/dev/null; then
+	echo "PASS: apply script leaves the file untouched on a no-op"
+else
+	echo "FAIL: apply script should not rewrite the file when there's nothing to do"; fail=1
+fi
+
+# Malformed map (multi-line array value) doesn't match the established
+# one-entry-per-line format -- the script must refuse to touch it rather than
+# guess at an unfamiliar shape and risk corrupting it.
+cat > "$APPLY_DIR/bad-map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": [
+    "@:console"
+  ]
+}
+JSON
+cp "$APPLY_DIR/bad-map.json" "$APPLY_DIR/bad-map.orig.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --stale "$APPLY_DIR/stale.json" >/dev/null 2>&1; then
+	echo "FAIL: apply script should refuse a map with a multi-line array value"; fail=1
+else
+	echo "PASS: apply script refuses a map with a multi-line array value"
+fi
+if diff -q "$APPLY_DIR/bad-map.orig.json" "$APPLY_DIR/bad-map.json" >/dev/null; then
+	echo "PASS: apply script leaves the malformed map untouched on refusal"
+else
+	echo "FAIL: apply script should not modify the malformed map it refused to touch"; fail=1
+fi
+rm -rf "$APPLY_DIR"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

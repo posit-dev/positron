@@ -8,6 +8,15 @@ name: "Weekly: Test Tag Map Check"
 # state, not just what one PR touched, so a per-PR gate would fail unrelated
 # PRs over drift they didn't cause. A weekly cadence is enough since neither
 # problem gets more urgent by sitting a few more days.
+#
+# On drift, auto-fix opens (or updates) a PR like any other: stale entries are
+# removed deterministically, and missing dirs get an LLM-guessed tag list
+# (Claude, via test-tag-map-guesser) as a starting point for a human to review
+# -- nothing here merges on its own. A hallucinated tag can never reach the
+# map: apply-test-tag-map-fixes.mjs drops any guessed tag that isn't a real
+# TestTags member. Invalid map tags (a typo, not drift) are surfaced but never
+# auto-fixed -- that's a real error in the PR that introduced it, not
+# something to paper over with a guess.
 
 on:
   schedule:
@@ -15,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       dryrun:
-        description: 'Dry run: run the check, but skip the Slack notification.'
+        description: 'Dry run: detect drift and compute fixes, but skip commit/push/PR/Slack.'
         type: boolean
         default: false
 
@@ -34,26 +43,247 @@ jobs:
           bash scripts/check-test-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
           exit "${PIPESTATUS[0]}"
 
+  auto-fix:
+    name: 'Auto-fix map drift'
+    runs-on: ubuntu-latest
+    needs: [check-map]
+    if: always() && needs.check-map.result == 'failure'
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
+    steps:
+      - name: Generate POSITRON_BOT token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.bot-token.outputs.token }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "positron-bot[bot]"
+          git config user.email "positron-bot[bot]@users.noreply.github.com"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Detect existing auto-fix PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          PR_INFO=$(gh pr list --base main --state open \
+            --json number,url,headRefName,reviewDecision \
+            --jq '[.[] | select(.headRefName | startswith("automated/test-tag-map-drift"))] | first // empty')
+          if [ -z "$PR_INFO" ]; then
+            echo "No existing auto-fix PR found; a new one will be created if needed."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r .number)
+          PR_URL=$(echo "$PR_INFO" | jq -r .url)
+          PR_BRANCH=$(echo "$PR_INFO" | jq -r .headRefName)
+          PR_REVIEW=$(echo "$PR_INFO" | jq -r '.reviewDecision // ""')
+          echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
+
+          # Same review-safety check as the bootstrap-extensions auto-update PR
+          # (.github/workflows/extensions-check-nightly.yml): any human signal
+          # (review comment, issue comment, non-bot commit, or a review
+          # decision) means someone may have hand-corrected a tag guess, so add
+          # commits on top instead of force-pushing over their work.
+          BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
+          REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
+          ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
+          NON_BOT_COMMITS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" \
+            --jq '[.[] | select((.author.type // "User") != "Bot")] | length')
+          if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$ISSUE_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ -n "$PR_REVIEW" ]; then
+            MODE=additive
+          else
+            MODE=reset
+          fi
+          echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, issue comments: $ISSUE_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
+          {
+            echo "exists=true"
+            echo "pr_number=$PR_NUMBER"
+            echo "pr_url=$PR_URL"
+            echo "pr_branch=$PR_BRANCH"
+            echo "mode=$MODE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out existing branch
+        if: steps.detect.outputs.exists == 'true'
+        env:
+          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
+          MODE: ${{ steps.detect.outputs.mode }}
+        run: |
+          git fetch origin "$PR_BRANCH" main
+          git checkout "$PR_BRANCH"
+          if [ "$MODE" = "reset" ]; then
+            echo "Resetting $PR_BRANCH to origin/main; drift will be recomputed from scratch."
+            git reset --hard origin/main
+          fi
+
+      - name: Compute drift
+        id: drift
+        run: |
+          bash scripts/check-test-tag-map.sh --json > drift.json || true
+          jq '.missing' drift.json > missing.json
+          jq '.stale' drift.json > stale.json
+          # shellcheck source=/dev/null
+          source scripts/lib/pr-tags-lib.sh
+          valid_enum_tags test/e2e/infra/test-runner/test-tags.ts > valid-tags.txt
+          echo "missing_count=$(jq 'length' missing.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Load secret
+        if: steps.drift.outputs.missing_count != '0'
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Guess tags for missing dirs
+        if: steps.drift.outputs.missing_count != '0'
+        uses: ./.github/actions/test-tag-map-guesser
+        with:
+          missing-dirs-file: missing.json
+          valid-tags-file: valid-tags.txt
+          map-file: .github/workflows/test-tag-paths-map.json
+          repo-root: ${{ github.workspace }}
+          anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
+          output-file: guesses.json
+
+      - name: Apply fixes
+        id: apply
+        run: |
+          [ -f guesses.json ] || echo '{}' > guesses.json
+          RESULT=$(node scripts/apply-test-tag-map-fixes.mjs \
+            --map .github/workflows/test-tag-paths-map.json \
+            --stale stale.json \
+            --guesses guesses.json \
+            --valid-tags valid-tags.txt)
+          echo "$RESULT"
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push
+        id: push
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          EXISTS: ${{ steps.detect.outputs.exists }}
+          MODE: ${{ steps.detect.outputs.mode }}
+          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
+          DRYRUN: ${{ inputs.dryrun }}
+        run: |
+          if [ "$EXISTS" = "true" ]; then
+            BRANCH="$PR_BRANCH"
+            git add .github/workflows/test-tag-paths-map.json
+            if git diff --staged --quiet; then
+              echo "No auto-fixable changes -- existing PR untouched (or nothing needed fixing)."
+              exit 0
+            fi
+            if [ "$DRYRUN" = "true" ]; then
+              echo "[dryrun] Would commit and $( [ "$MODE" = "reset" ] && echo "force-" )push to existing branch $BRANCH ($MODE)."
+              git --no-pager diff --staged
+              exit 0
+            fi
+            git commit -m "chore: auto-fix test tag map drift"
+            if [ "$MODE" = "reset" ]; then
+              git push --force-with-lease origin "$BRANCH"
+            else
+              git push origin "$BRANCH"
+            fi
+          else
+            BRANCH="automated/test-tag-map-drift-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$BRANCH"
+            git add .github/workflows/test-tag-paths-map.json
+            if git diff --staged --quiet; then
+              echo "No auto-fixable changes -- skipping PR."
+              exit 0
+            fi
+            if [ "$DRYRUN" = "true" ]; then
+              echo "[dryrun] Would commit and push new branch $BRANCH."
+              git --no-pager diff --staged
+              exit 0
+            fi
+            git commit -m "chore: auto-fix test tag map drift"
+            git push origin "$BRANCH"
+          fi
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update pull request
+        id: create-pr
+        if: steps.push.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          BRANCH: ${{ steps.push.outputs.branch }}
+          EXISTS: ${{ steps.detect.outputs.exists }}
+          EXISTING_PR_NUMBER: ${{ steps.detect.outputs.pr_number }}
+          EXISTING_PR_URL: ${{ steps.detect.outputs.pr_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULT: ${{ steps.apply.outputs.result }}
+        run: |
+          ADDED=$(echo "$RESULT" | jq -r '.added | if length > 0 then map("- `" + . + "`") | join("\n") else "(none)" end')
+          REMOVED=$(echo "$RESULT" | jq -r '.removed | if length > 0 then map("- `" + . + "`") | join("\n") else "(none)" end')
+          BODY="### Summary
+          Auto-fix for test-tag-paths-map.json drift found by the [weekly check](${RUN_URL}).
+
+          **Added (LLM-guessed tags -- please verify):**
+          ${ADDED}
+
+          **Removed (stale, no longer tracked):**
+          ${REMOVED}
+
+          ### QA Notes
+          Tag guesses come from Claude and may be wrong or incomplete -- check them against the dir's actual e2e coverage before merging.
+
+          _This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._"
+          if [ "$EXISTS" = "true" ]; then
+            gh pr edit "$EXISTING_PR_NUMBER" --body "$BODY" >/dev/null
+            echo "Updated existing PR: $EXISTING_PR_URL"
+            echo "pr_url=$EXISTING_PR_URL" >> "$GITHUB_OUTPUT"
+          else
+            PR_URL=$(gh pr create --base main --head "$BRANCH" \
+              --title "chore: auto-fix test tag map drift" \
+              --body "$BODY")
+            echo "Created new PR: $PR_URL"
+            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          fi
+
   slack-notification:
     name: 'Send Slack notification'
     runs-on: ubuntu-latest
-    needs: [check-map]
-    # A single-job workflow doesn't need midleman/slack-workflow-status's
-    # multi-job summary -- a plain custom message reads better here.
+    needs: [check-map, auto-fix]
+    # A single-job-worth-of-signal notification doesn't need
+    # midleman/slack-workflow-status's multi-job summary -- a plain custom
+    # message reads better here.
     if: always() && needs.check-map.result == 'failure' && inputs.dryrun != true
     steps:
       - name: Notify Slack
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
         run: |
+          if [ -n "$PR_URL" ]; then
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|a PR> -- please review the tag guesses"
+          else
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix couldn't resolve it (likely an invalid tag needing a manual fix) · <${RUN_URL}|view run>"
+          fi
           PAYLOAD=$(jq -n \
             --arg channel "#positron-dev" \
-            --arg run_url "$RUN_URL" \
-            '{
-              channel: $channel,
-              text: ("⚠️ *Test tag map has drifted* · <" + $run_url + "|view run>")
-            }')
+            --arg text "$TEXT" \
+            '{channel: $channel, text: $text}')
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
