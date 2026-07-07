@@ -216,11 +216,16 @@ export class Workbench extends Layout {
 		const instantiationService = new InstantiationService(serviceCollection, true);
 
 		// --- Start Positron ---
-		// The hover delegate factory must be registered before any workbench/layout
-		// components are constructed, otherwise they capture a no-op hover delegate and
-		// never show tooltips (e.g. view/sidebar header action buttons). Upstream registers
-		// this later in `startup()`, but Positron eagerly initializes React services below,
-		// which transitively constructs UI, so we must register it here first. See #13854.
+		// Register the hover delegate factory before initializing React services.
+		//
+		// Upstream registers this in `startup()` (see the identical call there),
+		// but Positron eagerly instantiates PositronReactServices just below, which
+		// pulls in ~50 services whose constructors build UI (view/sidebar header
+		// action buttons, top action bar) that captures the hover delegate at
+		// construction time. Registering here ensures they capture the real delegate
+		// instead of the no-op default. The upstream `startup()` call re-runs this
+		// harmlessly (idempotent overwrite); do not remove it because keeping it
+		// minimizes upstream merge conflicts. See #13854.
 		instantiationService.invokeFunction(accessor => {
 			setHoverDelegateFactory((placement, enableInstantHover) => instantiationService.createInstance(WorkbenchHoverDelegate, placement, { instantHover: enableInstantHover }, {}));
 			setBaseLayerHoverDelegate(accessor.get(IHoverService));
