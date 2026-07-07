@@ -140,6 +140,17 @@ jobs:
           if [ "$MODE" = "reset" ]; then
             echo "Resetting $PR_BRANCH to origin/main; drift will be recomputed from scratch."
             git reset --hard origin/main
+          else
+            # Additive: keep the human commits, but merge current main so drift
+            # reflects entries that went stale on main since this PR opened --
+            # otherwise we'd recompute against a possibly-behind branch and miss
+            # them.
+            echo "Additive mode: merging origin/main to refresh drift while keeping human commits."
+            if ! git merge --no-edit origin/main; then
+              git merge --abort
+              echo "::error::Cannot merge origin/main into $PR_BRANCH (conflict); resolve the PR branch by hand." >&2
+              exit 1
+            fi
           fi
 
       - name: Compute drift
