@@ -29,7 +29,7 @@ runs:
       run: |
         docker compose \
           -p "${{ inputs.run-id }}" \
-          -f dockerfiles/docker-compose.jupyter.yml \
+          -f docker/environments/jupyter-local/docker-compose.ubuntu24.yml \
           up -d
 
     - name: Wait for container to be ready

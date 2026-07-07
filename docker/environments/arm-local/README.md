@@ -5,7 +5,7 @@
 ### 1. Create Configuration Files
 
 ```bash
-cd dockerfiles/arm-local
+cd docker/environments/arm-local
 cp .env.example .env
 ```
 
@@ -80,7 +80,7 @@ npm run arm:status       # Check status
 ## CI/Automated Usage
 
 ```bash
-cd dockerfiles/arm-local && ./connect.sh --ci main
+cd docker/environments/arm-local && ./connect.sh --ci main
 ```
 
 This bypasses prompts and automatically sets up the specified branch.
