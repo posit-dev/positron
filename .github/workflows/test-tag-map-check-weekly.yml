@@ -334,7 +334,8 @@ jobs:
           PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
         run: |
           if [ -n "$PR_URL" ]; then
-            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|a PR> -- please review the tag advisories"
+            PR_NUM="${PR_URL##*/}"
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> -- please review the tag advisories"
           else
             TEXT="⚠️ *Test tag map has drifted* · auto-fix couldn't resolve it (likely an invalid tag needing a manual fix) · <${RUN_URL}|view run>"
           fi
