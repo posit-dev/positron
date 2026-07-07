@@ -22,11 +22,19 @@ Edge cases:
 ### Reproducing CI Failures Locally (Posit-internal)
 
 Only relevant if the user explicitly asks to reproduce a CI-only failure
-using the real CI image. `.devcontainer/ci-arm/README.md` runs Positron
-inside that image (arm64). Requires private GHCR access and commercial
+using the real CI image (arm64). Requires private GHCR access and commercial
 license files -- not available to external contributors. Check first:
 `gh api repos/posit-dev/positron-ci-images` (404 = no access; tell the user
 instead of attempting setup).
+
+Run `git worktree list` first -- the lab worktree is meant to be long-lived
+and reused across sessions, not recreated each time. If one already exists,
+point it at the target branch instead of creating a new one (see the
+README's "switching branches" step). Follow
+`.devcontainer/ci-arm/README.md`'s
+["CLI-only / headless usage"](.devcontainer/ci-arm/README.md#cli-only--headless-usage-eg-claude-code)
+section for exact commands -- the rest of that README documents the VS Code
+Dev Containers UI flow, which doesn't apply here.
 
 ## Upstream Compatibility
 

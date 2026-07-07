@@ -135,14 +135,55 @@ Dev Containers UI required.
    ./initialize.sh   # writes POSITRON_WORKSPACE_PATH / POSITRON_GIT_COMMON_DIR into .env
    ```
 
-2. **Bring up the stack.** Compose's project name defaults to `ci-arm` (the directory holding
+2. **Point the worktree at the target branch** (skip this on a fresh worktree; it matters once the lab
+   is long-lived and reused across sessions). Don't assume the checked-out source matches whatever
+   you're currently investigating -- fetch and check out explicitly:
+
+   ```bash
+   cd <worktree>
+   git fetch origin <branch>
+   git checkout <branch>
+   ```
+
+   Switching branches can leave two things stale, both of which the Doctor's Build row already checks:
+
+   - **Dependencies.** Compare `package-lock.json`'s hash against the one recorded at the last install:
+
+     ```bash
+     docker exec ci-arm-test-1 bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && [ \"\$(sha256sum package-lock.json | awk '{print \$1}')\" = \"\$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)\" ] && echo OK || echo DRIFTED"
+     ```
+
+     A `DRIFTED` result means reinstall -- `reinstall-deps.sh` backs both the **Positron CI: Reinstall
+     deps** task and this CLI path, so there's one script instead of three copies of the command:
+
+     ```bash
+     docker exec ci-arm-test-1 bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/reinstall-deps.sh root"
+     ```
+
+     Repeat with `e2e` instead of `root` (**Positron CI: Reinstall e2e deps**) against
+     `test/e2e/package-lock.json` / `e2e-deps.sha` if the target branch also touched e2e's own deps.
+
+   - **Compiled output.** `out/` is bind-mounted and reflects whichever branch was last built here, so
+     recompile after switching:
+
+     ```bash
+     docker exec -d ci-arm-test-1 bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && npm exec -- npm-run-all --max_old_space_size=4095 -lp compile > /tmp/compile.log 2>&1"
+     ```
+
+     This is incremental -- the same thing the **Watch** task does -- so it's much faster than the
+     first-time build in step 5 below.
+
+3. **Bring up the stack.** Compose's project name defaults to `ci-arm` (the directory holding
    `docker-compose.yml`), giving container names `ci-arm-postgres-1` / `ci-arm-test-1`:
 
    ```bash
    docker compose up -d
    ```
 
-3. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
+4. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
 
    ```bash
    docker exec ci-arm-test-1 bash -lc \
@@ -150,12 +191,20 @@ Dev Containers UI required.
    ```
 
    - **COLD** (fresh worktree, or after `reset.sh`): no `node_modules`/`.build` yet -> run the
-     first-time build (step 4) before anything else.
-   - **WARM** (built before, containers just recreated by step 2): skip straight to step 5.
-   - **HOT** (containers were already running, e.g. from an earlier session): skip both step 4 and 5's
-     `post-start.sh` call and go straight to step 6.
+     first-time build (step 5) before anything else.
+   - **WARM** (built before, containers just recreated by step 3): skip straight to step 6.
+   - **HOT** (containers were already running, e.g. from an earlier session): skip both step 5 and 6's
+     `post-start.sh` call and go straight to step 7.
 
-4. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
+   This marker only proves `node_modules`/`.build` are populated -- it says nothing about whether
+   they match *this* worktree. If you ever end up with two worktrees sharing a Compose project (see
+   the [Gotchas](#gotchas) entry on this), a `WARM_OR_HOT` reading can be a false positive: the
+   volumes were built from a different worktree's `package-lock.json`, and `out/` (bind-mounted, not
+   shared) was never compiled for this checkout at all. If step 7's test run fails with a `Cannot find
+   module` or missing `out/main.js` error despite a "warm" reading, treat it as effectively cold: run
+   step 2's dependency-drift check and compile command, or just fall back to step 5.
+
+5. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
    Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
    It takes roughly 10 minutes and is not something to block a foreground shell on:
 
@@ -174,16 +223,16 @@ Dev Containers UI required.
    ```
 
    The marker file (`.build/.ci-arm-state/complete`, written by `mark-build-state.sh`) is the same
-   completion signal step 3 checks -- once it's there, move on to step 5.
+   completion signal step 4 checks -- once it's there, move on to step 6.
 
-5. **Per-start setup** (display, VNC, postgres reachability -- idempotent, safe to always run except
+6. **Per-start setup** (display, VNC, postgres reachability -- idempotent, safe to always run except
    on an already-HOT container):
 
    ```bash
    docker exec ci-arm-test-1 bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
    ```
 
-6. **Run a test directly**, e.g. a single e2e spec:
+7. **Run a test directly**, e.g. a single e2e spec:
 
    ```bash
    docker exec -e DISPLAY=:10 ci-arm-test-1 bash -lc \
@@ -329,7 +378,18 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 - **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
   running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
   reload the window and let **Watch** recompile (restart any running Positron/debug).
-- **One dev container per checkout** at a time.
+- **One dev container per checkout at a time -- and it fails silently, not loudly, if you break this.**
+  Compose's project name defaults to the directory *basename* holding `docker-compose.yml`, which is
+  `ci-arm` for every worktree (they all have the same `.devcontainer/ci-arm` layout). Bring up a second
+  worktree's stack and `docker compose up -d` doesn't error or warn -- it just recreates the
+  `ci-arm-postgres-1` / `ci-arm-test-1` containers against the new worktree's bind mount while reusing
+  the *same* named volumes (`positron-node-modules`, `positron-build`, etc.) from whichever worktree
+  built them last. If that worktree was on a different branch with a different `package-lock.json`,
+  you get confusing missing-module errors that look like a broken build rather than a stale dependency
+  mismatch (`reinstall-deps.sh` is the fix -- see step 2 and step 4's caveat in
+  [CLI-only usage](#cli-only--headless-usage-eg-claude-code)). To actually run two worktrees'
+  containers side by side, set a distinct `COMPOSE_PROJECT_NAME` per worktree instead of relying on
+  the default.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
   (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter.
