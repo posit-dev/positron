@@ -1,9 +1,0 @@
-{
-	"name": "test-tag-map-advisor",
-	"private": true,
-	"type": "module",
-	"description": "Asks Claude to advise on e2e tags for dirs missing from test-tag-paths-map.json. Invoked directly by test-tag-map-check-weekly.yml.",
-	"dependencies": {
-		"@anthropic-ai/sdk": "^0.52.0"
-	}
-}

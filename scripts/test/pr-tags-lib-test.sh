@@ -472,7 +472,7 @@ else
 fi
 rm -rf "$CRUFT_ROOT" "$CRUFT_MAP"
 
-# --- apply-test-tag-map-fixes.mjs ---
+# --- apply-test-tag-map-fixes.mjs (stale removal only) ---
 # Node (not bash/jq) because the map is hand-curated with blank-line grouping
 # that a jq round-trip would flatten -- see the script's own header comment.
 APPLY_SCRIPT="$HERE/../apply-test-tag-map-fixes.mjs"
@@ -487,9 +487,7 @@ cat > "$APPLY_DIR/map.json" <<'JSON'
 }
 JSON
 echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
-echo '{"src/vs/workbench/contrib/positronNewThing/": {"tags": ["@:console", "@:not-a-real-tag"], "reason": "test reason"}}' > "$APPLY_DIR/advisory.json"
-printf '@:console\n@:plots\n@:reticulate\n' > "$APPLY_DIR/valid-tags.txt"
-APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" --advisory "$APPLY_DIR/advisory.json" --valid-tags "$APPLY_DIR/valid-tags.txt" 2>&1)"
+APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" 2>&1)"
 if node -e "JSON.parse(require('fs').readFileSync('$APPLY_DIR/map.json','utf8')); console.log('ok')" >/dev/null 2>&1; then
 	echo "PASS: apply script leaves valid JSON behind"
 else
@@ -500,31 +498,26 @@ if grep -qF '"extensions/positron-gone/"' "$APPLY_DIR/map.json"; then
 else
 	echo "PASS: apply script removes the stale entry"
 fi
+if printf '%s' "$APPLY_OUTPUT" | grep -qF '"removed":["extensions/positron-gone/"]'; then
+	echo "PASS: apply script reports the removed key"
+else
+	echo "FAIL: apply script should report the removed key"; fail=1
+fi
 # The removed entry opened its blank-line-separated group -- the group
 # boundary before "positron-real" must survive even though the entry that
 # used to carry it is gone. Line-splicing preserves it for free (the blank
 # line is never rewritten); this guards against a regression to that.
-if [[ "$(grep -c '^$' "$APPLY_DIR/map.json")" -eq 2 ]]; then
+if [[ "$(grep -c '^$' "$APPLY_DIR/map.json")" -eq 1 ]]; then
 	echo "PASS: apply script preserves the blank-line group boundary after removing its first entry"
 else
-	echo "FAIL: apply script should preserve two blank-line group boundaries (one original, one before the new group)"; fail=1
-fi
-if grep -qF '"src/vs/workbench/contrib/positronNewThing/": ["@:console"]' "$APPLY_DIR/map.json"; then
-	echo "PASS: apply script adds the advised dir with the invalid tag dropped"
-else
-	echo "FAIL: apply script should add the advised dir, keeping only the valid tag"; fail=1
-fi
-if printf '%s' "$APPLY_OUTPUT" | grep -q "dropped invalid advised tag"; then
-	echo "PASS: apply script logs the dropped invalid tag"
-else
-	echo "FAIL: apply script should log the dropped invalid tag"; fail=1
+	echo "FAIL: apply script should preserve the blank-line group boundary"; fail=1
 fi
 cp "$APPLY_DIR/map.json" "$APPLY_DIR/map.before-noop.json"
 NOOP_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" 2>&1)"
-if printf '%s' "$NOOP_OUTPUT" | grep -qF '"added":[],"removed":[]'; then
-	echo "PASS: apply script reports no-op with no stale/advisory args"
+if printf '%s' "$NOOP_OUTPUT" | grep -qF '"removed":[]'; then
+	echo "PASS: apply script reports a no-op with no stale arg"
 else
-	echo "FAIL: apply script should report a no-op with no stale/advisory args"; fail=1
+	echo "FAIL: apply script should report a no-op with no stale arg"; fail=1
 fi
 if diff -q "$APPLY_DIR/map.before-noop.json" "$APPLY_DIR/map.json" >/dev/null; then
 	echo "PASS: apply script leaves the file untouched on a no-op"
@@ -532,20 +525,21 @@ else
 	echo "FAIL: apply script should not rewrite the file when there's nothing to do"; fail=1
 fi
 
-# Appending next to a multi-line array entry needs a comma the single-line
-# splice can't add to the `]` line, so the output would be invalid JSON. The
-# validation backstop must catch that and refuse to write rather than corrupt
-# the map.
+# Removing the last entry when the preceding one is a multi-line array leaves a
+# dangling comma on the `]` line the single-line splice can't strip, so the
+# output would be invalid JSON. The validation backstop must catch that and
+# refuse to write rather than corrupt the map.
 cat > "$APPLY_DIR/bad-map.json" <<'JSON'
 {
   "src/vs/workbench/contrib/positronConsole/": [
     "@:console"
-  ]
+  ],
+  "extensions/positron-real/": ["@:reticulate"]
 }
 JSON
 cp "$APPLY_DIR/bad-map.json" "$APPLY_DIR/bad-map.orig.json"
-echo '{"extensions/positron-new/": {"tags": ["@:reticulate"], "reason": "x"}}' > "$APPLY_DIR/bad-advisory.json"
-if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --advisory "$APPLY_DIR/bad-advisory.json" --valid-tags "$APPLY_DIR/valid-tags.txt" >/dev/null 2>&1; then
+echo '["extensions/positron-real/"]' > "$APPLY_DIR/bad-stale.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --stale "$APPLY_DIR/bad-stale.json" >/dev/null 2>&1; then
 	echo "FAIL: apply script should refuse to write when a splice would produce invalid JSON"; fail=1
 else
 	echo "PASS: apply script refuses to write when a splice would produce invalid JSON"

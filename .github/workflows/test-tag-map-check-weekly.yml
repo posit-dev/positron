@@ -9,14 +9,13 @@ name: "Weekly: Test Tag Map Check"
 # PRs over drift they didn't cause. A weekly cadence is enough since neither
 # problem gets more urgent by sitting a few more days.
 #
-# On drift, auto-fix opens (or updates) a PR like any other: stale entries are
-# removed deterministically, and missing dirs get an LLM tag advisory (Claude,
-# via scripts/tag-map-advisor/advise.mjs) as a starting point for a human to
-# review -- nothing here merges on its own. A hallucinated tag can never reach
-# the map: apply-test-tag-map-fixes.mjs drops any advised tag that isn't a real
-# TestTags member. Invalid map tags (a typo, not drift) are surfaced but never
-# auto-fixed -- that's a real error in the PR that introduced it, not
-# something to paper over with an advisory.
+# On drift, auto-fix opens (or updates) a PR that removes stale entries only --
+# that's deterministic and safe, and nothing but this tree-wide sweep catches
+# it (the PR that deletes a dir never touches the now-stale map key). Missing
+# dirs and invalid tags are surfaced in the summary but NOT auto-fixed: a
+# missing dir's tag needs human judgment (handled at PR-review time, where the
+# per-PR unmapped-dir warning already prompts the author), and an invalid tag
+# is a real error in the PR that introduced it. Nothing here merges on its own.
 
 on:
   schedule:
@@ -60,6 +59,9 @@ jobs:
       # avoid claiming "auto-fix opened a PR" when it just found an old one.
       pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
       pr_updated: ${{ steps.create-pr.outputs.pr_url != '' }}
+      # Surfaced to Slack so a run that only removed stale entries still nudges
+      # about missing dirs that need manual tags.
+      missing_count: ${{ steps.drift.outputs.missing_count }}
     steps:
       - name: Generate POSITRON_BOT token
         id: bot-token
@@ -106,8 +108,8 @@ jobs:
           # Same review-safety check as the bootstrap-extensions auto-update PR
           # (.github/workflows/extensions-check-nightly.yml): any human signal
           # (review comment, issue comment, non-bot commit, or a review
-          # decision) means someone may have hand-corrected an advised tag, so
-          # add commits on top instead of force-pushing over their work.
+          # decision) means someone may have hand-edited the PR, so add commits
+          # on top instead of force-pushing over their work.
           BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
           REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
           ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
@@ -144,47 +146,15 @@ jobs:
         id: drift
         run: |
           bash scripts/check-test-tag-map.sh --json > drift.json || true
-          jq '.missing' drift.json > missing.json
           jq '.stale' drift.json > stale.json
-          # shellcheck source=/dev/null
-          source scripts/lib/pr-tags-lib.sh
-          valid_enum_tags test/e2e/infra/test-runner/test-tags.ts > valid-tags.txt
-          echo "missing_count=$(jq 'length' missing.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Load secret
-        if: steps.drift.outputs.missing_count != '0'
-        uses: 1password/load-secrets-action@v4
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
-      - name: Install advisor dependencies
-        if: steps.drift.outputs.missing_count != '0'
-        working-directory: scripts/tag-map-advisor
-        run: npm ci --no-audit --no-fund
-
-      - name: Get tag advisories for missing dirs
-        if: steps.drift.outputs.missing_count != '0'
-        env:
-          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
-          MISSING_DIRS_FILE: missing.json
-          VALID_TAGS_FILE: valid-tags.txt
-          MAP_FILE: .github/workflows/test-tag-paths-map.json
-          REPO_ROOT: ${{ github.workspace }}
-          OUTPUT_FILE: advisory.json
-        run: node scripts/tag-map-advisor/advise.mjs
+          echo "missing_count=$(jq '.missing | length' drift.json)" >> "$GITHUB_OUTPUT"
 
       - name: Apply fixes
         id: apply
         run: |
-          [ -f advisory.json ] || echo '{}' > advisory.json
           RESULT=$(node scripts/apply-test-tag-map-fixes.mjs \
             --map .github/workflows/test-tag-paths-map.json \
-            --stale stale.json \
-            --advisory advisory.json \
-            --valid-tags valid-tags.txt)
+            --stale stale.json)
           echo "$RESULT"
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
 
@@ -250,20 +220,24 @@ jobs:
           EXISTING_PR_URL: ${{ steps.detect.outputs.pr_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULT: ${{ steps.apply.outputs.result }}
+          MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
         run: |
-          ADDED=$(echo "$RESULT" | jq -r '.added | if length > 0 then map("- `" + . + "`") | join("\n") else "(none)" end')
           REMOVED=$(echo "$RESULT" | jq -r '.removed | if length > 0 then map("- `" + . + "`") | join("\n") else "(none)" end')
-          BODY="### Summary
-          Auto-fix for test-tag-paths-map.json drift found by the [weekly check](${RUN_URL}).
+          MISSING_NOTE=""
+          if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
+            MISSING_NOTE="
 
-          **Added (LLM-advised tags -- please verify):**
-          ${ADDED}
+          _Note: ${MISSING_COUNT} dir(s) are also missing from the map. Those need tags assigned by hand (see the weekly check summary) and are not touched by this PR._"
+          fi
+          BODY="### Summary
+          Removes stale entries from test-tag-paths-map.json found by the [weekly check](${RUN_URL}) -- dirs the map points at that no longer match any tracked file.
 
           **Removed (stale, no longer tracked):**
           ${REMOVED}
+          ${MISSING_NOTE}
 
           ### QA Notes
-          Tag advisories come from Claude and may be wrong or incomplete -- check them against the dir's actual e2e coverage before merging.
+          Deterministic removal of dead keys; no tag assignments were changed.
 
           _This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._"
           if [ "$EXISTS" = "true" ]; then
@@ -286,6 +260,7 @@ jobs:
           DETECTED_PR_URL: ${{ steps.detect.outputs.pr_url }}
           MODE: ${{ steps.detect.outputs.mode }}
           APPLY_RESULT: ${{ steps.apply.outputs.result }}
+          MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
           DRYRUN_PUSH_BRANCH: ${{ steps.push.outputs.dryrun_branch }}
           FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
@@ -304,25 +279,16 @@ jobs:
             # job's own summary on this same run page; repeating it here would
             # just be the identical missing/stale/invalid_tags lists twice.
             [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json --condensed
-            if [ -f advisory.json ] && jq -e 'length > 0' advisory.json >/dev/null 2>&1; then
-              echo "#### Claude's tag advisories"
-              echo ""
-              echo "| Dir | Advised tags | Reason |"
-              echo "|---|---|---|"
-              # gsub on reason: a raw `|` or newline from Claude's free-text
-              # would otherwise break the table's row/column structure.
-              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | gsub("\r\n|\r|\n"; " ") | gsub("\\|"; "\\|") | if . == "" then "_(none)_" else . end) + " |"' advisory.json
-              echo ""
-            fi
             if [ -n "$APPLY_RESULT" ]; then
-              ADDED_N=$(echo "$APPLY_RESULT" | jq -r '.added | length')
               REMOVED_N=$(echo "$APPLY_RESULT" | jq -r '.removed | length')
-              [ "$ADDED_N" = "1" ] && ADDED_NOUN=dir || ADDED_NOUN=dirs
               [ "$REMOVED_N" = "1" ] && REMOVED_NOUN=entry || REMOVED_NOUN=entries
               echo "#### Result"
               echo ""
-              echo "- Added: $ADDED_N $ADDED_NOUN"
-              echo "- Removed: $REMOVED_N $REMOVED_NOUN"
+              echo "- Removed: $REMOVED_N stale $REMOVED_NOUN"
+              if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
+                [ "$MISSING_COUNT" = "1" ] && MISSING_NOUN=dir || MISSING_NOUN=dirs
+                echo "- :warning: $MISSING_COUNT missing $MISSING_NOUN need tags assigned by hand (not auto-fixed)"
+              fi
               echo ""
             fi
             if [ -n "$FINAL_PR_URL" ]; then
@@ -332,7 +298,7 @@ jobs:
             elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
               echo "No new changes needed -- existing PR left as-is."
             else
-              echo "Nothing auto-fixable (e.g. an invalid tag needs a manual fix)."
+              echo "No stale entries to remove (any remaining drift -- missing dirs, invalid tags -- needs a manual fix)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -351,19 +317,25 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
           PR_UPDATED: ${{ needs.auto-fix.outputs.pr_updated }}
+          MISSING_COUNT: ${{ needs.auto-fix.outputs.missing_count }}
         run: |
+          # Missing dirs are surfaced but never auto-fixed, so tack a nudge onto
+          # every message when there are any -- even a run that opened a stale-
+          # removal PR still leaves those for a human.
+          MISSING_NOTE=""
+          [ "${MISSING_COUNT:-0}" -gt 0 ] && MISSING_NOTE=" · ${MISSING_COUNT} dir(s) missing tags (assign by hand)"
           # Three distinct states, not two: a freshly opened/updated PR reads
           # differently from an old PR that's still open but untouched this
           # run (PR_UPDATED false) -- claiming "opened" for the latter would
           # misreport what actually happened this run.
           if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> -- please review the tag advisories"
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> removing stale entries${MISSING_NOTE}"
           elif [ -n "$PR_URL" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>"
+            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE}"
           else
-            TEXT="⚠️ *Test tag map has drifted* · need manual fix · <${RUN_URL}|view run>"
+            TEXT="⚠️ *Test tag map has drifted* · need manual fix${MISSING_NOTE} · <${RUN_URL}|view run>"
           fi
           PAYLOAD=$(jq -n \
             --arg channel "#positron-dev" \
