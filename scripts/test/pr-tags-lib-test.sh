@@ -227,8 +227,9 @@ fi
 # depends on the ENTIRE tree staying mapped, including dirs added by unrelated
 # PRs that landed on main after this repo's map was last audited -- exactly the
 # live-tree coupling check-test-tag-map.sh's own header warns about (the full
-# sweep is LOCAL/MANUAL for that reason). Asserting it here would make this
-# suite fail on any PR whenever main drifts, regardless of what that PR touches.
+# sweep runs weekly/on-demand, not per-PR CI, for that reason). Asserting it
+# here would make this suite fail on any PR whenever main drifts, regardless
+# of what that PR touches.
 if bash "$HERE/../check-test-tag-map.sh" --tags-only >/dev/null 2>&1; then
 	echo "PASS: guardrail's tag validity check passes on the real map"
 else

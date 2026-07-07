@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Guardrail for test-tag-paths-map.json. Three independent checks:
-#   1. Dir coverage: every Positron source dir has a map entry. LOCAL/MANUAL
-#      full-sweep only (not run per-PR) -- the per-PR check in pr-tags-parse.sh
-#      is scoped to the dirs each PR touches and is the CI-facing equivalent.
-#      Run this by hand for now (a scheduled run is a possible follow-up).
+#   1. Dir coverage: every Positron source dir has a map entry. Tree-wide, not
+#      per-PR -- the per-PR check in pr-tags-parse.sh is scoped to the dirs
+#      each PR touches and is the CI-facing equivalent. This full sweep runs
+#      weekly (test-tag-map-check-weekly.yml) or on demand by hand; it's not a
+#      per-PR gate because drift from an unrelated PR would fail every
+#      subsequent PR that happens to run the check.
 #   2. Staleness: every map entry still points at a real, tracked path. Same
-#      LOCAL/MANUAL scope as #1, for the same reason -- a directory can go
+#      weekly/on-demand scope as #1, for the same reason -- a directory can go
 #      stale from a PR that never touches the map (a rename/delete elsewhere),
 #      so this can't be pinned on "the current PR" the way tag validity can.
 #   3. Tag validity: every tag the map uses is a real tag declared in
