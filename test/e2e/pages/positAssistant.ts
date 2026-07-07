@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, FrameLocator } from '@playwright/test';
+import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts';
 
@@ -39,6 +39,30 @@ const STOP_BUTTON = 'button:has(svg.lucide-square)';
 // Chat-form overflow (...) menu — hosts the model picker for providers
 // (like OpenAI) that do not auto-select a default model.
 const CHAT_FORM_OVERFLOW_BUTTON = '.chat-form button[aria-haspopup="menu"]:has(svg.lucide-ellipsis)';
+
+// Model picker containers. The picker renders in two width-dependent modes
+// (see selectProviderModel): a flat radio group when inline, and per-provider
+// group containers when collapsed into the overflow (...) menu.
+const MODEL_RADIO_GROUP = '[data-slot="dropdown-menu-radio-group"]';
+const MODEL_MENU_GROUP = '[data-slot="dropdown-menu-group"]';
+// The inline model-picker trigger. ModeSelector (left) uses plain buttons and
+// the only other status-bar dropdown trigger with a chevron (the persona
+// selector) precedes the model selector in the DOM, so the model trigger is the
+// last chevron dropdown trigger in the chat form.
+const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide-chevron-down)';
+
+/**
+ * Maps an e2e provider id to the provider's display name as shown in the model
+ * picker's group headers. Sourced from the assistant's provider registry
+ * (packages/core/src/platform/provider-registry.ts).
+ */
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+	'anthropic-api': 'Anthropic',
+	'amazon-bedrock': 'AWS Bedrock',
+	'openai-api': 'OpenAI',
+	'ms-foundry': 'Microsoft Foundry',
+	'posit-ai': 'Posit AI',
+};
 
 // Chat message elements
 const CHAT_MESSAGE_USER = '.chat-message-user';
@@ -345,6 +369,93 @@ export class PositAssistant {
 		// Menu closes on selection; wait for the trigger to collapse so
 		// subsequent actions (e.g. Send) don't race an open overlay.
 		await expect(this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON)).toHaveAttribute('aria-expanded', 'false');
+	}
+
+	/**
+	 * Selects the top (first / default) model belonging to a specific provider,
+	 * scoping the choice to that provider's group in the model picker.
+	 *
+	 * WHY: More than one provider can be signed in at once. In particular AWS
+	 * Bedrock auto-signs-in whenever AWS credentials are present in the
+	 * environment, independent of whatever provider a test logged in with. The
+	 * picker then shows multiple provider groups, and model display names repeat
+	 * across them ("Claude Sonnet 5" appears under both Anthropic and AWS
+	 * Bedrock). Selecting by model name alone is provider-ambiguous and can
+	 * silently exercise the wrong provider (e.g. an auto-selected Bedrock
+	 * default). Scoping to the provider group guarantees the intended
+	 * provider+model combination. Picking the group's top model keeps this robust
+	 * to the frequent churn in the model list.
+	 *
+	 * Must be called on a fresh conversation (after `startNewConversation()`),
+	 * and the message that follows should be sent with `newConversation: false`,
+	 * because starting a new conversation drops the model selection.
+	 *
+	 * Handles both picker render modes (width-dependent):
+	 *  - menu mode (narrow status bar): the overflow (...) menu hosts a "Model"
+	 *    submenu where each provider is a `dropdown-menu-group` container.
+	 *  - inline mode (wide status bar, e.g. a maximized sidebar): the model
+	 *    trigger opens a flat radio group whose provider headers are sibling divs.
+	 *
+	 * @param provider e2e provider id (e.g. 'anthropic-api', 'amazon-bedrock').
+	 */
+	async selectProviderModel(provider: string): Promise<void> {
+		const providerName = PROVIDER_DISPLAY_NAMES[provider];
+		if (!providerName) {
+			throw new Error(`No model-picker display name mapped for provider "${provider}"`);
+		}
+
+		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
+		const menuMode = await overflow.isVisible().catch(() => false);
+		if (menuMode) {
+			await this.selectProviderModelMenuMode(overflow, providerName);
+		} else {
+			await this.selectProviderModelInlineMode(providerName);
+		}
+	}
+
+	/**
+	 * Menu-mode path for {@link selectProviderModel}: open the overflow (...)
+	 * menu and its "Model" submenu, then click the first model in the provider's
+	 * group container.
+	 */
+	private async selectProviderModelMenuMode(overflow: Locator, providerName: string): Promise<void> {
+		await overflow.click();
+		// Open the "Model" submenu (SubTrigger carries the stable "Model" label).
+		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
+
+		// Scope to the provider's group (label + its model items live in one
+		// container), then take its first model item.
+		const group = this.frame.locator(
+			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
+		);
+		await expect(group).toBeVisible();
+		await group.locator('[role="menuitem"]').first().click();
+
+		// Menu closes on selection; wait for the trigger to collapse so subsequent
+		// actions (e.g. Send) don't race an open overlay.
+		await expect(overflow).toHaveAttribute('aria-expanded', 'false');
+	}
+
+	/**
+	 * Inline-mode path for {@link selectProviderModel}: open the model trigger and
+	 * click the provider's top model. The radio group is flat, so the provider's
+	 * top model is the header div's immediately-following radio item (adjacent
+	 * sibling combinator scopes the choice to that provider).
+	 */
+	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
+		await this.frame.locator(INLINE_MODEL_TRIGGER).last().click();
+
+		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
+		await expect(radioGroup).toBeVisible();
+
+		const topModel = radioGroup.locator(
+			`div:has(> span:text-is("${providerName}")) + [role="menuitemradio"]`,
+		);
+		await topModel.click();
+
+		// Selection closes the dropdown; wait for it to detach so subsequent
+		// actions (e.g. Send) don't race an open overlay.
+		await expect(radioGroup).toBeHidden();
 	}
 
 	// --- Chat messages ---
