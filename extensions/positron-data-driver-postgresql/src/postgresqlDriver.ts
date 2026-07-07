@@ -81,13 +81,13 @@ function hostPortParams(): positron.DataConnectionParameter[] {
 	];
 }
 
-/** The required database parameter, shared by every mechanism. */
+/** The optional database parameter, shared by every mechanism. Blank connects to the whole server. */
 function databaseParam(): positron.DataConnectionParameter {
 	return {
 		id: 'database',
 		label: vscode.l10n.t('Database'),
+		description: vscode.l10n.t('Leave empty to connect to the server and browse all databases.'),
 		type: positron.DataConnectionParameterType.String,
-		required: true,
 	};
 }
 
@@ -182,9 +182,11 @@ function connectionStringParam(): positron.DataConnectionParameter {
 interface PostgresConnectionFields {
 	host?: string;
 	port?: number;
-	database: string;
 	user?: string;
 	password?: string;
+	// Optional: when blank, the connection targets the whole server and databases are browsable as
+	// the top-level nodes. When set, the connection is scoped to that single database.
+	database?: string;
 	sslmode?: string;
 	sslrootcert?: string;
 	sslcert?: string;
@@ -196,9 +198,9 @@ function renderPsycopg2Code(fields: PostgresConnectionFields): positron.Connecti
 	const args: string[] = [];
 	if (fields.host) { args.push(`host="${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port=${fields.port}`); }
-	args.push(`dbname="${escapeDoubleQuoted(fields.database)}"`);
 	if (fields.user) { args.push(`user="${escapeDoubleQuoted(fields.user)}"`); }
 	if (fields.password) { args.push(`password="${escapeDoubleQuoted(fields.password)}"`); }
+	if (fields.database) { args.push(`dbname="${escapeDoubleQuoted(fields.database)}"`); }
 	if (fields.sslmode) { args.push(`sslmode="${escapeDoubleQuoted(fields.sslmode)}"`); }
 	if (fields.sslrootcert) { args.push(`sslrootcert="${escapeDoubleQuoted(fields.sslrootcert)}"`); }
 	if (fields.sslcert) { args.push(`sslcert="${escapeDoubleQuoted(fields.sslcert)}"`); }
@@ -219,9 +221,9 @@ function renderSqlAlchemyCode(fields: PostgresConnectionFields): positron.Connec
 	const args: string[] = [`"postgresql+psycopg2"`];
 	if (fields.host) { args.push(`host="${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port=${fields.port}`); }
-	args.push(`database="${escapeDoubleQuoted(fields.database)}"`);
 	if (fields.user) { args.push(`username="${escapeDoubleQuoted(fields.user)}"`); }
 	if (fields.password) { args.push(`password="${escapeDoubleQuoted(fields.password)}"`); }
+	if (fields.database) { args.push(`database="${escapeDoubleQuoted(fields.database)}"`); }
 
 	const queryEntries: string[] = [];
 	if (fields.sslmode) { queryEntries.push(`"sslmode": "${escapeDoubleQuoted(fields.sslmode)}"`); }
@@ -242,9 +244,9 @@ function renderDbiCode(fields: PostgresConnectionFields): positron.ConnectionCod
 	const args: string[] = [`RPostgres::Postgres()`];
 	if (fields.host) { args.push(`host = "${escapeDoubleQuoted(fields.host)}"`); }
 	if (fields.port !== undefined) { args.push(`port = ${fields.port}`); }
-	args.push(`dbname = "${escapeDoubleQuoted(fields.database)}"`);
 	if (fields.user) { args.push(`user = "${escapeDoubleQuoted(fields.user)}"`); }
 	if (fields.password) { args.push(`password = "${escapeDoubleQuoted(fields.password)}"`); }
+	if (fields.database) { args.push(`dbname = "${escapeDoubleQuoted(fields.database)}"`); }
 	if (fields.sslmode) { args.push(`sslmode = "${escapeDoubleQuoted(fields.sslmode)}"`); }
 	if (fields.sslrootcert) { args.push(`sslrootcert = "${escapeDoubleQuoted(fields.sslrootcert)}"`); }
 	if (fields.sslcert) { args.push(`sslcert = "${escapeDoubleQuoted(fields.sslcert)}"`); }
@@ -277,21 +279,21 @@ function generateConnectionCodeForFields(languageId: string, fields: PostgresCon
 }
 
 /**
- * Maps the usern/password mechanism's parameter values to normalized fields. The user and
- * password are optional. Returns undefined when the host or database is missing.
+ * Maps the usern/password mechanism's parameter values to normalized fields. The database, user, and
+ * password are optional; a blank database targets the whole server. Returns undefined when the host
+ * is missing.
  */
 function passwordConnectionFields(params: positron.DataConnectionParameterValues): PostgresConnectionFields | undefined {
 	const host = isNonEmptyString(params.host) ? params.host : undefined;
-	const database = isNonEmptyString(params.database) ? params.database : undefined;
-	if (!host || !database) {
+	if (!host) {
 		return undefined;
 	}
 	return {
 		host,
 		port: typeof params.port === 'number' ? params.port : 5432,
-		database,
 		user: isNonEmptyString(params.user) ? params.user : undefined,
 		password: isNonEmptyString(params.password) ? params.password : undefined,
+		database: isNonEmptyString(params.database) ? params.database : undefined,
 		sslmode: params.ssl === true ? 'require' : undefined,
 	};
 }
@@ -299,39 +301,36 @@ function passwordConnectionFields(params: positron.DataConnectionParameterValues
 /**
  * Maps the local-server mechanism's parameter values to normalized fields. The connection is over a
  * local socket, so no host, port, or password is emitted; the user is included only when set
- * (otherwise the client defaults to the OS account). Returns undefined when the database is missing.
+ * (otherwise the client defaults to the OS account). The database is optional; a blank database
+ * targets the whole server.
  */
 function localServerConnectionFields(params: positron.DataConnectionParameterValues): PostgresConnectionFields | undefined {
-	const database = isNonEmptyString(params.database) ? params.database : undefined;
-	if (!database) {
-		return undefined;
-	}
 	return {
-		database,
 		user: isNonEmptyString(params.user) ? params.user : undefined,
+		database: isNonEmptyString(params.database) ? params.database : undefined,
 	};
 }
 
 /**
  * Maps the client-certificate mechanism's parameter values to normalized fields. The server
  * certificate is verified (sslmode "verify-full") only when a CA certificate is supplied; otherwise
- * the connection is encrypted but unverified (sslmode "require"). Returns undefined when the host,
- * database, client certificate, or client key is missing.
+ * the connection is encrypted but unverified (sslmode "require"). The database is optional; a blank
+ * database targets the whole server. Returns undefined when the host, client certificate, or client
+ * key is missing.
  */
 function certConnectionFields(params: positron.DataConnectionParameterValues): PostgresConnectionFields | undefined {
 	const host = isNonEmptyString(params.host) ? params.host : undefined;
-	const database = isNonEmptyString(params.database) ? params.database : undefined;
 	const sslcert = isNonEmptyString(params.sslcert) ? params.sslcert : undefined;
 	const sslkey = isNonEmptyString(params.sslkey) ? params.sslkey : undefined;
-	if (!host || !database || !sslcert || !sslkey) {
+	if (!host || !sslcert || !sslkey) {
 		return undefined;
 	}
 	const sslrootcert = isNonEmptyString(params.sslrootcert) ? params.sslrootcert : undefined;
 	return {
 		host,
 		port: typeof params.port === 'number' ? params.port : 5432,
-		database,
 		user: isNonEmptyString(params.user) ? params.user : undefined,
+		database: isNonEmptyString(params.database) ? params.database : undefined,
 		sslmode: sslrootcert ? 'verify-full' : 'require',
 		sslrootcert,
 		sslcert,
@@ -343,7 +342,8 @@ function certConnectionFields(params: positron.DataConnectionParameterValues): P
  * Parses a libpq URL connection string into normalized fields so the same renderers can generate
  * code for it. Only the URL form (postgresql:// or postgres://) is understood; key=value DSN strings
  * return undefined (they are still handed to the client verbatim at connect time, but cannot be
- * turned into structured code). Returns undefined when the string does not parse or has no database.
+ * turned into structured code). A missing database is allowed (the connection targets the whole
+ * server). Returns undefined when the string does not parse or is not a PostgreSQL URL.
  */
 function parseConnectionString(connectionString: string): PostgresConnectionFields | undefined {
 	let url: URL;
@@ -356,15 +356,12 @@ function parseConnectionString(connectionString: string): PostgresConnectionFiel
 		return undefined;
 	}
 	const database = decodeURIComponent(url.pathname.replace(/^\//, ''));
-	if (!database) {
-		return undefined;
-	}
 	return {
 		host: url.hostname || undefined,
 		port: url.port ? Number(url.port) : undefined,
-		database,
 		user: url.username ? decodeURIComponent(url.username) : undefined,
 		password: url.password ? decodeURIComponent(url.password) : undefined,
+		database: database || undefined,
 		sslmode: url.searchParams.get('sslmode') ?? undefined,
 		sslrootcert: url.searchParams.get('sslrootcert') ?? undefined,
 		sslcert: url.searchParams.get('sslcert') ?? undefined,
@@ -420,15 +417,6 @@ function requireTcpEndpoint(params: positron.DataConnectionParameterValues): { h
 	return { host, port };
 }
 
-/** Validates and returns the required database, throwing if it is missing. */
-function requireDatabase(params: positron.DataConnectionParameterValues): string {
-	const database = params.database;
-	if (!isNonEmptyString(database)) {
-		throw new Error(vscode.l10n.t('Database is required'));
-	}
-	return database;
-}
-
 /**
  * Creates the PostgreSQL DataConnectionDriver.
  * @param context The extension context, used to locate the icon asset.
@@ -448,9 +436,9 @@ export function createPostgreSQLDriver(
 		description: vscode.l10n.t('Connect to a server over the network with a user and password.'),
 		parameters: [
 			...hostPortParams(),
-			databaseParam(),
 			userParam(),
 			passwordParam(),
+			databaseParam(),
 			sslParam(),
 		],
 	};
@@ -468,8 +456,8 @@ export function createPostgreSQLDriver(
 		label: vscode.l10n.t('Local Server (No Password)'),
 		description: vscode.l10n.t('Connect to a PostgreSQL server running on this computer using your operating system account.'),
 		parameters: [
-			databaseParam(),
 			userParam(),
+			databaseParam(),
 			{
 				// Blank uses the platform default socket location (see exampleSocketDirectory above).
 				id: 'socketDirectory',
@@ -489,8 +477,8 @@ export function createPostgreSQLDriver(
 		description: vscode.l10n.t('Connect over SSL and authenticate with a client certificate.'),
 		parameters: [
 			...hostPortParams(),
-			databaseParam(),
 			userParam(),
+			databaseParam(),
 			...clientCertParams(),
 		],
 	};
@@ -522,20 +510,20 @@ export function createPostgreSQLDriver(
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			switch (mechanismId) {
 				case PASSWORD_MECHANISM_ID: {
-					// Only the host, port, and database are required: a blank user defaults to the
-					// operating system account (via PGUSER), and a blank password connects without one,
-					// which works when the server does not require a password.
+					// Only the host and port are required: a blank database targets the whole server (so
+					// databases become the top-level nodes), a blank user defaults to the operating system
+					// account (via PGUSER), and a blank password connects without one, which works when the
+					// server does not require a password.
 					const { host, port } = requireTcpEndpoint(params);
-					const database = requireDatabase(params);
 
 					// Create the connection.
 					const connection = new PostgreSQLConnection({
 						kind: 'fields',
 						host,
 						port,
-						database,
 						user: isNonEmptyString(params.user) ? params.user : undefined,
 						password: isNonEmptyString(params.password) ? params.password : undefined,
+						database: isNonEmptyString(params.database) ? params.database : undefined,
 						ssl: params.ssl === true,
 					}, dataExplorerHandler);
 
@@ -546,16 +534,16 @@ export function createPostgreSQLDriver(
 					return connection;
 				}
 				case LOCAL_SERVER_MECHANISM_ID: {
-					// Only the database is required: a blank user defaults to the operating system
-					// account, and a blank socket directory lets pg use its default.
-					const database = requireDatabase(params);
+					// Nothing is required: a blank database targets the whole server (so databases become
+					// the top-level nodes), a blank user defaults to the operating system account, and a
+					// blank socket directory lets pg use its default.
 
 					// Create the connection. No password, port, or SSL: this mechanism is local-socket only.
 					const connection = new PostgreSQLConnection({
 						kind: 'fields',
 						host: isNonEmptyString(params.socketDirectory) ? params.socketDirectory : undefined,
-						database,
 						user: isNonEmptyString(params.user) ? params.user : os.userInfo().username,
+						database: isNonEmptyString(params.database) ? params.database : undefined,
 					}, dataExplorerHandler);
 
 					// Connect the connection.
@@ -565,10 +553,10 @@ export function createPostgreSQLDriver(
 					return connection;
 				}
 				case CERT_MECHANISM_ID: {
-					// The host, port, database, client certificate, and client key are required; the CA
+					// The host, port, client certificate, and client key are required; a blank database
+					// targets the whole server (so databases become the top-level nodes), and the CA
 					// certificate is optional and, when omitted, the server certificate is not verified.
 					const { host, port } = requireTcpEndpoint(params);
-					const database = requireDatabase(params);
 					const sslCert = params.sslcert;
 					if (!isNonEmptyString(sslCert)) {
 						throw new Error(vscode.l10n.t('Client Certificate is required'));
@@ -583,8 +571,8 @@ export function createPostgreSQLDriver(
 						kind: 'fields',
 						host,
 						port,
-						database,
 						user: isNonEmptyString(params.user) ? params.user : undefined,
+						database: isNonEmptyString(params.database) ? params.database : undefined,
 						ssl: true,
 						sslRootCert: isNonEmptyString(params.sslrootcert) ? params.sslrootcert : undefined,
 						sslCert,
