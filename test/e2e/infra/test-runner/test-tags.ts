@@ -18,6 +18,11 @@
  * Add `@:cross-browser` to tests that run in multiple browsers (Chrome, Firefox, WebKit, Edge).
  * This signals that changes to these tests should consider cross-browser compatibility.
  *
+ * Adding a new feature tag:
+ * If it corresponds to a source directory, add that directory to
+ * .github/workflows/test-tag-paths-map.json so PRs touching it get auto-tagged.
+ * scripts/check-test-tag-map.sh guards against the two drifting apart.
+ *
 */
 
 export enum TestTags {
