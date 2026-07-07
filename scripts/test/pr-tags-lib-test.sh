@@ -140,6 +140,12 @@ assert_eq "same-line edit keeping web-only is not newly added" "false false" \
 PATCH_SAME_LINE_SWAP=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WEB],'
 assert_eq "same-line swap: web newly added, win newly removed (not added)" "false true" \
 	"$(scan_added_platform_tags "$PATCH_SAME_LINE_SWAP")"
+# Two hunks in the SAME file: one edits an existing tag array (unrelated
+# removal keeps tags.WIN), the other genuinely adds a new tags.WIN test. The
+# unrelated hunk must not mask the real addition in the other hunk.
+PATCH_TWO_HUNKS=$'@@ -1 +1 @@\n-\ttag: [tags.OLD, tags.ASSISTANT, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WIN],\n@@ -20 +20,2 @@\n+test.describe("new win test", { tag: [tags.WIN] }, () => {})'
+assert_eq "genuine add in one hunk survives unrelated edit in another hunk, same file" "true false" \
+	"$(scan_added_platform_tags "$PATCH_TWO_HUNKS")"
 
 # --- scan_added_platform_tags_across_files ---
 assert_eq "across_files: single genuine add" "true false" \

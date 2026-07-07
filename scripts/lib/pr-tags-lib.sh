@@ -56,21 +56,25 @@ derive_map_tags() {
 }
 
 # scan_added_platform_tags <patch_text for ONE file>
-# Echoes "<win> <web>" (true/false): true only if tags.WIN/tags.WEB is on an
-# added line AND not on a removed one -- a same-line edit that reprints an
-# already-present tag (#14731) doesn't count. Multiple files? Use
-# scan_added_platform_tags_across_files instead of concatenating patches.
+# Echoes "<win> <web>" (true/false): true only if a hunk has tags.WIN/tags.WEB
+# on an added line but not on a removed line IN THAT SAME HUNK -- so a same-line
+# edit that reprints an already-present tag (#14731) doesn't count, but an
+# unrelated hunk elsewhere in the file can't mask a real addition either.
+# Multiple files? Use scan_added_platform_tags_across_files, don't concatenate.
 scan_added_platform_tags() {
-	local patch="$1" added removed win=false web=false
-	added="$(printf '%s\n' "$patch" | grep '^+' | grep -v '^+++' || true)"
-	removed="$(printf '%s\n' "$patch" | grep '^-' | grep -v '^---' || true)"
-	if printf '%s\n' "$added" | grep -q "tags\.WIN" && ! printf '%s\n' "$removed" | grep -q "tags\.WIN"; then
-		win=true
-	fi
-	if printf '%s\n' "$added" | grep -q "tags\.WEB" && ! printf '%s\n' "$removed" | grep -q "tags\.WEB"; then
-		web=true
-	fi
-	echo "$win $web"
+	local patch="$1"
+	printf '%s\n' "$patch" | awk '
+		function flush() {
+			if (a_win && !r_win) win = 1
+			if (a_web && !r_web) web = 1
+			a_win = 0; r_win = 0; a_web = 0; r_web = 0
+		}
+		/^@@/ { flush() }
+		/^\+\+\+/ || /^---/ { next }
+		/^\+/ { if ($0 ~ /tags\.WIN/) a_win = 1; if ($0 ~ /tags\.WEB/) a_web = 1 }
+		/^-/ { if ($0 ~ /tags\.WIN/) r_win = 1; if ($0 ~ /tags\.WEB/) r_web = 1 }
+		END { flush(); print (win ? "true" : "false"), (web ? "true" : "false") }
+	'
 }
 
 # scan_added_platform_tags_across_files <patch1> [<patch2> ...]
