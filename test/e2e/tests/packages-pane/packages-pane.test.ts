@@ -34,8 +34,13 @@ test.describe('Packages Pane', {
 		await app.workbench.console.clickConsoleLabel();
 	});
 
-	// python is uv; pythonAlt is pyenv
-	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
+	// python is uv; pythonAlt is pyenv.
+	// pythonAlt runs first: the `python` (uv) case selects its interpreter via
+	// `python.setInterpreter` (see below), which sets the workspace's active
+	// interpreter and is sticky across tests in this worker. Running it last keeps
+	// that selection from leaking into the pythonAlt case, which relies on its own
+	// hotkey-started session.
+	const pythonRuntimes: SessionRuntimes[] = ['pythonAlt', 'python'];
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
@@ -47,7 +52,13 @@ test.describe('Packages Pane', {
 				async function ({ app, sessions }) {
 					const { packages, toasts } = app.workbench;
 
-					await sessions.start(runtime);
+					// The `python` (uv) runtime resolves to two 3.10.12 interpreters: the
+					// project venv (uv: root) and the uv-managed base standalone. The
+					// new-session (hotkey) picker only offers the preferred one, which is the
+					// base standalone -- an invalid install target (externally-managed; even
+					// `uv pip install` refuses it). Use `python.setInterpreter`, which lists
+					// all interpreters, so the venv is selected and package installs succeed.
+					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess' } : undefined);
 
 					await packages.verifyPackagesList();
 

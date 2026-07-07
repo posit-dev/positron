@@ -27,6 +27,10 @@ import { InstallRemoteExtensionsContribution, RemoteExtensionsInitializerContrib
 import { IExtensionHostProfileService, OpenExtensionHostProfileACtion, RuntimeExtensionsEditor, SaveExtensionHostProfileAction, StartExtensionHostProfileAction, StopExtensionHostProfileAction } from './runtimeExtensionsEditor.js';
 import { ShowRuntimeExtensionsAction } from '../browser/abstractRuntimeExtensionsEditor.js';
 
+// --- Start Positron ---
+import { PositronCustomGalleryValidation } from './positronCustomGalleryValidation.js';
+// --- End Positron ---
+
 // Singletons
 registerSingleton(IExtensionHostProfileService, ExtensionHostProfileService, InstantiationType.Delayed);
 
@@ -74,6 +78,12 @@ workbenchRegistry.registerWorkbenchContribution(ExtensionsAutoProfiler, Lifecycl
 workbenchRegistry.registerWorkbenchContribution(RemoteExtensionsInitializerContribution, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(InstallRemoteExtensionsContribution, LifecyclePhase.Restored);
 workbenchRegistry.registerWorkbenchContribution(DebugExtensionsContribution, LifecyclePhase.Restored);
+// --- Start Positron ---
+// Advisory probe that warns when a configured custom extension gallery is
+// unreachable or malformed. Restored phase: after the workbench is ready but
+// not on the critical startup path.
+workbenchRegistry.registerWorkbenchContribution(PositronCustomGalleryValidation, LifecyclePhase.Restored);
+// --- End Positron ---
 
 // Register Commands
 

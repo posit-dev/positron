@@ -27,7 +27,7 @@ import { IDialogService, IFileDialogService } from '../../../../platform/dialogs
 import { ExtensionGalleryManifestStatus, ExtensionGalleryResourceType, ExtensionGalleryServiceUrlConfigKey, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+import { PositronGallerySourceConfigKey, PositronCustomGalleryUrlConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // --- End Positron ---
 import { EXTENSION_INSTALL_SOURCE_CONTEXT, ExtensionInstallSource, ExtensionRequestsTimeoutConfigKey, ExtensionsLocalizedLabel, FilterType, IExtensionGalleryService, IExtensionManagementService, PreferencesLocalizedLabel, SortBy, VerifyExtensionSignatureConfigKey } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { areSameExtensions, getIdAndVersion } from '../../../../platform/extensionManagement/common/extensionManagementUtil.js';
@@ -354,17 +354,28 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			// --- Start Positron ---
 			[PositronGallerySourceConfigKey]: {
 				type: 'string',
-				enum: ['posit-p3m', 'open-vsx'],
+				enum: ['posit-p3m', 'open-vsx', 'custom'],
 				enumDescriptions: [
 					localize('positron.extensions.gallerySource.positP3m', "Posit Public Package Manager (p3m.dev) - Posit's curated extension registry (default)"),
 					localize('positron.extensions.gallerySource.openVsx', "Open VSX Registry (open-vsx.org) - the upstream open-source extension registry"),
+					localize('positron.extensions.gallerySource.custom', "A custom Open VSX-compatible gallery, such as a self-hosted Posit Package Manager. Set its base URL in the Custom Gallery Url setting"),
 				],
 				enumItemLabels: [
 					localize('positron.extensions.gallerySource.positP3m.label', "Posit Public Package Manager"),
 					localize('positron.extensions.gallerySource.openVsx.label', "Open VSX Registry"),
+					localize('positron.extensions.gallerySource.custom.label', "Custom"),
 				],
 				markdownDescription: localize('positron.extensions.gallerySource', "Choose which extension gallery (marketplace) to use for browsing and installing extensions. Changes require a restart.\n\nNote: when the `EXTENSIONS_GALLERY` environment variable is set to a valid value, it overrides this setting."),
 				default: 'posit-p3m',
+				scope: ConfigurationScope.APPLICATION,
+				tags: ['usesOnlineServices'],
+			},
+			[PositronCustomGalleryUrlConfigKey]: {
+				type: 'string',
+				default: '',
+				pattern: '^$|^https?://.+',
+				patternErrorMessage: localize('positron.extensions.customGalleryUrl.pattern', "Enter an absolute http(s) URL, or leave blank."),
+				markdownDescription: localize('positron.extensions.customGalleryUrl', "Base URL of a custom Open VSX-compatible extension gallery. Only used when Extension Gallery Source is set to Custom. Provide the root URL of the Open VSX endpoint, for example `https://my-ppm.example.com/openvsx/latest/vscode`; the `/gallery` and asset paths are appended automatically. For galleries that do not follow the standard Open VSX URL scheme, use the `EXTENSIONS_GALLERY` environment variable instead. Changes require a restart."),
 				scope: ConfigurationScope.APPLICATION,
 				tags: ['usesOnlineServices'],
 			},

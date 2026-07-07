@@ -13,7 +13,7 @@ test.use({
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
 test.describe('Posit Assistant', {
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],
+	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {

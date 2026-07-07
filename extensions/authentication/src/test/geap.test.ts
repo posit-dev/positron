@@ -6,9 +6,9 @@
 import * as assert from 'assert';
 
 /**
- * Snapshot/restore for env vars touched by the Vertex resolver.
+ * Snapshot/restore for env vars touched by the GEAP resolver.
  */
-const VERTEX_ENV_KEYS = [
+const GEAP_ENV_KEYS = [
 	'GOOGLE_CLIENT_EMAIL',
 	'GOOGLE_PRIVATE_KEY',
 	'GOOGLE_PRIVATE_KEY_ID',
@@ -27,7 +27,7 @@ const TEST_LOCATION = 'us-central1';
 
 function snapshotEnv(): Record<string, string | undefined> {
 	const snapshot: Record<string, string | undefined> = {};
-	for (const key of VERTEX_ENV_KEYS) {
+	for (const key of GEAP_ENV_KEYS) {
 		snapshot[key] = process.env[key];
 		delete process.env[key];
 	}
@@ -35,7 +35,7 @@ function snapshotEnv(): Record<string, string | undefined> {
 }
 
 function restoreEnv(snapshot: Record<string, string | undefined>): void {
-	for (const key of VERTEX_ENV_KEYS) {
+	for (const key of GEAP_ENV_KEYS) {
 		const value = snapshot[key];
 		if (value === undefined) {
 			delete process.env[key];
@@ -91,18 +91,18 @@ function installGoogleAuthStub(): void {
 
 	// The extension may have already loaded the resolver with the real library.
 	// Evict it so the require() below gets a fresh load against the stub.
-	const resolverPath = require.resolve('../googleVertexResolver');
+	const resolverPath = require.resolve('../credentials/geap');
 	delete require.cache[resolverPath];
 }
 
-suite('resolveGoogleVertexCredential', () => {
+suite('resolveGeapCredential', () => {
 	let envSnapshot: Record<string, string | undefined>;
-	let resolveGoogleVertexCredential: typeof import('../googleVertexResolver').resolveGoogleVertexCredential;
+	let resolveGeapCredential: typeof import('../credentials/geap').resolveGeapCredential;
 
 	suiteSetup(() => {
 		installGoogleAuthStub();
 		// Now require the resolver so it picks up the stubbed library.
-		resolveGoogleVertexCredential = require('../googleVertexResolver').resolveGoogleVertexCredential;
+		resolveGeapCredential = require('../credentials/geap').resolveGeapCredential;
 	});
 
 	setup(() => {
@@ -126,7 +126,7 @@ suite('resolveGoogleVertexCredential', () => {
 		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----';
 		nextToken = 'ya29.inline-token';
 
-		const payload = await resolveGoogleVertexCredential();
+		const payload = await resolveGeapCredential();
 
 		assert.deepStrictEqual(JSON.parse(payload), {
 			token: 'ya29.inline-token',
@@ -143,7 +143,7 @@ suite('resolveGoogleVertexCredential', () => {
 	test('falls back to ADC when inline env vars are absent', async () => {
 		nextToken = 'ya29.adc-token';
 
-		const payload = await resolveGoogleVertexCredential();
+		const payload = await resolveGeapCredential();
 
 		assert.deepStrictEqual(JSON.parse(payload), {
 			token: 'ya29.adc-token',
@@ -159,8 +159,8 @@ suite('resolveGoogleVertexCredential', () => {
 		nextToken = null;
 
 		await assert.rejects(
-			resolveGoogleVertexCredential(),
-			/No Google Vertex AI credentials found/,
+			resolveGeapCredential(),
+			/No Gemini Enterprise Agent Platform credentials found/,
 		);
 	});
 
@@ -174,7 +174,7 @@ suite('resolveGoogleVertexCredential', () => {
 		nextError = new Error('invalid_grant: Invalid JWT Signature.');
 
 		await assert.rejects(
-			resolveGoogleVertexCredential(),
+			resolveGeapCredential(),
 			/Inline service-account credentials failed: invalid_grant/,
 		);
 	});
@@ -184,7 +184,7 @@ suite('resolveGoogleVertexCredential', () => {
 		delete process.env.GOOGLE_VERTEX_PROJECT;
 
 		await assert.rejects(
-			resolveGoogleVertexCredential(),
+			resolveGeapCredential(),
 			/requires a project and location/,
 		);
 	});
@@ -214,7 +214,7 @@ suite('resolveGoogleVertexCredential', () => {
 		};
 
 		try {
-			const payload = JSON.parse(await resolveGoogleVertexCredential());
+			const payload = JSON.parse(await resolveGeapCredential());
 			assert.strictEqual(payload.project, 'settings-project');
 			assert.strictEqual(payload.location, 'settings-location');
 		} finally {
@@ -231,7 +231,7 @@ suite('resolveGoogleVertexCredential', () => {
 		process.env.GOOGLE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\nDEF\\n-----END PRIVATE KEY-----';
 		nextToken = 'ya29.token';
 
-		await resolveGoogleVertexCredential();
+		await resolveGeapCredential();
 
 		assert.strictEqual(
 			constructorCalls[0].credentials?.private_key,
