@@ -317,26 +317,29 @@ jobs:
           PR_UPDATED: ${{ needs.auto-fix.outputs.pr_updated }}
           MISSING_COUNT: ${{ needs.auto-fix.outputs.missing_count }}
         run: |
-          # Missing dirs are surfaced but never auto-fixed, so tack a nudge onto
-          # every message when there are any -- even a run that opened a stale-
-          # removal PR still leaves those for a human.
+          # Two lines: a header with the run link (its summary is the one place
+          # that always lists missing dirs), then what happened this run. Missing
+          # dirs are surfaced but never auto-fixed, so append a nudge whenever
+          # there are any -- even a run that opened a stale-removal PR leaves them.
           MISSING_NOTE=""
-          [ "${MISSING_COUNT:-0}" -gt 0 ] && MISSING_NOTE=" · ${MISSING_COUNT} dir(s) missing tags (assign by hand)"
-          # Always link the run (its summary is the one place that lists missing
-          # dirs, and it exists in every case); link the PR too when there is
-          # one. Three distinct states: a freshly opened/updated PR reads
-          # differently from an old PR still open but untouched this run
-          # (PR_UPDATED false) -- claiming "opened" for the latter would
-          # misreport what actually happened.
+          if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
+            [ "$MISSING_COUNT" = "1" ] && MISSING_NOTE=" · *1 directory needs tags*" || MISSING_NOTE=" · *${MISSING_COUNT} directories need tags*"
+          fi
+          HEADER="⚠️ *Test tag map has drifted* · <${RUN_URL}|details>"
+          # Three distinct states: a freshly opened/updated PR reads differently
+          # from an old PR still open but untouched this run (PR_UPDATED false) --
+          # claiming "opened" for the latter would misreport what happened.
           if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> removing stale entries${MISSING_NOTE} · <${RUN_URL}|details>"
+            LINE2="<${PR_URL}|PR #${PR_NUM}> removes stale entries${MISSING_NOTE}"
           elif [ -n "$PR_URL" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE} · <${RUN_URL}|details>"
+            LINE2="fix already open in <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE}"
           else
-            TEXT="⚠️ *Test tag map has drifted* · needs manual fix${MISSING_NOTE} · <${RUN_URL}|details>"
+            LINE2="needs manual fix${MISSING_NOTE}"
           fi
+          TEXT="${HEADER}
+          ${LINE2}"
           PAYLOAD=$(jq -n \
             --arg channel "#positron-dev" \
             --arg text "$TEXT" \
