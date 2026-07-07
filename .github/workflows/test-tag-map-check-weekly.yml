@@ -338,7 +338,7 @@ jobs:
             TEXT="⚠️ *Test tag map has drifted* · needs manual fix${MISSING_NOTE} · <${RUN_URL}|details>"
           fi
           PAYLOAD=$(jq -n \
-            --arg channel "D07KSCRU0SZ" \
+            --arg channel "#test-slack-notifications" \
             --arg text "$TEXT" \
             '{channel: $channel, text: $text}')
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
