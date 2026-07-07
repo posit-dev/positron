@@ -275,10 +275,8 @@ jobs:
               echo "Reusing existing PR: $DETECTED_PR_URL (mode: \`$MODE\`)"
               echo ""
             fi
-            # --condensed: the full breakdown already ran in the check-map
-            # job's own summary on this same run page; repeating it here would
-            # just be the identical missing/stale/invalid_tags lists twice.
-            [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json --condensed
+            # Only what this job changed -- the full drift breakdown is the
+            # check-map job's summary on the same run page, not repeated here.
             if [ -n "$APPLY_RESULT" ]; then
               REMOVED_N=$(echo "$APPLY_RESULT" | jq -r '.removed | length')
               [ "$REMOVED_N" = "1" ] && REMOVED_NOUN=entry || REMOVED_NOUN=entries
@@ -286,8 +284,8 @@ jobs:
               echo ""
               echo "- Removed: $REMOVED_N stale $REMOVED_NOUN"
               if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
-                [ "$MISSING_COUNT" = "1" ] && MISSING_NOUN=dir || MISSING_NOUN=dirs
-                echo "- :warning: $MISSING_COUNT missing $MISSING_NOUN need tags assigned by hand (not auto-fixed)"
+                [ "$MISSING_COUNT" = "1" ] && MISSING_VERB="dir needs" || MISSING_VERB="dirs need"
+                echo "- Missing: $MISSING_COUNT $MISSING_VERB tags manually fixed"
               fi
               echo ""
             fi
