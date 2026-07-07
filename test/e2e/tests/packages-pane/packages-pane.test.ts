@@ -39,7 +39,7 @@ test.describe('Packages Pane', {
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
-			await openFolder('qa-example-content/workspaces/packages-pane-python');
+			await openFolder('test-files/workspaces/packages-pane-python');
 		});
 
 		pythonRuntimes.forEach((runtime) => {

@@ -26,7 +26,7 @@ test.describe('New uv Environment', {
 }, () => {
 
 	test.afterAll(async () => {
-		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
+		const projPath = '/tmp/vscsmoke/test-files/proj';
 		try {
 			await fs.promises.rm(projPath, { recursive: true, force: true });
 			console.log(`Cleaned up test project: ${projPath}`);
@@ -52,7 +52,7 @@ test.describe('New uv Environment', {
 
 		await app.workbench.terminal.waitForTerminalText('Creating virtual environment');
 
-		await openFolder(path.join('qa-example-content/proj'));
+		await openFolder(path.join('test-files/proj'));
 
 		await app.workbench.console.waitForReady('>>>', 30000);
 
@@ -61,7 +61,7 @@ test.describe('New uv Environment', {
 		const metadata = await app.workbench.sessions.getMetadata();
 
 		expect(metadata.source).toBe('uv');
-		expect(metadata.path).toContain('qa-example-content/proj/.venv/bin/python');
+		expect(metadata.path).toContain('test-files/proj/.venv/bin/python');
 
 	});
 });

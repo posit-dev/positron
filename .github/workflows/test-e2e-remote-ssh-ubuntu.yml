@@ -89,10 +89,9 @@ jobs:
           docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:141 \
             /bin/bash -c 'while true; do sleep 3600; done'
 
-      - name: Download SSH install script
+      - name: Setup SSH install script
         run: |
-          curl -L -o ssh-install.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/arm-local/ssh-install.sh
-          docker cp ssh-install.sh test:/tmp/ssh-install.sh
+          docker cp docker/environments/arm-local/ssh-install.sh test:/tmp/ssh-install.sh
           docker exec test chmod +x /tmp/ssh-install.sh
 
       - name: Install SSH in container

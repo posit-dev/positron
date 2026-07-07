@@ -79,7 +79,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', WORKSPACE_NAME);
+		await overrideWorkspaceName(page, 'test-files', WORKSPACE_NAME);
 		await capturePanelContentTrimmed(page, 'reticulate-interpreter.png');
 	});
 
@@ -136,7 +136,7 @@ test.describe('Release Screenshots - Reticulate', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', WORKSPACE_NAME);
+		await overrideWorkspaceName(page, 'test-files', WORKSPACE_NAME);
 		await page.locator(ACTIVE_CONSOLE_INSTANCE).first().evaluate(el => { el.scrollTop = 0; });
 		const panelBox = await page.locator(PANEL_CONTENT).boundingBox();
 		if (!panelBox) {

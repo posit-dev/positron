@@ -56,17 +56,15 @@ Below are the different package and environment dependencies you'll need to inst
 ### Python Dependencies
 
 ```bash
-curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r test/e2e/test-files/requirements.txt
 python -m pip install ipykernel
 ```
 
 ### R Dependencies
 
 ```bash
-curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+Rscript -e "pak::local_install_dev_deps(root = 'test/e2e/test-files', ask = FALSE)"
 ```
 
 ### Graphviz
@@ -91,7 +89,7 @@ Make sure that you have followed the [Machine Setup](https://connect.posit.it/po
 
 ### Test Dependencies
 
-Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects. A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
+Several tests use the QA content examples now bundled in-repo at `test/e2e/test-files`. You will need to install the dependencies for those projects. A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
 
 ## Running Tests
 
@@ -187,11 +185,11 @@ BUILD=/Applications/Positron.app npm run e2e-pr
 
 ## Test Project
 
-Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts. If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
+Before any of the tests start executing the test framework provisions the test workspace by copying the in-repo `test/e2e/test-files` directory (R and Python files that are run by the automated tests, plus data files such as Excel, SQLite, & parquet that support the test scripts) into the workspace path and git-initializing it. If you add test content under `test/e2e/test-files`, please be sure that the data files are free to use in a public repository.
 
-For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
+For Python, add any package requirements to `test/e2e/test-files/requirements.txt`. We generally do NOT pin them to a specific version, as tests can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
 
-For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
+For R, add any package requirements to the "imports" section of `test/e2e/test-files/DESCRIPTION`.
 
 ## Remote WSL Tests
 

@@ -31,7 +31,7 @@ test.describe('Workbench Extension', {
 		await expect(workbenchPage.getByRole('link', { name: 'Workbench projects' })).toBeVisible();
 
 		// Click on Positron Pro Session to return to the session
-		await workbenchPage.getByRole('link', { name: 'qa-example-content' }).click();
+		await workbenchPage.getByRole('link', { name: 'test-files' }).click();
 
 		// Wait for navigation back to the session
 		await workbenchPage.waitForLoadState('domcontentloaded');

@@ -225,9 +225,9 @@ jobs:
           # so text and chrome read proportionally larger in docs.
           POSITRON_SCREENSHOT_VIEWPORT: '1512,945'
           # Bootstrap already verified above; skip the bootstrap test inside
-          # the suite, and skip the workspace clone since globalSetup already
-          # populated it during the bootstrap run (re-running cp -R fails on
-          # the read-only .git/objects/pack files left behind).
+          # the suite, and skip provisioning the workspace since globalSetup
+          # already populated it during the bootstrap run (re-running cp -R fails
+          # on the read-only .git/objects/pack files left behind).
           SKIP_BOOTSTRAP: 'true'
           SKIP_CLONE: 'true'
         run: npx playwright test --project release-screenshots --workers 2 --max-failures=2
