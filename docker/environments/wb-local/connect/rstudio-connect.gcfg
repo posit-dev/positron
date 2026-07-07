@@ -1,0 +1,65 @@
+; RStudio Connect configuration file
+
+[Server]
+; SenderEmail is an email address used by RStudio Connect to send outbound
+; email. The system will not be able to send administrative email until this
+; setting is configured.
+;
+; SenderEmail = account@company.com
+
+; The persistent data directory mounted into our container.
+DataDir = /data
+
+; Address is a public URL for this RStudio Connect server. Must be configured
+; to enable features like including links to your content in emails. If
+; Connect is deployed behind an HTTP proxy, this should be the URL for Connect
+; in terms of that proxy.
+;
+; Address = https://rstudio-connect.company.com
+
+; Placeholder value. Please replace
+Address = http://localhost:3939
+
+[HTTP]
+; RStudio Connect will listen on this network address for HTTP connections.
+Listen = :3939
+
+[Authentication]
+; Specifies the type of user authentication.
+Provider = "pam"
+
+[PAM]
+; These default values should be adjusted
+; accord to the level of PAM support desired:
+Service = "rstudio-connect"
+UseSession = false
+ForwardPassword = false
+; When troubleshooting a PAM authentication problem, more verbose
+; logging is produced by uncommenting the following line:
+Logging = true
+
+[Python]
+Enabled = true
+Executable = /opt/python/3.12.11/bin/python
+Executable = /opt/python/3.11.13/bin/python
+
+[Quarto]
+Enabled = true
+Executable = /opt/quarto/1.7.32/bin/quarto
+
+[TensorFlow]
+Enabled = true
+Executable = /usr/bin/tensorflow_model_server
+
+[RPackageRepository "CRAN"]
+URL = https://packagemanager.posit.co/cran/__linux__/jammy/latest
+
+[RPackageRepository "RSPM"]
+URL = https://packagemanager.posit.co/cran/__linux__/jammy/latest
+
+[Logging]
+ServiceLog = STDOUT
+ServiceLogFormat = TEXT    ; TEXT or JSON
+ServiceLogLevel = INFO     ; INFO, WARNING or ERROR
+AccessLog = STDOUT
+AccessLogFormat = COMMON   ; COMMON, COMBINED, or JSON

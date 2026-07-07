@@ -1,0 +1,27 @@
+---
+title: "Multi statement"
+format: html
+---
+
+## R
+
+This code cell contains multiple R statements.
+
+```{r}
+print("This is the first statement.")
+print("This is the middle statement.")
+print("This one is last.")
+```
+
+And this one contains multiple multi-line statements.
+
+```{r}
+print(1 + 
+    2 + 
+    3)
+print(
+    seq_len(
+        10
+    )
+)
+```

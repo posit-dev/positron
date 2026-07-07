@@ -1,0 +1,21 @@
+[package]
+name = "parquet-maker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrow = "52.0.0"
+arrow-array = "52.0.0"
+chrono = "0.4.38"
+half = "2.4.1"
+parquet = "52.0.0"
+rand = "0.8.5"
+tempfile = "3.10.1"
+
+[dependencies.uuid]
+version = "1.9.1"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]

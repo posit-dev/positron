@@ -1,0 +1,31 @@
+---
+title: "Quarto with Mixed Languages"
+output: html_document
+---
+
+## R
+
+This code cell uses R.
+
+```{r}
+print("Hello from R")
+```
+
+## Python
+
+This code cell uses Python.
+
+```{python}
+import os
+os.getpid()
+```
+
+## Bash
+
+And this code cell uses bash.
+
+```{bash}
+echo "Your home directory is $HOME"
+```
+
+

@@ -46,6 +46,10 @@ export const all = Object.freeze<string[]>([
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',
+
+	// Excluded since it's example content merged from qa-example-content
+	// (test fixtures/workspaces, not shipping source with our code style)
+	'!test/e2e/test-files/**/*',
 	// --- End Positron ---
 ]);
 

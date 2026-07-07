@@ -1,0 +1,36 @@
+services:
+  jupyter-test:
+    image: ghcr.io/posit-dev/positron-ubuntu24-arm64:127
+    container_name: jupyter-test
+    ports:
+      - "8888:80"    # JupyterHub (TLJH uses port 80 internally)
+      - "8080:8080"  # Positron server
+    command: /lib/systemd/systemd
+    tty: true
+    stdin_open: true
+    privileged: true
+    networks:
+      - jupyter-network
+    environment:
+      - JUPYTER_PASSWORD=${JUPYTER_PASSWORD:-testpassword}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - container=docker
+    volumes:
+      - jupyter-data:/home
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    ulimits:
+      nproc: 4096
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  jupyter-network:
+    driver: bridge
+
+volumes:
+  jupyter-data:

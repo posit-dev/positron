@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: ghcr.io/posit-dev/positron-postgres-arm64:143
+    container_name: postgres-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+volumes:
+  postgres-data:

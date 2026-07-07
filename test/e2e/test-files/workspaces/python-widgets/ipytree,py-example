@@ -1,0 +1,22 @@
+# works in console
+
+
+from ipytree import Tree, Node
+tree = Tree(stripes=True)
+tree
+tree
+node1 = Node('node1')
+tree.add_node(node1)
+node2 = Node('node2')
+tree.add_node(node2)
+tree.nodes = [node2, node1]
+node3 = Node('node3', disabled=True)
+node4 = Node('node4')
+node5 = Node('node5', [Node('1'), Node('2')])
+node2.add_node(node3)
+node2.add_node(node4)
+node2.add_node(node5)
+tree.add_node(Node('node6'), 1)
+node2.add_node(Node('node7'), 2)
+
+tree

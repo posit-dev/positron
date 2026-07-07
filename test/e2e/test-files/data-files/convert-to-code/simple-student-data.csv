@@ -1,0 +1,5 @@
+name,age,city,state,is_student,enrollment_date,score,grade,status
+Alice,25.0,Austin,Texas,True,2023-01-01,89.5,B+,active
+Bob,35.0,Dallas,Texas,False,,,A,inactive
+Charlie,40.0,Austin,Texas,False,2021-07-15,95.0,A+,active
+Diana,,Houston,Texas,True,2022-09-30,76.0,,on leave
