@@ -1,0 +1,16 @@
+Package: testfun
+Title: Toy package with some tests
+Version: 0.0.0.9000
+Authors@R: 
+    person("Jennifer", "Bryan", , "jenny@posit.co", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-6983-2759"))
+Description: Toy package with some tests.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+URL: https://github.com/jennybc/testfun
+BugReports: https://github.com/jennybc/testfun/issues

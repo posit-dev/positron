@@ -1,0 +1,39 @@
+---
+title: "Parameters"
+params:
+  answer: !r 6 * 7
+  alpha: 0.1
+  ratio: 0.1
+  year:
+    label: "Year"
+    value: 2026
+    input: slider
+    min: 2010
+    max: 2050
+    step: 1
+    sep: ""
+---
+
+# The Answer
+
+This should be 42, which is the result of $6 * 7$, and tests evaluating R expressions as parameters.
+
+```{r}
+params$answer
+```
+
+# A Small Ratio
+
+This should be 0.01, and tests simple scalar parameters.
+
+```{r}
+params$alpha * params$ratio
+```
+
+# The Year
+
+This should be 2026, and tests the full parameter declaration format that includes UI information.
+
+```{r}
+params$year
+```

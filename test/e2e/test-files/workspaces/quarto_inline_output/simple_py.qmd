@@ -1,0 +1,13 @@
+---
+title: "Simple Python Test"
+format: html
+---
+
+## Basic Console Output
+
+```{python}
+import pandas as pd
+x = list(range(1, 11))
+df = pd.DataFrame({"x": x, "y": [v * 2 for v in x]})
+df
+```

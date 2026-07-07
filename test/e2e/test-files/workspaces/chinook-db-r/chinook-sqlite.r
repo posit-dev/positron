@@ -1,0 +1,5 @@
+library(connections)
+library(RSQLite)
+con <- connection_open(SQLite(), file.path(getwd(), "data-files", "chinook", "chinook.db"))
+albums <- dbGetQuery(con, 'SELECT * FROM albums')
+df <- data.frame(albums)

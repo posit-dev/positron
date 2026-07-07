@@ -1,0 +1,120 @@
+---
+title: "Test Title"
+author: "Test Author"
+date: "2025-01-01"
+format: html
+---
+
+# Quarto Markdown Testing Document
+
+This Quarto Markdown file is designed to test the following:
+- Markdown syntax rendering
+- Mode content synchronization
+- Code block rendering
+- YAML front matter rendering
+- Equation rendering
+- Code execution
+
+---
+
+## 1. Markdown Syntax Rendering
+
+This is **bold** text and *italic* text.
+
+Here’s an example of a [link](https://example.com).
+
+- Item 1
+- Item 2
+  - Sub-item 2.1
+  - Sub-item 2.2
+
+Inline code example: `summary(cars)`
+
+---
+
+## 2. Mode Content Synchronization
+
+This section ensures that content is synchronized between source and visual modes.
+
+**Instructions:**  
+1. Switch to **source mode** and edit the text:  
+   *"This is a test of synchronization."*  
+2. Switch back to **visual mode** and verify the change persists.
+
+Text to edit: **This is a test of synchronization.**
+
+---
+
+## 3. Code Block Rendering
+
+### Python Code Block
+
+```{python}
+# A simple Python code block
+print("Hello, Python!")
+```
+
+### R Code Block
+
+```{r}
+# A simple R code block
+x <- 1:10
+y <- x^2
+plot(x, y)
+```
+
+---
+
+## 4. YAML Front Matter Rendering
+
+Ensure the YAML metadata at the top of this document renders correctly.
+
+- **Title:** Should display as *Test Title*.
+- **Author:** Should display as *Test Author*.
+- **Date:** Should display as *2025-01-01*.
+
+---
+
+## 5. Equation Rendering
+
+### Inline Equation
+The famous equation is $E = mc^2$.
+
+### Block Equation
+$$
+\int_a^b f(x) dx = F(b) - F(a)
+$$
+
+---
+
+## 6. Code Execution
+
+Run the following R code and ensure it executes correctly:
+
+```{r}
+# Generate a summary of the cars dataset
+summary(cars)
+```
+
+```{r}
+# Generate a basic plot
+x <- seq(1, 100, by = 1)
+y <- x^2 + rnorm(100, mean = 0, sd = 500)
+plot(x, y, main = "Example Plot", col = "blue", pch = 19)
+```
+
+---
+
+## 7. Table Rendering
+
+Ensure tables are preserved in both **source mode** and **visual mode**.
+
+| Name  | Age | City       |
+|-------|-----|------------|
+| Alice | 30  | New York   |
+| Bob   | 25  | San Diego  |
+
+---
+
+### **Summary**
+This `.qmd` file tests markdown rendering, YAML metadata, equations, synchronization between modes, code block rendering, code execution, and table formatting.

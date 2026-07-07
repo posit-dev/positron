@@ -1,0 +1,14 @@
+---
+title: "Console Test Python"
+format: html
+---
+
+## Test Cell
+
+```{python}
+import pandas as pd
+x = list(range(1, 6))
+y = [v * 2 for v in x]
+df = pd.DataFrame({"x": x, "y": y})
+df
+```

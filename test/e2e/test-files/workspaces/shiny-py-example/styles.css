@@ -1,0 +1,12 @@
+:root {
+  --bslib-sidebar-main-bg: #f8f8f8;
+}
+
+.popover {
+  --bs-popover-header-bg: #222;
+  --bs-popover-header-color: #fff;
+}
+
+.popover .btn-close {
+  filter: var(--bs-btn-close-white-filter);
+}
