@@ -160,6 +160,6 @@ export function renderSkipComment(context) {
 		`${context.stats.fileCount} file(s), categorized as: ${formatCategoryCounts(context.stats.categoryCounts)}.`,
 		'',
 		'---',
-		`<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Nothing to test here! A pre-filter handled this PR, so we skipped the LLM check. Comment \`/recheck-tests\` if that's wrong.</sub>`,
+		`<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Nothing to test here! A pre-filter handled this PR, so we skipped the LLM check. Comment \`/pete\` if that's wrong.</sub>`,
 	].join('\n');
 }
