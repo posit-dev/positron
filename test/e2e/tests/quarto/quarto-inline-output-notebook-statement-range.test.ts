@@ -10,7 +10,7 @@ const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
 			await settingsFile.append({
-				'positron.quarto.inlineOutput.enabled': true,
+				'quarto.inlineOutput.enabled': true,
 				'console.showNotebookConsoles': true,
 				'workbench.editor.enablePreview': false,
 			});
