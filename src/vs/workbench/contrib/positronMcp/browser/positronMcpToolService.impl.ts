@@ -15,7 +15,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMarkerService, MarkerSeverity } from '../../../../platform/markers/common/markers.js';
 import { IMcpCallerContext, IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
-import { IMcpCallToolResult, McpContent, NO_ACTIVE_SESSION_TEXT, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
+import { IMcpCallToolResult, mcpToolError, NO_ACTIVE_SESSION_TEXT, PositronMcpToolName } from '../../../../platform/positronMcp/common/positronMcpTools.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -44,11 +44,6 @@ import {
 
 /** A tool handler: receives its arguments and the caller context, returns an MCP result. */
 type ToolHandler = (args: Record<string, unknown>, caller: IMcpCallerContext | undefined) => Promise<IMcpCallToolResult>;
-
-function errorResult(text: string): IMcpCallToolResult {
-	const content: McpContent[] = [{ type: 'text', text }];
-	return { content, isError: true };
-}
 
 /**
  * Renderer-side MCP tool registry. Each tool calls workbench services directly,
@@ -143,7 +138,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		// hasOwn (not a bare index) so inherited Object members can't pose as tools.
 		const handler = Object.hasOwn(this._handlers, name) ? this._handlers[name as PositronMcpToolName] : undefined;
 		if (!handler) {
-			return errorResult(`Tool '${name}' is not implemented in this Positron window.`);
+			return mcpToolError(`Tool '${name}' is not implemented in this Positron window.`);
 		}
 		const call = caller ? { caller, toolName: name } : undefined;
 		if (call) {
@@ -152,7 +147,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		try {
 			return await handler(args, caller);
 		} catch (error) {
-			return errorResult(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
+			return mcpToolError(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			if (call) {
 				const index = this._activeCalls.lastIndexOf(call);
@@ -395,7 +390,7 @@ export class PositronMcpToolService extends Disposable implements IPositronMcpTo
 		}
 		const match = uri.match(/^data:([^;]+);base64,(.+)$/s);
 		if (!match) {
-			return errorResult('The active plot could not be decoded.');
+			return mcpToolError('The active plot could not be decoded.');
 		}
 		// The image is returned untruncated: it is the whole point, and the server
 		// is localhost-only.

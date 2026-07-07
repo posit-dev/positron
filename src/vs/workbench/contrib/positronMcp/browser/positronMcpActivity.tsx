@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { getActiveWindow } from '../../../../base/browser/dom.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { localize } from '../../../../nls.js';
-import { IMcpSessionInfo, mcpClientDisplayName } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IMcpSessionInfo, mcpClientLabel } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpLifecycleAuditEvent, IMcpToolCallAuditEvent, IMcpToolCallStartEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { IMcpActivityState, PositronMcpActivityFeed } from './positronMcpActivityFeed.js';
 import { formatRelativeTime } from './positronMcpStatusModal.js';
@@ -24,19 +24,9 @@ const TIME_TICK_MS = 5000;
 /** The outcome filter states, cycled by the filter bar chips. */
 export type McpOutcomeFilter = 'all' | 'ok' | 'error';
 
-/** Display label for an event's client: mapped name, or the anonymous fallback. */
-function clientDisplay(clientName?: string, clientVersion?: string): string {
-	if (!clientName) {
-		// Matches the console's attribution label for unidentified agents.
-		return localize('positron.mcp.activity.externalAgent', "External Agent");
-	}
-	const name = mcpClientDisplayName(clientName);
-	return clientVersion ? `${name} ${clientVersion}` : name;
-}
-
 /** The inline feed line for a session-lifecycle event. */
 export function lifecycleLabel(event: IMcpLifecycleAuditEvent): string {
-	const client = clientDisplay(event.clientName, event.clientVersion);
+	const client = mcpClientLabel(event.clientName, event.clientVersion);
 	switch (event.type) {
 		case 'session-created':
 			return localize('positron.mcp.activity.sessionCreated', "Agent session created");
@@ -77,7 +67,7 @@ export function matchesFilter(event: McpAuditEvent, filterText: string, outcome:
 	const haystack = [
 		event.type === 'tool-call' || event.type === 'tool-call-start' ? event.toolName : lifecycleLabel(event),
 		event.clientName ?? '',
-		clientDisplay(event.clientName, 'clientVersion' in event ? event.clientVersion : undefined),
+		mcpClientLabel(event.clientName, 'clientVersion' in event ? event.clientVersion : undefined),
 	].join(' ').toLowerCase();
 	return haystack.includes(text);
 }
@@ -134,9 +124,7 @@ export const PositronMcpActivity = (props: PositronMcpActivityProps) => {
 				{inFlight.map(call => <InFlightRow key={call.callId} call={call} now={now} />)}
 				{events.map((event, index) => event.type === 'tool-call'
 					? <ToolCallRow key={event.callId} call={event} now={now} />
-					: event.type === 'tool-call-start'
-						? null
-						: <LifecycleRow key={`${event.type}-${event.timestamp}-${index}`} event={event} now={now} />)}
+					: <LifecycleRow key={`${event.type}-${event.timestamp}-${index}`} event={event} now={now} />)}
 				{inFlight.length === 0 && events.length === 0 &&
 					<p className='feed-empty'>
 						{hasAnyActivity
@@ -174,7 +162,7 @@ const ConnectionsHeader = (props: { sessions: readonly IMcpSessionInfo[]; runnin
 			{sessions.map(session => (
 				<div key={session.sessionId} className='connection-row'>
 					<span className='connection-dot' />
-					<span className='connection-client'>{clientDisplay(session.clientName, session.clientVersion)}</span>
+					<span className='connection-client'>{mcpClientLabel(session.clientName, session.clientVersion)}</span>
 					<span className='connection-meta'>
 						{localize('positron.mcp.activity.connectedSince', "connected {0}", formatRelativeTime(session.createdAt, now))}
 						{' · '}
@@ -233,7 +221,7 @@ const InFlightRow = (props: { call: IMcpToolCallStartEvent; now: number }) => {
 		<div className='activity-row in-flight'>
 			<span className='activity-outcome codicon codicon-loading codicon-modifier-spin' />
 			<span className='activity-tool'>{call.toolName}</span>
-			<span className='activity-client'>{clientDisplay(call.clientName)}</span>
+			<span className='activity-client'>{mcpClientLabel(call.clientName)}</span>
 			<span className='activity-meta'>{localize('positron.mcp.activity.running', "running {0}s", elapsedSeconds)}</span>
 		</div>
 	);
@@ -256,7 +244,7 @@ const ToolCallRow = (props: { call: IMcpToolCallAuditEvent; now: number }) => {
 			>
 				<span className={`activity-outcome codicon ${call.outcome === 'ok' ? 'codicon-pass-filled' : 'codicon-error'}`} />
 				<span className='activity-tool'>{call.toolName}</span>
-				<span className='activity-client'>{clientDisplay(call.clientName, call.clientVersion)}</span>
+				<span className='activity-client'>{mcpClientLabel(call.clientName, call.clientVersion)}</span>
 				<span className='activity-meta'>
 					{localize('positron.mcp.activity.duration', "{0}ms", call.durationMs)}
 					{' · '}

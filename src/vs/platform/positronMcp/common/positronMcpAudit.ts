@@ -90,6 +90,25 @@ export interface IMcpLifecycleAuditEvent {
 
 export type McpAuditEvent = IMcpToolCallAuditEvent | IMcpToolCallStartEvent | IMcpLifecycleAuditEvent;
 
+/**
+ * An audit event that belongs in activity history: completed tool calls and
+ * lifecycle markers, never transient `tool-call-start` events. The ring buffer
+ * and the status snapshot carry this type, so consumers need no runtime
+ * "not a start event" handling.
+ */
+export type McpCompletedAuditEvent = IMcpToolCallAuditEvent | IMcpLifecycleAuditEvent;
+
+/**
+ * The event with the fields only the JSONL file sink may see removed: complete
+ * arguments and the context-alert line. This is the single definition of which
+ * tool-call fields are too sensitive to fan out; both the server's emit path
+ * and the summary-detail file records go through it.
+ */
+export function toSummaryOnlyEvent(event: IMcpToolCallAuditEvent): IMcpToolCallAuditEvent {
+	const { args: _args, contextAlert: _contextAlert, ...summaryOnly } = event;
+	return summaryOnly;
+}
+
 /** The sink a session records events into; the server owns the implementation. */
 export interface IPositronMcpAuditLog {
 	record(event: McpAuditEvent): void;
@@ -116,8 +135,7 @@ export function toJsonlRecord(event: McpAuditEvent, detail: McpAuditLogDetail): 
 		return undefined;
 	}
 	if (event.type === 'tool-call' && detail !== 'full' && !event.returnedConsoleContent) {
-		const { args: _args, contextAlert: _contextAlert, ...summaryOnly } = event;
-		return JSON.stringify(summaryOnly);
+		return JSON.stringify(toSummaryOnlyEvent(event));
 	}
 	return JSON.stringify(event);
 }
@@ -213,7 +231,7 @@ export function formatAuditLine(event: McpAuditEvent): string {
  * `tool-call-start` events are not buffered (see {@link IMcpToolCallStartEvent}).
  */
 export class McpAuditRingBuffer {
-	private readonly _events: McpAuditEvent[] = [];
+	private readonly _events: McpCompletedAuditEvent[] = [];
 
 	constructor(private readonly _capacity: number = 200) { }
 
@@ -227,7 +245,76 @@ export class McpAuditRingBuffer {
 		}
 	}
 
-	snapshot(): readonly McpAuditEvent[] {
+	snapshot(): readonly McpCompletedAuditEvent[] {
 		return [...this._events];
+	}
+}
+
+/**
+ * Safety net for a start event whose matching completion never arrived (the
+ * session guarantees pairing, so this should never trip in practice).
+ */
+const STALE_CALL_MS = 10 * 60 * 1000;
+
+/**
+ * Tracks the tool calls currently in flight from paired start/completion audit
+ * events, for live UI (the activity pane's spinners, the status bar). Shared so
+ * the pairing and stale-sweep rules live in one place.
+ */
+export class McpInFlightCallTracker {
+	/** In-flight calls keyed by the audit callId. */
+	private readonly _calls = new Map<string, IMcpToolCallStartEvent>();
+
+	/**
+	 * Update from one audit event: a start is added, a completion removes its
+	 * pair and sweeps stale leftovers. Returns whether the event was in-flight
+	 * relevant (a start or completion), so callers can skip re-rendering on
+	 * lifecycle events.
+	 */
+	apply(event: McpAuditEvent): boolean {
+		if (event.type === 'tool-call-start') {
+			this._calls.set(event.callId, event);
+			return true;
+		}
+		if (event.type !== 'tool-call') {
+			return false;
+		}
+		this._calls.delete(event.callId);
+		this.sweepStale();
+		return true;
+	}
+
+	/** Drop calls whose completion never arrived within the stale window. */
+	sweepStale(): void {
+		const cutoff = Date.now() - STALE_CALL_MS;
+		for (const [callId, call] of this._calls) {
+			if (call.timestamp < cutoff) {
+				this._calls.delete(callId);
+			}
+		}
+	}
+
+	/** The in-flight calls, oldest start first. */
+	get calls(): IMcpToolCallStartEvent[] {
+		return [...this._calls.values()].sort((a, b) => a.timestamp - b.timestamp);
+	}
+
+	/** The most recently started in-flight call, when any are running. */
+	get latest(): IMcpToolCallStartEvent | undefined {
+		let latest: IMcpToolCallStartEvent | undefined;
+		for (const call of this._calls.values()) {
+			if (!latest || call.timestamp >= latest.timestamp) {
+				latest = call;
+			}
+		}
+		return latest;
+	}
+
+	get size(): number {
+		return this._calls.size;
+	}
+
+	clear(): void {
+		this._calls.clear();
 	}
 }

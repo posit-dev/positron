@@ -32,11 +32,11 @@
 // the get-user-context schema, so a runtime import back would be a cycle.
 import type { IMcpCallToolResult } from './positronMcpTools.js';
 
-/** The sections a get-user-context response can carry. */
-export type McpUserContextSection = 'session' | 'editor' | 'console' | 'notebooks' | 'errors';
-
 /** All sections, in response order; also the `include` enum in the tool schema. */
-export const MCP_USER_CONTEXT_SECTIONS: readonly McpUserContextSection[] = ['session', 'editor', 'console', 'notebooks', 'errors'];
+export const MCP_USER_CONTEXT_SECTIONS = ['session', 'editor', 'console', 'notebooks', 'errors'] as const;
+
+/** The sections a get-user-context response can carry. */
+export type McpUserContextSection = typeof MCP_USER_CONTEXT_SECTIONS[number];
 
 /**
  * Hard cap on each recorded string payload (code, output, traceback). Bounds

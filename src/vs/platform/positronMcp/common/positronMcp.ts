@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
+import { localize } from '../../../nls.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
-import { McpAuditEvent, McpAuditLogDetail } from './positronMcpAudit.js';
+import { McpAuditEvent, McpAuditLogDetail, McpCompletedAuditEvent } from './positronMcpAudit.js';
 import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput } from './positronMcpContext.js';
 
 export const IPositronMcpService = createDecorator<IPositronMcpService>('positronMcpService');
@@ -58,6 +59,22 @@ export function mcpClientDisplayName(clientName: string): string {
 	}
 }
 
+/**
+ * The one UI label for a session's or event's client identity: the mapped
+ * display name plus version, or -- for a client that never identified itself
+ * (e.g. a session resumed from a stale id) -- the anonymous fallback, matching
+ * the console's attribution label for unidentified agents. Every surface
+ * (activity pane, status modal, status bar) renders clients through this so
+ * the same agent never appears under different names.
+ */
+export function mcpClientLabel(clientName?: string, clientVersion?: string): string {
+	if (!clientName) {
+		return localize('positron.mcp.externalAgent', "External Agent");
+	}
+	const name = mcpClientDisplayName(clientName);
+	return clientVersion ? `${name} ${clientVersion}` : name;
+}
+
 /** One live MCP session, as surfaced in the status UI. */
 export interface IMcpSessionInfo {
 	/** The session id clients echo back in the Mcp-Session-Id header. */
@@ -93,7 +110,7 @@ export interface IPositronMcpServerStatus {
 	 * Recent audit events (completed tool calls + session lifecycle), oldest
 	 * first, capped server-side. Survives a server stop.
 	 */
-	readonly recentActivity: readonly McpAuditEvent[];
+	readonly recentActivity: readonly McpCompletedAuditEvent[];
 	/**
 	 * Filesystem path of the JSONL audit file, once something has been written
 	 * to it this Positron session; absent while no file exists (no MCP activity

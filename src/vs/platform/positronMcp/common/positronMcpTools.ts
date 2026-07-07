@@ -6,8 +6,8 @@
 /**
  * Static MCP tool metadata, shared by the node server (which serves `tools/list`
  * and `initialize`) and the renderer tool registry (which maps each name to a
- * handler). The handlers live renderer-side; this file is metadata only, so it
- * has no DOM or Node dependency and is safe in `common`.
+ * handler). The handlers live renderer-side; this file is metadata plus pure
+ * result helpers, so it has no DOM or Node dependency and is safe in `common`.
  *
  * Keep this list and {@link SERVER_INSTRUCTIONS} in sync with each other.
  */
@@ -66,6 +66,12 @@ export interface IPositronMcpToolDescriptor {
 	readonly description: string;
 	readonly inputSchema: object;
 	readonly annotations?: IMcpToolAnnotations;
+}
+
+/** A tool result that reports an error to the model rather than failing the call. */
+export function mcpToolError(text: string): IMcpCallToolResult {
+	const content: McpContent[] = [{ type: 'text', text }];
+	return { content, isError: true };
 }
 
 /** MCP protocol version this server speaks. */

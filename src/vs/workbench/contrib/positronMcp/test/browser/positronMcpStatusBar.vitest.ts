@@ -40,15 +40,15 @@ describe('computeMcpStatusEntry', () => {
 		}))).toMatchObject({
 			text: '$(loading~spin) MCP',
 			kind: 'standard',
-			tooltip: 'claude-code: execute-code running...',
+			tooltip: 'Claude Code: execute-code running...',
 		});
 	});
 
-	it('falls back to a generic client label when the caller is unidentified', () => {
+	it('falls back to the anonymous agent label when the caller is unidentified', () => {
 		expect(computeMcpStatusEntry(makeState({
 			inFlightCount: 1,
 			latestInFlight: { toolName: 'get-plot' },
-		}))).toMatchObject({ tooltip: 'MCP client: get-plot running...' });
+		}))).toMatchObject({ tooltip: 'External Agent: get-plot running...' });
 	});
 
 	it('summarizes concurrent calls with a count and the latest tool', () => {

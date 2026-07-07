@@ -8,8 +8,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
-import { McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
+import { IPositronMcpService, mcpClientLabel } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { McpAuditEvent, McpInFlightCallTracker } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
@@ -19,19 +19,6 @@ import { PositronMcpWorkspace, WorkspaceConfigState } from './positronMcpWorkspa
 
 const STATUS_ID = 'status.positronMcp';
 const SHOW_STATUS_COMMAND = 'positron.mcp.showStatus';
-
-/**
- * Safety net for a start event whose matching completion never arrived (the
- * session guarantees pairing, so this should never trip in practice).
- */
-const STALE_CALL_MS = 10 * 60 * 1000;
-
-/** A tool call currently in flight, tracked from its start audit event. */
-interface IMcpInFlightCall {
-	readonly toolName: string;
-	readonly clientName?: string;
-	readonly startedAt: number;
-}
 
 /** The inputs the status bar entry is computed from. */
 export interface IMcpStatusBarState {
@@ -59,8 +46,7 @@ export function computeMcpStatusEntry(state: IMcpStatusBarState): Pick<IStatusba
 	const kind = state.allowAll || needsAttention ? 'warning' : 'standard';
 
 	if (state.inFlightCount > 0) {
-		const client = state.latestInFlight?.clientName
-			?? localize('positron.mcp.statusbar.unknownClient', "MCP client");
+		const client = mcpClientLabel(state.latestInFlight?.clientName);
 		const tooltip = state.inFlightCount === 1 && state.latestInFlight
 			? localize('positron.mcp.statusbar.tooltip.active.one', "{0}: {1} running...", client, state.latestInFlight.toolName)
 			: localize('positron.mcp.statusbar.tooltip.active.many', "{0} MCP tool calls running (latest: {1}). Click for details.", state.inFlightCount, state.latestInFlight?.toolName ?? client);
@@ -113,8 +99,8 @@ export class PositronMcpStatusBarContribution extends Disposable implements IWor
 	private readonly _configWatcher = this._register(new MutableDisposable());
 	private readonly _workspace: PositronMcpWorkspace;
 
-	/** Tool calls currently in flight, keyed by the audit callId. */
-	private readonly _inFlight = new Map<string, IMcpInFlightCall>();
+	/** Tool calls currently in flight. */
+	private readonly _inFlight = new McpInFlightCallTracker();
 	private _allowAll: boolean;
 
 	constructor(
@@ -150,28 +136,9 @@ export class PositronMcpStatusBarContribution extends Disposable implements IWor
 
 	/** Track in-flight calls from the audit event stream. */
 	private _onActivity(event: McpAuditEvent): void {
-		if (event.type === 'tool-call-start') {
-			this._inFlight.set(event.callId, {
-				toolName: event.toolName,
-				clientName: event.clientName,
-				startedAt: event.timestamp,
-			});
-		} else if (event.type === 'tool-call') {
-			this._inFlight.delete(event.callId);
-			this._sweepStaleCalls();
-		} else {
-			// Lifecycle events don't affect the indicator.
-			return;
-		}
-		this._update();
-	}
-
-	private _sweepStaleCalls(): void {
-		const cutoff = Date.now() - STALE_CALL_MS;
-		for (const [callId, call] of this._inFlight) {
-			if (call.startedAt < cutoff) {
-				this._inFlight.delete(callId);
-			}
+		// Lifecycle events don't affect the indicator.
+		if (this._inFlight.apply(event)) {
+			this._update();
 		}
 	}
 
@@ -201,18 +168,11 @@ export class PositronMcpStatusBarContribution extends Disposable implements IWor
 		}
 
 		const configState = await this._workspace.getConfigState();
-		let latestInFlight: (IMcpInFlightCall & { callId: string }) | undefined;
-		for (const [callId, call] of this._inFlight) {
-			if (!latestInFlight || call.startedAt >= latestInFlight.startedAt) {
-				latestInFlight = { callId, ...call };
-			}
-		}
-
 		const computed = computeMcpStatusEntry({
 			enabled,
 			configState,
 			inFlightCount: this._inFlight.size,
-			latestInFlight,
+			latestInFlight: this._inFlight.latest,
 			allowAll: this._allowAll,
 		});
 		if (!computed) {

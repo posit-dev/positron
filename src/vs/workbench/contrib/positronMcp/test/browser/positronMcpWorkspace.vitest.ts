@@ -48,9 +48,9 @@ describe('positronMcp workspace helpers', () => {
 			expect(positronServerState({ mcpServers: { positron: { type: 'http' } } }, TOKEN)).toBe('stale');
 			expect(positronServerState({ mcpServers: { positron: { type: 'http', headers: { Authorization: 'Bearer other' } } } }, TOKEN)).toBe('stale');
 			expect(positronServerState({ mcpServers: { positron: null } }, TOKEN)).toBe('stale');
-			expect(positronServerState({ mcpServers: { other: {} } }, TOKEN)).toBe('missing');
-			expect(positronServerState({}, TOKEN)).toBe('missing');
-			expect(positronServerState(undefined, TOKEN)).toBe('missing');
+			expect(positronServerState({ mcpServers: { other: {} } }, TOKEN)).toBe('not-configured');
+			expect(positronServerState({}, TOKEN)).toBe('not-configured');
+			expect(positronServerState(undefined, TOKEN)).toBe('not-configured');
 		});
 	});
 

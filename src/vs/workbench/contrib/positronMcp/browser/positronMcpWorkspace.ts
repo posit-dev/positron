@@ -46,20 +46,20 @@ export function mergeMcpConfig(existing: unknown, token: string, port: number = 
 
 /**
  * The state of the positron server entry in a parsed `.mcp.json` object:
- * 'missing' when there is none, 'stale' when it lacks the current bearer
- * token, 'configured' when it would authenticate.
+ * 'not-configured' when there is none, 'stale' when it lacks the current
+ * bearer token, 'configured' when it would authenticate.
  */
-export function positronServerState(parsed: unknown, token: string): 'configured' | 'stale' | 'missing' {
+export function positronServerState(parsed: unknown, token: string): 'configured' | 'stale' | 'not-configured' {
 	if (!parsed || typeof parsed !== 'object') {
-		return 'missing';
+		return 'not-configured';
 	}
 	const servers = (parsed as Record<string, unknown>).mcpServers;
 	if (!servers || typeof servers !== 'object') {
-		return 'missing';
+		return 'not-configured';
 	}
 	const positron = (servers as Record<string, unknown>).positron;
 	if (positron === undefined) {
-		return 'missing';
+		return 'not-configured';
 	}
 	const headers = (positron && typeof positron === 'object') ? (positron as Record<string, unknown>).headers : undefined;
 	const authorization = (headers && typeof headers === 'object') ? (headers as Record<string, unknown>).Authorization : undefined;
@@ -109,11 +109,7 @@ export class PositronMcpWorkspace {
 			return 'no-workspace';
 		}
 		const parsed = await this._readJson(URI.joinPath(folder, '.mcp.json'));
-		switch (positronServerState(parsed, (await this._serverInfo()).token)) {
-			case 'configured': return 'configured';
-			case 'stale': return 'stale';
-			case 'missing': return 'not-configured';
-		}
+		return positronServerState(parsed, (await this._serverInfo()).token);
 	}
 
 	/**

@@ -12,7 +12,7 @@ import { IMcpCallerContext, mcpClientDisplayName } from '../../../../platform/po
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { AUDIT_LOG_DETAIL_KEY } from '../common/positronMcpConfiguration.js';
 
-/** How long a per-code consent decision is cached before being asked again. */
+/** How long a per-code consent approval is cached before being asked again. */
 const CONSENT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
@@ -29,8 +29,11 @@ const CONSENT_TIMEOUT_MS = 5 * 60 * 1000;
  * itself, else its MCP session id, so anonymous sessions never pool consent.
  */
 export class UserConsentManager extends Disposable {
-	/** Per-(client+language+code-hash) decisions, each expiring after the timeout. */
-	private readonly _consentCache = new Map<string, boolean>();
+	/**
+	 * Per-(client+language+code-hash) approvals, each expiring after the
+	 * timeout. Only allows are cached; a denial always re-asks.
+	 */
+	private readonly _consentCache = new Set<string>();
 
 	/** The client scope keys the user has granted "allow all code execution" to. */
 	private readonly _allowAll = new Set<string>();
@@ -56,13 +59,12 @@ export class UserConsentManager extends Disposable {
 		const clientKey = consentScopeKey(caller);
 		const cacheKey = `${clientKey}:${languageId}:${hashCode(code)}`;
 
-		const cached = this._consentCache.get(cacheKey);
-		if (cached !== undefined) {
-			return cached;
+		if (this._consentCache.has(cacheKey)) {
+			return true;
 		}
 
 		if (this._allowAll.has(clientKey)) {
-			this._cacheConsent(cacheKey, true);
+			this._cacheConsent(cacheKey);
 			return true;
 		}
 
@@ -113,7 +115,7 @@ export class UserConsentManager extends Disposable {
 			}
 		}
 
-		this._cacheConsent(cacheKey, true);
+		this._cacheConsent(cacheKey);
 		return true;
 	}
 
@@ -131,8 +133,8 @@ export class UserConsentManager extends Disposable {
 		}
 	}
 
-	private _cacheConsent(cacheKey: string, value: boolean): void {
-		this._consentCache.set(cacheKey, value);
+	private _cacheConsent(cacheKey: string): void {
+		this._consentCache.add(cacheKey);
 		setTimeout(() => this._consentCache.delete(cacheKey), CONSENT_TIMEOUT_MS);
 	}
 }

@@ -141,13 +141,13 @@ describe('McpStatusContent', () => {
 					makeSession({ sessionId: 'b', clientName: 'codex-mcp-client', clientVersion: undefined }),
 				],
 			}));
-			expect(screen.getByText('claude-code 1.2.3')).toBeInTheDocument();
-			expect(screen.getByText('codex-mcp-client')).toBeInTheDocument();
+			expect(screen.getByText('Claude Code 1.2.3')).toBeInTheDocument();
+			expect(screen.getByText('Codex')).toBeInTheDocument();
 		});
 
 		it('labels a session that has not identified itself', () => {
 			renderContent(makeStatus({ sessions: [makeSession({ clientName: undefined, clientVersion: undefined })] }));
-			expect(screen.getByText('unknown client')).toBeInTheDocument();
+			expect(screen.getByText('External Agent')).toBeInTheDocument();
 		});
 
 		it('shows the window column only when sessions span more than one window', () => {
@@ -192,7 +192,7 @@ describe('McpStatusContent', () => {
 			expect(screen.getByText('Recent activity')).toBeInTheDocument();
 			expect(screen.getByText('execute-code')).toBeInTheDocument();
 			expect(screen.getByText('get-plot')).toBeInTheDocument();
-			expect(screen.getByText('codex-mcp-client')).toBeInTheDocument();
+			expect(screen.getByText('Codex')).toBeInTheDocument();
 			expect(screen.getByText(/840ms/)).toBeInTheDocument();
 		});
 

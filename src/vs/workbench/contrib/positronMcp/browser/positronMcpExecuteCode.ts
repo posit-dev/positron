@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DeferredPromise } from '../../../../base/common/async.js';
+import { DeferredPromise, raceTimeout } from '../../../../base/common/async.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import {
@@ -112,7 +112,6 @@ export async function executeCodeWithObserver(
 	}
 	store.add(sessionService.onWillStartSession(event => watch(event.session)));
 
-	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		// Attribute the execution to the external agent that asked for it, so
 		// consumers (and the console's provenance label) can tell it apart from
@@ -152,13 +151,10 @@ export async function executeCodeWithObserver(
 			executionId,
 		);
 
-		const TIMED_OUT = Symbol('timed-out');
-		const timeout = new Promise<typeof TIMED_OUT>(resolve => {
-			timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs);
-		});
-
-		const result = await Promise.race([settled.p, timeout]);
-		if (result === TIMED_OUT) {
+		// `settled` only ever completes (never rejects), so an undefined result
+		// unambiguously means the timeout won the race.
+		const result = await raceTimeout(settled.p, timeoutMs);
+		if (result === undefined) {
 			return { kind: 'timeout', started, streamed };
 		}
 		if (result.kind === 'failed') {
@@ -177,9 +173,6 @@ export async function executeCodeWithObserver(
 			},
 		};
 	} finally {
-		if (timer) {
-			clearTimeout(timer);
-		}
 		store.dispose();
 	}
 }

@@ -12,7 +12,7 @@ import { generateUuid, isUUID } from '../../../base/common/uuid.js';
 import { ILogger, ILoggerService } from '../../log/common/log.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
-import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer } from '../common/positronMcpAudit.js';
+import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer, toSummaryOnlyEvent } from '../common/positronMcpAudit.js';
 import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput, McpContextLedger } from '../common/positronMcpContext.js';
 import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
 import { McpAuditFileWriter } from './positronMcpAuditFile.js';
@@ -216,8 +216,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	private _recordAudit(event: McpAuditEvent): void {
 		this._auditFile.write(event);
 		if (event.type === 'tool-call' && (event.args !== undefined || event.contextAlert !== undefined)) {
-			const { args: _args, contextAlert: _contextAlert, ...summaryOnly } = event;
-			event = summaryOnly;
+			event = toSummaryOnlyEvent(event);
 		}
 		if (event.type === 'tool-call-start') {
 			this._logger.debug(formatAuditLine(event));

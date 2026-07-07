@@ -15,8 +15,8 @@ import { localize } from '../../../../nls.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { IMcpSessionInfo } from '../../../../platform/positronMcp/common/positronMcp.js';
-import { IMcpToolCallAuditEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
+import { IMcpSessionInfo, mcpClientLabel } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { IMcpToolCallAuditEvent, McpCompletedAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { WorkspaceConfigState, bearerHeader, serverUrl } from './positronMcpWorkspace.js';
 
 /** The live status the panel renders. Computed by the command and polled while open. */
@@ -34,7 +34,7 @@ export interface IMcpStatusData {
 	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
 	readonly sessions: IMcpSessionInfo[];
 	/** Recent audit events (completed tool calls + lifecycle), oldest first. */
-	readonly recentActivity: readonly McpAuditEvent[];
+	readonly recentActivity: readonly McpCompletedAuditEvent[];
 	/** Whether the user has allowed all agent code execution for this session. */
 	readonly allowAllConsent: boolean;
 	/** Path of the JSONL audit file, once one exists for this Positron session. */
@@ -125,11 +125,6 @@ const title = localize('positron.mcp.status.title', "Positron MCP Server");
 
 /** How often the open panel re-reads the server status. */
 const REFRESH_INTERVAL_MS = 2000;
-
-/** Format the client name and version into one label, e.g. "claude-code 1.2.3". */
-function formatClientLabel(name: string, version?: string): string {
-	return version ? `${name} ${version}` : name;
-}
 
 /** Format a past timestamp as a short relative label, e.g. "12s ago" / "3m ago". */
 export function formatRelativeTime(atMs: number, nowMs: number = Date.now()): string {
@@ -341,7 +336,7 @@ const RECENT_ACTIVITY_LIMIT = 10;
  * more than one Positron window. Below the table, the last few tool calls from
  * the server's audit ring buffer, newest first.
  */
-const ConnectionsSection = (props: { sessions: IMcpSessionInfo[]; recentActivity: readonly McpAuditEvent[] }) => {
+const ConnectionsSection = (props: { sessions: IMcpSessionInfo[]; recentActivity: readonly McpCompletedAuditEvent[] }) => {
 	const { sessions, recentActivity } = props;
 
 	const showWindow = new Set(sessions.map(s => s.pinnedWindowId)).size > 1;
@@ -363,9 +358,7 @@ const ConnectionsSection = (props: { sessions: IMcpSessionInfo[]; recentActivity
 						{sessions.map(session => (
 							<tr key={session.sessionId}>
 								<td className='connections-client'>
-									{session.clientName
-										? formatClientLabel(session.clientName, session.clientVersion)
-										: localize('positron.mcp.status.connections.unknownClient', "unknown client")}
+									{mcpClientLabel(session.clientName, session.clientVersion)}
 								</td>
 								<td>{formatRelativeTime(session.createdAt)}</td>
 								<td>{formatRelativeTime(session.lastActivityAt)}</td>
@@ -387,7 +380,7 @@ const ConnectionsSection = (props: { sessions: IMcpSessionInfo[]; recentActivity
  * log channel; this list answers "what has the agent just been doing" at a
  * glance. Renders nothing when there is no activity yet.
  */
-const RecentActivityList = (props: { recentActivity: readonly McpAuditEvent[] }) => {
+const RecentActivityList = (props: { recentActivity: readonly McpCompletedAuditEvent[] }) => {
 	const calls = props.recentActivity
 		.filter((event): event is IMcpToolCallAuditEvent => event.type === 'tool-call')
 		.slice(-RECENT_ACTIVITY_LIMIT)
@@ -405,9 +398,7 @@ const RecentActivityList = (props: { recentActivity: readonly McpAuditEvent[] })
 					<span className={`activity-outcome codicon ${call.outcome === 'ok' ? 'codicon-pass-filled' : 'codicon-error'}`} />
 					<span className='activity-tool'>{call.toolName}</span>
 					<span className='activity-client'>
-						{call.clientName
-							? formatClientLabel(call.clientName, call.clientVersion)
-							: localize('positron.mcp.status.connections.unknownClient', "unknown client")}
+						{mcpClientLabel(call.clientName, call.clientVersion)}
 					</span>
 					<span className='activity-meta'>
 						{localize('positron.mcp.status.activity.duration', "{0}ms", call.durationMs)}

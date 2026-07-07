@@ -8,7 +8,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMcpSessionInfo, IPositronMcpService } from '../../../../platform/positronMcp/common/positronMcp.js';
-import { IMcpToolCallStartEvent, McpAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
+import { IMcpToolCallStartEvent, McpAuditEvent, McpCompletedAuditEvent, McpInFlightCallTracker } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { IPositronMcpToolService } from './positronMcpToolService.js';
 
 /**
@@ -18,13 +18,6 @@ import { IPositronMcpToolService } from './positronMcpToolService.js';
  */
 const RECONCILE_DELAY_MS = 500;
 
-/**
- * Safety net for a start event whose matching completion never arrived (the
- * session guarantees pairing, so this should never trip in practice). Matches
- * the status bar's guard.
- */
-const STALE_CALL_MS = 10 * 60 * 1000;
-
 /** Everything the activity pane renders, as one immutable snapshot. */
 export interface IMcpActivityState {
 	/** Whether the HTTP server is currently listening. */
@@ -32,7 +25,7 @@ export interface IMcpActivityState {
 	/** The live MCP sessions, oldest first. */
 	readonly sessions: readonly IMcpSessionInfo[];
 	/** Completed tool calls + lifecycle events, oldest first, server-capped. */
-	readonly events: readonly McpAuditEvent[];
+	readonly events: readonly McpCompletedAuditEvent[];
 	/** Tool calls currently in flight, oldest start first. */
 	readonly inFlight: readonly IMcpToolCallStartEvent[];
 	/** Whether the user has allowed all agent code execution for this session. */
@@ -55,9 +48,9 @@ export class PositronMcpActivityFeed extends Disposable {
 	private readonly _reconcileDelayer = this._register(new Delayer<void>(RECONCILE_DELAY_MS));
 
 	/** Completed calls + lifecycle events, oldest first. */
-	private _events: McpAuditEvent[] = [];
-	/** Tool calls currently in flight, keyed by the audit callId. */
-	private readonly _inFlight = new Map<string, IMcpToolCallStartEvent>();
+	private _events: McpCompletedAuditEvent[] = [];
+	/** Tool calls currently in flight. */
+	private readonly _inFlight = new McpInFlightCallTracker();
 	private _sessions: readonly IMcpSessionInfo[] = [];
 	private _running = false;
 	private _allowAll: boolean;
@@ -88,7 +81,7 @@ export class PositronMcpActivityFeed extends Disposable {
 			running: this._running,
 			sessions: this._sessions,
 			events: this._events,
-			inFlight: [...this._inFlight.values()].sort((a, b) => a.timestamp - b.timestamp),
+			inFlight: this._inFlight.calls,
 			allowAll: this._allowAll,
 		};
 	}
@@ -108,7 +101,7 @@ export class PositronMcpActivityFeed extends Disposable {
 		this._sessions = status.sessions;
 		this._running = status.running;
 		this._seeded = true;
-		this._sweepStaleInFlight();
+		this._inFlight.sweepStale();
 		this._onDidChange.fire();
 	}
 
@@ -118,14 +111,10 @@ export class PositronMcpActivityFeed extends Disposable {
 	}
 
 	private _onActivity(event: McpAuditEvent): void {
+		this._inFlight.apply(event);
 		if (event.type === 'tool-call-start') {
-			this._inFlight.set(event.callId, event);
 			this._onDidChange.fire();
 			return;
-		}
-		if (event.type === 'tool-call') {
-			this._inFlight.delete(event.callId);
-			this._sweepStaleInFlight();
 		}
 		if (this._seeded) {
 			this._events.push(event);
@@ -135,14 +124,5 @@ export class PositronMcpActivityFeed extends Disposable {
 		// refresh() never throws; the only rejection is the delayer cancelling a
 		// pending trigger on dispose.
 		this._reconcileDelayer.trigger(() => this.refresh()).catch(() => undefined);
-	}
-
-	private _sweepStaleInFlight(): void {
-		const cutoff = Date.now() - STALE_CALL_MS;
-		for (const [callId, call] of this._inFlight) {
-			if (call.timestamp < cutoff) {
-				this._inFlight.delete(callId);
-			}
-		}
 	}
 }

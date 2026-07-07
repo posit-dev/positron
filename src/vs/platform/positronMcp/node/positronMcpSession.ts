@@ -16,13 +16,13 @@ import {
 import { hasKey } from '../../../base/common/types.js';
 import { generateUuid } from '../../../base/common/uuid.js';
 import { ILogger } from '../../log/common/log.js';
-import { IMcpSessionInfo } from '../common/positronMcp.js';
+import { IMcpCallerContext, IMcpSessionInfo } from '../common/positronMcp.js';
 import { IPositronMcpAuditLog, summarizeArgs, summarizeResult } from '../common/positronMcpAudit.js';
 import { McpContextLedger } from '../common/positronMcpContext.js';
 import { GET_GUIDANCE_TOOL, getGuidance } from '../common/positronMcpGuides.js';
 import {
 	IMcpCallToolResult,
-	McpContent,
+	mcpToolError,
 	NO_ACTIVE_SESSION_TEXT,
 	POSITRON_MCP_PROTOCOL_VERSION,
 	POSITRON_MCP_SERVER_INFO,
@@ -34,12 +34,6 @@ import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
 /** JSON-RPC error codes used by the MCP session. */
 const MCP_INVALID_REQUEST = -32600;
 const MCP_METHOD_NOT_FOUND = -32601;
-
-/** A tool result that reports an error to the model rather than failing the call. */
-function toolError(text: string): IMcpCallToolResult {
-	const content: McpContent[] = [{ type: 'text', text }];
-	return { content, isError: true };
-}
 
 /**
  * Returns true when a message (or the first of a batch) is an `initialize`
@@ -77,6 +71,11 @@ export class PositronMcpSession extends Disposable {
 	private readonly _createdAt = Date.now();
 	/** When the session last received a message. */
 	private _lastActivityAt = this._createdAt;
+
+	/** The caller identity threaded into brokered tool calls. */
+	private get _callerContext(): IMcpCallerContext {
+		return { mcpSessionId: this.id, clientName: this.clientName, clientVersion: this.clientVersion };
+	}
 
 	/** A status-UI snapshot of this session. */
 	get info(): IMcpSessionInfo {
@@ -207,9 +206,8 @@ export class PositronMcpSession extends Disposable {
 			return SERVER_INSTRUCTIONS;
 		}
 		try {
-			const caller = { mcpSessionId: this.id, clientName: this.clientName, clientVersion: this.clientVersion };
 			const result = await raceTimeout(
-				this._broker.invokeTool(windowId, 'get-session', {}, caller),
+				this._broker.invokeTool(windowId, 'get-session', {}, this._callerContext),
 				PositronMcpSession.SnapshotTimeoutMs,
 			);
 			const first = result && !result.isError ? result.content[0] : undefined;
@@ -313,16 +311,15 @@ export class PositronMcpSession extends Disposable {
 		}
 
 		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
-			return complete(toolError('No Positron window is available to run this. Open a Positron window and try again.'));
+			return complete(mcpToolError('No Positron window is available to run this. Open a Positron window and try again.'));
 		}
 
 		try {
-			const caller = { mcpSessionId: this.id, clientName: this.clientName, clientVersion: this.clientVersion };
-			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args, caller));
+			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args, this._callerContext));
 		} catch (error) {
 			// A window that closes mid-call rejects the pending IPC call; surface it
 			// as a recoverable tool error rather than a transport failure.
-			return complete(toolError(`Failed to run ${name} in the Positron window: ${error instanceof Error ? error.message : String(error)}`));
+			return complete(mcpToolError(`Failed to run ${name} in the Positron window: ${error instanceof Error ? error.message : String(error)}`));
 		}
 	}
 }
