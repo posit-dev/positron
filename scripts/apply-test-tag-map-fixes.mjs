@@ -27,7 +27,7 @@
 //   staleKeysJsonFile: JSON array of map keys to remove (from
 //     check-test-tag-map.sh --json's "stale" field).
 //   advisoryJsonFile: JSON object { "<missing_dir>": { "tags": ["@:tag", ...],
-//     "reason": "..." }, ... } (from the test-tag-map-advisor action;
+//     "reason": "..." }, ... } (from scripts/tag-map-advisor/advise.mjs;
 //     "reason" is ignored here, it's only used for the PR/summary). An empty
 //     tags array is a valid advisory (no confident tag).
 //   validTagsTextFile: newline-separated valid tag values (from

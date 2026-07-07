@@ -1,9 +1,0 @@
-{
-	"name": "test-tag-map-advisor-action",
-	"private": true,
-	"type": "module",
-	"description": "GH composite action that asks Claude to advise on e2e tags for dirs missing from test-tag-paths-map.json.",
-	"dependencies": {
-		"@anthropic-ai/sdk": "^0.52.0"
-	}
-}

@@ -22,8 +22,14 @@
 // Output shape: { "<dir>": { "tags": ["@:x", ...], "reason": "..." } }. The
 // reason is surfaced in the PR/summary so a reviewer can sanity-check the
 // advisory without re-deriving it themselves.
+//
+// Not wrapped in a composite action -- nothing else in the repo needs this,
+// so it's a plain script `npm ci`'d and invoked directly by the one workflow
+// that calls it. Needs: MISSING_DIRS_FILE, VALID_TAGS_FILE, MAP_FILE,
+// REPO_ROOT, OUTPUT_FILE, ANTHROPIC_API_KEY (optional MODEL) in the
+// environment; see test-tag-map-check-weekly.yml for how they're set.
 
-import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -46,9 +52,6 @@ function emptyAdvisory() {
 function writeOutput(advisories) {
 	writeFileSync(OUTPUT_FILE, JSON.stringify(advisories, null, 2));
 	const nonEmpty = Object.values(advisories).filter(v => v.tags.length > 0).length;
-	if (process.env.GITHUB_OUTPUT) {
-		appendFileSync(process.env.GITHUB_OUTPUT, `advisory-count=${nonEmpty}\n`);
-	}
 	console.log(`Wrote ${Object.keys(advisories).length} advisory(-ies) (${nonEmpty} non-empty) to ${OUTPUT_FILE}`);
 }
 
