@@ -4,30 +4,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Asks Claude to advise on likely e2e tags for each dir in MISSING_DIRS_FILE,
-// using the existing map as few-shot precedent and each dir's own file
-// listing as context. A single Messages API call (not the Agent SDK) --
-// this only needs one round of "here's a directory listing, pick from this
-// tag list", not autonomous multi-step exploration.
+// Asks Claude for likely e2e tags for each dir in MISSING_DIRS_FILE, using the
+// existing map as precedent and each dir's file listing as context. Output:
+// { "<dir>": { "tags": ["@:x", ...], "reason": "..." } } -- reason is shown in
+// the PR/summary for reviewers.
 //
-// Never blocks the workflow: a missing env var, an API error, or a
-// malformed/incomplete model response all fall back to an empty advisory (no
-// tag) for every dir rather than throwing, since a human reviews the
-// resulting PR either way -- an empty advisory just means more manual
-// follow-up, not broken automation. scripts/apply-test-tag-map-fixes.mjs
-// separately drops any advised tag that isn't in VALID_TAGS_FILE, so a
-// hallucinated tag can never reach the map even if parsing partially
-// succeeds.
+// Never blocks the workflow: any failure (missing env var, API error, bad
+// response) falls back to an empty advisory, since a human reviews the PR
+// anyway. apply-test-tag-map-fixes.mjs drops any tag not in VALID_TAGS_FILE,
+// so a hallucination can't reach the map.
 //
-// Output shape: { "<dir>": { "tags": ["@:x", ...], "reason": "..." } }. The
-// reason is surfaced in the PR/summary so a reviewer can sanity-check the
-// advisory without re-deriving it themselves.
-//
-// Not wrapped in a composite action -- nothing else in the repo needs this,
-// so it's a plain script `npm ci`'d and invoked directly by the one workflow
-// that calls it. Needs: MISSING_DIRS_FILE, VALID_TAGS_FILE, MAP_FILE,
-// REPO_ROOT, OUTPUT_FILE, ANTHROPIC_API_KEY (optional MODEL) in the
-// environment; see test-tag-map-check-weekly.yml for how they're set.
+// Env in: MISSING_DIRS_FILE, VALID_TAGS_FILE, MAP_FILE, REPO_ROOT, OUTPUT_FILE,
+// ANTHROPIC_API_KEY (optional MODEL). See test-tag-map-check-weekly.yml.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -40,9 +28,8 @@ const REPO_ROOT = process.env.REPO_ROOT;
 const MODEL = process.env.MODEL || 'claude-haiku-4-5-20251001';
 const OUTPUT_FILE = process.env.OUTPUT_FILE;
 
-// Per-dir file listing cap: enough for the model to infer a feature area from
-// filenames without pulling in a large tree (some Positron dirs, e.g.
-// extensions/positron-python/, have thousands of files).
+// Per-dir file cap: enough to infer a feature area without pulling a huge tree
+// (some dirs have thousands of files).
 const FILES_PER_DIR = 40;
 
 function emptyAdvisory() {
@@ -65,9 +52,8 @@ function listFiles(dir) {
 }
 
 function extractJson(text) {
-	// Strip a markdown code fence if the model wrapped its answer in one,
-	// then take the outermost {...} block -- tolerant of a stray preamble
-	// sentence even though the prompt asks for JSON only.
+	// Strip a code fence if present, then take the outermost {...} block --
+	// tolerant of a stray preamble the prompt asked the model to omit.
 	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
 	const body = fenced ? fenced[1] : text;
 	const start = body.indexOf('{');
@@ -126,11 +112,8 @@ Respond with ONLY a JSON object mapping each dir (exactly as given, including th
 		return;
 	}
 
-	// Trust only advisories for dirs we actually asked about, in the exact
-	// form we asked -- a model response for a dir we didn't request, or a
-	// missing entry, defaults to an empty advisory rather than being invented
-	// or dropped silently. Same for a malformed per-dir entry (missing/
-	// wrong-typed tags or reason).
+	// Keep only dirs we asked about; a missing or malformed entry becomes an
+	// empty advisory rather than being invented or dropped silently.
 	const finalAdvisories = {};
 	for (const dir of missingDirs) {
 		const entry = advisories[dir];
