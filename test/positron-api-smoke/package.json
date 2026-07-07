@@ -1,0 +1,31 @@
+{
+	"name": "positron-api-smoke",
+	"displayName": "Positron API Smoke",
+	"description": "Spike: run a Mocha extension-host test against a downloaded Positron daily and confirm the Positron API is live (posit-dev/positron#14530).",
+	"version": "0.0.1",
+	"private": true,
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"main": "./out/extension.js",
+	"activationEvents": [
+		"*"
+	],
+	"contributes": {},
+	"scripts": {
+		"compile": "tsc -p ./",
+		"test": "npm run compile && node ./out/runTests.js"
+	},
+	"dependencies": {
+		"@posit-dev/positron": "^0.2.4",
+		"@vscode/test-electron": "^2.4.1",
+		"glob": "^10.4.5",
+		"mocha": "^10.7.3"
+	},
+	"devDependencies": {
+		"@types/mocha": "^10.0.7",
+		"@types/node": "^20.14.0",
+		"@types/vscode": "^1.100.0",
+		"typescript": "^5.5.4"
+	}
+}
