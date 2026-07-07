@@ -190,7 +190,13 @@ function importRoots(target: positron.RuntimeMissingPackagesTarget): string[] {
     }
     try {
         const uri = vscode.Uri.parse(target.uri);
-        if (uri.scheme !== 'file') {
+        // Only file-backed schemes have a meaningful on-disk directory. The
+        // workbench sends `file` in the desktop app and `vscode-remote` in
+        // web/remote windows (Positron Server, serve-web); both map to a real
+        // path the kernel -- which runs alongside the file -- can add to
+        // `sys.path`. Without the `vscode-remote` case, sibling modules on web
+        // are misreported as missing packages and block the run.
+        if (uri.scheme !== 'file' && uri.scheme !== 'vscode-remote') {
             return [];
         }
         return [path.dirname(uri.fsPath)];
