@@ -6,15 +6,18 @@ name: "Weekly: Test Tag Map Check"
 #
 # Not run per-PR on purpose: both checks depend on the WHOLE tree's current
 # state, not just what one PR touched, so a per-PR gate would fail unrelated
-# PRs over drift they didn't cause (see test-tag-paths-map.json's git history
-# for why the per-PR version of this was scoped down instead). A weekly
-# cadence is enough since neither problem gets more urgent by sitting a few
-# more days -- this just needs someone to notice and clean it up eventually.
+# PRs over drift they didn't cause. A weekly cadence is enough since neither
+# problem gets more urgent by sitting a few more days.
 
 on:
   schedule:
     - cron: "0 12 * * 1" # Mondays, 12:00 UTC (6am CST -- shifts to 7am during CDT, cron is fixed UTC)
   workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run: run the check, but skip the Slack notification.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,14 +38,23 @@ jobs:
     name: 'Send Slack notification'
     runs-on: ubuntu-latest
     needs: [check-map]
-    if: always()
-
+    # A single-job workflow doesn't need midleman/slack-workflow-status's
+    # multi-job summary -- a plain custom message reads better here.
+    if: always() && needs.check-map.result == 'failure' && inputs.dryrun != true
     steps:
-      - name: Send Slack Notification
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          notify_on: "failure"
-          slack_channel: "#positron-test-results"
-          include_job_durations: "false"
+      - name: Notify Slack
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg channel "#positron-dev" \
+            --arg run_url "$RUN_URL" \
+            '{
+              channel: $channel,
+              text: ("⚠️ *Test tag map has drifted* · <" + $run_url + "|view run>")
+            }')
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
