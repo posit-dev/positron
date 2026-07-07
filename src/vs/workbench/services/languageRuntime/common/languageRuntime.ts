@@ -141,7 +141,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
 
 		return this._register(toDisposable(() => {
-			this._registeredRuntimesByRuntimeId.delete(metadata.runtimeId);
+			this.unregisterRuntime(metadata.runtimeId);
 		}));
 	}
 
