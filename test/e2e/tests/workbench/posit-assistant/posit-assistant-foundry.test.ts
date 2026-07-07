@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)', {
-	tag: [tags.WORKBENCH_AZURE, tags.POSIT_ASSISTANT, tags.ASSISTANT],
+	tag: [tags.WORKBENCH_AZURE, tags.ASSISTANT],
 }, () => {
 	test('Foundry model responds when authenticated via Azure managed credentials', async function ({ app }) {
 		// No interactive sign-in: the msFoundry provider obtains its token via

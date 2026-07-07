@@ -35,7 +35,6 @@ export enum TestTags {
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
-	POSIT_ASSISTANT = '@:posit-assistant',
 	DATA_EXPLORER = '@:data-explorer',
 	DEBUG = '@:debug',
 	DUCK_DB = '@:duck-db',
