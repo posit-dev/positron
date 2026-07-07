@@ -341,7 +341,7 @@ jobs:
           TEXT="${HEADER}
           ${LINE2}"
           PAYLOAD=$(jq -n \
-            --arg channel "#positron-dev" \
+            --arg channel "D07KSCRU0SZ" \
             --arg text "$TEXT" \
             '{channel: $channel, text: $text}')
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
