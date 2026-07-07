@@ -230,15 +230,13 @@ jobs:
           _${MISSING_COUNT} dir(s) also need tags assigned by hand -- see the [weekly check summary](${RUN_URL}) for the list. Not handled by this PR._"
           fi
           BODY="### Summary
-          Removes stale entries from test-tag-paths-map.json found by the [weekly check](${RUN_URL}) -- dirs the map points at that no longer match any tracked file.
+          Removes stale entries from test-tag-paths-map.json found by the [weekly check](${RUN_URL}).
 
           **Removed (stale, no longer tracked):**
           ${REMOVED}
           ${MISSING_NOTE}
 
-          ### QA Notes
-          Deterministic removal of dead keys; no tag assignments were changed.
-
+          --
           _This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._"
           if [ "$EXISTS" = "true" ]; then
             gh pr edit "$EXISTING_PR_NUMBER" --body "$BODY" >/dev/null
@@ -317,29 +315,28 @@ jobs:
           PR_UPDATED: ${{ needs.auto-fix.outputs.pr_updated }}
           MISSING_COUNT: ${{ needs.auto-fix.outputs.missing_count }}
         run: |
-          # Two lines: a header with the run link (its summary is the one place
-          # that always lists missing dirs), then what happened this run. Missing
-          # dirs are surfaced but never auto-fixed, so append a nudge whenever
-          # there are any -- even a run that opened a stale-removal PR leaves them.
-          MISSING_NOTE=""
-          if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
-            [ "$MISSING_COUNT" = "1" ] && MISSING_NOTE=" · *1 directory needs tags*" || MISSING_NOTE=" · *${MISSING_COUNT} directories need tags*"
-          fi
+          # A header line with the run link (its summary is the one place that
+          # always lists missing dirs), then a bullet per item.
           HEADER="⚠️ *Test tag map has drifted* · <${RUN_URL}|details>"
           # Three distinct states: a freshly opened/updated PR reads differently
           # from an old PR still open but untouched this run (PR_UPDATED false) --
           # claiming "opened" for the latter would misreport what happened.
           if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
-            LINE2="<${PR_URL}|PR #${PR_NUM}> removes stale entries${MISSING_NOTE}"
+            ACTION="<${PR_URL}|PR #${PR_NUM}> removes stale entries"
           elif [ -n "$PR_URL" ]; then
             PR_NUM="${PR_URL##*/}"
-            LINE2="fix already open in <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE}"
+            ACTION="fix already open in <${PR_URL}|PR #${PR_NUM}>"
           else
-            LINE2="needs manual fix${MISSING_NOTE}"
+            ACTION="needs manual fix"
           fi
-          TEXT="${HEADER}
-          ${LINE2}"
+          TEXT="${HEADER}"$'\n'"• ${ACTION}"
+          # Missing dirs are surfaced but never auto-fixed, so add a bullet
+          # whenever there are any -- even a run that opened a removal PR.
+          if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
+            [ "$MISSING_COUNT" = "1" ] && MISSING_ITEM="1 directory needs tags" || MISSING_ITEM="${MISSING_COUNT} directories need tags"
+            TEXT="${TEXT}"$'\n'"• ${MISSING_ITEM}"
+          fi
           PAYLOAD=$(jq -n \
             --arg channel "#positron-dev" \
             --arg text "$TEXT" \
