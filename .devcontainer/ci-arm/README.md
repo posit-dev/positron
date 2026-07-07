@@ -32,7 +32,7 @@ One-time setup:
 ## Setup
 
 Do this once per machine -- the lab worktree is meant to be long-lived. Check `git worktree list`
-first; if one already exists, reuse it ([Common Workflows](#common-workflows) covers reopening)
+first; if one already exists, reuse it ([User Workflows](#user-workflows-vs-code-ui) covers reopening)
 instead of creating a second one, which silently shares rather than isolates build state with the
 first (see the [Gotchas](#gotchas) entry on this).
 
@@ -71,7 +71,13 @@ Then open the **Doctor** (status-bar button) to confirm everything's up.
 
 That's it - you have a working CI lab.
 
-## Common Workflows
+## Workflows
+
+Two audiences, two subsections below: a human driving VS Code's Dev Containers UI, or an agent (e.g.
+Claude Code) driving the same stack headlessly over `docker compose` / `docker exec`. Both need
+[Setup](#setup) done first.
+
+### User Workflows (VS Code UI)
 
 | To... | Do this |
 |---|---|
@@ -87,12 +93,12 @@ That's it - you have a working CI lab.
 > Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. If a check
 > fails, it tells you which task fixes it.
 
-### Editing and the Watch task
+#### Editing and the Watch task
 
 The **Watch** task incrementally recompiles `src/` to `out/` on save. Start it when you're editing
 Positron's source; you don't need it to run or test the existing build. Dependency changes (for example, a new package-lock.json) require Reinstall deps (or Reinstall e2e deps) or Rebuild instead; the **Doctor** flags this.
 
-### Run Positron itself
+#### Run Positron itself
 Click these task buttons to run Positron:
 * **Server (Web)** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
 * **Desktop (Electron)** - the desktop app on the headless display; view via VNC.
@@ -101,20 +107,20 @@ Both run detached and restart cleanly on re-click; their URLs show in the Doctor
 tail their output (`/tmp/positron-{server,electron}.log`, inside the container). **Stop** shuts both
 down (and the report), leaving core services up.
 
-### Run tests
+#### Run tests
 
 Click the run icon in the gutter on any spec (if it's missing, check the selected Playwright project), or
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
-### Test data (qa-example-content)
+#### Test data (qa-example-content)
 
 The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
 the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
 content** - it's symlinked at `~/qa-example-content`.
 
-### Debug
+#### Debug
 
 To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift-D`), pick a profile,
 and run it. Set breakpoints in `src/` as usual; both run on the headless display, so view in VNC.
@@ -126,12 +132,12 @@ and run it. Set breakpoints in `src/` as usual; both run on the headless display
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
 
-## CLI-only / headless usage (e.g. Claude Code)
+### Claude Workflows (CLI-only, headless)
 
-Everything above assumes VS Code's Dev Containers UI. An agent (or any terminal-only workflow) can
-drive the same stack directly with `docker compose` + `docker exec`, once [Setup](#setup)'s steps 1-2
-are done (worktree created, secrets added) -- the build itself can happen through this path too, no
-Dev Containers UI required.
+Everything in [User Workflows](#user-workflows-vs-code-ui) assumes VS Code's Dev Containers UI. An
+agent (or any terminal-only workflow) can drive the same stack directly with `docker compose` +
+`docker exec`, once [Setup](#setup)'s steps 1-2 are done (worktree created, secrets added) -- the
+build itself can happen through this path too, no Dev Containers UI required.
 
 1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
 
@@ -382,7 +388,7 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 - **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
   running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
   reload the window and let **Watch** recompile (restart any running Positron/debug). The
-  [CLI-only flow](#cli-only--headless-usage-eg-claude-code)'s step 2 covers the same problem
+  [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 covers the same problem
   headlessly, including the dependency-drift check Watch doesn't handle.
 - **One dev container per checkout at a time -- and it fails silently, not loudly, if you break this.**
   Compose's project name defaults to the directory *basename* holding `docker-compose.yml`, which is
@@ -393,7 +399,7 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   built them last. If that worktree was on a different branch with a different `package-lock.json`,
   you get confusing missing-module errors that look like a broken build rather than a stale dependency
   mismatch (`reinstall-deps.sh` is the fix -- see
-  [CLI-only usage](#cli-only--headless-usage-eg-claude-code)'s step 2). To actually run two
+  [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2). To actually run two
   worktrees' containers side by side, set a distinct `COMPOSE_PROJECT_NAME` per worktree instead of
   relying on the default.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`

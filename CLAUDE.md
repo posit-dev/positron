@@ -28,13 +28,15 @@ license files -- not available to external contributors. Check first:
 instead of attempting setup).
 
 Run `git worktree list` first -- the lab worktree is meant to be long-lived
-and reused across sessions, not recreated each time. Follow
-`.devcontainer/ci-arm/README.md`'s
-["CLI-only / headless usage"](.devcontainer/ci-arm/README.md#cli-only--headless-usage-eg-claude-code)
-section for exact commands -- the rest of that README documents the VS Code
-Dev Containers UI flow, which doesn't apply here. If a worktree already
-exists, that section's step 2 covers pointing it at a new target branch
-instead of creating another one.
+and reused across sessions, not recreated each time. Read the whole
+`.devcontainer/ci-arm/README.md` (~400 lines, one file) rather than jumping
+straight to its
+["Claude Workflows"](.devcontainer/ci-arm/README.md#claude-workflows-cli-only-headless)
+section: that section covers exact commands but depends on context from
+Setup and Gotchas elsewhere in the file. The rest of the README's
+"User Workflows" documents the VS Code Dev Containers UI flow, which
+doesn't apply here. If a worktree already exists, Claude Workflows' step 2
+covers pointing it at a new target branch instead of creating another one.
 
 ## Upstream Compatibility
 
