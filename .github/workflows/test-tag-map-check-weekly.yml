@@ -348,7 +348,7 @@ jobs:
             TEXT="${TEXT}"$'\n'"• ${MISSING_ITEM}"
           fi
           PAYLOAD=$(jq -n \
-            --arg channel "D07KSCRU0SZ" \
+            --arg channel "#test-slack-notifications" \
             --arg text "$TEXT" \
             '{channel: $channel, text: $text}')
           RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
