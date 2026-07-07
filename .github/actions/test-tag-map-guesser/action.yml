@@ -43,7 +43,13 @@ runs:
     - name: Guess tags
       id: guess
       shell: bash
-      working-directory: ${{ github.action_path }}
+      # No working-directory override here: missing-dirs-file, valid-tags-file,
+      # map-file, and output-file are all paths relative to the CALLING
+      # workflow's cwd (the repo root), not this action's own directory. Node's
+      # ESM resolver looks up `@anthropic-ai/sdk` relative to guess.mjs's own
+      # location regardless of cwd, so invoking it via $GITHUB_ACTION_PATH still
+      # finds the dependency installed by the previous step without needing to
+      # cd into the action dir (which would break the relative file inputs).
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         MISSING_DIRS_FILE: ${{ inputs.missing-dirs-file }}
@@ -52,4 +58,4 @@ runs:
         REPO_ROOT: ${{ inputs.repo-root }}
         MODEL: ${{ inputs.model }}
         OUTPUT_FILE: ${{ inputs.output-file }}
-      run: node guess.mjs
+      run: node "$GITHUB_ACTION_PATH/guess.mjs"
