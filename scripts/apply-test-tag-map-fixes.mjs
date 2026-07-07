@@ -187,7 +187,22 @@ function main() {
 	} catch (e) {
 		fail(`generated output is not valid JSON: ${e.message}`);
 	}
-	const normalize = (obj) => JSON.stringify(obj, Object.keys(obj).sort());
+	// Recursively sort object keys (order-independent top-level dir comparison)
+	// while leaving array contents and order untouched (tag arrays must compare
+	// exactly), then stringify. Deliberately not a `JSON.stringify(obj,
+	// Object.keys(obj).sort())` replacer-array trick: that reads as if it might
+	// filter nested array elements too, which invites exactly the kind of
+	// "does this actually compare tag arrays" doubt this check exists to remove.
+	const canonicalize = (value) => {
+		if (Array.isArray(value)) { return value.map(canonicalize); }
+		if (value !== null && typeof value === 'object') {
+			const sorted = {};
+			for (const key of Object.keys(value).sort()) { sorted[key] = canonicalize(value[key]); }
+			return sorted;
+		}
+		return value;
+	};
+	const normalize = (obj) => JSON.stringify(canonicalize(obj));
 	if (normalize(actual) !== normalize(reference)) {
 		fail('generated output does not match the expected result; refusing to write. This means a source-format assumption in parseMapBody no longer holds -- fix the map by hand and investigate.');
 	}
