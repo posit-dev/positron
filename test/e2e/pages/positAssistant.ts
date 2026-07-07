@@ -424,12 +424,20 @@ export class PositAssistant {
 		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
 
 		// Scope to the provider's group (label + its model items live in one
-		// container), then take its first model item.
+		// container).
 		const group = this.frame.locator(
 			`${MODEL_MENU_GROUP}:has([data-slot="dropdown-menu-label"] span:text-is("${providerName}"))`,
 		);
 		await expect(group).toBeVisible();
-		await group.locator('[role="menuitem"]').first().click();
+
+		// Some providers (e.g. Microsoft Foundry) list every model under the
+		// "More models" disclosure with none shown directly, so the group has no
+		// model item until it's expanded.
+		const models = group.locator('[role="menuitem"]');
+		if (await models.count() === 0) {
+			await group.locator('button:has-text("More models")').click();
+		}
+		await models.first().click();
 
 		// Menu closes on selection; wait for the trigger to collapse so subsequent
 		// actions (e.g. Send) don't race an open overlay.
@@ -454,9 +462,16 @@ export class PositAssistant {
 	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
 		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
-		const topModel = radioGroup.locator(
-			`div:has(> span:text-is("${providerName}")) + [role="menuitemradio"]`,
-		);
+		const headerSelector = `div:has(> span:text-is("${providerName}"))`;
+		const header = radioGroup.locator(headerSelector);
+		// A model shown directly under the provider header (adjacent sibling).
+		const directTopModel = radioGroup.locator(`${headerSelector} + [role="menuitemradio"]`);
+		// The provider's "More models" disclosure, present as the header's adjacent
+		// sibling only when the provider has no model shown directly.
+		const moreModels = radioGroup.locator(`${headerSelector} + button:has-text("More models")`);
+		// The provider's top model, whether shown directly or revealed by expanding
+		// "More models": the first radio item following this provider's header.
+		const topModel = header.locator('xpath=./following-sibling::*[@role="menuitemradio"][1]');
 		const page = this.code.driver.currentPage;
 
 		await expect(async () => {
@@ -465,6 +480,12 @@ export class PositAssistant {
 			if (!(await radioGroup.isVisible().catch(() => false))) {
 				await trigger.click();
 				await expect(radioGroup).toBeVisible({ timeout: 5000 });
+			}
+			// Some providers (e.g. Microsoft Foundry) list every model under the
+			// "More models" disclosure with none shown directly; expand it so the
+			// provider has a selectable model.
+			if (await directTopModel.count() === 0 && await moreModels.isVisible().catch(() => false)) {
+				await moreModels.click();
 			}
 			// Short click timeout so a menu that closed mid-open fails fast and we
 			// reopen on the next iteration rather than hanging.
