@@ -37,11 +37,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Check test tag map coverage and staleness
-        # PIPESTATUS, not $?: piping into tee means $? would reflect tee's
-        # exit code, not the check's -- this job needs to actually go red.
         run: |
-          bash scripts/check-test-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
-          exit "${PIPESTATUS[0]}"
+          # `|| true`: --json's own exit code reflects drift, which would abort
+          # this script (under -e) before the summary gets written. The real
+          # pass/fail check runs explicitly as the step's last command instead.
+          bash scripts/check-test-tag-map.sh --json > drift.json || true
+          bash scripts/tag-map-drift-summary.sh drift.json >> "$GITHUB_STEP_SUMMARY"
+          jq -e '.missing == [] and .stale == [] and .invalid_tags == []' drift.json >/dev/null
 
   auto-fix:
     name: 'Auto-fix map drift'
@@ -259,6 +261,55 @@ jobs:
             echo "Created new PR: $PR_URL"
             echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Write summary
+        if: always()
+        env:
+          DRYRUN: ${{ inputs.dryrun }}
+          EXISTS: ${{ steps.detect.outputs.exists }}
+          DETECTED_PR_URL: ${{ steps.detect.outputs.pr_url }}
+          MODE: ${{ steps.detect.outputs.mode }}
+          APPLY_RESULT: ${{ steps.apply.outputs.result }}
+          PUSH_BRANCH: ${{ steps.push.outputs.branch }}
+          FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
+        run: |
+          {
+            echo "### Auto-fix Map Drift"
+            echo ""
+            if [ "$DRYRUN" = "true" ]; then
+              echo ":test_tube: **Dry run** -- commit, push, PR, and Slack were all skipped."
+              echo ""
+            fi
+            if [ "$EXISTS" = "true" ]; then
+              echo "Reusing existing PR: $DETECTED_PR_URL (mode: \`$MODE\`)"
+              echo ""
+            fi
+            [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json
+            if [ -f guesses.json ] && jq -e 'length > 0' guesses.json >/dev/null 2>&1; then
+              echo "#### :robot: Claude's tag guesses"
+              echo ""
+              echo "| Dir | Guessed tags |"
+              echo "|---|---|"
+              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value | length) > 0 then (.value | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " |"' guesses.json
+              echo ""
+            fi
+            if [ -n "$APPLY_RESULT" ]; then
+              echo "#### Result"
+              echo ""
+              echo "- Added: $(echo "$APPLY_RESULT" | jq -r '.added | length') dir(s)"
+              echo "- Removed: $(echo "$APPLY_RESULT" | jq -r '.removed | length') entr(y/ies)"
+              echo ""
+            fi
+            if [ -n "$FINAL_PR_URL" ]; then
+              echo ":white_check_mark: [Opened/updated PR]($FINAL_PR_URL)"
+            elif [ -n "$PUSH_BRANCH" ] && [ "$DRYRUN" = "true" ]; then
+              echo ":test_tube: Would push to \`$PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
+            elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
+              echo "No new changes needed -- existing PR left as-is."
+            else
+              echo "Nothing auto-fixable (e.g. an invalid tag needs a manual fix)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   slack-notification:
     name: 'Send Slack notification'

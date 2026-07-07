@@ -253,7 +253,7 @@ fi
 EMPTY_JSON_MAP="$(mktemp)"
 echo '{}' > "$EMPTY_JSON_MAP"
 EMPTY_JSON_OUTPUT="$(MAP_FILE="$EMPTY_JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json --tags-only 2>&1)"
-if printf '%s' "$EMPTY_JSON_OUTPUT" | jq -e '. == {missing: [], stale: [], invalid_tags: []}' >/dev/null 2>&1; then
+if printf '%s' "$EMPTY_JSON_OUTPUT" | jq -e '. == {missing: [], stale: [], invalid_tags: [], untested_tags: [], unresolved_tags: []}' >/dev/null 2>&1; then
 	echo "PASS: --json --tags-only on an empty map reports all-empty arrays"
 else
 	echo "FAIL: --json --tags-only on an empty map should report all-empty arrays"; fail=1

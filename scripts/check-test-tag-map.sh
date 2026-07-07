@@ -17,7 +17,8 @@
 # Usage: scripts/check-test-tag-map.sh [--warn-only] [--tags-only] [--json]
 #   --warn-only: report failures but exit 0 (used for local/manual runs).
 #   --tags-only: skip checks #1 and #2 (the tree-wide sweeps) and run only #3.
-#   --json: emit {"missing":[...],"stale":[...],"invalid_tags":[...]} on stdout
+#   --json: emit {"missing":[...],"stale":[...],"invalid_tags":[...],
+#     "untested_tags":[...],"unresolved_tags":[...]} on stdout
 #     instead of the human-readable report, for the auto-fix workflow to
 #     consume. Exit code semantics are unchanged.
 # Env: MAP_FILE overrides the map path (used by tests).
@@ -141,8 +142,14 @@ if $JSON_OUT; then
 	[[ ${#stale[@]} -gt 0 ]] && stale_json="$(printf '%s\n' "${stale[@]}" | jq -R . | jq -s .)"
 	invalid_json="[]"
 	[[ ${#invalid_tags[@]} -gt 0 ]] && invalid_json="$(printf '%s\n' "${invalid_tags[@]}" | jq -R . | jq -s .)"
-	jq -n --argjson missing "$missing_json" --argjson stale "$stale_json" --argjson invalid_tags "$invalid_json" \
-		'{missing: $missing, stale: $stale, invalid_tags: $invalid_tags}'
+	untested_json="[]"
+	[[ ${#untested_tags[@]} -gt 0 ]] && untested_json="$(printf '%s\n' "${untested_tags[@]}" | jq -R . | jq -s .)"
+	unresolved_json="[]"
+	[[ ${#unresolved_tags[@]} -gt 0 ]] && unresolved_json="$(printf '%s\n' "${unresolved_tags[@]}" | jq -R . | jq -s .)"
+	jq -n \
+		--argjson missing "$missing_json" --argjson stale "$stale_json" --argjson invalid_tags "$invalid_json" \
+		--argjson untested_tags "$untested_json" --argjson unresolved_tags "$unresolved_json" \
+		'{missing: $missing, stale: $stale, invalid_tags: $invalid_tags, untested_tags: $untested_tags, unresolved_tags: $unresolved_tags}'
 	if [[ ${#missing[@]} -eq 0 && ${#stale[@]} -eq 0 && ${#invalid_tags[@]} -eq 0 ]]; then
 		exit 0
 	fi
