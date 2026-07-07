@@ -145,9 +145,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	/**
-	 * Gets the find instance, creating it if necessary.
-	 */
-	/**
 	 * Returns a parenthesized keybinding hint for a command, e.g. " (F3)",
 	 * or an empty string when the command has no keybinding.
 	 */
@@ -156,6 +153,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		return label ? ` (${label})` : '';
 	}
 
+	/**
+	 * Gets the find instance, creating it if necessary.
+	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
 			if (!this._notebook.overlayContainer) {

@@ -20,7 +20,7 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
-import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import type { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 

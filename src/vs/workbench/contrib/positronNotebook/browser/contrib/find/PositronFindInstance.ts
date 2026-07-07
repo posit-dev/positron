@@ -15,7 +15,7 @@ import type { IReplaceInputOptions } from '../../../../../../base/browser/ui/fin
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
-import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import type { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Options for configuring the PositronFindInstance.

@@ -13,7 +13,7 @@ import { ISettableObservable, observableValue } from '../../../../../../../base/
 import { MockContextKeyService } from '../../../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { stubInterface } from '../../../../../../../test/vitest/stubInterface.js';
 import { IContextViewService } from '../../../../../../../platform/contextview/browser/contextView.js';
-import { IHoverManager } from '../../../../../../../platform/hover/browser/hoverManager.js';
+import type { IHoverManager } from '../../../../../../../platform/hover/browser/hoverManager.js';
 import { unthemedInboxStyles } from '../../../../../../../base/browser/ui/inputbox/inputBox.js';
 import { unthemedToggleStyles } from '../../../../../../../base/browser/ui/toggle/toggle.js';
 import { PositronFindWidget, type PositronFindWidgetKeybindingHints } from '../../../../browser/contrib/find/PositronFindWidget.js';
