@@ -487,7 +487,7 @@ cat > "$APPLY_DIR/map.json" <<'JSON'
 }
 JSON
 echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
-echo '{"src/vs/workbench/contrib/positronNewThing/": ["@:console", "@:not-a-real-tag"]}' > "$APPLY_DIR/guesses.json"
+echo '{"src/vs/workbench/contrib/positronNewThing/": {"tags": ["@:console", "@:not-a-real-tag"], "reason": "test reason"}}' > "$APPLY_DIR/guesses.json"
 printf '@:console\n@:plots\n@:reticulate\n' > "$APPLY_DIR/valid-tags.txt"
 APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" --guesses "$APPLY_DIR/guesses.json" --valid-tags "$APPLY_DIR/valid-tags.txt" 2>&1)"
 if node -e "JSON.parse(require('fs').readFileSync('$APPLY_DIR/map.json','utf8')); console.log('ok')" >/dev/null 2>&1; then

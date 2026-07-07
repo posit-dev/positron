@@ -17,6 +17,10 @@
 // automation. scripts/apply-test-tag-map-fixes.mjs separately drops any
 // guessed tag that isn't in VALID_TAGS_FILE, so a hallucinated tag can never
 // reach the map even if parsing partially succeeds.
+//
+// Output shape: { "<dir>": { "tags": ["@:x", ...], "reason": "..." } }. The
+// reason is surfaced in the PR/summary so a reviewer can sanity-check the
+// guess without re-deriving it themselves.
 
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -34,9 +38,13 @@ const OUTPUT_FILE = process.env.OUTPUT_FILE;
 // extensions/positron-python/, have thousands of files).
 const FILES_PER_DIR = 40;
 
+function emptyGuess() {
+	return { tags: [], reason: '' };
+}
+
 function writeOutput(guesses) {
 	writeFileSync(OUTPUT_FILE, JSON.stringify(guesses, null, 2));
-	const nonEmpty = Object.values(guesses).filter(v => Array.isArray(v) && v.length > 0).length;
+	const nonEmpty = Object.values(guesses).filter(v => v.tags.length > 0).length;
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `guess-count=${nonEmpty}\n`);
 	}
@@ -66,7 +74,7 @@ function extractJson(text) {
 
 async function main() {
 	const missingDirs = JSON.parse(readFileSync(MISSING_DIRS_FILE, 'utf8'));
-	const emptyGuesses = Object.fromEntries(missingDirs.map(d => [d, []]));
+	const emptyGuesses = Object.fromEntries(missingDirs.map(d => [d, emptyGuess()]));
 
 	if (missingDirs.length === 0) {
 		writeOutput({});
@@ -95,7 +103,7 @@ The following dirs are missing from the map. For each, a file listing is given (
 
 ${dirListings}
 
-Respond with ONLY a JSON object mapping each dir (exactly as given, including the trailing slash) to an array of tag strings. No prose, no markdown fence.`;
+Respond with ONLY a JSON object mapping each dir (exactly as given, including the trailing slash) to an object { "tags": [...], "reason": "..." }. "reason" is a 1-2 sentence explanation of why those tags fit (or why you chose an empty array) -- write it for someone reviewing the guess, not for yourself. No prose outside the JSON, no markdown fence.`;
 
 	const client = new Anthropic();
 	let guesses;
@@ -116,11 +124,15 @@ Respond with ONLY a JSON object mapping each dir (exactly as given, including th
 
 	// Trust only guesses for dirs we actually asked about, in the exact form
 	// we asked -- a model response for a dir we didn't request, or a missing
-	// entry, defaults to [] rather than being invented or dropped silently.
+	// entry, defaults to an empty guess rather than being invented or dropped
+	// silently. Same for a malformed per-dir entry (missing/wrong-typed tags
+	// or reason).
 	const finalGuesses = {};
 	for (const dir of missingDirs) {
-		const tags = guesses[dir];
-		finalGuesses[dir] = Array.isArray(tags) ? tags : [];
+		const entry = guesses[dir];
+		const tags = Array.isArray(entry?.tags) ? entry.tags : [];
+		const reason = typeof entry?.reason === 'string' ? entry.reason : '';
+		finalGuesses[dir] = { tags, reason };
 	}
 	writeOutput(finalGuesses);
 }

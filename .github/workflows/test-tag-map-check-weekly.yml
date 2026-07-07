@@ -284,20 +284,27 @@ jobs:
               echo "Reusing existing PR: $DETECTED_PR_URL (mode: \`$MODE\`)"
               echo ""
             fi
-            [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json
+            # --condensed: the full breakdown already ran in the check-map
+            # job's own summary on this same run page; repeating it here would
+            # just be the identical missing/stale/invalid_tags lists twice.
+            [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json --condensed
             if [ -f guesses.json ] && jq -e 'length > 0' guesses.json >/dev/null 2>&1; then
-              echo "#### :robot: Claude's tag guesses"
+              echo "#### Claude's tag guesses"
               echo ""
-              echo "| Dir | Guessed tags |"
-              echo "|---|---|"
-              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value | length) > 0 then (.value | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " |"' guesses.json
+              echo "| Dir | Guessed tags | Reason |"
+              echo "|---|---|---|"
+              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | if . == "" then "_(none)_" else . end) + " |"' guesses.json
               echo ""
             fi
             if [ -n "$APPLY_RESULT" ]; then
+              ADDED_N=$(echo "$APPLY_RESULT" | jq -r '.added | length')
+              REMOVED_N=$(echo "$APPLY_RESULT" | jq -r '.removed | length')
+              [ "$ADDED_N" = "1" ] && ADDED_NOUN=dir || ADDED_NOUN=dirs
+              [ "$REMOVED_N" = "1" ] && REMOVED_NOUN=entry || REMOVED_NOUN=entries
               echo "#### Result"
               echo ""
-              echo "- Added: $(echo "$APPLY_RESULT" | jq -r '.added | length') dir(s)"
-              echo "- Removed: $(echo "$APPLY_RESULT" | jq -r '.removed | length') entr(y/ies)"
+              echo "- Added: $ADDED_N $ADDED_NOUN"
+              echo "- Removed: $REMOVED_N $REMOVED_NOUN"
               echo ""
             fi
             if [ -n "$FINAL_PR_URL" ]; then

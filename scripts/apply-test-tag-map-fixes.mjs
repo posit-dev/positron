@@ -26,9 +26,10 @@
 //
 //   staleKeysJsonFile: JSON array of map keys to remove (from
 //     check-test-tag-map.sh --json's "stale" field).
-//   guessesJsonFile: JSON object { "<missing_dir>": ["@:tag", ...], ... } (from
-//     the test-tag-map-guesser action). An empty array is a valid guess (no
-//     confident tag).
+//   guessesJsonFile: JSON object { "<missing_dir>": { "tags": ["@:tag", ...],
+//     "reason": "..." }, ... } (from the test-tag-map-guesser action; "reason"
+//     is ignored here, it's only used for the PR/summary). An empty tags
+//     array is a valid guess (no confident tag).
 //   validTagsTextFile: newline-separated valid tag values (from
 //     pr-tags-lib.sh's valid_enum_tags). Any guessed tag not in this set is
 //     dropped with a warning, so a hallucinated tag can never reach the map --
@@ -148,7 +149,7 @@ function main() {
 			console.error(`Note: guessed dir already mapped, skipping: ${dir}`);
 			continue;
 		}
-		let tags = Array.isArray(guesses[dir]) ? guesses[dir] : [];
+		let tags = Array.isArray(guesses[dir]?.tags) ? guesses[dir].tags : [];
 		if (validTags) {
 			const filtered = tags.filter(t => validTags.has(t));
 			const dropped = tags.filter(t => !validTags.has(t));
@@ -175,7 +176,7 @@ function main() {
 	}
 	for (const key of removed) { delete reference[key]; }
 	for (const dir of added) {
-		let tags = Array.isArray(guesses[dir]) ? guesses[dir] : [];
+		let tags = Array.isArray(guesses[dir]?.tags) ? guesses[dir].tags : [];
 		if (validTags) { tags = tags.filter(t => validTags.has(t)); }
 		reference[dir] = tags;
 	}
