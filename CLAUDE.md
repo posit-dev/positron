@@ -28,13 +28,13 @@ license files -- not available to external contributors. Check first:
 instead of attempting setup).
 
 Run `git worktree list` first -- the lab worktree is meant to be long-lived
-and reused across sessions, not recreated each time. If one already exists,
-point it at the target branch instead of creating a new one (see the
-README's "switching branches" step). Follow
+and reused across sessions, not recreated each time. Follow
 `.devcontainer/ci-arm/README.md`'s
 ["CLI-only / headless usage"](.devcontainer/ci-arm/README.md#cli-only--headless-usage-eg-claude-code)
 section for exact commands -- the rest of that README documents the VS Code
-Dev Containers UI flow, which doesn't apply here.
+Dev Containers UI flow, which doesn't apply here. If a worktree already
+exists, that section's step 2 covers pointing it at a new target branch
+instead of creating another one.
 
 ## Upstream Compatibility
 

@@ -31,6 +31,11 @@ One-time setup:
 
 ## Setup
 
+Do this once per machine -- the lab worktree is meant to be long-lived. Check `git worktree list`
+first; if one already exists, reuse it ([Common Workflows](#common-workflows) covers reopening)
+instead of creating a second one, which silently shares rather than isolates build state with the
+first (see the [Gotchas](#gotchas) entry on this).
+
 ### 1. Create the worktree
 
 Create a dedicated git worktree for your CI lab so Linux build artifacts never mix with native builds (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). Start from a full Positron clone (not a shallow clone) because the build requires git history:
@@ -154,8 +159,8 @@ Dev Containers UI required.
        "cd \$POSITRON_WORKSPACE_PATH && [ \"\$(sha256sum package-lock.json | awk '{print \$1}')\" = \"\$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)\" ] && echo OK || echo DRIFTED"
      ```
 
-     A `DRIFTED` result means reinstall -- `reinstall-deps.sh` backs both the **Positron CI: Reinstall
-     deps** task and this CLI path, so there's one script instead of three copies of the command:
+     A `DRIFTED` result means reinstall, via the same `reinstall-deps.sh` script the **Positron CI:
+     Reinstall deps** task calls:
 
      ```bash
      docker exec ci-arm-test-1 bash -lc \
@@ -196,13 +201,11 @@ Dev Containers UI required.
    - **HOT** (containers were already running, e.g. from an earlier session): skip both step 5 and 6's
      `post-start.sh` call and go straight to step 7.
 
-   This marker only proves `node_modules`/`.build` are populated -- it says nothing about whether
-   they match *this* worktree. If you ever end up with two worktrees sharing a Compose project (see
-   the [Gotchas](#gotchas) entry on this), a `WARM_OR_HOT` reading can be a false positive: the
-   volumes were built from a different worktree's `package-lock.json`, and `out/` (bind-mounted, not
-   shared) was never compiled for this checkout at all. If step 7's test run fails with a `Cannot find
-   module` or missing `out/main.js` error despite a "warm" reading, treat it as effectively cold: run
-   step 2's dependency-drift check and compile command, or just fall back to step 5.
+   This marker only proves `node_modules`/`.build` are populated somewhere -- not that they match
+   *this* worktree (see the [Gotchas](#gotchas) entry on shared Compose projects for why). If step 7
+   fails with a `Cannot find module` or missing `out/main.js` error despite a "warm" reading, treat it
+   as effectively cold: rerun step 2's dependency-drift check and compile command, or fall back to
+   step 5.
 
 5. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
    Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
@@ -374,10 +377,13 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 - **Python/R interpreters dead after building one checkout both ways** - wrong-OS `pet`/`ark`/`kcserver`
   (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). The Doctor's
   **Interpreters** row flags this; run **Positron CI: Reinstall interpreters** to restore the Linux
-  binaries. (`out/` is shared too; recompile after switching.)
+  binaries. (`out/` is bind-mounted too, so it's a mixing hazard the same way -- recompile after
+  switching.)
 - **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
   running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
-  reload the window and let **Watch** recompile (restart any running Positron/debug).
+  reload the window and let **Watch** recompile (restart any running Positron/debug). The
+  [CLI-only flow](#cli-only--headless-usage-eg-claude-code)'s step 2 covers the same problem
+  headlessly, including the dependency-drift check Watch doesn't handle.
 - **One dev container per checkout at a time -- and it fails silently, not loudly, if you break this.**
   Compose's project name defaults to the directory *basename* holding `docker-compose.yml`, which is
   `ci-arm` for every worktree (they all have the same `.devcontainer/ci-arm` layout). Bring up a second
@@ -386,10 +392,10 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   the *same* named volumes (`positron-node-modules`, `positron-build`, etc.) from whichever worktree
   built them last. If that worktree was on a different branch with a different `package-lock.json`,
   you get confusing missing-module errors that look like a broken build rather than a stale dependency
-  mismatch (`reinstall-deps.sh` is the fix -- see step 2 and step 4's caveat in
-  [CLI-only usage](#cli-only--headless-usage-eg-claude-code)). To actually run two worktrees'
-  containers side by side, set a distinct `COMPOSE_PROJECT_NAME` per worktree instead of relying on
-  the default.
+  mismatch (`reinstall-deps.sh` is the fix -- see
+  [CLI-only usage](#cli-only--headless-usage-eg-claude-code)'s step 2). To actually run two
+  worktrees' containers side by side, set a distinct `COMPOSE_PROJECT_NAME` per worktree instead of
+  relying on the default.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
   (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter.
