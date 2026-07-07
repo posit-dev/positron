@@ -54,7 +54,14 @@ jobs:
               channel: $channel,
               text: ("⚠️ *Test tag map has drifted* · <" + $run_url + "|view run>")
             }')
-          curl -s -X POST https://slack.com/api/chat.postMessage \
+          RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
+            -d "$PAYLOAD")
+          # curl -s only reflects the HTTP status; Slack returns 200 with
+          # {"ok": false, ...} on a bad token/channel/rate limit, which would
+          # otherwise silently drop the notification with a green job.
+          if ! echo "$RESPONSE" | jq -e '.ok == true' >/dev/null; then
+            echo "Slack notification failed: $(echo "$RESPONSE" | jq -r '.error // "unknown error"')" >&2
+            exit 1
+          fi
