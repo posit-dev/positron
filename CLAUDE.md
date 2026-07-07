@@ -19,6 +19,15 @@ Edge cases:
 
 **Exception for vitest test files:** `npm run build-check` excludes `*.vitest.ts` files, so it won't surface type errors in tests. To check those, run `npm run test:positron:check-ts` (wraps `tsc --noEmit -p ./vitest.tsconfig.json --skipLibCheck`). It is scoped to vitest files + their ambient declarations and completes in seconds. The output matches what the VS Code Problems pane shows for `.vitest.{ts,tsx}` files. Filter to a specific file with: `npm run test:positron:check-ts 2>&1 | grep '<file>.vitest.ts'`.
 
+### Reproducing CI Failures Locally (Posit-internal)
+
+Only relevant if the user explicitly asks to reproduce a CI-only failure
+using the real CI image. `.devcontainer/ci-arm/README.md` runs Positron
+inside that image (arm64). Requires private GHCR access and commercial
+license files -- not available to external contributors. Check first:
+`gh api repos/posit-dev/positron-ci-images` (404 = no access; tell the user
+instead of attempting setup).
+
 ## Upstream Compatibility
 
 Positron forks VSCode. Minimize merge conflicts by isolating Positron code.
