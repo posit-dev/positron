@@ -50,7 +50,14 @@ if ! $TAGS_ONLY; then
 	expected=()
 	while IFS= read -r d; do
 		dir="$(positron_dir_of "$d")"
-		[[ -n "$dir" ]] && expected+=("$dir")
+		[[ -n "$dir" ]] || continue
+		# Skip dirs with no git-tracked files: leftover on-disk cruft (e.g. an
+		# extension's node_modules/ surviving its own removal from git) would
+		# otherwise be flagged as "missing from the map" even though it's not
+		# really part of the tree anymore.
+		match="$(git -C "$REPO_ROOT" ls-files -- "${dir}*" 2>/dev/null)"
+		[[ -z "$match" ]] && continue
+		expected+=("$dir")
 	done < <(
 		cd "$REPO_ROOT" || exit 1
 		find src extensions -type d -name node_modules -prune \

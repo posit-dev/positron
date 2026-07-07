@@ -395,5 +395,34 @@ assert_eq "fallback: Posit-owned non-positron-named dir flagged, upstream one is
 assert_eq "fallback: nonexistent file not flagged" "" \
 	"$(cd "$FALLBACK_ROOT" && find_unmapped_positron_dirs "src/vs/workbench/contrib/legacyRuntime/gone.ts" "$EMPTY_MAP")"
 
+# --- check-test-tag-map.sh: dir-coverage ignores untracked cruft ---
+# The dir-coverage sweep walks the filesystem (`find src extensions`), not
+# `git ls-files`, so a leftover on-disk dir from a removed extension (its
+# node_modules/ never gets cleaned up by npm) would otherwise be flagged as
+# "missing from the map" even though it's not really part of the tree
+# anymore. Uses a synthetic git repo since REPO_ROOT is fixed relative to the
+# script's own path and can't be redirected via env var.
+CRUFT_ROOT="$(mktemp -d)"
+mkdir -p "$CRUFT_ROOT/scripts/lib" "$CRUFT_ROOT/extensions/positron-real/src" "$CRUFT_ROOT/extensions/positron-gone/node_modules"
+cp "$HERE/../check-test-tag-map.sh" "$CRUFT_ROOT/scripts/check-test-tag-map.sh"
+cp "$HERE/../lib/pr-tags-lib.sh" "$CRUFT_ROOT/scripts/lib/pr-tags-lib.sh"
+echo 'real' > "$CRUFT_ROOT/extensions/positron-real/src/x.ts"
+echo 'cruft' > "$CRUFT_ROOT/extensions/positron-gone/node_modules/leftover.js"
+(cd "$CRUFT_ROOT" && git init -q && git add extensions/positron-real && git -c user.email=t@t -c user.name=t commit -q -m init)
+CRUFT_MAP="$(mktemp)"
+echo '{}' > "$CRUFT_MAP"
+CRUFT_OUTPUT="$(cd "$CRUFT_ROOT" && MAP_FILE="$CRUFT_MAP" bash scripts/check-test-tag-map.sh 2>&1)"
+if printf '%s' "$CRUFT_OUTPUT" | grep -qF "extensions/positron-gone/"; then
+	echo "FAIL: guardrail should not flag an untracked leftover dir as missing"; fail=1
+else
+	echo "PASS: guardrail ignores untracked leftover dirs"
+fi
+if printf '%s' "$CRUFT_OUTPUT" | grep -qF "extensions/positron-real/"; then
+	echo "PASS: guardrail still flags a genuinely-tracked unmapped dir"
+else
+	echo "FAIL: guardrail should flag the tracked-but-unmapped dir"; fail=1
+fi
+rm -rf "$CRUFT_ROOT" "$CRUFT_MAP"
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
