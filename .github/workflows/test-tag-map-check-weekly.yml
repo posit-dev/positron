@@ -1,0 +1,48 @@
+name: "Weekly: Test Tag Map Check"
+
+# Full-tree health check for test-tag-paths-map.json: flags Positron dirs with
+# no map entry, and map entries that no longer point at any real file (renamed
+# or deleted elsewhere without updating the map).
+#
+# Not run per-PR on purpose: both checks depend on the WHOLE tree's current
+# state, not just what one PR touched, so a per-PR gate would fail unrelated
+# PRs over drift they didn't cause (see test-tag-paths-map.json's git history
+# for why the per-PR version of this was scoped down instead). A weekly
+# cadence is enough since neither problem gets more urgent by sitting a few
+# more days -- this just needs someone to notice and clean it up eventually.
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Mondays, 12:00 UTC (6am CST -- shifts to 7am during CDT, cron is fixed UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check test tag map coverage and staleness
+        # PIPESTATUS, not $?: piping into tee means $? would reflect tee's
+        # exit code, not the check's -- this job needs to actually go red.
+        run: |
+          bash scripts/check-test-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
+
+  slack-notification:
+    name: 'Send Slack notification'
+    runs-on: ubuntu-latest
+    needs: [check-map]
+    if: always()
+
+    steps:
+      - name: Send Slack Notification
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          notify_on: "failure"
+          slack_channel: "#positron-test-results"
+          include_job_durations: "false"
