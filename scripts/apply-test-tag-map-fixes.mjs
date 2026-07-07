@@ -81,6 +81,15 @@ function main() {
 		if (!existingKeys.has(key)) { console.error(`Note: stale key already absent, skipping: ${key}`); }
 	}
 
+	// A stale key still in the map but not matched above has a shape we can't
+	// splice (e.g. a multi-line array). Fail loudly rather than silently
+	// no-op'ing on it -- otherwise the drift persists while we report success.
+	const removedSet = new Set(removed);
+	const unremovable = [...staleKeys].filter(k => existingKeys.has(k) && !removedSet.has(k));
+	if (unremovable.length > 0) {
+		fail(`stale key(s) present but not on a single line I can remove safely (multi-line array?): ${unremovable.join(', ')}. Fix the map by hand.`);
+	}
+
 	if (removed.length === 0) {
 		console.log(JSON.stringify({ removed }));
 		return;

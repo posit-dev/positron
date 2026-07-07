@@ -549,6 +549,30 @@ if diff -q "$APPLY_DIR/bad-map.orig.json" "$APPLY_DIR/bad-map.json" >/dev/null; 
 else
 	echo "FAIL: apply script should not modify the map it refused to write"; fail=1
 fi
+
+# A stale key whose array spans multiple lines can't be matched by the
+# single-line splice. Rather than silently no-op (leaving the drift in place
+# while reporting success), the script must fail loudly.
+cat > "$APPLY_DIR/multiline-map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "extensions/positron-gone/": [
+    "@:reticulate"
+  ]
+}
+JSON
+cp "$APPLY_DIR/multiline-map.json" "$APPLY_DIR/multiline-map.orig.json"
+echo '["extensions/positron-gone/"]' > "$APPLY_DIR/multiline-stale.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/multiline-map.json" --stale "$APPLY_DIR/multiline-stale.json" >/dev/null 2>&1; then
+	echo "FAIL: apply script should fail loudly on a stale key it can't splice, not no-op"; fail=1
+else
+	echo "PASS: apply script fails loudly on a multi-line stale key it can't remove"
+fi
+if diff -q "$APPLY_DIR/multiline-map.orig.json" "$APPLY_DIR/multiline-map.json" >/dev/null; then
+	echo "PASS: apply script leaves the map untouched when it can't splice a stale key"
+else
+	echo "FAIL: apply script should not modify the map when it can't splice a stale key"; fail=1
+fi
 rm -rf "$APPLY_DIR"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
