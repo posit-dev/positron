@@ -26,7 +26,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ITextModel } from '../../../../editor/common/model.js';
 import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, QUARTO_INLINE_OUTPUT_ENABLED_KEY, affectsQuartoConfig, isQuartoOrRmdFile, usingQuartoInlineOutput } from '../common/positronQuartoConfig.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 
 export const IQuartoKernelManager = createDecorator<IQuartoKernelManager>('quartoKernelManager');
@@ -199,8 +199,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		// Shutdown all kernels when feature is disabled
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
-				const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_ENABLED_KEY, POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
+				const enabled = usingQuartoInlineOutput(this._configurationService);
 				if (!enabled) {
 					this._shutdownAllKernels();
 				}
