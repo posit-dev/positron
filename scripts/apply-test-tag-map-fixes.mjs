@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Applies auto-fixable test-tag-paths-map.json drift: removes stale keys and
-// appends LLM-guessed entries for missing dirs as a new trailing group.
+// appends LLM-advised entries for missing dirs as a new trailing group.
 //
 // Written in Node rather than jq/bash because the map is hand-curated with
 // blank-line grouping (feature areas separated visually, see the file itself)
@@ -21,19 +21,19 @@
 //   node scripts/apply-test-tag-map-fixes.mjs \
 //     --map <mapFile> \
 //     [--stale <staleKeysJsonFile>] \
-//     [--guesses <guessesJsonFile>] \
+//     [--advisory <advisoryJsonFile>] \
 //     [--valid-tags <validTagsTextFile>]
 //
 //   staleKeysJsonFile: JSON array of map keys to remove (from
 //     check-test-tag-map.sh --json's "stale" field).
-//   guessesJsonFile: JSON object { "<missing_dir>": { "tags": ["@:tag", ...],
-//     "reason": "..." }, ... } (from the test-tag-map-guesser action; "reason"
-//     is ignored here, it's only used for the PR/summary). An empty tags
-//     array is a valid guess (no confident tag).
+//   advisoryJsonFile: JSON object { "<missing_dir>": { "tags": ["@:tag", ...],
+//     "reason": "..." }, ... } (from the test-tag-map-advisor action;
+//     "reason" is ignored here, it's only used for the PR/summary). An empty
+//     tags array is a valid advisory (no confident tag).
 //   validTagsTextFile: newline-separated valid tag values (from
-//     pr-tags-lib.sh's valid_enum_tags). Any guessed tag not in this set is
+//     pr-tags-lib.sh's valid_enum_tags). Any advised tag not in this set is
 //     dropped with a warning, so a hallucinated tag can never reach the map --
-//     worst case a dir is added with fewer tags than guessed, never a wrong one.
+//     worst case a dir is added with fewer tags than advised, never a wrong one.
 //
 // Prints {"added": [...dirs], "removed": [...keys]} to stdout on success.
 
@@ -112,7 +112,7 @@ function main() {
 	}
 
 	const staleKeys = new Set(readJson(args.stale, []));
-	const guesses = readJson(args.guesses, {});
+	const advisory = readJson(args.advisory, {});
 	const validTags = args['valid-tags']
 		? new Set(readFileSync(args['valid-tags'], 'utf8').split('\n').map(s => s.trim()).filter(Boolean))
 		: null;
@@ -144,16 +144,16 @@ function main() {
 
 	const added = [];
 	const newEntries = [];
-	for (const dir of Object.keys(guesses).sort()) {
+	for (const dir of Object.keys(advisory).sort()) {
 		if (existingKeys.has(dir) && !staleKeys.has(dir)) {
-			console.error(`Note: guessed dir already mapped, skipping: ${dir}`);
+			console.error(`Note: advised dir already mapped, skipping: ${dir}`);
 			continue;
 		}
-		let tags = Array.isArray(guesses[dir]?.tags) ? guesses[dir].tags : [];
+		let tags = Array.isArray(advisory[dir]?.tags) ? advisory[dir].tags : [];
 		if (validTags) {
 			const filtered = tags.filter(t => validTags.has(t));
 			const dropped = tags.filter(t => !validTags.has(t));
-			if (dropped.length > 0) { console.error(`Note: dropped invalid guessed tag(s) for ${dir}: ${dropped.join(', ')}`); }
+			if (dropped.length > 0) { console.error(`Note: dropped invalid advised tag(s) for ${dir}: ${dropped.join(', ')}`); }
 			tags = filtered;
 		}
 		newEntries.push({ indent: '  ', key: dir, valueRaw: JSON.stringify(tags), precededByBlank: false });
@@ -176,7 +176,7 @@ function main() {
 	}
 	for (const key of removed) { delete reference[key]; }
 	for (const dir of added) {
-		let tags = Array.isArray(guesses[dir]?.tags) ? guesses[dir].tags : [];
+		let tags = Array.isArray(advisory[dir]?.tags) ? advisory[dir].tags : [];
 		if (validTags) { tags = tags.filter(t => validTags.has(t)); }
 		reference[dir] = tags;
 	}

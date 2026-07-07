@@ -487,9 +487,9 @@ cat > "$APPLY_DIR/map.json" <<'JSON'
 }
 JSON
 echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
-echo '{"src/vs/workbench/contrib/positronNewThing/": {"tags": ["@:console", "@:not-a-real-tag"], "reason": "test reason"}}' > "$APPLY_DIR/guesses.json"
+echo '{"src/vs/workbench/contrib/positronNewThing/": {"tags": ["@:console", "@:not-a-real-tag"], "reason": "test reason"}}' > "$APPLY_DIR/advisory.json"
 printf '@:console\n@:plots\n@:reticulate\n' > "$APPLY_DIR/valid-tags.txt"
-APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" --guesses "$APPLY_DIR/guesses.json" --valid-tags "$APPLY_DIR/valid-tags.txt" 2>&1)"
+APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" --advisory "$APPLY_DIR/advisory.json" --valid-tags "$APPLY_DIR/valid-tags.txt" 2>&1)"
 if node -e "JSON.parse(require('fs').readFileSync('$APPLY_DIR/map.json','utf8')); console.log('ok')" >/dev/null 2>&1; then
 	echo "PASS: apply script leaves valid JSON behind"
 else
@@ -509,11 +509,11 @@ else
 	echo "FAIL: apply script should preserve two blank-line group boundaries (one original, one before the new group)"; fail=1
 fi
 if grep -qF '"src/vs/workbench/contrib/positronNewThing/": ["@:console"]' "$APPLY_DIR/map.json"; then
-	echo "PASS: apply script adds the guessed dir with the invalid tag dropped"
+	echo "PASS: apply script adds the advised dir with the invalid tag dropped"
 else
-	echo "FAIL: apply script should add the guessed dir, keeping only the valid tag"; fail=1
+	echo "FAIL: apply script should add the advised dir, keeping only the valid tag"; fail=1
 fi
-if printf '%s' "$APPLY_OUTPUT" | grep -q "dropped invalid guessed tag"; then
+if printf '%s' "$APPLY_OUTPUT" | grep -q "dropped invalid advised tag"; then
 	echo "PASS: apply script logs the dropped invalid tag"
 else
 	echo "FAIL: apply script should log the dropped invalid tag"; fail=1
@@ -521,9 +521,9 @@ fi
 cp "$APPLY_DIR/map.json" "$APPLY_DIR/map.before-noop.json"
 NOOP_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" 2>&1)"
 if printf '%s' "$NOOP_OUTPUT" | grep -qF '"added":[],"removed":[]'; then
-	echo "PASS: apply script reports no-op with no stale/guesses args"
+	echo "PASS: apply script reports no-op with no stale/advisory args"
 else
-	echo "FAIL: apply script should report a no-op with no stale/guesses args"; fail=1
+	echo "FAIL: apply script should report a no-op with no stale/advisory args"; fail=1
 fi
 if diff -q "$APPLY_DIR/map.before-noop.json" "$APPLY_DIR/map.json" >/dev/null; then
 	echo "PASS: apply script leaves the file untouched on a no-op"

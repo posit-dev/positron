@@ -10,13 +10,13 @@ name: "Weekly: Test Tag Map Check"
 # problem gets more urgent by sitting a few more days.
 #
 # On drift, auto-fix opens (or updates) a PR like any other: stale entries are
-# removed deterministically, and missing dirs get an LLM-guessed tag list
-# (Claude, via test-tag-map-guesser) as a starting point for a human to review
-# -- nothing here merges on its own. A hallucinated tag can never reach the
-# map: apply-test-tag-map-fixes.mjs drops any guessed tag that isn't a real
+# removed deterministically, and missing dirs get an LLM tag advisory (Claude,
+# via test-tag-map-advisor) as a starting point for a human to review --
+# nothing here merges on its own. A hallucinated tag can never reach the map:
+# apply-test-tag-map-fixes.mjs drops any advised tag that isn't a real
 # TestTags member. Invalid map tags (a typo, not drift) are surfaced but never
 # auto-fixed -- that's a real error in the PR that introduced it, not
-# something to paper over with a guess.
+# something to paper over with an advisory.
 
 on:
   schedule:
@@ -101,8 +101,8 @@ jobs:
           # Same review-safety check as the bootstrap-extensions auto-update PR
           # (.github/workflows/extensions-check-nightly.yml): any human signal
           # (review comment, issue comment, non-bot commit, or a review
-          # decision) means someone may have hand-corrected a tag guess, so add
-          # commits on top instead of force-pushing over their work.
+          # decision) means someone may have hand-corrected an advised tag, so
+          # add commits on top instead of force-pushing over their work.
           BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
           REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
           ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
@@ -155,25 +155,25 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
-      - name: Guess tags for missing dirs
+      - name: Get tag advisories for missing dirs
         if: steps.drift.outputs.missing_count != '0'
-        uses: ./.github/actions/test-tag-map-guesser
+        uses: ./.github/actions/test-tag-map-advisor
         with:
           missing-dirs-file: missing.json
           valid-tags-file: valid-tags.txt
           map-file: .github/workflows/test-tag-paths-map.json
           repo-root: ${{ github.workspace }}
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          output-file: guesses.json
+          output-file: advisory.json
 
       - name: Apply fixes
         id: apply
         run: |
-          [ -f guesses.json ] || echo '{}' > guesses.json
+          [ -f advisory.json ] || echo '{}' > advisory.json
           RESULT=$(node scripts/apply-test-tag-map-fixes.mjs \
             --map .github/workflows/test-tag-paths-map.json \
             --stale stale.json \
-            --guesses guesses.json \
+            --advisory advisory.json \
             --valid-tags valid-tags.txt)
           echo "$RESULT"
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
@@ -240,14 +240,14 @@ jobs:
           BODY="### Summary
           Auto-fix for test-tag-paths-map.json drift found by the [weekly check](${RUN_URL}).
 
-          **Added (LLM-guessed tags -- please verify):**
+          **Added (LLM-advised tags -- please verify):**
           ${ADDED}
 
           **Removed (stale, no longer tracked):**
           ${REMOVED}
 
           ### QA Notes
-          Tag guesses come from Claude and may be wrong or incomplete -- check them against the dir's actual e2e coverage before merging.
+          Tag advisories come from Claude and may be wrong or incomplete -- check them against the dir's actual e2e coverage before merging.
 
           _This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._"
           if [ "$EXISTS" = "true" ]; then
@@ -288,12 +288,12 @@ jobs:
             # job's own summary on this same run page; repeating it here would
             # just be the identical missing/stale/invalid_tags lists twice.
             [ -f drift.json ] && bash scripts/tag-map-drift-summary.sh drift.json --condensed
-            if [ -f guesses.json ] && jq -e 'length > 0' guesses.json >/dev/null 2>&1; then
-              echo "#### Claude's tag guesses"
+            if [ -f advisory.json ] && jq -e 'length > 0' advisory.json >/dev/null 2>&1; then
+              echo "#### Claude's tag advisories"
               echo ""
-              echo "| Dir | Guessed tags | Reason |"
+              echo "| Dir | Advised tags | Reason |"
               echo "|---|---|---|"
-              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | if . == "" then "_(none)_" else . end) + " |"' guesses.json
+              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | if . == "" then "_(none)_" else . end) + " |"' advisory.json
               echo ""
             fi
             if [ -n "$APPLY_RESULT" ]; then
@@ -334,7 +334,7 @@ jobs:
           PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
         run: |
           if [ -n "$PR_URL" ]; then
-            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|a PR> -- please review the tag guesses"
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|a PR> -- please review the tag advisories"
           else
             TEXT="⚠️ *Test tag map has drifted* · auto-fix couldn't resolve it (likely an invalid tag needing a manual fix) · <${RUN_URL}|view run>"
           fi

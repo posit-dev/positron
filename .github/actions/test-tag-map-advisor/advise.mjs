@@ -4,23 +4,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Asks Claude to guess likely e2e tags for each dir in MISSING_DIRS_FILE,
+// Asks Claude to advise on likely e2e tags for each dir in MISSING_DIRS_FILE,
 // using the existing map as few-shot precedent and each dir's own file
 // listing as context. A single Messages API call (not the Agent SDK) --
 // this only needs one round of "here's a directory listing, pick from this
 // tag list", not autonomous multi-step exploration.
 //
 // Never blocks the workflow: a missing env var, an API error, or a
-// malformed/incomplete model response all fall back to guessing [] (no tag)
-// for every dir rather than throwing, since a human reviews the resulting PR
-// either way -- an empty guess just means more manual follow-up, not broken
-// automation. scripts/apply-test-tag-map-fixes.mjs separately drops any
-// guessed tag that isn't in VALID_TAGS_FILE, so a hallucinated tag can never
-// reach the map even if parsing partially succeeds.
+// malformed/incomplete model response all fall back to an empty advisory (no
+// tag) for every dir rather than throwing, since a human reviews the
+// resulting PR either way -- an empty advisory just means more manual
+// follow-up, not broken automation. scripts/apply-test-tag-map-fixes.mjs
+// separately drops any advised tag that isn't in VALID_TAGS_FILE, so a
+// hallucinated tag can never reach the map even if parsing partially
+// succeeds.
 //
 // Output shape: { "<dir>": { "tags": ["@:x", ...], "reason": "..." } }. The
 // reason is surfaced in the PR/summary so a reviewer can sanity-check the
-// guess without re-deriving it themselves.
+// advisory without re-deriving it themselves.
 
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -38,17 +39,17 @@ const OUTPUT_FILE = process.env.OUTPUT_FILE;
 // extensions/positron-python/, have thousands of files).
 const FILES_PER_DIR = 40;
 
-function emptyGuess() {
+function emptyAdvisory() {
 	return { tags: [], reason: '' };
 }
 
-function writeOutput(guesses) {
-	writeFileSync(OUTPUT_FILE, JSON.stringify(guesses, null, 2));
-	const nonEmpty = Object.values(guesses).filter(v => v.tags.length > 0).length;
+function writeOutput(advisories) {
+	writeFileSync(OUTPUT_FILE, JSON.stringify(advisories, null, 2));
+	const nonEmpty = Object.values(advisories).filter(v => v.tags.length > 0).length;
 	if (process.env.GITHUB_OUTPUT) {
-		appendFileSync(process.env.GITHUB_OUTPUT, `guess-count=${nonEmpty}\n`);
+		appendFileSync(process.env.GITHUB_OUTPUT, `advisory-count=${nonEmpty}\n`);
 	}
-	console.log(`Wrote ${Object.keys(guesses).length} guess(es) (${nonEmpty} non-empty) to ${OUTPUT_FILE}`);
+	console.log(`Wrote ${Object.keys(advisories).length} advisory(-ies) (${nonEmpty} non-empty) to ${OUTPUT_FILE}`);
 }
 
 function listFiles(dir) {
@@ -74,15 +75,15 @@ function extractJson(text) {
 
 async function main() {
 	const missingDirs = JSON.parse(readFileSync(MISSING_DIRS_FILE, 'utf8'));
-	const emptyGuesses = Object.fromEntries(missingDirs.map(d => [d, emptyGuess()]));
+	const emptyAdvisories = Object.fromEntries(missingDirs.map(d => [d, emptyAdvisory()]));
 
 	if (missingDirs.length === 0) {
 		writeOutput({});
 		return;
 	}
 	if (!process.env.ANTHROPIC_API_KEY) {
-		console.error('ANTHROPIC_API_KEY not set; guessing [] for all missing dirs.');
-		writeOutput(emptyGuesses);
+		console.error('ANTHROPIC_API_KEY not set; leaving an empty advisory for all missing dirs.');
+		writeOutput(emptyAdvisories);
 		return;
 	}
 
@@ -92,21 +93,21 @@ async function main() {
 
 	const prompt = `You are helping maintain test-tag-paths-map.json, which maps Positron source directories to e2e test tags (defined in test-tags.ts). A tag groups the e2e tests that exercise a feature; a dir maps to [] when it has no dedicated e2e coverage.
 
-Here is the current map, for precedent on how granular and how conservative to be (many dirs legitimately map to []; do not force a guess just to avoid an empty array):
+Here is the current map, for precedent on how granular and how conservative to be (many dirs legitimately map to []; do not force a tag just to avoid an empty array):
 
 ${existingMap}
 
 Valid tags (use ONLY these, exactly as written, or an empty array):
 ${validTags.join(', ')}
 
-The following dirs are missing from the map. For each, a file listing is given (repo-relative paths, truncated to ${FILES_PER_DIR} entries). Guess the most likely tag(s) based on the dir's name, its place in the file tree, and its file names. If nothing in the valid tag list plausibly fits, or you are not confident, use an empty array -- an empty array is a normal, correct answer, not a failure.
+The following dirs are missing from the map. For each, a file listing is given (repo-relative paths, truncated to ${FILES_PER_DIR} entries). Advise on the most likely tag(s) based on the dir's name, its place in the file tree, and its file names. If nothing in the valid tag list plausibly fits, or you are not confident, use an empty array -- an empty array is a normal, correct advisory, not a failure.
 
 ${dirListings}
 
-Respond with ONLY a JSON object mapping each dir (exactly as given, including the trailing slash) to an object { "tags": [...], "reason": "..." }. "reason" is a 1-2 sentence explanation of why those tags fit (or why you chose an empty array) -- write it for someone reviewing the guess, not for yourself. No prose outside the JSON, no markdown fence.`;
+Respond with ONLY a JSON object mapping each dir (exactly as given, including the trailing slash) to an object { "tags": [...], "reason": "..." }. "reason" is a 1-2 sentence explanation of why those tags fit (or why you chose an empty array) -- write it for someone reviewing the advisory, not for yourself. No prose outside the JSON, no markdown fence.`;
 
 	const client = new Anthropic();
-	let guesses;
+	let advisories;
 	try {
 		const message = await client.messages.create({
 			model: MODEL,
@@ -115,26 +116,26 @@ Respond with ONLY a JSON object mapping each dir (exactly as given, including th
 		});
 		const textBlock = message.content.find(b => b.type === 'text');
 		if (!textBlock) { throw new Error('no text block in model response'); }
-		guesses = extractJson(textBlock.text);
+		advisories = extractJson(textBlock.text);
 	} catch (e) {
-		console.error(`Guessing failed (${e.message}); falling back to [] for all missing dirs.`);
-		writeOutput(emptyGuesses);
+		console.error(`Advising failed (${e.message}); falling back to an empty advisory for all missing dirs.`);
+		writeOutput(emptyAdvisories);
 		return;
 	}
 
-	// Trust only guesses for dirs we actually asked about, in the exact form
-	// we asked -- a model response for a dir we didn't request, or a missing
-	// entry, defaults to an empty guess rather than being invented or dropped
-	// silently. Same for a malformed per-dir entry (missing/wrong-typed tags
-	// or reason).
-	const finalGuesses = {};
+	// Trust only advisories for dirs we actually asked about, in the exact
+	// form we asked -- a model response for a dir we didn't request, or a
+	// missing entry, defaults to an empty advisory rather than being invented
+	// or dropped silently. Same for a malformed per-dir entry (missing/
+	// wrong-typed tags or reason).
+	const finalAdvisories = {};
 	for (const dir of missingDirs) {
-		const entry = guesses[dir];
+		const entry = advisories[dir];
 		const tags = Array.isArray(entry?.tags) ? entry.tags : [];
 		const reason = typeof entry?.reason === 'string' ? entry.reason : '';
-		finalGuesses[dir] = { tags, reason };
+		finalAdvisories[dir] = { tags, reason };
 	}
-	writeOutput(finalGuesses);
+	writeOutput(finalAdvisories);
 }
 
 main();
