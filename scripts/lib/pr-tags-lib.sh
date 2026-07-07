@@ -55,21 +55,11 @@ derive_map_tags() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++' | paste -sd, -
 }
 
-# scan_added_platform_tags <patch_text>
-#   patch_text: unified-diff text for a SINGLE file's patch. Do not pass in
-#   multiple files' patches concatenated together -- see
-#   scan_added_platform_tags_across_files, which exists specifically to avoid
-#   that.
-# Echoes "<win> <web>" (each true/false), true iff the tag enum reference is
-# GENUINELY new: present on an added line and absent from every removed line.
-# The "absent from removed" half matters because a tag array usually lives on
-# one line -- editing any entry (e.g. dropping an unrelated tag) reprints the
-# whole line as one removed + one added line. Checking added lines alone would
-# then treat an already-present tags.WIN/tags.WEB as newly added on every such
-# edit (see #14731, which only removed tags.POSIT_ASSISTANT from a line that
-# already carried tags.WIN/tags.WEB and still tripped this check). Test source
-# uses `tags.WIN` / `tags.WEB`, not the literal `@:win` / `@:web`, so match the
-# enum members.
+# scan_added_platform_tags <patch_text for ONE file>
+# Echoes "<win> <web>" (true/false): true only if tags.WIN/tags.WEB is on an
+# added line AND not on a removed one -- a same-line edit that reprints an
+# already-present tag (#14731) doesn't count. Multiple files? Use
+# scan_added_platform_tags_across_files instead of concatenating patches.
 scan_added_platform_tags() {
 	local patch="$1" added removed win=false web=false
 	added="$(printf '%s\n' "$patch" | grep '^+' | grep -v '^+++' || true)"
@@ -84,17 +74,9 @@ scan_added_platform_tags() {
 }
 
 # scan_added_platform_tags_across_files <patch1> [<patch2> ...]
-#   Each argument is one file's full patch text (as scan_added_platform_tags
-#   expects).
-# Echoes "<win> <web>", OR-ed across all files passed in.
-#
-# This is NOT equivalent to concatenating every file's patch into one string
-# and calling scan_added_platform_tags once: the "absent from every removed
-# line" check has to be scoped PER FILE, or one file's incidental removed-line
-# mention of tags.WIN can mask a genuinely new tags.WIN added in a different
-# file in the same PR (e.g. a tag-cleanup PR touching many test files
-# alongside someone else's new Windows test). Callers with multiple e2e test
-# files in a PR must call this, not scan_added_platform_tags directly.
+# Runs scan_added_platform_tags per file and ORs the results. Keep files
+# separate here, don't concatenate them first: one file's stale tag mention
+# could otherwise mask a genuinely new tag added in a different file.
 scan_added_platform_tags_across_files() {
 	local patch file_win file_web win=false web=false
 	for patch in "$@"; do

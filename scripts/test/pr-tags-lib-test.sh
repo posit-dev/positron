@@ -125,45 +125,33 @@ PATCH_REMOVED=$'@@ -1 +0,0 @@\n-test.describe("x", { tag: [tags.WEB] }, () => {}
 assert_eq "removed line not counted" "false false" "$(scan_added_platform_tags "$PATCH_REMOVED")"
 PATCH_BOTH=$'@@ -0 +1,2 @@\n+const a = tags.WIN;\n+const b = tags.WEB;'
 assert_eq "added win and web" "true true" "$(scan_added_platform_tags "$PATCH_BOTH")"
-# Regression for #14731: editing a tag array on one line (dropping an unrelated
-# tag) reprints tags.WIN/tags.WEB as both removed and added -- not genuinely new.
+# Regression for #14731: an unrelated same-line edit reprints tags.WIN/tags.WEB.
 PATCH_SAME_LINE_EDIT=$'@@ -1 +1 @@\n-\ttag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WEB, tags.WIN],'
 assert_eq "same-line edit keeping win/web is not newly added" "false false" \
 	"$(scan_added_platform_tags "$PATCH_SAME_LINE_EDIT")"
-# But a tag genuinely newly added alongside an untouched one should still count.
 PATCH_WIN_ADDED_TO_EXISTING=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT],\n+\ttag: [tags.ASSISTANT, tags.WIN],'
 assert_eq "win added to existing tag array is newly added" "true false" \
 	"$(scan_added_platform_tags "$PATCH_WIN_ADDED_TO_EXISTING")"
-# WEB-only mirror of the #14731 same-line-edit case -- the WIN and WEB checks
-# are independent, so exercise WEB alone rather than only ever pairing it with WIN.
+# WEB-only mirror -- WIN and WEB are scored independently.
 PATCH_SAME_LINE_EDIT_WEB_ONLY=$'@@ -1 +1 @@\n-\ttag: [tags.OLD, tags.ASSISTANT, tags.WEB],\n+\ttag: [tags.ASSISTANT, tags.WEB],'
 assert_eq "same-line edit keeping web-only is not newly added" "false false" \
 	"$(scan_added_platform_tags "$PATCH_SAME_LINE_EDIT_WEB_ONLY")"
-# A same-line "swap" -- WIN dropped, WEB newly added -- should score each tag
-# independently rather than coupling them (e.g. both flipping true, or a stale
-# WIN counting as evidence WEB isn't new).
+# Same-line swap: WIN dropped, WEB added -- must not couple the two checks.
 PATCH_SAME_LINE_SWAP=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WEB],'
 assert_eq "same-line swap: web newly added, win newly removed (not added)" "false true" \
 	"$(scan_added_platform_tags "$PATCH_SAME_LINE_SWAP")"
 
 # --- scan_added_platform_tags_across_files ---
-# Single-file passthrough behaves the same as the underlying function.
 assert_eq "across_files: single genuine add" "true false" \
 	"$(scan_added_platform_tags_across_files "$PATCH_WIN")"
-# No files touched (e.g. a PR with no e2e test changes) is a no-op, not an error.
 assert_eq "across_files: no files" "false false" \
 	"$(scan_added_platform_tags_across_files)"
-# The critical case this function exists for: a PR that both (a) genuinely adds
-# tags.WIN in one file and (b) does an unrelated same-line edit in another file
-# that incidentally still carries tags.WIN. Concatenating both files' patches
-# into one blob before scanning would see tags.WIN on a removed line (from file
-# b) and wrongly suppress the genuine addition in file a. Scoping per file must
-# keep file a's true positive intact.
+# Why this function exists: concatenating both files' patches before scanning
+# would see tags.WIN on file b's removed line and wrongly suppress file a's add.
 FILE_A_GENUINE_WIN=$'@@ -0 +1 @@\n+test.describe("new win test", { tag: [tags.WIN] }, () => {})'
 FILE_B_UNRELATED_EDIT_MENTIONS_WIN=$'@@ -1 +1 @@\n-\ttag: [tags.OLD, tags.ASSISTANT, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WIN],'
 assert_eq "across_files: genuine add in one file survives unrelated edit in another" "true false" \
 	"$(scan_added_platform_tags_across_files "$FILE_A_GENUINE_WIN" "$FILE_B_UNRELATED_EDIT_MENTIONS_WIN")"
-# Symmetric sanity check: two files, neither with a genuine addition, stays false.
 assert_eq "across_files: no genuine addition anywhere stays false" "false false" \
 	"$(scan_added_platform_tags_across_files "$PATCH_SAME_LINE_EDIT" "$FILE_B_UNRELATED_EDIT_MENTIONS_WIN")"
 

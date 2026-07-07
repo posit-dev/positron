@@ -180,18 +180,11 @@ else
 		fi
 	fi
 
-	# Enable Windows/web jobs when a NEWLY ADDED e2e test carries tags.WIN /
-	# tags.WEB (read from added diff lines only, so small edits to an existing
-	# tagged test don't opt in). Runs regardless of @:no-auto-tags. Also fold
-	# @:win/@:web into TAGS so the PR comment shows why those jobs are running --
-	# otherwise the comment lists the tags used for --grep filtering but not the
-	# ones that silently gated the whole Windows/web job on.
-	#
-	# Fetched and scanned per file (not concatenated into one blob): each
-	# element is @json-encoded so a patch's embedded newlines survive as a
-	# literal `\n` on one line, keeping file boundaries intact for `read`.
-	# scan_added_platform_tags_across_files then needs per-file boundaries to
-	# avoid one file's removed-line tag masking another file's genuinely new one.
+	# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
+	# Runs regardless of @:no-auto-tags. Also add @:win/@:web to TAGS so the PR
+	# comment explains why those jobs ran.
+	# @json-encode each file's patch so embedded newlines don't merge files
+	# together when read line by line -- see scan_added_platform_tags_across_files.
 	declare -a TEST_FILE_PATCHES=()
 	while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
 		[[ -z "$ENCODED_PATCH" ]] && continue
