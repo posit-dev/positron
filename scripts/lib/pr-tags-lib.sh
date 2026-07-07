@@ -56,7 +56,10 @@ derive_map_tags() {
 }
 
 # scan_added_platform_tags <patch_text>
-#   patch_text: unified-diff text (concatenated patches of e2e test files)
+#   patch_text: unified-diff text for a SINGLE file's patch. Do not pass in
+#   multiple files' patches concatenated together -- see
+#   scan_added_platform_tags_across_files, which exists specifically to avoid
+#   that.
 # Echoes "<win> <web>" (each true/false), true iff the tag enum reference is
 # GENUINELY new: present on an added line and absent from every removed line.
 # The "absent from removed" half matters because a tag array usually lives on
@@ -77,6 +80,28 @@ scan_added_platform_tags() {
 	if printf '%s\n' "$added" | grep -q "tags\.WEB" && ! printf '%s\n' "$removed" | grep -q "tags\.WEB"; then
 		web=true
 	fi
+	echo "$win $web"
+}
+
+# scan_added_platform_tags_across_files <patch1> [<patch2> ...]
+#   Each argument is one file's full patch text (as scan_added_platform_tags
+#   expects).
+# Echoes "<win> <web>", OR-ed across all files passed in.
+#
+# This is NOT equivalent to concatenating every file's patch into one string
+# and calling scan_added_platform_tags once: the "absent from every removed
+# line" check has to be scoped PER FILE, or one file's incidental removed-line
+# mention of tags.WIN can mask a genuinely new tags.WIN added in a different
+# file in the same PR (e.g. a tag-cleanup PR touching many test files
+# alongside someone else's new Windows test). Callers with multiple e2e test
+# files in a PR must call this, not scan_added_platform_tags directly.
+scan_added_platform_tags_across_files() {
+	local patch file_win file_web win=false web=false
+	for patch in "$@"; do
+		read -r file_win file_web <<< "$(scan_added_platform_tags "$patch")"
+		[[ "$file_win" == "true" ]] && win=true
+		[[ "$file_web" == "true" ]] && web=true
+	done
 	echo "$win $web"
 }
 

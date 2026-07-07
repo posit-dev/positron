@@ -186,10 +186,20 @@ else
 	# @:win/@:web into TAGS so the PR comment shows why those jobs are running --
 	# otherwise the comment lists the tags used for --grep filtering but not the
 	# ones that silently gated the whole Windows/web job on.
-	TEST_PATCHES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+	#
+	# Fetched and scanned per file (not concatenated into one blob): each
+	# element is @json-encoded so a patch's embedded newlines survive as a
+	# literal `\n` on one line, keeping file boundaries intact for `read`.
+	# scan_added_platform_tags_across_files then needs per-file boundaries to
+	# avoid one file's removed-line tag masking another file's genuinely new one.
+	declare -a TEST_FILE_PATCHES=()
+	while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
+		[[ -z "$ENCODED_PATCH" ]] && continue
+		TEST_FILE_PATCHES+=("$(jq -r '.' <<< "$ENCODED_PATCH")")
+	done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
 		--header "Authorization: token $GITHUB_TOKEN" \
-		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | .patch' || true)"
-	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags "$TEST_PATCHES")"
+		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | (.patch // "") | @json' || true)
+	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags_across_files "${TEST_FILE_PATCHES[@]}")"
 	if [[ "$ADDED_WIN" == "true" ]]; then
 		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
 		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
