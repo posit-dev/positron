@@ -7,7 +7,7 @@ name: "Release Screenshots"
 # prerelease/daily build -- the real release build doesn't exist yet at
 # that point, so we don't wait for it (see job-level `if` below).
 
-run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ (inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly') == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
+run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ (inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly') == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
 
 on:
   workflow_dispatch:
@@ -37,36 +37,42 @@ on:
         default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
-  create:
-    # Fires for every new branch and tag; filtered to release/* branches by
-    # the job-level `if` below since `create` has no ref filter of its own.
+  push:
+    # GitHub only creates a run here for branches actually matching this
+    # filter, so non-release branches never show up in this workflow's
+    # history. Job-level `if` below narrows further to the initial push
+    # (branch creation) so later commits to the branch don't retrigger this.
     # Patch releases (branching-for-release.html tip) reuse the existing
-    # release/* branch instead of creating a new one, so they don't retrigger this.
+    # release/* branch instead of creating a new one, so they won't match either.
+    branches:
+      - 'release/*'
 
 concurrency:
   # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
   # Kept in sync with env.MODE below (concurrency can't reference env context).
-  group: release-screenshots-${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
+  group: release-screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
   cancel-in-progress: true
 
 permissions:
   contents: read
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
-# Normalize inputs once. Scheduled (cron) and create (branch) events do not
-# populate inputs.*, so we fall back to defaults here and use env.MODE /
-# env.VERSION_INPUT everywhere downstream.
+# Normalize inputs once. Scheduled (cron) and push (release branch creation)
+# events do not populate inputs.*, so we fall back to defaults here and use
+# env.MODE / env.VERSION_INPUT everywhere downstream.
 env:
-  MODE: ${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
-  VERSION_INPUT: ${{ inputs.version || (github.event_name == 'create' && 'latest-prerelease') || 'auto' }}
+  MODE: ${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
+  VERSION_INPUT: ${{ inputs.version || (github.event_name == 'push' && 'latest-prerelease') || 'auto' }}
   BUILD_FROM_SOURCE: ${{ inputs.build_from_source || false }}
 
 jobs:
   release-screenshots:
-    name: screenshots-${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
+    name: screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
     runs-on: macos-latest-xlarge
-    # create fires for any branch/tag; only act on new release/* branches.
-    if: github.event_name != 'create' || (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/'))
+    # The branches filter above already scopes push events to release/*;
+    # this narrows to the branch's first push (creation) via the all-zero
+    # "before" SHA, so subsequent commits to the branch don't rerun this.
+    if: github.event_name != 'push' || github.event.before == '0000000000000000000000000000000000000000'
     steps:
       - name: Checkout positron
         uses: actions/checkout@v7
@@ -439,7 +445,7 @@ jobs:
     # literal -- boolean inputs don't reliably coerce to strings in expressions.
     if: >-
       ${{ failure() &&
-          (github.event_name == 'schedule' || github.event_name == 'create' || inputs.slack_notify == true) }}
+          (github.event_name == 'schedule' || github.event_name == 'push' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
