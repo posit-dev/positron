@@ -6,7 +6,7 @@ pick, in one command.
 ## Prerequisites
 
 - Docker Desktop with 8+ CPUs and 16 GB RAM.
-- `workbench.lic` and `connect.lic` in `dockerfiles/`.
+- `workbench.lic` and `connect.lic` in `docker/environments/workbench-dev/`.
 - `.env` is created from `.env.example` on first run; you are prompted for
   `WB_PASSWORD` if it is unset.
 - Optional: `fzf` for arrow-key pickers (without it you get a numbered prompt).
@@ -19,7 +19,7 @@ pick, in one command.
    precedence). Pulling the container images needs the `read:packages` scope,
    but you don't have to figure that out up front: if the token you're using is
    missing it, `npm run pwb` tells you exactly how to add it.
-2. Drop `workbench.lic` and `connect.lic` into `dockerfiles/`.
+2. Drop `workbench.lic` and `connect.lic` into `docker/environments/workbench-dev/`.
 3. `npm run pwb`.
 
 First run asks which Positron and Workbench you want, installs them, and brings
@@ -68,7 +68,7 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
 | `snowflake` | `/etc/rstudio/snowflake.conf` + `allow-refresh-snowflake-roles` | `SNOWFLAKE_ACCOUNT_`, `SNOWFLAKE_CLIENT_ID_`, `SNOWFLAKE_CLIENT_SECRET_` |
 | `azure` | OpenID auth in `rserver.conf` + `openid-client-secret` + JIT home dirs | `AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET_` |
 
-1. Put the values for your provider in `dockerfiles/.env` (templated in
+1. Put the values for your provider in `docker/environments/workbench-dev/.env` (templated in
    `.env.example`). They live in the team 1Password vault. Wrap each value in
    single quotes -- `.env` is sourced by the shell, so a secret containing a `$`,
    space, or `#` is mangled (or errors out) without them. The trailing underscore
@@ -84,7 +84,7 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
 
 | Service | URL | Login |
 | --- | --- | --- |
-| Workbench | http://localhost:8787 | `user1` / `WB_PASSWORD` (from `dockerfiles/.env`) |
+| Workbench | http://localhost:8787 | `user1` / `WB_PASSWORD` (from `docker/environments/workbench-dev/.env`) |
 | Connect | http://localhost:3939 | bootstrapped per run |
 
 ## Troubleshooting

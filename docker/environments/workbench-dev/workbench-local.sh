@@ -8,7 +8,7 @@ WB_TTL_PIDFILE="${SCRIPT_DIR}/.ttl.pid"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
-WB_URL_BASE="https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local"
+WB_SCRIPTS_DIR="${REPO_ROOT}/wb-local"
 WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
@@ -190,28 +190,13 @@ wb_bootstrap_env() {
 }
 
 wb_fetch_scripts() {
-	local src="${QA_CONTENT_DIR:-}"
-	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
-		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
-	fi
-	# Run in a subshell with one scratch dir cleaned up on EXIT (even if a
-	# curl/docker cp fails under set -e). A subshell EXIT trap stays contained;
-	# a function RETURN trap would leak and re-fire on later function returns.
-	(
-		tmpdir="$(mktemp -d)"
-		trap 'rm -rf "$tmpdir"' EXIT
-		for s in "${WB_SCRIPTS[@]}"; do
-			if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
-				docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
-			else
-				curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
-				docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
-			fi
-			docker exec test sed -i 's/\r$//' "/tmp/${s}"
-			docker exec test chmod +x "/tmp/${s}"
-		done
-		[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
-	)
+	# The wb-local scripts live in-repo alongside this one (docker/environments/wb-local).
+	for s in "${WB_SCRIPTS[@]}"; do
+		docker cp "${WB_SCRIPTS_DIR}/${s}" "test:/tmp/${s}" >/dev/null
+		docker exec test sed -i 's/\r$//' "/tmp/${s}"
+		docker exec test chmod +x "/tmp/${s}"
+	done
+	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
 }
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from
@@ -404,11 +389,11 @@ cmd_up() {
 	if [ ! -f "${SCRIPT_DIR}/connect/connect.lic" ]; then
 		echo "WARNING: no Connect license at ${SCRIPT_DIR}/connect.lic -- the connect container" >&2
 		echo "         will not become healthy and 'test' won't start (startup will time out)." >&2
-		echo "         Add connect.lic (see dockerfiles/README-positron-workbench.md)." >&2
+		echo "         Add connect.lic (see docker/environments/workbench-dev/README-positron-workbench.md)." >&2
 	fi
 	if [ ! -f "${SCRIPT_DIR}/connect/rstudio-connect.gcfg" ]; then
 		echo "WARNING: ${SCRIPT_DIR}/connect/rstudio-connect.gcfg is missing -- connect will fail to start." >&2
-		echo "         It is committed to the repo; restore with: git checkout dockerfiles/connect/rstudio-connect.gcfg" >&2
+		echo "         It is committed to the repo; restore with: git checkout docker/environments/workbench-dev/connect/rstudio-connect.gcfg" >&2
 	fi
 	# --remove-orphans clears a leftover container from a prior run under a
 	# different service name that would otherwise hold the same ports.
@@ -549,11 +534,11 @@ VERSION PICKERS
              specific n-1/n-2 build.
 
 ACCESS
-  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from dockerfiles/.env)
+  Workbench  http://localhost:8787   (user1 / WB_PASSWORD from docker/environments/workbench-dev/.env)
   Connect    http://localhost:3939
 
-SETUP  (details: dockerfiles/README-positron-workbench.md)
-  gh auth login (once, include read:packages)   workbench.lic + connect.lic in dockerfiles/
+SETUP  (details: docker/environments/workbench-dev/README-positron-workbench.md)
+  gh auth login (once, include read:packages)   workbench.lic + connect.lic in docker/environments/workbench-dev/
   GITHUB_TOKEN and docker login ghcr.io are derived from gh automatically.
   optional: fzf (arrow-key pickers; falls back to a numbered prompt)
 EOF

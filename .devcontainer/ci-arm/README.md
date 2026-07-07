@@ -103,11 +103,11 @@ from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
-### Test data (qa-example-content)
+### Test data (test-files)
 
-The e2e tests open files from [qa-example-content](https://github.com/posit-dev/qa-example-content);
-the framework clones it on first run. To grab it up front for manual repro, run **Positron CI: Get QA
-content** - it's symlinked at `~/qa-example-content`.
+The e2e tests open files from `test/e2e/test-files` in the repo; the framework copies them into the
+test workspace on first run. To grab them up front for manual repro, run **Positron CI: Get QA
+content** - it's symlinked at `~/test-files`.
 
 ### Debug
 
@@ -214,7 +214,7 @@ already mixed, see [Gotchas](#gotchas) for the fix.
 | **Positron CI: Reinstall e2e deps** | after `test/e2e/package-lock.json` changes; records only the e2e hash |
 | **Positron CI: Reinstall interpreters** | restore the Linux `pet`/`ark`/`kcserver` binaries after a native build clobbered them (Python/R fail to start; the Doctor flags it) |
 | **Positron CI: Rebuild** | re-runs the whole cold build (idempotent) |
-| **Positron CI: Get QA content** | fetch/refresh qa-example-content (test files) for manual repro; linked at `~/qa-example-content` |
+| **Positron CI: Get QA content** | provision test-files for manual repro; linked at `~/test-files` |
 | **Positron CI: Watch (src)** | incremental compiler for the edit-debug loop; reload the window after "Finished compilation" |
 | *Run and Debug ->* **Positron CI: Debug (Electron)** / **(Web)** | debug Positron source - desktop app / browser build (see Debug above) |
 

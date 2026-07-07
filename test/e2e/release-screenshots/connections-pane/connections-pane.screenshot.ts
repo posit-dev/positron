@@ -75,7 +75,7 @@ test.describe.skip('Release Screenshots - Connections Pane', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 		await captureFullWindow(page, 'connections-pane.png');
 	});
 });
