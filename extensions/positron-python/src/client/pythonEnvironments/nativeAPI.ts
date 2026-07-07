@@ -47,7 +47,7 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
-import { arePathsSame, isParentPath, resolveSymbolicLink } from './common/externalDependencies';
+import { arePathsSame, canonicalizePath, isParentPath, normCasePath } from './common/externalDependencies';
 import {
     ModuleEnvironmentLocator,
     moduleMetadataMap,
@@ -304,6 +304,11 @@ async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[])
         },
         // --- Start Positron ---
         source: nativeEnv.source ?? [],
+        // Carry PET's equivalent-path list through so getEnvIdentity() can
+        // recognize launcher-style shims (e.g. uv's Windows trampolines) whose
+        // realpath is not the interpreter they run. Omitted (not undefined) when
+        // absent so deep-equality comparisons of envs are unaffected.
+        ...(nativeEnv.symlinks && { symlinks: nativeEnv.symlinks }),
         // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
@@ -376,11 +381,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private _condaEnvDirs: string[] = [];
 
     // --- Start Positron ---
-    // Cache of resolved symlink paths, keyed by executable filename.
-    // Maintained incrementally in addEnv()/removeEnv() so checkForExistingEnv()
-    // can do O(1) lookups instead of re-resolving all existing envs on every
-    // new env addition (which was O(N^2) total).
-    private _resolvedSymlinks = new Map<string, string>();
+    // Cache of environment identities (canonical executable + canonical prefix),
+    // keyed by executable filename. Maintained incrementally in
+    // addEnv()/removeEnv() so checkForExistingEnv() can do O(1) lookups instead
+    // of re-canonicalizing all existing envs on every new env addition (which was
+    // O(N^2) total).
+    private _envIdentities = new Map<string, string>();
 
     // Cache of resolved environments, keyed by the executable path passed to
     // resolveEnv(). Only successful resolutions are cached. Entries are
@@ -584,7 +590,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (!old) {
                 // If the 'info' env is not already in the list, check if it is one of the additional env directories,
                 // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
-                const { reason, existingEnv } = await checkForExistingEnv(this._envs, info, this._resolvedSymlinks);
+                const { reason, existingEnv } = await checkForExistingEnv(this._envs, info, this._envIdentities);
                 switch (reason) {
                     case ExistingEnvAction.KeepExistingEnv:
                         // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
@@ -613,13 +619,13 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 }
             }
             if (old) {
-                // Remove the replaced env's symlink cache entry. In the
+                // Remove the replaced env's identity cache entry. In the
                 // ReplaceExistingEnv case, old's filename differs from info's,
                 // so we also need to filter _envs by old's filename to
                 // actually remove it (not just info's filename, which isn't
                 // in _envs yet).
                 const oldFilename = old.executable.filename;
-                this._resolvedSymlinks.delete(oldFilename);
+                this._envIdentities.delete(oldFilename);
                 // Drop any stale resolveEnv cache entry for the replaced path
                 // so late callers don't see the superseded env.
                 this._resolveEnvCache.delete(oldFilename);
@@ -655,7 +661,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             const old = this._envs.find((item) => item.executable.filename === env);
             this._envs = this._envs.filter((item) => item.executable.filename !== env);
             // --- Start Positron ---
-            this._resolvedSymlinks.delete(env);
+            this._envIdentities.delete(env);
             this._resolveEnvCache.delete(env);
             // --- End Positron ---
             this._onChanged.fire({ type: FileChangeType.Deleted, old });
@@ -663,7 +669,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         }
         this._envs = this._envs.filter((item) => item.executable.filename !== env.executable.filename);
         // --- Start Positron ---
-        this._resolvedSymlinks.delete(env.executable.filename);
+        this._envIdentities.delete(env.executable.filename);
         this._resolveEnvCache.delete(env.executable.filename);
         // --- End Positron ---
         this._onChanged.fire({ type: FileChangeType.Deleted, old: env });
@@ -944,7 +950,7 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
         const { uniqueModuleEnvs, reKeys } = await partitionModuleEnvsByNative(
             moduleEnvs,
             this.nativeApi.getEnvs(),
-            (p) => resolveSymbolicLink(p),
+            (p) => canonicalizePath(p),
         );
 
         // Apply the re-keys: move each duplicate's module metadata and pending
@@ -1044,6 +1050,77 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
 }
 
 /**
+ * Compute a stable identity for an environment, used to recognize when two
+ * interpreter executables are really the same environment reached through
+ * different paths.
+ *
+ * The identity combines the fully canonicalized executable path with the
+ * canonicalized environment prefix:
+ * - Canonicalizing (rather than following only leaf symlinks) collapses
+ *   symlinked *directories*. uv, for example, installs a real
+ *   `cpython-3.14.6-<platform>` directory alongside a `cpython-3.14-<platform>`
+ *   symlink to it; an executable reached through the symlinked directory is not
+ *   itself a symlink, so leaf-only resolution would leave the two paths looking
+ *   distinct. Canonicalization makes such aliases of one interpreter match.
+ * - Including the prefix keeps genuinely distinct environments apart. Two
+ *   virtual environments whose `python` resolves to the same base interpreter
+ *   have different prefixes, so they are not collapsed into one another (issue
+ *   #14493); neither is a venv collapsed into its base interpreter.
+ *
+ * Module-discovered envs arrive without a `sysPrefix` (the environment-modules
+ * API doesn't report one), so we fall back to the *resolved* executable's
+ * install directory (the `<prefix>/bin/python` layout). Resolving first is what
+ * matters: a module interpreter is often reached through a shim or symlink --
+ * e.g. `~/.local/bin/python3` pointing into a uv install -- whose own
+ * grandparent (`~/.local`) is not the interpreter's prefix. Deriving from the
+ * resolved path instead lands on the real install dir, matching the prefix PET
+ * reports for the native twin so the two collapse instead of showing twice.
+ * Module discovery is Linux-only, where this layout holds.
+ *
+ * On Windows, uv installs `~/.local/bin/python*.exe` as *trampolines*: small
+ * regular executables (not symlinks) that spawn the real interpreter, so
+ * canonicalizing the executable is a no-op and the exe component alone would
+ * leave the trampoline and its target looking distinct. PET spawns such
+ * launchers and reports the interpreter's own `sys.executable` in `symlinks`,
+ * so when the canonical executable falls outside the environment's canonical
+ * prefix (the launcher signature -- a real interpreter or resolved symlink
+ * always lives inside its prefix), we substitute the canonicalized `symlinks`
+ * entry that lives inside the prefix. That collapses the trampoline into its
+ * target while leaving in-prefix executables -- everything on mac/Linux --
+ * on the exact same code path as before.
+ *
+ * The result is a comparison key only -- it is never used as a displayed path.
+ *
+ * @param env The environment to identify.
+ * @param canonicalize Resolves a path to its canonical real path. Injected so
+ *        callers/tests can supply a real or fake resolver.
+ */
+async function getEnvIdentity(
+    env: PythonEnvInfo,
+    canonicalize: (p: string) => Promise<string> = canonicalizePath,
+): Promise<string> {
+    const { filename, sysPrefix } = env.executable;
+    let canonicalExe = await canonicalize(filename);
+    const prefix = sysPrefix || path.dirname(path.dirname(canonicalExe));
+    const canonicalPrefix = await canonicalize(prefix);
+    if (!isParentPath(canonicalExe, canonicalPrefix)) {
+        // Launcher-style shim (see the trampoline note above): identify it by
+        // the real, in-prefix interpreter PET reports instead.
+        for (const link of env.symlinks ?? []) {
+            const canonicalLink = await canonicalize(link);
+            if (!arePathsSame(canonicalLink, canonicalExe) && isParentPath(canonicalLink, canonicalPrefix)) {
+                canonicalExe = canonicalLink;
+                break;
+            }
+        }
+    }
+    // NUL can't appear in a path, so it's a safe separator between the two
+    // components. normCasePath makes the comparison case-insensitive where the
+    // platform's filesystem is (Windows, macOS).
+    return `${normCasePath(canonicalExe)}\0${normCasePath(canonicalPrefix)}`;
+}
+
+/**
  * Partition module-discovered environments into those that duplicate a native
  * environment and those that are standalone.
  *
@@ -1052,12 +1129,13 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
  * symlinked siblings to the shortest path (e.g. `.../bin/python`), while the
  * module locator resolves `python3` first (e.g. `.../bin/python3`). Comparing
  * raw filenames treats these as distinct, so the interpreter shows up twice.
- * Resolving symlinks reveals that they point at the same target.
+ * Comparing environment identities (see {@link getEnvIdentity}) reveals that they
+ * are the same environment, while keeping genuinely distinct environments apart.
  *
  * @param moduleEnvs The freshly discovered module environments.
  * @param nativeEnvs The environments found by the native locator.
- * @param resolveSymlink Resolves an executable path to its canonical (symlink)
- *        target. Injected so callers/tests can supply a real or fake resolver.
+ * @param canonicalize Resolves a path to its canonical real path. Injected so
+ *        callers/tests can supply a real or fake resolver.
  * @returns `uniqueModuleEnvs` (module envs with no native equivalent, kept as
  *          their own entries) and `reKeys` (module-path -> native-path moves the
  *          caller should apply to the module metadata maps so the surviving
@@ -1068,22 +1146,22 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
 export async function partitionModuleEnvsByNative(
     moduleEnvs: PythonEnvInfo[],
     nativeEnvs: PythonEnvInfo[],
-    resolveSymlink: (executablePath: string) => Promise<string>,
+    canonicalize: (executablePath: string) => Promise<string>,
 ): Promise<{ uniqueModuleEnvs: PythonEnvInfo[]; reKeys: { from: string; to: string }[] }> {
     const reKeys: { from: string; to: string }[] = [];
     if (moduleEnvs.length === 0 || nativeEnvs.length === 0) {
         return { uniqueModuleEnvs: moduleEnvs, reKeys };
     }
 
-    // Map each native interpreter's canonical (symlink-resolved) target to the
-    // path Positron registers it under. Native discovery already collapses
-    // equivalents to the shortest path, so the first match per target wins.
-    const nativePathByResolved = new Map<string, string>();
+    // Map each native interpreter's environment identity to the path Positron
+    // registers it under. Native discovery already collapses equivalents to the
+    // shortest path, so the first match per identity wins.
+    const nativePathByIdentity = new Map<string, string>();
     await Promise.all(
         nativeEnvs.map(async (e) => {
-            const resolved = await resolveSymlink(e.executable.filename);
-            if (!nativePathByResolved.has(resolved)) {
-                nativePathByResolved.set(resolved, e.executable.filename);
+            const identity = await getEnvIdentity(e, canonicalize);
+            if (!nativePathByIdentity.has(identity)) {
+                nativePathByIdentity.set(identity, e.executable.filename);
             }
         }),
     );
@@ -1091,8 +1169,8 @@ export async function partitionModuleEnvsByNative(
     const uniqueModuleEnvs: PythonEnvInfo[] = [];
     for (const moduleEnv of moduleEnvs) {
         const modulePath = moduleEnv.executable.filename;
-        const resolved = await resolveSymlink(modulePath);
-        const nativePath = nativePathByResolved.get(resolved);
+        const identity = await getEnvIdentity(moduleEnv, canonicalize);
+        const nativePath = nativePathByIdentity.get(identity);
         if (!nativePath) {
             // No native equivalent: keep the module env as its own entry.
             uniqueModuleEnvs.push(moduleEnv);
@@ -1126,15 +1204,23 @@ export async function partitionModuleEnvsByNative(
  * case, we only want to add one of them to the list of environments -- in particular,
  * the one with the shortest path: `/opt/python/3.10.4/bin/python`.
  *
+ * Equivalence is decided by environment identity (see {@link getEnvIdentity}), not by
+ * the symlink target alone: two interpreters are equivalent only when they canonicalize
+ * to the same executable *and* share an environment prefix. This collapses aliases of a
+ * single interpreter -- including ones reached through a symlinked directory (issue
+ * #14489) -- without merging distinct virtual environments that happen to share a base
+ * interpreter (issue #14493).
+ *
  * @param envs The current list of environments
  * @param newEnv The new environment to be added
+ * @param envIdentities Cache of environment identities keyed by executable filename.
  * @return The result of the check -- how to proceed with the new environment and if found,
  *         the equivalent existing environment.
  */
 async function checkForExistingEnv(
     envs: PythonEnvInfo[],
     newEnv: PythonEnvInfo,
-    resolvedSymlinks: Map<string, string>,
+    envIdentities: Map<string, string>,
 ): Promise<ExistingEnvResult> {
     const additionalEnvDirs = await getAdditionalEnvDirs();
     const isAdditionalEnv = additionalEnvDirs.find((dir) => isParentPath(newEnv.executable.filename, dir));
@@ -1145,18 +1231,18 @@ async function checkForExistingEnv(
         return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
     }
 
-    // Look for an existing environment in the same additional environment directory
-    // as the new env. Use the cached resolved symlinks to avoid an O(N) pass of
-    // resolveSymbolicLink() calls on every invocation.
-    const resolvedEnv = await resolveSymbolicLink(newEnv.executable.filename);
+    // Look for an existing environment with the same identity as the new env. Use
+    // the cached identities to avoid an O(N) pass of canonicalizePath() calls on
+    // every invocation.
+    const newIdentity = await getEnvIdentity(newEnv);
     let existingEnv: PythonEnvInfo | undefined;
     for (const item of envs) {
-        let resolvedItem = resolvedSymlinks.get(item.executable.filename);
-        if (resolvedItem === undefined) {
-            resolvedItem = await resolveSymbolicLink(item.executable.filename);
-            resolvedSymlinks.set(item.executable.filename, resolvedItem);
+        let itemIdentity = envIdentities.get(item.executable.filename);
+        if (itemIdentity === undefined) {
+            itemIdentity = await getEnvIdentity(item);
+            envIdentities.set(item.executable.filename, itemIdentity);
         }
-        if (arePathsSame(resolvedEnv, resolvedItem)) {
+        if (newIdentity === itemIdentity) {
             existingEnv = item;
             break;
         }

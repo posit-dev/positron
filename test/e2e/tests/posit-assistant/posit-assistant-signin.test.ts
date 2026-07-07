@@ -21,7 +21,7 @@ const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
 ];
 
 test.describe('Posit Assistant Sign-in', {
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {

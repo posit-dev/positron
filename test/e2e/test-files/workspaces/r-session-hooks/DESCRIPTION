@@ -1,0 +1,5 @@
+Package: rsessionhooks
+Title: Test Workspace for R Session Hooks
+Version: 0.0.1
+Description: Dummy package used by E2E tests to verify rstudioapi::navigateToFile("DESCRIPTION") works inside session hooks.
+License: MIT

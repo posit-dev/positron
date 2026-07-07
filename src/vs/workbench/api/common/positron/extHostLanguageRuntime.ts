@@ -1418,6 +1418,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}));
 		}
 
+		// Attach an event handler to the onDidRemoveRuntime event, if present.
+		// This event notifies us when a previously registered runtime should be
+		// retracted (e.g. its environment was deleted, or de-duplication
+		// collapsed an alias that had already been registered).
+		if (manager.onDidRemoveRuntime) {
+			disposables.add(manager.onDidRemoveRuntime(runtimeId => {
+				this._proxy.$unregisterLanguageRuntime(runtimeId);
+				this._runtimeManagersByRuntimeId.delete(runtimeId);
+			}));
+		}
+
 		this._runtimeManagers.push({ manager, languageId, extension });
 
 		return new Disposable(() => {

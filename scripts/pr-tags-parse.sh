@@ -4,6 +4,9 @@
 
 set -e
 
+# Pure tag-derivation helpers (unit-tested in scripts/test/pr-tags-lib-test.sh).
+source "$(dirname "$0")/lib/pr-tags-lib.sh"
+
 # Fetch GitHub repository and PR number from the environment
 REPO="${GITHUB_REPOSITORY}"  # Automatically set by GitHub Actions
 PR_NUMBER="${GITHUB_PR_NUMBER:-${GITHUB_EVENT_PULL_REQUEST_NUMBER}}"  # Use the correct PR number env variable
@@ -110,6 +113,25 @@ else
 	# Parse tags starting with '@:'
 	TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
 
+	# @:no-auto-tags is an opt-out signal (detected separately below), not a real
+	# tag -- strip it so it never pollutes the grep string or the log line.
+	TAGS=$(printf '%s' "$TAGS" | tr ',' '\n' | grep -v '^@:no-auto-tags$' | paste -sd, -)
+
+	# Validate author-typed tags against the real TestTags enum. A typo (e.g.
+	# @:consle) would otherwise silently become a dead --grep alternative that
+	# matches nothing and gives no feedback -- and could even mask the no-match
+	# warning below (TAGS != "@:critical" even though nothing extra actually
+	# ran). Drop invalid tags and surface them so the PR comment can warn.
+	ENUM_FILE="$(dirname "$0")/../test/e2e/infra/test-runner/test-tags.ts"
+	INVALID_TAGS=""
+	if [[ -n "$TAGS" && -f "$ENUM_FILE" ]]; then
+		IFS='|' read -r TAGS INVALID_TAGS <<< "$(split_valid_invalid_tags "$TAGS" "$ENUM_FILE")"
+		if [[ -n "$INVALID_TAGS" ]]; then
+			echo "Warning: unrecognized tag(s) in PR description, ignoring: $INVALID_TAGS"
+		fi
+	fi
+	echo "invalid_tags=$INVALID_TAGS" >> "$GITHUB_OUTPUT"
+
 	# Always add @:critical if not already included
 	if [[ ! "$TAGS" =~ "@:critical" ]]; then
 		if [[ -n "$TAGS" ]]; then
@@ -136,9 +158,95 @@ else
 		fi
 	fi
 
+	# Resolve the path to the map (this script lives in scripts/).
+	SCRIPT_DIR="$(dirname "$0")"
+	MAP_FILE="$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json"
+
+	# Auto-inject feature tags derived from the PR's changed SOURCE files, unless
+	# the author opted out with @:no-auto-tags. Additive only -- never removes
+	# tags the author specified. Derivation is scoped to the source/extension
+	# PATH map: it targets the population that under-tags (devs fixing code who
+	# may not know which e2e suite covers it). Test-file changes are NOT
+	# auto-tagged -- those are almost always authored by QA, who tag deliberately,
+	# and deriving every feature tag off a multi-tagged test file over-selected
+	# whole sibling suites for no coverage gain on the impacted test.
+	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
+		echo "Found @:no-auto-tags. Skipping derived tagging."
+	elif [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+		MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
+		if [[ -n "$MAP_TAGS" ]]; then
+			echo "Derived tags from changed source files: $MAP_TAGS"
+			TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
+		fi
+	fi
+
+	# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
+	# Runs regardless of @:no-auto-tags. Also add @:win/@:web to TAGS so the PR
+	# comment explains why those jobs ran.
+	# @json-encode each file's patch so embedded newlines don't merge files
+	# together when read line by line -- see scan_added_platform_tags_across_files.
+	declare -a TEST_FILE_PATCHES=()
+	while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
+		[[ -z "$ENCODED_PATCH" ]] && continue
+		TEST_FILE_PATCHES+=("$(jq -r '.' <<< "$ENCODED_PATCH")")
+	done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | (.patch // "") | @json' || true)
+	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags_across_files "${TEST_FILE_PATCHES[@]}")"
+	if [[ "$ADDED_WIN" == "true" ]]; then
+		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
+		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:win")"
+	fi
+	if [[ "$ADDED_WEB" == "true" ]]; then
+		echo "Newly added e2e test carries tags.WEB. Enabling web tests."
+		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:web")"
+	fi
+
 	# Output the tags
 	echo "Extracted Tags: $TAGS"
+
+	# Signal the workflow when nothing but the @:critical floor resolved, so it
+	# can warn the author that no feature suites were auto-selected.
+	if [[ "$TAGS" == "@:critical" ]]; then
+		echo "no_matches=true" >> "$GITHUB_OUTPUT"
+	else
+		echo "no_matches=false" >> "$GITHUB_OUTPUT"
+	fi
 fi
+
+# PR-time guardrail: warn (via the advisory comment + log) when this PR touches
+# a Positron source dir/extension with no map entry. Runs for BOTH @:all and
+# the normal path -- it is map-maintenance feedback, independent of tag
+# selection. Reuse CHANGED_FILES/MAP_FILE from the else branch above if they
+# were already computed there, so we don't double-fetch.
+# Reuse SCRIPT_DIR/CHANGED_FILES if the else branch already set them; the @:all
+# branch skips that branch, so fall back to computing them here.
+SCRIPT_DIR="${SCRIPT_DIR:-$(dirname "$0")}"
+MAP_FILE="${MAP_FILE:-$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json}"
+if [[ -z "${CHANGED_FILES+x}" ]]; then
+	CHANGED_FILES=$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+		--header "Authorization: token $GITHUB_TOKEN" \
+		--jq '.[].filename' || true)
+fi
+
+UNMAPPED_DIRS=""
+if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+	UNMAPPED_DIRS="$(find_unmapped_positron_dirs "$CHANGED_FILES" "$MAP_FILE")"
+	if [[ -n "$UNMAPPED_DIRS" ]]; then
+		echo "Unmapped Positron dirs touched by this PR (add to test-tag-paths-map.json):"
+		while IFS= read -r d; do [[ -n "$d" ]] && printf '  - %s\n' "$d"; done <<< "$UNMAPPED_DIRS"
+	fi
+fi
+echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_OUTPUT"
+
+# De-duplicate the final tag list (order-stable). Author tags, the @:critical
+# floor, the @:ark submodule injection, and derived map tags can overlap (e.g. a
+# PR that both bumps the ark submodule and is authored with @:ark); union with an
+# empty list collapses any repeats so neither the --grep nor the PR comment shows
+# a tag twice.
+TAGS="$(union_csv_tags "$TAGS" "")"
 
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
 if [[ -n "$GITHUB_OUTPUT" ]]; then

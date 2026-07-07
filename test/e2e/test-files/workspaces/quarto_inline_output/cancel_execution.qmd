@@ -1,0 +1,18 @@
+---
+title: "Cancel Execution"
+jupyter: python3
+---
+
+First, run this cell:
+
+```{python}
+import time
+time.sleep(3)
+print("Time's up")
+```
+
+Then, while it is running, queue this cell:
+
+```{python}
+print("Oh no")
+```

@@ -1,0 +1,15 @@
+---
+title: "Text Output Test"
+jupyter: python3
+---
+
+## Text Output
+
+This file contains a code cell that produces text output for testing text selection.
+
+```{python}
+#| label: text-output
+print("Hello World from Quarto inline output test")
+print("This is additional text for selection testing")
+print("Line three of output")
+```
