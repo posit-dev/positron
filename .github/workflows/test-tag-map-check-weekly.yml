@@ -227,7 +227,7 @@ jobs:
           if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
             MISSING_NOTE="
 
-          _Note: ${MISSING_COUNT} dir(s) are also missing from the map. Those need tags assigned by hand (see the weekly check summary) and are not touched by this PR._"
+          _${MISSING_COUNT} dir(s) also need tags assigned by hand -- see the [weekly check summary](${RUN_URL}) for the list. Not handled by this PR._"
           fi
           BODY="### Summary
           Removes stale entries from test-tag-paths-map.json found by the [weekly check](${RUN_URL}) -- dirs the map points at that no longer match any tracked file.
@@ -322,18 +322,20 @@ jobs:
           # removal PR still leaves those for a human.
           MISSING_NOTE=""
           [ "${MISSING_COUNT:-0}" -gt 0 ] && MISSING_NOTE=" · ${MISSING_COUNT} dir(s) missing tags (assign by hand)"
-          # Three distinct states, not two: a freshly opened/updated PR reads
-          # differently from an old PR that's still open but untouched this
-          # run (PR_UPDATED false) -- claiming "opened" for the latter would
-          # misreport what actually happened this run.
+          # Always link the run (its summary is the one place that lists missing
+          # dirs, and it exists in every case); link the PR too when there is
+          # one. Three distinct states: a freshly opened/updated PR reads
+          # differently from an old PR still open but untouched this run
+          # (PR_UPDATED false) -- claiming "opened" for the latter would
+          # misreport what actually happened.
           if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> removing stale entries${MISSING_NOTE}"
+            TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> removing stale entries${MISSING_NOTE} · <${RUN_URL}|details>"
           elif [ -n "$PR_URL" ]; then
             PR_NUM="${PR_URL##*/}"
-            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE}"
+            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>${MISSING_NOTE} · <${RUN_URL}|details>"
           else
-            TEXT="⚠️ *Test tag map has drifted* · need manual fix${MISSING_NOTE} · <${RUN_URL}|view run>"
+            TEXT="⚠️ *Test tag map has drifted* · needs manual fix${MISSING_NOTE} · <${RUN_URL}|details>"
           fi
           PAYLOAD=$(jq -n \
             --arg channel "#positron-dev" \
