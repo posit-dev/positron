@@ -56,7 +56,7 @@ const getPlotToolData: IToolData = {
 	modelDescription: 'View the current active plot if one exists. Don\'t invoke this tool if there are no plots in the session.',
 };
 
-class GetPlotTool implements IToolImpl {
+export class GetPlotTool implements IToolImpl {
 	constructor(
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
 	) { }
@@ -122,7 +122,7 @@ const inspectVariablesToolData: IToolData = {
 	},
 };
 
-class InspectVariablesTool implements IToolImpl {
+export class InspectVariablesTool implements IToolImpl {
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -185,7 +185,7 @@ const getTableSummaryToolData: IToolData = {
 	},
 };
 
-class GetTableSummaryTool implements IToolImpl {
+export class GetTableSummaryTool implements IToolImpl {
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -268,7 +268,7 @@ interface IExecuteCodeToolInput {
 	summary?: string;
 }
 
-class ExecuteCodeTool implements IToolImpl {
+export class ExecuteCodeTool implements IToolImpl {
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
