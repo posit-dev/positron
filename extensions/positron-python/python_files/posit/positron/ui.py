@@ -83,6 +83,67 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
     ]
 
 
+def _get_missing_imports(
+    _kernel: "PositronIPyKernel", params: List[JsonData]
+) -> Optional[JsonData]:
+    """Return the subset of the given top-level module names that cannot be imported.
+
+    A module is considered present if it is already loaded or if an import spec
+    can be found for it (which covers standard-library modules and installed
+    distributions whose import name differs from their distribution name, e.g.
+    `sklearn` for scikit-learn). Anything else is reported as missing.
+
+    An optional second parameter is a list of extra import root directories to
+    search in addition to `sys.path`. The frontend passes the directory of the
+    file being analyzed so that local modules (e.g. a sibling `helper` package)
+    are recognized as importable, mirroring how running a file temporarily adds
+    its directory to `sys.path`. Without this, a local module would be
+    misreported as a missing, installable package.
+
+    The caller (the frontend analyzer) is responsible for mapping a missing
+    import name back to an installable distribution; this method only answers
+    the per-session "is it importable here?" question.
+    """
+    if not (isinstance(params, list) and len(params) >= 1 and isinstance(params[0], list)):
+        raise _InvalidParamsError(f"Expected a list of module names, got: {params}")
+
+    import importlib.machinery
+    import importlib.util
+
+    modules = [name for name in params[0] if isinstance(name, str)]
+    roots = (
+        [root for root in params[1] if isinstance(root, str)]
+        if len(params) >= 2 and isinstance(params[1], list)
+        else []
+    )
+
+    def is_importable(name: str) -> bool:
+        try:
+            if importlib.util.find_spec(name) is not None:
+                return True
+        except (ImportError, ValueError, ModuleNotFoundError):
+            # find_spec raises (rather than returning None) when a parent
+            # package is missing; treat that as not found (yet).
+            pass
+        # Also search the caller-provided roots, which are not on sys.path at
+        # analysis time but will be when the file is actually run.
+        if roots:
+            try:
+                if importlib.machinery.PathFinder.find_spec(name, roots) is not None:
+                    return True
+            except (ImportError, ValueError, ModuleNotFoundError):
+                pass
+        return False
+
+    missing: List[JsonData] = []
+    for name in modules:
+        if name in sys.modules:
+            continue
+        if not is_importable(name):
+            missing.append(name)
+    return missing
+
+
 def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
@@ -369,6 +430,7 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
+    "getMissingImports": _get_missing_imports,
     "getPackagesInstalled": _get_packages_installed,
     "getPackageDetail": _get_package_detail,
     "checkRequiresPython": _check_requires_python,

@@ -8,6 +8,14 @@ import { IWorkspaceService } from '../../common/application/types';
 import { IFileSystem } from '../../common/platform/types';
 
 /**
+ * Setting key (relative to the `python` configuration section) that controls
+ * whether package operations treat a workspace-root `requirements.txt` as the
+ * source of truth. When `false`, the managers ignore `requirements.txt` and
+ * fall back to the `pip freeze` re-resolve path. Defaults to `true`.
+ */
+export const USE_REQUIREMENTS_FILE_SETTING = 'packageManager.useRequirementsFile';
+
+/**
  * Locate the workspace-root `requirements.txt`, if present. When it exists,
  * package operations treat it as the source of truth (passed verbatim via
  * `-r`); when absent, callers fall back to the `pip freeze` path. Only the

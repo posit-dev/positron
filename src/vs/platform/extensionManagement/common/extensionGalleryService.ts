@@ -30,6 +30,9 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { StopWatch } from '../../../base/common/stopwatch.js';
 import { format2 } from '../../../base/common/strings.js';
 import { ExtensionGalleryResourceType, Flag, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService, ExtensionGalleryManifestStatus } from './extensionGalleryManifest.js';
+// --- Start Positron ---
+import { sameGalleryHost } from './extensionGalleryManifestService.js';
+// --- End Positron ---
 import { TelemetryTrustedValue } from '../../telemetry/common/telemetryUtils.js';
 // --- Start Positron ---
 import { appendPositronGalleryParams, formatPositronVersion, GalleryUsageDataConfigKey, getPositronSessionType, PositronCheckTrigger } from './positronGalleryTelemetry.js';
@@ -704,7 +707,16 @@ export abstract class AbstractExtensionGalleryService implements IExtensionGalle
 		if (latestVersionResource) {
 			return {
 				uri: latestVersionResource,
-				fallback: this.unpkgResourceApi
+				// --- Start Positron ---
+				// `unpkgResourceApi` comes from the product's default gallery
+				// (`product.json`), so only use it as a fallback when it targets the
+				// same gallery host as the resolved resource. Otherwise a request that
+				// fails against a non-default gallery (a custom or Open VSX gallery
+				// selected via `positron.extensions.gallerySource`) would silently leak
+				// to the default gallery -- e.g. a custom gallery returning 5xx must not
+				// fall back to p3m.dev and serve its extensions instead.
+				fallback: sameGalleryHost(latestVersionResource, this.unpkgResourceApi) ? this.unpkgResourceApi : undefined
+				// --- End Positron ---
 			};
 		}
 		return undefined;

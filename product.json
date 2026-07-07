@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.07.0",
+	"positronVersion": "2026.08.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -305,8 +305,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "0.6.3",
-			"sha256": "bc5766f503e16916719fd8d753dd5fb0a0e23d7e0941c48264ab43ce72a267fb",
+			"version": "0.6.4",
+			"sha256": "9dae6676bca08aaa0bf21664507427605142ec29991498f1cf0ff32476bce146",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -338,24 +338,24 @@
 		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
-		"extensionId": "positron.positron-assistant",
-		"chatExtensionId": "positron.positron-assistant",
+		"extensionId": "GitHub.copilot-chat",
+		"chatExtensionId": "GitHub.copilot-chat",
 		"provider": {
 			"default": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github",
+				"name": "GitHub"
 			},
 			"enterprise": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "github-enterprise",
+				"name": "GHE"
 			},
 			"google": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "google",
+				"name": "Google"
 			},
 			"apple": {
-				"id": "positron.assistant",
-				"name": "Positron Assistant"
+				"id": "apple",
+				"name": "Apple"
 			}
 		},
 		"providerExtensionId": "vscode.github-authentication",
@@ -380,7 +380,7 @@
 		"completionsQuotaExceededContext": "github.copilot.completions.quotaExceeded",
 		"walkthroughCommand": "github.copilot.open.walkthrough",
 		"completionsMenuCommand": "github.copilot.toggleStatusMenu",
-		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsEnablementSetting": "github.copilot.enable",
 		"completionsRefreshTokenCommand": "github.copilot.signIn",
 		"chatRefreshTokenCommand": "github.copilot.refreshToken",
 		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",

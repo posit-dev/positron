@@ -11,7 +11,6 @@ import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 import {
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
-import { stubGetModelProviders } from './utils.js';
 
 suite('Provider Configuration Tests', () => {
 	let mockGetConfiguration: sinon.SinonStub;
@@ -38,8 +37,6 @@ suite('Provider Configuration Tests', () => {
 		// Mock positron.ai.registerProvider
 		sinon.stub(positron.ai, 'registerProvider');
 
-		// Mock getModelProviders to return test providers
-		stubGetModelProviders();
 	});
 
 	teardown(() => {

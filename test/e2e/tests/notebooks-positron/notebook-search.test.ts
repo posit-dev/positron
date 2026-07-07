@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Search & Replace', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB, tags.WIN]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB, tags.WIN, tags.SEARCH]
 }, () => {
 
 	test('Verify Basic Search', async function ({ app }) {

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Notebook Edit Mode', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.CROSS_BROWSER, tags.DEBUG]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {

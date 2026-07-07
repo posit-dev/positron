@@ -41,14 +41,12 @@ This tool is available in Python and R sessions.
 
 To use the tool effectively:
 
-1. First ensure you have the correct `sessionIdentifier` from the user context
-2. Provide the `variableNames` array with the names of the specific data objects
+1. Provide the `variableNames` array with the names of the specific data objects
    - Each variable name is a string that identifies the data object in the current session
    - If the user references a variable by name, ensure that the variable name matches an existing object from context or previous tool results
 	- Do not invent new variable names; only use variable names that are known to exist in the session
+2. Omit `sessionIdentifier` to use the active session; only set it to target a specific session
 3. Do not call this tool when:
-   - The variables do not appear in the user context
-   - There is no active session
    - The user only wants to see the structure/children of objects (use `inspectVariables` instead)
 
 </data-querying>

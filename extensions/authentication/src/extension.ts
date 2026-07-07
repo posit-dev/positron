@@ -32,7 +32,12 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { detectSnowflakeCredentials, getSnowflakeConnectionsTomlPath } from './snowflakeCredentials';
+import { resolveAwsChainInit } from './credentials/aws';
+import { resolveGeapCredential } from './credentials/geap';
+import {
+	detectSnowflakeCredentials,
+	getSnowflakeConnectionsTomlPath,
+} from './credentials/snowflake';
 import { PositOAuthProvider } from './positOAuthProvider';
 import * as fs from 'fs';
 import { log } from './log';
@@ -40,7 +45,7 @@ import { migrateAwsSettings } from './migration/aws';
 import { migrateSnowflakeSettings } from './migration/snowflake';
 import { registerMigrateApiKeyCommand } from './migration/apiKey';
 import { AuthProviderLogger } from './authProviderLogger';
-import { resolveGoogleVertexCredential } from './googleVertexResolver';
+import { applyPwbPositAIDefault } from './pwbDefaults';
 
 export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(log);
@@ -60,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	await registerOpenaiProvider(context);
 	await registerGeminiProvider(context);
-	await registerGoogleVertexProvider(context);
+	await registerGeapProvider(context);
 	await registerDeepSeekProvider(context);
 	registerCustomProvider(context);
 
@@ -223,6 +228,13 @@ function registerPositAIProvider(context: vscode.ExtensionContext): void {
 	);
 	registerAuthProvider(POSIT_AUTH_PROVIDER_ID, provider);
 	logger.info('Registered auth provider');
+
+	// On PWB, Posit AI defaults to disabled so admins control AI access.
+	// We apply this once on first activation and skip it afterwards so user
+	// or admin choices are never overwritten.
+	applyPwbPositAIDefault(context).catch(err =>
+		logger.logOperationError('apply PWB Posit AI default', err)
+	);
 }
 
 async function registerAwsProvider(
@@ -240,19 +252,9 @@ async function registerAwsProvider(
 			'credentials', {}
 		);
 
-	const profile = awsConfig?.AWS_PROFILE
-		?? process.env.AWS_PROFILE;
-	const region = awsConfig?.AWS_REGION
-		?? process.env.AWS_REGION ?? 'us-east-1';
+	const chainInit = resolveAwsChainInit(awsConfig, process.env);
 
-	const credentialProvider = fromNodeProviderChain(
-		profile ? { profile } : {}
-	);
-
-	logger.info(
-		`Credential chain initialized ` +
-		`(region=${region}, profile=${profile ?? '(default)'})`
-	);
+	const credentialProvider = fromNodeProviderChain(chainInit);
 
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
@@ -569,10 +571,10 @@ async function registerGeminiProvider(
 	log.info(`Registered auth provider: ${GEMINI_AUTH_PROVIDER_ID}`);
 }
 
-async function registerGoogleVertexProvider(
+async function registerGeapProvider(
 	context: vscode.ExtensionContext,
 ): Promise<void> {
-	const logger = new AuthProviderLogger('Google Vertex AI');
+	const logger = new AuthProviderLogger('Gemini Enterprise Agent Platform');
 	const envBaseUrl = process.env.GOOGLE_VERTEX_BASE_URL;
 	if (envBaseUrl) {
 		await vscode.workspace
@@ -581,7 +583,7 @@ async function registerGoogleVertexProvider(
 				'baseUrl', envBaseUrl,
 				vscode.ConfigurationTarget.Global,
 			).then(undefined, err =>
-				log.error(`Failed to sync Vertex base URL: ${err}`)
+				logger.logOperationError('sync Gemini Enterprise Agent Platform base URL', err)
 			);
 	}
 
@@ -589,7 +591,7 @@ async function registerGoogleVertexProvider(
 		GOOGLE_CLOUD_AUTH_PROVIDER_ID, 'Gemini Enterprise Agent Platform', context,
 		undefined,
 		{
-			resolve: () => resolveGoogleVertexCredential(logger),
+			resolve: () => resolveGeapCredential(logger),
 			refreshIntervalMs: CREDENTIAL_REFRESH_INTERVAL_MS,
 		}
 	);
@@ -614,10 +616,10 @@ async function registerGoogleVertexProvider(
 	});
 
 	await provider.resolveChainCredentials().catch(err =>
-		log.debug(`[Google Vertex] Initial credential resolution: ${err}`)
+		logger.debug(`Initial credential resolution: ${err}`)
 	);
 
-	log.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
+	logger.info(`Registered auth provider: ${GOOGLE_CLOUD_AUTH_PROVIDER_ID}`);
 }
 
 async function registerDeepSeekProvider(

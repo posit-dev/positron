@@ -8,10 +8,9 @@ import { join } from 'path';
 import { EvalTestCase, RunResult } from '../types';
 
 /**
- * Test: positron_editFile_internal tool usage
+ * Test: editFile tool usage
  *
- * Verifies that the positron_editFile_internal tool is called when
- * editing a file in Agent mode.
+ * Verifies that the editFile tool is called when editing a file in Agent mode.
  */
 const prompt = 'Add a method to return today\'s date.';
 const mode = 'Agent';
@@ -54,7 +53,7 @@ export const pythonEditFile: EvalTestCase = {
 
 	evaluationCriteria: {
 		required: [
-			'The `positron_editFile_internal` tool must appear in the "Tools Called:" section',
+			'The `editFile` tool must appear in the "Tools Called:" section',
 			'Code uses a valid Python date approach (datetime module or similar)',
 		],
 		optional: [

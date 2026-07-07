@@ -60,6 +60,172 @@ function extractPipeName(basePath: string): string | null {
 	return match ? match[1] : null;
 }
 
+/**
+ * Determines whether an error represents an HTTP 401 Unauthorized response.
+ * This is the symptom of a stale bearer token: the server is reachable but
+ * rejects our credentials because it is a different instance than the one that
+ * issued the token.
+ *
+ * Exported so the detection can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param err The error to inspect.
+ * @returns True if the error is a 401 Unauthorized response.
+ */
+export function isUnauthorizedError(err: any): boolean {
+	return isAxiosError(err) && (err.response?.status === 401 || err.status === 401);
+}
+
+/**
+ * Determines whether a live server's identity indicates that our saved
+ * connection is stale: the server we saved has gone away and a different server
+ * instance is now answering at the same address (so the bearer token we saved
+ * belongs to the old server and will be rejected).
+ *
+ * Only a confirmed mismatch counts. If either identity is missing -- the saved
+ * state predates the `server_id` field, or the live server is too old to report
+ * one -- we cannot conclude the connection is stale and return false, leaving
+ * the decision to the other liveness checks.
+ *
+ * Exported so the comparison can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param savedServerId The `server_id` saved with the reconnect state.
+ * @param liveServerId The `server_id` reported by the server now answering.
+ * @returns True if the identities are both present and differ.
+ */
+export function isServerIdentityStale(
+	savedServerId: string | undefined,
+	liveServerId: string | undefined,
+): boolean {
+	return !!savedServerId && !!liveServerId && savedServerId !== liveServerId;
+}
+
+/**
+ * Whether a supervisor server is expected to share the application's lifetime,
+ * and therefore should be shut down when the application quits, rather than
+ * being run detached so it can outlive the application.
+ *
+ * Exported so the policy can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param uiKind The UI kind the application is running as.
+ * @param shutdownTimeout The `kernelSupervisor.shutdownTimeout` setting value.
+ * @returns True if the server shares the application's lifetime.
+ */
+export function sharesApplicationLifetime(
+	uiKind: vscode.UIKind,
+	shutdownTimeout: string,
+): boolean {
+	// Web servers are expected to be long-lived and to survive client
+	// disconnects, so they outlive the application.
+	if (uiKind === vscode.UIKind.Web) {
+		return false;
+	}
+
+	// A non-default shutdown timeout means the server is run detached and is
+	// meant to outlive the application. Otherwise the server shares the
+	// application's lifetime.
+	//
+	// Note that 'when idle' does *not* share the application's lifetime: the
+	// server is left running detached past quit so in-flight computations can
+	// finish, then it shuts itself down once idle. It is therefore deliberately
+	// excluded here (so we don't force-shut-it-down on quit), even though it is
+	// not a reconnect target (see {@link isReconnectTarget}).
+	return shutdownTimeout === 'immediately';
+}
+
+/**
+ * Whether a supervisor server is a reconnect target: a server we expect to find
+ * still running, and reconnect to, in a future application session. This
+ * governs whether its reconnect state is persisted on disk (a reconnect target)
+ * or kept ephemeral and cleared when the application exits (not a reconnect
+ * target).
+ *
+ * Two shutdown timeouts produce servers that outlive a window reload but are
+ * never reconnected to across an application exit, so they are not reconnect
+ * targets:
+ * - 'immediately': the server is shut down when the application quits.
+ * - 'when idle': the server lingers past quit only to let in-flight
+ *   computations finish, then shuts itself down once idle. The goal is to avoid
+ *   killing running work, not to reconnect to it later.
+ *
+ * Exported so the policy can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param uiKind The UI kind the application is running as.
+ * @param shutdownTimeout The `kernelSupervisor.shutdownTimeout` setting value.
+ * @returns True if the server is a reconnect target whose state should persist.
+ */
+export function isReconnectTarget(
+	uiKind: vscode.UIKind,
+	shutdownTimeout: string,
+): boolean {
+	// Web servers are long-lived and survive client disconnects, so we expect
+	// to reconnect to them after a restart.
+	if (uiKind === vscode.UIKind.Web) {
+		return true;
+	}
+
+	// Only timeouts that keep the server alive for the purpose of later
+	// reconnection ('indefinitely' or a fixed number of hours) are reconnect
+	// targets. 'immediately' and 'when idle' are not.
+	return shutdownTimeout !== 'immediately' && shutdownTimeout !== 'when idle';
+}
+
+/**
+ * Writes the server reconnect state to the appropriate storage tier and clears
+ * it from the other, so there is always a single source of truth for the saved
+ * connection.
+ *
+ * Exported so the storage-tier routing can be exercised in tests with stubbed
+ * mementos, without driving the full extension lifecycle.
+ *
+ * @param useEphemeral Whether ephemeral storage is the appropriate tier (see {@link isReconnectTarget}).
+ * @param ephemeralState The ephemeral (process-scoped) store.
+ * @param persistentState The persistent (workspace) store.
+ * @param state The state to save, or undefined to clear the saved state.
+ */
+export async function saveServerStateToTier(
+	useEphemeral: boolean,
+	ephemeralState: Pick<vscode.Memento, 'update'>,
+	persistentState: Pick<vscode.Memento, 'update'>,
+	state: KallichoreServerState | undefined,
+): Promise<void> {
+	if (useEphemeral) {
+		await ephemeralState.update(KALLICHORE_STATE_KEY, state);
+		await persistentState.update(KALLICHORE_STATE_KEY, undefined);
+	} else {
+		await persistentState.update(KALLICHORE_STATE_KEY, state);
+		await ephemeralState.update(KALLICHORE_STATE_KEY, undefined);
+	}
+}
+
+/**
+ * Selects the server reconnect state from the appropriate storage tier, falling
+ * back to the other tier.
+ *
+ * The fallback covers a shutdown timeout change made while the application was
+ * closed: the state will have been persisted under the previous setting (and so
+ * lives in the other tier), and is migrated to the correct tier on the next
+ * save.
+ *
+ * Exported so the fallback can be exercised in tests without driving the full
+ * extension lifecycle.
+ *
+ * @param useEphemeral Whether ephemeral storage is the appropriate tier.
+ * @param ephemeral The value read from the ephemeral store.
+ * @param persistent The value read from the persistent store.
+ * @returns The selected state, or undefined if neither tier holds one.
+ */
+export function selectServerState(
+	useEphemeral: boolean,
+	ephemeral: KallichoreServerState | undefined,
+	persistent: KallichoreServerState | undefined,
+): KallichoreServerState | undefined {
+	return useEphemeral ? (ephemeral ?? persistent) : (persistent ?? ephemeral);
+}
+
 export class KCApi implements PositronSupervisorApi {
 	/** The DAP comm class */
 	readonly DapComm = DapComm;
@@ -111,6 +277,15 @@ export class KCApi implements PositronSupervisorApi {
 	private _showingDisconnectedWarning = false;
 
 	/**
+	 * Per-workspace ephemeral storage for the server reconnect state. Used
+	 * instead of persistent workspace storage when the server shares the
+	 * application's lifetime, so that a stale reconnect target is never read
+	 * back after the application (and the server it owns) have exited. See
+	 * {@link useEphemeralState}.
+	 */
+	private readonly _ephemeralState: positron.context.EphemeralMemento = positron.context.ephemeralState;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -153,13 +328,21 @@ export class KCApi implements PositronSupervisorApi {
 		// Listen for changes to the idle shutdown hours config setting; if the
 		// server is running, apply the change immediately
 		if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-			const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+			const configListener = vscode.workspace.onDidChangeConfiguration(async (event) => {
 				if (event.affectsConfiguration('kernelSupervisor.shutdownTimeout')) {
 					if (this._started.isOpen()) {
 						this.log(
 							'Updating server configuration with new shutdown timeout: ' +
 							this.getShutdownHours());
 						this.updateIdleTimeout();
+
+						// The shutdown timeout governs which storage tier holds
+						// the reconnect state (ephemeral vs persistent), so
+						// re-save to move it into the now-appropriate tier and
+						// clear the other.
+						if (this._reconnect) {
+							await this.migrateServerState();
+						}
 					}
 				}
 			});
@@ -280,7 +463,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Check to see if there's a server already running for this workspace,
 		// if reconnect is permitted.
 		const serverState = this._reconnect ?
-			this.loadServerState() :
+			await this.loadServerState() :
 			undefined;
 
 		// If there is, and we can reconnect to it, do so
@@ -724,7 +907,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		const state: KallichoreServerState = {
 			// Save the constructed basePath for API usage
-			// @ts-ignore
 			base_path: this._api.basePath,
 			port: serverPort,
 			server_path: shellPath,
@@ -735,33 +917,119 @@ export class KCApi implements PositronSupervisorApi {
 			// For domain sockets, also save the original socket_path from connection data
 			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
 			// For named pipes, also save the original named_pipe from connection data
-			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined)
+			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined),
+			// Record the server's identity so we can later detect when a saved
+			// connection points at a different server instance (stale token).
+			server_id: status.server_id
 		};
+
+		// Load the finalized state into the API instance so that subsequent
+		// identity checks (e.g. in testServerExited) can read the server_id.
+		this.refreshServerState(state);
 
 		// Save the server state for reconnect if enabled
 		if (this._reconnect) {
-			this.saveServerState(state);
+			await this.saveServerState(state);
 		}
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), state);
 	}
 
 	/**
+	 * Whether the server reconnect state should be stored in ephemeral
+	 * (in-memory, process-scoped) storage rather than persistent workspace
+	 * storage.
+	 *
+	 * The lifetime of ephemeral storage closely matches the validity window of
+	 * a bearer token: it survives window reloads and extension host restarts
+	 * but is cleared when the application process exits. We use it whenever the
+	 * server is not a reconnect target, so that a stale reconnect target is
+	 * never read back from disk after the application has exited. When the
+	 * server is a reconnect target (see {@link isReconnectTarget}), we use
+	 * persistent storage so we can reconnect to it after a restart.
+	 *
+	 * Note this is governed by {@link isReconnectTarget}, not
+	 * {@link sharesApplicationLifetime}: a 'when idle' server outlives the
+	 * application (so it does not share its lifetime) but is still not a
+	 * reconnect target, so its state stays ephemeral.
+	 *
+	 * @returns True to use ephemeral storage, false to use persistent storage.
+	 */
+	private useEphemeralState(): boolean {
+		// Ephemeral storage is the right fit precisely when the server is not a
+		// reconnect target: the storage is cleared when the application exits,
+		// just as a non-reconnect-target server is either shut down on quit
+		// ('immediately') or left to finish in-flight work and then exit
+		// ('when idle').
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		return !isReconnectTarget(vscode.env.uiKind, shutdownTimeout);
+	}
+
+	/**
+	 * Whether the supervisor server connected to this window is expected to
+	 * share the application's lifetime, reading the current UI kind and
+	 * `shutdownTimeout` configuration. See the module-level
+	 * {@link sharesApplicationLifetime} for the policy.
+	 *
+	 * @returns True if the server shares the application's lifetime.
+	 */
+	private serverSharesApplicationLifetime(): boolean {
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		return sharesApplicationLifetime(vscode.env.uiKind, shutdownTimeout);
+	}
+
+	/**
 	 * Save the current server state for reconnect.
+	 *
+	 * The state is written to whichever storage tier is currently appropriate
+	 * (see {@link useEphemeralState}) and cleared from the other tier, so there
+	 * is always a single source of truth.
 	 *
 	 * @param state The server state to save, or undefined to clear the saved state.
 	 */
-	private saveServerState(state: KallichoreServerState | undefined) {
-		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+	private async saveServerState(state: KallichoreServerState | undefined): Promise<void> {
+		await saveServerStateToTier(
+			this.useEphemeralState(),
+			this._ephemeralState,
+			this._context.workspaceState,
+			state);
 	}
 
 	/**
 	 * Load the current server state for reconnect.
 	 *
+	 * Reads from the storage tier that is currently appropriate (see
+	 * {@link useEphemeralState}), falling back to the other tier. The fallback
+	 * covers a shutdown timeout change made while the application was closed:
+	 * the state will have been persisted under the previous setting, and is
+	 * migrated to the correct tier on the next save.
+	 *
 	 * @returns The saved server state, or undefined if not found.
 	 */
-	private loadServerState(): KallichoreServerState | undefined {
-		return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+	private async loadServerState(): Promise<KallichoreServerState | undefined> {
+		// Ensure the ephemeral store has finished its initial async load before
+		// we read from it; a synchronous read at startup (e.g. after a window
+		// reload) would otherwise race the load and miss the persisted value.
+		await this._ephemeralState.whenReady;
+
+		const ephemeral = this._ephemeralState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		const persistent = this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+
+		return selectServerState(this.useEphemeralState(), ephemeral, persistent);
+	}
+
+	/**
+	 * Re-saves the current server state so it lives in the storage tier that is
+	 * now appropriate. Called when the shutdown timeout changes, since that
+	 * setting governs which tier is used.
+	 */
+	private async migrateServerState(): Promise<void> {
+		const state = await this.loadServerState();
+		if (state) {
+			await this.saveServerState(state);
+		}
 	}
 
 	/***
@@ -877,7 +1145,32 @@ export class KCApi implements PositronSupervisorApi {
 			this.log(`Streaming Kallichore server logs at ${serverState.log_path}`);
 		});
 
+		// Probe the server's status. This endpoint is not authenticated, so it
+		// succeeds even if our saved bearer token is stale; that lets us detect
+		// a stale connection here, before we make any authenticated calls that
+		// would fail with a confusing 401.
 		const status = await this._api.api.serverStatus();
+
+		// If the server reports a different identity than the one we saved, the
+		// original server has gone away and something else is now answering at
+		// the same address. The saved bearer token belongs to the old server
+		// and is therefore stale, so refuse to reconnect and let the caller
+		// start a fresh server instead.
+		const liveServerId = status.data.server_id;
+		if (isServerIdentityStale(serverState.server_id, liveServerId)) {
+			this.log(`Not reconnecting to Kallichore server at ${connectionInfo}: ` +
+				`server identity changed (expected ${serverState.server_id}, found ` +
+				`${liveServerId}). The saved bearer token is stale; a new server ` +
+				`will be started.`);
+			return false;
+		}
+
+		// Record the live server identity in case the saved state predates the
+		// server_id field, so future identity checks have something to compare.
+		if (!serverState.server_id && liveServerId) {
+			serverState.server_id = liveServerId;
+		}
+
 		this._started.open();
 		positron.runtime.emitPerfMark('ready');
 		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
@@ -1034,16 +1327,23 @@ export class KCApi implements PositronSupervisorApi {
 				await session.create(kernel);
 				break;
 			} catch (err) {
-				// If the connection was refused, check the server status; this
-				// suggests that the server may have exited
-				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT') && !retried) {
-					this.log(`Could not connect while attempting to create session; checking server status`);
+				// A refused connection (the server may have exited) or a 401
+				// Unauthorized (our bearer token is stale because the server was
+				// replaced) both warrant re-checking the server. If it turns out
+				// to be gone, testServerExited restarts it and we retry once
+				// against the new server.
+				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT' || isUnauthorizedError(err)) && !retried) {
+					this.log(`Could not create session (${summarizeError(err)}); checking server status`);
 					await this.testServerExited();
 
-					// If the open barrier is now open, we can retry the
-					// session creation once.
+					// If the open barrier is now open, the server was restarted;
+					// retry the session creation once against it.
 					if (this._started.isOpen()) {
 						retried = true;
+						// Point the session at the new server's API so it uses
+						// the fresh bearer token rather than the stale one it
+						// captured when it was created.
+						session.refreshApi(this._api.api);
 						continue;
 					}
 				}
@@ -1173,6 +1473,30 @@ export class KCApi implements PositronSupervisorApi {
 			}
 		}
 
+		// If the process still appears to be running, verify that it is the
+		// same server instance we connected to. The status endpoint is not
+		// authenticated, so this works even when our bearer token is stale. A
+		// changed server_id means the original server is gone and something
+		// else now answers at the same address (so our token is stale); treat
+		// that the same as the server having exited so we tear down and restart.
+		if (serverRunning && serverState.server_id) {
+			try {
+				const status = await this._api.api.serverStatus();
+				const liveServerId = status.data.server_id;
+				if (isServerIdentityStale(serverState.server_id, liveServerId)) {
+					this.log(`Kallichore server identity changed (expected ` +
+						`${serverState.server_id}, found ${liveServerId}); the saved ` +
+						`bearer token is stale. Treating the server as exited.`);
+					serverRunning = false;
+				}
+			} catch (err) {
+				// If we cannot reach the server to check its identity, leave the
+				// decision to the process check above; an unreachable server
+				// surfaces elsewhere as ECONNREFUSED/ENOENT.
+				this.log(`Could not verify Kallichore server identity: ${summarizeError(err)}`);
+			}
+		}
+
 		// The server is still running; nothing to do
 		if (serverRunning) {
 			return false;
@@ -1184,7 +1508,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Clean up the state so we don't try to reconnect to a server that
 		// isn't running.
 		if (this._reconnect) {
-			this.saveServerState(undefined);
+			await this.saveServerState(undefined);
 		}
 
 		// We need to mark all sessions as exited since (at least right now)
@@ -1350,6 +1674,53 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Shut down the supervisor server because the application is quitting.
+	 *
+	 * Only servers that share the application's lifetime are shut down (see
+	 * {@link serverSharesApplicationLifetime}); detached servers configured to
+	 * outlive the application are left running so they can be reconnected to on
+	 * the next launch.
+	 *
+	 * Historically we relied on the server exiting on its own when its terminal
+	 * was torn down on quit. That depends on the OS propagating SIGHUP through
+	 * the pty's process group down to the (grand)child server process, which is
+	 * fragile and is not reliable across pty host changes; an orphaned server
+	 * would then linger until its idle-shutdown timeout reaped it. We now ask
+	 * the server to shut down explicitly instead.
+	 *
+	 * Best-effort: the extension host is being torn down, so we bound the wait
+	 * and swallow errors rather than blocking the application's exit.
+	 */
+	async shutdownForQuit(): Promise<void> {
+		// Detached servers are meant to outlive the application; leave them
+		// running so they can be reconnected to on the next launch.
+		if (!this.serverSharesApplicationLifetime()) {
+			return;
+		}
+
+		// If the server never came online there's nothing to shut down.
+		if (!this._started.isOpen()) {
+			return;
+		}
+
+		try {
+			// Bound the wait since the extension host is being torn down and we
+			// cannot block the application's exit indefinitely.
+			await this._api.api.shutdownServer({ timeout: 2000 });
+			this.log('Requested Kallichore server shutdown on quit');
+		} catch (err) {
+			// Not fatal; the server's idle-shutdown timeout is the backstop.
+			this.log(`Failed to shut down Kallichore server on quit: ${summarizeError(err)}`);
+		}
+
+		// Kill the terminal hosting the server so its shell doesn't linger.
+		if (this._terminal) {
+			this._terminal.dispose();
+			this._terminal = undefined;
+		}
+	}
+
+	/**
 	 * Clean up the Kallichore server and all sessions. Note that this doesn't
 	 * actually remove the sessions from the server; it just disconnects them
 	 * from the API.
@@ -1463,9 +1834,8 @@ export class KCApi implements PositronSupervisorApi {
 		});
 		this._sessions.length = 0;
 
-		// Clear the workspace state so we don't try to reconnect to the old
-		// server
-		this.saveServerState(undefined);
+		// Clear the saved state so we don't try to reconnect to the old server
+		await this.saveServerState(undefined);
 
 		// Do the same with the environment variable, and clean up the
 		// connection file if it exists.

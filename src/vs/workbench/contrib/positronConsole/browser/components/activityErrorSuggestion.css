@@ -1,0 +1,51 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-error-suggestion {
+	display: grid;
+	margin-left: -10px;
+	grid-template-columns: 10px 1fr;
+}
+
+.activity-error-suggestion .suggestion-bar {
+	width: 4px;
+	display: flex;
+	opacity: 0.75;
+	background-color: var(--vscode-positronConsole-ansiYellow);
+}
+
+.activity-error-suggestion .suggestion-information {
+	padding: 2px 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.activity-error-suggestion .suggestion-action {
+	display: grid;
+	grid-template-columns: 2ch 1fr;
+	align-items: center;
+}
+
+/*
+ * Constrain the icon to the first character column and center the glyph within
+ * it so the lightbulb's optical center lands over the error's "!" marker. The
+ * codicon glyph is drawn centered in a 16px em box, so without this it renders
+ * ~1ch to the right of the "!". The link-text stays in the second grid track at
+ * 2ch, lining up with the error message text ("there is no package...").
+ */
+.activity-error-suggestion .suggestion-action .suggestion-icon {
+	width: 1ch;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-positronConsole-ansiYellow);
+}
+
+.activity-error-suggestion .suggestion-action .link-text {
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
+}

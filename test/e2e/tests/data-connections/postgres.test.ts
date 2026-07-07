@@ -115,7 +115,7 @@ test.describe('Data Connections - Postgres', {
 		});
 	});
 
-	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a table in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.doubleClickNode('actor');
@@ -124,7 +124,7 @@ test.describe('Data Connections - Postgres', {
 		await dataExplorer.grid.expectColumnHeadersToBe(actorColumns.map(({ name }) => name));
 	});
 
-	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a column in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.expandNode('actor');

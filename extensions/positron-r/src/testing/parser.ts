@@ -165,9 +165,9 @@ async function getMatchesForQuery(
 	parser: Parser,
 	uri: vscode.Uri
 ): Promise<TestMatch[]> {
-	const document = await vscode.workspace.openTextDocument(uri);
+	const bytes = await vscode.workspace.fs.readFile(uri);
 	const query = R!.query(queryString);
-	const tree = parser!.parse(document.getText());
+	const tree = parser!.parse(new TextDecoder().decode(bytes));
 
 	const raw_matches = query.matches(tree.rootNode);
 	const matches: TestMatch[] = [];

@@ -81,6 +81,16 @@ export class PlaywrightDriver {
 	// Whether a trace chunk is currently recording (see startTracing/stopTracing).
 	private _tracingChunkOpen = false;
 
+	/**
+	 * Whether a trace chunk is currently recording. Used to export the startup chunk
+	 * when the app fixture's setup hangs (times out) rather than throws -- in that
+	 * case neither the fixture's catch nor its finally run, so the export happens in
+	 * afterAll instead (see _test.setup.ts).
+	 */
+	get isTracingChunkOpen(): boolean {
+		return this._tracingChunkOpen;
+	}
+
 	get browserContext(): playwright.BrowserContext {
 		return this.context;
 	}

@@ -35,10 +35,25 @@ export interface IPositronActionBarWidgetDescriptor {
 
 	/**
 	 * Sort order for this widget within the menu.
-	 * Widgets and actions share the same order space and will be intermixed.
-	 * Higher numbers appear further right (in left-to-right layouts).
+	 * Widgets are sorted by this value among other widgets sharing the same
+	 * {@link placement}. Higher numbers appear further right (in left-to-right
+	 * layouts).
 	 */
 	order: number;
+
+	/**
+	 * Where the widget renders relative to the menu's action buttons.
+	 *
+	 * - `'after'` (default): the widget renders after all of the menu's action
+	 *   buttons, e.g. a trailing status indicator.
+	 * - `'before'`: the widget renders ahead of the menu's action buttons, e.g.
+	 *   a leading badge that should sit to the left of the first action.
+	 *
+	 * Within each placement group widgets are ordered by {@link order}. Action
+	 * button order is not exposed to widgets, so a widget cannot be interleaved
+	 * between specific actions; use `'before'` / `'after'` to pick the side.
+	 */
+	placement?: 'before' | 'after';
 
 	/**
 	 * Optional visibility condition using context keys.

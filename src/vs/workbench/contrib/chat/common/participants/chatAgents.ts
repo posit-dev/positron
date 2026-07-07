@@ -32,9 +32,6 @@ import { ChatPerfMark, markChat } from '../chatPerf.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { IChatTokenUsage } from '../model/chatModel.js';
-// eslint-disable-next-line no-duplicate-imports
-import { COPILOT_CHAT_EXTENSION_ID } from '../constants.js';
-import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 // --- End Positron ---
 
@@ -325,7 +322,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// --- Start Positron ---
 		@ILogService private readonly logService: ILogService,
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
-		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 	) {
 		super();
@@ -426,15 +422,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let extensionAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
-		// --- Start Positron ---
-		let testAgentRegistered = false;
-		// --- End Positron ---
 		for (const agent of this.getAgents()) {
-			// --- Start Positron ---
-			if (agent.extensionId.value === 'vscode.vscode-api-tests') {
-				testAgentRegistered = true;
-			}
-			// --- End Positron ---
 			if (agent.isDefault) {
 				// --- Start Positron ---
 				defaultAgentRegistered = true;
@@ -451,14 +439,13 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			}
 		}
 		// --- Start Positron ---
-		// Do not register default agents when Assistant is disabled, except for
-		// the API test agent from upstream. Also treat `chat.disableAIFeatures`
-		// as "no panel participant" so the chat UI hides while leaving the chat
-		// extension's `vscode.lm` model provider available for other consumers.
-		// this._defaultAgentRegistered.set(defaultAgentRegistered);
-		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
-			this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
-		}
+		// Treat `chat.disableAIFeatures` as "no panel participant" so the chat UI
+		// hides while leaving the chat extension's `vscode.lm` model provider
+		// available for other consumers. (Previously also gated on
+		// `positron.assistant.enable`, which made the chat panel depend on the
+		// Positron Assistant extension being enabled; removed so a default chat
+		// agent such as GitHub Copilot can register on its own.)
+		this._defaultAgentRegistered.set(defaultAgentRegistered && !this._isAIDisabled());
 		// Keep the `chatAiFeaturesEnabled` gate in sync with both AI switches.
 		this._aiFeaturesEnabled.set(!this._isAIDisabled());
 		// --- End Positron ---
@@ -616,33 +603,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	private _agentIsEnabled(idOrAgent: string | IChatAgentEntry): boolean {
 		const entry = typeof idOrAgent === 'string' ? this._agents.get(idOrAgent) : idOrAgent;
-		// --- Start Positron ---
-		// Special handling for Copilot Chat participants
-		const isCopilotParticipant = ExtensionIdentifier.equals(entry?.data.extensionId, COPILOT_CHAT_EXTENSION_ID);
-		if (isCopilotParticipant) {
-			// Disable Copilot Chat agent if Copilot is not enabled
-			const isCopilotEnabled = this.positronAssistantConfigurationService.copilotEnabled;
-			if (!isCopilotEnabled) {
-				return false;
-			}
-
-			const currentProvider = this.languageModelsService.currentProvider;
-			const currentProviderExtensionId = currentProvider ?
-				this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id) :
-				undefined;
-			if (!currentProviderExtensionId) {
-				return false;
-			}
-			const isCurrentProviderCopilot = ExtensionIdentifier.equals(currentProviderExtensionId, COPILOT_CHAT_EXTENSION_ID);
-			if (!isCurrentProviderCopilot) {
-				// Disable Copilot Chat agent if the user has not opted into using Copilot participants for non-Copilot providers
-				const useCopilotParticipantsWithOtherProviders = this.configurationService.getValue<boolean>(ChatConfiguration.UseCopilotParticipantsWithOtherProviders);
-				if (!useCopilotParticipantsWithOtherProviders) {
-					return false;
-				}
-			}
-		}
-		// --- End Positron ---
 		return !entry?.data.when || this.contextKeyService.contextMatchesRules(ContextKeyExpr.deserialize(entry.data.when));
 	}
 
