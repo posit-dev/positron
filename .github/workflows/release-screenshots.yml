@@ -47,12 +47,6 @@ on:
     branches:
       - 'release/*'
 
-concurrency:
-  # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
-  # Kept in sync with env.MODE below (concurrency can't reference env context).
-  group: release-screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
@@ -73,6 +67,13 @@ jobs:
     # this narrows to the branch's first push (creation) via the all-zero
     # "before" SHA, so subsequent commits to the branch don't rerun this.
     if: github.event_name != 'push' || github.event.before == '0000000000000000000000000000000000000000'
+    concurrency:
+      # Separate groups per mode so a publish run doesn't cancel an in-flight
+      # nightly. Job-level (not workflow-level): a run skipped by the `if`
+      # above (e.g. a non-initial push to a release branch) then never enters
+      # the group, so it can't cancel an in-flight real publish run.
+      group: release-screenshots-${{ inputs.mode || (github.event_name == 'push' && 'publish') || 'nightly' }}
+      cancel-in-progress: true
     steps:
       - name: Checkout positron
         uses: actions/checkout@v7
