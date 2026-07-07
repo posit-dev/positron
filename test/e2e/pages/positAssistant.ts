@@ -441,21 +441,39 @@ export class PositAssistant {
 	 * click the provider's top model. The radio group is flat, so the provider's
 	 * top model is the header div's immediately-following radio item (adjacent
 	 * sibling combinator scopes the choice to that provider).
+	 *
+	 * The open→select→close cycle is retried because the inline picker is not
+	 * stable to drive one-shot:
+	 *  - On open it auto-scrolls the selected item into view and runs refocus
+	 *    logic, which can transiently close the menu out from under a pending
+	 *    click.
+	 *  - Base UI radio items do NOT close the menu on selection (unlike the
+	 *    regular menu items used in menu mode), so the menu must be dismissed
+	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
 	 */
 	private async selectProviderModelInlineMode(providerName: string): Promise<void> {
-		await this.frame.locator(INLINE_MODEL_TRIGGER).last().click();
-
+		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
-		await expect(radioGroup).toBeVisible();
-
 		const topModel = radioGroup.locator(
 			`div:has(> span:text-is("${providerName}")) + [role="menuitemradio"]`,
 		);
-		await topModel.click();
+		const page = this.code.driver.currentPage;
 
-		// Selection closes the dropdown; wait for it to detach so subsequent
-		// actions (e.g. Send) don't race an open overlay.
-		await expect(radioGroup).toBeHidden();
+		await expect(async () => {
+			// Open the picker if it isn't already open (e.g. a prior iteration
+			// selected the model but Escape didn't land).
+			if (!(await radioGroup.isVisible().catch(() => false))) {
+				await trigger.click();
+				await expect(radioGroup).toBeVisible({ timeout: 5000 });
+			}
+			// Short click timeout so a menu that closed mid-open fails fast and we
+			// reopen on the next iteration rather than hanging.
+			await topModel.click({ timeout: 5000 });
+			// Radio selection leaves the menu open; dismiss it so it can't obscure
+			// the chat input, and confirm it detached.
+			await page.keyboard.press('Escape');
+			await expect(radioGroup).toBeHidden({ timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	// --- Chat messages ---
