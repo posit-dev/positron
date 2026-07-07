@@ -143,7 +143,7 @@ test.describe('Layouts', { tag: [tags.LAYOUTS, tags.WIN] }, () => {
 	});
 
 	test.describe.skip('Assistant Layout', {
-		tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT],
+		tag: [tags.ASSISTANT],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/14037' }]
 	}, () => {
 		test.afterEach('Reset Layout', async function ({ app }) {

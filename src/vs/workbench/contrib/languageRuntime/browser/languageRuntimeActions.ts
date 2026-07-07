@@ -637,6 +637,12 @@ export const selectNewLanguageRuntime = async (
 		rebuildItems();
 	}));
 
+	// Rebuild when a runtime is unregistered - covers de-duplication collapsing
+	// a symlink alias or a deleted interpreter while the picker is open.
+	disposables.add(languageRuntimeService.onDidUnregisterRuntime(() => {
+		rebuildItems();
+	}));
+
 	// If startup completes while the picker is open, re-fetch contributions
 	// (which we previously skipped) and rebuild.
 	disposables.add(languageRuntimeService.onDidChangeRuntimeStartupPhase(async phase => {

@@ -34,17 +34,12 @@ test.describe('Packages Pane', {
 		await app.workbench.console.clickConsoleLabel();
 	});
 
-	// python is uv; pythonAlt is pyenv.
-	// pythonAlt runs first: the `python` (uv) case selects its interpreter via
-	// `python.setInterpreter` (see below), which sets the workspace's active
-	// interpreter and is sticky across tests in this worker. Running it last keeps
-	// that selection from leaking into the pythonAlt case, which relies on its own
-	// hotkey-started session.
-	const pythonRuntimes: SessionRuntimes[] = ['pythonAlt', 'python'];
+	// python is uv; pythonAlt is pyenv
+	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
-			await openFolder('qa-example-content/workspaces/packages-pane-python');
+			await openFolder('test-files/workspaces/packages-pane-python');
 		});
 
 		pythonRuntimes.forEach((runtime) => {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time build for the ci-arm dev container. Idempotent: safe to re-run after a failure.
-# Mirrors qa-example-content/dockerfiles/arm-local/setup-test-env.sh, minus the git clone
+# Mirrors docker/environments/arm-local/setup-test-env.sh, minus the git clone
 # (the source is already the editor-attached workspace).
 set -euo pipefail
 

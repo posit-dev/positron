@@ -10,10 +10,6 @@ inputs:
   repo-root:
     description: "Absolute path to the PR-head checkout the agent reads source from. The action itself runs from a trusted base-branch checkout; this input lets the workflow point the agent at a separate, untrusted checkout for source-reading only. Must be set for any flow that handles secrets."
     required: true
-  force-regrade:
-    description: "When 'true', always run the analyzer even if a PETE comment already exists. Set by the /recheck-tests flow so a manual re-grade is never short-circuited. Default 'false' so `pull_request` events (opened / synchronize / ready_for_review) skip when a verdict has already been posted -- this lets `synchronize` recover a missed `opened` delivery without re-grading every subsequent push."
-    required: false
-    default: "false"
   model:
     description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
@@ -25,42 +21,12 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check for prior grade (idempotency guard)
-      # When called from a `pull_request` event, skip if a PETE comment
-      # already exists on the PR. This lets `synchronize` / `ready_for_review`
-      # act purely as recovery channels for a dropped `opened` delivery
-      # (see #13664) without re-grading on every subsequent push. The
-      # /recheck-tests flow sets force-regrade=true to bypass this.
-      id: idempotency
-      if: inputs.force-regrade != 'true'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        PR_NUMBER: ${{ inputs.pr-number }}
-      run: |
-        MARKER="<!-- pr-test-checker -->"
-        # Match on BOTH the marker AND the bot author -- a non-bot commenter
-        # could otherwise paste the marker to suppress future auto-grading
-        # until someone manually runs /recheck-tests.
-        EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
-          --jq "[.[] | select(.body | contains(\"$MARKER\")) | select(.user.login == \"github-actions[bot]\")][0].id // empty")
-        if [ -n "$EXISTING_ID" ]; then
-          echo "PETE comment already exists (id=${EXISTING_ID}); skipping. Use /recheck-tests to force a re-grade."
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "No PETE comment yet; proceeding."
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: Set up Node
-      if: steps.idempotency.outputs.skip != 'true'
       uses: actions/setup-node@v6
       with:
         node-version: "20"
 
     - name: Install action dependencies
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
@@ -70,7 +36,6 @@ runs:
       # the musl variant over glibc on Linux runners. Installing globally and
       # passing the resolved path via pathToClaudeCodeExecutable sidesteps it.
       # See claude-agent-sdk-typescript#296.
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       run: |
         npm install -g @anthropic-ai/claude-code
@@ -79,7 +44,6 @@ runs:
 
     - name: Prepare working directory
       id: prep
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       run: |
         WORK_DIR="${RUNNER_TEMP}/pr-test-checker"
@@ -91,7 +55,6 @@ runs:
       # Runs the gather script from the action's own directory (i.e. the
       # trusted base-branch checkout), not from the PR head. PR-head code
       # must never execute with secrets in scope.
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -109,7 +72,6 @@ runs:
       # so they are read from the trusted base-branch checkout. Only
       # REPO_ROOT (where the agent's Read/Grep/Glob tools operate) points
       # at the untrusted PR-head checkout.
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -122,7 +84,6 @@ runs:
       run: node analyze.mjs
 
     - name: Upsert PR comment
-      if: steps.idempotency.outputs.skip != 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -156,7 +117,7 @@ runs:
         fi
 
     - name: Upload analyzer artifacts
-      if: always() && steps.idempotency.outputs.skip != 'true'
+      if: always()
       uses: actions/upload-artifact@v7
       with:
         name: pr-test-checker-${{ inputs.pr-number }}

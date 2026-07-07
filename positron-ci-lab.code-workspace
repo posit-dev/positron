@@ -130,7 +130,7 @@
 			},
 			{
 				"label": "Positron CI: Get QA content",
-				"detail": "Fetch/refresh qa-example-content (the files the e2e tests open) for manual repro; linked at ~/qa-example-content so it's easy to open. Re-run to cycle it to the latest.",
+				"detail": "Provision test-files (the files the e2e tests open) for manual repro; linked at ~/test-files so it's easy to open. Re-run to refresh it from the current checkout.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
 				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },

@@ -180,20 +180,28 @@ else
 		fi
 	fi
 
-	# Enable Windows/web jobs when a NEWLY ADDED e2e test carries tags.WIN /
-	# tags.WEB (read from added diff lines only, so small edits to an existing
-	# tagged test don't opt in). Runs regardless of @:no-auto-tags.
-	TEST_PATCHES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+	# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
+	# Runs regardless of @:no-auto-tags. Also add @:win/@:web to TAGS so the PR
+	# comment explains why those jobs ran.
+	# @json-encode each file's patch so embedded newlines don't merge files
+	# together when read line by line -- see scan_added_platform_tags_across_files.
+	declare -a TEST_FILE_PATCHES=()
+	while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
+		[[ -z "$ENCODED_PATCH" ]] && continue
+		TEST_FILE_PATCHES+=("$(jq -r '.' <<< "$ENCODED_PATCH")")
+	done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
 		--header "Authorization: token $GITHUB_TOKEN" \
-		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | .patch' || true)"
-	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags "$TEST_PATCHES")"
+		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | (.patch // "") | @json' || true)
+	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags_across_files "${TEST_FILE_PATCHES[@]}")"
 	if [[ "$ADDED_WIN" == "true" ]]; then
 		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
 		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:win")"
 	fi
 	if [[ "$ADDED_WEB" == "true" ]]; then
 		echo "Newly added e2e test carries tags.WEB. Enabling web tests."
 		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:web")"
 	fi
 
 	# Output the tags

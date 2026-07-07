@@ -7,7 +7,7 @@ Supports both **arm64** (macOS Apple Silicon) and **amd64** (Windows/x86 Linux).
 ### 1. Create Configuration Files
 
 ```bash
-cd dockerfiles/wb-local
+cd docker/environments/wb-local
 cp .env.example .env
 ```
 

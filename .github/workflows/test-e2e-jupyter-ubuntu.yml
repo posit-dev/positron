@@ -175,4 +175,4 @@ jobs:
       - name: Stop Docker containers
         if: always()
         run: |
-          docker compose -p ${{ github.run_id }} -f dockerfiles/docker-compose.jupyter.yml down || true
+          docker compose -p ${{ github.run_id }} -f docker/environments/jupyter-local/docker-compose.ubuntu24.yml down || true

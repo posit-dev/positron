@@ -243,6 +243,23 @@ describe('selectNewLanguageRuntime', () => {
 			await promise;
 		});
 
+		it('rebuilds when onDidUnregisterRuntime fires mid-pick', async () => {
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pickItemById('py-1')).toBeDefined();
+			expect(pickItemById('py-2')).toBeDefined();
+
+			// De-duplication collapsing an alias retracts a runtime while the
+			// picker is open; the removed runtime must drop out of the rebuilt list.
+			ctx.get(ILanguageRuntimeService).unregisterRuntime('py-2');
+			expect(pickItemById('py-2')).toBeUndefined();
+			expect(pickItemById('py-1')).toBeDefined();
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('preserves the previously focused item across rebuilds', async () => {
 			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));

@@ -225,4 +225,4 @@ jobs:
       - name: Stop Docker containers
         if: always()
         run: |
-          docker compose -p ${{ github.run_id }} -f dockerfiles/docker-compose.workbench.yml down || true
+          docker compose -p ${{ github.run_id }} -f docker/environments/workbench-dev/docker-compose.workbench.yml down || true

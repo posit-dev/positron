@@ -242,7 +242,7 @@ export async function overrideRuntimeLabel(page: Page, displayVersion: string = 
 /**
  * Rewrite the workspace folder name shown in the title bar and the top
  * action bar's folder picker. The default test workspace renders as
- * "qa-example-content"; docs screenshots use a friendlier folder name like
+ * "test-files"; docs screenshots use a friendlier folder name like
  * "positron-demos-notebooks". Replaces only the matching token so other
  * title-bar text (e.g. "Untitled-1.ipynb — ") is preserved.
  *
@@ -272,7 +272,7 @@ export async function overrideWorkspaceName(
 			}
 		}
 		// The console's current-working-directory label renders the full
-		// filesystem path (e.g. /private/var/folders/.../qa-example-content).
+		// filesystem path (e.g. /private/var/folders/.../test-files).
 		// Rewrite to the friendly tilde form (~/my-project) so the docs
 		// screenshot doesn't leak the temp workspace path.
 		for (const label of document.querySelectorAll('.current-working-directory-label .label')) {

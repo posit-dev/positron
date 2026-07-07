@@ -37,7 +37,7 @@ test.describe('Release Screenshots - Layouts', () => {
 		}
 
 		// Open the workshop folder so VS Code's workspace is positron-workshop.
-		await openFolder('qa-example-content/positron-workshop');
+		await openFolder('test-files/positron-workshop');
 
 		// Start a Python session and run a small script so Variables and Plots
 		// populate the secondary sidebar.

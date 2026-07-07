@@ -13,7 +13,7 @@ test.use({
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
 test.describe('Posit Assistant', {
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
@@ -159,7 +159,7 @@ test.describe('Posit Assistant', {
  * visibility; this test exercises that gate in both directions.
  * @see https://github.com/posit-dev/positron/pull/14054
  */
-test.describe('Language Model Access Gating', { tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT] }, () => {
+test.describe('Language Model Access Gating', { tag: [tags.ASSISTANT] }, () => {
 	const COMMAND_TITLE = 'Manage Language Model Access';
 
 	test.afterEach('Reset chat.disableAIFeatures', async function ({ settings }) {
