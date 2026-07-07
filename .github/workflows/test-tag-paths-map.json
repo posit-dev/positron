@@ -1,5 +1,4 @@
 {
-  "extensions/positron-gone-test/": ["@:console"],
   "src/vs/workbench/contrib/positronConsole/": ["@:console"],
   "src/vs/workbench/services/positronConsole/": ["@:console"],
   "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
