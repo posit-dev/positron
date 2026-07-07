@@ -182,7 +182,10 @@ else
 
 	# Enable Windows/web jobs when a NEWLY ADDED e2e test carries tags.WIN /
 	# tags.WEB (read from added diff lines only, so small edits to an existing
-	# tagged test don't opt in). Runs regardless of @:no-auto-tags.
+	# tagged test don't opt in). Runs regardless of @:no-auto-tags. Also fold
+	# @:win/@:web into TAGS so the PR comment shows why those jobs are running --
+	# otherwise the comment lists the tags used for --grep filtering but not the
+	# ones that silently gated the whole Windows/web job on.
 	TEST_PATCHES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
 		--header "Authorization: token $GITHUB_TOKEN" \
 		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | .patch' || true)"
@@ -190,10 +193,12 @@ else
 	if [[ "$ADDED_WIN" == "true" ]]; then
 		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
 		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:win")"
 	fi
 	if [[ "$ADDED_WEB" == "true" ]]; then
 		echo "Newly added e2e test carries tags.WEB. Enabling web tests."
 		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+		TAGS="$(union_csv_tags "$TAGS" "@:web")"
 	fi
 
 	# Output the tags

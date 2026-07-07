@@ -125,6 +125,15 @@ PATCH_REMOVED=$'@@ -1 +0,0 @@\n-test.describe("x", { tag: [tags.WEB] }, () => {}
 assert_eq "removed line not counted" "false false" "$(scan_added_platform_tags "$PATCH_REMOVED")"
 PATCH_BOTH=$'@@ -0 +1,2 @@\n+const a = tags.WIN;\n+const b = tags.WEB;'
 assert_eq "added win and web" "true true" "$(scan_added_platform_tags "$PATCH_BOTH")"
+# Regression for #14731: editing a tag array on one line (dropping an unrelated
+# tag) reprints tags.WIN/tags.WEB as both removed and added -- not genuinely new.
+PATCH_SAME_LINE_EDIT=$'@@ -1 +1 @@\n-\ttag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN],\n+\ttag: [tags.ASSISTANT, tags.WEB, tags.WIN],'
+assert_eq "same-line edit keeping win/web is not newly added" "false false" \
+	"$(scan_added_platform_tags "$PATCH_SAME_LINE_EDIT")"
+# But a tag genuinely newly added alongside an untouched one should still count.
+PATCH_WIN_ADDED_TO_EXISTING=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT],\n+\ttag: [tags.ASSISTANT, tags.WIN],'
+assert_eq "win added to existing tag array is newly added" "true false" \
+	"$(scan_added_platform_tags "$PATCH_WIN_ADDED_TO_EXISTING")"
 
 # --- is_infra_only ---
 assert_eq "infra only" "true" "$(is_infra_only "$(printf '.github/workflows/x.yml\ndocs/y.md')")"

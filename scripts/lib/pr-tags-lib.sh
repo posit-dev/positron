@@ -57,14 +57,26 @@ derive_map_tags() {
 
 # scan_added_platform_tags <patch_text>
 #   patch_text: unified-diff text (concatenated patches of e2e test files)
-# Echoes "<win> <web>" (each true/false), true iff the tag enum reference
-# appears on an ADDED line. Test source uses `tags.WIN` / `tags.WEB`, not the
-# literal `@:win` / `@:web`, so match the enum members.
+# Echoes "<win> <web>" (each true/false), true iff the tag enum reference is
+# GENUINELY new: present on an added line and absent from every removed line.
+# The "absent from removed" half matters because a tag array usually lives on
+# one line -- editing any entry (e.g. dropping an unrelated tag) reprints the
+# whole line as one removed + one added line. Checking added lines alone would
+# then treat an already-present tags.WIN/tags.WEB as newly added on every such
+# edit (see #14731, which only removed tags.POSIT_ASSISTANT from a line that
+# already carried tags.WIN/tags.WEB and still tripped this check). Test source
+# uses `tags.WIN` / `tags.WEB`, not the literal `@:win` / `@:web`, so match the
+# enum members.
 scan_added_platform_tags() {
-	local patch="$1" added win=false web=false
+	local patch="$1" added removed win=false web=false
 	added="$(printf '%s\n' "$patch" | grep '^+' | grep -v '^+++' || true)"
-	printf '%s\n' "$added" | grep -q "tags\.WIN" && win=true
-	printf '%s\n' "$added" | grep -q "tags\.WEB" && web=true
+	removed="$(printf '%s\n' "$patch" | grep '^-' | grep -v '^---' || true)"
+	if printf '%s\n' "$added" | grep -q "tags\.WIN" && ! printf '%s\n' "$removed" | grep -q "tags\.WIN"; then
+		win=true
+	fi
+	if printf '%s\n' "$added" | grep -q "tags\.WEB" && ! printf '%s\n' "$removed" | grep -q "tags\.WEB"; then
+		web=true
+	fi
 	echo "$win $web"
 }
 
