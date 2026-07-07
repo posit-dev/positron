@@ -46,3 +46,5 @@ If the `BUILD` environment variable is set, unset it before running tests:
 ```bash
 unset BUILD
 ```
+
+To reproduce and debug a CI failure locally using the actual CI image, see [`.devcontainer/ci-arm/README.md`](../../.devcontainer/ci-arm/README.md).
