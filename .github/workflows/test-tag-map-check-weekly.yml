@@ -54,7 +54,12 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
+      # pr_url: a link worth showing regardless of whether this run changed
+      # anything (falls back to an untouched pre-existing PR). pr_updated:
+      # true only when create-pr actually ran this run -- Slack uses this to
+      # avoid claiming "auto-fix opened a PR" when it just found an old one.
       pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
+      pr_updated: ${{ steps.create-pr.outputs.pr_url != '' }}
     steps:
       - name: Generate POSITRON_BOT token
         id: bot-token
@@ -197,6 +202,11 @@ jobs:
             if [ "$DRYRUN" = "true" ]; then
               echo "[dryrun] Would commit and $( [ "$MODE" = "reset" ] && echo "force-" )push to existing branch $BRANCH ($MODE)."
               git --no-pager diff --staged
+              # Separate output from `branch`: `branch` gates whether
+              # "Create or update pull request" runs, and must stay empty in
+              # dry-run mode so that step never fires for real. `dryrun_branch`
+              # is only for "Write summary" to report what would have happened.
+              echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             git commit -m "chore: auto-fix test tag map drift"
@@ -216,6 +226,7 @@ jobs:
             if [ "$DRYRUN" = "true" ]; then
               echo "[dryrun] Would commit and push new branch $BRANCH."
               git --no-pager diff --staged
+              echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             git commit -m "chore: auto-fix test tag map drift"
@@ -270,7 +281,7 @@ jobs:
           DETECTED_PR_URL: ${{ steps.detect.outputs.pr_url }}
           MODE: ${{ steps.detect.outputs.mode }}
           APPLY_RESULT: ${{ steps.apply.outputs.result }}
-          PUSH_BRANCH: ${{ steps.push.outputs.branch }}
+          DRYRUN_PUSH_BRANCH: ${{ steps.push.outputs.dryrun_branch }}
           FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           {
@@ -293,7 +304,9 @@ jobs:
               echo ""
               echo "| Dir | Advised tags | Reason |"
               echo "|---|---|---|"
-              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | if . == "" then "_(none)_" else . end) + " |"' advisory.json
+              # gsub on reason: a raw `|` or newline from Claude's free-text
+              # would otherwise break the table's row/column structure.
+              jq -r 'to_entries[] | "| `" + .key + "` | " + (if (.value.tags | length) > 0 then (.value.tags | map("`" + . + "`") | join(", ")) else "_(none)_" end) + " | " + (.value.reason // "" | gsub("\r\n|\r|\n"; " ") | gsub("\\|"; "\\|") | if . == "" then "_(none)_" else . end) + " |"' advisory.json
               echo ""
             fi
             if [ -n "$APPLY_RESULT" ]; then
@@ -309,8 +322,8 @@ jobs:
             fi
             if [ -n "$FINAL_PR_URL" ]; then
               echo ":white_check_mark: [Opened/updated PR]($FINAL_PR_URL)"
-            elif [ -n "$PUSH_BRANCH" ] && [ "$DRYRUN" = "true" ]; then
-              echo ":test_tube: Would push to \`$PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
+            elif [ -n "$DRYRUN_PUSH_BRANCH" ]; then
+              echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
             elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
               echo "No new changes needed -- existing PR left as-is."
             else
@@ -332,10 +345,18 @@ jobs:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
+          PR_UPDATED: ${{ needs.auto-fix.outputs.pr_updated }}
         run: |
-          if [ -n "$PR_URL" ]; then
+          # Three distinct states, not two: a freshly opened/updated PR reads
+          # differently from an old PR that's still open but untouched this
+          # run (PR_UPDATED false) -- claiming "opened" for the latter would
+          # misreport what actually happened this run.
+          if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
             TEXT="⚠️ *Test tag map has drifted* · auto-fix opened <${PR_URL}|PR #${PR_NUM}> -- please review the tag advisories"
+          elif [ -n "$PR_URL" ]; then
+            PR_NUM="${PR_URL##*/}"
+            TEXT="⚠️ *Test tag map has drifted* · a fix is already open: <${PR_URL}|PR #${PR_NUM}>"
           else
             TEXT="⚠️ *Test tag map has drifted* · auto-fix couldn't resolve it (likely an invalid tag needing a manual fix) · <${RUN_URL}|view run>"
           fi

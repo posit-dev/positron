@@ -24,8 +24,14 @@ count() {
 	jq -r --arg key "$1" '.[$key] | length' "$DRIFT_FILE"
 }
 plural() {
-	# plural <count> <singular-noun>: bare noun for 1, +s otherwise.
-	[[ "$1" == "1" ]] && echo "$2" || echo "${2}s"
+	# plural <count> <singular-noun>: exact pluralization for the fixed set of
+	# nouns this script uses (dir/entry/tag) -- a bare "+s" would mishandle
+	# "entry" (giving "entrys" instead of "entries").
+	[[ "$1" == "1" ]] && { echo "$2"; return; }
+	case "$2" in
+		entry) echo "entries" ;;
+		*) echo "${2}s" ;;
+	esac
 }
 
 echo "### Test Tag Map Check"
