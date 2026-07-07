@@ -47,7 +47,17 @@ test.describe('Packages Pane', {
 				async function ({ app, sessions }) {
 					const { packages, toasts } = app.workbench;
 
-					await sessions.start(runtime);
+					// The `python` (uv) runtime resolves to two 3.10.12 interpreters: the
+					// project venv (`.venv`) and the uv-managed base standalone. The
+					// new-session (hotkey) picker only offers the preferred one, which is the
+					// base standalone -- an invalid install target (externally-managed; even
+					// `uv pip install` refuses it). Use `python.setInterpreter`, which lists
+					// all interpreters, and require the `.venv` source so the project venv is
+					// selected and package installs succeed. On web/remote the venv is
+					// discovered a beat later than the base interpreter, so requiring its
+					// source (rather than taking the first match) lets the picker retry until
+					// the venv appears instead of falling back to the standalone.
+					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess', interpreterSource: '.venv' } : undefined);
 
 					await packages.verifyPackagesList();
 
