@@ -233,22 +233,15 @@ jobs:
           RESULT: ${{ steps.apply.outputs.result }}
           MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
         run: |
-          REMOVED=$(echo "$RESULT" | jq -r '.removed | if length > 0 then map("- `" + . + "`") | join("\n") else "(none)" end')
-          MISSING_NOTE=""
+          REMOVED=$(echo "$RESULT" | jq -r '.removed | map("- `" + . + "`") | join("\n")')
+          # "Still needs attention" only when there are missing dirs; built with
+          # printf so the embedded newlines don't fight the YAML block indent.
+          ATTENTION=""
           if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
-            MISSING_NOTE="
-
-          _${MISSING_COUNT} dir(s) also need tags assigned by hand -- see the [weekly check summary](${RUN_URL}) for the list. Not handled by this PR._"
+            [ "$MISSING_COUNT" = "1" ] && ATTN_ITEM="1 directory needs tags assigned" || ATTN_ITEM="${MISSING_COUNT} directories need tags assigned"
+            ATTENTION=$(printf '\n\n**Still needs attention**\n\n- **%s** (see the [weekly check summary](%s))' "$ATTN_ITEM" "$RUN_URL")
           fi
-          BODY="### Summary
-          Removes stale entries from test-tag-paths-map.json found by the [weekly check](${RUN_URL}).
-
-          **Removed (stale, no longer tracked):**
-          ${REMOVED}
-          ${MISSING_NOTE}
-
-          --
-          _This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._"
+          BODY=$(printf '**Removed**\n\n%s%s\n\n--\n_This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._' "$REMOVED" "$ATTENTION")
           if [ "$EXISTS" = "true" ]; then
             gh pr edit "$EXISTING_PR_NUMBER" --body "$BODY" >/dev/null
             echo "Updated existing PR: $EXISTING_PR_URL"
