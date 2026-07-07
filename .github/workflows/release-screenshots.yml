@@ -2,9 +2,12 @@ name: "Release Screenshots"
 
 # Cron triggers nightly mode automatically (compare-only). Manual dispatch
 # can pick publish mode to open a PR in posit-dev/positron-website with
-# changed images.
+# changed images. Creating a release/* branch (branching-for-release.html,
+# step 1) also triggers publish mode automatically, against the latest
+# prerelease/daily build -- the real release build doesn't exist yet at
+# that point, so we don't wait for it (see job-level `if` below).
 
-run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ inputs.mode == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
+run-name: "${{ inputs.build_from_source == true && '[source] ' || '' }}${{ (inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly') == 'publish' && 'Publish' || 'Nightly' }}: Release Screenshots"
 
 on:
   workflow_dispatch:
@@ -34,28 +37,36 @@ on:
         default: false
   schedule:
     - cron: '0 9 * * 1-5'  # 09:00 UTC, Mon-Fri (resolves to mode=nightly, version=latest-prerelease via 'auto')
+  create:
+    # Fires for every new branch and tag; filtered to release/* branches by
+    # the job-level `if` below since `create` has no ref filter of its own.
+    # Patch releases (branching-for-release.html tip) reuse the existing
+    # release/* branch instead of creating a new one, so they don't retrigger this.
 
 concurrency:
   # Separate groups per mode so a publish run doesn't cancel an in-flight nightly.
-  group: release-screenshots-${{ inputs.mode || 'nightly' }}
+  # Kept in sync with env.MODE below (concurrency can't reference env context).
+  group: release-screenshots-${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
   cancel-in-progress: true
 
 permissions:
   contents: read
   id-token: write  # for AWS OIDC role-assumption in upload-report-to-s3
 
-# Normalize inputs once. Scheduled (cron) events do not populate inputs.*,
-# so we fall back to nightly defaults here and use env.MODE / env.VERSION_INPUT
-# everywhere downstream.
+# Normalize inputs once. Scheduled (cron) and create (branch) events do not
+# populate inputs.*, so we fall back to defaults here and use env.MODE /
+# env.VERSION_INPUT everywhere downstream.
 env:
-  MODE: ${{ inputs.mode || 'nightly' }}
-  VERSION_INPUT: ${{ inputs.version || 'auto' }}
+  MODE: ${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
+  VERSION_INPUT: ${{ inputs.version || (github.event_name == 'create' && 'latest-prerelease') || 'auto' }}
   BUILD_FROM_SOURCE: ${{ inputs.build_from_source || false }}
 
 jobs:
   release-screenshots:
-    name: screenshots-${{ inputs.mode || 'nightly' }}
+    name: screenshots-${{ inputs.mode || (github.event_name == 'create' && 'publish') || 'nightly' }}
     runs-on: macos-latest-xlarge
+    # create fires for any branch/tag; only act on new release/* branches.
+    if: github.event_name != 'create' || (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'release/'))
     steps:
       - name: Checkout positron
         uses: actions/checkout@v7
@@ -422,13 +433,13 @@ jobs:
               }')"
 
   slack-notify:
-    # Notify on cron failures always; manual runs only when the box is checked.
-    # Use github.event_name instead of comparing inputs.slack_notify to a string
+    # Notify on failures from unattended triggers (cron, release/* branch
+    # creation) always; manual runs only when the box is checked. Use
+    # github.event_name instead of comparing inputs.slack_notify to a string
     # literal -- boolean inputs don't reliably coerce to strings in expressions.
     if: >-
       ${{ failure() &&
-          (inputs.mode || 'nightly') == 'nightly' &&
-          (github.event_name == 'schedule' || inputs.slack_notify == true) }}
+          (github.event_name == 'schedule' || github.event_name == 'create' || inputs.slack_notify == true) }}
     needs: [release-screenshots]
     runs-on: ubuntu-latest
     steps:
