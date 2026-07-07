@@ -42,11 +42,12 @@ function fakeMetadata(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILangu
 function createMockShape() {
 	return new class extends mock<MainThreadLanguageRuntimeShape>() {
 		registrations: ILanguageRuntimeMetadata[] = [];
+		unregistrations: string[] = [];
 		override $registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
 			this.registrations.push(metadata);
 		}
-		override $unregisterLanguageRuntime(_runtimeId: string): void {
-			// no-op
+		override $unregisterLanguageRuntime(runtimeId: string): void {
+			this.unregistrations.push(runtimeId);
 		}
 		override $emitPerfMark(_extensionId: string, _name: string): void {
 			// no-op
@@ -131,6 +132,55 @@ describe('ExtHostLanguageRuntime - onDidRegisterRuntime', function () {
 		expect(shape.registrations[0].runtimeId).toBe(meta.runtimeId);
 		// ...but the public event has not fired yet (it would on broadcast back).
 		expect(seen).toEqual([]);
+	});
+});
+
+/** A manager that exposes an `onDidRemoveRuntime` event for retraction tests. */
+class RemovableManager extends mock<positron.LanguageRuntimeManager>() {
+	readonly removeEmitter = new Emitter<string>();
+	override readonly onDidRemoveRuntime = this.removeEmitter.event;
+}
+
+describe('ExtHostLanguageRuntime - onDidRemoveRuntime', function () {
+
+	const disposables = ensureNoLeakedDisposables();
+
+	let shape: ReturnType<typeof createMockShape>;
+	let runtime: ExtHostLanguageRuntime;
+
+	beforeEach(() => {
+		shape = createMockShape();
+		runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+	});
+
+	function registerRemovableRuntime(): RemovableManager {
+		const manager = new RemovableManager();
+		disposables.add(manager.removeEmitter);
+		disposables.add(runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager));
+		disposables.add(runtime.registerLanguageRuntime(fakeExtension, manager, fakeMetadata({ runtimeId: 'r-1' })));
+		return manager;
+	}
+
+	it('retracts the runtime on the main thread when the manager fires onDidRemoveRuntime', () => {
+		const manager = registerRemovableRuntime();
+
+		manager.removeEmitter.fire('r-1');
+
+		expect(shape.unregistrations).toEqual(['r-1']);
+	});
+
+	it('does not retract the runtime again when the manager is later disposed', () => {
+		const manager = new RemovableManager();
+		disposables.add(manager.removeEmitter);
+		const managerRegistration = runtime.registerLanguageRuntimeManager(fakeExtension, 'r', manager);
+		disposables.add(runtime.registerLanguageRuntime(fakeExtension, manager, fakeMetadata({ runtimeId: 'r-1' })));
+
+		// The runtime is dropped from the manager map on retraction, so disposing
+		// the manager afterwards must not unregister the same id a second time.
+		manager.removeEmitter.fire('r-1');
+		managerRegistration.dispose();
+
+		expect(shape.unregistrations).toEqual(['r-1']);
 	});
 });
 
