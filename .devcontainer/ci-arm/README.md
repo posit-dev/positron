@@ -25,9 +25,10 @@ One-time setup:
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
 
-3. Install the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
-   extension in **VS Code** - it's what opens the container. The lab's own extensions (Task Buttons,
-   Playwright, etc) install automatically inside the container.
+3. Install the **[Dev Containers](https://vscode.dev/redirect?url=vscode%3Aextension%2Fms-vscode-remote.remote-containers)**
+   extension in **VS Code** (click the link to open straight to its install page) - it's what opens
+   the container. The lab's own extensions (Task Buttons, Playwright, etc) install automatically
+   inside the container.
 
 ## Setup
 
@@ -161,7 +162,7 @@ build itself can happen through this path too, no Dev Containers UI required.
    - **Dependencies.** Compare `package-lock.json`'s hash against the one recorded at the last install:
 
      ```bash
-     docker exec ci-arm-test-1 bash -lc \
+     docker compose exec test bash -lc \
        "cd \$POSITRON_WORKSPACE_PATH && [ \"\$(sha256sum package-lock.json | awk '{print \$1}')\" = \"\$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)\" ] && echo OK || echo DRIFTED"
      ```
 
@@ -169,7 +170,7 @@ build itself can happen through this path too, no Dev Containers UI required.
      Reinstall deps** task calls:
 
      ```bash
-     docker exec ci-arm-test-1 bash -lc \
+     docker compose exec test bash -lc \
        "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/reinstall-deps.sh root"
      ```
 
@@ -180,15 +181,17 @@ build itself can happen through this path too, no Dev Containers UI required.
      recompile after switching:
 
      ```bash
-     docker exec -d ci-arm-test-1 bash -lc \
+     docker compose exec -d test bash -lc \
        "cd \$POSITRON_WORKSPACE_PATH && npm exec -- npm-run-all --max_old_space_size=4095 -lp compile > /tmp/compile.log 2>&1"
      ```
 
      This is incremental -- the same thing the **Watch** task does -- so it's much faster than the
      first-time build in step 5 below.
 
-3. **Bring up the stack.** Compose's project name defaults to `ci-arm` (the directory holding
-   `docker-compose.yml`), giving container names `ci-arm-postgres-1` / `ci-arm-test-1`:
+3. **Bring up the stack.** `initialize.sh` (step 1) pins `COMPOSE_PROJECT_NAME` to this checkout's own
+   directory name, so its containers/volumes never collide with another checkout's -- the remaining
+   steps use `docker compose exec <service>` instead of a hardcoded container name, so they resolve
+   correctly regardless of what that project name is:
 
    ```bash
    docker compose up -d
@@ -197,7 +200,7 @@ build itself can happen through this path too, no Dev Containers UI required.
 4. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
 
    ```bash
-   docker exec ci-arm-test-1 bash -lc \
+   docker compose exec test bash -lc \
      "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo WARM_OR_HOT || echo COLD"
    ```
 
@@ -207,27 +210,25 @@ build itself can happen through this path too, no Dev Containers UI required.
    - **HOT** (containers were already running, e.g. from an earlier session): skip both step 5 and 6's
      `post-start.sh` call and go straight to step 7.
 
-   This marker only proves `node_modules`/`.build` are populated somewhere -- not that they match
-   *this* worktree (see the [Gotchas](#gotchas) entry on shared Compose projects for why). If step 7
-   fails with a `Cannot find module` or missing `out/main.js` error despite a "warm" reading, treat it
-   as effectively cold: rerun step 2's dependency-drift check and compile command, or fall back to
-   step 5.
+   If step 7 fails with a `Cannot find module` or missing `out/main.js` error despite a "warm"
+   reading, treat it as effectively cold: rerun step 2's dependency-drift check and compile command,
+   or fall back to step 5.
 
 5. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
    Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
    It takes roughly 10 minutes and is not something to block a foreground shell on:
 
    ```bash
-   docker exec -d ci-arm-test-1 bash -lc \
+   docker compose exec -d test bash -lc \
      "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-create.sh > /tmp/post-create.log 2>&1"
    ```
 
-   `docker exec -d` detaches immediately, so this returns right away instead of holding the shell for
+   `-d` detaches immediately, so this returns right away instead of holding the shell for
    10 minutes. Poll for completion instead of guessing at a fixed sleep -- check every minute or two,
    not continuously, and read the log on failure:
 
    ```bash
-   docker exec ci-arm-test-1 bash -lc \
+   docker compose exec test bash -lc \
      "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo DONE || tail -5 /tmp/post-create.log"
    ```
 
@@ -238,27 +239,30 @@ build itself can happen through this path too, no Dev Containers UI required.
    on an already-HOT container):
 
    ```bash
-   docker exec ci-arm-test-1 bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
+   docker compose exec test bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
    ```
 
 7. **Run a test directly**, e.g. a single e2e spec:
 
    ```bash
-   docker exec -e DISPLAY=:10 ci-arm-test-1 bash -lc \
+   docker compose exec -e DISPLAY=:10 test bash -lc \
      "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/search/search.test.ts --project e2e-electron"
    ```
+
+   All `docker compose` commands above must run from `<worktree>/.devcontainer/ci-arm` (step 1's
+   directory) so Compose finds the right project's `docker-compose.yml` and `.env`.
 
 Gotchas specific to this path:
 
 - **No `containerEnv` injection.** Values from `devcontainer.json`'s `containerEnv` block (interpreter
-  versions like `POSITRON_PY_VER_SEL`) are applied by the Dev Containers extension, not by
-  `docker compose`/`docker exec`. Tests that depend on a specific interpreter version need those
-  exported explicitly (`docker exec -e POSITRON_PY_VER_SEL=... ...`).
+  versions like `POSITRON_PY_VER_SEL`) are applied by the Dev Containers extension, not by plain
+  `docker compose`. Tests that depend on a specific interpreter version need those exported
+  explicitly (`docker compose exec -e POSITRON_PY_VER_SEL=... ...`).
 - **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
   wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
   container fails every later step with confusing missing-module errors instead of one clear one.
-- **No `devcontainer` CLI required** -- this is plain `docker compose` + `docker exec`, useful since
-  the CLI isn't installed by default on the host.
+- **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
+  installed by default on the host.
 
 ## Reference
 
@@ -390,18 +394,19 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
   reload the window and let **Watch** recompile (restart any running Positron/debug). The
   [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 covers the same problem
   headlessly, including the dependency-drift check Watch doesn't handle.
-- **One dev container per checkout at a time -- and it fails silently, not loudly, if you break this.**
-  Compose's project name defaults to the directory *basename* holding `docker-compose.yml`, which is
-  `ci-arm` for every worktree (they all have the same `.devcontainer/ci-arm` layout). Bring up a second
-  worktree's stack and `docker compose up -d` doesn't error or warn -- it just recreates the
-  `ci-arm-postgres-1` / `ci-arm-test-1` containers against the new worktree's bind mount while reusing
-  the *same* named volumes (`positron-node-modules`, `positron-build`, etc.) from whichever worktree
-  built them last. If that worktree was on a different branch with a different `package-lock.json`,
-  you get confusing missing-module errors that look like a broken build rather than a stale dependency
-  mismatch (`reinstall-deps.sh` is the fix -- see
-  [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2). To actually run two
-  worktrees' containers side by side, set a distinct `COMPOSE_PROJECT_NAME` per worktree instead of
-  relying on the default.
+- **Each checkout gets its own containers automatically -- but only once `initialize.sh` has run for
+  it.** Compose's project name defaults to the directory *basename* holding `docker-compose.yml`,
+  which is `ci-arm` for every checkout of this repo (they all have the same `.devcontainer/ci-arm`
+  layout); without a fix, two checkouts would silently share one set of containers and volumes
+  instead of erroring. `initialize.sh` (Setup step 3 / CLI-only step 1) closes this by pinning
+  `COMPOSE_PROJECT_NAME` to the checkout's own directory name, so `docker compose up -d` always
+  creates that checkout's own containers. The one sharp edge: a checkout whose `.env` predates this
+  fix (no `COMPOSE_PROJECT_NAME` line) still defaults to the shared `ci-arm` name until
+  `initialize.sh` runs again -- which happens automatically on the next **Reopen in Container**, but
+  not mid-session. If you ever see a `postCreateCommand`/`postStartCommand` fail with a script "not
+  found" despite the file clearly being there, or a build behaving like it belongs to a different
+  branch, suspect a stale shared container from another checkout: `docker compose down` from the
+  checkout you're trying to use, then bring the stack back up.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
   (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter.
