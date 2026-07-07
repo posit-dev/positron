@@ -6,16 +6,14 @@
 // Applies auto-fixable test-tag-paths-map.json drift: removes stale keys and
 // appends LLM-advised entries for missing dirs as a new trailing group.
 //
-// Written in Node rather than jq/bash because the map is hand-curated with
-// blank-line grouping (feature areas separated visually, see the file itself)
-// that a `jq` round-trip would flatten. This does line-level text surgery
-// instead, so every untouched line is byte-identical in the output -- the
-// diff a reviewer sees is exactly the additions/removals, nothing else. The
-// result is still validated by parsing it as JSON and comparing it against an
-// object built purely in memory (see checkAgainstReference below) before it's
-// ever written to disk, so a source-format assumption that stops holding
-// (e.g. a future multi-line array entry) fails loudly instead of silently
-// corrupting the file.
+// Line-splices rather than JSON round-trips: deletes the stale lines and
+// inserts new ones before the closing brace, leaving every other line
+// (blank-line grouping included) byte-identical, so the diff is exactly the
+// additions and removals. Only complete single-line entries are touched (see
+// ENTRY_RE); a multi-line entry is left alone rather than partially deleted.
+// As a backstop, the output is parsed and compared against an in-memory
+// reference -- any mismatch (e.g. a comma we couldn't add next to a multi-line
+// entry) means we refuse to write instead of emitting a broken map.
 //
 // Usage:
 //   node scripts/apply-test-tag-map-fixes.mjs \
@@ -39,6 +37,11 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
+// A complete single-line entry: `  "some/dir/": ["@:tag", ...]`, optional
+// trailing comma. Group 1 = entry through the `]`, group 2 = the key. A
+// multi-line array has no `]` on its opening line, so it never matches.
+const ENTRY_RE = /^(\s*"([^"]+)"\s*:\s*\[[^\]]*\])\s*,?\s*$/;
+
 function parseArgs(argv) {
 	const args = {};
 	for (let i = 0; i < argv.length; i++) {
@@ -61,55 +64,20 @@ function fail(message) {
 	process.exit(1);
 }
 
-// Splits the map file's body into an ordered list of {key, valueRaw,
-// precededByBlank} entries. Bails (returns null) on anything that doesn't
-// match the file's established one-entry-per-line convention, rather than
-// guessing at an unfamiliar shape.
-function parseMapBody(raw) {
-	const lines = raw.split('\n');
-	// Drop a single trailing empty string from a final newline so index math
-	// below lines up with visible file lines.
-	if (lines.length > 0 && lines[lines.length - 1] === '') { lines.pop(); }
-	if (lines[0].trim() !== '{') { return null; }
-	let closeIdx = -1;
-	for (let i = lines.length - 1; i >= 1; i--) {
-		if (lines[i].trim() === '}') { closeIdx = i; break; }
-	}
-	if (closeIdx === -1) { return null; }
-	const entryPattern = /^(\s*)"([^"]+)":\s*(\[[^[\]]*\]),?\s*$/;
-	const entries = [];
-	let precededByBlank = false;
-	for (let i = 1; i < closeIdx; i++) {
-		const line = lines[i];
-		if (line.trim() === '') { precededByBlank = true; continue; }
-		const m = entryPattern.exec(line);
-		if (!m) { return null; }
-		entries.push({ indent: m[1], key: m[2], valueRaw: m[3], precededByBlank });
-		precededByBlank = false;
-	}
-	return entries;
-}
-
-function serializeMap(entries) {
-	const lines = ['{'];
-	entries.forEach((entry, i) => {
-		if (i > 0 && entry.precededByBlank) { lines.push(''); }
-		const comma = i === entries.length - 1 ? '' : ',';
-		lines.push(`${entry.indent}"${entry.key}": ${entry.valueRaw}${comma}`);
-	});
-	lines.push('}');
-	return lines.join('\n') + '\n';
-}
-
 function main() {
 	const args = parseArgs(process.argv.slice(2));
 	if (!args.map) { fail('--map is required'); }
 
 	const raw = readFileSync(args.map, 'utf8');
-	const entries = parseMapBody(raw);
-	if (!entries) {
-		fail(`${args.map} doesn't match the expected one-entry-per-line format; refusing to touch it. Fix manually.`);
+	// Validates the input and gives us the existing keys + the reference the
+	// splice is checked against below.
+	let reference;
+	try {
+		reference = JSON.parse(raw);
+	} catch (e) {
+		fail(`${args.map} is not valid JSON to begin with: ${e.message}`);
 	}
+	const existingKeys = new Set(Object.keys(reference));
 
 	const staleKeys = new Set(readJson(args.stale, []));
 	const advisory = readJson(args.advisory, {});
@@ -117,33 +85,27 @@ function main() {
 		? new Set(readFileSync(args['valid-tags'], 'utf8').split('\n').map(s => s.trim()).filter(Boolean))
 		: null;
 
-	const existingKeys = new Set(entries.map(e => e.key));
+	// Drop the trailing empty string from the final newline; re-added on output.
+	const lines = raw.split('\n');
+	if (lines.length > 0 && lines[lines.length - 1] === '') { lines.pop(); }
+
+	// Remove: drop each stale entry line. Blank lines, braces, and unrecognized
+	// lines stay put, so grouping is preserved with no bookkeeping.
 	const removed = [];
-	// Removing an entry that opened a blank-line-separated group would
-	// otherwise silently merge that group with the previous one (the blank
-	// line was recorded as "before this entry", which is gone now) -- carry
-	// the flag forward onto the next surviving entry so the visual grouping
-	// a reviewer sees survives even when the removed key was a group's first.
-	const kept = [];
-	let pendingBlank = false;
-	for (const e of entries) {
-		if (staleKeys.has(e.key)) {
-			removed.push(e.key);
-			pendingBlank = pendingBlank || e.precededByBlank;
-			continue;
-		}
-		kept.push({ ...e, precededByBlank: e.precededByBlank || pendingBlank });
-		pendingBlank = false;
-	}
-	// A stale key that was already removed by an earlier run (or never
-	// existed) is not an error -- the caller's drift snapshot may be stale by
-	// the time this runs.
+	const kept = lines.filter(line => {
+		const m = ENTRY_RE.exec(line);
+		if (m && staleKeys.has(m[2])) { removed.push(m[2]); return false; }
+		return true;
+	});
 	for (const key of staleKeys) {
 		if (!existingKeys.has(key)) { console.error(`Note: stale key already absent, skipping: ${key}`); }
 	}
 
+	// Add: build a new trailing group for advised dirs not already mapped,
+	// dropping any tag not in the valid set so a hallucinated tag can't land.
 	const added = [];
-	const newEntries = [];
+	const finalTagsByDir = {};
+	const newEntryLines = [];
 	for (const dir of Object.keys(advisory).sort()) {
 		if (existingKeys.has(dir) && !staleKeys.has(dir)) {
 			console.error(`Note: advised dir already mapped, skipping: ${dir}`);
@@ -151,65 +113,57 @@ function main() {
 		}
 		let tags = Array.isArray(advisory[dir]?.tags) ? advisory[dir].tags : [];
 		if (validTags) {
-			const filtered = tags.filter(t => validTags.has(t));
 			const dropped = tags.filter(t => !validTags.has(t));
 			if (dropped.length > 0) { console.error(`Note: dropped invalid advised tag(s) for ${dir}: ${dropped.join(', ')}`); }
-			tags = filtered;
+			tags = tags.filter(t => validTags.has(t));
 		}
-		newEntries.push({ indent: '  ', key: dir, valueRaw: JSON.stringify(tags), precededByBlank: false });
+		finalTagsByDir[dir] = tags;
+		newEntryLines.push(`  "${dir}": ${JSON.stringify(tags)}`);
 		added.push(dir);
-	}
-	if (newEntries.length > 0) { newEntries[0].precededByBlank = true; }
-
-	const finalEntries = [...kept, ...newEntries];
-	const output = serializeMap(finalEntries);
-
-	// Validate the textual surgery against a reference built purely from
-	// parsed JSON + the same add/remove operations, independent of line
-	// formatting. A mismatch means the line-based edit dropped or altered
-	// data and must never be written.
-	let reference;
-	try {
-		reference = JSON.parse(raw);
-	} catch (e) {
-		fail(`${args.map} is not valid JSON to begin with: ${e.message}`);
-	}
-	for (const key of removed) { delete reference[key]; }
-	for (const dir of added) {
-		let tags = Array.isArray(advisory[dir]?.tags) ? advisory[dir].tags : [];
-		if (validTags) { tags = tags.filter(t => validTags.has(t)); }
-		reference[dir] = tags;
-	}
-
-	let actual;
-	try {
-		actual = JSON.parse(output);
-	} catch (e) {
-		fail(`generated output is not valid JSON: ${e.message}`);
-	}
-	// Recursively sort object keys (order-independent top-level dir comparison)
-	// while leaving array contents and order untouched (tag arrays must compare
-	// exactly), then stringify. Deliberately not a `JSON.stringify(obj,
-	// Object.keys(obj).sort())` replacer-array trick: that reads as if it might
-	// filter nested array elements too, which invites exactly the kind of
-	// "does this actually compare tag arrays" doubt this check exists to remove.
-	const canonicalize = (value) => {
-		if (Array.isArray(value)) { return value.map(canonicalize); }
-		if (value !== null && typeof value === 'object') {
-			const sorted = {};
-			for (const key of Object.keys(value).sort()) { sorted[key] = canonicalize(value[key]); }
-			return sorted;
-		}
-		return value;
-	};
-	const normalize = (obj) => JSON.stringify(canonicalize(obj));
-	if (normalize(actual) !== normalize(reference)) {
-		fail('generated output does not match the expected result; refusing to write. This means a source-format assumption in parseMapBody no longer holds -- fix the map by hand and investigate.');
 	}
 
 	if (added.length === 0 && removed.length === 0) {
 		console.log(JSON.stringify({ added, removed }));
 		return;
+	}
+
+	if (newEntryLines.length > 0) {
+		let closeIdx = -1;
+		for (let i = kept.length - 1; i >= 0; i--) {
+			if (kept[i].trim() === '}') { closeIdx = i; break; }
+		}
+		if (closeIdx === -1) { fail(`${args.map} has no closing brace; refusing to touch it.`); }
+		// Blank line first, to set the new group off from existing entries.
+		kept.splice(closeIdx, 0, '', ...newEntryLines);
+	}
+
+	// Comma fixup: every entry line gets a trailing comma except the last.
+	// Covers both a removed final entry and appended entries in one pass.
+	let lastEntryIdx = -1;
+	for (let i = 0; i < kept.length; i++) {
+		if (ENTRY_RE.test(kept[i])) { lastEntryIdx = i; }
+	}
+	const output = kept.map((line, i) => {
+		const m = ENTRY_RE.exec(line);
+		if (!m) { return line; }
+		return i === lastEntryIdx ? m[1] : `${m[1]},`;
+	}).join('\n') + '\n';
+
+	// Backstop: compare the output against a reference built from parsed JSON +
+	// the same operations. A parse failure or mismatch means the splice
+	// produced something invalid, so we refuse to write.
+	for (const key of removed) { delete reference[key]; }
+	for (const dir of added) { reference[dir] = finalTagsByDir[dir]; }
+
+	let actual;
+	try {
+		actual = JSON.parse(output);
+	} catch (e) {
+		fail(`generated output is not valid JSON (${e.message}); refusing to write. A stale/neighbouring entry's array may span multiple lines -- fix the map by hand and investigate.`);
+	}
+	// Key order matches by construction, so a plain stringify compare suffices.
+	if (JSON.stringify(actual) !== JSON.stringify(reference)) {
+		fail('generated output does not match the expected result; refusing to write. Fix the map by hand and investigate.');
 	}
 
 	writeFileSync(args.map, output);

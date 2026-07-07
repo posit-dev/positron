@@ -502,7 +502,8 @@ else
 fi
 # The removed entry opened its blank-line-separated group -- the group
 # boundary before "positron-real" must survive even though the entry that
-# used to carry it is gone (regression check for the pendingBlank carry-over).
+# used to carry it is gone. Line-splicing preserves it for free (the blank
+# line is never rewritten); this guards against a regression to that.
 if [[ "$(grep -c '^$' "$APPLY_DIR/map.json")" -eq 2 ]]; then
 	echo "PASS: apply script preserves the blank-line group boundary after removing its first entry"
 else
@@ -531,9 +532,10 @@ else
 	echo "FAIL: apply script should not rewrite the file when there's nothing to do"; fail=1
 fi
 
-# Malformed map (multi-line array value) doesn't match the established
-# one-entry-per-line format -- the script must refuse to touch it rather than
-# guess at an unfamiliar shape and risk corrupting it.
+# Appending next to a multi-line array entry needs a comma the single-line
+# splice can't add to the `]` line, so the output would be invalid JSON. The
+# validation backstop must catch that and refuse to write rather than corrupt
+# the map.
 cat > "$APPLY_DIR/bad-map.json" <<'JSON'
 {
   "src/vs/workbench/contrib/positronConsole/": [
@@ -542,15 +544,16 @@ cat > "$APPLY_DIR/bad-map.json" <<'JSON'
 }
 JSON
 cp "$APPLY_DIR/bad-map.json" "$APPLY_DIR/bad-map.orig.json"
-if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --stale "$APPLY_DIR/stale.json" >/dev/null 2>&1; then
-	echo "FAIL: apply script should refuse a map with a multi-line array value"; fail=1
+echo '{"extensions/positron-new/": {"tags": ["@:reticulate"], "reason": "x"}}' > "$APPLY_DIR/bad-advisory.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --advisory "$APPLY_DIR/bad-advisory.json" --valid-tags "$APPLY_DIR/valid-tags.txt" >/dev/null 2>&1; then
+	echo "FAIL: apply script should refuse to write when a splice would produce invalid JSON"; fail=1
 else
-	echo "PASS: apply script refuses a map with a multi-line array value"
+	echo "PASS: apply script refuses to write when a splice would produce invalid JSON"
 fi
 if diff -q "$APPLY_DIR/bad-map.orig.json" "$APPLY_DIR/bad-map.json" >/dev/null; then
-	echo "PASS: apply script leaves the malformed map untouched on refusal"
+	echo "PASS: apply script leaves the map untouched when it refuses"
 else
-	echo "FAIL: apply script should not modify the malformed map it refused to touch"; fail=1
+	echo "FAIL: apply script should not modify the map it refused to write"; fail=1
 fi
 rm -rf "$APPLY_DIR"
 
