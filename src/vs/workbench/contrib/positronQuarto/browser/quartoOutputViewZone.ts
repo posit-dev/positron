@@ -149,6 +149,57 @@ export function isWebviewOverlayShown(zoneDomNode: HTMLElement, anchor: HTMLElem
 }
 
 /**
+ * Whether a `text/html` output is inert -- free of active content (scripts,
+ * iframes, objects, embeds, `javascript:` URLs, inline event handlers) -- and
+ * therefore safe to inject directly into the DOM rather than sandboxing it in a
+ * webview.
+ *
+ * Uses substring/pattern matching rather than a parser: a false negative (inert
+ * markup treated as active) merely routes to a webview, which still renders,
+ * while a false positive would be a security gap, so we err toward "active".
+ */
+export function isInertHtml(html: string): boolean {
+	const activePatterns = [
+		/<script/i,
+		/javascript:/i,
+		/on\w+\s*=/i, // onclick, onerror, etc.
+		/<iframe/i,
+		/<object/i,
+		/<embed/i,
+	];
+	return !activePatterns.some(pattern => pattern.test(html));
+}
+
+/**
+ * How a `text/html` output item should be rendered inline in a Quarto output
+ * view zone.
+ */
+export type HtmlRenderMode = 'inline' | 'webview' | 'warning';
+
+/**
+ * Decide how to render a `text/html` output item.
+ *
+ * - `inline`: the HTML is inert, so it is injected directly into the DOM.
+ * - `webview`: the HTML has active content and must be sandboxed. The raw-HTML
+ *   webview is built from the static HTML alone via `createRawHtmlOutputWebview`
+ *   and needs no runtime session. This is what lets cached R HTML widgets (e.g.
+ *   highcharter, leaflet) restore as interactive webviews after a reload or
+ *   reopen, before any kernel session reattaches (posit-dev/positron#14559).
+ * - `warning`: no webview service is available at all, so fall back to escaped
+ *   text with a "requires webview" notice.
+ *
+ * @param html the raw HTML content of the output item.
+ * @param hasWebviewService whether a webview service is available to sandbox
+ *   active HTML.
+ */
+export function chooseHtmlRenderMode(html: string, hasWebviewService: boolean): HtmlRenderMode {
+	if (isInertHtml(html)) {
+		return 'inline';
+	}
+	return hasWebviewService ? 'webview' : 'warning';
+}
+
+/**
  * View zone for displaying Quarto cell output inline in the editor.
  * Supports text, images, error output, and complex webview-based outputs.
  */
@@ -2544,43 +2595,34 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-html';
 
-		// For security, only render safe HTML (no scripts)
-		if (this._isSafeHtml(content)) {
-			safeSetInnerHtml(container, content);
-		} else if (this._webviewService && this._session) {
-			// Use webview for unsafe HTML content
-			container.className = 'quarto-output-webview-container';
-			this._renderHtmlInWebview(content, output, container);
-		} else {
-			// If HTML contains scripts and no webview service available,
-			// render as escaped text with a warning
-			const warning = document.createElement('div');
-			warning.className = 'quarto-output-warning';
-			warning.textContent = localize('unsafeHtml', 'Interactive HTML output (requires webview)');
-			container.appendChild(warning);
+		// Active HTML is sandboxed in a raw-HTML webview, which is built from the
+		// static content alone and needs no runtime session -- so cached R HTML
+		// widgets restore as webviews after a reload before any kernel reattaches
+		// (posit-dev/positron#14559).
+		switch (chooseHtmlRenderMode(content, !!this._webviewService)) {
+			case 'inline':
+				safeSetInnerHtml(container, content);
+				break;
+			case 'webview':
+				container.className = 'quarto-output-webview-container';
+				this._renderHtmlInWebview(content, output, container);
+				break;
+			case 'warning': {
+				// No webview service available: render as escaped text with a warning.
+				const warning = document.createElement('div');
+				warning.className = 'quarto-output-warning';
+				warning.textContent = localize('unsafeHtml', 'Interactive HTML output (requires webview)');
+				container.appendChild(warning);
 
-			const pre = document.createElement('pre');
-			pre.className = 'quarto-output-html-escaped';
-			pre.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
-			container.appendChild(pre);
+				const pre = document.createElement('pre');
+				pre.className = 'quarto-output-html-escaped';
+				pre.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+				container.appendChild(pre);
+				break;
+			}
 		}
 
 		return container;
-	}
-
-	private _isSafeHtml(html: string): boolean {
-		// Simple check for potentially unsafe content
-		// Rich/interactive content will be handled by webview
-		const unsafePatterns = [
-			/<script/i,
-			/javascript:/i,
-			/on\w+\s*=/i, // onclick, onerror, etc.
-			/<iframe/i,
-			/<object/i,
-			/<embed/i,
-		];
-
-		return !unsafePatterns.some(pattern => pattern.test(html));
 	}
 
 	/**
@@ -2691,7 +2733,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Used for unsafe HTML that requires sandboxed rendering.
 	 */
 	private async _renderHtmlInWebview(content: string, output: ICellOutput, container: HTMLElement): Promise<void> {
-		if (!this._webviewService || !this._session) {
+		// A raw-HTML webview renders static content and needs no runtime session,
+		// so it can be built when restoring cached output before a kernel
+		// reattaches (posit-dev/positron#14559).
+		if (!this._webviewService) {
 			return;
 		}
 
