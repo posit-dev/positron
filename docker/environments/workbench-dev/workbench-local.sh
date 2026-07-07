@@ -8,7 +8,7 @@ WB_TTL_PIDFILE="${SCRIPT_DIR}/.ttl.pid"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
-WB_URL_BASE="https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local"
+WB_SCRIPTS_DIR="${REPO_ROOT}/wb-local"
 WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
@@ -190,28 +190,13 @@ wb_bootstrap_env() {
 }
 
 wb_fetch_scripts() {
-	local src="${QA_CONTENT_DIR:-}"
-	if [ -z "$src" ] && [ -d "${REPO_ROOT}/../qa-example-content/dockerfiles/wb-local" ]; then
-		src="$(cd "${REPO_ROOT}/../qa-example-content" && pwd)"
-	fi
-	# Run in a subshell with one scratch dir cleaned up on EXIT (even if a
-	# curl/docker cp fails under set -e). A subshell EXIT trap stays contained;
-	# a function RETURN trap would leak and re-fire on later function returns.
-	(
-		tmpdir="$(mktemp -d)"
-		trap 'rm -rf "$tmpdir"' EXIT
-		for s in "${WB_SCRIPTS[@]}"; do
-			if [ -n "$src" ] && [ -f "${src}/dockerfiles/wb-local/${s}" ]; then
-				docker cp "${src}/dockerfiles/wb-local/${s}" "test:/tmp/${s}" >/dev/null
-			else
-				curl -fsSL "${WB_URL_BASE}/${s}" -o "${tmpdir}/${s}"
-				docker cp "${tmpdir}/${s}" "test:/tmp/${s}" >/dev/null
-			fi
-			docker exec test sed -i 's/\r$//' "/tmp/${s}"
-			docker exec test chmod +x "/tmp/${s}"
-		done
-		[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
-	)
+	# The wb-local scripts live in-repo alongside this one (docker/environments/wb-local).
+	for s in "${WB_SCRIPTS[@]}"; do
+		docker cp "${WB_SCRIPTS_DIR}/${s}" "test:/tmp/${s}" >/dev/null
+		docker exec test sed -i 's/\r$//' "/tmp/${s}"
+		docker exec test chmod +x "/tmp/${s}"
+	done
+	[ -f "${SCRIPT_DIR}/workbench.lic" ] && docker cp "${SCRIPT_DIR}/workbench.lic" test:/tmp/workbench.lic >/dev/null || true
 }
 
 # Channel (Release/Daily) -> version list. Sets POSITRON_TAG (downloaded from

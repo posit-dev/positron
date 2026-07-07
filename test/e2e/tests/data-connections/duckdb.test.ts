@@ -48,7 +48,7 @@ test.describe('Data Connections - DuckDB', {
 	test.beforeAll(async function ({ app }) {
 		const { dataConnections } = app.workbench;
 
-		// The order_tracking.duckdb file lives inside qa-example-content, which is the workspace root.
+		// The order_tracking.duckdb file lives inside test-files, which is the workspace root.
 		const databaseFile = join(app.workspacePathOrFolder, 'data-files/order-tracking/order_tracking.duckdb');
 
 		await dataConnections.openDataConnectionsView();

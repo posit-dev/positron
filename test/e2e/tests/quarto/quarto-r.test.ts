@@ -87,7 +87,7 @@ const fileExists = async (app: Application, file: string, runDockerCommand?: Doc
 	if (runDockerCommand && projectName) {
 		const containerName = projectName === 'e2e-jupyter' ? 'jupyter-test' : 'test';
 		const userName = projectName === 'e2e-jupyter' ? 'jupyter-admin' : 'user1';
-		const containerPath = `/home/${userName}/qa-example-content/workspaces/quarto_basic/${file}`;
+		const containerPath = `/home/${userName}/test-files/workspaces/quarto_basic/${file}`;
 		try {
 			const { stdout } = await runDockerCommand(
 				`docker exec ${containerName} bash -lc 'if test -f "${containerPath}"; then echo FOUND; else echo MISSING; fi'`,

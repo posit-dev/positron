@@ -1,0 +1,40 @@
+Package: qa.content.examples
+Title: Exampe R Content for Testing
+Version: 0.0.0.9000
+Type: TestAssets
+Description: Not really a package. This file is just to enable installing dependencies.
+Imports: 
+    arrow,
+    readxl,
+    connections,
+    tidyverse,
+    RSQLite,
+    lubridate,
+    dplyr,
+    shiny,
+    corrr,
+    highcharter,
+    leaflet,
+    plotly,
+    testthat,
+    devtools,
+    generator,
+    fixest,
+    palmerpenguins,
+    modelsummary,
+    reactable,
+    reprex,
+    shinyjs,
+    phonTools,
+    reticulate,
+    DiagrammeR,
+    stringi,
+    stringr,
+    cli,
+    corrplot,
+    GGally,
+    hexbin,
+    viridis,
+    RPostgres,
+    DBI,
+    connections

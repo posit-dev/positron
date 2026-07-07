@@ -91,7 +91,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 		// capture screenshot
 		await layouts.resizePanel({ y: -250 });
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 		await captureFullWindow(page, 'variables-pane.png');
 	});
 
@@ -122,7 +122,7 @@ test.describe('Release Screenshots - Interpreter Session', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 		await annotate(page, [
 			{ selector: 'button:has(.top-action-bar-session-picker-face)', label: '', color: ANNOTATION_COLOR, padding: 2 },
 		]);

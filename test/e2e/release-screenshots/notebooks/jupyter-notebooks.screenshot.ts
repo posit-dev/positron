@@ -45,7 +45,7 @@ test.describe('Release Screenshots - Jupyter Notebooks', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: '.positron-notebook-kernel-status-badge', label: '', color: ANNOTATION_COLOR, padding: 4 },
 		]);

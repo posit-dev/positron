@@ -49,7 +49,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: 'button[aria-label="Kernel Actions"]', label: '', color: ANNOTATION_COLOR, padding: 6 },
 		]);
@@ -81,7 +81,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await annotate(page, [
 			{ selector: '.editor-action-bar-container button[aria-label="Ask Assistant"]', label: '', color: ANNOTATION_COLOR, padding: 3 },
 		]);
@@ -161,7 +161,7 @@ test.describe('Release Screenshots - Positron Notebook', () => {
 
 		// Capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks-2');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks-2');
 		await captureFullWindow(page, 'positron-notebook.png');
 	});
 });

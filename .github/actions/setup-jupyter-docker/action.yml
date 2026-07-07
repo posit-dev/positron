@@ -51,18 +51,15 @@ runs:
         # Verify container is responsive
         docker exec jupyter-test echo "Container is responsive"
 
-    - name: Download and setup Jupyter scripts
+    - name: Setup Jupyter scripts
       shell: bash
       run: |
-        # Download install-jupyter-positron.sh
-        curl -L -o install-jupyter-positron.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/jupyter-local/install-jupyter-positron.sh
-
-        # Download positronDownload.sh
-        curl -L -o positronDownload.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/jupyter-local/positronDownload.sh
+        # Scripts are checked out with the repo under docker/environments/jupyter-local
+        SCRIPTS_DIR="docker/environments/jupyter-local"
 
         # Copy scripts into the container (use /opt instead of /tmp since /tmp is tmpfs)
-        docker cp install-jupyter-positron.sh jupyter-test:/opt/install-jupyter-positron.sh
-        docker cp positronDownload.sh jupyter-test:/opt/positronDownload.sh
+        docker cp "$SCRIPTS_DIR/install-jupyter-positron.sh" jupyter-test:/opt/install-jupyter-positron.sh
+        docker cp "$SCRIPTS_DIR/positronDownload.sh" jupyter-test:/opt/positronDownload.sh
 
         # Make scripts executable
         docker exec jupyter-test chmod +x /opt/install-jupyter-positron.sh

@@ -56,26 +56,17 @@ runs:
           -f dockerfiles/docker-compose.workbench.yml \
           up -d
 
-    - name: Download and setup workbench scripts
+    - name: Setup workbench scripts
       shell: bash
       run: |
-        # Download install-workbench.sh
-        curl -L -o install-workbench.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/install-workbench.sh
-
-        # Download positronDownload.sh
-        curl -L -o positronDownload.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/positronDownload.sh
-
-        # Download get-latest-wb-noble-url.sh
-        curl -L -o get-latest-wb-noble-url.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/get-latest-wb-noble-url.sh
-
-        # Download configure-datasources.sh
-        curl -L -o configure-datasources.sh https://raw.githubusercontent.com/posit-dev/qa-example-content/main/dockerfiles/wb-local/configure-datasources.sh
+        # Scripts are checked out with the repo under docker/environments/wb-local
+        SCRIPTS_DIR="docker/environments/wb-local"
 
         # Copy scripts into the container
-        docker cp install-workbench.sh test:/tmp/install-workbench.sh
-        docker cp positronDownload.sh test:/tmp/positronDownload.sh
-        docker cp get-latest-wb-noble-url.sh test:/tmp/get-latest-wb-noble-url.sh
-        docker cp configure-datasources.sh test:/tmp/configure-datasources.sh
+        docker cp "$SCRIPTS_DIR/install-workbench.sh" test:/tmp/install-workbench.sh
+        docker cp "$SCRIPTS_DIR/positronDownload.sh" test:/tmp/positronDownload.sh
+        docker cp "$SCRIPTS_DIR/get-latest-wb-noble-url.sh" test:/tmp/get-latest-wb-noble-url.sh
+        docker cp "$SCRIPTS_DIR/configure-datasources.sh" test:/tmp/configure-datasources.sh
 
         # Copy Workbench license into test container if it exists
         if [ -f "${{ inputs.workbench-license-path }}" ]; then
