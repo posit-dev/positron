@@ -245,9 +245,9 @@ jobs:
           ATTENTION=""
           if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
             [ "$MISSING_COUNT" = "1" ] && ATTN_ITEM="1 directory needs tags assigned" || ATTN_ITEM="${MISSING_COUNT} directories need tags assigned"
-            ATTENTION=$(printf '\n\n**Still needs attention**\n\n- **%s** (see the [weekly check summary](%s))' "$ATTN_ITEM" "$RUN_URL")
+            ATTENTION=$(printf '\n\n**:warning: Still needs attention**\n\n- %s' "$ATTN_ITEM")
           fi
-          BODY=$(printf '**Removed**\n\n%s%s\n\n--\n_This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._' "$REMOVED" "$ATTENTION")
+          BODY=$(printf '### Summary\n\nThis PR removes stale entries found by the [weekly test tag audit](%s).\n\n**:white_check_mark: Removed**\n\n%s%s\n\n--\n_This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._' "$RUN_URL" "$REMOVED" "$ATTENTION")
           if [ "$EXISTS" = "true" ]; then
             gh pr edit "$EXISTING_PR_NUMBER" --body "$BODY" >/dev/null
             echo "Updated existing PR: $EXISTING_PR_URL"
