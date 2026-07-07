@@ -7,7 +7,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { log } from './log';
+import { AuthProviderLogger } from '../authProviderLogger';
+
+const logger = new AuthProviderLogger('Snowflake Auth');
 
 export interface SnowflakeProviderVariables {
 	SNOWFLAKE_ACCOUNT?: string;
@@ -82,7 +84,7 @@ export function constructSnowflakeBaseUrl(account: string): string {
 function extractCredentialsFromToml(connectionsTomlPath: string): { account: string; token: string } | null {
 	try {
 		if (!fs.existsSync(connectionsTomlPath)) {
-			log.error('[Snowflake Auth] connections.toml file does not exist. Please ensure SNOWFLAKE_HOME is set correctly.');
+			logger.error('connections.toml file does not exist. Please ensure SNOWFLAKE_HOME is set correctly.');
 			return null;
 		}
 
@@ -93,14 +95,14 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 		// Try to get the token
 		const tokenLine = cfg.find(line => line.includes('token = '));
 		if (!tokenLine) {
-			log.warn('[Snowflake Auth] No token found in connections.toml');
+			logger.warn('No token found in connections.toml');
 		}
 		token = tokenLine ? tokenLine.replace('token = ', '').trim().replace(/"/g, '') : '';
 
 		// Try to get the account
 		const accountLine = cfg.find(line => line.includes('account = '));
 		if (!accountLine) {
-			log.warn('[Snowflake Auth] No account identifier found in connections.toml');
+			logger.warn('No account identifier found in connections.toml');
 		}
 		account = accountLine ? accountLine.replace('account = ', '').trim().replace(/"/g, '') : '';
 
@@ -108,10 +110,10 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 			return { account, token };
 		}
 
-		log.error('[Snowflake Auth] Incomplete credentials in connections.toml');
+		logger.error('Incomplete credentials in connections.toml');
 		return null;
 	} catch (error) {
-		log.debug(`[Snowflake Auth] Error extracting account and token from TOML: ${error}`);
+		logger.debug(`Error extracting account and token from TOML: ${error}`);
 		return null;
 	}
 }
@@ -123,14 +125,14 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialConfig | undefined> {
 	const connectionsTomlPath = getSnowflakeConnectionsTomlPath();
 	if (!connectionsTomlPath) {
-		log.debug('[Snowflake Auth] No Posit Workbench managed credentials detected');
+		logger.debug('No Posit Workbench managed credentials detected');
 		return undefined;
 	}
 
 	// For credential detection, we parse the connections.toml file to extract both account and token
 	const result = extractCredentialsFromToml(connectionsTomlPath);
 	if (result && result.token) {
-		log.info(`[Snowflake Auth] Using Posit Workbench managed credentials for account: ${result.account}`);
+		logger.info(`Using Posit Workbench managed credentials for account: ${result.account}`);
 		return {
 			token: result.token,
 			account: result.account,
@@ -138,7 +140,7 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 		};
 	}
 
-	log.debug('[Snowflake Auth] Failed to extract valid Snowflake credentials from connections.toml');
+	logger.debug('Failed to extract valid Snowflake credentials from connections.toml');
 	return undefined;
 }
 
@@ -158,10 +160,10 @@ export function getSnowflakeConnectionsTomlPath(): string | undefined {
 			return path.join(expandedHome, 'connections.toml');
 		}
 
-		log.warn('[Snowflake Auth] No SNOWFLAKE_HOME configured - unable to determine connections.toml path');
+		logger.warn('No SNOWFLAKE_HOME configured - unable to determine connections.toml path');
 		return undefined;
 	} catch (error) {
-		log.warn(`[Snowflake Auth] Failed to get connections.toml path: ${error}`);
+		logger.warn(`Failed to get connections.toml path: ${error}`);
 		return undefined;
 	}
 }
@@ -191,11 +193,11 @@ export async function checkForUpdatedSnowflakeCredentials(
 
 		// If this is our first check or the file has been modified, read new credentials
 		if (!lastCheck || lastModified > lastCheck) {
-			log.debug('[Snowflake Auth] connections.toml modified, checking for updated credentials');
+			logger.debug('connections.toml modified, checking for updated credentials');
 
 			const credentials = await detectSnowflakeCredentials();
 			if (credentials?.token && credentials.token !== currentToken) {
-				log.info(`[Snowflake Auth] Found updated credentials for account: ${credentials.account}`);
+				logger.info(`Found updated credentials for account: ${credentials.account}`);
 				return {
 					updated: true,
 					credentials,
@@ -217,7 +219,7 @@ export async function checkForUpdatedSnowflakeCredentials(
 		};
 	} catch (error) {
 		// File might not exist or be readable, which is fine
-		log.debug(`[Snowflake Auth] Could not check connections.toml modification time: ${error}`);
+		logger.debug(`Could not check connections.toml modification time: ${error}`);
 		return {
 			updated: false,
 			lastModified: lastCheck || Date.now()

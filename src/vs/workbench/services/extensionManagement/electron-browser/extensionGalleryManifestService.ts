@@ -31,7 +31,7 @@ import { env } from '../../../../base/common/process.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 // eslint-disable-next-line no-duplicate-imports
-import { PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+import { PositronGallerySourceConfigKey, PositronCustomGalleryUrlConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // eslint-disable-next-line no-duplicate-imports
 import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
 import { handleGallerySourceSettingChange, reportExtensionsGalleryEnv, showWindowLog } from '../common/extensionGalleryManifestEnvReporting.js';
@@ -97,15 +97,31 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 			this.notificationService,
 			() => showWindowLog(this.instantiationService),
 		);
-		return resolvePositronGalleryConfig(
+		const resolved = resolvePositronGalleryConfig(
 			envGallery,
 			gallerySource,
+			this.configurationService.getValue<string>(PositronCustomGalleryUrlConfigKey),
 			super.getGalleryConfig(),
 		);
+		// Capture the gallery in effect this session on first resolution, so a later
+		// settings change can tell whether it resolves to a different gallery (and
+		// thus needs a restart) without prompting for no-op edits.
+		if (!this.activeGalleryCaptured) {
+			this.activeGalleryCaptured = true;
+			this.activeGalleryServiceUrl = resolved?.serviceUrl;
+		}
+		return resolved;
 	}
 	// --- End Positron ---
 
 	private extensionGalleryManifestPromise: Promise<void> | undefined;
+	// --- Start Positron ---
+	// The resolved gallery serviceUrl in effect at startup. A gallery-setting
+	// change only needs a restart if it resolves to a *different* serviceUrl, so
+	// we compare against this rather than prompting on every edit.
+	private activeGalleryServiceUrl: string | undefined;
+	private activeGalleryCaptured = false;
+	// --- End Positron ---
 	override async getExtensionGalleryManifest(): Promise<IExtensionGalleryManifest | null> {
 		if (!this.extensionGalleryManifestPromise) {
 			this.extensionGalleryManifestPromise = this.doGetExtensionGalleryManifest();
@@ -131,17 +147,36 @@ export class WorkbenchExtensionGalleryManifestService extends ExtensionGalleryMa
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
 			// --- Start Positron ---
-			if (e.affectsConfiguration(PositronGallerySourceConfigKey)) {
+			// The gallery source and the custom URL resolve together (see
+			// resolvePositronGalleryConfig), so a change to either may affect the
+			// active gallery.
+			if (e.affectsConfiguration(PositronGallerySourceConfigKey) || e.affectsConfiguration(PositronCustomGalleryUrlConfigKey)) {
+				const gallerySource = this.configurationService.getValue<string>(PositronGallerySourceConfigKey);
 				// Re-parse and report so the user is told again if the env var is
 				// malformed; only a valid env var actually overrides the setting.
 				const envGallery = reportExtensionsGalleryEnv(
 					env['EXTENSIONS_GALLERY'],
-					this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+					gallerySource,
 					this.logService,
 					this.notificationService,
 					() => showWindowLog(this.instantiationService),
 				);
-				handleGallerySourceSettingChange(envGallery, this.notificationService, () => this.requestRestart());
+				// When a valid env var is overriding, handleGallerySourceSettingChange
+				// notifies without restarting. Otherwise it invokes our callback, which
+				// only restarts when the change resolves to a *different* gallery --
+				// setting the custom URL before selecting Custom (or selecting Custom
+				// with an empty URL) is a no-op and must not prompt.
+				handleGallerySourceSettingChange(envGallery, this.notificationService, () => {
+					const resolved = resolvePositronGalleryConfig(
+						envGallery,
+						gallerySource,
+						this.configurationService.getValue<string>(PositronCustomGalleryUrlConfigKey),
+						super.getGalleryConfig(),
+					);
+					if (resolved?.serviceUrl !== this.activeGalleryServiceUrl) {
+						this.requestRestart();
+					}
+				});
 				return;
 			}
 			// --- End Positron ---

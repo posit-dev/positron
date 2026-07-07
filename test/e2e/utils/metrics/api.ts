@@ -29,6 +29,7 @@ export type PerfMetric = {
 	action: string;
 	target_type: string;
 	target_description?: string;
+	variant?: string;
 	duration_ms: number;
 	status?: 'success' | 'error';
 	context_json?: AnyMetricContext;
@@ -49,6 +50,7 @@ export type MetricPayload = {
 	duration_ms: number;
 	status: string;
 	target_description?: string;
+	variant?: string;
 	spec_name: string;
 	context: string;
 };
@@ -103,7 +105,8 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		duration_ms,
 		status = 'success',
 		context_json = {},
-		spec_name
+		spec_name,
+		variant
 	} = metric;
 
 	return {
@@ -120,6 +123,7 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		duration_ms,
 		status,
 		target_description,
+		variant,
 		spec_name: spec_name || SPEC_NAME,
 		context: JSON.stringify(context_json)
 	};

@@ -5,22 +5,23 @@
 
 import * as vscode from 'vscode';
 import { GoogleAuth } from 'google-auth-library';
-import { AuthProviderLogger } from './authProviderLogger';
-import { log } from './log';
+import { AuthProviderLogger } from '../authProviderLogger';
+import { log } from '../log';
 
-const VERTEX_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+const GEAP_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
 /**
  * Session token payload returned by the resolver. JSON-stringified into the
  * `accessToken` field of the `vscode.authentication` session so the consumer
- * can authenticate against Vertex without re-deriving any of these pieces.
+ * can authenticate against Gemini Enterprise Agent Platform without re-deriving
+ * any of these pieces.
  *
  * The embedded credential is called `token`, matching `google-auth-library`'s
  * own `GetAccessTokenResponse.token` field. Not to be confused with the outer
  * `session.accessToken` (a VS Code authentication API field): the outer one
  * is the JSON envelope; the inner `token` is the OAuth bearer.
  */
-export interface GoogleVertexCredentialPayload {
+export interface GeapCredentialPayload {
 	/** Fresh OAuth bearer with cloud-platform scope. */
 	token: string;
 	/** GCP project ID. */
@@ -51,7 +52,7 @@ async function tryInlineCredentials(): Promise<string | undefined> {
 				private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
 			}),
 		},
-		scopes: [VERTEX_SCOPE],
+		scopes: [GEAP_SCOPE],
 	});
 
 	try {
@@ -79,7 +80,7 @@ async function tryInlineCredentials(): Promise<string | undefined> {
 async function tryApplicationDefaultCredentials(
 	logger: AuthProviderLogger,
 ): Promise<string | undefined> {
-	const client = new GoogleAuth({ scopes: [VERTEX_SCOPE] });
+	const client = new GoogleAuth({ scopes: [GEAP_SCOPE] });
 	try {
 		const token = await client.getAccessToken();
 		if (!token) {
@@ -114,7 +115,7 @@ function readProjectAndLocation(): { project?: string; location?: string } {
 }
 
 /**
- * Resolve a Google Vertex credential. Mints a fresh OAuth bearer (inline
+ * Resolve a Gemini Enterprise Agent Platform credential. Mints a fresh OAuth bearer (inline
  * service-account env vars first, then Application Default Credentials)
  * and bundles it with project + location into a JSON-encoded session
  * payload.
@@ -126,8 +127,8 @@ function readProjectAndLocation(): { project?: string; location?: string } {
  *
  * Throws if no credentials resolve, or if project/location are unset.
  */
-export async function resolveGoogleVertexCredential(
-	logger: AuthProviderLogger = new AuthProviderLogger('Google Vertex AI', log),
+export async function resolveGeapCredential(
+	logger: AuthProviderLogger = new AuthProviderLogger('Gemini Enterprise Agent Platform', log),
 ): Promise<string> {
 	let token = await tryInlineCredentials();
 	if (!token) {
@@ -135,7 +136,7 @@ export async function resolveGoogleVertexCredential(
 	}
 	if (!token) {
 		throw new Error(
-			'No Google Vertex AI credentials found. Set GOOGLE_CLIENT_EMAIL ' +
+			'No Gemini Enterprise Agent Platform credentials found. Set GOOGLE_CLIENT_EMAIL ' +
 			'and GOOGLE_PRIVATE_KEY for a service account, or run ' +
 			'`gcloud auth application-default login` to use Application ' +
 			'Default Credentials.'
@@ -145,7 +146,7 @@ export async function resolveGoogleVertexCredential(
 	const { project, location } = readProjectAndLocation();
 	if (!project || !location) {
 		throw new Error(
-			'Google Vertex AI requires a project and location. Set ' +
+			'Gemini Enterprise Agent Platform requires a project and location. Set ' +
 			'`authentication.googleVertex.credentials.GOOGLE_VERTEX_PROJECT` ' +
 			'and `authentication.googleVertex.credentials.GOOGLE_VERTEX_LOCATION` ' +
 			'in settings, or set the `GOOGLE_VERTEX_PROJECT` and ' +
@@ -153,6 +154,6 @@ export async function resolveGoogleVertexCredential(
 		);
 	}
 
-	const payload: GoogleVertexCredentialPayload = { token, project, location };
+	const payload: GeapCredentialPayload = { token, project, location };
 	return JSON.stringify(payload);
 }
