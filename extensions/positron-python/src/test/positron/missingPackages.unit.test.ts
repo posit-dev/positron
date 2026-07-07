@@ -117,7 +117,11 @@ suite('listMissingPythonPackages', () => {
         // In web/remote windows the workbench sends a `vscode-remote` URI rather
         // than `file`. Its path still maps to the kernel's filesystem, so the
         // file's directory must be forwarded as an import root just like `file`.
-        const uri = vscode.Uri.from({ scheme: 'vscode-remote', authority: 'server', path: '/home/user/project/app.py' });
+        const uri = vscode.Uri.from({
+            scheme: 'vscode-remote',
+            authority: 'server',
+            path: '/home/user/project/app.py',
+        });
         const expectedRoot = path.dirname(uri.fsPath);
 
         await listMissingPythonPackages(session, manager, {
