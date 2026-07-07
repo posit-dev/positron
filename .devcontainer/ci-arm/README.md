@@ -121,6 +121,87 @@ and run it. Set breakpoints in `src/` as usual; both run on the headless display
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
 
+## CLI-only / headless usage (e.g. Claude Code)
+
+Everything above assumes VS Code's Dev Containers UI. An agent (or any terminal-only workflow) can
+drive the same stack directly with `docker compose` + `docker exec`, once [Setup](#setup)'s steps 1-2
+are done (worktree created, secrets added) -- the build itself can happen through this path too, no
+Dev Containers UI required.
+
+1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
+
+   ```bash
+   cd <worktree>/.devcontainer/ci-arm
+   ./initialize.sh   # writes POSITRON_WORKSPACE_PATH / POSITRON_GIT_COMMON_DIR into .env
+   ```
+
+2. **Bring up the stack.** Compose's project name defaults to `ci-arm` (the directory holding
+   `docker-compose.yml`), giving container names `ci-arm-postgres-1` / `ci-arm-test-1`:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
+
+   ```bash
+   docker exec ci-arm-test-1 bash -lc \
+     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo WARM_OR_HOT || echo COLD"
+   ```
+
+   - **COLD** (fresh worktree, or after `reset.sh`): no `node_modules`/`.build` yet -> run the
+     first-time build (step 4) before anything else.
+   - **WARM** (built before, containers just recreated by step 2): skip straight to step 5.
+   - **HOT** (containers were already running, e.g. from an earlier session): skip both step 4 and 5's
+     `post-start.sh` call and go straight to step 6.
+
+4. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
+   Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
+   It takes roughly 10 minutes and is not something to block a foreground shell on:
+
+   ```bash
+   docker exec -d ci-arm-test-1 bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-create.sh > /tmp/post-create.log 2>&1"
+   ```
+
+   `docker exec -d` detaches immediately, so this returns right away instead of holding the shell for
+   10 minutes. Poll for completion instead of guessing at a fixed sleep -- check every minute or two,
+   not continuously, and read the log on failure:
+
+   ```bash
+   docker exec ci-arm-test-1 bash -lc \
+     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo DONE || tail -5 /tmp/post-create.log"
+   ```
+
+   The marker file (`.build/.ci-arm-state/complete`, written by `mark-build-state.sh`) is the same
+   completion signal step 3 checks -- once it's there, move on to step 5.
+
+5. **Per-start setup** (display, VNC, postgres reachability -- idempotent, safe to always run except
+   on an already-HOT container):
+
+   ```bash
+   docker exec ci-arm-test-1 bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
+   ```
+
+6. **Run a test directly**, e.g. a single e2e spec:
+
+   ```bash
+   docker exec -e DISPLAY=:10 ci-arm-test-1 bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/search/search.test.ts --project e2e-electron"
+   ```
+
+Gotchas specific to this path:
+
+- **No `containerEnv` injection.** Values from `devcontainer.json`'s `containerEnv` block (interpreter
+  versions like `POSITRON_PY_VER_SEL`) are applied by the Dev Containers extension, not by
+  `docker compose`/`docker exec`. Tests that depend on a specific interpreter version need those
+  exported explicitly (`docker exec -e POSITRON_PY_VER_SEL=... ...`).
+- **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
+  wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
+  container fails every later step with confusing missing-module errors instead of one clear one.
+- **No `devcontainer` CLI required** -- this is plain `docker compose` + `docker exec`, useful since
+  the CLI isn't installed by default on the host.
+
 ## Reference
 
 ### Architecture
