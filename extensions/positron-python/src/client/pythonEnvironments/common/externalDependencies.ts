@@ -120,6 +120,35 @@ export function arePathsSame(path1: string, path2: string): boolean {
     return normCasePath(path1) === normCasePath(path2);
 }
 
+// --- Start Positron ---
+/**
+ * Canonicalize a path by resolving every symlink in it -- including symlinked
+ * intermediate directories -- to the underlying real path.
+ *
+ * Unlike `resolveSymbolicLink`, which only follows a symlink when the leaf
+ * itself is one, this resolves directory symlinks too. uv, for example, installs
+ * a real `cpython-3.14.6-<platform>` directory and a `cpython-3.14-<platform>`
+ * symlink pointing at it; an executable reached through the symlinked directory
+ * is not itself a symlink, so leaf-only resolution leaves the two paths looking
+ * distinct even though they are the same file. Full canonicalization collapses
+ * them, which is what interpreter de-duplication needs.
+ *
+ * The result is used only as a comparison key, never as a displayed path. On any
+ * failure (missing path, permission denied, an unsupported/networked filesystem
+ * that does not implement realpath) we fall back to the normalized input path so
+ * that the worst case is a conservative "treat as distinct" rather than a thrown
+ * error or a dropped environment.
+ */
+export async function canonicalizePath(absPath: string): Promise<string> {
+    try {
+        return await fsapi.realpath(absPath);
+    } catch (ex) {
+        traceVerbose(`Failed to canonicalize path ${absPath}, falling back to normalized path: ${ex}`);
+        return normalizePath(absPath);
+    }
+}
+// --- End Positron ---
+
 export async function resolveSymbolicLink(absPath: string, stats?: fsapi.Stats, count?: number): Promise<string> {
     stats = stats ?? (await fsapi.lstat(absPath));
     if (stats.isSymbolicLink()) {
