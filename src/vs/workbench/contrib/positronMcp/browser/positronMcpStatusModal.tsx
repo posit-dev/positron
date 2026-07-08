@@ -45,7 +45,7 @@ export interface IMcpStatusData {
 
 /** The actions the panel triggers; the host runs the matching command and reports back. */
 export type McpPanelAction =
-	{ readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'openAuditLog' | 'resetConsent' };
+	{ readonly id: 'enable' | 'disable' | 'addConfig' | 'showLogs' | 'openAuditLog' | 'resetConsent' | 'registerClaudeCli' };
 
 /** The MCP clients the connect card offers setup snippets for. */
 export type McpClientId = 'claude-code' | 'codex' | 'gemini-cli' | 'cursor' | 'vscode';
@@ -284,6 +284,27 @@ const SetupSection = (props: { status: IMcpStatusData; onAction: (action: McpPan
 				key: 'server', state: 'todo', label: localize('positron.mcp.status.server.disabled', "Server disabled"),
 				action: { label: localize('positron.mcp.status.action.enable', "Enable"), run: () => onAction({ id: 'enable' }) },
 			});
+
+	// Claude Code auto-registration: a user-scope stdio proxy registered via the
+	// `claude` CLI, so Claude Code in a Positron terminal needs no `.mcp.json`.
+	if (status.claudeCliState === 'registered') {
+		rows.push({ key: 'claudeCli', state: 'done', label: localize('positron.mcp.status.claudeCli.registered', "Claude Code connects automatically from Positron terminals") });
+	} else if (status.claudeCliState === 'error') {
+		rows.push({
+			key: 'claudeCli', state: 'attention', label: localize('positron.mcp.status.claudeCli.error', "Claude Code CLI registration failed"),
+			action: { label: localize('positron.mcp.status.action.retry', "Retry"), run: () => onAction({ id: 'registerClaudeCli' }) },
+		});
+	} else if (status.claudeCliState === 'not-found') {
+		rows.push({
+			key: 'claudeCli', state: 'todo', label: localize('positron.mcp.status.claudeCli.notFound', "Claude Code CLI not found on PATH"),
+			action: { label: localize('positron.mcp.status.action.retry', "Retry"), run: () => onAction({ id: 'registerClaudeCli' }) },
+		});
+	} else {
+		rows.push({
+			key: 'claudeCli', state: 'todo', label: localize('positron.mcp.status.claudeCli.unknown', "Claude Code CLI not registered yet"),
+			action: { label: localize('positron.mcp.status.action.register', "Register"), run: () => onAction({ id: 'registerClaudeCli' }) },
+		});
+	}
 
 	if (status.workspaceConfig === 'no-workspace') {
 		rows.push({ key: 'workspace', state: 'todo', label: localize('positron.mcp.status.workspace.none', "No workspace open - open a folder to configure it") });

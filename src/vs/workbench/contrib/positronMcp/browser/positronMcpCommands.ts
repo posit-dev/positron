@@ -32,6 +32,7 @@ const COMMAND_ID = {
 	showLogs: 'positron.mcp.showLogs',
 	openAuditLog: 'positron.mcp.openAuditLog',
 	resetConsent: 'positron.mcp.resetConsent',
+	registerClaudeCli: 'positron.mcp.registerClaudeCli',
 } as const;
 
 const MCP_CATEGORY = localize2('positron.mcp.category', "Positron MCP");
@@ -110,6 +111,25 @@ async function openAuditLog(accessor: ServicesAccessor): Promise<void> {
 	await editorService.openEditor({ resource: URI.file(status.auditLogPath) });
 }
 
+/**
+ * (Re-)run the Claude Code CLI auto-registration, notifying the outcome. The
+ * main process dedupes and diff-gates the work, so retrying is always safe.
+ */
+async function registerWithClaudeCli(accessor: ServicesAccessor): Promise<void> {
+	const notificationService = accessor.get(INotificationService);
+	const state = await accessor.get(IPositronMcpService).ensureClaudeCliRegistered();
+	switch (state) {
+		case 'registered':
+			notificationService.info(localize('positron.mcp.claudeCli.registered', "Claude Code launched from a Positron terminal now connects to the Positron MCP server automatically."));
+			break;
+		case 'not-found':
+			notificationService.warn(localize('positron.mcp.claudeCli.notFound', "The Claude Code CLI was not found on PATH. Install it, then retry."));
+			break;
+		default:
+			notificationService.error(localize('positron.mcp.claudeCli.failed', "Registering with the Claude Code CLI failed. See the Positron MCP logs for details."));
+	}
+}
+
 /** Run a status-panel button by delegating to the matching command. */
 async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction): Promise<void> {
 	switch (action.id) {
@@ -120,6 +140,7 @@ async function runPanelAction(accessor: ServicesAccessor, action: McpPanelAction
 		case 'openAuditLog': return openAuditLog(accessor);
 		// No notification here: the panel's consent banner disappearing is the feedback.
 		case 'resetConsent': return accessor.get(IPositronMcpToolService).resetConsent();
+		case 'registerClaudeCli': return registerWithClaudeCli(accessor);
 	}
 }
 
@@ -189,6 +210,13 @@ export function registerPositronMcpCommands(): void {
 			});
 		}
 		run(accessor: ServicesAccessor) { return openAuditLog(accessor); }
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({ id: COMMAND_ID.registerClaudeCli, title: localize2('positron.mcp.registerClaudeCli', "Register with Claude Code CLI"), category: MCP_CATEGORY, f1: true });
+		}
+		run(accessor: ServicesAccessor) { return registerWithClaudeCli(accessor); }
 	});
 
 	registerAction2(class extends Action2 {

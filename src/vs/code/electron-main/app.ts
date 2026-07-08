@@ -1416,7 +1416,7 @@ export class CodeApplication extends Disposable {
 		// folder) because it must survive restarts: `.mcp.json` files reference
 		// it literally.
 		const positronMcpTokenPath = join(this.environmentMainService.userDataPath, 'positron-mcp.token');
-		const positronMcpServerRegistry = this.positronMcpServerRegistry = this._register(new PositronMcpServerRegistry(mainProcessElectronServer, positronMcpAuditPath, positronMcpTokenPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
+		const positronMcpServerRegistry = this.positronMcpServerRegistry = this._register(new PositronMcpServerRegistry(mainProcessElectronServer, positronMcpAuditPath, positronMcpTokenPath, this.environmentMainService.userDataPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
 		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServerRegistry, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---

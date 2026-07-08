@@ -20,6 +20,7 @@ import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer, 
 import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput, McpContextLedger } from '../common/positronMcpContext.js';
 import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
 import { McpAuditFileWriter } from './positronMcpAuditFile.js';
+import { registerClaudeCli } from './positronMcpClaudeCli.js';
 import { PositronMcpWindowServer } from './positronMcpServer.js';
 import { loadOrCreateMcpToken } from './positronMcpToken.js';
 import { PositronMcpToolBroker } from './positronMcpToolBroker.js';
@@ -63,6 +64,8 @@ export class PositronMcpServerRegistry extends Disposable implements IPositronMc
 	// Seqs are based at the run start time so a `since` replayed from a
 	// previous run is detectable; see the McpContextLedger constructor.
 	private readonly _contextLedger = new McpContextLedger(undefined, Date.now());
+	private _claudeCliState: ClaudeCliRegistrationState = 'unknown';
+	private _claudeCliRegistration: Promise<ClaudeCliRegistrationState> | undefined;
 	private readonly _onDidRecordActivity = this._register(new Emitter<McpAuditEvent>());
 	// Must be an instance field (not a getter): ProxyChannel.fromService discovers
 	// events with a for...in scan of own enumerable properties (ipc.ts).
@@ -72,6 +75,7 @@ export class PositronMcpServerRegistry extends Disposable implements IPositronMc
 		private readonly _ipcServer: IPCServer<string>,
 		auditFilePath: string,
 		tokenFilePath: string,
+		private readonly _userDataPath: string,
 		@ILoggerService loggerService: ILoggerService,
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 	) {
@@ -116,8 +120,7 @@ export class PositronMcpServerRegistry extends Disposable implements IPositronMc
 			sessions,
 			recentActivity: this._recentActivity.snapshot(),
 			auditLogPath: this._auditFile.path,
-			// TODO(Phase 6): wire up the real Claude Code CLI registration state.
-			claudeCliState: 'unknown',
+			claudeCliState: this._claudeCliState,
 		};
 	}
 
@@ -130,8 +133,21 @@ export class PositronMcpServerRegistry extends Disposable implements IPositronMc
 	}
 
 	async ensureClaudeCliRegistered(_windowId: number): Promise<ClaudeCliRegistrationState> {
-		// TODO(Phase 6): shell out to `claude mcp add` with the bundled stdio proxy.
-		return 'unknown';
+		// Single-flight, and a success is cached for the process lifetime; a
+		// not-found/error outcome clears the cache so the next call (any
+		// window's start, or the user's explicit retry) probes again.
+		this._claudeCliRegistration ??= registerClaudeCli({
+			userDataPath: this._userDataPath,
+			execPath: process.execPath,
+			log: message => this._logger.info(`[PositronMcpClaudeCli] ${message}`),
+		}).then(state => {
+			this._claudeCliState = state;
+			if (state !== 'registered') {
+				this._claudeCliRegistration = undefined;
+			}
+			return state;
+		});
+		return this._claudeCliRegistration;
 	}
 
 	/**

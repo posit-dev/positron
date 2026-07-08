@@ -27,7 +27,7 @@ describe('McpStatusContent', () => {
 			sessions: [],
 			recentActivity: [],
 			allowAllConsent: false,
-			claudeCliState: 'unknown',
+			claudeCliState: 'registered',
 			...overrides,
 		};
 	}
@@ -126,6 +126,29 @@ describe('McpStatusContent', () => {
 			expect(screen.queryByText('Setup complete')).not.toBeInTheDocument();
 			await user.click(screen.getByRole('button', { name: 'Update' }));
 			expect(onAction).toHaveBeenCalledWith({ id: 'addConfig' });
+		});
+
+		it('shows a missing Claude Code CLI as an open row and fires registerClaudeCli from Retry', async () => {
+			const user = userEvent.setup();
+			const onAction = vi.fn();
+			renderContent(makeStatus({ claudeCliState: 'not-found' }), { onAction });
+
+			expect(screen.getByText('Claude Code CLI not found on PATH')).toBeInTheDocument();
+			expect(screen.queryByText('Setup complete')).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Retry' }));
+			expect(onAction).toHaveBeenCalledWith({ id: 'registerClaudeCli' });
+		});
+
+		it('flags a failed Claude Code CLI registration with a Retry action', () => {
+			renderContent(makeStatus({ claudeCliState: 'error' }));
+			expect(screen.getByText('Claude Code CLI registration failed')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+		});
+
+		it('offers a Register action while the registration state is unknown', () => {
+			renderContent(makeStatus({ claudeCliState: 'unknown' }));
+			expect(screen.getByText('Claude Code CLI not registered yet')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
 		});
 	});
 

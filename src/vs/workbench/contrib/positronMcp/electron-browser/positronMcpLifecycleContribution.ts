@@ -105,6 +105,10 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 		await this._mcpService.start();
 		const status = await this._mcpService.getStatus();
 		this._terminalEnvironment.setServer(status.running ? { url: serverUrl(status.port), token: status.token } : undefined);
+		// Best-effort, deduplicated in the main process across windows. Never
+		// blocks the server start; the status panel reports the outcome.
+		this._mcpService.ensureClaudeCliRegistered()
+			.catch(err => this._logService.error('[PositronMcp] Claude Code CLI registration failed', err));
 	}
 
 	private async _stop(): Promise<void> {

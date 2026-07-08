@@ -59,7 +59,7 @@ describe('PositronMcpServerRegistry', () => {
 		// ever "connects" in these tests, which is fine -- none of them exercise
 		// tool-call routing to a live renderer, only registry-level bookkeeping.
 		const ipcServer = new IPCServer(Event.None);
-		registry = new PositronMcpServerRegistry(ipcServer, auditPath, tokenPath, new NullLoggerService(), NullTelemetryService);
+		registry = new PositronMcpServerRegistry(ipcServer, auditPath, tokenPath, dir, new NullLoggerService(), NullTelemetryService);
 	});
 
 	afterEach(() => {
@@ -73,7 +73,7 @@ describe('PositronMcpServerRegistry', () => {
 		expect(fs.readFileSync(tokenPath, 'utf8').trim()).toBe(status.token);
 
 		const ipcServer2 = new IPCServer(Event.None);
-		const second = new PositronMcpServerRegistry(ipcServer2, auditPath, tokenPath, new NullLoggerService(), NullTelemetryService);
+		const second = new PositronMcpServerRegistry(ipcServer2, auditPath, tokenPath, dir, new NullLoggerService(), NullTelemetryService);
 		try {
 			expect((await second.getStatus(1)).token).toBe(status.token);
 		} finally {

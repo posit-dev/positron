@@ -132,6 +132,9 @@ const vscodeResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
 	'out-build/vs/workbench/browser/media/*.svg',
+	// Positron MCP stdio proxy: copied out of the app and run standalone by
+	// the Claude Code CLI registration, so it must ship as its own file.
+	'out-build/vs/platform/positronMcp/node/positronMcpProxy.js',
 	// --- End Positron ---
 
 	// Tree Sitter highlights
