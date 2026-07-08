@@ -1,0 +1,138 @@
+name: 'Commit and sync managed PR'
+description: >-
+  Commit staged changes and create or update a bot-managed PR. Handles additive
+  vs reset push, the reset-empty branch clear, and a dry-run mode. Emits a single
+  pr_action describing what happened.
+inputs:
+  github-token:
+    description: 'Bot token from detect-managed-pr.'
+    required: true
+  exists:
+    description: '"true" when reusing an existing PR (detect-managed-pr output).'
+    required: true
+  mode:
+    description: 'additive or reset; empty for a brand-new PR.'
+    required: false
+    default: ''
+  pr_number:
+    description: 'Existing PR number (when exists=true).'
+    required: false
+    default: ''
+  pr_url:
+    description: 'Existing PR url (when exists=true).'
+    required: false
+    default: ''
+  pr_branch:
+    description: 'Existing PR head branch (when exists=true).'
+    required: false
+    default: ''
+  branch-prefix:
+    description: 'Prefix for naming a new branch: <prefix>-<timestamp>.'
+    required: true
+  commit-message:
+    description: 'Commit message for the change.'
+    required: true
+  title:
+    description: 'PR title (set on create and update).'
+    required: true
+  body:
+    description: 'PR body (set on create and update).'
+    required: true
+  dryrun:
+    description: 'When "true", skip commit/push/PR and echo what would happen.'
+    required: false
+    default: 'false'
+  clear-stale-branch-on-empty-reset:
+    description: 'When "true", a reset-mode run with nothing staged force-pushes the branch back to main to clear obsolete commits.'
+    required: false
+    default: 'false'
+outputs:
+  pr_url:
+    description: 'Created/updated/existing PR url (empty for none / dry-run create).'
+    value: ${{ steps.sync.outputs.pr_url }}
+  pr_action:
+    description: 'created | updated | reset-cleared | unchanged | none'
+    value: ${{ steps.sync.outputs.pr_action }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Commit and sync
+      id: sync
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        EXISTS: ${{ inputs.exists }}
+        MODE: ${{ inputs.mode }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        PR_URL: ${{ inputs.pr_url }}
+        PR_BRANCH: ${{ inputs.pr_branch }}
+        BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        DRYRUN: ${{ inputs.dryrun }}
+        CLEAR_ON_EMPTY_RESET: ${{ inputs.clear-stale-branch-on-empty-reset }}
+      run: |
+        emit() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+
+        if [ "$EXISTS" = "true" ]; then
+          BRANCH="$PR_BRANCH"
+          if git diff --staged --quiet; then
+            # Nothing to apply this run.
+            if [ "$MODE" = "reset" ] && [ "$CLEAR_ON_EMPTY_RESET" = "true" ] && ! git diff --quiet HEAD "origin/$BRANCH"; then
+              # Reset left HEAD at origin/main but the remote branch still carries
+              # obsolete commits -- clear them so the PR stops showing stale work.
+              if [ "$DRYRUN" = "true" ]; then
+                echo "[dryrun] Would force-push $BRANCH to origin/main to clear obsolete commits."
+              else
+                git push --force-with-lease origin "HEAD:$BRANCH"
+                echo "No staged changes -- reset $BRANCH to origin/main to clear obsolete commits."
+              fi
+              emit pr_action reset-cleared
+              emit pr_url "$PR_URL"
+            else
+              echo "No staged changes -- existing PR left as-is."
+              emit pr_action unchanged
+              emit pr_url "$PR_URL"
+            fi
+            exit 0
+          fi
+          # Staged changes exist.
+          if [ "$DRYRUN" = "true" ]; then
+            echo "[dryrun] Would commit and $( [ "$MODE" = "reset" ] && echo "force-" )push to $BRANCH ($MODE), then update PR #$PR_NUMBER."
+            git --no-pager diff --staged
+          else
+            git commit -m "$COMMIT_MESSAGE"
+            if [ "$MODE" = "reset" ]; then
+              git push --force-with-lease origin "$BRANCH"
+            else
+              git push origin "$BRANCH"
+            fi
+            gh pr edit "$PR_NUMBER" --title "$TITLE" --body "$BODY" >/dev/null
+            echo "Updated existing PR: $PR_URL"
+          fi
+          emit pr_action updated
+          emit pr_url "$PR_URL"
+        else
+          BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          if git diff --staged --quiet; then
+            echo "No staged changes -- nothing to open a PR for."
+            emit pr_action none
+            emit pr_url ""
+            exit 0
+          fi
+          if [ "$DRYRUN" = "true" ]; then
+            echo "[dryrun] Would commit and push new branch $BRANCH, then open a PR against main."
+            git --no-pager diff --staged
+            emit pr_action created
+            emit pr_url ""
+          else
+            git commit -m "$COMMIT_MESSAGE"
+            git push origin "$BRANCH"
+            NEW_PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY")
+            echo "Created new PR: $NEW_PR_URL"
+            emit pr_action created
+            emit pr_url "$NEW_PR_URL"
+          fi
+        fi
