@@ -43,7 +43,7 @@ inputs:
     required: false
     default: 'false'
   clear-stale-branch-on-empty-reset:
-    description: 'When "true", a reset-mode run with nothing staged force-pushes the branch back to main to clear obsolete commits.'
+    description: 'When "true", a reset-mode run with nothing staged force-pushes the branch back to main to clear obsolete commits. Requires the caller to have reset HEAD to origin/main after checkout; without that reset HEAD equals the branch tip and the path never fires (pr_action stays "unchanged").'
     required: false
     default: 'false'
 outputs:
