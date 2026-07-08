@@ -610,5 +610,89 @@ else
 fi
 rm -rf "$APPLY_DIR"
 
+# --- build_tag_reasons ---
+assert_eq "reasons: critical is required" "@:critical|required" \
+	"$(build_tag_reasons "@:critical" "" "" "false" "false" "false")"
+assert_eq "reasons: author tag is body" "@:critical|required,@:quarto|body" \
+	"$(build_tag_reasons "@:critical,@:quarto" "@:quarto" "" "false" "false" "false")"
+assert_eq "reasons: map tag is files" "@:critical|required,@:console|files" \
+	"$(build_tag_reasons "@:critical,@:console" "" "@:console" "false" "false" "false")"
+# Author + map overlap: explicit author intent (body) wins over files.
+assert_eq "reasons: author+map overlap prefers body" "@:critical|required,@:console|body" \
+	"$(build_tag_reasons "@:critical,@:console" "@:console" "@:console" "false" "false" "false")"
+assert_eq "reasons: ark injection" "@:critical|required,@:ark|ark" \
+	"$(build_tag_reasons "@:critical,@:ark" "" "" "true" "false" "false")"
+# @:win typed in the body reads as body, not test-win.
+assert_eq "reasons: author-typed win is body" "@:critical|required,@:win|body" \
+	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "false" "true" "false")"
+# @:win added only by the test scan reads as test-win.
+assert_eq "reasons: scan-added win is test-win" "@:critical|required,@:win|test-win" \
+	"$(build_tag_reasons "@:critical,@:win" "" "" "false" "true" "false")"
+assert_eq "reasons: scan-added web is test-web" "@:critical|required,@:web|test-web" \
+	"$(build_tag_reasons "@:critical,@:web" "" "" "false" "false" "true")"
+assert_eq "reasons: empty final yields nothing" "" \
+	"$(build_tag_reasons "" "" "" "false" "false" "false")"
+# A tag matching no source falls through to the defensive "auto" fallback.
+assert_eq "reasons: unattributed tag falls back to auto" "@:critical|required,@:mystery|auto" \
+	"$(build_tag_reasons "@:critical,@:mystery" "" "" "false" "false" "false")"
+
+# --- render_why_these_tags ---
+assert_eq "render: critical-only is not informative (empty)" "" \
+	"$(render_why_these_tags "@:critical|required")"
+assert_eq "render: empty input yields nothing" "" \
+	"$(render_why_these_tags "")"
+RENDER_OUT="$(render_why_these_tags "@:critical|required,@:quarto|body,@:console|files")"
+if printf '%s' "$RENDER_OUT" | grep -qF "<summary>Why these tags?</summary>"; then
+	echo "PASS: render includes the collapse summary"
+else
+	echo "FAIL: render should include the collapse summary"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:critical` | Always runs (required) |'; then
+	echo "PASS: render annotates critical as required"
+else
+	echo "FAIL: render should annotate critical as required"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:quarto` | PR description |'; then
+	echo "PASS: render annotates an author tag as PR description"
+else
+	echo "FAIL: render should annotate the author tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:console` | Changed files |'; then
+	echo "PASS: render annotates a map tag as Changed files"
+else
+	echo "FAIL: render should annotate the map tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF "#automatic-tags-from-changed-files"; then
+	echo "PASS: render moves the why-these-tags link into the collapse"
+else
+	echo "FAIL: render should include the README link inside the collapse"; fail=1
+fi
+ALL_OUT="$(render_why_these_tags "@:all|body")"
+if printf '%s' "$ALL_OUT" | grep -qF '| `@:all` | PR description |'; then
+	echo "PASS: render handles the @:all case"
+else
+	echo "FAIL: render should annotate @:all as PR description"; fail=1
+fi
+# The ark / test-win / test-web label arms: one assertion each so a typo or
+# label change in those arms is caught (they aren't exercised by the cases above).
+ARK_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark")"
+if printf '%s' "$ARK_OUT" | grep -qF '| `@:ark` | Ark submodule bump |'; then
+	echo "PASS: render labels the ark arm"
+else
+	echo "FAIL: render should label @:ark as Ark submodule bump"; fail=1
+fi
+WIN_OUT="$(render_why_these_tags "@:critical|required,@:win|test-win")"
+if printf '%s' "$WIN_OUT" | grep -qF '| `@:win` | New test (tags.WIN) |'; then
+	echo "PASS: render labels the test-win arm"
+else
+	echo "FAIL: render should label @:win as New test (tags.WIN)"; fail=1
+fi
+WEB_OUT="$(render_why_these_tags "@:critical|required,@:web|test-web")"
+if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
+	echo "PASS: render labels the test-web arm"
+else
+	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
+fi
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
