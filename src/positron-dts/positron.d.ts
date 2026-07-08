@@ -2187,6 +2187,7 @@ declare module 'positron' {
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupDatabases = 'group-databases',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',

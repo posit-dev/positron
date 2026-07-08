@@ -64,7 +64,7 @@ test.describe('Data Connections - Postgres', {
 			['Connection Name', connectionName],
 			['Host', host],
 			['Port', port],
-			['Database', database],
+			[/^Database/, database],
 			[/^User/, user],
 			[/^Password/, password],
 		]);
