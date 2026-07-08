@@ -378,22 +378,29 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 
 ### Gotchas
 
-- **Blank/white VNC window** means a stuck Electron instance. The Launch task auto-clears it now, so
-  just re-launch. If it persists, the build may not be ready (run the Doctor) or check the desktop
-  log.
+- **Blank/white VNC window** means a stuck Electron instance. The **Desktop** task auto-clears it
+  now, so just re-launch it. If it persists, the build may not be ready (run the Doctor) or check the
+  desktop log.
 - **`npm ci` may leave files staged in your worktree.** Positron's postinstall runs
   `git add --renormalize`, which stages line-ending changes in your bind-mounted index. It's
   harmless: `git restore --staged .`.
 - **Python/R interpreters dead after building one checkout both ways** - wrong-OS `pet`/`ark`/`kcserver`
   (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). The Doctor's
   **Interpreters** row flags this; run **Positron CI: Reinstall interpreters** to restore the Linux
-  binaries. (`out/` is bind-mounted too, so it's a mixing hazard the same way -- recompile after
-  switching.)
-- **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
-  running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
-  reload the window and let **Watch** recompile (restart any running Positron/debug). The
-  [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 covers the same problem
-  headlessly, including the dependency-drift check Watch doesn't handle.
+  binaries.
+- **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under any
+  running Watch/Positron/debug mid-session. Three ways to switch, cleanest first:
+  - **Recommended -- switch before opening.** From local VS Code (**Reopen Folder Locally**),
+    `git checkout` the target branch, then **Reopen in Container**. Nothing is running over the
+    files as they change.
+  - **Mid-session (messier).** `git checkout` in the open container, then reload the window and let
+    **Watch** recompile (restart any running Positron/debug). Note Watch recompiles but does *not*
+    check dependency drift -- rely on the Doctor's **Build** row to flag stale deps.
+  - **Headless.** [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 does the same
+    thing over the CLI, including the dependency-drift check Watch doesn't handle.
+
+  Whichever path you take, keep the **Doctor** open: its Build and Interpreters rows tell you what
+  went stale and which task fixes it.
 - **Each checkout gets its own containers automatically -- but only once `initialize.sh` has run for
   it.** Compose's project name defaults to the directory *basename* holding `docker-compose.yml`,
   which is `ci-arm` for every checkout of this repo (they all have the same `.devcontainer/ci-arm`
