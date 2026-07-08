@@ -187,7 +187,22 @@ jobs:
             BRANCH="$PR_BRANCH"
             git add .github/workflows/test-tag-paths-map.json
             if git diff --staged --quiet; then
-              echo "No auto-fixable changes -- existing PR untouched (or nothing needed fixing)."
+              # No stale removals to apply this run. In reset mode HEAD was reset
+              # to origin/main, so if the remote PR branch still carries prior
+              # removal commits they're now obsolete (those entries are no longer
+              # stale) -- sync the branch to main so the PR stops showing them.
+              # Additive mode intentionally keeps the human commits, so leave it.
+              if [ "$MODE" = "reset" ] && ! git diff --quiet HEAD "origin/$BRANCH"; then
+                if [ "$DRYRUN" = "true" ]; then
+                  echo "[dryrun] Would force-push $BRANCH to origin/main to clear obsolete removals (no stale entries this run)."
+                  echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
+                else
+                  git push --force-with-lease origin "HEAD:$BRANCH"
+                  echo "No stale entries this run -- reset $BRANCH to origin/main to clear obsolete removals."
+                fi
+              else
+                echo "No auto-fixable changes -- existing PR untouched (or nothing needed fixing)."
+              fi
               exit 0
             fi
             if [ "$DRYRUN" = "true" ]; then
