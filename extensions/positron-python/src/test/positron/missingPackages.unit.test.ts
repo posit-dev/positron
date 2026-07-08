@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from 'chai';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { listMissingPythonPackages, parsePythonImports } from '../../client/positron/missingPackages';
 import { IPackageManager, PackageSession } from '../../client/positron/packages/types';
 
@@ -85,6 +87,49 @@ suite('listMissingPythonPackages', () => {
         const result = await listMissingPythonPackages(session, manager, { code: 'import cv2' });
 
         expect(result).to.deep.equal([]);
+    });
+
+    test('passes the file directory as an import root so local modules resolve', async () => {
+        const callMethod = sinon.stub().resolves([]);
+        const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+        const manager = makeManager({});
+
+        // Build the URI from a real path so the expected root is derived with the
+        // same (platform-specific) filesystem semantics as the code under test.
+        const fileUri = vscode.Uri.file(path.join(path.resolve('project'), 'app.py'));
+        const expectedRoot = path.dirname(fileUri.fsPath);
+
+        await listMissingPythonPackages(session, manager, {
+            uri: fileUri.toString(),
+            code: 'from helper.helper_functions import say_hello',
+        });
+
+        // The kernel is asked about `helper` with the file's directory as a root
+        // so a sibling `helper` package is recognized instead of flagged missing.
+        expect(callMethod.calledOnceWith('getMissingImports', ['helper'], [expectedRoot])).to.be.true;
+    });
+
+    test('passes the file directory as an import root for vscode-remote URIs (web/remote)', async () => {
+        const callMethod = sinon.stub().resolves([]);
+        const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+        const manager = makeManager({});
+
+        // In web/remote windows the workbench sends a `vscode-remote` URI rather
+        // than `file`. Its path still maps to the kernel's filesystem, so the
+        // file's directory must be forwarded as an import root just like `file`.
+        const uri = vscode.Uri.from({
+            scheme: 'vscode-remote',
+            authority: 'server',
+            path: '/home/user/project/app.py',
+        });
+        const expectedRoot = path.dirname(uri.fsPath);
+
+        await listMissingPythonPackages(session, manager, {
+            uri: uri.toString(),
+            code: 'from helper.helper_functions import say_hello',
+        });
+
+        expect(callMethod.calledOnceWith('getMissingImports', ['helper'], [expectedRoot])).to.be.true;
     });
 
     test('returns empty when there are no imports', async () => {

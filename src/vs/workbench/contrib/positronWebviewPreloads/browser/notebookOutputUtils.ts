@@ -73,6 +73,29 @@ export function isDoubleClickMessage(message: unknown): message is DoubleClickMe
 	return (message as DoubleClickMessage | undefined)?.type === 'doubleClick';
 }
 
+// Approximate line height used when a forwarded wheel event reports
+// DOM_DELTA_LINE. Matches the divisor in StandardWheelEvent (the `/ 40` in its
+// pixel-to-line conversion in base/browser/mouseEvent.ts), which is not
+// exported. Keep this in sync if that constant moves.
+const WHEEL_LINE_HEIGHT_PX = 40;
+
+/**
+ * Convert a forwarded wheel event's vertical delta into pixels so raw
+ * DOM_DELTA_LINE / DOM_DELTA_PAGE values (e.g. Firefox) don't scroll by a
+ * single pixel per tick. {@link pageHeight} is used to size a page-mode delta
+ * (the height of the surface being scrolled).
+ */
+export function normalizeWheelDeltaY(deltaMode: number, deltaY: number, pageHeight: number): number {
+	switch (deltaMode) {
+		case WheelEvent.DOM_DELTA_LINE:
+			return deltaY * WHEEL_LINE_HEIGHT_PX;
+		case WheelEvent.DOM_DELTA_PAGE:
+			return deltaY * pageHeight;
+		default: // DOM_DELTA_PIXEL
+			return deltaY;
+	}
+}
+
 
 function webviewMessageCode() {
 	// acquireVsCodeApi is a global injected by the webview host. Access it

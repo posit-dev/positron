@@ -14,7 +14,7 @@ import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 // eslint-disable-next-line no-duplicate-imports
-import { IExtensionGalleryManifest, PositronGallerySourceConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
+import { IExtensionGalleryManifest, PositronGallerySourceConfigKey, PositronCustomGalleryUrlConfigKey } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
 // eslint-disable-next-line no-duplicate-imports
 import { ExtensionGalleryConfig, resolvePositronGalleryConfig } from '../../../../platform/extensionManagement/common/extensionGalleryManifestService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -55,19 +55,37 @@ export class WebExtensionGalleryManifestService extends ExtensionGalleryManifest
 		}
 		// --- Start Positron ---
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (!e.affectsConfiguration(PositronGallerySourceConfigKey)) {
+			if (!e.affectsConfiguration(PositronGallerySourceConfigKey) && !e.affectsConfiguration(PositronCustomGalleryUrlConfigKey)) {
 				return;
 			}
 			// Re-parse and report so the user is told again if the env var is
 			// malformed; only a valid env var actually overrides the setting.
 			const envGallery = this.reportEnv();
-			handleGallerySourceSettingChange(envGallery, this.notificationService, () => this.requestRestart());
+			// When a valid env var is overriding, handleGallerySourceSettingChange
+			// notifies without restarting. Otherwise restart only when the change
+			// resolves to a different gallery (e.g. setting the custom URL before
+			// selecting Custom is a no-op).
+			handleGallerySourceSettingChange(envGallery, this.notificationService, () => {
+				const resolved = resolvePositronGalleryConfig(
+					envGallery,
+					this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+					this.configurationService.getValue<string>(PositronCustomGalleryUrlConfigKey),
+					super.getGalleryConfig(),
+				);
+				if (resolved?.serviceUrl !== this.activeGalleryServiceUrl) {
+					this.requestRestart();
+				}
+			});
 		}));
 		// --- End Positron ---
 	}
 
 	// --- Start Positron ---
 	private extensionGalleryManifestPromise: Promise<IExtensionGalleryManifest | null> | undefined;
+	// The resolved gallery serviceUrl in effect at startup; used to restart only
+	// when a setting change resolves to a different gallery (see desktop service).
+	private activeGalleryServiceUrl: string | undefined;
+	private activeGalleryCaptured = false;
 
 	/**
 	 * Cache the manifest so getGalleryConfig() -- which reports the
@@ -81,11 +99,19 @@ export class WebExtensionGalleryManifestService extends ExtensionGalleryManifest
 	}
 
 	protected override getGalleryConfig(): ExtensionGalleryConfig | undefined {
-		return resolvePositronGalleryConfig(
+		const resolved = resolvePositronGalleryConfig(
 			this.reportEnv(),
 			this.configurationService.getValue<string>(PositronGallerySourceConfigKey),
+			this.configurationService.getValue<string>(PositronCustomGalleryUrlConfigKey),
 			super.getGalleryConfig(),
 		);
+		// Capture the gallery in effect this session on first resolution, so a later
+		// settings change can tell whether it resolves to a different gallery.
+		if (!this.activeGalleryCaptured) {
+			this.activeGalleryCaptured = true;
+			this.activeGalleryServiceUrl = resolved?.serviceUrl;
+		}
+		return resolved;
 	}
 
 	/**

@@ -1,0 +1,13 @@
+---
+title: "Simple R Test"
+output: html_document
+---
+
+## Basic Console Output
+
+```{r basicconsole}
+x <- 1:10
+y <- round(rnorm(10, x, 1), 2)
+df <- data.frame(x, y)
+df
+```

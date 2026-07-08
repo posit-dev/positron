@@ -50,7 +50,7 @@ test.describe('Data Connections - SQLite', {
 	test.beforeAll(async function ({ app }) {
 		const { dataConnections } = app.workbench;
 
-		// The order_tracking.db file lives inside qa-example-content, which is the workspace root.
+		// The order_tracking.db file lives inside test-files, which is the workspace root.
 		const databaseFile = join(app.workspacePathOrFolder, 'data-files/order-tracking/order_tracking.db');
 
 		await dataConnections.openDataConnectionsView();
@@ -101,7 +101,7 @@ test.describe('Data Connections - SQLite', {
 		});
 	});
 
-	test('Opens a table in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a table in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.doubleClickNode(detailTable);
@@ -110,7 +110,7 @@ test.describe('Data Connections - SQLite', {
 		await dataExplorer.grid.expectColumnHeadersToBe(detailColumns.map(({ name }) => name));
 	});
 
-	test('Opens a column in the Data Explorer on double-click', async function ({ app }) {
+	test('Opens a column in the Data Explorer on double-click', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
 		const { dataConnections, dataExplorer } = app.workbench;
 
 		await dataConnections.expandNode(detailTable);

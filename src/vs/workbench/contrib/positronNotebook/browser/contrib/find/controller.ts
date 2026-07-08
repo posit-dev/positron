@@ -50,6 +50,17 @@ export class CurrentPositronCellMatch {
 /** Maximum matches returned by research() for decorations. */
 const MATCHES_LIMIT = 999;
 
+/** Command IDs for the notebook find actions registered in actions.ts. */
+export const POSITRON_NOTEBOOK_FIND_COMMAND_IDS = {
+	start: 'positronNotebook.find.start',
+	hide: 'positronNotebook.find.hide',
+	next: 'positronNotebook.find.next',
+	previous: 'positronNotebook.find.previous',
+	replaceStart: 'positronNotebook.find.replaceStart',
+	replace: 'positronNotebook.find.replace',
+	replaceAll: 'positronNotebook.find.replaceAll',
+} as const;
+
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
@@ -134,6 +145,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	/**
+	 * Returns a parenthesized keybinding hint for a command, e.g. " (F3)",
+	 * or an empty string when the command has no keybinding.
+	 */
+	private keybindingLabelFor(commandId: string): string {
+		const label = this._keybindingService.lookupKeybinding(commandId)?.getLabel();
+		return label ? ` (${label})` : '';
+	}
+
+	/**
 	 * Gets the find instance, creating it if necessary.
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
@@ -171,6 +191,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
+				hoverManager: this._notebook.hoverManager,
+				keybindingHints: {
+					previousMatch: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.previous),
+					nextMatch: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.next),
+					close: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.hide),
+					toggleReplace: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceStart),
+					replace: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replace),
+					replaceAll: this.keybindingLabelFor(POSITRON_NOTEBOOK_FIND_COMMAND_IDS.replaceAll),
+				},
 			}));
 			this._findInstance = findInstance;
 

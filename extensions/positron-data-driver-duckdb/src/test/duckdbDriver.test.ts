@@ -88,6 +88,30 @@ suite('DuckDB Driver Tests', () => {
 		assert.strictEqual(await conn.isConnected(), false);
 	});
 
+	// Opening the same database file twice used to fail: each connection forked its own worker, and
+	// DuckDB's exclusive read-write file lock meant the second worker could not open the file. Two
+	// profiles that resolve to the same absolute path (e.g. a `~/` path and a `../` path) hit this.
+	// Connections to the same file + mode now share one pooled worker, so both succeed.
+	test('opening the same database twice shares one worker and both stay usable', async () => {
+		const dbPath = await createTestDb('shared.duckdb', 'CREATE TABLE t (x INTEGER);');
+
+		const first = await connect({ databasePath: dbPath, readOnly: false });
+		const second = await connect({ databasePath: dbPath, readOnly: false });
+
+		// Both connections are live and can browse independently.
+		assert.strictEqual(await first.isConnected(), true);
+		assert.strictEqual(await second.isConnected(), true);
+		assert.ok(await getGroup(await getSchemaNode(second), 'Tables'));
+
+		// Disconnecting one leaves the shared worker alive for the other.
+		await first.disconnect();
+		assert.strictEqual(await first.isConnected(), false);
+		assert.strictEqual(await second.isConnected(), true);
+		assert.ok(await getGroup(await getSchemaNode(second), 'Tables'));
+
+		await second.disconnect();
+	});
+
 	test('connect to non-existent file in read-only mode throws', async () => {
 		await assert.rejects(
 			() => connect({ databasePath: path.join(tmpDir, 'nonexistent.duckdb'), readOnly: true }),

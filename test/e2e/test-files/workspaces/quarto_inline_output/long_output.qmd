@@ -1,0 +1,9 @@
+---
+title: "Long Output"
+format: html
+---
+
+```{r}
+options(max.print = 5000)
+runif(5000)
+```

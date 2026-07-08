@@ -259,11 +259,15 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 			cellIndex++;
 		}
 
-		// Determine primary language from frontmatter or first cell
+		// Determine primary language from frontmatter, falling back to the first
+		// cell's fence language. A custom Jupyter kernelspec name (e.g.
+		// `spectral-comparison-3.14`) can't be mapped to a known language, so the
+		// cell fence language is used as a fallback rather than leaving the primary
+		// language undefined (which would disable the kernel picker and Run Cell).
 		const jupyterKernel = doc.frontmatter?.jupyterKernel;
-		const primaryLanguage = jupyterKernel ?
-			kernelToLanguageId(jupyterKernel) :
-			cells.at(0)?.language;
+		const primaryLanguage =
+			(jupyterKernel ? kernelToLanguageId(jupyterKernel) : undefined)
+			?? cells.at(0)?.language;
 
 		return { cells, primaryLanguage, jupyterKernel };
 	}

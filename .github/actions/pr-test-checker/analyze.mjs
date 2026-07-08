@@ -326,7 +326,7 @@ async function main() {
 			'**Verdict:** ⚪ _Unknown_ -- the analyzer produced no markdown report. Check action logs.',
 			'',
 			'---',
-			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Run `/recheck-tests` to retry.</sub>',
+			'<sub>PETE (Positron Extreme Test Experiment): an LLM-based test-coverage advisor, currently in pilot. Comment `/pete` to retry.</sub>',
 		].join('\n');
 		writeFileSync(join(WORK_DIR, 'comment.md'), wrapWithMarker(fallback));
 		console.error('[analyzer] no markdown report produced; wrote fallback comment');

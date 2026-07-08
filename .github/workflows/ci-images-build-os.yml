@@ -1,0 +1,188 @@
+name: "CI Images: Build OS test images"
+
+run-name: ${{ inputs.tag }}-${{ inputs.os }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag for the Docker images'
+        required: true
+        default: 'latest'
+      os:
+        description: 'Operating system to build (ubuntu24_04, rocky_8, openSUSE15_6, SLES15_6, or debian)'
+        required: true
+        default: 'ubuntu24_04'
+        type: choice
+        options:
+          - 'ubuntu24_04'
+          - 'rocky_8'
+          - 'openSUSE15_6'
+          - 'SLES15_6'
+          - 'debian'
+
+jobs:
+  build:
+    # Build each architecture on its own native runner. Both legs push a
+    # single-arch tag (positron-<os>-<arch>:<tag>); the merge job below stitches
+    # them into a multi-arch manifest list. fail-fast is off so one arch failing
+    # doesn't cancel the other.
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm64-8-core' || 'ubuntu-latest-8x' }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "Building for OS: ${{ github.event.inputs.os }}, architecture: ${{ matrix.arch }}"
+          if [[ "${{ github.event.inputs.os }}" != "ubuntu24_04" && "${{ github.event.inputs.os }}" != "rocky_8" && "${{ github.event.inputs.os }}" != "openSUSE15_6" && "${{ github.event.inputs.os }}" != "SLES15_6" && "${{ github.event.inputs.os }}" != "debian" ]]; then
+            echo "::error::Invalid OS selected: ${{ github.event.inputs.os }}"
+            exit 1
+          fi
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create access token
+        uses: actions/create-github-app-token@v2
+        id: app_token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            positron-license
+
+      - name: Set up QEMU for multi-architecture builds
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        working-directory: ./docker/images/${{ github.event.inputs.os }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app_token.outputs.token }}
+          SUSE_CONNECT_REGCODE: ${{ secrets.SUSE_CONNECT_REGCODE }}
+          SUSE_WORKSTATION_REGCODE: ${{ secrets.SUSE_WORKSTATION_REGCODE }}
+          ARCHITECTURE: ${{ matrix.arch }}
+          OS: ${{ github.event.inputs.os }}
+        run: |
+          echo "Building for OS: $OS, architecture: $ARCHITECTURE"
+          # Build only the OS test image. The Postgres DB image is built and
+          # published separately by build-postgres-image.yml, so we no longer
+          # bake or start the db service here. --load makes the built image
+          # available to the subsequent tag/push step.
+          docker buildx bake -f docker-compose.$ARCHITECTURE.yml test \
+            --set test.platform=linux/$ARCHITECTURE --load
+
+      - name: Tag and push images to GHCR
+        working-directory: ./docker/images/${{ github.event.inputs.os }}
+        env:
+          ARCHITECTURE: ${{ matrix.arch }}
+          OS: ${{ github.event.inputs.os }}
+        run: |
+          # List images to verify they were built
+          docker images
+
+          # Set OS name for image tags
+          if [ "$OS" = "ubuntu24_04" ]; then
+            OS_TAG="ubuntu24"
+          elif [ "$OS" = "rocky_8" ]; then
+            OS_TAG="rocky8"
+          elif [ "$OS" = "openSUSE15_6" ]; then
+            OS_TAG="opensuse156"
+          elif [ "$OS" = "SLES15_6" ]; then
+            OS_TAG="sles156"
+          elif [ "$OS" = "debian" ]; then
+            OS_TAG="debian12"
+          else
+            OS_TAG="$OS"
+          fi
+
+          # Determine the source image name based on OS and architecture
+          if [ "$OS" = "ubuntu24_04" ]; then
+            SOURCE_IMAGE="positron-ubuntu24-${ARCHITECTURE}:latest"
+          elif [ "$OS" = "rocky_8" ]; then
+            SOURCE_IMAGE="positron-rocky8-${ARCHITECTURE}:latest"
+          elif [ "$OS" = "openSUSE15_6" ]; then
+            SOURCE_IMAGE="positron-opensuse156-${ARCHITECTURE}:latest"
+          elif [ "$OS" = "SLES15_6" ]; then
+            SOURCE_IMAGE="positron-sles156-${ARCHITECTURE}:latest"
+          elif [ "$OS" = "debian" ]; then
+            SOURCE_IMAGE="positron-debian12-${ARCHITECTURE}:latest"
+          fi
+
+          echo "Using source image: ${SOURCE_IMAGE}"
+
+          # Tag and push the positron image. Retry the push: GHCR intermittently
+          # returns `unknown blob` / transport errors under concurrent load.
+          retry() { local n=0; until "$@"; do n=$((n+1)); [ "$n" -ge 4 ] && return 1; echo "retry $n after failure: $*"; sleep $((n*15)); done; }
+          TARGET=ghcr.io/${{ github.repository_owner }}/positron-${OS_TAG}-${ARCHITECTURE}:${{ github.event.inputs.tag }}
+          docker tag ${SOURCE_IMAGE} "$TARGET"
+          retry docker push "$TARGET"
+
+  merge:
+    # Combine the per-arch tags pushed by the build matrix into a single
+    # multi-arch manifest list (positron-<os>:<tag>). The arch-specific tags are
+    # left in place so existing consumers keep working during the transition.
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        env:
+          OS: ${{ github.event.inputs.os }}
+          TAG: ${{ github.event.inputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # Map the OS input to the short name used in the image tags.
+          if [ "$OS" = "ubuntu24_04" ]; then
+            OS_TAG="ubuntu24"
+          elif [ "$OS" = "rocky_8" ]; then
+            OS_TAG="rocky8"
+          elif [ "$OS" = "openSUSE15_6" ]; then
+            OS_TAG="opensuse156"
+          elif [ "$OS" = "SLES15_6" ]; then
+            OS_TAG="sles156"
+          elif [ "$OS" = "debian" ]; then
+            OS_TAG="debian12"
+          else
+            OS_TAG="$OS"
+          fi
+
+          REPO="ghcr.io/${OWNER}/positron-${OS_TAG}"
+          echo "Creating manifest ${REPO}:${TAG} from ${REPO}-amd64:${TAG} and ${REPO}-arm64:${TAG}"
+          # Retry: imagetools copies blobs across repos and GHCR can drop the
+          # HTTP/2 stream (PROTOCOL_ERROR) under load.
+          retry() { local n=0; until "$@"; do n=$((n+1)); [ "$n" -ge 4 ] && return 1; echo "retry $n after failure: $*"; sleep $((n*15)); done; }
+          retry docker buildx imagetools create -t "${REPO}:${TAG}" \
+            "${REPO}-amd64:${TAG}" \
+            "${REPO}-arm64:${TAG}"
+
+          echo "Resulting manifest:"
+          docker buildx imagetools inspect "${REPO}:${TAG}"

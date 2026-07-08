@@ -143,6 +143,21 @@ The factory automatically captures success/error status and re-throws errors to 
 
 Metrics are logged in the background without affecting test performance.
 
+## Choosing the right dimension
+
+For the thing your test varies, walk these in order and stop at the first "yes" — that's the field it belongs in.
+
+1. **A distinct thing you act on** (data structure, file type, session kind)? → `target_type`, e.g. `console.python`, `file.csv`. (Add a member to `MetricTargetType` for a genuinely new one.)
+2. **A number** (size or count)? → a numeric `context_json` field named for the quantity: `data_rows`, `input_rows`. Keep it numeric so duration can be plotted against it.
+3. **A true/false condition**? → a boolean `context_json` field: `filter_applied`, `sort_applied`, `preview_enabled`.
+4. **One of a few named scenarios of the *same* operation** — same `action` + `target_type`, nothing else to tell them apart? → `variant`, e.g. `simple_expression` vs `scrollback_trim`. Declare it as a typed union in the reporter (`ConsoleExecuteVariant`) so a typo won't compile.
+
+Always set **`target_description`** as well — a short human-readable label for the row (e.g. `"Python: scrollback trim"`). It's display-only and never grouped, so it's independent of the choice above.
+
+The dashboard splits the Duration Distribution box plot by **`variant`** (with `action` + `target_type`). Numbers and booleans are for filtering in queries, not the default split — so `filter_applied` is step 3, never a variant.
+
+Keep `variant` values short, stable, and snake_case; never put a free-form or timestamped string there.
+
 ## Files
 
 - `metric-factory.ts` - The main factory that eliminates boilerplate

@@ -39,7 +39,7 @@ test.describe('Packages Pane', {
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
-			await openFolder('qa-example-content/workspaces/packages-pane-python');
+			await openFolder('test-files/workspaces/packages-pane-python');
 		});
 
 		pythonRuntimes.forEach((runtime) => {
@@ -47,7 +47,22 @@ test.describe('Packages Pane', {
 				async function ({ app, sessions }) {
 					const { packages, toasts } = app.workbench;
 
-					await sessions.start(runtime);
+					// The `python` (uv) runtime resolves to two 3.10.12 interpreters: the
+					// project venv (`.venv`) and the uv-managed base standalone. The
+					// new-session (hotkey) picker only offers the preferred one, which is the
+					// base standalone -- an invalid install target (externally-managed; even
+					// `uv pip install` refuses it). Use `python.setInterpreter`, which lists
+					// all interpreters, and require the `.venv` source so the project venv is
+					// selected and package installs succeed. On web/remote the venv is
+					// discovered a beat later than the base interpreter, so requiring its
+					// source (rather than taking the first match) lets the picker retry until
+					// the venv appears instead of falling back to the standalone. Windows CI
+					// has no venv (system Python via actions/setup-python), so require the
+					// `.venv` source only elsewhere.
+					const pythonOptions = process.platform === 'win32'
+						? { triggerMode: 'quickaccess' as const }
+						: { triggerMode: 'quickaccess' as const, interpreterSource: '.venv' };
+					await sessions.start(runtime, runtime === 'python' ? pythonOptions : undefined);
 
 					await packages.verifyPackagesList();
 

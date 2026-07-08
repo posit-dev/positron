@@ -6,7 +6,7 @@ set -uo pipefail
 WS="${WORKSPACE_FOLDER:-$(cd "$(dirname "$0")/../.." && pwd)}"
 STATE="$WS/.build/.ci-arm-state"
 QA_TMP="${TMPDIR:-/tmp}"; QA_TMP="${QA_TMP%/}"
-QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/qa-example-content"  # what the e2e tests open
+QA_DEST="${POSITRON_TEST_DATA_PATH:-$QA_TMP/vscsmoke}/test-files"  # what the e2e tests open
 
 # In-tree native binaries (pet/ark/kcserver). Bind-mounted and shared with the host, so a native
 # macOS build leaves Mach-O binaries here that can't exec in the container - silently breaking

@@ -172,6 +172,24 @@ x = 1
 			expect(model.primaryLanguage).toBe('r');
 		});
 
+		it('falls back to first cell language when jupyter kernel name is unrecognized', () => {
+			// A custom kernelspec name (e.g. created via `ipykernel install --name ...`)
+			// isn't mappable to a known language, so the primary language should fall
+			// back to the cell fence language rather than being left undefined.
+			const content = `---
+jupyter: spectral-comparison-3.14
+---
+
+\`\`\`{python}
+x = 1
+\`\`\`
+`;
+			const model = createModel(content);
+
+			expect(model.jupyterKernel).toBe('spectral-comparison-3.14');
+			expect(model.primaryLanguage).toBe('python');
+		});
+
 		it('uses first cell language when no jupyter kernel', () => {
 			const content = `---
 title: "Test"

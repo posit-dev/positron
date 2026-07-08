@@ -1,0 +1,67 @@
+name: "Weekly: Test Tag Map Check"
+
+# Full-tree health check for test-tag-paths-map.json: flags Positron dirs with
+# no map entry, and map entries that no longer point at any real file (renamed
+# or deleted elsewhere without updating the map).
+#
+# Not run per-PR on purpose: both checks depend on the WHOLE tree's current
+# state, not just what one PR touched, so a per-PR gate would fail unrelated
+# PRs over drift they didn't cause. A weekly cadence is enough since neither
+# problem gets more urgent by sitting a few more days.
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Mondays, 12:00 UTC (6am CST -- shifts to 7am during CDT, cron is fixed UTC)
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run: run the check, but skip the Slack notification.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check test tag map coverage and staleness
+        # PIPESTATUS, not $?: piping into tee means $? would reflect tee's
+        # exit code, not the check's -- this job needs to actually go red.
+        run: |
+          bash scripts/check-test-tag-map.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
+
+  slack-notification:
+    name: 'Send Slack notification'
+    runs-on: ubuntu-latest
+    needs: [check-map]
+    # A single-job workflow doesn't need midleman/slack-workflow-status's
+    # multi-job summary -- a plain custom message reads better here.
+    if: always() && needs.check-map.result == 'failure' && inputs.dryrun != true
+    steps:
+      - name: Notify Slack
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg channel "#positron-dev" \
+            --arg run_url "$RUN_URL" \
+            '{
+              channel: $channel,
+              text: ("⚠️ *Test tag map has drifted* · <" + $run_url + "|view run>")
+            }')
+          RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          # curl -s only reflects the HTTP status; Slack returns 200 with
+          # {"ok": false, ...} on a bad token/channel/rate limit, which would
+          # otherwise silently drop the notification with a green job.
+          if ! echo "$RESPONSE" | jq -e '.ok == true' >/dev/null; then
+            echo "Slack notification failed: $(echo "$RESPONSE" | jq -r '.error // "unknown error"')" >&2
+            exit 1
+          fi

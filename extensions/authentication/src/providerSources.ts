@@ -16,7 +16,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 } from './constants';
-import { getConfiguredSnowflakeAccount } from './snowflakeCredentials';
+import { getConfiguredSnowflakeAccount } from './credentials/snowflake';
 
 function getSavedBaseUrl(configSection: string, fallback?: string): string | undefined {
 	return vscode.workspace
@@ -75,7 +75,7 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 		settingName: 'google',
 		status: 'experimental',
 	},
-	googleVertex: {
+	geap: {
 		id: GOOGLE_CLOUD_AUTH_PROVIDER_ID,
 		displayName: 'Gemini Enterprise Agent Platform',
 		settingName: 'googleVertex',
@@ -102,10 +102,10 @@ export const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 };
 
 export function getProviderSources(): positron.ai.LanguageModelSource[] {
-	// Vertex shows an autoconfigure label only when project + location come from
+	// GEAP shows an autoconfigure label only when project + location come from
 	// env vars. If the user supplied them via settings, the modal behaves like
 	// Bedrock (no label, Sign Out button visible).
-	const vertexFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
+	const geapFromEnv = !!process.env.GOOGLE_VERTEX_PROJECT
 		&& !!process.env.GOOGLE_VERTEX_LOCATION;
 
 	return [
@@ -193,19 +193,19 @@ export function getProviderSources(): positron.ai.LanguageModelSource[] {
 		},
 		{
 			type: positron.PositronLanguageModelType.Chat,
-			provider: PROVIDER_METADATA.googleVertex,
+			provider: PROVIDER_METADATA.geap,
 			// In env-var mode, omit 'baseUrl' from supportedOptions so the
 			// modal renders the simple env-var-driven label without trying
 			// to derive a _BASE_URL peer (the modal's derivation assumes a
 			// _API_KEY suffix, which doesn't apply here).
-			supportedOptions: vertexFromEnv
+			supportedOptions: geapFromEnv
 				? ['autoconfigure']
 				: ['baseUrl', 'toolCalls'],
 			defaults: {
 				model: 'gemini-2.5-flash',
 				baseUrl: getSavedBaseUrl('googleVertex', 'https://aiplatform.googleapis.com'),
 				toolCalls: true,
-				...(vertexFromEnv && {
+				...(geapFromEnv && {
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 						key: 'GOOGLE_VERTEX_PROJECT',

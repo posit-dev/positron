@@ -1,0 +1,982 @@
+<html>
+<head>
+<title> Oil &amp; Gas Wells - Metadata</title>
+
+<meta name="resource-type" content="document">
+<meta http-equiv="author" content="Lisa Howard">
+<meta http-equiv="description" content="department of environmental conservation geographic information master habitat databank documentation">
+<meta http-equiv="keywords" content="dec, gis, geographic information systems, department of environmental conservation, oil & gas wells, oil & gas, wells">
+<!-- add more key words from name of documentation -->
+<meta http-equiv="distribution" content="Global">
+</head>
+
+<body bgcolor="White" text="Black" alink="Purple" link="Blue">
+
+		
+<!-- Here is where the documentation begins -->
+
+<table width=100%>
+<tr>
+<td width=30% valign="top" align="left">Geographic Data Set:</td> 
+<td width=70% valign="top" align="left">Oil, Gas, and Other Regulated Wells</td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Description:</td>
+<td width=70% valign="top" align="left">This dataset contains locations of oil, gas, storage, solution salt, stratigraphic, and geothermal wells. 
+The Division of Mineral Resources maintains information and data on almost 40,000 wells, 
+categorized under New York State Article 23 Regulated wells. Additional information and data is 
+available online through the Oil and Gas Searchable Database at 
+<a href="http://www.dec.ny.gov/cfmx/extapps/GasOil/">http://www.dec.ny.gov/cfmx/extapps/GasOil/.</a>
+<ol>
+<li><!--1-->The dataset reflects the status of all wells in the Oil and Gas Wells database as of the previous business day.</li>
+<li><!--2-->Wells currently afforded confidential status are plotted but confidential data is redacted.</li>
+</ol>
+</td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Available:</td> 
+<td width=70% valign="top" align="left">Statewide</td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Completion or Most Recent Revision Date:</td>
+<td width=70% valign="top" align="left">Shapefile updated nightly
+(Monday - Friday)</td>
+</tr>
+
+<tr>
+<td  width=30% valign="top" align="left"><strong>Accuracy:</strong></td>
+<td width=70% valign="bottom" align="left"></td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Type of Data:</td> 
+<td width=70% valign="top" align="left">Shapefile with a Point Attribute Table</td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Source of Information:</td> 
+<td width=70% valign="top" align="left">Information from the Oil and Gas Wells database is provided by the Division of Mineral Resources of New York State's Department of Environmental Conservation.</td>
+</tr>
+<tr>
+<td width=30% valign="top" align="left">Projection and Map Units:</td> 
+<td width=70% valign="top" align="left">NYTM in meters, NAD83 horizontal datum.</td>
+</tr>
+</table>
+<a name="attribute_tables"></a>
+<table width=100%>
+<tr>
+<td width=30% valign="top" align="left">Attribute Tables:</td>
+<td width=70% valign="top" align="left"><a href="#point">Items (or Fields) in the Point Attribute Table</a></td>
+</tr>
+</table>
+
+<table width=100%>
+<tr>
+<td width=30% valign="top" align="left">Contact:</td>
+<td width=70% valign="top" align="left">Division of Mineral Resources
+<br>
+625 Broadway, 3rd Floor<br>
+Albany, NY  12233-6500<br>
+<a href="mailto:dmninfo@gw.dec.state.ny.us">dmninfo@gw.dec.state.ny.us</a><br>
+<a href="http://www.dec.ny.gov/about/636.html">http://www.dec.ny.gov/about/636.html</a></td>
+</tr>
+
+</table>
+
+<br>
+
+<hr width=100% size=3 noshade>
+
+<table width=100%>
+<td><strong>Documentation Date:</strong></td>
+<td align="left" valign="top">
+<script type="text/javascript">
+  <!-- hide JS code
+  x = 0, y = 0
+  lastModDate  = new Date(document.lastModified);
+  if ((lastModDate.getYear()) > 99) x = 100;
+  if ((lastModDate.getYear()) > 1999) y = 1900;
+ // document.write(lastModDate);
+  lastModMonth = lastModDate.getMonth() + 1;
+  lastModDay   = lastModDate.getDate();
+  lastModYear  = lastModDate.getYear() - x - y + 2000;
+   var MonthName = new Array();
+    MonthName[1] = "January";
+    MonthName[2] = "February";
+    MonthName[3] = "March";
+    MonthName[4] = "April";
+    MonthName[5] = "May";
+    MonthName[6] = "June";
+    MonthName[7] = "July";
+    MonthName[8] = "August";
+    MonthName[9] = "September";
+    MonthName[10] = "October";
+    MonthName[11] = "November";
+    MonthName[12] = "December";
+  document.write(lastModDay + " " + MonthName[lastModMonth]
+    + " " + lastModYear);
+     // document.write(document.lastModified);
+  // end JS hide -->
+</script>
+
+ </td>
+</tr>
+</table>
+
+<p><strong>Usage Notes:</strong></p>
+
+<ol>
+<li>This data has not been field verified, but is expected to be
+within 100 meters of the actual well location. The data should not
+be used for precise determination of distances to buildings,
+property boundaries or other features. It is most useful for
+determining the general locations of wells.</li>
+</ol>
+
+<hr>
+
+<h2>Attribute Tables</h2>
+<p><a name="point"></a></p>
+<hr>
+
+
+
+<div class="center">
+<table border="1" width="94%">
+
+<caption><strong>Items (or Fields) in the Point Attribute Table</strong></caption>
+<!-- <tr>
+<td colspan="2"></td>
+</tr> -->
+
+<tr>
+<th align="left"><strong>FIELD NAME</strong></th>
+<th align="left"><strong>EXPLANATION</strong></th>
+</tr>
+
+<tr>
+<td>API_WELLNO</td>
+    <td>14-Digit API number</td>
+</tr>
+
+<tr>
+<td>CNTY</td>
+<td>3-Digit county code <a href="#cntycode">County Codes</a></td>
+</tr>
+
+<tr>
+<td>HOLE</td>
+<td>5-Digit API number</td>
+</tr>
+
+<tr>
+<td>SIDETRCK</td>
+<td>2-Digit sidetrack code</td>
+</tr>
+
+<tr>
+<td>COMPLETION</td>
+<td>2-Digit company completion code</td>
+</tr>
+
+<tr>
+<td>WELL_NAME</td>
+<td>Well name</td>
+</tr>
+
+<tr>
+<td>COMPANY_NAME</td>
+<td>Well owner</td>
+</tr>
+
+<tr>
+<td>OPERATOR_NUMBER</td>
+<td>Well owner code</td>
+</tr>
+
+<tr>
+<td>WELL_TYPE</td>
+<td>Well type <a href="#welltyp">Well Type Codes</a></td>
+</tr>
+
+<tr>
+<td>MAP_SYMBOL</td>
+<td>Map flags for GIS mapping <a href="#MapFlag">Map Flag Codes</a></td>
+</tr>
+<tr>
+<td>WELL_STATUS</td>
+<td>Well status <a href="#wellstat">Well Status Codes</a></td>
+</tr>
+
+<tr>
+<td>DT_STATUS</td>
+<td>Date of assigned well status code</td>
+</tr>
+
+<tr>
+<td>DT_PERMIT_APPLICATION</td>
+<td>Date permit application recieved</td>
+</tr>
+
+<tr>
+<td>PERMIT_ISSUED</td>
+<td>Date permit issued/approved</td>
+</tr>
+
+<tr>
+<td>DATE_SPUDDED</td>
+<td>Date drilling began</td>
+</tr>
+
+<tr>
+<td>DATE_TOTAL_DEPTH</td>
+<td>Date wellbore drilled to total depth</td>
+</tr>
+
+<tr>
+<td>DATE_WELL_COMPLETED</td>
+<td>Completion date</td>
+</tr>
+
+<tr>
+<td>DATE_WELL_PLUGGED</td>
+<td>Date of plugging</td>
+</tr>
+
+<tr>
+<td>DATE_WELL_CONFIDENTIAL</td>
+<td>Date confidential status expires (wells are confidential for 6 months from Spud Date, extended by subsequent approval of extension request)</td>
+</tr>
+
+<tr>
+<td>CONFID</td>
+<td>Confidential well data <a href="#confid">Confidential Information Codes</a></td>
+</tr>
+
+<tr>
+<td>TOWN</td>
+<td>Town</td>
+</tr>
+
+<tr>
+<td>QUAD</td>
+<td>USGS Quadrangle</td>
+</tr>
+
+<tr>
+<td>QUADSEC</td>
+<td>Letter designation of USGS quadrangle section</td>
+</tr>
+
+<tr>
+<td>PRODUCING_NAME</td>
+<td>Name of producing field</td>
+</tr>
+
+<tr>
+<td>PRODUCING_FORMATION</td>
+<td>Name of producing formation</td>
+</tr>
+
+<tr>
+<td>FINANCIAL_SECURITY</td>
+<td>Does operator have financial security?</td>
+</tr>
+
+<tr>
+<td>SLANT</td>
+<td>Orientation of borehole (Vertical/Horizontal/Directional)</td>
+</tr>
+
+<tr>
+<td>COUNTY</td>
+<td>County</td>
+</tr>
+
+<tr>
+<td>REGION</td>
+<td>Region</td>
+</tr>
+
+<tr>
+<td>STATE_LEASE</td>
+<td>Lease owned by the state (Y/N)</td>
+</tr>
+
+<tr>
+<td>PROPOSED_DEPTH</td>
+<td>Depth (ft) specified on permit application</td>
+</tr>
+
+<tr>
+<td>SURFACE_LOCATION</td>
+<td>Specifies type of location point</td>
+</tr>
+
+<tr>
+<td>SURFACE_LONGITUDE</td>
+<td>Longitude of surface hole point (decimal degrees)</td>
+</tr>
+
+<tr>
+<td>SURFACE_LATITUDE</td>
+<td>Latitude of surface hole point (decimal degrees)</td>
+</tr>
+
+<tr>
+<td>BOTTOM_HOLE_LOCATION</td>
+<td>Specifies type of location point(Bottom Hole - BH or Surface Hole SH)</td>
+</tr>
+
+<tr>
+<td>BOTTOM_HOLE_LONGITUDE</td>
+<td>Longitude of bottom hole (decimal degrees) point</td>
+</tr>
+
+<tr>
+<td>BOTTOM_HOLE_LATITUDE</td>
+<td>Latitude of bottom hole (decimal degrees) point</td>
+</tr>
+
+<tr>
+<td>TRUE_VERTICAL_DEPTH</td>
+<td>Total vertical depth (ft) to bottom of wellbore (TVD)</td>
+</tr>
+
+<tr>
+<td>MEASURED_DEPTH</td>
+<td>Total measured length (ft) of borehole (TMD)</td>
+</tr>
+
+<tr>
+<td>KICKOFF</td>
+<td>Depth (ft) of kickoff point</td>
+</tr>
+
+<tr>
+<td>DRILLED_DEPTH</td>
+<td>Length (ft) of borehole drilled past Kick Off Point (KOP)</td>
+</tr>
+
+<tr>
+<td>ELEVATION</td>
+<td>Elevation (ft) above sea level at the wellhead</td>
+</tr>
+
+<tr>
+<td>ORIGINAL_WELL_TYPE</td>
+<td>Well type specified on permit application</td>
+</tr>
+
+<tr>
+<td>PERMIT_FEE</td>
+<td>Amount paid for fee</td>
+</tr>
+
+<tr>
+<td>OBJECTIVE_FORMATION</td>
+<td>Formation targeted for production</td>
+</tr>
+
+<tr>
+<td>DEPTH_FEE</td>
+<td>Fee for drilling wellbore based on final depth of hole</td>
+</tr>
+
+<tr>
+<td>SPACING</td>
+<td>Spacing required or exempt</td>
+</tr>
+
+<tr>
+<td>SPACING_ACRES</td>
+<td>Acres specified in the spacing order</td>
+</tr>
+
+<tr>
+<td>INTEGRATION</td>
+<td>Integration codes <a href="#Integration_codes">Integration_Codes</a></td>
+</tr>
+
+<tr>
+<td>DT_HEARING</td>
+<td>Date of integration hearing</td>
+</tr>
+
+<tr>
+<td>DT_MOD</td>
+<td>Date record last updated</td>
+</tr>
+
+<tr>
+<td>LINK</td>
+<td>Link to DEC searchable online database record for individual well</td>
+</tr>
+</table>
+</div>
+
+<br>
+<br>
+<br>
+<a name="cntycode"></a>
+<div class="center">
+<table border="1" width="75%">
+<caption><strong>County Names and Codes</strong></caption>
+
+<tr>
+<td colspan="4"></td>
+</tr>
+
+<tr>
+<th align="left">COUNTY CODE</th>
+<th align="left">COUNTY NAME</th>
+<th align="left">COUNTY CODE</th>
+<th align="left">COUNTY NAME</th>
+</tr>
+
+<tr>
+<td align="left" valign="top">001</td>
+<td align="left" valign="bottom">Albany</td>
+<td align="left" valign="top">061</td>
+<td align="left" valign="bottom">New York</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">003</td>
+<td align="left" valign="bottom">Allegany</td>
+<td align="left" valign="top">063</td>
+<td align="left" valign="bottom">Niagara</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">005</td>
+<td align="left" valign="bottom">Bronx</td>
+<td align="left" valign="top">065</td>
+<td align="left" valign="bottom">Oneida</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">007</td>
+<td align="left" valign="bottom">Broome</td>
+<td align="left" valign="top">067</td>
+<td align="left" valign="bottom">Onondaga</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">009</td>
+<td align="left" valign="bottom">Cattaraugus</td>
+<td align="left" valign="top">069</td>
+<td align="left" valign="bottom">Ontario</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">011</td>
+<td align="left" valign="bottom">Cayuga</td>
+<td align="left" valign="top">071</td>
+<td align="left" valign="bottom">Orange</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">013</td>
+<td align="left" valign="bottom">Chautauqua</td>
+<td align="left" valign="top">073</td>
+<td align="left" valign="bottom">Orleans</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">015</td>
+<td align="left" valign="bottom">Chemung</td>
+<td align="left" valign="top">075</td>
+<td align="left" valign="bottom">Oswego</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">017</td>
+<td align="left" valign="bottom">Chenango</td>
+<td align="left" valign="top">077</td>
+<td align="left" valign="bottom">Otsego</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">019</td>
+<td align="left" valign="bottom">Clinton</td>
+<td align="left" valign="top">079</td>
+<td align="left" valign="bottom">Putnam</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">021</td>
+<td align="left" valign="bottom">Columbia</td>
+<td align="left" valign="top">081</td>
+<td align="left" valign="bottom">Queens</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">023</td>
+<td align="left" valign="bottom">Cortland</td>
+<td align="left" valign="top">083</td>
+<td align="left" valign="bottom">Rensselaer</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">025</td>
+<td align="left" valign="bottom">Delaware</td>
+<td align="left" valign="top">085</td>
+<td align="left" valign="bottom">Richmond</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">027</td>
+<td align="left" valign="bottom">Dutchess</td>
+<td align="left" valign="top">087</td>
+<td align="left" valign="bottom">Rockland</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">029</td>
+<td align="left" valign="bottom">Erie</td>
+<td align="left" valign="top">089</td>
+<td align="left" valign="bottom">St. Lawrence</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">031</td>
+<td align="left" valign="bottom">Essex</td>
+<td align="left" valign="top">033</td>
+<td align="left" valign="bottom">Franklin</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">093</td>
+<td align="left" valign="bottom">Schenectady</td>
+<td align="left" valign="top">035</td>
+<td align="left" valign="bottom">Fulton</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">095</td>
+<td align="left" valign="bottom">Schoharie</td>
+<td align="left" valign="top">037</td>
+<td align="left" valign="bottom">Genesee</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">097</td>
+<td align="left" valign="bottom">Schuyler</td>
+<td align="left" valign="top">039</td>
+<td align="left" valign="bottom">Greene</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">099</td>
+<td align="left" valign="bottom">Seneca</td>
+<td align="left" valign="top">041</td>
+<td align="left" valign="bottom">Hamilton</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">101</td>
+<td align="left" valign="bottom">Steuben</td>
+<td align="left" valign="top">043</td>
+<td align="left" valign="bottom">Herkimer</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">103</td>
+<td align="left" valign="bottom">Suffolk</td>
+<td align="left" valign="top">045</td>
+<td align="left" valign="bottom">Jefferson</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">105</td>
+<td align="left" valign="bottom">Sullivan</td>
+<td align="left" valign="top">047</td>
+<td align="left" valign="bottom">Kings</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">107</td>
+<td align="left" valign="bottom">Tioga</td>
+<td align="left" valign="top">049</td>
+<td align="left" valign="bottom">Lewis</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">109</td>
+<td align="left" valign="bottom">Tompkins</td>
+<td align="left" valign="top">051</td>
+<td align="left" valign="bottom">Livingston</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">111</td>
+<td align="left" valign="bottom">Ulster</td>
+<td align="left" valign="top">053</td>
+<td align="left" valign="bottom">Madison</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">113</td>
+<td align="left" valign="bottom">Warren</td>
+<td align="left" valign="top">055</td>
+<td align="left" valign="bottom">Monroe</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">115</td>
+<td align="left" valign="bottom">Washington</td>
+<td align="left" valign="top">057</td>
+<td align="left" valign="bottom">Montgomery</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">117</td>
+<td align="left" valign="bottom">Wayne</td>
+<td align="left" valign="top">059</td>
+<td align="left" valign="bottom">Nassau</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">119</td>
+<td align="left" valign="bottom">Westchester</td>
+<td align="left" valign="top">121</td>
+<td align="left" valign="bottom">Wyoming</td>
+</tr>
+
+<tr>
+<td align="left" valign="top">123</td>
+<td align="left" valign="bottom">Yates</td>
+<td align="left" valign="top">091</td>
+<td align="left" valign="bottom">Saratoga</td>
+</tr>
+</table>
+</div>
+<br>
+<a href="#point">Back to Attribute Tables</a><br>
+<br>
+<a name="confid"></a>
+<div class="center">
+<table border="1" width="63%">
+<caption><strong>Confidential Information Codes</strong></caption>
+<tr>
+<td valign="TOP">R</td>
+<td>Confidential information has been Released</td>
+</tr>
+
+<tr>
+<td valign="TOP">Y&nbsp;&nbsp;&nbsp;</td>
+<td>Well information is held confidential for 6 months after spud date</td>
+</tr>
+
+<tr>
+<td valign="TOP">E</td>
+<td>Confidential status has been extended for an additional 18 months</td>
+</tr>
+
+<tr>
+<td valign="TOP">N</td>
+<td>Well does not have confidential information</td>
+</tr>
+</table>
+</div>
+
+<br>
+  <a href="#point">Back to Attribute Tables</a><br>
+  <br>
+  <a name="wellstat"></a>
+
+
+  <div class="center">
+<table border="1">
+  <caption><strong>Well Status Codes</strong></caption>
+  <tr> 
+    <td>AC</td>
+    <td>Active</td>
+  </tr>
+  <tr> 
+    <td>AR</td>
+    <td>Application Received to Drill/Plug/Convert</td>
+  </tr>
+  <tr> 
+    <td>CA</td>
+    <td>Cancelled</td>
+  </tr>
+  <tr> 
+    <td>DC</td>
+    <td>Drilling Completed</td>
+  </tr>
+  <tr> 
+    <td>DD</td>
+    <td>Drilled Deeper</td>
+  </tr>
+  <tr> 
+    <td>DG</td>
+    <td>Drilling in Progress</td>
+  </tr>
+  <tr> 
+    <td>EX</td>
+    <td>Expired Permit </td>
+  </tr>
+  <tr>
+    <td>IN</td>
+    <td>Inactive</td>
+  </tr>
+  <tr> 
+    <td>NR</td>
+    <td>Not Reported on AWR</td>
+  </tr>
+  <tr> 
+    <td>PA</td>
+    <td>Plugged and Abandoned</td>
+  </tr>
+  <tr> 
+    <td>PI</td>
+    <td> Permit Issued</td>
+  </tr>
+    <tr> 
+    <td>PB</td>
+    <td>Plugged Back</td>
+  </tr>
+  <tr> 
+    <td>PM</td>
+    <td>Plugged Back Multilateral</td>
+  </tr>
+  <tr> 
+    <td>RE</td>
+    <td>Refunded Fee </td>
+  </tr>
+  <tr> 
+    <td>RW</td>
+    <td>Released - Water Well</td>
+  </tr>
+  <tr> 
+    <td>SI</td>
+    <td>Shut-In</td>
+  </tr>
+  <tr> 
+    <td>TA</td>
+    <td>Temporarily Abandoned</td>
+  </tr>
+  <tr> 
+    <td>TR</td>
+    <td> Transferred Permit</td>
+  </tr>
+  <tr> 
+    <td>UN</td>
+    <td>Unknown</td>
+  </tr>
+  <tr> 
+    <td>UL</td>
+    <td>Unknown Located</td>
+  </tr>
+  <tr> 
+    <td>UM</td>
+    <td>Unknown Not Found</td>
+  </tr>
+  <tr> 
+    <td>VP</td>
+    <td>Voided Permit</td>
+  </tr>
+</table>
+</div>
+
+<p> <a href="#point">Back to Attribute Tables</a></p>
+<p> <a name="welltyp"></a> </p>
+
+
+<div class="center">
+<table width="37%" border="1">
+<caption><strong>Well Type Codes</strong></caption>
+  <tr> 
+    <td>BR</td>
+    <td>Brine</td>
+  </tr>
+    <tr>
+    <td>Confidential</td>
+    <td>Well Type Is Currently Listed As Confidential</td>
+  </tr>
+  <tr> 
+    <td>DH</td>
+    <td>Dry Hole</td>
+  </tr>
+  <tr> 
+    <td>DS</td>
+    <td>Disposal</td>
+  </tr>
+  <tr>
+    <td>DW</td>
+    <td>Dry Wildcat</td>
+  </tr>
+  <tr> 
+    <td>GD</td>
+    <td>Gas Development</td>
+  </tr>
+  <tr> 
+    <td>GE</td>
+    <td>Gas Extension</td>
+  </tr>
+  <tr> 
+    <td>GW</td>
+    <td>Gas Wildcat</td>
+  </tr>
+  <tr> 
+    <td>IG</td>
+    <td>Gas Injection Well</td>
+  </tr>
+  <tr> 
+    <td>IW</td>
+    <td>Enhanced Oil Recovery - Injection</td>
+  </tr>
+  <tr> 
+    <td>LP</td>
+    <td>Liquefied Petroleum Gas Storage</td>
+  </tr>
+  <tr> 
+    <td>MB</td>
+    <td>Monitoring Brine</td>
+  </tr>
+  <tr> 
+    <td>MM</td>
+    <td>Monitoring Miscellaneous</td>
+  </tr>
+  <tr> 
+    <td>MS</td>
+    <td>Monitoring Storage</td>
+  </tr>
+  <tr>
+    <td>NL</td>
+    <td>Not Listed</td>
+  </tr>
+  <tr> 
+    <td>OB</td>
+    <td>Observation Well</td>
+  </tr>
+  <tr> 
+    <td>OD</td>
+    <td>Oil Development</td>
+  </tr>
+  <tr> 
+    <td>OE</td>
+    <td>Oil Extension</td>
+  </tr>
+  <tr> 
+    <td>OW</td>
+    <td>Oil Wildcat</td>
+  </tr>
+  <tr> 
+    <td>SG</td>
+    <td>Stratigraphic</td>
+  </tr>
+  <tr> 
+    <td>ST</td>
+    <td>Storage</td>
+  </tr>
+  <tr> 
+    <td>TH</td>
+    <td>Geothermal</td>
+  </tr>
+  <tr> 
+    <td>UN</td>
+    <td>Unknown</td>
+  </tr>
+</table>
+</div>
+<br>
+<a href="#point">Back to Attribute Tables</a> 
+
+<a name="MapFlag"></a>
+<div class="center">
+<table border="1">
+<caption><strong>Well Type Codes for Mapping (MapFlag Field in Attribute Table)</strong></caption>
+  <tr> 
+    <td>CON</td>
+    <td>Confidential</td>
+  </tr>
+  <tr> 
+    <td>GW</td>
+    <td>Gas Well</td>
+  </tr>
+  <tr> 
+    <td>GWP</td>
+    <td>Gas Well Plugged</td>
+  </tr>
+  <tr> 
+    <td>OW</td>
+    <td>Oil Well</td>
+  </tr>
+  <tr> 
+    <td>OWP</td>
+    <td>Oil Well Plugged</td>
+  </tr>
+  <tr> 
+    <td>S</td>
+    <td>Storage Well</td>
+  </tr>
+  <tr> 
+    <td>SP</td>
+    <td>Storage Well Plugged</td>
+  </tr>
+  <tr> 
+    <td>SM</td>
+    <td>Solution Brine Well</td>
+  </tr>
+  <tr> 
+    <td>SMP</td>
+    <td>Solution Brine Well Plugged</td>
+  </tr>
+  <tr> 
+    <td>DH</td>
+    <td>Dry Hole</td>
+  </tr>
+  <tr> 
+    <td>O</td>
+    <td>Other Well*</td>
+  </tr>
+  <tr> 
+    <td>OP</td>
+    <td>Other Well Plugged*</td>
+  </tr>
+</table>
+</div>
+
+<p>*Other includes: Injection, Stratigraphic, Geothermal, and Not Listed well
+  types.<br>
+<a href="#point">Back to Attribute Tables</a> 
+
+
+<a name="Integration_Codes"></a>
+ 
+<div class="center">
+<table border="1">
+<caption><strong>Integration Codes</strong></caption>
+
+    <td>NO</td>
+    <td>No integration order required</td>
+  </tr>
+  <tr> 
+    <td>OI</td>
+    <td>Integration order issued</td>
+  </tr>
+  <tr> 
+    <td>OP</td>
+    <td>Integration order pending</td>
+  </tr>
+  <tr> 
+    <td>RE</td>
+    <td>Referred to Office of Hearings and Mediation Services</td>
+  </tr>
+</table>
+</div>
+ 
+<!-- If the page includes a bottom section of links, remove the comment tags enclosing the next two lines. -->
+<!-- <hr class="clearboth">
+<p class="toplinkhead"><a name="links"></a>Other Links of Interest</p> -->
+<!-- If the page includes a bottom section of links, remove the comment tags from the appropriate codes below, and repeat as necessary. -->
+<!-- For links to pages on DEC's web site: --> 
+<!-- <div class="toplink"><a href=" "> </a> </div> --> 
+<!-- For links to pages not on DEC's web site: -->
+<!-- <div class="toplink"><a href=" "></a>  <span class="leaving"><img src="/resources/graphics/site/leaving.gif" width="108" height="14" alt="leaves DEC's web site" border="0"></span></div> -->
+<!-- Do not modify the following 3 lines --></p>
+
+<p><a href="#top">Back to top of page</a></p>
+	</body>
+	</html>

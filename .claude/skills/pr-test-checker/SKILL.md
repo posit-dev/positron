@@ -188,7 +188,7 @@ Only suggest **feature** tags from `test/e2e/infra/test-runner/test-tags.ts`. Do
 Omit entirely if not applicable.>
 
 ---
-<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Triggers on PR open and on `/recheck-tests` comments. Wrong verdict? Comment `/recheck-tests` (or `/rePETE`) on this PR to re-run. Please share feedback on how PETE performed [here](https://docs.google.com/spreadsheets/d/1MIBYC-ItKaeH7Pup1VHoGw8sTkwxIbbDnDMn_vRSrGg/edit?usp=sharing).</small>
+<small>PETE (Positron Extreme Test Experiment) - LLM-based test-coverage advisor, in pilot. Runs only on demand -- comment `/pete` (or `/recheck-tests`, `/rePETE`, `/re-pete`) on this PR to run (or re-run) it. Please share feedback on how PETE performed [here](https://docs.google.com/spreadsheets/d/1MIBYC-ItKaeH7Pup1VHoGw8sTkwxIbbDnDMn_vRSrGg/edit?usp=sharing).</small>
 ```
 
 ## Constraints

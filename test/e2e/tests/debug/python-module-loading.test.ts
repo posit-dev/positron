@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Python Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
 
 	test.afterAll(async function ({ cleanup }) {

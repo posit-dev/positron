@@ -36,7 +36,7 @@ export class DashboardPage {
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 * @returns true if a new session was created, false if project already existed
 	 */
-	async ensureProjectExists(folderToOpen = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
+	async ensureProjectExists(folderToOpen = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
 		const existingProject = this.project(folderToOpen);
 
 		try {
@@ -67,7 +67,7 @@ export class DashboardPage {
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
 
-		// Azure JIT-provisioned users (rstudio-ide-test) don't have qa-example-content in their
+		// Azure JIT-provisioned users (rstudio-ide-test) don't have test-files in their
 		// home directory at launch time. The fixture handles copying the workspace into the JIT
 		// user's home and calling openWorkspaceFolder() once Positron is up.
 		if (managedCredentials === 'azure') {
@@ -104,7 +104,7 @@ export class DashboardPage {
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
 	 */
-	async openSession(projectName = 'qa-example-content', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
+	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
 		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
@@ -346,7 +346,7 @@ export class DashboardPage {
 	 * Quits the specified project session
 	 * @param projectName The project name to quit
 	 */
-	async quitSession(projectName = 'qa-example-content'): Promise<void> {
+	async quitSession(projectName = 'test-files'): Promise<void> {
 		await this.projectCheckbox(projectName).check();
 		await this.quitButton.click();
 	}

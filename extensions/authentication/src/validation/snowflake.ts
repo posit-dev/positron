@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { isValidSnowflakeAccount } from '../snowflakeCredentials';
+import { isValidSnowflakeAccount } from '../credentials/snowflake';
 
 class SnowflakeValidationError extends Error {
 	constructor(message: string) {

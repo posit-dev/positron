@@ -18,7 +18,8 @@ import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/brows
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { isImageMimeType, isSvgMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { rasterizeSvgToPng } from '../../../contrib/positronNotebook/browser/svgToPng.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -367,6 +368,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 	/**
 	 * Gets the outputs from a code cell.
+	 *
+	 * SVG outputs are rasterized to base64-encoded PNG (falling back to raw
+	 * SVG text when rasterization fails) so assistants can attach them as
+	 * images (#12096).
+	 *
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell.
 	 * @returns Array of output objects with MIME type and data (text or base64-encoded binary).
@@ -395,6 +401,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Convert outputs to structured DTOs
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
+			// Items within one output are alternative representations of the same
+			// data. When a binary image representation already exists, don't also
+			// rasterize an SVG sibling into a duplicate image; it stays raw text.
+			const hasRasterImageSibling = output.outputs.some(item => isImageMimeType(item.mime));
 			for (const item of output.outputs) {
 				const mimeType = item.mime;
 
@@ -404,6 +414,25 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 						mimeType: mimeType,
 						data: `[stderr] ${item.data.toString()}`
 					});
+				}
+				// Rasterize SVG outputs to PNG so assistants can attach them as images;
+				// model providers reject image/svg+xml. Fall back to the raw SVG text
+				// when rasterization fails (#12096).
+				else if (isSvgMimeType(mimeType) && !hasRasterImageSibling) {
+					const svgText = item.data.toString();
+					const pngData = await rasterizeSvgToPng(svgText);
+					if (pngData !== undefined) {
+						outputDTOs.push({
+							mimeType: 'image/png',
+							data: pngData
+						});
+					} else {
+						this._logService.warn('Failed to rasterize SVG notebook output to PNG. Returning raw SVG text.');
+						outputDTOs.push({
+							mimeType: mimeType,
+							data: svgText
+						});
+					}
 				}
 				// Handle image MIME types - base64 encode
 				else if (isImageMimeType(mimeType)) {
