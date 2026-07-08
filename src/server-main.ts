@@ -405,10 +405,18 @@ async function startKernelSupervisor() {
 		return;
 	}
 
+	// Use a platform-appropriate IPC (domain socket) transport by default rather
+	// than kcserver's TCP default, mirroring the desktop extension's `ipc`
+	// default (see `kernelSupervisor.transport`). Domain sockets keep the
+	// supervisor off a listening TCP port and confine it to the same-user trust
+	// boundary. Windows has no Unix domain sockets, so use a named pipe there.
+	const transport = os.platform() === 'win32' ? 'named-pipe' : 'socket';
+
 	// Start the supervisor process.
 	process.stdout.write(`\nStarting Positron Kernel Supervisor (${supervisorPath})...\n`);
 	const supervisorProcess = spawn(supervisorPath, [
 		'--handshake-socket', broker.socketPath,
+		'--transport', transport,
 		'--log-file', logFile,
 		'--resource-sample-interval', '0']);
 	supervisorProcess.stdout.on('data', (data) => {
