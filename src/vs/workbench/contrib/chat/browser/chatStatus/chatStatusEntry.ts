@@ -25,6 +25,11 @@ import { isCompletionsEnabled } from '../../../../../editor/common/services/comp
 import { ChatConfiguration } from '../../common/constants.js';
 // --- Start Positron ---
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+// GitHub Copilot's provider enable setting (declared in the authentication
+// extension's package.json). When false, Copilot is off, so the status shows
+// the disabled state rather than "Signed out"/"Finish Setup". Literal because
+// the setting is owned by an extension, not a workbench constant.
+const COPILOT_PROVIDER_ENABLE_KEY = 'positron.assistant.provider.githubCopilot.enable';
 // --- End Positron ---
 
 export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
@@ -103,7 +108,9 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				// --- Start Positron ---
 				// Toggling either the chat-hiding setting or the AI main switch adds or
 				// removes the completions-only entry, so re-run without a reload.
+				// Toggling the GitHub Copilot provider changes the disabled state below.
 				|| e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration(AI_ENABLED_KEY)
+				|| e.affectsConfiguration(COPILOT_PROVIDER_ENABLE_KEY)
 				// --- End Positron ---
 			) {
 				this.update();
@@ -135,9 +142,18 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		let kind: StatusbarEntryKind | undefined;
 
 		// --- Start Positron ---
+		// When the GitHub Copilot provider is disabled, Copilot (chat and inline
+		// completions) is off, so show the disabled state below rather than a
+		// sign-in/entitlement state ("Signed out", "Finish Setup"), which would be
+		// misleading.
+		const copilotProviderDisabled = this.configurationService.getValue(COPILOT_PROVIDER_ENABLE_KEY) === false;
+		// --- End Positron ---
+
+		// --- Start Positron ---
 		// In completions-only mode chat is hidden, so skip the chat-specific states
-		// (Finish Setup) and keep only the completions-relevant ones below.
-		if (!completionsOnly && isNewUser(this.chatEntitlementService)) {
+		// (Finish Setup) and keep only the completions-relevant ones below. Also skip
+		// it when the Copilot provider is disabled (handled by the disabled state).
+		if (!completionsOnly && !copilotProviderDisabled && isNewUser(this.chatEntitlementService)) {
 			// --- End Positron ---
 			const entitlement = this.chatEntitlementService.entitlement;
 
@@ -159,7 +175,12 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			const completionsQuotaExceeded = this.chatEntitlementService.quotas.completions?.percentRemaining === 0;
 
 			// Disabled
-			if (this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
+			// --- Start Positron ---
+			// `copilotProviderDisabled` added: the Copilot provider being off maps to
+			// the disabled state, and (being first) takes precedence over the
+			// signed-out and quota states below.
+			if (copilotProviderDisabled || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
+				// --- End Positron ---
 				text = '$(copilot-unavailable)';
 				ariaLabel = localize('copilotDisabledStatus', "Copilot disabled");
 			}
