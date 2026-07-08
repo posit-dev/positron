@@ -299,7 +299,11 @@ jobs:
             if [ -n "$FINAL_PR_URL" ]; then
               echo ":white_check_mark: [Opened/updated PR]($FINAL_PR_URL)"
             elif [ -n "$DRYRUN_PUSH_BRANCH" ]; then
-              echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
+              if [ "$EXISTS" = "true" ]; then
+                echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and update the existing PR (dry run)."
+              else
+                echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
+              fi
             elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
               echo "No new changes needed -- existing PR left as-is."
             else
