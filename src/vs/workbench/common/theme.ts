@@ -31,7 +31,8 @@ import { // eslint-disable-line no-duplicate-imports
 	textPreformatForeground,
 	selectBorder,
 	inputActiveOptionBackground,
-	inputActiveOptionBorder
+	inputActiveOptionBorder,
+	inputValidationInfoBorder
 } from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
@@ -2078,6 +2079,30 @@ export const POSITRON_NOTEBOOK_CELL_TAG_BORDER = registerColor('positronNotebook
 // Positron notebook cell tag hover accent color (text, border, and background wash
 // of the add-tag affordance on hover).
 export const POSITRON_NOTEBOOK_CELL_TAG_HOVER_FOREGROUND = registerColor('positronNotebook.cellTagHoverForeground', textLinkForeground, localize('positronNotebook.cellTagHoverForeground', "Positron notebook cell tag hover accent color."));
+
+// < --- Positron Memory Usage Bar --- >
+// The memory usage bar (Variables pane meter and its dropdown) previously reused
+// the upstream `gauge.*` colors, which were removed when the chat status dashboard
+// was refactored upstream. These Positron-owned colors replicate those values so
+// the bar's segments stay colored and do not depend on unstable upstream tokens.
+
+// Fill color for the Positron overhead segment (Positron platform + extension host)
+// of the memory usage bar.
+export const POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND = registerColor('positronMemoryUsageBar.overheadForeground', {
+	dark: inputValidationInfoBorder,
+	light: inputValidationInfoBorder,
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronMemoryUsageBar.overheadForeground', "Fill color for the Positron overhead segment of the memory usage bar."));
+
+// Fill color for the other-processes segment of the memory usage bar. Defaults to a
+// faded variant of the overhead color so the two segments stay visually related.
+export const POSITRON_MEMORY_USAGE_BAR_OTHER_FOREGROUND = registerColor('positronMemoryUsageBar.otherForeground', {
+	dark: transparent(POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND, 0.3),
+	light: transparent(POSITRON_MEMORY_USAGE_BAR_OVERHEAD_FOREGROUND, 0.3),
+	hcDark: Color.white,
+	hcLight: Color.white
+}, localize('positronMemoryUsageBar.otherForeground', "Fill color for the other-processes segment of the memory usage bar."));
 
 // *************************************************************************************************
 // *************************************************************************************************

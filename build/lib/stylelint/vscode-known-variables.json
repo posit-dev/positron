@@ -696,6 +696,8 @@
 		"--vscode-positronError-foreground",
 		"--vscode-positronIconButton-background",
 		"--vscode-positronIconButton-border",
+		"--vscode-positronMemoryUsageBar-otherForeground",
+		"--vscode-positronMemoryUsageBar-overheadForeground",
 		"--vscode-positronModalDialog-background",
 		"--vscode-positronModalDialog-border",
 		"--vscode-positronModalDialog-buttonActiveBackground",
