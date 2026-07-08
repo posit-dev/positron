@@ -3,7 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { addDisposableListener, getActiveElement, getShadowRoot } from '../../../../../base/browser/dom.js';
+// --- Start Positron ---
+// Also import saveParentsScrollTop/restoreParentsScrollTop for the focus() fix below.
+// import { addDisposableListener, getActiveElement, getShadowRoot } from '../../../../../base/browser/dom.js';
+import { addDisposableListener, getActiveElement, getShadowRoot, restoreParentsScrollTop, saveParentsScrollTop } from '../../../../../base/browser/dom.js';
+// --- End Positron ---
 import { IDisposable, Disposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 
@@ -61,7 +65,16 @@ export class FocusTracker extends Disposable {
 	}
 
 	public focus(): void {
+		// --- Start Positron ---
+		// Focusing the hidden edit context node makes the browser scroll any natively
+		// scrolling ancestor to reveal it, shifting layout mid-click and misplacing
+		// the cursor in e.g. tall Positron notebook cells (posit-dev/positron#14085).
+		// Mirror the textarea path's guard (see writeNativeTextAreaContent).
+		// this._domNode.focus();
+		const scrollState = saveParentsScrollTop(this._domNode);
 		this._domNode.focus();
+		restoreParentsScrollTop(this._domNode, scrollState);
+		// --- End Positron ---
 		this.refreshFocusState();
 	}
 
