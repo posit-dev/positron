@@ -105,8 +105,8 @@ fi
 # newlines only when present so it separates cleanly from the tags line and
 # collapses to nothing otherwise. Real newlines -> rendered with %s below.
 WHY_BLOCK="$(render_why_these_tags "$TAG_REASONS")"
-if [[ -n "$WHY_BLOCK" ]]; then
-	WHY_BLOCK=$'\n\n'"$WHY_BLOCK"
+if [ -n "$WHY_BLOCK" ]; then
+  WHY_BLOCK=$'\n\n'"$WHY_BLOCK"
 fi
 
 # Build the new comment body with proper newlines (%s = tags, %b = warnings).

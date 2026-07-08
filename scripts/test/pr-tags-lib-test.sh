@@ -632,6 +632,9 @@ assert_eq "reasons: scan-added web is test-web" "@:critical|required,@:web|test-
 	"$(build_tag_reasons "@:critical,@:web" "" "" "false" "false" "true")"
 assert_eq "reasons: empty final yields nothing" "" \
 	"$(build_tag_reasons "" "" "" "false" "false" "false")"
+# A tag matching no source falls through to the defensive "auto" fallback.
+assert_eq "reasons: unattributed tag falls back to auto" "@:critical|required,@:mystery|auto" \
+	"$(build_tag_reasons "@:critical,@:mystery" "" "" "false" "false" "false")"
 
 # --- render_why_these_tags ---
 assert_eq "render: critical-only is not informative (empty)" "" \
