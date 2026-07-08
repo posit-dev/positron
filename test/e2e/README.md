@@ -133,7 +133,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
    - **Watch Test**: Monitors the test for changes and reruns it.
 
 > [!TIP]
-> To manually run and debug Positron against Workbench outside of `e2e-workbench` tests, see
+> To manually run and debug Positron against Workbench (`e2e-workbench` project), see
 > [`docker/environments/workbench-dev/README-positron-workbench.md`](../../docker/environments/workbench-dev/README-positron-workbench.md) (`npm run pwb`).
 
 #### Running Specific Tests
