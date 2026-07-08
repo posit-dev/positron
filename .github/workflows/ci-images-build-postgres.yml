@@ -1,0 +1,153 @@
+name: "CI Images: Build Postgres image"
+
+run-name: postgres-${{ inputs.tag }}
+
+# The Postgres DB image is independent of the OS test images: it is just
+# postgres:latest + the init scripts in ../postgres/init-scripts. The data is
+# seeded on first container start by the standard Postgres entrypoint, so the
+# image is fully defined by the Dockerfile -- there is no per-OS variation.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag for the Postgres DB image'
+        required: true
+        default: 'latest'
+
+jobs:
+  build:
+    # Build each architecture on its own native runner and push a single-arch
+    # tag (positron-postgres-<arch>:<tag>); the merge job below stitches them
+    # into a multi-arch manifest list. fail-fast is off so one arch failing
+    # doesn't cancel the other.
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm64-8-core' || 'ubuntu-latest-8x' }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for multi-architecture builds
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the Postgres DB image
+        working-directory: ./docker/images/postgres
+        env:
+          ARCHITECTURE: ${{ matrix.arch }}
+        run: |
+          docker buildx build \
+            --platform linux/$ARCHITECTURE \
+            --load \
+            -t custom-postgres:latest \
+            -f Dockerfile.postgres .
+
+      - name: Seed and verify the database
+        env:
+          # Fall back to the same defaults the compose files use when the
+          # E2E_* secrets are not configured. Database names are hardcoded in
+          # the init script, so only the credentials come from secrets.
+          E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+        run: |
+          PGUSER="${E2E_POSTGRES_USER:-testuser}"
+          PGPASS="${E2E_POSTGRES_PASSWORD:-testpassword}"
+
+          # Start the image so the entrypoint runs the init scripts and seeds
+          # the data exactly as a consumer would on first boot. The init script
+          # creates two databases (periodic, dvdrental); POSTGRES_DB is just the
+          # default maintenance db, so we leave it as `postgres`.
+          docker run -d --name db \
+            -e POSTGRES_USER="$PGUSER" \
+            -e POSTGRES_PASSWORD="$PGPASS" \
+            -e POSTGRES_DB=postgres \
+            -e PGDATA=/var/lib/postgresql/data \
+            custom-postgres:latest
+
+          # Wait until the seed data is actually present. The dvdrental data is
+          # loaded last, so a successful query against it means every init step
+          # has finished running.
+          echo "Waiting for init scripts to finish seeding..."
+          for i in $(seq 1 60); do
+            if docker exec db psql -U "$PGUSER" -d dvdrental -tAc "SELECT count(*) FROM film;" >/dev/null 2>&1; then
+              echo "Seeding complete."
+              break
+            fi
+            echo "Waiting for database... ($i)"
+            sleep 5
+            if [ "$i" -eq 60 ]; then
+              echo "::error::Database did not finish seeding in time"
+              docker logs db
+              exit 1
+            fi
+          done
+
+          echo "Verifying periodic table data in 'periodic'..."
+          docker exec db psql -U "$PGUSER" -d periodic -c "SELECT COUNT(*) AS elements FROM elements;"
+          echo "Verifying DVD rental data in 'dvdrental'..."
+          docker exec db psql -U "$PGUSER" -d dvdrental -c "SELECT COUNT(*) AS films FROM film;"
+
+      - name: Tag and push the Postgres DB image to GHCR
+        env:
+          ARCHITECTURE: ${{ matrix.arch }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/positron-postgres-${ARCHITECTURE}:${{ github.event.inputs.tag }}"
+          echo "Tagging and pushing ${IMAGE}..."
+          # Retry the push: GHCR intermittently returns `unknown blob` /
+          # transport errors under concurrent load.
+          retry() { local n=0; until "$@"; do n=$((n+1)); [ "$n" -ge 4 ] && return 1; echo "retry $n after failure: $*"; sleep $((n*15)); done; }
+          docker tag custom-postgres:latest "$IMAGE"
+          retry docker push "$IMAGE"
+
+  merge:
+    # Combine the per-arch tags pushed by the build matrix into a single
+    # multi-arch manifest list (positron-postgres:<tag>). The arch-specific tags
+    # are left in place so existing consumers keep working during the transition.
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          REPO="ghcr.io/${OWNER}/positron-postgres"
+          echo "Creating manifest ${REPO}:${TAG} from ${REPO}-amd64:${TAG} and ${REPO}-arm64:${TAG}"
+          # Retry: imagetools copies blobs across repos and GHCR can drop the
+          # HTTP/2 stream (PROTOCOL_ERROR) under load.
+          retry() { local n=0; until "$@"; do n=$((n+1)); [ "$n" -ge 4 ] && return 1; echo "retry $n after failure: $*"; sleep $((n*15)); done; }
+          retry docker buildx imagetools create -t "${REPO}:${TAG}" \
+            "${REPO}-amd64:${TAG}" \
+            "${REPO}-arm64:${TAG}"
+
+          echo "Resulting manifest:"
+          docker buildx imagetools inspect "${REPO}:${TAG}"
