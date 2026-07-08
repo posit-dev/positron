@@ -87,6 +87,10 @@ jobs:
       pr_url: ${{ steps.sync.outputs.pr_url }}
       pr_action: ${{ steps.sync.outputs.pr_action }}
     steps:
+      # Local composite actions (used below) only resolve once the repo is on
+      # disk, so check out first. detect-managed-pr re-checks-out with the bot
+      # token to set up push credentials.
+      - uses: actions/checkout@v7
       - name: Detect managed PR
         id: detect
         uses: ./.github/actions/detect-managed-pr
