@@ -56,8 +56,13 @@ test.describe('Packages Pane', {
 					// selected and package installs succeed. On web/remote the venv is
 					// discovered a beat later than the base interpreter, so requiring its
 					// source (rather than taking the first match) lets the picker retry until
-					// the venv appears instead of falling back to the standalone.
-					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess', interpreterSource: '.venv' } : undefined);
+					// the venv appears instead of falling back to the standalone. Windows CI
+					// has no venv (system Python via actions/setup-python), so require the
+					// `.venv` source only elsewhere.
+					const pythonOptions = process.platform === 'win32'
+						? { triggerMode: 'quickaccess' as const }
+						: { triggerMode: 'quickaccess' as const, interpreterSource: '.venv' };
+					await sessions.start(runtime, runtime === 'python' ? pythonOptions : undefined);
 
 					await packages.verifyPackagesList();
 
