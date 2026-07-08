@@ -673,6 +673,26 @@ if printf '%s' "$ALL_OUT" | grep -qF '| `@:all` | PR description |'; then
 else
 	echo "FAIL: render should annotate @:all as PR description"; fail=1
 fi
+# The ark / test-win / test-web label arms: one assertion each so a typo or
+# label change in those arms is caught (they aren't exercised by the cases above).
+ARK_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark")"
+if printf '%s' "$ARK_OUT" | grep -qF '| `@:ark` | Ark submodule bump |'; then
+	echo "PASS: render labels the ark arm"
+else
+	echo "FAIL: render should label @:ark as Ark submodule bump"; fail=1
+fi
+WIN_OUT="$(render_why_these_tags "@:critical|required,@:win|test-win")"
+if printf '%s' "$WIN_OUT" | grep -qF '| `@:win` | New test (tags.WIN) |'; then
+	echo "PASS: render labels the test-win arm"
+else
+	echo "FAIL: render should label @:win as New test (tags.WIN)"; fail=1
+fi
+WEB_OUT="$(render_why_these_tags "@:critical|required,@:web|test-web")"
+if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
+	echo "PASS: render labels the test-web arm"
+else
+	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
+fi
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
