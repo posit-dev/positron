@@ -1,0 +1,74 @@
+version: '3.8'
+
+networks:
+  mynetwork:
+    driver: bridge
+
+services:
+  db:
+    image: custom-postgres:latest
+    build:
+      context: ../postgres
+      dockerfile: Dockerfile.postgres
+      platforms:
+        - linux/amd64
+    container_name: db
+    ports:
+      - "5432:5432"
+    networks:
+      - mynetwork
+    environment:
+      # Pass the E2E credentials directly to the Postgres container
+      - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - POSTGRES_DB=postgres
+      - PGDATA=/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-testuser} -d periodic"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  test:
+    image: positron-debian12-amd64:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.debian12
+      args:
+        TOKEN: ${GITHUB_TOKEN}
+        ARCH: amd64
+        CPU_ARCH: x86_64
+        NODE_ARCH: x64
+        NODE_VERSION: 24.15.0
+        # FROZEN: pinned for bookworm terra/GDAL (see Dockerfile). Do NOT bump with the rolling OSes.
+        PPM_SNAPSHOT: "2026-03-01"
+        TINYTEX_ARCH: x86_64
+        AWS_ARCH: x86_64
+        CONDA_ARCH: x86_64
+        RIG_ARCH: x86_64
+        QUARTO_ARCH: amd64
+        R_ARCH_SUFFIX: ""
+    container_name: test-amd64
+    ports:
+      - "8080:8080"
+      - "5900:5900"
+      - "9323:9323"
+    networks:
+      - mynetwork
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${E2E_POSTGRES_USER:-testuser}
+      - POSTGRES_PASSWORD=${E2E_POSTGRES_PASSWORD:-testpassword}
+      - POSTGRES_DB=periodic
+      - POSTGRES_DVDRENTAL_DB=dvdrental
+
+volumes:
+  postgres-data:

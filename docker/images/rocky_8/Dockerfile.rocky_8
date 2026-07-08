@@ -1,0 +1,432 @@
+ARG ARCH=amd64
+
+FROM --platform=linux/${ARCH} rockylinux:8
+
+# Re-define ARCH after FROM to make it available in build stage
+ARG ARCH
+ARG TARGETPLATFORM=linux/${ARCH}
+
+# Define architecture-specific build-time arguments
+# These will be passed from docker-compose files
+ARG CPU_ARCH
+ARG NODE_ARCH
+ARG NODE_VERSION
+# Dated PPM snapshot for the build-time R dev-deps install (see the dev-deps
+# RUN below). Set per-OS in the docker-compose files; bump with
+# scripts/bump-ppm-snapshot.sh.
+ARG PPM_SNAPSHOT
+ARG TINYTEX_ARCH
+ARG AWS_ARCH
+ARG CONDA_ARCH
+ARG RIG_ARCH
+ARG QUARTO_ARCH
+ARG R_ARCH_SUFFIX
+
+# Log the architecture variables for verification
+RUN echo "Using architecture: ${ARCH}" && \
+    echo "CPU_ARCH: ${CPU_ARCH}" && \
+    echo "NODE_ARCH: ${NODE_ARCH}" && \
+    echo "NODE_VERSION: ${NODE_VERSION}" && \
+    echo "TINYTEX_ARCH: ${TINYTEX_ARCH}" && \
+    echo "AWS_ARCH: ${AWS_ARCH}" && \
+    echo "CONDA_ARCH: ${CONDA_ARCH}" && \
+    echo "RIG_ARCH: ${RIG_ARCH}" && \
+    echo "QUARTO_ARCH: ${QUARTO_ARCH}" && \
+    echo "R_ARCH_SUFFIX: ${R_ARCH_SUFFIX}"
+
+# Arguments
+ARG TOKEN
+
+# Set environment variables
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV HOME=/root
+# IMPORTANT: keep conda OFF PATH until after R builds to avoid xml2-config hijack
+ENV PATH="${HOME}/.pyenv/bin:$PATH"
+ENV ELECTRON_ARCH=${ARCH}
+ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV QT_QUICK_BACKEND=software
+ENV QT_XCB_GL_INTEGRATION=none
+
+# Enable EPEL and PowerTools repositories
+RUN dnf install -y epel-release && \
+    dnf config-manager --set-enabled powertools && \
+    dnf clean all
+
+# Install system dependencies, VNC server, and window manager
+ADD deps/rocky8_packages_${ARCH}.txt /tmp/dnf_packages.txt
+RUN dnf update -y && dnf install -y $(cat /tmp/dnf_packages.txt) \
+	&& dnf clean all \
+	&& rm -f /tmp/dnf_packages.txt \
+    && update-ca-trust
+
+# Upgrade GEOS from source so terra (and friends) can use newer GEOS APIs
+RUN set -eux; \
+    GEOS_VERSION=3.12.2; \
+    cd /tmp; \
+    curl -L "https://download.osgeo.org/geos/geos-${GEOS_VERSION}.tar.bz2" -o geos.tar.bz2; \
+    tar xjf geos.tar.bz2; \
+    cd geos-${GEOS_VERSION}; \
+    ./configure --prefix=/opt/geos; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /; \
+    rm -rf /tmp/geos*; \
+    /opt/geos/bin/geos-config --version
+
+# Ensure R / pkg-config / runtime see the new GEOS first
+# After building GEOS into /opt/geos
+ENV GEOS_PREFIX=/opt/geos
+ENV PATH="${GEOS_PREFIX}/bin:${PATH}"
+ENV PKG_CONFIG_PATH="${GEOS_PREFIX}/lib64/pkgconfig:${GEOS_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+ENV LD_LIBRARY_PATH="${GEOS_PREFIX}/lib64:${GEOS_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+
+# Upgrade GDAL from source so terra (and friends) can use newer GDAL APIs
+# Rocky 8's GDAL 3.0.4 is missing GDAL_DCAP_MULTIDIM_RASTER and other constants needed by terra
+RUN set -eux; \
+    GDAL_VERSION=3.9.3; \
+    cd /tmp; \
+    curl -L "https://github.com/OSGeo/gdal/releases/download/v${GDAL_VERSION}/gdal-${GDAL_VERSION}.tar.gz" -o gdal.tar.gz; \
+    tar xzf gdal.tar.gz; \
+    cd gdal-${GDAL_VERSION}; \
+    mkdir build && cd build; \
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/opt/gdal \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DGEOS_CONFIG=/opt/geos/bin/geos-config \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_PYTHON_BINDINGS=OFF; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /; \
+    rm -rf /tmp/gdal*; \
+    /opt/gdal/bin/gdal-config --version
+
+# Ensure R / pkg-config / runtime see the new GDAL first
+ENV GDAL_PREFIX=/opt/gdal
+ENV PATH="${GDAL_PREFIX}/bin:${PATH}"
+ENV PKG_CONFIG_PATH="${GDAL_PREFIX}/lib64/pkgconfig:${GDAL_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+ENV LD_LIBRARY_PATH="${GDAL_PREFIX}/lib64:${GDAL_PREFIX}/lib:${LD_LIBRARY_PATH}"
+
+# Upgrade libgit2 from source so gert (and other git-related R packages) can use newer libgit2 APIs
+RUN set -eux; \
+    LIBGIT2_VERSION=1.8.4; \
+    cd /tmp; \
+    curl -L "https://github.com/libgit2/libgit2/archive/refs/tags/v${LIBGIT2_VERSION}.tar.gz" -o libgit2.tar.gz; \
+    tar xzf libgit2.tar.gz; \
+    cd libgit2-${LIBGIT2_VERSION}; \
+    mkdir build && cd build; \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/opt/libgit2 -DBUILD_TESTS=OFF; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /; \
+    rm -rf /tmp/libgit2*
+
+# Ensure R / pkg-config / runtime see the new libgit2 first
+ENV LIBGIT2_PREFIX=/opt/libgit2
+ENV PATH="${LIBGIT2_PREFIX}/bin:${PATH}"
+ENV PKG_CONFIG_PATH="${LIBGIT2_PREFIX}/lib64/pkgconfig:${LIBGIT2_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+ENV LD_LIBRARY_PATH="${LIBGIT2_PREFIX}/lib64:${LIBGIT2_PREFIX}/lib:${LD_LIBRARY_PATH}"
+
+# Make the CA bundle discoverable to OpenSSL/Python at build *and* runtime
+ENV SSL_CERT_FILE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    SSL_CERT_DIR=/etc/pki/ca-trust/extracted/pem
+
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Configure Git for better permissions
+RUN git config --system core.sharedRepository group && \
+    git config --system core.fileMode true && \
+	git config --system --add safe.directory /__w/positron/positron && \
+    chmod 1777 /tmp
+
+# Install Node.js and npm
+RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -o /tmp/node.tar.xz && \
+	tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 && \
+	rm /tmp/node.tar.xz && \
+	ln -sf /usr/local/bin/node /usr/bin/node && \
+	ln -sf /usr/local/bin/npm /usr/bin/npm
+
+# Verify Node.js
+RUN node -v && npm -v
+
+# Global npm deps
+RUN npm install -g node-gyp npm-run-all yarn
+
+# Positron License (moved early to use TOKEN before expiration)
+# Persist Cargo on PATH for this and future layers
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN set -eux; \
+    mkdir -p positron-license && \
+    cd positron-license && \
+    git clone --depth 1 https://x-access-token:${TOKEN}@github.com/posit-dev/positron-license.git . && \
+    git remote set-url origin https://github.com/posit-dev/positron-license.git && \
+    curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+    cd pdol && \
+    cargo build
+
+# Quarto
+RUN dnf install -y wget && \
+    wget -O quarto-linux-${QUARTO_ARCH}.deb \
+        --tries=5 \
+        --waitretry=2 \
+        --retry-connrefused \
+        https://quarto.org/download/latest/quarto-linux-${QUARTO_ARCH}.deb && \
+    dnf install -y /usr/bin/ar && \
+    mkdir -p /tmp/quarto && \
+    cd /tmp/quarto && \
+    ar x /quarto-linux-${QUARTO_ARCH}.deb && \
+    tar -xf data.tar.gz -C / && \
+    cd / && \
+    rm quarto-linux-${QUARTO_ARCH}.deb && \
+    rm -rf /tmp/quarto
+
+# Conda (install only; keep off PATH for now)
+RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${CONDA_ARCH}.sh" && \
+	bash Miniforge3.sh -b -p "/opt/conda" && rm Miniforge3.sh && \
+	echo "source \"/opt/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
+RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
+
+# Rig and R
+RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${RIG_ARCH}-latest.tar.gz | tar xz -C /usr/local
+RUN rig add 4.5.2
+RUN rig add 4.4.2 && rig default 4.5.2
+
+# --- Install TeX (architecture-specific) ---
+# ARM64: Use system TeX Live (TinyTeX binaries require GLIBC 2.29, Rocky 8 has 2.28)
+# AMD64: Use TinyTeX (smaller, faster)
+RUN set -eu; \
+    if [ "$(uname -m)" = "aarch64" ]; then \
+        # ARM64: Install system TeX Live from repos
+        dnf install -y \
+            texlive \
+            texlive-latex \
+            texlive-xetex \
+            texlive-collection-latexrecommended \
+            texlive-collection-fontsrecommended \
+            texlive-koma-script \
+            texlive-caption \
+            latexmk && \
+        dnf clean all && \
+        fc-cache -f; \
+    else \
+        # AMD64: Install TinyTeX
+        wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" && \
+        chmod +x /tmp/install-tinytex.sh && \
+        TMPDIR=/ /tmp/install-tinytex.sh && \
+        /root/.TinyTeX/bin/*/tlmgr path remove || true && \
+        mv /root/.TinyTeX /opt/TinyTeX && \
+        /opt/TinyTeX/bin/*/tlmgr option sys_bin /usr/local/bin && \
+        /opt/TinyTeX/bin/*/tlmgr path add && \
+        TT_BIN="$(echo /opt/TinyTeX/bin/*)"; \
+        retry() { for i in 1 2 3; do "$@" && return 0; echo "tlmgr step failed (attempt $i), retrying in 15s..."; sleep 15; done; return 1; }; \
+        "$TT_BIN/tlmgr" option repository "https://ctan.math.illinois.edu/systems/texlive/tlnet" && \
+        "$TT_BIN/tlmgr" option autobackup 0 && \
+        retry "$TT_BIN/tlmgr" update --self --all --reinstall-forcibly-removed && \
+        retry "$TT_BIN/tlmgr" install \
+            xetex latexmk \
+            collection-latexrecommended collection-fontsrecommended \
+            koma-script caption && \
+        "$TT_BIN/fmtutil-sys" --all || true && \
+        "$TT_BIN/mktexlsr" && \
+        fc-cache -f; \
+    fi
+
+# Ensure TeX binaries are on PATH
+ENV PATH="/usr/local/bin:/opt/TinyTeX/bin:${PATH}"
+
+# Install uv (latest)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH before first use
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Create a uv-managed Python 3.10.12 venv and bootstrap pip
+RUN uv venv --python=3.10.12 /root/.venv && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
+
+# Install qa-example-content deps into that Python 3.10 env
+RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt -o /tmp/requirements.txt && \
+    grep -v '^bokeh' /tmp/requirements.txt > /tmp/requirements-filtered.txt && \
+    uv pip install --python /root/.venv/bin/python \
+      -r /tmp/requirements-filtered.txt \
+      "bokeh>=3.4,<3.6" "panel>=1.5,<1.7" "holoviews>=1.19,<1.21" "hvplot<=0.12.1" "param<3"
+
+
+# Ensure uv-managed Python is default
+ENV PATH="/root/.venv/bin:${PATH}"
+
+# =========================
+# R + pak configuration
+# =========================
+
+# Build tools + graphics & XML + geo + git + postgres stacks
+# All development dependencies are now installed from the architecture-specific package files
+# (deps/rocky8_packages_${ARCH}.txt)
+
+# Helpful at build/runtime for GDAL/PROJ
+ENV GDAL_DATA=/opt/gdal/share/gdal
+ENV PROJ_LIB=/usr/share/proj
+
+# Configure R for root user (Rocky Linux 8 channel + UA) — write real newlines
+RUN cat > ~/.Rprofile <<'RPROF'
+options(
+  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/rockylinux8/latest"),
+  HTTPUserAgent = sprintf("R/%s (rockylinux-8)", getRversion())
+)
+RPROF
+
+# Stable CRAN mirror for this image
+ENV RSPM=https://packagemanager.posit.co/cran/__linux__/rockylinux8/latest
+
+# Use a shared site library (independent of $HOME)
+ENV R_LIBS_SITE=/usr/local/lib/R/site-library
+ENV R_LIBS_USER=/usr/local/lib/R/site-library
+RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
+
+# Ensure rig's R is on PATH at runtime
+ENV PATH="/root/.rig/bin:${PATH}"
+
+# Pin R 4.5.2
+RUN rig add 4.5.2 && rig default 4.5.2
+
+# Configure R to use GCC 13 from gcc-toolset-13 (Arrow needs C++20 support)
+RUN echo 'CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX11=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX14=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX17=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX20=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'FC=/opt/rh/gcc-toolset-13/root/usr/bin/gfortran' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CFLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CXXFLAGS=-fPIC' >> /opt/R/4.5.2/lib/R/etc/Makeconf && \
+    echo 'CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX11=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX14=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX17=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX20=/opt/rh/gcc-toolset-13/root/usr/bin/g++' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX20STD=-std=gnu++20' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXX20FLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'FC=/opt/rh/gcc-toolset-13/root/usr/bin/gfortran' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf && \
+    echo 'CXXFLAGS=-fPIC' >> /opt/R/4.4.2/lib/R/etc/Makeconf
+
+# Install pak into the site library (robust: CRAN-src on arm, RSPM→r-lib on x86_64)
+RUN set -eux; \
+  ARCH="$(uname -m)"; \
+  export GEOS_PREFIX=/opt/geos; \
+  export GDAL_PREFIX=/opt/gdal; \
+  export LIBGIT2_PREFIX=/opt/libgit2; \
+  export PATH="${GDAL_PREFIX}/bin:${GEOS_PREFIX}/bin:${LIBGIT2_PREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"; \
+  export XML_CONFIG=/usr/bin/xml2-config; \
+  export PG_CONFIG=/usr/bin/pg_config; \
+  export PKG_CONFIG_PATH="${GDAL_PREFIX}/lib64/pkgconfig:${GDAL_PREFIX}/lib/pkgconfig:${LIBGIT2_PREFIX}/lib64/pkgconfig:${LIBGIT2_PREFIX}/lib/pkgconfig:${GEOS_PREFIX}/lib64/pkgconfig:${GEOS_PREFIX}/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig"; \
+  export LD_LIBRARY_PATH="${GDAL_PREFIX}/lib64:${GDAL_PREFIX}/lib:${LIBGIT2_PREFIX}/lib64:${LIBGIT2_PREFIX}/lib:${GEOS_PREFIX}/lib64:${GEOS_PREFIX}/lib"; \
+  if [ "$ARCH" = "aarch64" ]; then \
+    Rscript -e 'if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak", repos = "https://cloud.r-project.org", lib = Sys.getenv("R_LIBS_SITE"), type = "source")'; \
+  else \
+    Rscript -e 'if (!requireNamespace("pak", quietly = TRUE)) try(install.packages("pak", repos = Sys.getenv("RSPM"), lib = Sys.getenv("R_LIBS_SITE")), silent = TRUE); \
+                if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak", repos = "https://r-lib.github.io/p/pak/stable", lib = Sys.getenv("R_LIBS_SITE"))'; \
+  fi; \
+  Rscript -e 'if (!requireNamespace("pak", quietly = TRUE)) quit(status = 1); cat("pak installed at:", system.file(package="pak"), "\n")'
+
+# Install sf first with a working version (sf 1.1-0 has C++ compilation issues)
+RUN GEOS_PREFIX=/opt/geos \
+    GDAL_PREFIX=/opt/gdal \
+    LIBGIT2_PREFIX=/opt/libgit2 \
+    PATH="${GDAL_PREFIX}/bin:${GEOS_PREFIX}/bin:${LIBGIT2_PREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    XML_CONFIG=/usr/bin/xml2-config \
+    PG_CONFIG=/usr/bin/pg_config \
+    PKG_CONFIG_PATH="${GDAL_PREFIX}/lib64/pkgconfig:${GDAL_PREFIX}/lib/pkgconfig:${LIBGIT2_PREFIX}/lib64/pkgconfig:${LIBGIT2_PREFIX}/lib/pkgconfig:${GEOS_PREFIX}/lib64/pkgconfig:${GEOS_PREFIX}/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig" \
+    LD_LIBRARY_PATH="${GDAL_PREFIX}/lib64:${GDAL_PREFIX}/lib:${LIBGIT2_PREFIX}/lib64:${LIBGIT2_PREFIX}/lib:${GEOS_PREFIX}/lib64:${GEOS_PREFIX}/lib" \
+    Rscript -e 'pak::pkg_install("sf@1.0-20", lib = Sys.getenv("R_LIBS_SITE"))'
+
+# Install the project dev deps to the same site library via pak
+RUN git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
+    cd /tmp/qa-example-content && \
+    GEOS_PREFIX=/opt/geos \
+    GDAL_PREFIX=/opt/gdal \
+    LIBGIT2_PREFIX=/opt/libgit2 \
+    PATH="${GDAL_PREFIX}/bin:${GEOS_PREFIX}/bin:${LIBGIT2_PREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    XML_CONFIG=/usr/bin/xml2-config \
+    PG_CONFIG=/usr/bin/pg_config \
+    PKG_CONFIG_PATH="${GDAL_PREFIX}/lib64/pkgconfig:${GDAL_PREFIX}/lib/pkgconfig:${LIBGIT2_PREFIX}/lib64/pkgconfig:${LIBGIT2_PREFIX}/lib/pkgconfig:${GEOS_PREFIX}/lib64/pkgconfig:${GEOS_PREFIX}/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig" \
+    LD_LIBRARY_PATH="${GDAL_PREFIX}/lib64:${GDAL_PREFIX}/lib:${LIBGIT2_PREFIX}/lib64:${LIBGIT2_PREFIX}/lib:${GEOS_PREFIX}/lib64:${GEOS_PREFIX}/lib" \
+    RSPM="https://packagemanager.posit.co/cran/__linux__/rockylinux8/${PPM_SNAPSHOT}" \
+    Rscript - <<'EOF'
+options(
+  # Pin the build-time install to a dated PPM snapshot so it can't hit the
+  # `latest` publish-window race (metadata resolves a version whose file has
+  # already rotated out of `latest`, causing intermittent 404s). The snapshot
+  # URL comes from the RSPM env var set in this RUN's prefix (from the
+  # PPM_SNAPSHOT build arg); the image's runtime .Rprofile/RSPM stay on `latest`.
+  repos = c(RSPM = Sys.getenv("RSPM")),
+  pak.no_build_vignettes = TRUE,
+  pkg.sysreqs = FALSE,
+  pkg.install.extra = c("--no-multiarch")
+)
+
+pak::local_install_dev_deps(
+  ask = FALSE,
+  dependencies = TRUE,
+  upgrade = FALSE,
+  lib = Sys.getenv("R_LIBS_SITE")
+)
+EOF
+
+# =========================
+# Python extras
+# =========================
+
+# pyenv and alt Python
+RUN curl https://pyenv.run | bash
+RUN export PATH="$HOME/.pyenv/bin:$PATH" && \
+	eval "$(pyenv init --path)" && \
+	eval "$(pyenv virtualenv-init -)" && \
+	pyenv install 3.13.0 && \
+	pyenv global 3.13.0 && \
+	python -m pip install --upgrade pip ipykernel && \
+	pyenv global system
+
+# Now it's safe to add Conda to PATH (after all R builds)
+ENV PATH="/opt/conda/bin:${PATH}"
+
+# Hidden Python
+RUN mkdir -p ${HOME}/scratch && \
+	/bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
+	conda create -y -p \"${HOME}/scratch/python-env\" python=3.12.10 pip setuptools && \
+	conda activate \"${HOME}/scratch/python-env\" && \
+	python -c \"import sys; print(f'Python {sys.version} is working!')\""
+
+# Hidden R
+RUN mkdir -p ${HOME}/scratch/R-4.4.1 && \
+	cd ${HOME}/scratch && \
+	curl -fLO "https://cdn.posit.co/r/centos-8/R-4.4.1-centos-8${R_ARCH_SUFFIX}.tar.gz" && \
+	tar -xzf R-4.4.1-centos-8${R_ARCH_SUFFIX}.tar.gz -C R-4.4.1 --strip-components=1 && \
+	sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/bin/R && \
+	sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/lib/R/etc/Renviron && \
+	chmod +x ${HOME}/scratch/R-4.4.1/bin/R
+
+# Playwright/Electron/Positron
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    NODE_OPTIONS="--max-old-space-size=4095"
+
+ENV PATH="/opt/rh/gcc-toolset-13/root/usr/bin:${PATH}" \
+    CC=/opt/rh/gcc-toolset-13/root/usr/bin/gcc \
+    CXX=/opt/rh/gcc-toolset-13/root/usr/bin/g++ \
+    LD_LIBRARY_PATH="/opt/rh/gcc-toolset-13/root/usr/lib64"
+
+# Sanity check
+RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
+
+# Expose ports
+EXPOSE 8080 5900 9323
