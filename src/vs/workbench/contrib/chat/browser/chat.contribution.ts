@@ -1510,8 +1510,12 @@ configurationRegistry.registerConfiguration({
 		},
 		[ChatConfiguration.AIDisabled]: {
 			type: 'boolean',
-			description: nls.localize('chat.disableAIFeatures', "Disable and hide built-in AI features provided by GitHub Copilot, including chat and inline suggestions."),
 			// --- Start Positron ---
+			// description: nls.localize('chat.disableAIFeatures', "Disable and hide built-in AI features provided by GitHub Copilot, including chat and inline suggestions."),
+			// In Positron this hides the Copilot chat UI only; inline suggestions stay
+			// available and are controlled by their own setting. `#...#` renders a
+			// clickable link to the github.copilot.enable setting in the Settings editor.
+			markdownDescription: nls.localize('positron.chat.disableAIFeatures', "Hide the built-in GitHub Copilot chat UI. Inline suggestions are not affected and stay controlled by the `#github.copilot.enable#` setting."),
 			// default: false,
 			// Positron hides the Copilot chat UI by default. The chat extension's
 			// `vscode.lm` model provider stays registered for other consumers; see

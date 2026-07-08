@@ -23,6 +23,9 @@ import { isNewUser } from './chatStatus.js';
 import product from '../../../../../platform/product/common/product.js';
 import { isCompletionsEnabled } from '../../../../../editor/common/services/completionsEnablement.js';
 import { ChatConfiguration } from '../../common/constants.js';
+// --- Start Positron ---
+import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
+// --- End Positron ---
 
 export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
 
@@ -54,8 +57,19 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private update(): void {
 		const sentiment = this.chatEntitlementService.sentiment;
+		// --- Start Positron ---
+		// When chat is hidden only because of `chat.disableAIFeatures`, keep the
+		// status entry so the user can still see and control inline completions.
+		// `isCompletionsOnlyMode` already implies `sentiment.hidden`, so we don't
+		// re-check it here.
+		/*
 		if (!sentiment.hidden) {
 			const props = this.getEntryProps();
+		*/
+		const completionsOnly = this.chatEntitlementService.isCompletionsOnlyMode;
+		if (!sentiment.hidden || completionsOnly) {
+			const props = this.getEntryProps(completionsOnly);
+			// --- End Positron ---
 			if (this.entry) {
 				this.entry.update(props);
 			} else {
@@ -85,7 +99,13 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		this._register(this.editorService.onDidActiveEditorChange(() => this.onDidActiveEditorChange()));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.SignInTitleBarEnabled)) {
+			if (e.affectsConfiguration(product.defaultChatAgent?.completionsEnablementSetting) || e.affectsConfiguration(ChatConfiguration.SignInTitleBarEnabled)
+				// --- Start Positron ---
+				// Toggling either the chat-hiding setting or the AI main switch adds or
+				// removes the completions-only entry, so re-run without a reload.
+				|| e.affectsConfiguration(ChatConfiguration.AIDisabled) || e.affectsConfiguration(AI_ENABLED_KEY)
+				// --- End Positron ---
+			) {
 				this.update();
 			}
 		}));
@@ -105,12 +125,20 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		}
 	}
 
-	private getEntryProps(): IStatusbarEntry {
+	// --- Start Positron ---
+	// `completionsOnly` gates out the chat-specific states below when chat is
+	// hidden but inline completions stay available.
+	private getEntryProps(completionsOnly = false): IStatusbarEntry {
+		// --- End Positron ---
 		let text = '$(copilot)';
 		let ariaLabel = localize('chatStatusAria', "Copilot status");
 		let kind: StatusbarEntryKind | undefined;
 
-		if (isNewUser(this.chatEntitlementService)) {
+		// --- Start Positron ---
+		// In completions-only mode chat is hidden, so skip the chat-specific states
+		// (Finish Setup) and keep only the completions-relevant ones below.
+		if (!completionsOnly && isNewUser(this.chatEntitlementService)) {
+			// --- End Positron ---
 			const entitlement = this.chatEntitlementService.entitlement;
 
 			// Finish Setup
@@ -137,7 +165,10 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			}
 
 			// Sessions in progress
-			else if (this.runningSessionsCount > 0) {
+			// --- Start Positron ---
+			// Chat-specific state; skipped in completions-only mode.
+			else if (!completionsOnly && this.runningSessionsCount > 0) {
+				// --- End Positron ---
 				text = '$(copilot-in-progress)';
 				if (this.runningSessionsCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", this.runningSessionsCount);
@@ -162,7 +193,13 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			}
 
 			// Free Quota Exceeded
+			// --- Start Positron ---
+			// In completions-only mode only the completions quota matters, not chat quota.
+			/*
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
+			*/
+			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (completionsOnly ? completionsQuotaExceeded : (chatQuotaExceeded || completionsQuotaExceeded))) {
+				// --- End Positron ---
 				let quotaWarning: string;
 				if (chatQuotaExceeded && !completionsQuotaExceeded) {
 					quotaWarning = localize('chatQuotaExceededStatus', "Chat quota reached");
@@ -203,7 +240,15 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 					store.add(token.onCancellationRequested(() => {
 						store.dispose();
 					}));
+					// --- Start Positron ---
+					// In completions-only mode, suppress the chat usage/setup rows and
+					// keep the completions controls (settings, model, snooze, quota).
+					/*
 					const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, undefined);
+					*/
+					const dashboardOptions = completionsOnly ? { disableChatSections: true } : undefined;
+					const elem = ChatStatusDashboard.instantiateInContents(this.instantiationService, store, dashboardOptions);
+					// --- End Positron ---
 
 					// todo@connor4312/@benibenj: workaround for #257923
 					store.add(disposableWindowInterval(mainWindow, () => {

@@ -9,6 +9,13 @@ import { IConfigurationService } from '../../../platform/configuration/common/co
 import { ITextResourceConfigurationService } from './textResourceConfiguration.js';
 import { URI } from '../../../base/common/uri.js';
 
+// --- Start Positron ---
+// Positron's main AI switch. When off, all AI features (inline completions
+// included) are off, regardless of `github.copilot.enable`. Defined as a literal
+// because the editor layer can't import the workbench-level `AI_ENABLED_KEY`.
+const AI_ENABLED_SETTING = 'ai.enabled';
+// --- End Positron ---
+
 /**
  * Get the completions enablement setting name from product configuration.
  */
@@ -25,6 +32,11 @@ function getCompletionsEnablementSettingName(): string | undefined {
  * @returns `true` if completions are enabled for the language, `false` otherwise.
  */
 export function isCompletionsEnabled(configurationService: IConfigurationService, modeId: string = '*'): boolean {
+	// --- Start Positron ---
+	if (configurationService.getValue(AI_ENABLED_SETTING) === false) {
+		return false; // main AI switch off
+	}
+	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();
 	if (!settingName) {
 		return false;
@@ -45,6 +57,11 @@ export function isCompletionsEnabled(configurationService: IConfigurationService
  * @returns `true` if completions are enabled for the language, `false` otherwise.
  */
 export function isCompletionsEnabledWithTextResourceConfig(configurationService: ITextResourceConfigurationService, resource: URI, modeId: string = '*'): boolean {
+	// --- Start Positron ---
+	if (configurationService.getValue<boolean>(resource, AI_ENABLED_SETTING) === false) {
+		return false; // main AI switch off
+	}
+	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();
 	if (!settingName) {
 		return false;
