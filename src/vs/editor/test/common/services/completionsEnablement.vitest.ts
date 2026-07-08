@@ -64,3 +64,29 @@ describe('completions enablement respects the ai.enabled main switch', () => {
 		expect([whenUnset, whenOn]).toEqual([true, true]);
 	});
 });
+
+// The GitHub Copilot provider enable setting disables completions when off:
+// turning off the Copilot provider stops completions (the provider isn't
+// registered), and the status bar / areCompletionsEnabled must agree.
+describe('completions enablement respects the Copilot provider setting', () => {
+	const providerSetting = 'positron.assistant.provider.githubCopilot.enable';
+
+	it('is off when the Copilot provider is disabled, even with github.copilot.enable on', () => {
+		const configurationService = new TestConfigurationService();
+		configurationService.setUserConfiguration(completionsSetting, { '*': true });
+		configurationService.setUserConfiguration(providerSetting, false);
+
+		expect(isCompletionsEnabled(configurationService)).toBe(false);
+	});
+
+	it('follows github.copilot.enable when the Copilot provider is unset or enabled', () => {
+		const configurationService = new TestConfigurationService();
+		configurationService.setUserConfiguration(completionsSetting, { '*': true });
+
+		const whenUnset = isCompletionsEnabled(configurationService);
+		configurationService.setUserConfiguration(providerSetting, true);
+		const whenOn = isCompletionsEnabled(configurationService);
+
+		expect([whenUnset, whenOn]).toEqual([true, true]);
+	});
+});
