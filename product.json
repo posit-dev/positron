@@ -691,7 +691,9 @@
 	},
 	"trustedExtensionAuthAccess": {
 		"github": [],
-		"github-enterprise": [],
+		"github-enterprise": [
+			"GitHub.copilot-chat"
+		],
 		"posit-workbench": [
 			"positron.authentication"
 		],
