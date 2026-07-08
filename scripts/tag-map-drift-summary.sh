@@ -16,7 +16,7 @@ has() {
 	jq -e --arg key "$1" '.[$key] | length > 0' "$DRIFT_FILE" >/dev/null 2>&1
 }
 
-echo "### Test Tag Map Check"
+echo "### Test Tag Map Audit"
 echo ""
 
 if jq -e '.missing == [] and .stale == [] and .invalid_tags == []' "$DRIFT_FILE" >/dev/null 2>&1; then

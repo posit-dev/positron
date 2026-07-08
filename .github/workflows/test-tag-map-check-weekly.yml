@@ -1,4 +1,4 @@
-name: "Weekly: Test Tag Map Check"
+name: "Weekly: Audit Test Tag Map"
 
 # Full-tree health check for test-tag-paths-map.json: flags Positron dirs with
 # no map entry, and map entries that no longer point at any real file (renamed
@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 jobs:
-  check-map:
+  audit-tag-map:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -44,11 +44,10 @@ jobs:
           bash scripts/tag-map-drift-summary.sh drift.json >> "$GITHUB_STEP_SUMMARY"
           jq -e '.missing == [] and .stale == [] and .invalid_tags == []' drift.json >/dev/null
 
-  auto-fix:
-    name: 'Auto-fix map drift'
+  fix-tag-map-drift:
     runs-on: ubuntu-latest
-    needs: [check-map]
-    if: always() && needs.check-map.result == 'failure'
+    needs: [audit-tag-map]
+    if: always() && needs.audit-tag-map.result == 'failure'
     permissions:
       contents: write
       pull-requests: write
@@ -273,7 +272,7 @@ jobs:
           FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           {
-            echo "### Auto-fix Map Drift"
+            echo "### Report Tag Map Drift"
             echo ""
             if [ "$DRYRUN" = "true" ]; then
               echo ":test_tube: **Dry run** -- commit, push, PR, and Slack were all skipped."
@@ -284,7 +283,7 @@ jobs:
               echo ""
             fi
             # Only what this job changed -- the full drift breakdown is the
-            # check-map job's summary on the same run page, not repeated here.
+            # audit-tag-map job's summary on the same run page, not repeated here.
             if [ -n "$APPLY_RESULT" ]; then
               REMOVED_N=$(echo "$APPLY_RESULT" | jq -r '.removed | length')
               [ "$REMOVED_N" = "1" ] && REMOVED_NOUN=entry || REMOVED_NOUN=entries
@@ -311,19 +310,19 @@ jobs:
   slack-notification:
     name: 'Send Slack notification'
     runs-on: ubuntu-latest
-    needs: [check-map, auto-fix]
+    needs: [audit-tag-map, fix-tag-map-drift]
     # A single-job-worth-of-signal notification doesn't need
     # midleman/slack-workflow-status's multi-job summary -- a plain custom
     # message reads better here.
-    if: always() && needs.check-map.result == 'failure' && inputs.dryrun != true
+    if: always() && needs.audit-tag-map.result == 'failure' && inputs.dryrun != true
     steps:
       - name: Notify Slack
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          PR_URL: ${{ needs.auto-fix.outputs.pr_url }}
-          PR_UPDATED: ${{ needs.auto-fix.outputs.pr_updated }}
-          MISSING_COUNT: ${{ needs.auto-fix.outputs.missing_count }}
+          PR_URL: ${{ needs.fix-tag-map-drift.outputs.pr_url }}
+          PR_UPDATED: ${{ needs.fix-tag-map-drift.outputs.pr_updated }}
+          MISSING_COUNT: ${{ needs.fix-tag-map-drift.outputs.missing_count }}
         run: |
           # A header line with the run link (its summary is the one place that
           # always lists missing dirs), then a bullet per item.
