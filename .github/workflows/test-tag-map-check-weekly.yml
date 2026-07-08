@@ -287,10 +287,10 @@ jobs:
           FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           {
-            echo "### Report Tag Map Drift"
+            echo "## Report Tag Map Drift"
             echo ""
             if [ "$DRYRUN" = "true" ]; then
-              echo ":test_tube: **Dry run** -- commit, push, PR, and Slack were all skipped."
+              echo "**Dry run:** no commit, push, PR, or Slack notification will be created."
               echo ""
             fi
             if [ "$EXISTS" = "true" ]; then
@@ -302,27 +302,28 @@ jobs:
             if [ -n "$APPLY_RESULT" ]; then
               REMOVED_N=$(echo "$APPLY_RESULT" | jq -r '.removed | length')
               [ "$REMOVED_N" = "1" ] && REMOVED_NOUN=entry || REMOVED_NOUN=entries
-              echo "#### Result"
+              echo "### Result"
               echo ""
-              echo "- Removed: $REMOVED_N stale $REMOVED_NOUN"
+              echo "- Removed: **$REMOVED_N stale $REMOVED_NOUN**"
               if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
-                [ "$MISSING_COUNT" = "1" ] && MISSING_VERB="dir needs" || MISSING_VERB="dirs need"
-                echo "- Missing: $MISSING_COUNT $MISSING_VERB tags manually fixed"
+                [ "$MISSING_COUNT" = "1" ] && MISSING_NOUN=dir || MISSING_NOUN=dirs
+                [ "$MISSING_COUNT" = "1" ] && MISSING_VERB=needs || MISSING_VERB=need
+                echo "- Missing: **$MISSING_COUNT $MISSING_NOUN** $MISSING_VERB tags manually fixed"
               fi
               echo ""
             fi
             if [ -n "$FINAL_PR_URL" ]; then
-              echo ":white_check_mark: [Opened/updated PR]($FINAL_PR_URL)"
+              echo "**PR:** [opened/updated]($FINAL_PR_URL)"
             elif [ -n "$DRYRUN_PUSH_BRANCH" ]; then
               if [ "$EXISTS" = "true" ]; then
-                echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and update the existing PR (dry run)."
+                echo "**Next action:** would push \`$DRYRUN_PUSH_BRANCH\` and update the existing PR."
               else
-                echo ":test_tube: Would push to \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\` (dry run)."
+                echo "**Next action:** would push \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\`."
               fi
             elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
-              echo "No new changes needed -- existing PR left as-is."
+              echo "**Next action:** none -- existing PR left as-is."
             else
-              echo "No stale entries to remove (any remaining drift -- missing dirs, invalid tags -- needs a manual fix)."
+              echo "**Next action:** none -- no stale entries to remove (any remaining drift, such as missing dirs or invalid tags, needs a manual fix)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
