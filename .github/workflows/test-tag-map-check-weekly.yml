@@ -34,108 +34,36 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
-      pr_updated: ${{ steps.create-pr.outputs.pr_url != '' }}
-      # True when the reset-mode path force-pushed the PR branch back to main
-      # without running create-pr -- the branch was modified this run even though
-      # pr_updated is false, so summary/Slack must not report it as untouched.
-      branch_reset: ${{ steps.push.outputs.branch_reset }}
+      pr_url: ${{ steps.sync.outputs.pr_url }}
+      # created | updated | reset-cleared | unchanged | none -- drives Slack wording.
+      pr_action: ${{ steps.sync.outputs.pr_action }}
       # Surfaced to Slack so a run that only removed stale entries still nudges
       # about missing dirs that need manual tags.
       missing_count: ${{ steps.drift.outputs.missing_count }}
     steps:
-      - name: Generate POSITRON_BOT token
-        id: bot-token
-        uses: actions/create-github-app-token@v3
+      - name: Detect managed PR
+        id: detect
+        uses: ./.github/actions/detect-managed-pr
         with:
+          branch-prefix: automated/test-tag-map-drift
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
 
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          token: ${{ steps.bot-token.outputs.token }}
-
-      - name: Configure git identity
-        run: |
-          git config user.name "positron-bot[bot]"
-          git config user.email "positron-bot[bot]@users.noreply.github.com"
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-
-      - name: Detect existing auto-fix PR
-        id: detect
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-        run: |
-          PR_INFO=$(gh pr list --base main --state open \
-            --json number,url,headRefName,reviewDecision \
-            --jq '[.[] | select(.headRefName | startswith("automated/test-tag-map-drift"))] | first // empty')
-          if [ -z "$PR_INFO" ]; then
-            echo "No existing auto-fix PR found; a new one will be created if needed."
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          PR_NUMBER=$(echo "$PR_INFO" | jq -r .number)
-          PR_URL=$(echo "$PR_INFO" | jq -r .url)
-          PR_BRANCH=$(echo "$PR_INFO" | jq -r .headRefName)
-          PR_REVIEW=$(echo "$PR_INFO" | jq -r '.reviewDecision // ""')
-          echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
-
-          # Same review-safety check as the bootstrap-extensions auto-update PR
-          # (.github/workflows/extensions-check-nightly.yml): any human signal
-          # (review comment, issue comment, non-bot commit, or a review
-          # verdict) means someone may have hand-edited the PR, so add commits
-          # on top instead of force-pushing over their work.
-          BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
-          REVIEW_COMMENTS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
-          ISSUE_COMMENTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
-          NON_BOT_COMMITS=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits" \
-            --jq '[.[] | select((.author.type // "User") != "Bot")] | length')
-          # Only a real review verdict counts. REVIEW_REQUIRED just means branch
-          # protection wants a review -- every PR reports it, so treating it as a
-          # human signal would force additive mode always and reset would never
-          # fire.
-          REVIEWED=false
-          case "$PR_REVIEW" in APPROVED|CHANGES_REQUESTED) REVIEWED=true ;; esac
-          if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$ISSUE_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ "$REVIEWED" = true ]; then
-            MODE=additive
-          else
-            MODE=reset
-          fi
-          echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, issue comments: $ISSUE_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
-          {
-            echo "exists=true"
-            echo "pr_number=$PR_NUMBER"
-            echo "pr_url=$PR_URL"
-            echo "pr_branch=$PR_BRANCH"
-            echo "mode=$MODE"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Check out existing branch
+      - name: Refresh branch for drift recompute
         if: steps.detect.outputs.exists == 'true'
         env:
-          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
           MODE: ${{ steps.detect.outputs.mode }}
         run: |
-          git fetch origin "$PR_BRANCH" main
-          git checkout "$PR_BRANCH"
           if [ "$MODE" = "reset" ]; then
-            echo "Resetting $PR_BRANCH to origin/main; drift will be recomputed from scratch."
+            echo "Resetting to origin/main; drift will be recomputed from scratch."
             git reset --hard origin/main
           else
             # Additive: keep the human commits, but merge current main so drift
-            # reflects entries that went stale on main since this PR opened --
-            # otherwise we'd recompute against a possibly-behind branch and miss
-            # them.
+            # reflects entries that went stale on main since this PR opened.
             echo "Additive mode: merging origin/main to refresh drift while keeping human commits."
             if ! git merge --no-edit origin/main; then
               git merge --abort
-              echo "::error::Cannot merge origin/main into $PR_BRANCH (conflict); resolve the PR branch by hand." >&2
+              echo "::error::Cannot merge origin/main into the PR branch (conflict); resolve by hand." >&2
               exit 1
             fi
           fi
@@ -155,107 +83,44 @@ jobs:
             --stale stale.json)
           echo "$RESULT"
           echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+          git add .github/workflows/test-tag-paths-map.json
 
-      - name: Commit and push
-        id: push
+      - name: Build PR body
+        id: content
         env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-          EXISTS: ${{ steps.detect.outputs.exists }}
-          MODE: ${{ steps.detect.outputs.mode }}
-          PR_BRANCH: ${{ steps.detect.outputs.pr_branch }}
-          DRYRUN: ${{ inputs.dryrun }}
-        run: |
-          if [ "$EXISTS" = "true" ]; then
-            BRANCH="$PR_BRANCH"
-            git add .github/workflows/test-tag-paths-map.json
-            if git diff --staged --quiet; then
-              # No stale removals to apply this run. In reset mode HEAD was reset
-              # to origin/main, so if the remote PR branch still carries prior
-              # removal commits they're now obsolete (those entries are no longer
-              # stale) -- sync the branch to main so the PR stops showing them.
-              # Additive mode intentionally keeps the human commits, so leave it.
-              if [ "$MODE" = "reset" ] && ! git diff --quiet HEAD "origin/$BRANCH"; then
-                if [ "$DRYRUN" = "true" ]; then
-                  echo "[dryrun] Would force-push $BRANCH to origin/main to clear obsolete removals (no stale entries this run)."
-                  echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
-                else
-                  git push --force-with-lease origin "HEAD:$BRANCH"
-                  echo "No stale entries this run -- reset $BRANCH to origin/main to clear obsolete removals."
-                  echo "branch_reset=true" >> "$GITHUB_OUTPUT"
-                fi
-              else
-                echo "No auto-fixable changes -- existing PR untouched (or nothing needed fixing)."
-              fi
-              exit 0
-            fi
-            if [ "$DRYRUN" = "true" ]; then
-              echo "[dryrun] Would commit and $( [ "$MODE" = "reset" ] && echo "force-" )push to existing branch $BRANCH ($MODE)."
-              git --no-pager diff --staged
-              # Separate output from `branch`: `branch` gates whether
-              # "Create or update pull request" runs, and must stay empty in
-              # dry-run mode so that step never fires for real. `dryrun_branch`
-              # is only for "Write summary" to report what would have happened.
-              echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            git commit -m "chore: auto-fix test tag map drift"
-            if [ "$MODE" = "reset" ]; then
-              git push --force-with-lease origin "$BRANCH"
-            else
-              git push origin "$BRANCH"
-            fi
-          else
-            BRANCH="automated/test-tag-map-drift-$(date +%Y%m%d-%H%M%S)"
-            git checkout -b "$BRANCH"
-            git add .github/workflows/test-tag-paths-map.json
-            if git diff --staged --quiet; then
-              echo "No auto-fixable changes -- skipping PR."
-              exit 0
-            fi
-            if [ "$DRYRUN" = "true" ]; then
-              echo "[dryrun] Would commit and push new branch $BRANCH."
-              git --no-pager diff --staged
-              echo "dryrun_branch=$BRANCH" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            git commit -m "chore: auto-fix test tag map drift"
-            git push origin "$BRANCH"
-          fi
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-
-      - name: Create or update pull request
-        id: create-pr
-        if: steps.push.outputs.branch != ''
-        env:
-          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
-          BRANCH: ${{ steps.push.outputs.branch }}
-          EXISTS: ${{ steps.detect.outputs.exists }}
-          EXISTING_PR_NUMBER: ${{ steps.detect.outputs.pr_number }}
-          EXISTING_PR_URL: ${{ steps.detect.outputs.pr_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULT: ${{ steps.apply.outputs.result }}
           MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
         run: |
           REMOVED=$(echo "$RESULT" | jq -r '.removed | map("- `" + . + "`") | join("\n")')
-          # "Still needs attention" only when there are missing dirs; built with
-          # printf so the embedded newlines don't fight the YAML block indent.
           ATTENTION=""
           if [ "${MISSING_COUNT:-0}" -gt 0 ]; then
             [ "$MISSING_COUNT" = "1" ] && ATTN_ITEM="1 directory needs tags assigned" || ATTN_ITEM="${MISSING_COUNT} directories need tags assigned"
             ATTENTION=$(printf '\n\n**:warning: Still needs attention**\n\n- %s' "$ATTN_ITEM")
           fi
           BODY=$(printf '### Summary\n\nThis PR removes stale entries found by the [weekly test tag audit](%s).\n\n**:white_check_mark: Removed**\n\n%s%s\n\n--\n_This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._' "$RUN_URL" "$REMOVED" "$ATTENTION")
-          if [ "$EXISTS" = "true" ]; then
-            gh pr edit "$EXISTING_PR_NUMBER" --body "$BODY" >/dev/null
-            echo "Updated existing PR: $EXISTING_PR_URL"
-            echo "pr_url=$EXISTING_PR_URL" >> "$GITHUB_OUTPUT"
-          else
-            PR_URL=$(gh pr create --base main --head "$BRANCH" \
-              --title "chore: auto-fix test tag map drift" \
-              --body "$BODY")
-            echo "Created new PR: $PR_URL"
-            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "body<<PR_BODY_EOF"
+            printf '%s\n' "$BODY"
+            echo "PR_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit and sync PR
+        id: sync
+        uses: ./.github/actions/commit-and-sync-pr
+        with:
+          github-token: ${{ steps.detect.outputs.github-token }}
+          exists: ${{ steps.detect.outputs.exists }}
+          mode: ${{ steps.detect.outputs.mode }}
+          pr_number: ${{ steps.detect.outputs.pr_number }}
+          pr_url: ${{ steps.detect.outputs.pr_url }}
+          pr_branch: ${{ steps.detect.outputs.pr_branch }}
+          branch-prefix: automated/test-tag-map-drift
+          commit-message: 'chore: auto-fix test tag map drift'
+          title: 'chore: auto-fix test tag map drift'
+          body: ${{ steps.content.outputs.body }}
+          dryrun: ${{ inputs.dryrun }}
+          clear-stale-branch-on-empty-reset: 'true'
 
       - name: Write summary
         if: always()
@@ -266,9 +131,8 @@ jobs:
           MODE: ${{ steps.detect.outputs.mode }}
           APPLY_RESULT: ${{ steps.apply.outputs.result }}
           MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
-          DRYRUN_PUSH_BRANCH: ${{ steps.push.outputs.dryrun_branch }}
-          FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
-          BRANCH_RESET: ${{ steps.push.outputs.branch_reset }}
+          PR_ACTION: ${{ steps.sync.outputs.pr_action }}
+          PR_URL: ${{ steps.sync.outputs.pr_url }}
         run: |
           {
             echo "## Report Tag Map Drift"
@@ -296,21 +160,15 @@ jobs:
               fi
               echo ""
             fi
-            if [ -n "$FINAL_PR_URL" ]; then
-              echo "**PR:** [opened/updated]($FINAL_PR_URL)"
-            elif [ "$BRANCH_RESET" = "true" ]; then
-              echo "**PR:** reset [existing PR]($DETECTED_PR_URL) branch to \`main\` -- no stale entries remain."
-            elif [ -n "$DRYRUN_PUSH_BRANCH" ]; then
-              if [ "$EXISTS" = "true" ]; then
-                echo "**Next action:** would push \`$DRYRUN_PUSH_BRANCH\` and update the existing PR."
-              else
-                echo "**Next action:** would push \`$DRYRUN_PUSH_BRANCH\` and open a PR against \`main\`."
-              fi
-            elif [ "$EXISTS" = "true" ] && [ -n "$DETECTED_PR_URL" ]; then
-              echo "**Next action:** none -- existing PR left as-is."
-            else
-              echo "**Next action:** none -- no stale entries to remove (any remaining drift, such as missing dirs or invalid tags, needs a manual fix)."
-            fi
+            case "$PR_ACTION" in
+              created)
+                # pr_url is empty in dry-run (no PR actually opened).
+                if [ -n "$PR_URL" ]; then echo "**PR:** [opened]($PR_URL)"; else echo "**Next action:** would open a PR against \`main\`."; fi ;;
+              updated)       echo "**PR:** [updated]($PR_URL)" ;;
+              reset-cleared) echo "**PR:** reset [existing PR]($PR_URL) branch to \`main\` -- no stale entries remain." ;;
+              unchanged)     echo "**Next action:** none -- existing PR left as-is." ;;
+              *)             echo "**Next action:** none -- no stale entries to remove (any remaining drift, such as missing dirs or invalid tags, needs a manual fix)." ;;
+            esac
           } >> "$GITHUB_STEP_SUMMARY"
 
   slack-notify:
@@ -323,8 +181,7 @@ jobs:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_URL: ${{ needs.fix-tag-map-drift.outputs.pr_url }}
-          PR_UPDATED: ${{ needs.fix-tag-map-drift.outputs.pr_updated }}
-          BRANCH_RESET: ${{ needs.fix-tag-map-drift.outputs.branch_reset }}
+          PR_ACTION: ${{ needs.fix-tag-map-drift.outputs.pr_action }}
           MISSING_COUNT: ${{ needs.fix-tag-map-drift.outputs.missing_count }}
         run: |
           # A header line with the run link (its summary is the one place that
@@ -333,18 +190,19 @@ jobs:
           # Three distinct states: a freshly opened/updated PR reads differently
           # from an old PR still open but untouched this run (PR_UPDATED false) --
           # claiming "opened" for the latter would misreport what happened.
-          if [ "$PR_UPDATED" = "true" ]; then
-            PR_NUM="${PR_URL##*/}"
-            ACTION="<${PR_URL}|PR #${PR_NUM}> removes stale entries"
-          elif [ "$BRANCH_RESET" = "true" ]; then
-            PR_NUM="${PR_URL##*/}"
-            ACTION="reset <${PR_URL}|PR #${PR_NUM}> to main (no stale entries remain)"
-          elif [ -n "$PR_URL" ]; then
-            PR_NUM="${PR_URL##*/}"
-            ACTION="fix already open in <${PR_URL}|PR #${PR_NUM}>"
-          else
-            ACTION="needs manual fix"
-          fi
+          case "$PR_ACTION" in
+            created|updated)
+              PR_NUM="${PR_URL##*/}"
+              ACTION="<${PR_URL}|PR #${PR_NUM}> removes stale entries" ;;
+            reset-cleared)
+              PR_NUM="${PR_URL##*/}"
+              ACTION="reset <${PR_URL}|PR #${PR_NUM}> to main (no stale entries remain)" ;;
+            unchanged)
+              PR_NUM="${PR_URL##*/}"
+              ACTION="fix already open in <${PR_URL}|PR #${PR_NUM}>" ;;
+            *)
+              ACTION="needs manual fix" ;;
+          esac
           TEXT="${HEADER}"$'\n'"• ${ACTION}"
           # Missing dirs are surfaced but never auto-fixed, so add a bullet
           # whenever there are any -- even a run that opened a removal PR.
