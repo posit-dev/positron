@@ -247,7 +247,14 @@ export async function createTerminalEnvironment(
 	variableResolver: VariableResolver | undefined,
 	version: string | undefined,
 	detectLocale: 'auto' | 'off' | 'on',
-	baseEnv: IProcessEnvironment
+	baseEnv: IProcessEnvironment,
+	// --- Start Positron ---
+	// Variables advertising this window's MCP server to terminal-launched
+	// agents (see IPositronMcpTerminalEnvironment). Injected here rather than
+	// at the call sites so every launch path (create, relaunch, revive) gets
+	// them, and skipped under strictEnv, which promises the requested env only.
+	positronEnv?: Readonly<Record<string, string>>
+	// --- End Positron ---
 ): Promise<IProcessEnvironment> {
 	// Create a terminal environment based on settings, launch config and permissions
 	const env: IProcessEnvironment = {};
@@ -300,6 +307,12 @@ export async function createTerminalEnvironment(
 
 		// Adding other env keys necessary to create the process
 		addTerminalEnvironmentKeys(env, version, language, detectLocale);
+
+		// --- Start Positron ---
+		if (positronEnv) {
+			mergeEnvironments(env, positronEnv);
+		}
+		// --- End Positron ---
 	}
 	return env;
 }

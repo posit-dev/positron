@@ -40,6 +40,9 @@ import { IRemoteAgentService } from '../../../services/remote/common/remoteAgent
 import { INativeWorkbenchEnvironmentService } from '../../../services/environment/electron-browser/environmentService.js';
 import { shouldUseEnvironmentVariableCollection } from '../../../../platform/terminal/common/terminalEnvironment.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+// --- Start Positron ---
+import { IPositronMcpTerminalEnvironment } from '../../positronMcp/common/positronMcpTerminalEnvironment.js';
+// --- End Positron ---
 
 export class LocalTerminalBackendContribution implements IWorkbenchContribution {
 
@@ -97,6 +100,9 @@ class LocalTerminalBackend extends BaseTerminalBackend implements ITerminalBacke
 		@IStatusbarService statusBarService: IStatusbarService,
 		@IRemoteAgentService private readonly _remoteAgentService: IRemoteAgentService,
 		@INativeWorkbenchEnvironmentService private readonly _environmentService: INativeWorkbenchEnvironmentService,
+		// --- Start Positron ---
+		@IPositronMcpTerminalEnvironment private readonly _positronMcpTerminalEnvironment: IPositronMcpTerminalEnvironment,
+		// --- End Positron ---
 	) {
 		super(_localPtyService, logService, historyService, _configurationResolverService, statusBarService, workspaceContextService);
 
@@ -372,7 +378,10 @@ class LocalTerminalBackend extends BaseTerminalBackend implements ITerminalBacke
 		const platformKey = isWindows ? 'windows' : (isMacintosh ? 'osx' : 'linux');
 		const envFromConfigValue = this._configurationService.getValue<ITerminalEnvironment | undefined>(`terminal.integrated.env.${platformKey}`);
 		const baseEnv = await (shellLaunchConfig.useShellEnvironment ? this.getShellEnvironment() : this.getEnvironment());
-		const env = await terminalEnvironment.createTerminalEnvironment(shellLaunchConfig, envFromConfigValue, variableResolver, this._productService.version, this._configurationService.getValue(TerminalSettingId.DetectLocale), baseEnv);
+		// --- Start Positron ---
+		// Extra trailing argument: this window's MCP server env vars.
+		const env = await terminalEnvironment.createTerminalEnvironment(shellLaunchConfig, envFromConfigValue, variableResolver, this._productService.version, this._configurationService.getValue(TerminalSettingId.DetectLocale), baseEnv, this._positronMcpTerminalEnvironment.getTerminalEnv());
+		// --- End Positron ---
 		if (shouldUseEnvironmentVariableCollection(shellLaunchConfig)) {
 			const workspaceFolder = terminalEnvironment.getWorkspaceForTerminal(shellLaunchConfig.cwd, this._workspaceContextService, this._historyService);
 			await this._environmentVariableService.mergedCollection.applyToProcessEnvironment(env, { workspaceFolder }, variableResolver);

@@ -15,7 +15,9 @@ import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfigu
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { PositronMcpContextObserver } from '../browser/positronMcpContextObserver.js';
 import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
+import { serverUrl } from '../browser/positronMcpWorkspace.js';
 import { AUDIT_LOG_DETAIL_KEY, MCP_ENABLE_KEY } from '../common/positronMcpConfiguration.js';
+import { IPositronMcpTerminalEnvironment } from '../common/positronMcpTerminalEnvironment.js';
 import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
 
 /**
@@ -45,6 +47,7 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 		@IPositronMcpToolService toolService: IPositronMcpToolService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@INativeHostService private readonly _nativeHostService: INativeHostService,
+		@IPositronMcpTerminalEnvironment private readonly _terminalEnvironment: IPositronMcpTerminalEnvironment,
 	) {
 		super();
 
@@ -89,7 +92,23 @@ export class PositronMcpLifecycleContribution extends Disposable implements IWor
 		} else if (!run) {
 			this._contextObserver.clear();
 		}
-		const action = run ? this._mcpService.start() : this._mcpService.stop();
+		const action = run ? this._start() : this._stop();
 		action.catch(err => this._logService.error(`[PositronMcp] Failed to ${run ? 'start' : 'stop'} server`, err));
+	}
+
+	/**
+	 * Start this window's server, then advertise its endpoint to new integrated
+	 * terminals. The port is OS-assigned at listen time, so it can only be read
+	 * back from the status after the start completes.
+	 */
+	private async _start(): Promise<void> {
+		await this._mcpService.start();
+		const status = await this._mcpService.getStatus();
+		this._terminalEnvironment.setServer(status.running ? { url: serverUrl(status.port), token: status.token } : undefined);
+	}
+
+	private async _stop(): Promise<void> {
+		this._terminalEnvironment.setServer(undefined);
+		await this._mcpService.stop();
 	}
 }

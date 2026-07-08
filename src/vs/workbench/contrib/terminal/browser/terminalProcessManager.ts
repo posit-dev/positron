@@ -46,6 +46,9 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { BugIndicatingError } from '../../../../base/common/errors.js';
 import type { MaybePromise } from '../../../../base/common/async.js';
 import { isString } from '../../../../base/common/types.js';
+// --- Start Positron ---
+import { IPositronMcpTerminalEnvironment } from '../../positronMcp/common/positronMcpTerminalEnvironment.js';
+// --- End Positron ---
 
 const enum ProcessConstants {
 	/**
@@ -158,7 +161,10 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@ITerminalService private readonly _terminalService: ITerminalService
+		@ITerminalService private readonly _terminalService: ITerminalService,
+		// --- Start Positron ---
+		@IPositronMcpTerminalEnvironment private readonly _positronMcpTerminalEnvironment: IPositronMcpTerminalEnvironment
+		// --- End Positron ---
 	) {
 		super();
 		this._cwdWorkspaceFolder = terminalEnvironment.getWorkspaceForTerminal(cwd, this._workspaceContextService, this._historyService);
@@ -467,7 +473,10 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 			baseEnv = await this._terminalProfileResolverService.getEnvironment(this.remoteAuthority);
 			this._logService.debug(`Profile environment resolved with ${Object.keys(baseEnv).length} variables`);
 		}
-		const env = await terminalEnvironment.createTerminalEnvironment(shellLaunchConfig, envFromConfigValue, variableResolver, this._productService.version, this._terminalConfigurationService.config.detectLocale, baseEnv);
+		// --- Start Positron ---
+		// Extra trailing argument: this window's MCP server env vars.
+		const env = await terminalEnvironment.createTerminalEnvironment(shellLaunchConfig, envFromConfigValue, variableResolver, this._productService.version, this._terminalConfigurationService.config.detectLocale, baseEnv, this._positronMcpTerminalEnvironment.getTerminalEnv());
+		// --- End Positron ---
 		this._logService.debug(`Terminal environment created with ${Object.keys(env).length} variables: ${Object.keys(env).sort().join(', ')}`);
 		if (!this._isDisposed && shouldUseEnvironmentVariableCollection(shellLaunchConfig)) {
 			this._extEnvironmentVariableCollection = this._environmentVariableService.mergedCollection;
