@@ -689,6 +689,10 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 
 	function makeNotebookForegroundSession(): ILanguageRuntimeSession {
 		return stubInterface<ILanguageRuntimeSession>({
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
+				runtimeId: 'python-runtime-1',
+				runtimeName: 'Python 3.12',
+			}),
 			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'My Notebook Session' }),
 			metadata: {
 				sessionId: 'notebook-session-1',
@@ -722,10 +726,19 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 		);
 	});
 
-	it('shows an error notification and skips startNewRuntimeSession when the foreground session is not a Console session', async () => {
+	it('starts a new Console session using the notebook session runtime info when the foreground session is a notebook session', async () => {
 		foregroundSession = makeNotebookForegroundSession();
 		await runAction();
-		expect(notifyError).toHaveBeenCalledOnce();
-		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+		expect(notifyError).not.toHaveBeenCalled();
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'python-runtime-1',
+			'Python 3.12',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'Started console session from notebook session: My Notebook Session',
+			RuntimeStartMode.Starting,
+			true
+		);
 	});
 });
