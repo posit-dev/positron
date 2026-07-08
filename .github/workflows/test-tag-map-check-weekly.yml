@@ -36,6 +36,10 @@ jobs:
     outputs:
       pr_url: ${{ steps.create-pr.outputs.pr_url || steps.detect.outputs.pr_url }}
       pr_updated: ${{ steps.create-pr.outputs.pr_url != '' }}
+      # True when the reset-mode path force-pushed the PR branch back to main
+      # without running create-pr -- the branch was modified this run even though
+      # pr_updated is false, so summary/Slack must not report it as untouched.
+      branch_reset: ${{ steps.push.outputs.branch_reset }}
       # Surfaced to Slack so a run that only removed stale entries still nudges
       # about missing dirs that need manual tags.
       missing_count: ${{ steps.drift.outputs.missing_count }}
@@ -177,6 +181,7 @@ jobs:
                 else
                   git push --force-with-lease origin "HEAD:$BRANCH"
                   echo "No stale entries this run -- reset $BRANCH to origin/main to clear obsolete removals."
+                  echo "branch_reset=true" >> "$GITHUB_OUTPUT"
                 fi
               else
                 echo "No auto-fixable changes -- existing PR untouched (or nothing needed fixing)."
@@ -263,6 +268,7 @@ jobs:
           MISSING_COUNT: ${{ steps.drift.outputs.missing_count }}
           DRYRUN_PUSH_BRANCH: ${{ steps.push.outputs.dryrun_branch }}
           FINAL_PR_URL: ${{ steps.create-pr.outputs.pr_url }}
+          BRANCH_RESET: ${{ steps.push.outputs.branch_reset }}
         run: |
           {
             echo "## Report Tag Map Drift"
@@ -292,6 +298,8 @@ jobs:
             fi
             if [ -n "$FINAL_PR_URL" ]; then
               echo "**PR:** [opened/updated]($FINAL_PR_URL)"
+            elif [ "$BRANCH_RESET" = "true" ]; then
+              echo "**PR:** reset [existing PR]($DETECTED_PR_URL) branch to \`main\` -- no stale entries remain."
             elif [ -n "$DRYRUN_PUSH_BRANCH" ]; then
               if [ "$EXISTS" = "true" ]; then
                 echo "**Next action:** would push \`$DRYRUN_PUSH_BRANCH\` and update the existing PR."
@@ -316,6 +324,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_URL: ${{ needs.fix-tag-map-drift.outputs.pr_url }}
           PR_UPDATED: ${{ needs.fix-tag-map-drift.outputs.pr_updated }}
+          BRANCH_RESET: ${{ needs.fix-tag-map-drift.outputs.branch_reset }}
           MISSING_COUNT: ${{ needs.fix-tag-map-drift.outputs.missing_count }}
         run: |
           # A header line with the run link (its summary is the one place that
@@ -327,6 +336,9 @@ jobs:
           if [ "$PR_UPDATED" = "true" ]; then
             PR_NUM="${PR_URL##*/}"
             ACTION="<${PR_URL}|PR #${PR_NUM}> removes stale entries"
+          elif [ "$BRANCH_RESET" = "true" ]; then
+            PR_NUM="${PR_URL##*/}"
+            ACTION="reset <${PR_URL}|PR #${PR_NUM}> to main (no stale entries remain)"
           elif [ -n "$PR_URL" ]; then
             PR_NUM="${PR_URL##*/}"
             ACTION="fix already open in <${PR_URL}|PR #${PR_NUM}>"
