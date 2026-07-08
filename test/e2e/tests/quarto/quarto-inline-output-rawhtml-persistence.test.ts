@@ -98,12 +98,9 @@ test.describe('Quarto - Inline Output: Raw HTML persistence', {
 		await inlineQuarto.runCurrentCell();
 		await expect(webview.first()).toBeVisible({ timeout: 120000 });
 
-		// The output cache is written to disk on a 1s debounce and there is no
-		// shutdown flush, so a reload fired immediately would race the write and
-		// leave nothing to rehydrate. Wait out the debounce before reloading; a
-		// close/reopen (the other test) doesn't need this since it isn't a race.
-		await page.waitForTimeout(2000);
-
+		// Reloading the window triggers a graceful shutdown, which flushes the
+		// output cache to disk (the service joins flushAll() on onWillShutdown),
+		// so the debounced write can't race the reload -- no wait is needed.
 		// Reload the window; the cached output rehydrates as the editor restores.
 		await hotKeys.reloadWindow(true);
 		await editors.waitForActiveTab('rawhtml_persistence.qmd');
