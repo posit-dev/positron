@@ -1,0 +1,49 @@
+---
+title: "Execution Options"
+jupyter: ark
+---
+
+This cell should run.
+
+```{r}
+#| label: first cell
+print("This is the first cell.")
+```
+
+This cell should not, unless it was run by itself, since it has eval: false.
+
+```{r}
+#| eval: false
+#| label: second cell
+
+print("This is the second cell. It wasn't evaluated.")
+```
+
+This cell has an error. However, it has `error: false`, so execution should proceed after the error.
+
+```{r}
+#| error: false
+
+stop("Oh no")
+```
+
+This cell should still run, since errors were ignored in the previous cell.
+
+```{r}
+print("It's the end of the world as we know it, but I feel fine.")
+```
+
+This cell has `error: true`, so if it throws an error, execution should halt.
+
+```{r}
+#| error: true
+
+stop("Well, this is awkward.")
+```
+
+This cell shouldn't be executed, since it is after the cell that throws an error.
+
+
+```{r}
+print("How did we get here?")
+```

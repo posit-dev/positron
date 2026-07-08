@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
@@ -15,6 +15,7 @@ import { UiFrontendEvent } from '../../../services/languageRuntime/common/positr
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { NotebookCellsChangeType, NotebookTextModelChangedEvent } from '../../notebook/common/notebookCommon.js';
 import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 import { dirname } from '../../../../base/common/resources.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -28,6 +29,15 @@ import { URI } from '../../../../base/common/uri.js';
  * Format of output from a notebook cell
  */
 type NotebookOutput = { outputId: string; outputs: { mime: string; data: VSBuffer }[] };
+
+/** A tracked overlay webview together with the state needed to reconcile and dispose it. */
+interface OverlayWebviewEntry {
+	readonly webview: Promise<INotebookOutputWebview>;
+	/** Fingerprint of the content the webview was built from. */
+	readonly contentKey: string;
+	/** ID of the notebook that owns this overlay. */
+	readonly notebookId: string;
+}
 export class PositronWebviewPreloadService extends Disposable implements IPositronWebviewPreloadService {
 	/** Needed for service branding in dependency injector. */
 	_serviceBrand: undefined;
@@ -44,6 +54,16 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	/** Map of created PDF webviews keyed by output ID for Positron notebooks. */
 	private readonly _pdfWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+
+	/**
+	 * Overlay webviews (display plots + raw HTML) keyed by output ID. Unlike
+	 * comm-backed widgets, the service owns their lifecycle: it reconciles them
+	 * against the model and disposes them when their output disappears.
+	 */
+	private readonly _overlayWebviewsByOutputId = new Map<string, OverlayWebviewEntry>();
+
+	/** Map tracking which overlay output IDs belong to which notebook for reconciliation. */
+	private readonly _overlayOutputIdsByNotebookId = new Map<string, Set<string>>();
 
 	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
 	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
@@ -147,6 +167,30 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Initialize output ID tracking for this notebook
 		this._outputIdsByNotebookId.set(notebookId, new Set());
+		this._overlayOutputIdsByNotebookId.set(notebookId, new Set());
+
+		// Dispose overlay webviews whose outputs disappear (cleared, cell deleted,
+		// re-run). The text model can be swapped, so re-attach the listener on
+		// each model change.
+		const modelDisposables = disposables.add(new MutableDisposable<DisposableStore>());
+		const attachModel = () => {
+			modelDisposables.clear();
+
+			const textModel = instance.textModel;
+			if (textModel) {
+				const contentDisposables = new DisposableStore();
+				contentDisposables.add(textModel.onDidChangeContent(event => {
+					if (this._affectsNotebookOutputs(event)) {
+						this._reconcileOverlayWebviews(instance);
+					}
+				}));
+				modelDisposables.value = contentDisposables;
+			}
+
+			this._reconcileOverlayWebviews(instance);
+		};
+		attachModel();
+		disposables.add(instance.onDidChangeModel(() => attachModel()));
 
 		// Clean up webview cache entries when notebook is disposed
 		disposables.add(toDisposable(() => {
@@ -158,9 +202,96 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				});
 				this._outputIdsByNotebookId.delete(notebookId);
 			}
+			const overlayOutputIds = this._overlayOutputIdsByNotebookId.get(notebookId);
+			if (overlayOutputIds) {
+				overlayOutputIds.forEach(outputId => this._disposeOverlayWebview(outputId));
+				this._overlayOutputIdsByNotebookId.delete(notebookId);
+			}
 			this._messagesByNotebookId.delete(notebookId);
 			this._notebookToDisposablesMap.delete(notebookId);
 		}));
+	}
+
+	/** Whether a content change touched outputs (replace, item change, or add/remove cell) and so could orphan an overlay. */
+	private _affectsNotebookOutputs(event: NotebookTextModelChangedEvent): boolean {
+		return event.rawEvents.some(rawEvent =>
+			rawEvent.kind === NotebookCellsChangeType.Output ||
+			rawEvent.kind === NotebookCellsChangeType.OutputItem ||
+			rawEvent.kind === NotebookCellsChangeType.ModelChange
+		);
+	}
+
+	/**
+	 * Dispose overlay webviews whose output ID is no longer in the model. Widgets
+	 * are comm-backed and tracked separately, so they are never reconciled here.
+	 */
+	private _reconcileOverlayWebviews(instance: IPositronNotebookInstance): void {
+		const overlayOutputIds = this._overlayOutputIdsByNotebookId.get(instance.getId());
+		if (!overlayOutputIds?.size) {
+			return;
+		}
+
+		const liveOutputIds = new Set(
+			instance.textModel?.cells.flatMap(cell => cell.outputs.map(output => output.outputId)) ?? []
+		);
+
+		for (const outputId of Array.from(overlayOutputIds)) {
+			if (!liveOutputIds.has(outputId)) {
+				this._disposeOverlayWebview(outputId);
+			}
+		}
+	}
+
+	/**
+	 * Dispose an overlay webview and drop it from both overlay maps. Disposal is
+	 * chained off the Promise so an in-flight webview is torn down once it resolves.
+	 */
+	private _disposeOverlayWebview(outputId: string): void {
+		const entry = this._overlayWebviewsByOutputId.get(outputId);
+		if (!entry) {
+			return;
+		}
+		entry.webview.then(webview => webview.dispose(), () => { /* creation failed; nothing to dispose */ });
+		this._overlayWebviewsByOutputId.delete(outputId);
+		this._overlayOutputIdsByNotebookId.get(entry.notebookId)?.delete(outputId);
+	}
+
+	/** Fingerprint of an output's items (mime + data) to detect in-place content changes under a stable output ID. */
+	private _fingerprintOutputs(outputs: NotebookOutput['outputs']): string {
+		return outputs.map(o => `${o.mime}:${o.data.toString()}`).join('\0');
+	}
+
+	/**
+	 * Reuse the tracked overlay webview on an exact content match; otherwise
+	 * dispose the stale one and build a fresh one via `create`. Reuse matters
+	 * because parseCellOutputs() re-runs on every output change, so rebuilding
+	 * unconditionally would churn and orphan webviews.
+	 */
+	private _getOrCreateOverlayWebview(
+		instance: IPositronNotebookInstance,
+		outputId: string,
+		contentKey: string,
+		create: () => Promise<INotebookOutputWebview>,
+	): Promise<INotebookOutputWebview> {
+		const existingOverlay = this._overlayWebviewsByOutputId.get(outputId);
+		if (existingOverlay && existingOverlay.contentKey === contentKey) {
+			return existingOverlay.webview;
+		}
+		if (existingOverlay) {
+			this._disposeOverlayWebview(outputId);
+		}
+
+		const webviewPromise = create().catch(err => {
+			// Untrack on failure, unless a newer create already replaced this entry.
+			if (this._overlayWebviewsByOutputId.get(outputId)?.webview === webviewPromise) {
+				this._disposeOverlayWebview(outputId);
+			}
+			throw err;
+		});
+
+		this._overlayWebviewsByOutputId.set(outputId, { webview: webviewPromise, contentKey, notebookId: instance.getId() });
+		this._overlayOutputIdsByNotebookId.get(instance.getId())?.add(outputId);
+		return webviewPromise;
 	}
 
 	static notebookMessageToRuntimeOutput(message: NotebookOutput, kind: RuntimeOutputKind): ILanguageRuntimeMessageWebOutput {
@@ -212,15 +343,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				? undefined
 				: dirname(instance.uri);
 
-			// TODO: Overlay webviews (display AND raw HTML) are not disposed when
-			// outputs are cleared, cells are deleted, or output types change. A
-			// follow-up PR should add model-change reconciliation for all webview
-			// types. This is also a virtualization prerequisite: when cells are
-			// virtualized, the service will need to hold webviews across
-			// component mount/unmount cycles.
-
-			// Check if this HTML contains an iframe pointing to a PDF file.
-			// If so, route through the PDF server for proper rendering.
+			// Route HTML with an embedded PDF iframe through the PDF server. PDF
+			// webviews have their own cache and self-register with that server,
+			// so they are not reconciled here.
 			const pdfIframeInfo = extractPdfIframeInfo(rawHtml);
 			if (pdfIframeInfo) {
 				const existingWebview = this._pdfWebviewsByOutputId.get(outputId);
@@ -241,9 +366,11 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				return { preloadMessageType: 'display', webview: webviewPromise };
 			}
 
+			// Track the raw HTML overlay, keyed by its HTML so it rebuilds on change.
 			return {
 				preloadMessageType: 'display',
-				webview: this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri),
+				webview: this._getOrCreateOverlayWebview(instance, outputId, rawHtml, () =>
+					this._notebookOutputWebviewService.createRawHtmlOutputWebview(outputId, rawHtml, rawHtmlBaseUri)),
 			};
 		}
 
@@ -298,12 +425,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			};
 		}
 
-		// Display messages (e.g., interactive plots) need to create a new webview immediately
-		// and return it for rendering
+		// Display messages (e.g. interactive plots) get a tracked overlay webview,
+		// keyed by output content so it rebuilds on change.
 		if (messageType === 'display') {
 			return {
 				preloadMessageType: messageType,
-				webview: this._createNotebookPlotWebview(instance, runtimeOutput)
+				webview: this._getOrCreateOverlayWebview(instance, runtimeOutput.id, this._fingerprintOutputs(outputs), () =>
+					this._createNotebookPlotWebview(instance, runtimeOutput)),
 			};
 		}
 

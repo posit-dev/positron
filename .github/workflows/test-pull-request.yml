@@ -35,6 +35,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
+      - name: Unit test the tag-derivation helpers
+        run: bash scripts/test/pr-tags-lib-test.sh
+      - name: Validate test-tag-paths-map.json tags against test-tags.ts
+        run: bash scripts/check-test-tag-map.sh --tags-only
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -42,6 +47,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      # The advisory comment (no-match / unmapped-dir warnings) is posted from
+      # the pr-e2e-comment workflow, folded into the single "E2E Tests" comment.
 
   e2e-ubuntu-electron:
     name: e2e

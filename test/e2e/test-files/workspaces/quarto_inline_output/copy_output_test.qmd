@@ -1,0 +1,45 @@
+---
+title: "Copy Output Test"
+jupyter: python3
+---
+
+## Text Output Cell
+
+This cell produces text output that can be copied to clipboard.
+
+```{python}
+#| label: text-cell
+print("Copy me to clipboard!")
+print("Second line of text")
+```
+
+## Plot Output Cell
+
+This cell produces a plot that can be copied as an image.
+
+```{python}
+#| label: plot-cell
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(4, 3))
+plt.bar(['A', 'B', 'C'], [3, 7, 2])
+plt.title('Test Chart')
+plt.show()
+```
+
+## Mixed Output Cell
+
+This cell produces both text and plot output. The plot should be copied.
+
+```{python}
+#| label: mixed-cell
+import matplotlib.pyplot as plt
+
+print("This text should NOT be copied")
+print("The plot below should be copied instead")
+
+plt.figure(figsize=(4, 3))
+plt.plot([1, 2, 3, 4], [1, 4, 2, 3])
+plt.title('Mixed Output Chart')
+plt.show()
+```

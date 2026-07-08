@@ -205,29 +205,8 @@ jobs:
         with:
           cache-hit: 'true'  # Always download since using extracted build artifact
 
-      - name: Seed system tmp cache from bundled cache
+      - name: Validate bundled license
         run: |
-          if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
-            rm -rf /tmp/qa-example-content-cache || true
-            # Move instead of copy to avoid duplication
-            mv /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
-            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-              echo "✓ Seeded /tmp/qa-example-content-cache"
-            fi
-          fi
-
-      - name: Validate bundled QA cache
-        run: |
-          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
-          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
-          else
-            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
-            echo "Contents of /tmp:"; ls -la /tmp || true
-            echo "Contents of extracted workspace (/__w/positron/test/e2e):"; ls -la /__w/positron/test/e2e || true
-            exit 1
-          fi
-
           if [ "${{ inputs.install_license }}" = "true" ]; then
             LICENSE_PATH="/__w/positron/positron-license/pdol/target/debug/pdol_rsa"
             echo "Checking for Positron license at $LICENSE_PATH"

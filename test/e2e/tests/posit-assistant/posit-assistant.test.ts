@@ -13,7 +13,7 @@ test.use({
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
 test.describe('Posit Assistant', {
-	tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
+	tag: [tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
@@ -38,8 +38,10 @@ test.describe('Posit Assistant', {
 			test(`${provider} - Send a chat message and receive a response`, async function ({ app }) {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
-				await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: true });
+				await app.workbench.positAssistant.sendMessage('Say hello', true, { newConversation: false });
 				await app.workbench.positAssistant.expectResponseVisible();
 
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
@@ -50,8 +52,10 @@ test.describe('Posit Assistant', {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
-				await app.workbench.positAssistant.sendMessage('Print "hello world" in python', false);
+				await app.workbench.positAssistant.sendMessage('Print "hello world" in python', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolOnce();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -63,8 +67,10 @@ test.describe('Posit Assistant', {
 				const session = await sessions.start('r', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
-				await app.workbench.positAssistant.sendMessage('Print "hello world" in R', false);
+				await app.workbench.positAssistant.sendMessage('Print "hello world" in R', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolOnce();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -76,9 +82,11 @@ test.describe('Posit Assistant', {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
 				// First tool call - allow once
-				await app.workbench.positAssistant.sendMessage('Print "first" in python', false);
+				await app.workbench.positAssistant.sendMessage('Print "first" in python', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolOnce();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -96,9 +104,11 @@ test.describe('Posit Assistant', {
 				const session = await sessions.start('python', { reuse: false });
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
 				// First tool call - allow for session
-				await app.workbench.positAssistant.sendMessage('Print "first" in python', false);
+				await app.workbench.positAssistant.sendMessage('Print "first" in python', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolForSession();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -114,8 +124,10 @@ test.describe('Posit Assistant', {
 				await app.workbench.plots.clearPlots();
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
-				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using base R plot()', false);
+				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using base R plot()', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolForSession();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -134,8 +146,10 @@ test.describe('Posit Assistant', {
 				await app.workbench.plots.clearPlots();
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
+				await app.workbench.positAssistant.startNewConversation();
+				await app.workbench.positAssistant.selectProviderModel(provider);
 
-				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using matplotlib', false);
+				await app.workbench.positAssistant.sendMessage('Create a simple data visualization using matplotlib', false, { newConversation: false });
 				await app.workbench.positAssistant.expectToolConfirmVisible();
 				await app.workbench.positAssistant.allowToolForSession();
 				await app.workbench.positAssistant.waitForResponseComplete();
@@ -159,7 +173,7 @@ test.describe('Posit Assistant', {
  * visibility; this test exercises that gate in both directions.
  * @see https://github.com/posit-dev/positron/pull/14054
  */
-test.describe('Language Model Access Gating', { tag: [tags.POSIT_ASSISTANT, tags.ASSISTANT] }, () => {
+test.describe('Language Model Access Gating', { tag: [tags.ASSISTANT] }, () => {
 	const COMMAND_TITLE = 'Manage Language Model Access';
 
 	test.afterEach('Reset chat.disableAIFeatures', async function ({ settings }) {

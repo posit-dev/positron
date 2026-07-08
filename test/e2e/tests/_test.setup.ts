@@ -257,7 +257,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(fileOps.openDataFile);
 	},
 
-	// ex: await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+	// ex: await openFolder(path.join('test-files/workspaces/r_testing'));
 	openFolder: async ({ app }, use) => {
 		const fileOps = FileOperationsFixture(app);
 		await use(fileOps.openFolder);

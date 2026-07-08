@@ -243,6 +243,23 @@ describe('selectNewLanguageRuntime', () => {
 			await promise;
 		});
 
+		it('rebuilds when onDidUnregisterRuntime fires mid-pick', async () => {
+			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
+			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(pickItemById('py-1')).toBeDefined();
+			expect(pickItemById('py-2')).toBeDefined();
+
+			// De-duplication collapsing an alias retracts a runtime while the
+			// picker is open; the removed runtime must drop out of the rebuilt list.
+			ctx.get(ILanguageRuntimeService).unregisterRuntime('py-2');
+			expect(pickItemById('py-2')).toBeUndefined();
+			expect(pickItemById('py-1')).toBeDefined();
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
 		it('preserves the previously focused item across rebuilds', async () => {
 			registerRuntime(makeRuntime({ runtimeId: 'py-1' }));
 			registerRuntime(makeRuntime({ runtimeId: 'py-2', languageVersion: '3.10.0' }));
@@ -672,6 +689,10 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 
 	function makeNotebookForegroundSession(): ILanguageRuntimeSession {
 		return stubInterface<ILanguageRuntimeSession>({
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
+				runtimeId: 'python-runtime-1',
+				runtimeName: 'Python 3.12',
+			}),
 			dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'My Notebook Session' }),
 			metadata: {
 				sessionId: 'notebook-session-1',
@@ -705,10 +726,19 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 		);
 	});
 
-	it('shows an error notification and skips startNewRuntimeSession when the foreground session is not a Console session', async () => {
+	it('starts a new Console session using the notebook session runtime info when the foreground session is a notebook session', async () => {
 		foregroundSession = makeNotebookForegroundSession();
 		await runAction();
-		expect(notifyError).toHaveBeenCalledOnce();
-		expect(startNewRuntimeSession).not.toHaveBeenCalled();
+		expect(notifyError).not.toHaveBeenCalled();
+		expect(executeCommand).toHaveBeenCalledWith('workbench.panel.positronConsole.focus');
+		expect(startNewRuntimeSession).toHaveBeenCalledWith(
+			'python-runtime-1',
+			'Python 3.12',
+			LanguageRuntimeSessionMode.Console,
+			undefined,
+			'Started console session from notebook session: My Notebook Session',
+			RuntimeStartMode.Starting,
+			true
+		);
 	});
 });

@@ -32,7 +32,7 @@ test.describe('Release Screenshots - Top Action Bar', () => {
 		await expect(topBar).toBeVisible();
 
 		// Override the displayed folder name so the docs screenshot reads
-		// "my-project" rather than "qa-example-content"
+		// "my-project" rather than "test-files"
 		await page.evaluate(() => {
 			const el = document.querySelector('#top-action-bar-current-working-folder');
 			if (el) { el.textContent = 'my-project'; }

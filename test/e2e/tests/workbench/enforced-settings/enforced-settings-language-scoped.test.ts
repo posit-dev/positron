@@ -37,7 +37,7 @@ test.use({
 const ENFORCED_SETTINGS_PATH = '/etc/rstudio/enforced-settings.json';
 const PROFILES_PATH = '/etc/rstudio/profiles';
 const PROFILES_BACKUP_PATH = '/etc/rstudio/profiles.enforced-settings-test.bak';
-const WORKSPACE_PATH = '/home/user1/qa-example-content';
+const WORKSPACE_PATH = '/home/user1/test-files';
 const USER_SETTINGS_PATH = '/home/user1/.positron-server/User/settings.json';
 const USER_SETTINGS_BACKUP_PATH = '/home/user1/.positron-server/User/settings.json.enforced-settings-test.bak';
 
@@ -139,7 +139,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		// reconnect immediately before opening, and retry the pair if the connection flaps.
 		await expect(async () => {
 			await reconnectDashboard(app);
-			await app.positWorkbench.dashboard.openSession('qa-example-content');
+			await app.positWorkbench.dashboard.openSession('test-files');
 		}).toPass({ timeout: 180000, intervals: [1000, 2000, 5000] });
 
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });

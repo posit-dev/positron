@@ -34,17 +34,12 @@ test.describe('Packages Pane', {
 		await app.workbench.console.clickConsoleLabel();
 	});
 
-	// python is uv; pythonAlt is pyenv.
-	// pythonAlt runs first: the `python` (uv) case selects its interpreter via
-	// `python.setInterpreter` (see below), which sets the workspace's active
-	// interpreter and is sticky across tests in this worker. Running it last keeps
-	// that selection from leaking into the pythonAlt case, which relies on its own
-	// hotkey-started session.
-	const pythonRuntimes: SessionRuntimes[] = ['pythonAlt', 'python'];
+	// python is uv; pythonAlt is pyenv
+	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
 	test.describe('Python - Install, search, and uninstall package', () => {
 		test.beforeAll(async function ({ app, openFolder }) {
-			await openFolder('qa-example-content/workspaces/packages-pane-python');
+			await openFolder('test-files/workspaces/packages-pane-python');
 		});
 
 		pythonRuntimes.forEach((runtime) => {
@@ -53,12 +48,16 @@ test.describe('Packages Pane', {
 					const { packages, toasts } = app.workbench;
 
 					// The `python` (uv) runtime resolves to two 3.10.12 interpreters: the
-					// project venv (uv: root) and the uv-managed base standalone. The
+					// project venv (`.venv`) and the uv-managed base standalone. The
 					// new-session (hotkey) picker only offers the preferred one, which is the
 					// base standalone -- an invalid install target (externally-managed; even
 					// `uv pip install` refuses it). Use `python.setInterpreter`, which lists
-					// all interpreters, so the venv is selected and package installs succeed.
-					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess' } : undefined);
+					// all interpreters, and require the `.venv` source so the project venv is
+					// selected and package installs succeed. On web/remote the venv is
+					// discovered a beat later than the base interpreter, so requiring its
+					// source (rather than taking the first match) lets the picker retry until
+					// the venv appears instead of falling back to the standalone.
+					await sessions.start(runtime, runtime === 'python' ? { triggerMode: 'quickaccess', interpreterSource: '.venv' } : undefined);
 
 					await packages.verifyPackagesList();
 

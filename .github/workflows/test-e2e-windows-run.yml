@@ -295,10 +295,10 @@ jobs:
           node-version: ${{ steps.restore-caches.outputs.node-version }}
           playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
 
-      - name: Download Python requirements file
+      - name: Stage Python requirements file
         id: download-python-reqs
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          Copy-Item test/e2e/test-files/requirements.txt requirements.txt
           $hash = (Get-FileHash requirements.txt -Algorithm SHA256).Hash
           echo "requirements-hash=$hash" >> $env:GITHUB_OUTPUT
           echo "Python requirements hash: $hash"
@@ -355,10 +355,10 @@ jobs:
           rig default 4.4.0
           rig ls
 
-      - name: Download R DESCRIPTION file
+      - name: Stage R DESCRIPTION file
         id: download-r-desc
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Copy-Item test/e2e/test-files/DESCRIPTION DESCRIPTION
           $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
           echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
           echo "R DESCRIPTION hash: $hash"
@@ -568,7 +568,7 @@ jobs:
           fi
 
           export SKIP_BOOTSTRAP=true
-          # Skip clone on qa-example-content if we already did the bootstrap test
+          # Skip re-provisioning test-files if we already did the bootstrap test
           if [ "${{ inputs.skip_extension_tests }}" != "true" ]; then
             export SKIP_CLONE=true
           else

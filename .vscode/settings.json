@@ -134,6 +134,18 @@
 	"typescript.preferences.importModuleSpecifierEnding": "js",
 	// --- End Positron ---
 	// --- Languages ---
+	// --- Start Positron ---
+	// The merged QA example content (test/e2e/test-files) is test fixture content,
+	// not source we maintain. Keep its many .py/.ipynb files out of Python analysis
+	// so they don't flood the Problems panel. `exclude` drops them from workspace
+	// indexing; `ignore` also suppresses diagnostics if such a file is opened.
+	"python.analysis.exclude": [
+		"**/test/e2e/test-files/**"
+	],
+	"python.analysis.ignore": [
+		"**/test/e2e/test-files/**"
+	],
+	// --- End Positron ---
 	"json.schemas": [
 		{
 			"fileMatch": [

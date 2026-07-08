@@ -1,0 +1,13 @@
+---
+title: "Console Test"
+output: html_document
+---
+
+## Test Cell
+
+```{r consolecell}
+x <- 1:5
+y <- x * 2
+df <- data.frame(x, y)
+df
+```
