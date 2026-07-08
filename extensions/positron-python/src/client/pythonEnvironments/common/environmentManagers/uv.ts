@@ -26,6 +26,20 @@ export function isVersionPrerelease(version: string): boolean {
     return PRERELEASE_REGEX.test(version);
 }
 
+/**
+ * Runs a uv subcommand with color output disabled. uv honors FORCE_COLOR/CLICOLOR_FORCE
+ * even when its stdout is piped (both are commonly set in CI), which wraps the paths and
+ * tokens we parse in ANSI escape codes and corrupts them. `--color never` overrides
+ * those env vars. See uvPackageManager, which passes the same flag to `uv pip` commands.
+ */
+export function execUv(
+    command: string,
+    args: string[],
+    options: Parameters<typeof exec>[2] = {},
+): ReturnType<typeof exec> {
+    return exec(command, ['--color', 'never', ...args], options);
+}
+
 /** Wraps the "uv" utility, and exposes its functionality. */
 class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
@@ -79,7 +93,7 @@ class UvUtils {
      */
     private static async canRun(command: string): Promise<boolean> {
         try {
-            const result = await exec(command, ['python', 'dir'], { throwOnStdErr: true });
+            const result = await execUv(command, ['python', 'dir'], { throwOnStdErr: true });
             return result?.stdout.trim() !== undefined;
         } catch (ex) {
             traceVerbose(ex);
@@ -90,7 +104,7 @@ class UvUtils {
     @cache(-1)
     public async getUvDir(): Promise<string | undefined> {
         try {
-            const result = await exec(this.command, ['python', 'dir'], { throwOnStdErr: true });
+            const result = await execUv(this.command, ['python', 'dir'], { throwOnStdErr: true });
             return result?.stdout.trim();
         } catch (ex) {
             traceVerbose(ex);
@@ -101,7 +115,7 @@ class UvUtils {
     @cache(-1)
     public async getUvBinDir(): Promise<string | undefined> {
         try {
-            const result = await exec(this.command, ['python', 'dir', '--bin'], { throwOnStdErr: true });
+            const result = await execUv(this.command, ['python', 'dir', '--bin'], { throwOnStdErr: true });
             return result?.stdout.trim();
         } catch (ex) {
             traceVerbose(ex);
@@ -261,7 +275,7 @@ export async function getUvPythonVersionInfo(
         // Output format:
         //   cpython-3.15.0a6-macos-aarch64-none    <download available>
         //   cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ...
-        const result = await exec(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
+        const result = await execUv(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {
@@ -336,7 +350,7 @@ export async function updateUv(): Promise<boolean> {
 
     try {
         traceVerbose('Running uv self update...');
-        await exec(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
+        await execUv(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
         traceVerbose('uv self update completed successfully');
         return true;
     } catch (ex) {
@@ -358,7 +372,7 @@ export async function installUvPython(version: string): Promise<boolean> {
 
     try {
         traceVerbose(`Running uv python install ${version}...`);
-        await exec(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        await execUv(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
         traceVerbose(`uv python install ${version} completed successfully`);
         return true;
     } catch (ex) {
@@ -467,7 +481,7 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
         const args = isWindowsArm64()
             ? ['python', 'list', '--managed-python', '--all-arches']
             : ['python', 'list', '--managed-python'];
-        const result = await exec(uvUtils.command, args, { throwOnStdErr: false });
+        const result = await execUv(uvUtils.command, args, { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {

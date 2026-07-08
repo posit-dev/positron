@@ -962,6 +962,31 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result.pythonPath, getExpectedGlobalVenvPython());
         });
 
+        test('Passes --color never to uv install and find so the parsed path is not ANSI-wrapped', async () => {
+            // uv honors FORCE_COLOR/CLICOLOR_FORCE even when piped (both common in CI); the flag
+            // keeps `uv python find` output free of the escape codes we parse as the interpreter path.
+            isUvInstalledStub.resolves(true);
+            getAvailablePythonVersionsStub.resolves([
+                { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
+            ]);
+            quickPickResponses = [{ version: '3.13', label: 'Python 3.13' }];
+            execStub.onFirstCall().resolves({ stdout: '' }); // uv python install
+            execStub.onSecondCall().resolves({ stdout: '/usr/local/bin/python3.13' }); // uv python find
+            execStub.onThirdCall().resolves({ stdout: '' }); // uv venv (global)
+            getWorkspaceFoldersStub.returns(undefined);
+
+            await installPythonViaUv();
+
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'install', '3.13'], { throwOnStdErr: false }),
+                'uv python install should be invoked with --color never',
+            );
+            assert.ok(
+                execStub.calledWith('uv', ['--color', 'never', 'python', 'find', '3.13'], { throwOnStdErr: false }),
+                'uv python find should be invoked with --color never',
+            );
+        });
+
         test('Falls back to base Python when global venv creation fails', async () => {
             isUvInstalledStub.resolves(true);
             // Return available versions via stub
