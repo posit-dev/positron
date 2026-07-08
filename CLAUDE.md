@@ -21,22 +21,15 @@ Edge cases:
 
 ### Reproducing CI Failures Locally (Posit-internal)
 
-Only relevant if the user explicitly asks to reproduce a CI-only failure
-using the real CI image (arm64). Requires private GHCR access and commercial
-license files -- not available to external contributors. Check first:
-`gh api repos/posit-dev/positron-ci-images` (404 = no access; tell the user
-instead of attempting setup).
+Only when the user explicitly asks to reproduce a CI-only failure on the real CI
+image (arm64). Requires private GHCR access + license files (not for external
+contributors) -- gate on `gh api repos/posit-dev/positron-ci-images` (404 = no
+access; tell the user, don't attempt setup).
 
-Run `git worktree list` first -- the lab worktree is meant to be long-lived
-and reused across sessions, not recreated each time. Read the whole
-`.devcontainer/ci-arm/README.md` (~400 lines, one file) rather than jumping
-straight to its
-["Claude Workflows"](.devcontainer/ci-arm/README.md#claude-workflows-cli-only-headless)
-section: that section covers exact commands but depends on context from
-Setup and Gotchas elsewhere in the file. The rest of the README's
-"User Workflows" documents the VS Code Dev Containers UI flow, which
-doesn't apply here. If a worktree already exists, Claude Workflows' step 2
-covers pointing it at a new target branch instead of creating another one.
+Then read *all* of `.devcontainer/ci-arm/README.md` before acting -- not just its
+"Claude Workflows" section, whose commands depend on Setup/Gotchas context from the
+rest of the file. It covers reusing the long-lived lab worktree (don't recreate it)
+and repointing it at a new branch.
 
 ## Upstream Compatibility
 
