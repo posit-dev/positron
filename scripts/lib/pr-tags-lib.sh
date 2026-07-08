@@ -294,3 +294,43 @@ build_tag_reasons() {
 	[[ ${#out[@]} -eq 0 ]] && return 0
 	printf '%s\n' "${out[@]}" | paste -sd, -
 }
+
+# render_why_these_tags <encoded>
+# <encoded>: build_tag_reasons output (or the literal "@:all|body"). Echoes a
+# collapsed "Why these tags?" <details> block annotating each tag with a human
+# label, or NOTHING when there's nothing to explain (empty input, or the sole
+# entry is the always-injected @:critical). Pure presentation: maps the source
+# codes to labels. The README link that used to live in the comment footer now
+# lives here.
+render_why_these_tags() {
+	local encoded="$1"
+	[[ -z "$encoded" ]] && return 0
+	# Not informative when the only entry is the required @:critical floor.
+	[[ "$encoded" == "@:critical|required" ]] && return 0
+	local pair tag code label rows=""
+	while IFS= read -r pair; do
+		[[ -z "$pair" ]] && continue
+		tag="${pair%%|*}"
+		code="${pair##*|}"
+		case "$code" in
+			required) label="Always runs (required)" ;;
+			body)     label="PR description" ;;
+			files)    label="Changed files" ;;
+			ark)      label="Ark submodule bump" ;;
+			test-win) label="New test (tags.WIN)" ;;
+			test-web) label="New test (tags.WEB)" ;;
+			*)        label="Auto-selected" ;;
+		esac
+		rows="${rows}| \`${tag}\` | ${label} |"$'\n'
+	done < <(printf '%s\n' "${encoded//,/$'\n'}")
+	cat <<EOF
+<details>
+<summary>Why these tags?</summary>
+
+| Tag | Source |
+| --- | --- |
+${rows}
+More on [automatic tags from changed files](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#automatic-tags-from-changed-files).
+</details>
+EOF
+}

@@ -633,5 +633,43 @@ assert_eq "reasons: scan-added web is test-web" "@:critical|required,@:web|test-
 assert_eq "reasons: empty final yields nothing" "" \
 	"$(build_tag_reasons "" "" "" "false" "false" "false")"
 
+# --- render_why_these_tags ---
+assert_eq "render: critical-only is not informative (empty)" "" \
+	"$(render_why_these_tags "@:critical|required")"
+assert_eq "render: empty input yields nothing" "" \
+	"$(render_why_these_tags "")"
+RENDER_OUT="$(render_why_these_tags "@:critical|required,@:quarto|body,@:console|files")"
+if printf '%s' "$RENDER_OUT" | grep -qF "<summary>Why these tags?</summary>"; then
+	echo "PASS: render includes the collapse summary"
+else
+	echo "FAIL: render should include the collapse summary"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:critical` | Always runs (required) |'; then
+	echo "PASS: render annotates critical as required"
+else
+	echo "FAIL: render should annotate critical as required"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:quarto` | PR description |'; then
+	echo "PASS: render annotates an author tag as PR description"
+else
+	echo "FAIL: render should annotate the author tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:console` | Changed files |'; then
+	echo "PASS: render annotates a map tag as Changed files"
+else
+	echo "FAIL: render should annotate the map tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF "#automatic-tags-from-changed-files"; then
+	echo "PASS: render moves the why-these-tags link into the collapse"
+else
+	echo "FAIL: render should include the README link inside the collapse"; fail=1
+fi
+ALL_OUT="$(render_why_these_tags "@:all|body")"
+if printf '%s' "$ALL_OUT" | grep -qF '| `@:all` | PR description |'; then
+	echo "PASS: render handles the @:all case"
+else
+	echo "FAIL: render should annotate @:all as PR description"; fail=1
+fi
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
