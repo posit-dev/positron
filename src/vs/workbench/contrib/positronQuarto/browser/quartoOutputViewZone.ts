@@ -20,7 +20,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { dirname } from '../../../../base/common/resources.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { isHTMLOutputWebviewMessage, isWheelForwardMessage, normalizeWheelDeltaY } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
@@ -2584,6 +2584,23 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Scroll the editor in response to a wheel event forwarded out of an
+	 * inline-output webview. An overlay webview iframe captures wheel events, so
+	 * without this the widget is a scroll trap: the surrounding document stops
+	 * scrolling once the pointer enters the widget (posit-dev/positron#14620).
+	 * The webview preload only forwards wheel events that nothing inside the
+	 * output can consume, so applying the delta to the editor's scroll position
+	 * lets the document scroll without fighting an inner scroller.
+	 */
+	private _handleWebviewWheel(message: unknown): void {
+		if (!isWheelForwardMessage(message)) {
+			return;
+		}
+		const delta = normalizeWheelDeltaY(message.deltaMode, message.deltaY, this._editor.getLayoutInfo().height);
+		this._editor.setScrollTop(this._editor.getScrollTop() + delta);
+	}
+
+	/**
 	 * Render an output using a webview.
 	 * Used for interactive plots, widgets, and complex HTML.
 	 */
@@ -2656,7 +2673,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					// The height change re-lays out the zone asynchronously; re-check
 					// visibility once Monaco settles so the overlay shows on load.
 					this._scheduleWebviewLayout();
+					return;
 				}
+				this._handleWebviewWheel(message);
 			}));
 
 			// Update height when webview renders
@@ -2747,7 +2766,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					// The height change re-lays out the zone asynchronously; re-check
 					// visibility once Monaco settles so the overlay shows on load.
 					this._scheduleWebviewLayout();
+					return;
 				}
+				this._handleWebviewWheel(message);
 			}));
 
 			// Update height when webview renders
