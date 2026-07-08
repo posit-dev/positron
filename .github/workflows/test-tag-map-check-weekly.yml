@@ -164,8 +164,10 @@ jobs:
               created)
                 # pr_url is empty in dry-run (no PR actually opened).
                 if [ -n "$PR_URL" ]; then echo "**PR:** [opened]($PR_URL)"; else echo "**Next action:** would open a PR against \`main\`."; fi ;;
-              updated)       echo "**PR:** [updated]($PR_URL)" ;;
-              reset-cleared) echo "**PR:** reset [existing PR]($PR_URL) branch to \`main\` -- no stale entries remain." ;;
+              updated)
+                if [ "$DRYRUN" = "true" ]; then echo "**Next action:** would update the [existing PR]($PR_URL)."; else echo "**PR:** [updated]($PR_URL)"; fi ;;
+              reset-cleared)
+                if [ "$DRYRUN" = "true" ]; then echo "**Next action:** would reset the [existing PR]($PR_URL) branch to \`main\` (no stale entries remain)."; else echo "**PR:** reset [existing PR]($PR_URL) branch to \`main\` -- no stale entries remain."; fi ;;
               unchanged)     echo "**Next action:** none -- existing PR left as-is." ;;
               *)             echo "**Next action:** none -- no stale entries to remove (any remaining drift, such as missing dirs or invalid tags, needs a manual fix)." ;;
             esac
@@ -187,9 +189,9 @@ jobs:
           # A header line with the run link (its summary is the one place that
           # always lists missing dirs), then a bullet per item.
           HEADER="⚠️ *Test tag map has drifted* · <${RUN_URL}|details>"
-          # Three distinct states: a freshly opened/updated PR reads differently
-          # from an old PR still open but untouched this run (PR_UPDATED false) --
-          # claiming "opened" for the latter would misreport what happened.
+          # PR state reads differently per pr_action -- a freshly opened/updated
+          # PR vs an old one still open but untouched this run -- so the wording
+          # branches on pr_action rather than claiming "opened" for all.
           case "$PR_ACTION" in
             created|updated)
               PR_NUM="${PR_URL##*/}"
