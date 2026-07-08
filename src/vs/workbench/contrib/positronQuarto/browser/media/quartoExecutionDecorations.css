@@ -103,31 +103,60 @@
 
 /* Breathing: the statement currently executing when a cell is split into */
 /* individual statements. Unlike the twinkle above, every line shares the */
-/* same (undelayed) animation so the whole statement pulses in unison. */
+/* same (undelayed) animation so the whole statement pulses in unison. The */
+/* pulse is capped below full opacity so the executing statement never looks */
+/* more solid (darker) than an already-executed one above it. */
 .monaco-editor .quarto-execution-breathing {
 	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
-	animation: quarto-pulse 1.5s ease-in-out infinite;
+	animation: quarto-breathe 1.5s ease-in-out infinite;
 }
 
 .monaco-editor .quarto-execution-error-breathing {
 	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
-	animation: quarto-pulse 1.5s ease-in-out infinite;
+	animation: quarto-breathe 1.5s ease-in-out infinite;
 }
 
-/* Executed: a statement that has already run when a cell is split into */
-/* individual statements. Solid fill, no animation. */
+/* Breathe between a light rest and the breathing peak, starting on the */
+/* lighter color. The peak (0.8) is where the settle picks up, so a finishing */
+/* statement only ever brightens toward solid and never dips below its own */
+/* executing brightness. */
+@keyframes quarto-breathe {
+	0%, 100% {
+		opacity: 0.5;
+	}
+	50% {
+		opacity: 0.8;
+	}
+}
+
+/* Executed: a statement that has finished running when a cell is split into */
+/* individual statements. A one-shot "settle" eases up from the breathing peak */
+/* to a solid fill and holds there, so the hand-off reads as the breath */
+/* relaxing to rest while staying at least as solid as the executing line. */
 .monaco-editor .quarto-execution-executed {
 	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
-	opacity: 1;
+	animation: quarto-settle 0.75s ease-out forwards;
 }
 
 .monaco-editor .quarto-execution-error-executed {
 	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
-	opacity: 1;
+	animation: quarto-settle 0.75s ease-out forwards;
+}
+
+/* Settle from the breathing peak up to a solid fill. Starting at the peak */
+/* (rather than the dim point) keeps a just-finished statement at least as */
+/* solid as the currently executing one, avoiding a darker-executing-line look. */
+@keyframes quarto-settle {
+	from {
+		opacity: 0.8;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 /* Completed: solid green that fades out */
