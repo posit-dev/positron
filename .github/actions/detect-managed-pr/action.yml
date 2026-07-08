@@ -62,9 +62,11 @@ runs:
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
         REPO: ${{ github.repository }}
       run: |
+        # Read the prefix via jq's $ENV rather than shell-interpolating it into
+        # the filter, so a prefix with quotes/backslashes can't break the query.
         PR_INFO=$(gh pr list --base main --state open \
           --json number,url,headRefName,reviewDecision \
-          --jq "[.[] | select(.headRefName | startswith(\"$BRANCH_PREFIX\"))] | first // empty")
+          --jq '[.[] | select(.headRefName | startswith($ENV.BRANCH_PREFIX))] | first // empty')
         if [ -z "$PR_INFO" ]; then
           echo "No existing managed PR found for prefix $BRANCH_PREFIX; a new one will be created if needed."
           echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -84,9 +86,11 @@ runs:
         # --paginate + `jq -s add`: without it only the first 30 items are seen,
         # so a human comment/commit past page 1 goes uncounted -- the action
         # would pick reset mode and force-push over their work.
-        REVIEW_COMMENTS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" | jq -s 'add | map(select((.user.type // "User") != "Bot")) | length')
-        ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" | jq -s 'add | map(select((.user.type // "User") != "Bot")) | length')
-        NON_BOT_COMMITS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" | jq -s 'add | map(select((.author.type // "User") != "Bot")) | length')
+        # `add // []` guards the empty-stream case (e.g. an endpoint returns no
+        # body): `[] | add` is null, and `null | map` would abort the step.
+        REVIEW_COMMENTS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" | jq -s 'add // [] | map(select((.user.type // "User") != "Bot")) | length')
+        ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" | jq -s 'add // [] | map(select((.user.type // "User") != "Bot")) | length')
+        NON_BOT_COMMITS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" | jq -s 'add // [] | map(select((.author.type // "User") != "Bot")) | length')
         # Only a real review verdict counts. REVIEW_REQUIRED just means branch
         # protection wants a review -- every PR reports it, so treating it as a
         # human signal would force additive mode always and reset would never fire.

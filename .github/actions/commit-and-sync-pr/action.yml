@@ -114,14 +114,16 @@ runs:
           emit pr_action updated
           emit pr_url "$PR_URL"
         else
-          BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BRANCH"
+          # Check for staged changes before creating the branch, so the
+          # nothing-to-do path does not leave an orphaned local branch.
           if git diff --staged --quiet; then
             echo "No staged changes -- nothing to open a PR for."
             emit pr_action none
             emit pr_url ""
             exit 0
           fi
+          BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
           if [ "$DRYRUN" = "true" ]; then
             echo "[dryrun] Would commit and push new branch $BRANCH, then open a PR against main."
             git --no-pager diff --staged
