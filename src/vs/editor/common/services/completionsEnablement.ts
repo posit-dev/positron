@@ -14,6 +14,12 @@ import { URI } from '../../../base/common/uri.js';
 // included) are off, regardless of `github.copilot.enable`. Defined as a literal
 // because the editor layer can't import the workbench-level `AI_ENABLED_KEY`.
 const AI_ENABLED_SETTING = 'ai.enabled';
+// GitHub Copilot's provider enable setting. When off, Copilot completions are
+// disabled (the provider isn't registered), so treat them as disabled here too
+// -- this is what the completions status bar and the `areCompletionsEnabled`
+// API read. Literal because the editor layer can't import the authentication
+// extension's constant. Default is on, so only an explicit `false` disables.
+const COPILOT_PROVIDER_ENABLE_SETTING = 'positron.assistant.provider.githubCopilot.enable';
 // --- End Positron ---
 
 /**
@@ -35,6 +41,9 @@ export function isCompletionsEnabled(configurationService: IConfigurationService
 	// --- Start Positron ---
 	if (configurationService.getValue(AI_ENABLED_SETTING) === false) {
 		return false; // main AI switch off
+	}
+	if (configurationService.getValue(COPILOT_PROVIDER_ENABLE_SETTING) === false) {
+		return false; // GitHub Copilot provider disabled
 	}
 	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();
@@ -60,6 +69,9 @@ export function isCompletionsEnabledWithTextResourceConfig(configurationService:
 	// --- Start Positron ---
 	if (configurationService.getValue<boolean>(resource, AI_ENABLED_SETTING) === false) {
 		return false; // main AI switch off
+	}
+	if (configurationService.getValue<boolean>(resource, COPILOT_PROVIDER_ENABLE_SETTING) === false) {
+		return false; // GitHub Copilot provider disabled
 	}
 	// --- End Positron ---
 	const settingName = getCompletionsEnablementSettingName();
