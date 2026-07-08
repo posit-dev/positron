@@ -20,8 +20,9 @@ export const terminalInitialHintConfiguration: IStringDictionary<IConfigurationP
 		type: 'boolean',
 		// --- Start Positron ---
 		// Disable the terminal initial hint by default for https://github.com/posit-dev/positron/issues/13227
-		default: false
+		default: false,
 		// --- End Positron ---
+		agentsWindow: { default: false },
 	},
 	[TerminalInitialHintSettingId.CopilotCli]: {
 		restricted: true,

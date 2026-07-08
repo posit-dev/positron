@@ -161,7 +161,21 @@ function _stripCommandEchoAndPromptOnce(output: string, commandLine: string, log
 			// allow-any-unicode-next-line
 			((!knownPrompt || isStarship) && /\u276f\s*$/.test(line)) ||
 			// Python REPL
-			((!knownPrompt || isPython) && /^>>>\s*$/.test(line));
+			((!knownPrompt || isPython) && /^>>>\s*$/.test(line)) ||
+			// --- Start Positron ---
+			// Environment-prefixed Unix prompt whose trailing marker ($/#) has
+			// wrapped off the captured line. CI shells that activate a venv/conda
+			// environment render a prompt like
+			//   ".venv(base) root@host:/abs/path# "
+			// which can wrap so only "...root@host:/abs/path" is captured (the
+			// "# " spills onto a line we never capture). The leading env prefix
+			// also defeats the start-anchored pattern above. Match user@host
+			// followed by an absolute (/) or home (~) path anchored to the end of
+			// the line so real output such as SCP targets ("git@github.com:org/repo")
+			// is not stripped. Treated as a complete prompt (break) so at most one
+			// such line is removed.
+			((!knownPrompt || isUnixAt) && /\w+@[\w.-]+:[~\/]\S*\s*$/.test(line));
+		// --- End Positron ---
 
 		// Fragment/partial prompt patterns: these represent pieces of a prompt
 		// that wraps across multiple terminal lines due to column width.

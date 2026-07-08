@@ -89,7 +89,9 @@ export class DebugStorage extends Disposable {
 				return new Breakpoint(breakpoint, this.textFileService, this.uriIdentityService, this.logService, this.debugService, breakpoint.id);
 				// --- End Positron ---
 			});
-		} catch (e) { }
+		} catch (e) {
+			this.logService.error('Failed to load breakpoints from storage', e);
+		}
 
 		return result || [];
 	}
@@ -100,7 +102,9 @@ export class DebugStorage extends Disposable {
 			result = JSON.parse(this.storageService.get(DEBUG_FUNCTION_BREAKPOINTS_KEY, StorageScope.WORKSPACE, '[]')).map((fb: ReturnType<FunctionBreakpoint['toJSON']>) => {
 				return new FunctionBreakpoint(fb, fb.id);
 			});
-		} catch (e) { }
+		} catch (e) {
+			this.logService.error('Failed to load function breakpoints from storage', e);
+		}
 
 		return result || [];
 	}
@@ -111,7 +115,9 @@ export class DebugStorage extends Disposable {
 			result = JSON.parse(this.storageService.get(DEBUG_EXCEPTION_BREAKPOINTS_KEY, StorageScope.WORKSPACE, '[]')).map((exBreakpoint: ReturnType<ExceptionBreakpoint['toJSON']>) => {
 				return new ExceptionBreakpoint(exBreakpoint, exBreakpoint.id);
 			});
-		} catch (e) { }
+		} catch (e) {
+			this.logService.error('Failed to load exception breakpoints from storage', e);
+		}
 
 		return result || [];
 	}
@@ -122,7 +128,9 @@ export class DebugStorage extends Disposable {
 			result = JSON.parse(this.storageService.get(DEBUG_DATA_BREAKPOINTS_KEY, StorageScope.WORKSPACE, '[]')).map((dbp: ReturnType<DataBreakpoint['toJSON']>) => {
 				return new DataBreakpoint(dbp, dbp.id);
 			});
-		} catch (e) { }
+		} catch (e) {
+			this.logService.error('Failed to load data breakpoints from storage', e);
+		}
 
 		return result || [];
 	}
@@ -133,7 +141,9 @@ export class DebugStorage extends Disposable {
 			result = JSON.parse(this.storageService.get(DEBUG_WATCH_EXPRESSIONS_KEY, StorageScope.WORKSPACE, '[]')).map((watchStoredData: { name: string; id: string }) => {
 				return new Expression(watchStoredData.name, watchStoredData.id);
 			});
-		} catch (e) { }
+		} catch (e) {
+			this.logService.error('Failed to load watch expressions from storage', e);
+		}
 
 		return result || [];
 	}

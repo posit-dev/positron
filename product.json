@@ -40,6 +40,7 @@
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "positron",
+	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
 	"releaseNotesUrl": "https://cdn.posit.co/positron",
@@ -399,7 +400,8 @@
 		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
 		"signUpUrl": "https://aka.ms/github-sign-up",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
-		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry"
+		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
+		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
 	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
@@ -829,5 +831,6 @@
 	],
 	"builtInExtensionsEnabledWithAutoUpdates": [
 		"GitHub.copilot-chat"
-	]
+	],
+	"sessionsWindowAllowedExtensions": []
 }

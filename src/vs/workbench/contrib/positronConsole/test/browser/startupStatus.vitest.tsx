@@ -6,7 +6,6 @@
 /// <reference types="vitest/globals" />
 
 
-import React from 'react';
 import { act, screen } from '@testing-library/react';
 import { Emitter } from '../../../../../base/common/event.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';

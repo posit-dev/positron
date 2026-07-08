@@ -240,7 +240,7 @@ class RemoteAuthoritiesImpl {
 			try {
 				return this._delegate(uri);
 			} catch (err) {
-				errors.onUnexpectedError(err);
+				errors.onUnexpectedExternalError(err);
 				return uri;
 			}
 		}

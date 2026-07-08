@@ -105,7 +105,6 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	private readonly overwriteUpdatesCheckInterval = new IntervalTimer();
 	// --- End Positron ---
 	private _internalOrg: string | undefined = undefined;
-	protected _suspended = false;
 
 	private readonly _onStateChange = new Emitter<State>();
 	readonly onStateChange: Event<State> = this._onStateChange.event;
@@ -360,11 +359,6 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
 
-		if (this._suspended) {
-			this.logService.trace('update#checkForUpdates - suspended, skipping');
-			return;
-		}
-
 
 		if (this.state.type !== StateType.Idle) {
 			return;
@@ -436,19 +430,6 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		return releaseNotesText;
 	}
 	// --- End Positron ---
-
-	/**
-	 * Prevents all update checks (automatic and manual) from running.
-	 * Used by the cross-app update coordinator when another app owns
-	 * the update client.
-	 */
-	suspend(): void {
-		this._suspended = true;
-	}
-
-	resume(): void {
-		this._suspended = false;
-	}
 
 	async downloadUpdate(explicit: boolean): Promise<void> {
 		this.logService.trace('update#downloadUpdate, state = ', this.state.type);
