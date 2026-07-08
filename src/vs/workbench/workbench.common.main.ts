@@ -509,6 +509,7 @@ import './contrib/positronConsole/browser/positronConsole.contribution.js';
 import './contrib/positronConsole/browser/positronConsoleView.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.js';
+import './contrib/positronDatabaseEditor/browser/positronDatabaseEditor.contribution.js';
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
 import './contrib/positronDataConnections/browser/positronDataConnections.contribution.js';
 import './contrib/positronHistory/browser/positronHistory.contribution.js';

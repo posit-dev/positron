@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
-import { IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
+import { IDataConnectionNodeDTO, IDataConnectionPreviewTargetDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
 //
@@ -183,5 +183,6 @@ export interface IDataConnectionHandle {
 	isConnected(): Promise<boolean>;
 	nodeGetChildren(nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	nodePreview(nodeHandle: number): Promise<void>;
+	nodePreparePreview(nodeHandle: number): Promise<IDataConnectionPreviewTargetDTO>;
 	release(): void;
 }

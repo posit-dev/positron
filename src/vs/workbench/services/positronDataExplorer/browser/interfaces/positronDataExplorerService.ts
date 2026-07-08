@@ -96,6 +96,16 @@ export interface IPositronDataExplorerService {
 	openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void>;
 
 	/**
+	 * Ensures a Data Explorer instance backed by a built-in extension exists for the given dataset,
+	 * creating and registering it on first call, and returns it. Unlike
+	 * {@link openWithExtensionBackend}, this opens no editor: it is for callers that host the
+	 * `PositronDataExplorer` component themselves (e.g. the database editor's grid pane).
+	 * @param payload The provider id, dataset identifier, and display name.
+	 * @returns The mountable instance for the dataset.
+	 */
+	ensureExtensionBackendInstance(payload: OpenExtensionBackendPayload): IPositronDataExplorerInstance;
+
+	/**
 	 * Registers the transport core backends use to reach backend-providing extensions. Called by
 	 * the main-thread Data Explorer channel actor.
 	 * @param transport The transport.

@@ -75,6 +75,16 @@ export interface IDataConnectionNodeDTO {
 }
 
 /**
+ * Serializable target identifying a Data Explorer prepared for a node via preparePreview. Shape
+ * mirrors the public DataConnectionPreviewTarget and the arguments to the data explorer open call.
+ */
+export interface IDataConnectionPreviewTargetDTO {
+	providerId: string;
+	datasetId: string;
+	displayName: string;
+}
+
+/**
  * Serializable form of a single named connection code variant (e.g. Python `sqlite3` vs
  * `SQLAlchemy`). A generateConnectionCode call returns an ordered list of these; an empty list
  * means code cannot be generated from the given parameters.

@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionPreviewTargetDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Disposable } from '../extHostTypes.js';
 
 /**
@@ -268,6 +268,19 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 			throw new Error(`Node handle ${nodeHandle} does not support preview`);
 		}
 		await node.preview();
+	}
+
+	/** Prepares a Data Explorer for a node and returns its target, without opening an editor. */
+	async $nodePreparePreview(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionPreviewTargetDTO> {
+		const nodeMap = this._nodes.get(connectionHandle);
+		if (!nodeMap) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		const node = nodeMap.get(nodeHandle);
+		if (!node || !node.preparePreview) {
+			throw new Error(`Node handle ${nodeHandle} does not support preparePreview`);
+		}
+		return node.preparePreview();
 	}
 
 	/** Frees a connection handle and all its associated node handles. */

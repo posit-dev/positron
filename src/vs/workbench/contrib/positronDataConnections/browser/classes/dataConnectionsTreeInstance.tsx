@@ -62,7 +62,12 @@ const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => 
 	hasChildren: true,
 });
 
-const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): TreeNode<DataConnectionNode> => ({
+/**
+ * Wraps a server-side node DTO as a tree node, tagging it with the originating connection handle so
+ * deeper children can be fetched without walking back up. Exported so a single-connection tree (e.g.
+ * the database editor) can reuse the exact DTO-walking shape.
+ */
+export const wrapDto = (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle): TreeNode<DataConnectionNode> => ({
 	id: dtoNodeId(handle, dto),
 	data: { kind: 'dto', dto, handle },
 	hasChildren: dto.hasGetChildren,

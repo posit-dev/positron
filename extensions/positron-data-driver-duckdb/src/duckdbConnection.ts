@@ -95,32 +95,40 @@ export class DuckDBConnection implements positron.DataConnection, IDuckDBPreview
 	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
 	 * explorer backed by this extension's provider.
 	 */
-	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async prepareObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<positron.DataConnectionPreviewTarget> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._lease!.client, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
-		await positron.dataExplorer.open({
+		return {
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
 			datasetId,
 			displayName: tableName,
-		});
+		};
+	}
+
+	async previewObject(schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+		await positron.dataExplorer.open(await this.prepareObject(schemaName, tableName, kind));
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
 	 * Uses a dataset id distinct from the table's so both can be open at once.
 	 */
-	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async prepareColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<positron.DataConnectionPreviewTarget> {
 		this._ensureConnected();
 		const datasetId = `duckdbconn:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._lease!.client, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
-		await positron.dataExplorer.open({
+		return {
 			providerId: DUCKDB_DATA_EXPLORER_PROVIDER_ID,
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
-		});
+		};
+	}
+
+	async previewColumn(schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+		await positron.dataExplorer.open(await this.prepareColumn(schemaName, tableName, kind, columnName));
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

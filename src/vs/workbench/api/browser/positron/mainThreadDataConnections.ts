@@ -7,7 +7,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionPreviewTargetDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -352,6 +352,13 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	 */
 	async nodePreview(nodeHandle: number): Promise<void> {
 		return this._proxy.$nodePreview(this.handle, nodeHandle);
+	}
+
+	/**
+	 * Prepares a Data Explorer for the given node and returns its target, without opening an editor.
+	 */
+	async nodePreparePreview(nodeHandle: number): Promise<IDataConnectionPreviewTargetDTO> {
+		return this._proxy.$nodePreparePreview(this.handle, nodeHandle);
 	}
 
 	/**

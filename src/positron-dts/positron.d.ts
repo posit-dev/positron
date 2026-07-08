@@ -2319,6 +2319,27 @@ declare module 'positron' {
 		 * Preview the data in this node (e.g., SELECT * FROM table LIMIT 100).
 		 */
 		preview?(): Thenable<void>;
+
+		/**
+		 * Prepare a Data Explorer for this node and return the target that identifies it, WITHOUT
+		 * opening an editor. Callers that host the Data Explorer themselves (e.g. a database editor
+		 * that shows the grid in its own pane) use this instead of {@link preview}. Implement this on
+		 * the same nodes that implement {@link preview}.
+		 */
+		preparePreview?(): Thenable<DataConnectionPreviewTarget>;
+	}
+
+	/**
+	 * Identifies a Data Explorer prepared for a data connection node, so a caller can open or mount
+	 * it. Mirrors the argument to `positron.dataExplorer.open`.
+	 */
+	export interface DataConnectionPreviewTarget {
+		/** The provider id the driver registered its Data Explorer RPC handler under. */
+		providerId: string;
+		/** The dataset identifier the driver registered the view under. */
+		datasetId: string;
+		/** Human-readable name for the dataset (e.g. the table name). */
+		displayName: string;
 	}
 
 	/**

@@ -9,6 +9,7 @@
     "vscode": "^1.65.0"
   },
   "activationEvents": [
+    "onStartupFinished",
     "onView:workbench.panel.positronDataConnections"
   ],
   "main": "./out/extension.js",

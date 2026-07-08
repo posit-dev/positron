@@ -94,32 +94,40 @@ export class SQLiteConnection implements positron.DataConnection, ISqlitePreview
 	 * handler under a stable per-connection dataset id, then asks Positron to open (or focus) the
 	 * explorer backed by this extension's RPC command.
 	 */
-	async previewObject(name: string, kind: 'table' | 'view'): Promise<void> {
+	async prepareObject(name: string, kind: 'table' | 'view'): Promise<positron.DataConnectionPreviewTarget> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:${kind}:${name}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._client!, name, kind);
 		this._openedDatasets.add(datasetId);
-		await positron.dataExplorer.open({
+		return {
 			providerId: SQLITE_DATA_EXPLORER_PROVIDER_ID,
 			datasetId,
 			displayName: name,
-		});
+		};
+	}
+
+	async previewObject(name: string, kind: 'table' | 'view'): Promise<void> {
+		await positron.dataExplorer.open(await this.prepareObject(name, kind));
 	}
 
 	/**
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
 	 * Uses a dataset id distinct from the table's so both can be open at once.
 	 */
-	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async prepareColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<positron.DataConnectionPreviewTarget> {
 		this._ensureConnected();
 		const datasetId = `sqlite:${this._connectionId}:column:${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._client!, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
-		await positron.dataExplorer.open({
+		return {
 			providerId: SQLITE_DATA_EXPLORER_PROVIDER_ID,
 			datasetId,
 			displayName: `${tableName}.${columnName}`,
-		});
+		};
+	}
+
+	async previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+		await positron.dataExplorer.open(await this.prepareColumn(tableName, kind, columnName));
 	}
 
 	/** Returns whether this connection was opened in read-only mode. */

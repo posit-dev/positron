@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-database-editor-container {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+.positron-database-editor {
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	height: 100%;
+}
+
+.positron-database-editor-tree {
+	flex: 0 0 auto;
+	width: 280px;
+	min-width: 160px;
+	height: 100%;
+	overflow: hidden;
+	border-right: 1px solid var(--vscode-panel-border);
+}
+
+.positron-database-editor-explorer {
+	position: relative;
+	flex: 1 1 auto;
+	height: 100%;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.positron-database-editor-placeholder,
+.positron-database-editor-empty-tree,
+.positron-database-editor-error {
+	padding: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-database-editor-error {
+	color: var(--vscode-errorForeground);
+	white-space: pre-wrap;
+}

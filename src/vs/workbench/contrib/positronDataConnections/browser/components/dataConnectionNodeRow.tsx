@@ -88,6 +88,14 @@ const canPreview = (dto: IDataConnectionNodeDTO): boolean =>
 interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
 	handle: IDataConnectionHandle;
+
+	/**
+	 * Optional override for the preview action. When provided, it is called instead of opening a
+	 * standalone Data Explorer via `handle.nodePreview`, letting a host (e.g. the database editor)
+	 * render the Data Explorer in its own pane. When omitted, the default standalone-open behavior
+	 * is used.
+	 */
+	onPreview?: (dto: IDataConnectionNodeDTO, handle: IDataConnectionHandle) => void;
 }
 
 /**
@@ -95,11 +103,15 @@ interface DataConnectionNodeRowProps {
  * table, view, column, etc.) inside the tree. Previewable table/view nodes open in the Data
  * Explorer on double-click or via the "Open in Data Explorer" context-menu action.
  */
-export const DataConnectionNodeRow = ({ dto, handle }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, onPreview }: DataConnectionNodeRowProps) => {
 	const { notificationService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 
 	const openInDataExplorer = () => {
+		if (onPreview) {
+			onPreview(dto, handle);
+			return;
+		}
 		handle.nodePreview(dto.nodeHandle).catch(error => {
 			notificationService.error(localize(
 				'positron.dataConnections.openInDataExplorerFailed',

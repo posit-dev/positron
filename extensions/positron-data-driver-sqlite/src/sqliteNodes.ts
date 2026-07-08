@@ -15,6 +15,10 @@ export interface ISqlitePreviewHost {
 	previewObject(name: string, kind: 'table' | 'view'): Promise<void>;
 	/** Opens a single column of the given table or view in the Data Explorer. */
 	previewColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	/** Registers a Data Explorer for the given table or view and returns its target, without opening. */
+	prepareObject(name: string, kind: 'table' | 'view'): Promise<positron.DataConnectionPreviewTarget>;
+	/** Registers a Data Explorer for a single column and returns its target, without opening. */
+	prepareColumn(tableName: string, kind: 'table' | 'view', columnName: string): Promise<positron.DataConnectionPreviewTarget>;
 }
 
 /**
@@ -80,6 +84,9 @@ export function createTableNode(
 		preview() {
 			return host.previewObject(tableName, 'table');
 		},
+		preparePreview() {
+			return host.prepareObject(tableName, 'table');
+		},
 	};
 }
 
@@ -100,6 +107,9 @@ export function createViewNode(
 		},
 		preview() {
 			return host.previewObject(viewName, 'view');
+		},
+		preparePreview() {
+			return host.prepareObject(viewName, 'view');
 		},
 	};
 }
@@ -185,6 +195,9 @@ async function getFieldNodes(
 			isPrimaryKey: kind === 'table' && Number(row.pk) > 0,
 			preview() {
 				return host.previewColumn(tableName, kind, columnName);
+			},
+			preparePreview() {
+				return host.prepareColumn(tableName, kind, columnName);
 			},
 		};
 	});

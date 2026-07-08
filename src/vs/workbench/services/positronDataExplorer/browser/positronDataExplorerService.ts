@@ -398,11 +398,11 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * already open for the dataset, the existing editor is focused rather than opening a second one.
 	 * @param payload The provider id, dataset identifier, and display name.
 	 */
-	async openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void> {
+	ensureExtensionBackendInstance(payload: OpenExtensionBackendPayload): IPositronDataExplorerInstance {
 		const { providerId, datasetId, displayName } = payload;
 
-		// Only build and register a new backend the first time; subsequent calls just focus the
-		// already-open editor below.
+		// Only build and register a new backend the first time; subsequent calls return the existing
+		// instance so a dataset can back an editor and an embedded host at once.
 		if (!this._positronDataExplorerInstances.has(datasetId)) {
 			const transport = this._ensureRpcTransport();
 			const backend = new PositronDataExplorerExtensionBackend(transport, providerId, datasetId);
@@ -415,6 +415,16 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			const client = new DataExplorerClientInstance(backend);
 			this.registerDataExplorerClient(displayName, client);
 		}
+
+		// registerDataExplorerClient keys the instance by the client identifier, which is the
+		// datasetId for an extension backend.
+		return this._positronDataExplorerInstances.get(datasetId)!;
+	}
+
+	async openWithExtensionBackend(payload: OpenExtensionBackendPayload): Promise<void> {
+		const { datasetId } = payload;
+
+		this.ensureExtensionBackendInstance(payload);
 
 		const pinned = !DataExplorerPreviewEnabled(this._configurationService);
 		const editorPane = await this._editorService.openEditor({
