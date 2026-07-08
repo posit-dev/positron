@@ -145,10 +145,10 @@ jobs:
 
       - name: Show product.json diff
         run: |
-          if git diff --quiet product.json; then
+          if git diff --cached --quiet product.json; then
             echo "No changes to product.json."
           else
-            git --no-pager diff product.json
+            git --no-pager diff --cached product.json
           fi
 
       - name: Render test tags
