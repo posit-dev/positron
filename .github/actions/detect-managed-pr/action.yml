@@ -1,0 +1,111 @@
+name: 'Detect managed PR'
+description: >-
+  Find an open bot-managed PR by head-branch prefix, decide additive vs reset
+  mode from human-review signals, and check out the PR branch. Generates and
+  outputs a POSITRON_BOT token for reuse by commit-and-sync-pr.
+inputs:
+  branch-prefix:
+    description: 'Head-branch prefix identifying the managed PR (e.g. automated/test-tag-map-drift).'
+    required: true
+  app-id:
+    description: 'GitHub App id (vars.POSITRON_BOT_APP_ID).'
+    required: true
+  private-key:
+    description: 'GitHub App private key (secrets.POSITRON_BOT_PRIVATE_KEY).'
+    required: true
+outputs:
+  exists:
+    description: '"true" when an open managed PR was found, else "false".'
+    value: ${{ steps.detect.outputs.exists }}
+  pr_number:
+    description: 'Existing PR number (empty when none).'
+    value: ${{ steps.detect.outputs.pr_number }}
+  pr_url:
+    description: 'Existing PR url (empty when none).'
+    value: ${{ steps.detect.outputs.pr_url }}
+  pr_branch:
+    description: 'Existing PR head branch (empty when none).'
+    value: ${{ steps.detect.outputs.pr_branch }}
+  mode:
+    description: 'additive or reset (empty when exists=false).'
+    value: ${{ steps.detect.outputs.mode }}
+  github-token:
+    description: 'Generated bot token (masked); pass to commit-and-sync-pr.'
+    value: ${{ steps.bot-token.outputs.token }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate POSITRON_BOT token
+      id: bot-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: ${{ github.repository_owner }}
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        token: ${{ steps.bot-token.outputs.token }}
+
+    - name: Configure git identity
+      shell: bash
+      run: |
+        git config user.name "positron-bot[bot]"
+        git config user.email "positron-bot[bot]@users.noreply.github.com"
+
+    - name: Detect existing managed PR
+      id: detect
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        REPO: ${{ github.repository }}
+      run: |
+        # Read the prefix via jq's $ENV rather than shell-interpolating it into
+        # the filter, so a prefix with quotes/backslashes can't break the query.
+        PR_INFO=$(gh pr list --base main --state open \
+          --json number,url,headRefName,reviewDecision \
+          --jq '[.[] | select(.headRefName | startswith($ENV.BRANCH_PREFIX))] | first // empty')
+        if [ -z "$PR_INFO" ]; then
+          echo "No existing managed PR found for prefix $BRANCH_PREFIX; a new one will be created if needed."
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        PR_NUMBER=$(echo "$PR_INFO" | jq -r .number)
+        PR_URL=$(echo "$PR_INFO" | jq -r .url)
+        PR_BRANCH=$(echo "$PR_INFO" | jq -r .headRefName)
+        PR_REVIEW=$(echo "$PR_INFO" | jq -r '.reviewDecision // ""')
+        echo "Found existing PR #$PR_NUMBER on branch $PR_BRANCH (review: ${PR_REVIEW:-none})"
+
+        git fetch origin "$PR_BRANCH" main
+        git checkout "$PR_BRANCH"
+
+        # Any human signal means someone may have hand-edited the PR, so the
+        # caller should add commits on top (additive) instead of force-pushing.
+        # --paginate + `jq -s add`: without it only the first 30 items are seen,
+        # so a human comment/commit past page 1 goes uncounted -- the action
+        # would pick reset mode and force-push over their work.
+        # `add // []` guards the empty-stream case (e.g. an endpoint returns no
+        # body): `[] | add` is null, and `null | map` would abort the step.
+        REVIEW_COMMENTS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" | jq -s 'add // [] | map(select((.user.type // "User") != "Bot")) | length')
+        ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" | jq -s 'add // [] | map(select((.user.type // "User") != "Bot")) | length')
+        NON_BOT_COMMITS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" | jq -s 'add // [] | map(select((.author.type // "User") != "Bot")) | length')
+        # Only a real review verdict counts. REVIEW_REQUIRED just means branch
+        # protection wants a review -- every PR reports it, so treating it as a
+        # human signal would force additive mode always and reset would never fire.
+        REVIEWED=false
+        case "$PR_REVIEW" in APPROVED|CHANGES_REQUESTED) REVIEWED=true ;; esac
+        if [ "$REVIEW_COMMENTS" -gt 0 ] || [ "$ISSUE_COMMENTS" -gt 0 ] || [ "$NON_BOT_COMMITS" -gt 0 ] || [ "$REVIEWED" = true ]; then
+          MODE=additive
+        else
+          MODE=reset
+        fi
+        echo "Reuse mode: $MODE (review comments: $REVIEW_COMMENTS, issue comments: $ISSUE_COMMENTS, non-bot commits: $NON_BOT_COMMITS, review decision: ${PR_REVIEW:-none})"
+        {
+          echo "exists=true"
+          echo "pr_number=$PR_NUMBER"
+          echo "pr_url=$PR_URL"
+          echo "pr_branch=$PR_BRANCH"
+          echo "mode=$MODE"
+        } >> "$GITHUB_OUTPUT"
