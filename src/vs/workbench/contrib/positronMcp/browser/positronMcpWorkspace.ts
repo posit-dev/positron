@@ -11,9 +11,12 @@ import { IPositronMcpService, POSITRON_MCP_DEFAULT_PORT } from '../../../../plat
 
 /**
  * The state of the first workspace folder's `.mcp.json` positron entry.
- * 'stale' means an entry exists but does not carry the current bearer token
- * (written before tokens existed, or after a token regeneration), so the
- * server would reject its requests with 401 until it is re-written.
+ * 'stale' means an entry exists but does not carry the current bearer token or
+ * the current port -- written before tokens existed, after a token
+ * regeneration, or (routinely, since each window's server binds a fresh
+ * OS-assigned port on every start) after a Positron restart -- so the server
+ * would reject its requests with 401, or the client couldn't even connect,
+ * until it is re-written.
  */
 export type WorkspaceConfigState = 'configured' | 'stale' | 'not-configured' | 'no-workspace';
 
@@ -47,9 +50,10 @@ export function mergeMcpConfig(existing: unknown, token: string, port: number = 
 /**
  * The state of the positron server entry in a parsed `.mcp.json` object:
  * 'not-configured' when there is none, 'stale' when it lacks the current
- * bearer token, 'configured' when it would authenticate.
+ * bearer token or points at a different port than this window's server is
+ * currently listening on, 'configured' when it would connect and authenticate.
  */
-export function positronServerState(parsed: unknown, token: string): 'configured' | 'stale' | 'not-configured' {
+export function positronServerState(parsed: unknown, token: string, port: number): 'configured' | 'stale' | 'not-configured' {
 	if (!parsed || typeof parsed !== 'object') {
 		return 'not-configured';
 	}
@@ -60,6 +64,10 @@ export function positronServerState(parsed: unknown, token: string): 'configured
 	const positron = (servers as Record<string, unknown>).positron;
 	if (positron === undefined) {
 		return 'not-configured';
+	}
+	const url = (positron && typeof positron === 'object') ? (positron as Record<string, unknown>).url : undefined;
+	if (url !== serverUrl(port)) {
+		return 'stale';
 	}
 	const headers = (positron && typeof positron === 'object') ? (positron as Record<string, unknown>).headers : undefined;
 	const authorization = (headers && typeof headers === 'object') ? (headers as Record<string, unknown>).Authorization : undefined;
@@ -109,7 +117,8 @@ export class PositronMcpWorkspace {
 			return 'no-workspace';
 		}
 		const parsed = await this._readJson(URI.joinPath(folder, '.mcp.json'));
-		return positronServerState(parsed, (await this._serverInfo()).token);
+		const { token, port } = await this._serverInfo();
+		return positronServerState(parsed, token, port);
 	}
 
 	/**

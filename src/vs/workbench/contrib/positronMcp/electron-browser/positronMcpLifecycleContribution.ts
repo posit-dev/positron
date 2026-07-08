@@ -19,13 +19,15 @@ import { AUDIT_LOG_DETAIL_KEY, MCP_ENABLE_KEY } from '../common/positronMcpConfi
 import { PositronMcpToolBrokerChannel } from './positronMcpToolBrokerChannel.js';
 
 /**
- * Renderer-side driver for the main-process MCP server.
+ * Renderer-side driver for this window's main-process MCP server.
  *
  * The main process cannot read workbench settings, so this contribution owns the
- * lifecycle: it starts the server when `positron.mcp.enable` is on (and AI
- * features are enabled), stops it otherwise, and reacts to changes in either
- * setting. The server itself is a singleton in the main process; if multiple
- * windows are open they each drive the same shared server idempotently.
+ * lifecycle: it starts this window's server when `positron.mcp.enable` is on
+ * (and AI features are enabled), stops it otherwise, and reacts to changes in
+ * either setting. One instance of this contribution runs per window, each
+ * driving its own server -- the {@link IPositronMcpService} calls below are
+ * scoped transparently to this window by the service wrapper that implements
+ * it (see `positronMcpService.ts`).
  */
 export class PositronMcpLifecycleContribution extends Disposable implements IWorkbenchContribution {
 	/**

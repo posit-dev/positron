@@ -14,12 +14,13 @@ import { IMcpCallToolResult, NO_ACTIVE_SESSION_TEXT, POSITRON_MCP_TOOLS, SERVER_
 import { isInitializeMessage, PositronMcpSession } from '../../node/positronMcpSession.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
 
-/** A broker that always has window 1 available and records tool invocations. */
+/** A broker fixed to window 1, connected by default, that records tool invocations. */
 class StubBroker implements IPositronMcpToolBroker {
-	readonly invokeTool = vi.fn(async (_windowId: number, name: string): Promise<IMcpCallToolResult> =>
+	readonly windowId = 1;
+	connected = true;
+	readonly invokeTool = vi.fn(async (name: string): Promise<IMcpCallToolResult> =>
 		({ content: [{ type: 'text', text: `called ${name}` }] }));
-	resolveTargetWindow(): number | undefined { return 1; }
-	isWindowConnected(): boolean { return true; }
+	isConnected(): boolean { return this.connected; }
 }
 
 /** An audit sink that records events for assertions. */
@@ -79,14 +80,13 @@ describe('PositronMcpSession', () => {
 		// The snapshot is the get-session tool's output, fetched with this
 		// session's caller identity.
 		expect(instructions).toContain('called get-session');
-		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', {},
+		expect(broker.invokeTool).toHaveBeenCalledWith('get-session', {},
 			{ mcpSessionId: 'test-session', clientName: 'test-client', clientVersion: '1.0.0' });
 	});
 
-	it('serves the static instructions when no window is available', async () => {
+	it('serves the static instructions when the window is not connected', async () => {
 		const broker = new StubBroker();
-		broker.resolveTargetWindow = () => undefined;
-		broker.isWindowConnected = () => false;
+		broker.connected = false;
 		const session = createSession(broker);
 		const [response] = await session.handleIncoming(initializeRequest);
 		expect((response as { result: { instructions: string } }).result.instructions).toBe(SERVER_INSTRUCTIONS);
@@ -124,14 +124,13 @@ describe('PositronMcpSession', () => {
 		const session = createSession(broker);
 		await session.handleIncoming(initializeRequest);
 		await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get-session', arguments: { foo: 1 } } });
-		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', { foo: 1 },
+		expect(broker.invokeTool).toHaveBeenCalledWith('get-session', { foo: 1 },
 			{ mcpSessionId: 'test-session', clientName: 'test-client', clientVersion: '1.0.0' });
 	});
 
-	it('serves get-guidance from the main process, with no window and no broker call', async () => {
+	it('serves get-guidance from the main process, with no broker call even when the window is not connected', async () => {
 		const broker = new StubBroker();
-		broker.resolveTargetWindow = () => undefined;
-		broker.isWindowConnected = () => false;
+		broker.connected = false;
 		const audit = new RecordingAuditLog();
 		const session = createSession(broker, audit);
 		await session.handleIncoming(initializeRequest);
@@ -172,12 +171,12 @@ describe('PositronMcpSession', () => {
 		}
 	});
 
-	it('reports an anonymous session before initialize names the client', () => {
+	it('reports an anonymous session before initialize names the client, but the window is already known', () => {
 		const session = createSession();
 		expect(session.info).toMatchObject({
 			sessionId: 'test-session',
 			clientName: undefined,
-			pinnedWindowId: undefined,
+			pinnedWindowId: 1,
 		});
 	});
 
@@ -306,28 +305,20 @@ describe('PositronMcpSession', () => {
 			expect((response as { result: IMcpCallToolResult }).result.content).toEqual([{ type: 'text', text: 'called get-plot' }]);
 		});
 
-		it('skips the alert (and keeps the cursor) on a call served before any window is pinned', async () => {
+		it('scopes the alert to the broker\'s window even for a main-served call, since the window is known from session creation', async () => {
+			// Unlike the old last-active-window heuristic, get-guidance (served
+			// entirely by the main process, no broker call) still knows exactly
+			// which window's activity it should report: the broker's window is
+			// fixed from construction, not resolved lazily on the first brokered call.
 			const broker = new StubBroker();
-			let window: number | undefined = undefined;
-			broker.resolveTargetWindow = () => window;
-			broker.isWindowConnected = () => window !== undefined;
 			const ledger = new McpContextLedger();
 			const session = createSession(broker, new RecordingAuditLog(), ledger);
-			await session.handleIncoming(initializeRequest); // no window to pin yet
+			await session.handleIncoming(initializeRequest);
 			ledger.record(userExecution());
 
-			// The main-served pre-pin call carries no alert: an unscoped one
-			// would count every window's activity while the documented follow-up
-			// query is scoped to the eventually-pinned window.
 			const [guidance] = await session.handleIncoming({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: GET_GUIDANCE_TOOL.name } });
 			const guidanceResult = (guidance as { result: IMcpCallToolResult }).result;
-			expect(guidanceResult.content.some(c => c.type === 'text' && c.text.includes('[context:'))).toBe(false);
-
-			// And the cursor stayed put: the first pinned call alerts the event.
-			window = 1;
-			const [second] = await session.handleIncoming({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'get-plot' } });
-			expect((second as { result: IMcpCallToolResult }).result.content).toContainEqual(
-				{ type: 'text', text: '[context: 1 new console execution | seq 0]' });
+			expect(guidanceResult.content).toContainEqual({ type: 'text', text: '[context: 1 new console execution | seq 0]' });
 		});
 
 		it('records the alert line on the tool-call audit event', async () => {

@@ -4,35 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as http from 'http';
+import type { AddressInfo } from 'net';
 import { DeferredPromise } from '../../../base/common/async.js';
-import { Emitter } from '../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import { JsonRpcMessage, JsonRpcProtocol } from '../../../base/common/jsonRpcProtocol.js';
 import { generateUuid, isUUID } from '../../../base/common/uuid.js';
-import { ILogger, ILoggerService } from '../../log/common/log.js';
-import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { IPositronMcpServerStatus, IPositronMcpService, POSITRON_MCP_DEFAULT_PORT, POSITRON_MCP_LOG_ID } from '../common/positronMcp.js';
-import { formatAuditLine, McpAuditEvent, McpAuditLogDetail, McpAuditRingBuffer, toSummaryOnlyEvent } from '../common/positronMcpAudit.js';
-import { IMcpUserContextData, IMcpUserContextQuery, McpContextEventInput, McpContextLedger } from '../common/positronMcpContext.js';
-import { reportMcpTelemetry } from '../common/positronMcpTelemetry.js';
-import { McpAuditFileWriter } from './positronMcpAuditFile.js';
-import { isAuthorizedBearer, loadOrCreateMcpToken } from './positronMcpToken.js';
+import { ILogger } from '../../log/common/log.js';
+import { IPositronMcpWindowOwnStatus } from '../common/positronMcp.js';
+import { IPositronMcpAuditLog } from '../common/positronMcpAudit.js';
+import { McpContextLedger } from '../common/positronMcpContext.js';
+import { isAuthorizedBearer } from './positronMcpToken.js';
 import { isInitializeMessage, PositronMcpSession } from './positronMcpSession.js';
 import { IPositronMcpToolBroker } from './positronMcpToolBroker.js';
-
-/**
- * Reads the configured port from the environment, falling back to the default.
- * Mirrors the extension's behavior so existing `POSITRON_MCP_PORT` overrides keep
- * working after the move to core.
- */
-export function parsePort(): number {
-	const raw = process.env.POSITRON_MCP_PORT;
-	if (!raw?.trim()) {
-		return POSITRON_MCP_DEFAULT_PORT;
-	}
-	const parsed = Number(raw);
-	return Number.isInteger(parsed) && parsed >= 1024 && parsed <= 65535 ? parsed : POSITRON_MCP_DEFAULT_PORT;
-}
 
 /**
  * Whether an HTTP Host header refers to this machine. The server is
@@ -54,78 +37,42 @@ export function isLocalHostHeader(hostHeader: string | undefined): boolean {
 }
 
 /**
- * Node implementation of the Positron MCP server.
+ * Node implementation of one window's Positron MCP HTTP server.
  *
- * Owns the HTTP listener lifecycle on a fixed localhost port. POST carries the
- * JSON-RPC traffic, GET answers a `/health` probe, DELETE tears down a session;
- * any other method gets 405 with an `Allow` header (per the Streamable HTTP
- * spec for servers that offer no SSE stream -- some clients auto-open a GET
- * stream and mishandle a 404 there).
+ * Owns the HTTP listener lifecycle on an OS-assigned localhost port -- one
+ * instance per Positron window, created and destroyed by
+ * {@link PositronMcpServerRegistry}. POST carries the JSON-RPC traffic, GET
+ * answers a `/health` probe, DELETE tears down a session; any other method
+ * gets 405 with an `Allow` header (per the Streamable HTTP spec for servers
+ * that offer no SSE stream -- some clients auto-open a GET stream and
+ * mishandle a 404 there).
+ *
+ * A session created by this server is permanently bound to this window: there
+ * is no cross-window routing to get right, because a client only ever reaches
+ * this server by using this window's own port. Shared state (the bearer
+ * token, the audit sink, the user-context ledger) is owned by the registry and
+ * injected here, so every window server enforces the same token and feeds the
+ * same audit trail.
  */
-export class PositronMcpServer extends Disposable implements IPositronMcpService {
-	declare readonly _serviceBrand: undefined;
-
+export class PositronMcpWindowServer extends Disposable {
 	private static readonly SessionHeaderName = 'mcp-session-id';
 	/** Cap on a single request body, matching the extension's 1MB limit. */
 	private static readonly MaxRequestBytes = 1024 * 1024;
 
-	private readonly _logger: ILogger;
-	private readonly _port = parsePort();
 	private _server: http.Server | undefined;
+	private _port = 0;
 	private _startPromise: Promise<void> | undefined;
 	private readonly _sessions = this._register(new DisposableMap<string, PositronMcpSession>());
 
-	/**
-	 * Recent audit events for the status UI. Intentionally not cleared on
-	 * `stop()`: sessions are wiped but the history of what agents did is not.
-	 */
-	private readonly _recentActivity = new McpAuditRingBuffer(200);
-
-	/**
-	 * The user-activity ledger behind get-user-context and the `[context: ...]`
-	 * alert lines. A server-lifetime field like the activity buffer: it survives
-	 * `stop()` and window reloads, so event seqs stay monotonic for the whole
-	 * Positron run and only reset when the app quits.
-	 */
-	// Seqs are based at the run start time so a `since` replayed from a
-	// previous run is detectable; see the McpContextLedger constructor.
-	private readonly _contextLedger = new McpContextLedger(undefined, Date.now());
-	private readonly _onDidRecordActivity = this._register(new Emitter<McpAuditEvent>());
-	// Must be an instance field (not a getter): ProxyChannel.fromService discovers
-	// events with a for...in scan of own enumerable properties (ipc.ts).
-	readonly onDidRecordActivity = this._onDidRecordActivity.event;
-
-	private readonly _auditFile: McpAuditFileWriter;
-
-	/**
-	 * The per-user bearer token every request (except OPTIONS and `/health`)
-	 * must present. Loaded once at construction; stable for the process
-	 * lifetime, so consumers may cache it.
-	 */
-	private readonly _token: string;
-
 	constructor(
+		readonly windowId: number,
+		private readonly _token: string,
 		private readonly _broker: IPositronMcpToolBroker,
-		auditFilePath: string,
-		tokenFilePath: string,
-		@ILoggerService loggerService: ILoggerService,
-		@ITelemetryService private readonly _telemetryService: ITelemetryService,
+		private readonly _auditSink: IPositronMcpAuditLog,
+		private readonly _contextLedger: McpContextLedger,
+		private readonly _logger: ILogger,
 	) {
 		super();
-		this._logger = this._register(loggerService.createLogger(POSITRON_MCP_LOG_ID, { name: 'Positron MCP', logLevel: 'always' }));
-		this._auditFile = this._register(new McpAuditFileWriter(auditFilePath, this._logger));
-		this._token = loadOrCreateMcpToken(tokenFilePath, message => this._logger.warn(`[PositronMcpServer] ${message}`));
-		this._logger.info('[PositronMcpServer] Initialized');
-	}
-
-	/**
-	 * Adopt the renderer's `positron.mcp.auditLog.detail` value. The main process
-	 * cannot read workbench settings, so the lifecycle contribution pushes it here
-	 * at startup and whenever it changes; multiple windows push the same value
-	 * idempotently. Applies from the next audit event.
-	 */
-	async setAuditLogDetail(detail: McpAuditLogDetail): Promise<void> {
-		this._auditFile.detail = detail;
 	}
 
 	async start(): Promise<void> {
@@ -151,21 +98,23 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		this._server = server;
 
 		server.on('listening', () => {
-			this._logger.info(`[PositronMcpServer] Listening on http://localhost:${this._port}`);
+			this._port = (server.address() as AddressInfo).port;
+			this._logger.info(`[PositronMcpWindowServer ${this.windowId}] Listening on http://localhost:${this._port}`);
 			deferred.complete();
 		});
 		server.on('error', (err: NodeJS.ErrnoException) => {
 			this._server = undefined;
-			this._logger.error(`[PositronMcpServer] Failed to listen on port ${this._port}: ${err}`);
+			this._logger.error(`[PositronMcpWindowServer ${this.windowId}] Failed to listen: ${err}`);
 			deferred.error(err);
 		});
 
-		// Bind IPv4 explicitly. Binding 'localhost' lets the main process resolve to
-		// IPv6 (::1), but existing `.mcp.json` files and `claude mcp add` use
-		// http://localhost:43123, and many clients resolve that to 127.0.0.1 first
-		// -- so an IPv6-only bind is unreachable for them. The extension and the
-		// upstream MCP gateway both bind 127.0.0.1 for the same reason.
-		server.listen(this._port, '127.0.0.1');
+		// Bind IPv4 explicitly and let the OS assign a free port: binding
+		// 'localhost' lets the main process resolve to IPv6 (::1), which many
+		// clients (and their DNS resolution order) don't reach -- see the
+		// extension and the upstream MCP gateway, which both bind 127.0.0.1 for
+		// the same reason. Each window gets its own port so a terminal spawned
+		// from this window can be told, unambiguously, which server is "its own".
+		server.listen(0, '127.0.0.1');
 		return deferred.p;
 	}
 
@@ -177,60 +126,22 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		this._server = undefined;
 		this._sessions.clearAndDisposeAll();
 		await new Promise<void>(resolve => server.close(() => resolve()));
-		this._logger.info('[PositronMcpServer] Stopped');
+		this._logger.info(`[PositronMcpWindowServer ${this.windowId}] Stopped`);
 	}
 
-	async getStatus(): Promise<IPositronMcpServerStatus> {
+	async getStatus(): Promise<IPositronMcpWindowOwnStatus> {
 		// Sessions are cleared on stop, so a stopped server never reports a stale
 		// client. Map insertion order is creation order, giving oldest-first.
 		return {
 			running: this._server?.listening ?? false,
 			port: this._port,
-			token: this._token,
 			sessions: [...this._sessions.values()].map(session => session.info),
-			recentActivity: this._recentActivity.snapshot(),
-			auditLogPath: this._auditFile.path,
 		};
-	}
-
-	async recordContextEvent(event: McpContextEventInput): Promise<void> {
-		this._contextLedger.record(event);
-	}
-
-	async queryUserContext(query: IMcpUserContextQuery): Promise<IMcpUserContextData> {
-		// Scope to the requesting session's pinned window so a client only sees
-		// activity from the window its tools run in. An unknown session (or one
-		// with no pinned window yet) gets the unscoped view.
-		const windowId = this._sessions.get(query.mcpSessionId)?.info.pinnedWindowId;
-		return this._contextLedger.query(query, windowId);
-	}
-
-	/**
-	 * The audit sink every session records into. Start events only feed the live
-	 * activity emitter (transient in-flight state); completed calls and lifecycle
-	 * events also land in the log channel, the ring buffer, and the JSONL audit
-	 * file. Only the file sink ever sees complete tool arguments: everything
-	 * downstream of it gets the summary-only event, so full argument values
-	 * never reach the ring buffer, the status poll, or the renderer emitter.
-	 */
-	private _recordAudit(event: McpAuditEvent): void {
-		this._auditFile.write(event);
-		if (event.type === 'tool-call' && (event.args !== undefined || event.contextAlert !== undefined)) {
-			event = toSummaryOnlyEvent(event);
-		}
-		if (event.type === 'tool-call-start') {
-			this._logger.debug(formatAuditLine(event));
-		} else {
-			this._logger.info(formatAuditLine(event));
-			this._recentActivity.push(event);
-		}
-		reportMcpTelemetry(this._telemetryService, event);
-		this._onDidRecordActivity.fire(event);
 	}
 
 	private _handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
 		if (!isLocalHostHeader(req.headers.host)) {
-			this._logger.warn(`[PositronMcpServer] Blocked request with non-local Host header: ${req.headers.host}`);
+			this._logger.warn(`[PositronMcpWindowServer ${this.windowId}] Blocked request with non-local Host header: ${req.headers.host}`);
 			this._sendJson(res, 403, { error: 'Forbidden: non-local Host header' });
 			return;
 		}
@@ -249,7 +160,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		// it (a correct config carries the header on every request), and the
 		// status panel detects a stale `.mcp.json` and offers the re-add.
 		if (!isAuthorizedBearer(req.headers.authorization, this._token)) {
-			this._logger.warn('[PositronMcpServer] Rejected request without a valid bearer token');
+			this._logger.warn(`[PositronMcpWindowServer ${this.windowId}] Rejected request without a valid bearer token`);
 			res.writeHead(401, { 'WWW-Authenticate': 'Bearer', 'Content-Type': 'application/json' })
 				.end(JSON.stringify({ error: 'Unauthorized: missing or invalid bearer token. Re-add this client\'s Positron MCP configuration from the MCP status panel in Positron.' }));
 			return;
@@ -284,7 +195,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		if (session) {
 			const { clientName, clientVersion } = session;
 			this._sessions.deleteAndDispose(sessionId);
-			this._recordAudit({ type: 'session-closed', timestamp: Date.now(), sessionId, clientName, clientVersion });
+			this._auditSink.record({ type: 'session-closed', timestamp: Date.now(), sessionId, clientName, clientVersion, pinnedWindowId: this.windowId });
 		}
 		this._sendJson(res, 200, { status: 'ok' });
 	}
@@ -320,7 +231,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 			}
 			res.writeHead(200, headers).end(JSON.stringify(Array.isArray(message) ? responses : responses[0]));
 		} catch (error) {
-			this._logger.error(`[PositronMcpServer] Error handling request: ${error}`);
+			this._logger.error(`[PositronMcpWindowServer ${this.windowId}] Error handling request: ${error}`);
 			this._sendJson(res, 500, { error: 'Internal server error' });
 		}
 	}
@@ -333,7 +244,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 	 * are in-memory, so a Positron restart invalidates every connected agent's id,
 	 * and the strict-spec 404 is exactly the status Claude Code and Codex fail to
 	 * recover from (they break until a manual reconnect). Sessions carry almost no
-	 * state -- client name and a pinned window, both re-derivable -- so leniency
+	 * state -- client name and this window's id, both re-derivable -- so leniency
 	 * costs nothing. 404 is kept for ids we could never have issued.
 	 */
 	private _resolveSession(req: http.IncomingMessage, message: JsonRpcMessage | JsonRpcMessage[], res: http.ServerResponse): PositronMcpSession | undefined {
@@ -347,10 +258,10 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 				this._sendJson(res, 404, { error: 'Session not found' });
 				return undefined;
 			}
-			this._logger.warn(`[PositronMcpServer] Unknown session id ${headerSessionId}; resuming it as a fresh session (stale id from a previous run?)`);
+			this._logger.warn(`[PositronMcpWindowServer ${this.windowId}] Unknown session id ${headerSessionId}; resuming it as a fresh session (stale id from a previous run?)`);
 			const resumed = this._createSession(headerSessionId);
 			resumed.resume();
-			this._recordAudit({ type: 'session-resumed', timestamp: Date.now(), sessionId: headerSessionId });
+			this._auditSink.record({ type: 'session-resumed', timestamp: Date.now(), sessionId: headerSessionId, pinnedWindowId: this.windowId });
 			return resumed;
 		}
 
@@ -361,18 +272,18 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 
 		const sessionId = generateUuid();
 		const session = this._createSession(sessionId);
-		this._recordAudit({ type: 'session-created', timestamp: Date.now(), sessionId });
+		this._auditSink.record({ type: 'session-created', timestamp: Date.now(), sessionId, pinnedWindowId: this.windowId });
 		return session;
 	}
 
 	private _createSession(sessionId: string): PositronMcpSession {
-		const session = new PositronMcpSession(sessionId, this._logger, this._broker, { record: e => this._recordAudit(e) }, this._contextLedger);
+		const session = new PositronMcpSession(sessionId, this._logger, this._broker, this._auditSink, this._contextLedger);
 		this._sessions.set(sessionId, session);
 		return session;
 	}
 
 	private _getSessionId(req: http.IncomingMessage): string | undefined {
-		const value = req.headers[PositronMcpServer.SessionHeaderName];
+		const value = req.headers[PositronMcpWindowServer.SessionHeaderName];
 		return Array.isArray(value) ? value[0] : value;
 	}
 
@@ -382,7 +293,7 @@ export class PositronMcpServer extends Disposable implements IPositronMcpService
 		for await (const chunk of req) {
 			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
 			size += buffer.byteLength;
-			if (size > PositronMcpServer.MaxRequestBytes) {
+			if (size > PositronMcpWindowServer.MaxRequestBytes) {
 				return undefined;
 			}
 			chunks.push(buffer);

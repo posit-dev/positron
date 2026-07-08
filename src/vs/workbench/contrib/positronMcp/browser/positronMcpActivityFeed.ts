@@ -20,9 +20,9 @@ const RECONCILE_DELAY_MS = 500;
 
 /** Everything the activity pane renders, as one immutable snapshot. */
 export interface IMcpActivityState {
-	/** Whether the HTTP server is currently listening. */
+	/** Whether this window's HTTP server is currently listening. */
 	readonly running: boolean;
-	/** The live MCP sessions, oldest first. */
+	/** The live MCP sessions across every window, oldest first. */
 	readonly sessions: readonly IMcpSessionInfo[];
 	/** Completed tool calls + lifecycle events, oldest first, server-capped. */
 	readonly events: readonly McpCompletedAuditEvent[];
@@ -88,18 +88,23 @@ export class PositronMcpActivityFeed extends Disposable {
 
 	/** Replace the feed's snapshot state from a fresh status read. Never throws. */
 	async refresh(): Promise<void> {
-		let status;
+		let windowStatus, aggregateStatus;
 		try {
-			status = await this._mcpService.getStatus();
+			// running is this window's own server; sessions/recentActivity are
+			// explicitly cross-window, so they come from the aggregate read.
+			[windowStatus, aggregateStatus] = await Promise.all([
+				this._mcpService.getStatus(),
+				this._mcpService.getAggregateStatus(),
+			]);
 		} catch (err) {
 			// A failed read leaves the last snapshot on screen; the next audit
 			// event schedules another attempt.
 			this._logService.warn('[PositronMcpActivityFeed] status read failed', err);
 			return;
 		}
-		this._events = [...status.recentActivity];
-		this._sessions = status.sessions;
-		this._running = status.running;
+		this._events = [...aggregateStatus.recentActivity];
+		this._sessions = aggregateStatus.sessions;
+		this._running = windowStatus.running;
 		this._seeded = true;
 		this._inFlight.sweepStale();
 		this._onDidChange.fire();

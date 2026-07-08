@@ -8,7 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { FileOperationError, FileOperationResult, IFileContent, IFileService, IFileStatWithMetadata } from '../../../../../platform/files/common/files.js';
-import { IPositronMcpServerStatus, IPositronMcpService } from '../../../../../platform/positronMcp/common/positronMcp.js';
+import { IPositronMcpService, IPositronMcpWindowStatus } from '../../../../../platform/positronMcp/common/positronMcp.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PositronMcpWorkspace, mergeMcpConfig, positronServerState, serverUrl } from '../../browser/positronMcpWorkspace.js';
@@ -36,21 +36,29 @@ describe('positronMcp workspace helpers', () => {
 		});
 
 		it('replaces a stale positron entry with the current token', () => {
-			const existing = { mcpServers: { positron: { type: 'http', url: serverUrl(), headers: { Authorization: 'Bearer old-token' } } } };
-			expect(positronServerState(mergeMcpConfig(existing, TOKEN), TOKEN)).toBe('configured');
+			const existing = { mcpServers: { positron: { type: 'http', url: serverUrl(43123), headers: { Authorization: 'Bearer old-token' } } } };
+			expect(positronServerState(mergeMcpConfig(existing, TOKEN, 43123), TOKEN, 43123)).toBe('configured');
 		});
 	});
 
 	describe('positronServerState', () => {
-		it('reports configured only when the entry carries the current token', () => {
-			expect(positronServerState({ mcpServers: { positron: { type: 'http', headers: { Authorization: AUTH } } } }, TOKEN)).toBe('configured');
-			// Entries written before tokens existed, or with a rotated-out token.
-			expect(positronServerState({ mcpServers: { positron: { type: 'http' } } }, TOKEN)).toBe('stale');
-			expect(positronServerState({ mcpServers: { positron: { type: 'http', headers: { Authorization: 'Bearer other' } } } }, TOKEN)).toBe('stale');
-			expect(positronServerState({ mcpServers: { positron: null } }, TOKEN)).toBe('stale');
-			expect(positronServerState({ mcpServers: { other: {} } }, TOKEN)).toBe('not-configured');
-			expect(positronServerState({}, TOKEN)).toBe('not-configured');
-			expect(positronServerState(undefined, TOKEN)).toBe('not-configured');
+		const withUrl = (headers: object) => ({ mcpServers: { positron: { type: 'http', url: serverUrl(43123), headers } } });
+
+		it('reports configured only when the entry carries both the current port and the current token', () => {
+			// Port and token both match.
+			expect(positronServerState(withUrl({ Authorization: AUTH }), TOKEN, 43123)).toBe('configured');
+			// Port matches, token doesn't (rotated-out or hand-edited token).
+			expect(positronServerState(withUrl({ Authorization: 'Bearer other' }), TOKEN, 43123)).toBe('stale');
+			expect(positronServerState({ mcpServers: { positron: { type: 'http', url: serverUrl(43123) } } }, TOKEN, 43123)).toBe('stale');
+			// Token matches, port doesn't (routinely true after a restart: each
+			// window's server binds a fresh ephemeral port).
+			expect(positronServerState(withUrl({ Authorization: AUTH }), TOKEN, 50000)).toBe('stale');
+			// Neither matches.
+			expect(positronServerState(withUrl({ Authorization: 'Bearer other' }), TOKEN, 50000)).toBe('stale');
+			expect(positronServerState({ mcpServers: { positron: null } }, TOKEN, 43123)).toBe('stale');
+			expect(positronServerState({ mcpServers: { other: {} } }, TOKEN, 43123)).toBe('not-configured');
+			expect(positronServerState({}, TOKEN, 43123)).toBe('not-configured');
+			expect(positronServerState(undefined, TOKEN, 43123)).toBe('not-configured');
 		});
 	});
 
@@ -74,7 +82,7 @@ describe('positronMcp workspace helpers', () => {
 			}),
 		});
 		const mcpService = stubInterface<IPositronMcpService>({
-			getStatus: async () => stubInterface<IPositronMcpServerStatus>({ token: TOKEN, port }),
+			getStatus: async () => stubInterface<IPositronMcpWindowStatus>({ token: TOKEN, port }),
 		});
 		return { instance: new PositronMcpWorkspace(fileService, workspaceContextService, mcpService), files, writeFile };
 	}
@@ -89,8 +97,15 @@ describe('positronMcp workspace helpers', () => {
 			// A pre-token entry no longer authenticates, so it is not "configured".
 			const stale = new Map([[CONFIG, JSON.stringify({ mcpServers: { positron: { type: 'http' } } })]]);
 			expect(await workspace(FOLDER, stale).instance.getConfigState()).toBe('stale');
-			const configured = new Map([[CONFIG, JSON.stringify({ mcpServers: { positron: { type: 'http', headers: { Authorization: AUTH } } } })]]);
+			const configured = new Map([[CONFIG, JSON.stringify({ mcpServers: { positron: { type: 'http', url: serverUrl(43123), headers: { Authorization: AUTH } } } })]]);
 			expect(await workspace(FOLDER, configured).instance.getConfigState()).toBe('configured');
+		});
+
+		it('goes stale after a restart changes the port, even with a valid token', async () => {
+			// A previously-written entry pointing at the port from a prior run --
+			// routine now that each window's server binds a fresh ephemeral port.
+			const entry = new Map([[CONFIG, JSON.stringify({ mcpServers: { positron: { type: 'http', url: serverUrl(43123), headers: { Authorization: AUTH } } } })]]);
+			expect(await workspace(FOLDER, entry, 50000).instance.getConfigState()).toBe('stale');
 		});
 	});
 

@@ -35,6 +35,7 @@ describe('positronMcpTelemetry', () => {
 			argsSummary: '{code: "print(secret)"}',
 			outcome: 'ok',
 			durationMs: 840,
+			pinnedWindowId: 1,
 			resultSummary: 'text(12 chars)',
 		});
 		expect(publicLog2).toHaveBeenCalledExactlyOnceWith('positronMcp.toolCall', {
@@ -47,19 +48,18 @@ describe('positronMcpTelemetry', () => {
 
 	it('reports session lifecycle events, defaulting an anonymous client to unknown', () => {
 		const { service, publicLog2 } = telemetryStub();
-		reportMcpTelemetry(service, { type: 'session-resumed', timestamp: 1, sessionId: 's1' });
-		reportMcpTelemetry(service, { type: 'client-identified', timestamp: 2, sessionId: 's1', clientName: 'codex-mcp-client' });
+		reportMcpTelemetry(service, { type: 'session-resumed', timestamp: 1, sessionId: 's1', pinnedWindowId: 1 });
+		reportMcpTelemetry(service, { type: 'client-identified', timestamp: 2, sessionId: 's1', clientName: 'codex-mcp-client', pinnedWindowId: 1 });
 		expect(publicLog2.mock.calls).toEqual([
 			['positronMcp.session', { kind: 'session-resumed', clientName: 'unknown' }],
 			['positronMcp.session', { kind: 'client-identified', clientName: 'codex-mcp-client' }],
 		]);
 	});
 
-	it('ignores transient start events and window re-pins', () => {
+	it('ignores transient start events', () => {
 		const { service, publicLog2 } = telemetryStub();
 		const events: McpAuditEvent[] = [
-			{ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's1', toolName: 'get-plot' },
-			{ type: 'window-repinned', timestamp: 2, sessionId: 's1', pinnedWindowId: 2 },
+			{ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's1', toolName: 'get-plot', pinnedWindowId: 1 },
 		];
 		events.forEach(event => reportMcpTelemetry(service, event));
 		expect(publicLog2).not.toHaveBeenCalled();

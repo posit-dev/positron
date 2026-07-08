@@ -142,8 +142,7 @@ import { McpGatewayService } from '../../platform/mcp/node/mcpGatewayService.js'
 import { McpGatewayChannel } from '../../platform/mcp/node/mcpGatewayChannel.js';
 // --- Start Positron ---
 import { PositronMcpChannelName } from '../../platform/positronMcp/common/positronMcp.js';
-import { PositronMcpServer } from '../../platform/positronMcp/node/positronMcpServer.js';
-import { PositronMcpToolBroker } from '../../platform/positronMcp/node/positronMcpToolBroker.js';
+import { PositronMcpServerRegistry } from '../../platform/positronMcp/node/positronMcpServerRegistry.js';
 // --- End Positron ---
 import { IWebContentExtractorService } from '../../platform/webContentExtractor/common/webContentExtractor.js';
 import { NativeWebContentExtractorService } from '../../platform/webContentExtractor/electron-main/webContentExtractorService.js';
@@ -175,6 +174,9 @@ export class CodeApplication extends Disposable {
 	private windowsMainService: IWindowsMainService | undefined;
 	private auxiliaryWindowsMainService: IAuxiliaryWindowsMainService | undefined;
 	private nativeHostMainService: INativeHostMainService | undefined;
+	// --- Start Positron ---
+	private positronMcpServerRegistry: PositronMcpServerRegistry | undefined;
+	// --- End Positron ---
 
 	constructor(
 		private readonly mainProcessNodeIpcServer: NodeIPCServer,
@@ -687,6 +689,11 @@ export class CodeApplication extends Disposable {
 
 	private async setupProtocolUrlHandlers(accessor: ServicesAccessor, mainProcessElectronServer: ElectronIPCServer): Promise<IInitialProtocolUrls | undefined> {
 		const windowsMainService = this.windowsMainService = accessor.get(IWindowsMainService);
+		// --- Start Positron ---
+		// Safety net for a window that closes without its renderer ever calling
+		// stop() (e.g. a crash): frees that window's MCP server and port.
+		this._register(windowsMainService.onDidDestroyWindow(window => this.positronMcpServerRegistry?.disposeWindow(window.id)));
+		// --- End Positron ---
 		const urlService = accessor.get(IURLService);
 		const nativeHostMainService = this.nativeHostMainService = accessor.get(INativeHostMainService);
 		const dialogMainService = accessor.get(IDialogMainService);
@@ -1399,14 +1406,9 @@ export class CodeApplication extends Disposable {
 		mainProcessElectronServer.registerChannel(McpGatewayChannelName, mcpGatewayChannel);
 
 		// --- Start Positron ---
-		// The Positron MCP server routes tool calls to the last-active window's
-		// renderer over the broker channel. The window selector is read lazily (only
-		// when a tool call arrives), so it is safe to capture `windowsMainService`
-		// here even though it is assigned later in startup.
-		const positronMcpBroker = new PositronMcpToolBroker(
-			mainProcessElectronServer,
-			() => this.windowsMainService?.getLastActiveWindow()?.id,
-		);
+		// The Positron MCP registry owns one HTTP server per window (each on its
+		// own OS-assigned port), so a terminal spawned from a window can be told,
+		// unambiguously, which server is its own -- see positronMcpServerRegistry.ts.
 		// The JSONL audit file sits next to the server's log file in this session's
 		// logs folder, so it is cleaned up with the rest of the session logs.
 		const positronMcpAuditPath = URI.joinPath(this.environmentMainService.logsHome, 'positron-mcp-audit.jsonl').fsPath;
@@ -1414,8 +1416,8 @@ export class CodeApplication extends Disposable {
 		// folder) because it must survive restarts: `.mcp.json` files reference
 		// it literally.
 		const positronMcpTokenPath = join(this.environmentMainService.userDataPath, 'positron-mcp.token');
-		const positronMcpServer = this._register(new PositronMcpServer(positronMcpBroker, positronMcpAuditPath, positronMcpTokenPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
-		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServer, disposables);
+		const positronMcpServerRegistry = this.positronMcpServerRegistry = this._register(new PositronMcpServerRegistry(mainProcessElectronServer, positronMcpAuditPath, positronMcpTokenPath, accessor.get(ILoggerService), accessor.get(ITelemetryService)));
+		const positronMcpChannel = ProxyChannel.fromService<string>(positronMcpServerRegistry, disposables);
 		mainProcessElectronServer.registerChannel(PositronMcpChannelName, positronMcpChannel);
 		// --- End Positron ---
 

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AddFirstParameterToFunctions } from '../../../base/common/types.js';
 import { Event } from '../../../base/common/event.js';
 import { localize } from '../../../nls.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
@@ -87,44 +88,84 @@ export interface IMcpSessionInfo {
 	readonly createdAt: number;
 	/** Epoch milliseconds of the session's most recent request. */
 	readonly lastActivityAt: number;
-	/** Id of the window the session's tool calls run in, if one was resolved. */
-	readonly pinnedWindowId?: number;
+	/** Id of the window this session's tool calls run in. */
+	readonly pinnedWindowId: number;
 }
 
-/** A snapshot of the server's runtime state, for status UI. */
-export interface IPositronMcpServerStatus {
-	/** Whether the HTTP server is currently listening. */
+/**
+ * A snapshot of one window's own MCP server, for status UI (the status bar dot
+ * and the `.mcp.json`/connect-snippet writer, both meaningfully scoped to a
+ * single window). `windowId` is injected transparently by the consuming
+ * service wrapper, not passed explicitly by callers -- see
+ * {@link IPositronMcpService}.
+ */
+export interface IPositronMcpWindowStatus {
+	/** Whether this window's HTTP server is currently listening. */
 	readonly running: boolean;
-	/** The port the server listens on (or would, when started). */
+	/** The port this window's server listens on (0 when not started). */
 	readonly port: number;
 	/**
-	 * The per-user bearer token requests must carry. A local secret: the
-	 * renderer needs it to write `.mcp.json` entries and render connect
-	 * snippets, so it travels in the status rather than a separate getter.
-	 * Stable for the process lifetime.
+	 * The per-user bearer token requests must carry. A local secret, shared
+	 * across every window: the renderer needs it to write `.mcp.json` entries
+	 * and render connect snippets, so it travels in the status rather than a
+	 * separate getter. Stable for the process lifetime.
 	 */
 	readonly token: string;
-	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
+	/** This window's live MCP sessions, oldest first. Empty when stopped. */
 	readonly sessions: IMcpSessionInfo[];
-	/**
-	 * Recent audit events (completed tool calls + session lifecycle), oldest
-	 * first, capped server-side. Survives a server stop.
-	 */
-	readonly recentActivity: readonly McpCompletedAuditEvent[];
 	/**
 	 * Filesystem path of the JSONL audit file, once something has been written
 	 * to it this Positron session; absent while no file exists (no MCP activity
-	 * yet, or the audit detail is 'off').
+	 * yet, or the audit detail is 'off'). Shared across every window.
 	 */
 	readonly auditLogPath?: string;
 }
 
 /**
- * Main-process service that owns the Positron MCP HTTP server.
+ * The subset of {@link IPositronMcpWindowStatus} one {@link PositronMcpWindowServer}
+ * instance actually owns -- everything else (`token`, `auditLogPath`) is
+ * shared state the registry merges in. Kept separate so a window server never
+ * has to fake fields it doesn't own.
+ */
+export type IPositronMcpWindowOwnStatus = Omit<IPositronMcpWindowStatus, 'token' | 'auditLogPath'>;
+
+/** Whether Positron has registered a Claude Code CLI stdio proxy at user scope. */
+export type ClaudeCliRegistrationState = 'registered' | 'not-found' | 'error' | 'unknown';
+
+/**
+ * A snapshot across every window's MCP sessions, for status UI that is
+ * explicitly cross-window by design (the Activity pane, the Connections table).
+ */
+export interface IPositronMcpAggregateStatus {
+	/** The per-user bearer token; see {@link IPositronMcpWindowStatus.token}. */
+	readonly token: string;
+	/** Live MCP sessions across every window, oldest first. */
+	readonly sessions: IMcpSessionInfo[];
+	/**
+	 * Recent audit events (completed tool calls + session lifecycle) across
+	 * every window, oldest first, capped server-side. Survives a window's
+	 * server stopping.
+	 */
+	readonly recentActivity: readonly McpCompletedAuditEvent[];
+	/** See {@link IPositronMcpWindowStatus.auditLogPath}. */
+	readonly auditLogPath?: string;
+	/** Whether the Claude Code CLI auto-registration succeeded. */
+	readonly claudeCliState: ClaudeCliRegistrationState;
+}
+
+/**
+ * Main-process service that owns the Positron MCP HTTP servers.
  *
- * The server is a single long-lived listener on a fixed localhost port, shared
- * across all windows. Per-request routing to a specific window's renderer (where
- * the tools actually run) is handled internally via the tool-broker channel.
+ * Each window gets its own HTTP listener on its own OS-assigned localhost
+ * port -- a terminal spawned from a window can be told, unambiguously, which
+ * server is "its own", rather than every window sharing one server and
+ * guessing which window a request is for. Per-request routing to the
+ * renderer where the tools actually run is handled internally via the
+ * tool-broker channel.
+ *
+ * Every method here is implicitly scoped to the calling window: the consuming
+ * service wrapper injects the caller's window id as IPC context (mirroring
+ * {@link INativeHostService}), so callers never pass a windowId explicitly.
  *
  * The renderer drives the lifecycle (`start`/`stop`) because the enable flag is
  * a workbench setting the main process does not read directly.
@@ -134,15 +175,16 @@ export interface IPositronMcpService {
 
 	/**
 	 * Fires for every audit event, including transient `tool-call-start` events
-	 * that never reach {@link IPositronMcpServerStatus.recentActivity}. Bridged
-	 * to renderers automatically by the ProxyChannel.
+	 * that never reach {@link IPositronMcpAggregateStatus.recentActivity}.
+	 * Bridged to renderers automatically by the ProxyChannel. Fires globally
+	 * (not scoped to the calling window), since it feeds the aggregate views.
 	 */
 	readonly onDidRecordActivity: Event<McpAuditEvent>;
 
-	/** Start the HTTP server if it is not already listening. Idempotent. */
+	/** Start this window's HTTP server if it is not already listening. Idempotent. */
 	start(): Promise<void>;
 
-	/** Stop the HTTP server if it is listening. Idempotent. */
+	/** Stop this window's HTTP server if it is listening. Idempotent. */
 	stop(): Promise<void>;
 
 	/**
@@ -152,8 +194,11 @@ export interface IPositronMcpService {
 	 */
 	setAuditLogDetail(detail: McpAuditLogDetail): Promise<void>;
 
-	/** Current server status. */
-	getStatus(): Promise<IPositronMcpServerStatus>;
+	/** This window's own server status. */
+	getStatus(): Promise<IPositronMcpWindowStatus>;
+
+	/** Status aggregated across every window's server, for cross-window UI. */
+	getAggregateStatus(): Promise<IPositronMcpAggregateStatus>;
 
 	/**
 	 * Record one user-activity event in the context ledger. Called by each
@@ -164,9 +209,31 @@ export interface IPositronMcpService {
 	recordContextEvent(event: McpContextEventInput): Promise<void>;
 
 	/**
-	 * Answer a get-user-context query from the ledger, scoped to the requesting
-	 * MCP session's pinned window and attribution (its own events and the
-	 * user's, never another client's). Called by the renderer tool handler.
+	 * Answer a get-user-context query from the ledger, scoped to the calling
+	 * window and attribution (its own events and the user's, never another
+	 * client's). Called by the renderer tool handler.
 	 */
 	queryUserContext(query: IMcpUserContextQuery): Promise<IMcpUserContextData>;
+
+	/**
+	 * Ensure the Claude Code CLI has a user-scope stdio-proxy registration for
+	 * Positron, so `claude` sees Positron's tools from any terminal without a
+	 * project-level `.mcp.json`. Cached per main-process run; call again after
+	 * installing the CLI to retry.
+	 */
+	ensureClaudeCliRegistered(): Promise<ClaudeCliRegistrationState>;
 }
+
+/**
+ * The main-process shape of {@link IPositronMcpService}: every method gains an
+ * explicit leading `windowId` parameter, since the registry serves every
+ * window's own server from one instance and has no other way to know which
+ * window is calling. Mirrors {@link INativeHostMainService}, which does the
+ * same for {@link INativeHostService}. The consuming renderer-side service
+ * wrapper supplies the id transparently via `ProxyChannel.toService`'s
+ * `context` option, so callers on the {@link IPositronMcpService} side never
+ * pass it explicitly.
+ */
+export interface IPositronMcpMainService extends AddFirstParameterToFunctions<IPositronMcpService, Promise<unknown>, number> { }
+
+export const IPositronMcpMainService = createDecorator<IPositronMcpMainService>('positronMcpMainService');

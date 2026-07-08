@@ -49,18 +49,17 @@ export function isInitializeMessage(message: JsonRpcMessage | JsonRpcMessage[]):
  * One MCP session over the Streamable HTTP transport. Owns a {@link JsonRpcProtocol}
  * and dispatches the MCP methods. `initialize`, `tools/list`, and `ping` are
  * answered entirely here (no window needed); `tools/call` is routed to the
- * session's pinned window via the {@link IPositronMcpToolBroker}.
+ * session's window via the {@link IPositronMcpToolBroker}.
  *
- * Window pinning: the session resolves a target window once at `initialize` and
- * keeps using it, so every tool call in one agent conversation hits the same
- * window's session even if focus moves. If the pinned window closes, the next
- * tool call re-resolves to the current last-active window; if none exists, the
- * call returns a clean error (never hangs).
+ * A session belongs to exactly one window for its entire lifetime: it is
+ * created by that window's own {@link PositronMcpWindowServer}, so
+ * `_broker.windowId` is fixed from construction (there is nothing to resolve
+ * or re-resolve). If that window's renderer is not connected, a tool call
+ * returns a clean error rather than hanging or throwing.
  */
 export class PositronMcpSession extends Disposable {
 	private readonly _rpc: JsonRpcProtocol;
 	private _initialized = false;
-	private _pinnedWindowId: number | undefined;
 
 	/** Name the client reported at `initialize` (e.g. "claude-code"), for status UI. */
 	public clientName: string | undefined;
@@ -85,7 +84,7 @@ export class PositronMcpSession extends Disposable {
 			clientVersion: this.clientVersion,
 			createdAt: this._createdAt,
 			lastActivityAt: this._lastActivityAt,
-			pinnedWindowId: this._pinnedWindowId,
+			pinnedWindowId: this._broker.windowId,
 		};
 	}
 
@@ -116,8 +115,8 @@ export class PositronMcpSession extends Disposable {
 	 * resumes a stale session id after a restart: the client believes it completed
 	 * the handshake long ago and will send `tools/call` straight away, so the
 	 * session must not reject it as uninitialized. The client stays anonymous
-	 * until (unless) it re-initializes; the window is pinned lazily by the first
-	 * tool call's re-pin path.
+	 * until (unless) it re-initializes; the window is already known (the
+	 * resumed session is created by the same window's server as before).
 	 */
 	resume(): void {
 		this._initialized = true;
@@ -137,7 +136,6 @@ export class PositronMcpSession extends Disposable {
 	private async _handleRequest(request: IJsonRpcRequest): Promise<unknown> {
 		if (request.method === 'initialize') {
 			this._initialized = true;
-			this._pinnedWindowId = this._broker.resolveTargetWindow();
 			const clientInfo = (request.params as { clientInfo?: { name?: unknown; version?: unknown } } | undefined)?.clientInfo;
 			if (clientInfo?.name) {
 				this.clientName = String(clientInfo.name);
@@ -149,7 +147,7 @@ export class PositronMcpSession extends Disposable {
 				sessionId: this.id,
 				clientName: this.clientName,
 				clientVersion: this.clientVersion,
-				pinnedWindowId: this._pinnedWindowId,
+				pinnedWindowId: this._broker.windowId,
 			});
 			return {
 				protocolVersion: POSITRON_MCP_PROTOCOL_VERSION,
@@ -192,22 +190,21 @@ export class PositronMcpSession extends Disposable {
 	private static readonly SnapshotTimeoutMs = 1500;
 
 	/**
-	 * The static guidance plus, when the pinned window has a live runtime
+	 * The static guidance plus, when this session's window has a live runtime
 	 * session, a snapshot of it (language, version, interpreter path) so the
 	 * model runs the right language from its first message instead of guessing
 	 * or spending a tool call on get-session. Reuses the get-session tool over
 	 * the existing broker channel rather than adding IPC surface. Any failure
-	 * -- no window, timeout, error, or no active session -- falls back to the
-	 * static text; the handshake never fails because of the snapshot.
+	 * -- window not connected, timeout, error, or no active session -- falls
+	 * back to the static text; the handshake never fails because of the snapshot.
 	 */
 	private async _buildInstructions(): Promise<string> {
-		const windowId = this._pinnedWindowId;
-		if (windowId === undefined || !this._broker.isWindowConnected(windowId)) {
+		if (!this._broker.isConnected()) {
 			return SERVER_INSTRUCTIONS;
 		}
 		try {
 			const result = await raceTimeout(
-				this._broker.invokeTool(windowId, 'get-session', {}, this._callerContext),
+				this._broker.invokeTool('get-session', {}, this._callerContext),
 				PositronMcpSession.SnapshotTimeoutMs,
 			);
 			const first = result && !result.isError ? result.content[0] : undefined;
@@ -221,14 +218,15 @@ export class PositronMcpSession extends Disposable {
 	}
 
 	/**
-	 * Route a tool call to this session's pinned window. Re-resolves the target if
-	 * the pinned window has closed, and returns a tool-level error (not a thrown
-	 * exception) when no live window is available, so the model gets a recoverable
-	 * message instead of the call hanging or failing the transport.
+	 * Route a tool call to this session's window. Returns a tool-level error
+	 * (not a thrown exception) when the window's renderer is not connected, so
+	 * the model gets a recoverable message instead of the call hanging or
+	 * failing the transport.
 	 */
 	private async _callTool(name: string, args: Record<string, unknown>): Promise<IMcpCallToolResult> {
 		const callId = generateUuid();
 		const startedAt = Date.now();
+		const windowId = this._broker.windowId;
 		this._logger.debug(`[PositronMcpSession ${this.id}] tools/call ${name}(${Object.keys(args).join(', ')})`);
 		this._audit.record({
 			type: 'tool-call-start',
@@ -237,7 +235,7 @@ export class PositronMcpSession extends Disposable {
 			sessionId: this.id,
 			clientName: this.clientName,
 			toolName: name,
-			pinnedWindowId: this._pinnedWindowId,
+			pinnedWindowId: windowId,
 		});
 
 		// Every exit path funnels through this so exactly one completion event is
@@ -257,14 +255,8 @@ export class PositronMcpSession extends Disposable {
 			let contextAlert: string | undefined;
 			if (auditHint?.advanceContextCursor !== undefined) {
 				this._contextLedger.advanceCursorForReport(this.id, auditHint.advanceContextCursor.to, auditHint.advanceContextCursor.reportedSince);
-			} else if (this._pinnedWindowId !== undefined) {
-				// No alert before a window is pinned (a resumed session whose
-				// first call is main-served, e.g. get-guidance): an unscoped
-				// alert would count all windows' activity while the follow-up
-				// query is scoped to the eventually-pinned window, and skipping
-				// leaves the cursor untouched so the next pinned call alerts
-				// the same events properly scoped.
-				contextAlert = this._contextLedger.consumeAlert(this.id, this._pinnedWindowId);
+			} else {
+				contextAlert = this._contextLedger.consumeAlert(this.id, windowId);
 				if (contextAlert !== undefined) {
 					result.content.push({ type: 'text', text: contextAlert });
 				}
@@ -281,7 +273,7 @@ export class PositronMcpSession extends Disposable {
 				args,
 				outcome: result.isError ? 'error' : 'ok',
 				durationMs: Date.now() - startedAt,
-				pinnedWindowId: this._pinnedWindowId,
+				pinnedWindowId: windowId,
 				resultSummary: summarizeResult(result),
 				contextAlert,
 				returnedConsoleContent: auditHint?.returnedConsoleContent,
@@ -290,32 +282,18 @@ export class PositronMcpSession extends Disposable {
 		};
 
 		// get-guidance is static content served entirely by the main process:
-		// answer it before resolving a window, so it works with every window
-		// closed. It still flows through the audit choke point above and below.
+		// answer it without needing the window connected. It still flows through
+		// the audit choke point above and below.
 		if (name === GET_GUIDANCE_TOOL.name) {
 			return complete(getGuidance(args));
 		}
 
-		// Re-resolve if the pinned window is gone (or was never set).
-		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
-			const reResolved = this._broker.resolveTargetWindow();
-			this._pinnedWindowId = reResolved;
-			this._audit.record({
-				type: 'window-repinned',
-				timestamp: Date.now(),
-				sessionId: this.id,
-				clientName: this.clientName,
-				clientVersion: this.clientVersion,
-				pinnedWindowId: reResolved,
-			});
-		}
-
-		if (this._pinnedWindowId === undefined || !this._broker.isWindowConnected(this._pinnedWindowId)) {
-			return complete(mcpToolError('No Positron window is available to run this. Open a Positron window and try again.'));
+		if (!this._broker.isConnected()) {
+			return complete(mcpToolError('This Positron window is not available to run this. Reconnect from a live Positron window and try again.'));
 		}
 
 		try {
-			return complete(await this._broker.invokeTool(this._pinnedWindowId, name, args, this._callerContext));
+			return complete(await this._broker.invokeTool(name, args, this._callerContext));
 		} catch (error) {
 			// A window that closes mid-call rejects the pending IPC call; surface it
 			// as a recoverable tool error rather than a transport failure.

@@ -92,25 +92,22 @@ describe('formatAuditLine', () => {
 			'[PositronMcpSession ab12] tools/call execute-code by claude-code 1.2.3 -> ok in 840ms (window 1) | args {languageId: "python"} | result text(532 chars)');
 	});
 
-	it('formats an anonymous errored call without client or window', () => {
+	it('formats an anonymous errored call without a client', () => {
 		expect(formatAuditLine(makeToolCallEvent({
 			clientName: undefined,
 			clientVersion: undefined,
-			pinnedWindowId: undefined,
 			outcome: 'error',
 			resultSummary: 'text(40 chars)',
 		}))).toBe(
-			'[PositronMcpSession ab12] tools/call execute-code -> error in 840ms | args {languageId: "python"} | result text(40 chars)');
+			'[PositronMcpSession ab12] tools/call execute-code -> error in 840ms (window 1) | args {languageId: "python"} | result text(40 chars)');
 	});
 
 	it('formats lifecycle and start events', () => {
-		const base = { timestamp: 1000, sessionId: 'ab12' } as const;
+		const base = { timestamp: 1000, sessionId: 'ab12', pinnedWindowId: 1 } as const;
 		expect(formatAuditLine({ ...base, type: 'session-created' }))
 			.toBe('[PositronMcpSession ab12] session created');
 		expect(formatAuditLine({ ...base, type: 'client-identified', clientName: 'claude-code', clientVersion: '1.2.3', pinnedWindowId: 1 }))
 			.toBe('[PositronMcpSession ab12] client identified: claude-code 1.2.3 (window 1)');
-		expect(formatAuditLine({ ...base, type: 'window-repinned', pinnedWindowId: undefined }))
-			.toBe('[PositronMcpSession ab12] pinned window unavailable; re-pinned to none');
 		expect(formatAuditLine({ ...base, type: 'tool-call-start', callId: 'c1', toolName: 'get-plot', clientName: 'claude-code' }))
 			.toBe('[PositronMcpSession ab12] tools/call get-plot by claude-code started');
 	});
@@ -135,7 +132,7 @@ describe('toJsonlRecord', () => {
 	it('persists nothing at off detail or for transient start events', () => {
 		expect(toJsonlRecord(event, 'off')).toBeUndefined();
 		expect(toJsonlRecord(
-			{ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot' },
+			{ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot', pinnedWindowId: 1 },
 			'full',
 		)).toBeUndefined();
 	});
@@ -161,7 +158,7 @@ describe('toJsonlRecord', () => {
 	});
 
 	it('persists lifecycle events as-is at every detail level', () => {
-		const lifecycle: McpAuditEvent = { type: 'session-created', timestamp: 2, sessionId: 's' };
+		const lifecycle: McpAuditEvent = { type: 'session-created', timestamp: 2, sessionId: 's', pinnedWindowId: 1 };
 		expect(JSON.parse(toJsonlRecord(lifecycle, 'summary')!)).toEqual(lifecycle);
 		expect(JSON.parse(toJsonlRecord(lifecycle, 'full')!)).toEqual(lifecycle);
 	});
@@ -179,8 +176,8 @@ describe('McpAuditRingBuffer', () => {
 
 	it('drops tool-call-start events but keeps lifecycle events', () => {
 		const buffer = new McpAuditRingBuffer(10);
-		buffer.push({ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot' });
-		buffer.push({ type: 'session-created', timestamp: 2, sessionId: 's' });
+		buffer.push({ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot', pinnedWindowId: 1 });
+		buffer.push({ type: 'session-created', timestamp: 2, sessionId: 's', pinnedWindowId: 1 });
 		expect(buffer.snapshot().map(e => e.type)).toEqual(['session-created']);
 	});
 

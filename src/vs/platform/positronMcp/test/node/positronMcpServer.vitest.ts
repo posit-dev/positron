@@ -5,16 +5,13 @@
 
 /// <reference types="vitest/globals" />
 
-import * as fs from 'fs';
 import type * as http from 'http';
-import * as os from 'os';
-import { dirname, join } from '../../../../base/common/path.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { NullLoggerService } from '../../../log/common/log.js';
-import { NullTelemetryService } from '../../../telemetry/common/telemetryUtils.js';
-import { IMcpToolCallAuditEvent } from '../../common/positronMcpAudit.js';
+import { NullLogger } from '../../../log/common/log.js';
+import { IPositronMcpAuditLog, McpAuditEvent } from '../../common/positronMcpAudit.js';
+import { McpContextLedger } from '../../common/positronMcpContext.js';
 import { IMcpCallToolResult } from '../../common/positronMcpTools.js';
-import { isLocalHostHeader, PositronMcpServer } from '../../node/positronMcpServer.js';
+import { isLocalHostHeader, PositronMcpWindowServer } from '../../node/positronMcpServer.js';
 import { IPositronMcpToolBroker } from '../../node/positronMcpToolBroker.js';
 
 describe('isLocalHostHeader (DNS-rebinding guard)', () => {
@@ -40,12 +37,18 @@ describe('isLocalHostHeader (DNS-rebinding guard)', () => {
 	});
 });
 
-/** A broker that always has window 1 available and records tool invocations. */
+/** A broker fixed to window 1 that always reports connected and records invocations. */
 class StubBroker implements IPositronMcpToolBroker {
-	readonly invokeTool = vi.fn(async (_windowId: number, name: string): Promise<IMcpCallToolResult> =>
+	readonly windowId = 1;
+	readonly invokeTool = vi.fn(async (name: string): Promise<IMcpCallToolResult> =>
 		({ content: [{ type: 'text', text: `called ${name}` }] }));
-	resolveTargetWindow(): number | undefined { return 1; }
-	isWindowConnected(): boolean { return true; }
+	isConnected(): boolean { return true; }
+}
+
+/** An audit sink that records events for assertions. */
+class RecordingAuditLog implements IPositronMcpAuditLog {
+	readonly events: McpAuditEvent[] = [];
+	record(event: McpAuditEvent): void { this.events.push(event); }
 }
 
 interface ITestResponse {
@@ -54,7 +57,7 @@ interface ITestResponse {
 	readonly body: string;
 }
 
-/** The token every test request authenticates with (written to the token file before start). */
+/** The token every test request authenticates with. */
 const TEST_TOKEN = 'test-token-0123456789abcdef-0123456789abcdef';
 
 /** Minimal HTTP client (fetch is happy-dom's here; node's http talks to the real socket). */
@@ -90,30 +93,23 @@ const initializeMessage = {
 	params: { clientInfo: { name: 'test-client', version: '1.0.0' } },
 };
 
-describe('PositronMcpServer HTTP transport', () => {
-	// Random high port so parallel vitest workers (and a live dev server on
-	// 43123) never collide. parsePort reads the env at construction time.
-	const port = 30000 + Math.floor(Math.random() * 20000);
+describe('PositronMcpWindowServer HTTP transport', () => {
 	let broker: StubBroker;
-	let server: PositronMcpServer;
-	let auditPath: string;
+	let audit: RecordingAuditLog;
+	let server: PositronMcpWindowServer;
+	let port: number;
 
 	beforeAll(async () => {
-		process.env.POSITRON_MCP_PORT = String(port);
-		const dir = fs.mkdtempSync(join(os.tmpdir(), 'positron-mcp-test-'));
-		auditPath = join(dir, 'positron-mcp-audit.jsonl');
-		const tokenPath = join(dir, 'positron-mcp.token');
-		fs.writeFileSync(tokenPath, TEST_TOKEN + '\n');
 		broker = new StubBroker();
-		server = new PositronMcpServer(broker, auditPath, tokenPath, new NullLoggerService(), NullTelemetryService);
+		audit = new RecordingAuditLog();
+		server = new PositronMcpWindowServer(1, TEST_TOKEN, broker, audit, new McpContextLedger(), new NullLogger());
 		await server.start();
+		port = (await server.getStatus()).port;
 	});
 
 	afterAll(async () => {
-		delete process.env.POSITRON_MCP_PORT;
 		await server.stop();
 		server.dispose();
-		fs.rmSync(dirname(auditPath), { recursive: true, force: true });
 	});
 
 	/** Run the initialize handshake and return the issued session id. */
@@ -125,14 +121,15 @@ describe('PositronMcpServer HTTP transport', () => {
 		return sessionId as string;
 	}
 
+	it('binds an OS-assigned port and reports it as running', async () => {
+		expect(port).toBeGreaterThan(0);
+		expect((await server.getStatus()).running).toBe(true);
+	});
+
 	it('answers the health probe, even unauthenticated (it leaks nothing)', async () => {
 		const response = await request(port, 'GET', '/health', { authorization: null });
 		expect(response.status).toBe(200);
 		expect(JSON.parse(response.body)).toEqual({ status: 'ok', server: 'positron-mcp-server' });
-	});
-
-	it('adopts the persisted token and reports it in the status', async () => {
-		expect((await server.getStatus()).token).toBe(TEST_TOKEN);
 	});
 
 	it('rejects requests without a bearer token with 401', async () => {
@@ -158,25 +155,10 @@ describe('PositronMcpServer HTTP transport', () => {
 		expect(JSON.parse(response.body).result.tools.length).toBeGreaterThan(0);
 	});
 
-	it('scopes queryUserContext to the querying session\'s pinned window and keeps seqs across sessions', async () => {
-		const sessionId = await initialize(); // Pins to the StubBroker's window 1.
-		const execution = {
-			kind: 'console-execution' as const,
-			timestamp: 1000,
-			languageId: 'python' as const,
-			executedBy: 'user',
-			status: 'ok' as const,
-		};
-		await server.recordContextEvent({ ...execution, windowId: 1, code: 'in window 1' });
-		await server.recordContextEvent({ ...execution, windowId: 2, code: 'in window 2' });
-
-		const data = await server.queryUserContext({ mcpSessionId: sessionId });
-		expect(data.consoleEvents.map(e => e.code)).toEqual(['in window 1']);
-		// The ledger is shared and server-lifetime: an unknown session sees the
-		// same high-water seq, unscoped.
-		const unscoped = await server.queryUserContext({ mcpSessionId: generateUuid() });
-		expect(unscoped.seq).toBe(data.seq);
-		expect(unscoped.consoleEvents.length).toBe(2);
+	it('every session created by this server carries its fixed window id', async () => {
+		await initialize();
+		const status = await server.getStatus();
+		expect(status.sessions.every(s => s.pinnedWindowId === 1)).toBe(true);
 	});
 
 	it('answers GET on the MCP endpoint with 405 and an Allow header, not 404', async () => {
@@ -205,7 +187,7 @@ describe('PositronMcpServer HTTP transport', () => {
 		expect(status.sessions.map(s => s.sessionId)).toContain(staleId);
 	});
 
-	it('routes a tool call on a resumed session by lazily re-pinning a window', async () => {
+	it('routes a tool call on a resumed session to the fixed window', async () => {
 		const staleId = generateUuid();
 		const response = await request(port, 'POST', '/', {
 			sessionId: staleId,
@@ -214,7 +196,7 @@ describe('PositronMcpServer HTTP transport', () => {
 		expect(response.status).toBe(200);
 		// The client stays anonymous until it re-initializes, but its session id
 		// still travels with the call.
-		expect(broker.invokeTool).toHaveBeenCalledWith(1, 'get-session', {},
+		expect(broker.invokeTool).toHaveBeenCalledWith('get-session', {},
 			{ mcpSessionId: staleId, clientName: undefined, clientVersion: undefined });
 	});
 
@@ -244,75 +226,5 @@ describe('PositronMcpServer HTTP transport', () => {
 	it('rejects DELETE without a session id', async () => {
 		const response = await request(port, 'DELETE', '/');
 		expect(response.status).toBe(400);
-	});
-
-	/** Wait for the write stream to flush, then parse the JSONL audit file. */
-	async function auditRecords(): Promise<Record<string, unknown>[]> {
-		await vi.waitFor(() => expect(fs.existsSync(auditPath)).toBe(true));
-		return fs.readFileSync(auditPath, 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
-	}
-
-	it('writes completed tool calls to the JSONL audit file, summary-only by default', async () => {
-		const sessionId = await initialize();
-		const code = 'import pandas as pd\n' + 'df.head()\n'.repeat(50);
-		await request(port, 'POST', '/', {
-			sessionId,
-			body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'execute-code', arguments: { code, languageId: 'python' } } },
-		});
-
-		await vi.waitFor(async () => {
-			const call = (await auditRecords()).find(r => r.type === 'tool-call' && r.sessionId === sessionId);
-			expect(call).toBeDefined();
-			// At the default 'summary' detail the line has the truncated summary
-			// but never the complete arguments.
-			expect(call!.argsSummary).toContain('code: "import pandas as pd\\n');
-			expect(call!.args).toBeUndefined();
-		});
-		// Once the file exists, the status advertises it for the panel's button.
-		expect((await server.getStatus()).auditLogPath).toBe(auditPath);
-	});
-
-	it('captures complete arguments in the audit file only at full detail', async () => {
-		await server.setAuditLogDetail('full');
-		try {
-			const sessionId = await initialize();
-			// A user event in the pinned window so the call carries a context
-			// alert: the file must keep it, the ring buffer must strip it.
-			await server.recordContextEvent({
-				kind: 'console-execution', windowId: 1, timestamp: Date.now(),
-				languageId: 'r', code: 'y <- 1', executedBy: 'user', status: 'ok',
-			});
-			const code = 'x <- rnorm(100)\nplot(x)';
-			await request(port, 'POST', '/', {
-				sessionId,
-				body: { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'execute-code', arguments: { code, languageId: 'r' } } },
-			});
-
-			await vi.waitFor(async () => {
-				const call = (await auditRecords()).find(r => r.type === 'tool-call' && r.sessionId === sessionId);
-				expect(call?.args).toEqual({ code, languageId: 'r' });
-				expect(call?.contextAlert).toContain('[context:');
-			});
-			// Full arguments and the context alert line stay in the file: the
-			// status poll's ring buffer never carries either at any detail level.
-			const activity = (await server.getStatus()).recentActivity
-				.filter((e): e is IMcpToolCallAuditEvent => e.type === 'tool-call');
-			expect(activity.length).toBeGreaterThan(0);
-			expect(activity.every(e => e.args === undefined && e.contextAlert === undefined)).toBe(true);
-		} finally {
-			await server.setAuditLogDetail('summary');
-		}
-	});
-
-	it('keeps the context ledger (and its seqs) across a server stop/start, like window reloads', async () => {
-		const before = (await server.queryUserContext({ mcpSessionId: generateUuid() })).seq;
-		await server.recordContextEvent({
-			kind: 'session-change', windowId: 1, timestamp: Date.now(),
-		});
-		await server.stop();
-		await server.start();
-		// The seq did not reset: `since` values agents hold stay valid for the
-		// whole Positron run; they only reset when the app quits.
-		expect((await server.queryUserContext({ mcpSessionId: generateUuid() })).seq).toBe(before + 1);
 	});
 });

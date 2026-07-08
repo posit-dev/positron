@@ -7,7 +7,7 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { IPositronMcpServerStatus, IPositronMcpService } from '../../../../../platform/positronMcp/common/positronMcp.js';
+import { IPositronMcpAggregateStatus, IPositronMcpService, IPositronMcpWindowStatus } from '../../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpToolCallAuditEvent, IMcpToolCallStartEvent, McpAuditEvent } from '../../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronMcpActivityFeed } from '../../browser/positronMcpActivityFeed.js';
@@ -18,11 +18,12 @@ describe('PositronMcpActivityFeed', () => {
 	// references at build() time.
 	const activityEmitter = new Emitter<McpAuditEvent>();
 	const consentEmitter = new Emitter<boolean>();
-	const getStatus = vi.fn<() => Promise<IPositronMcpServerStatus>>();
+	const getStatus = vi.fn<() => Promise<IPositronMcpWindowStatus>>();
+	const getAggregateStatus = vi.fn<() => Promise<IPositronMcpAggregateStatus>>();
 	const resetConsent = vi.fn();
 
 	const ctx = createTestContainer()
-		.stub(IPositronMcpService, { onDidRecordActivity: activityEmitter.event, getStatus })
+		.stub(IPositronMcpService, { onDidRecordActivity: activityEmitter.event, getStatus, getAggregateStatus })
 		.stub(IPositronMcpToolService, {
 			onDidChangeAllowAllConsent: consentEmitter.event,
 			isAllowAllConsentActive: () => false,
@@ -31,13 +32,22 @@ describe('PositronMcpActivityFeed', () => {
 		.stub(ILogService, new NullLogService())
 		.build();
 
-	function makeStatus(overrides: Partial<IPositronMcpServerStatus> = {}): IPositronMcpServerStatus {
+	function makeWindowStatus(overrides: Partial<IPositronMcpWindowStatus> = {}): IPositronMcpWindowStatus {
 		return {
 			running: true,
 			port: 43123,
 			token: 'test-token',
 			sessions: [],
+			...overrides,
+		};
+	}
+
+	function makeAggregateStatus(overrides: Partial<IPositronMcpAggregateStatus> = {}): IPositronMcpAggregateStatus {
+		return {
+			token: 'test-token',
+			sessions: [],
 			recentActivity: [],
+			claudeCliState: 'unknown',
 			...overrides,
 		};
 	}
@@ -50,6 +60,7 @@ describe('PositronMcpActivityFeed', () => {
 			sessionId: 'session-1',
 			clientName: 'claude-code',
 			toolName: 'execute-code',
+			pinnedWindowId: 1,
 			...overrides,
 		};
 	}
@@ -66,6 +77,7 @@ describe('PositronMcpActivityFeed', () => {
 			argsSummary: '{code: "1 + 1"}',
 			outcome: 'ok',
 			durationMs: 840,
+			pinnedWindowId: 1,
 			resultSummary: 'text(12 chars)',
 			...overrides,
 		};
@@ -79,14 +91,15 @@ describe('PositronMcpActivityFeed', () => {
 	}
 
 	beforeEach(() => {
-		getStatus.mockResolvedValue(makeStatus());
+		getStatus.mockResolvedValue(makeWindowStatus());
+		getAggregateStatus.mockResolvedValue(makeAggregateStatus());
 	});
 
 	it('seeds sessions and events from the status snapshot', async () => {
 		const seeded = makeToolCallEvent({ callId: 'seeded' });
-		getStatus.mockResolvedValue(makeStatus({
+		getAggregateStatus.mockResolvedValue(makeAggregateStatus({
 			recentActivity: [seeded],
-			sessions: [{ sessionId: 'session-1', createdAt: 1, lastActivityAt: 2 }],
+			sessions: [{ sessionId: 'session-1', createdAt: 1, lastActivityAt: 2, pinnedWindowId: 1 }],
 		}));
 
 		const feed = ctx.instantiationService.createInstance(PositronMcpActivityFeed);
@@ -128,7 +141,7 @@ describe('PositronMcpActivityFeed', () => {
 	it('appends lifecycle events to the feed', async () => {
 		const feed = await createSeededFeed();
 		try {
-			activityEmitter.fire({ type: 'client-identified', timestamp: Date.now(), sessionId: 'session-1', clientName: 'claude-code' });
+			activityEmitter.fire({ type: 'client-identified', timestamp: Date.now(), sessionId: 'session-1', clientName: 'claude-code', pinnedWindowId: 1 });
 			expect(feed.state.events.map(event => event.type)).toEqual(['client-identified']);
 		} finally {
 			feed.dispose();

@@ -18,26 +18,28 @@ const initializeRequest: JsonRpcMessage = {
 	params: { clientInfo: { name: 'test', version: '1' } },
 };
 
-/** A controllable fake broker: tracks which window each invoke targeted. */
+/**
+ * A controllable fake broker fixed to one window (per-window is the whole
+ * point now: there is no target to resolve, only a connected/disconnected
+ * toggle for that one window).
+ */
 class FakeBroker implements IPositronMcpToolBroker {
-	target: number | undefined = 1;
-	connected = new Set<number>([1]);
+	connected = true;
 	readonly invocations: { windowId: number; name: string }[] = [];
 	failNext = false;
 
-	resolveTargetWindow(): number | undefined {
-		return this.target;
+	constructor(readonly windowId: number) { }
+
+	isConnected(): boolean {
+		return this.connected;
 	}
-	isWindowConnected(windowId: number): boolean {
-		return this.connected.has(windowId);
-	}
-	async invokeTool(windowId: number, name: string): Promise<IMcpCallToolResult> {
+	async invokeTool(name: string): Promise<IMcpCallToolResult> {
 		if (this.failNext) {
 			this.failNext = false;
 			throw new Error('window closed mid-call');
 		}
-		this.invocations.push({ windowId, name });
-		return { content: [{ type: 'text', text: `ran ${name} in ${windowId}` }] };
+		this.invocations.push({ windowId: this.windowId, name });
+		return { content: [{ type: 'text', text: `ran ${name} in ${this.windowId}` }] };
 	}
 }
 
@@ -62,50 +64,19 @@ async function callGetSession(session: PositronMcpSession): Promise<IMcpCallTool
 	return (response as { result: IMcpCallToolResult }).result;
 }
 
-describe('PositronMcpSession window pinning', () => {
-	it('routes tool calls to the window pinned at initialize', async () => {
-		const broker = new FakeBroker();
-		broker.target = 7;
-		broker.connected = new Set([7]);
+describe('PositronMcpSession per-window routing', () => {
+	it('routes every tool call to the broker\'s fixed window', async () => {
+		const broker = new FakeBroker(7);
 		const session = await initializedSession(broker);
 
 		await callGetSession(session);
-		expect(broker.invocations).toEqual([{ windowId: 7, name: 'get-session' }]);
+		await callGetSession(session);
+		expect(broker.invocations).toEqual([{ windowId: 7, name: 'get-session' }, { windowId: 7, name: 'get-session' }]);
 	});
 
-	it('keeps using the pinned window even if the last-active window changes', async () => {
-		const broker = new FakeBroker();
-		broker.target = 1;
-		broker.connected = new Set([1, 2]);
-		const session = await initializedSession(broker);
-
-		// Focus moves to window 2, but the session stays pinned to 1.
-		broker.target = 2;
-		await callGetSession(session);
-		await callGetSession(session);
-		expect(broker.invocations.map(i => i.windowId)).toEqual([1, 1]);
-	});
-
-	it('re-pins to the current last-active window when the pinned one closes', async () => {
-		const broker = new FakeBroker();
-		broker.target = 1;
-		broker.connected = new Set([1]);
-		const audit = new RecordingAuditLog();
-		const session = await initializedSession(broker, audit);
-
-		// Pinned window 1 closes; last-active is now 5.
-		broker.connected = new Set([5]);
-		broker.target = 5;
-		await callGetSession(session);
-		expect(broker.invocations).toEqual([{ windowId: 5, name: 'get-session' }]);
-		expect(audit.events.filter(e => e.type === 'window-repinned'))
-			.toEqual([expect.objectContaining({ sessionId: 's', pinnedWindowId: 5 })]);
-	});
-
-	it('returns a clean error (no throw) when no window is available', async () => {
-		const broker = new FakeBroker();
-		broker.target = undefined;
-		broker.connected = new Set();
+	it('returns a clean error (no throw) when the window is not connected', async () => {
+		const broker = new FakeBroker(3);
+		broker.connected = false;
 		const audit = new RecordingAuditLog();
 		const session = await initializedSession(broker, audit);
 
@@ -113,14 +84,14 @@ describe('PositronMcpSession window pinning', () => {
 		expect(result.isError).toBe(true);
 		expect(result.content[0]).toMatchObject({ type: 'text' });
 		expect(broker.invocations).toEqual([]);
+		// The window id is still known and recorded even though it's disconnected --
+		// there is nothing to guess, unlike the old last-active-window heuristic.
 		expect(audit.events.filter(e => e.type === 'tool-call'))
-			.toEqual([expect.objectContaining({ outcome: 'error', pinnedWindowId: undefined })]);
+			.toEqual([expect.objectContaining({ outcome: 'error', pinnedWindowId: 3 })]);
 	});
 
 	it('surfaces a window-closed-mid-call failure as a tool error, not a transport error', async () => {
-		const broker = new FakeBroker();
-		broker.target = 1;
-		broker.connected = new Set([1]);
+		const broker = new FakeBroker(1);
 		const session = await initializedSession(broker);
 
 		broker.failNext = true;

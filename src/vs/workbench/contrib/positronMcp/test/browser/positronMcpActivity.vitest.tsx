@@ -10,7 +10,7 @@ import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
-import { IPositronMcpServerStatus, IPositronMcpService } from '../../../../../platform/positronMcp/common/positronMcp.js';
+import { IPositronMcpAggregateStatus, IPositronMcpService, IPositronMcpWindowStatus } from '../../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpToolCallAuditEvent, IMcpToolCallStartEvent, McpAuditEvent } from '../../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
@@ -23,11 +23,12 @@ describe('PositronMcpActivity', () => {
 	// references at build() time.
 	const activityEmitter = new Emitter<McpAuditEvent>();
 	const consentEmitter = new Emitter<boolean>();
-	const getStatus = vi.fn<() => Promise<IPositronMcpServerStatus>>();
+	const getStatus = vi.fn<() => Promise<IPositronMcpWindowStatus>>();
+	const getAggregateStatus = vi.fn<() => Promise<IPositronMcpAggregateStatus>>();
 	const resetConsent = vi.fn();
 
 	const ctx = createTestContainer()
-		.stub(IPositronMcpService, { onDidRecordActivity: activityEmitter.event, getStatus })
+		.stub(IPositronMcpService, { onDidRecordActivity: activityEmitter.event, getStatus, getAggregateStatus })
 		.stub(IPositronMcpToolService, {
 			onDidChangeAllowAllConsent: consentEmitter.event,
 			isAllowAllConsentActive: () => false,
@@ -37,13 +38,22 @@ describe('PositronMcpActivity', () => {
 		.build();
 	const rtl = setupRTLRenderer();
 
-	function makeStatus(overrides: Partial<IPositronMcpServerStatus> = {}): IPositronMcpServerStatus {
+	function makeWindowStatus(overrides: Partial<IPositronMcpWindowStatus> = {}): IPositronMcpWindowStatus {
 		return {
 			running: true,
 			port: 43123,
 			token: 'test-token',
 			sessions: [],
+			...overrides,
+		};
+	}
+
+	function makeAggregateStatus(overrides: Partial<IPositronMcpAggregateStatus> = {}): IPositronMcpAggregateStatus {
+		return {
+			token: 'test-token',
+			sessions: [],
 			recentActivity: [],
+			claudeCliState: 'unknown',
 			...overrides,
 		};
 	}
@@ -61,6 +71,7 @@ describe('PositronMcpActivity', () => {
 			outcome: 'ok',
 			durationMs: 840,
 			resultSummary: 'text(12 chars)',
+			pinnedWindowId: 1,
 			...overrides,
 		};
 	}
@@ -73,13 +84,15 @@ describe('PositronMcpActivity', () => {
 			sessionId: 'session-1',
 			clientName: 'claude-code',
 			toolName: 'get-plot',
+			pinnedWindowId: 1,
 			...overrides,
 		};
 	}
 
 	/** Render the pane over a freshly seeded feed; disposal rides the render cleanup. */
-	async function renderActivity(status: IPositronMcpServerStatus = makeStatus()): Promise<PositronMcpActivityFeed> {
-		getStatus.mockResolvedValue(status);
+	async function renderActivity(aggregateOverrides: Partial<IPositronMcpAggregateStatus> = {}): Promise<PositronMcpActivityFeed> {
+		getStatus.mockResolvedValue(makeWindowStatus());
+		getAggregateStatus.mockResolvedValue(makeAggregateStatus(aggregateOverrides));
 		const feed = ctx.instantiationService.createInstance(PositronMcpActivityFeed);
 		rtl.render(<PositronMcpActivity feed={feed} />);
 		await vi.waitFor(() => expect(feed.state.running).toBe(true));
@@ -117,16 +130,16 @@ describe('PositronMcpActivity', () => {
 	it('renders lifecycle events inline', async () => {
 		const feed = await renderActivity();
 		act(() => {
-			activityEmitter.fire({ type: 'client-identified', timestamp: Date.now(), sessionId: 'session-1', clientName: 'claude-code', clientVersion: '1.2.3' });
+			activityEmitter.fire({ type: 'client-identified', timestamp: Date.now(), sessionId: 'session-1', clientName: 'claude-code', clientVersion: '1.2.3', pinnedWindowId: 1 });
 		});
 		expect(screen.getByText('Claude Code 1.2.3 connected')).toBeInTheDocument();
 		feed.dispose();
 	});
 
 	it('lists connected sessions in the header', async () => {
-		const feed = await renderActivity(makeStatus({
-			sessions: [{ sessionId: 'session-1', clientName: 'claude-code', clientVersion: '1.2.3', createdAt: Date.now() - 60_000, lastActivityAt: Date.now() - 10_000 }],
-		}));
+		const feed = await renderActivity({
+			sessions: [{ sessionId: 'session-1', clientName: 'claude-code', clientVersion: '1.2.3', createdAt: Date.now() - 60_000, lastActivityAt: Date.now() - 10_000, pinnedWindowId: 1 }],
+		});
 		expect(await screen.findByText('Claude Code 1.2.3')).toBeInTheDocument();
 		expect(screen.getByText(/connected .* · active .*/)).toBeInTheDocument();
 		feed.dispose();

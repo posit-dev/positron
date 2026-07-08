@@ -43,7 +43,8 @@ export interface IMcpToolCallAuditEvent {
 	readonly args?: Record<string, unknown>;
 	readonly outcome: 'ok' | 'error';
 	readonly durationMs: number;
-	readonly pinnedWindowId?: number;
+	/** The window this session's tool calls run in -- fixed for the session's lifetime. */
+	readonly pinnedWindowId: number;
 	/** Content-block types + sizes; never content. */
 	readonly resultSummary: string;
 	/**
@@ -75,17 +76,17 @@ export interface IMcpToolCallStartEvent {
 	readonly sessionId: string;
 	readonly clientName?: string;
 	readonly toolName: string;
-	readonly pinnedWindowId?: number;
+	readonly pinnedWindowId: number;
 }
 
 /** Session lifecycle markers. */
 export interface IMcpLifecycleAuditEvent {
-	readonly type: 'session-created' | 'session-resumed' | 'session-closed' | 'client-identified' | 'window-repinned';
+	readonly type: 'session-created' | 'session-resumed' | 'session-closed' | 'client-identified';
 	readonly timestamp: number;
 	readonly sessionId: string;
 	readonly clientName?: string;
 	readonly clientVersion?: string;
-	readonly pinnedWindowId?: number;
+	readonly pinnedWindowId: number;
 }
 
 export type McpAuditEvent = IMcpToolCallAuditEvent | IMcpToolCallStartEvent | IMcpLifecycleAuditEvent;
@@ -206,8 +207,7 @@ export function formatAuditLine(event: McpAuditEvent): string {
 	switch (event.type) {
 		case 'tool-call': {
 			const client = clientLabel(event.clientName, event.clientVersion);
-			const window = event.pinnedWindowId !== undefined ? ` (window ${event.pinnedWindowId})` : '';
-			return `${prefix} tools/call ${event.toolName}${client ? ` by ${client}` : ''} -> ${event.outcome} in ${event.durationMs}ms${window} | args ${event.argsSummary} | result ${event.resultSummary}`;
+			return `${prefix} tools/call ${event.toolName}${client ? ` by ${client}` : ''} -> ${event.outcome} in ${event.durationMs}ms (window ${event.pinnedWindowId}) | args ${event.argsSummary} | result ${event.resultSummary}`;
 		}
 		case 'tool-call-start': {
 			const client = clientLabel(event.clientName);
@@ -220,9 +220,7 @@ export function formatAuditLine(event: McpAuditEvent): string {
 		case 'session-closed':
 			return `${prefix} session closed by client`;
 		case 'client-identified':
-			return `${prefix} client identified: ${clientLabel(event.clientName, event.clientVersion) ?? 'unknown'} (window ${event.pinnedWindowId ?? 'none'})`;
-		case 'window-repinned':
-			return `${prefix} pinned window unavailable; re-pinned to ${event.pinnedWindowId ?? 'none'}`;
+			return `${prefix} client identified: ${clientLabel(event.clientName, event.clientVersion) ?? 'unknown'} (window ${event.pinnedWindowId})`;
 	}
 }
 

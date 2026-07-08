@@ -36,10 +36,6 @@ export function lifecycleLabel(event: IMcpLifecycleAuditEvent): string {
 			return localize('positron.mcp.activity.sessionClosed', "{0} disconnected", client);
 		case 'client-identified':
 			return localize('positron.mcp.activity.clientIdentified', "{0} connected", client);
-		case 'window-repinned':
-			return event.pinnedWindowId !== undefined
-				? localize('positron.mcp.activity.windowRepinned', "Re-pinned to window {0}", event.pinnedWindowId)
-				: localize('positron.mcp.activity.windowUnpinned', "Pinned window closed");
 	}
 }
 
@@ -48,7 +44,6 @@ const lifecycleIcon: Record<IMcpLifecycleAuditEvent['type'], string> = {
 	'session-resumed': 'codicon-plug',
 	'client-identified': 'codicon-plug',
 	'session-closed': 'codicon-debug-disconnect',
-	'window-repinned': 'codicon-window',
 };
 
 /**

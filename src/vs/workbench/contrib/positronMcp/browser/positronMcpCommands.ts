@@ -44,18 +44,24 @@ async function readStatus(accessor: ServicesAccessor): Promise<IMcpStatusData> {
 	const workspace = new PositronMcpWorkspace(accessor.get(IFileService), accessor.get(IWorkspaceContextService), mcpService);
 
 	const enabled = configurationService.getValue<boolean>(MCP_ENABLE_KEY) === true;
-	const serverStatus = await mcpService.getStatus();
+	// This window's own running/port/token: meaningful per-window (the status bar
+	// dot and the connect snippets are about this window's server specifically).
+	const windowStatus = await mcpService.getStatus();
+	// Sessions and recent activity span every window by design (the Connections
+	// table and Activity pane are explicitly cross-window).
+	const aggregateStatus = await mcpService.getAggregateStatus();
 	const workspaceConfig = await workspace.getConfigState();
 	return {
 		enabled,
-		running: serverStatus.running,
-		port: serverStatus.port,
-		token: serverStatus.token,
+		running: windowStatus.running,
+		port: windowStatus.port,
+		token: windowStatus.token,
 		workspaceConfig,
-		sessions: serverStatus.sessions,
-		recentActivity: serverStatus.recentActivity,
+		sessions: aggregateStatus.sessions,
+		recentActivity: aggregateStatus.recentActivity,
 		allowAllConsent: toolService.isAllowAllConsentActive(),
-		auditLogPath: serverStatus.auditLogPath,
+		auditLogPath: windowStatus.auditLogPath,
+		claudeCliState: aggregateStatus.claudeCliState,
 	};
 }
 

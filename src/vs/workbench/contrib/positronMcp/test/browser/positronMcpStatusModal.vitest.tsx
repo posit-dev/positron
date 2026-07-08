@@ -27,6 +27,7 @@ describe('McpStatusContent', () => {
 			sessions: [],
 			recentActivity: [],
 			allowAllConsent: false,
+			claudeCliState: 'unknown',
 			...overrides,
 		};
 	}
@@ -198,7 +199,7 @@ describe('McpStatusContent', () => {
 
 		it('shows only the last 10 calls, newest first, and skips lifecycle events', () => {
 			const recentActivity = [
-				{ type: 'session-created' as const, timestamp: Date.now(), sessionId: 'session-1' },
+				{ type: 'session-created' as const, timestamp: Date.now(), sessionId: 'session-1', pinnedWindowId: 1 },
 				...Array.from({ length: 12 }, (_, i) => makeToolCallEvent({ callId: `call-${i}`, toolName: `tool-${i}` })),
 			];
 			renderContent(makeStatus({ recentActivity }));

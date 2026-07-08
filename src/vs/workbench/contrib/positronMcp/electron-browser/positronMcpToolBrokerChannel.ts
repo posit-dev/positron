@@ -11,8 +11,8 @@ import { IPositronMcpToolService } from '../browser/positronMcpToolService.js';
 /**
  * Renderer-side channel the main-process MCP server calls into to run a tool in
  * this window. Registered on IMainProcessService so the server can pick this
- * window by its IPC connection context (the window-pinning target). Hand-written
- * rather than a ProxyChannel because the call shape is a single `callTool`.
+ * window by its IPC connection context. Hand-written rather than a ProxyChannel
+ * because the call shape is a single `callTool`.
  */
 export class PositronMcpToolBrokerChannel implements IServerChannel<string> {
 	constructor(private readonly _toolService: IPositronMcpToolService) { }

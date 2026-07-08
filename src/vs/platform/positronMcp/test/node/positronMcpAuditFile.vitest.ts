@@ -23,6 +23,7 @@ function toolCallEvent(overrides: Partial<IMcpToolCallAuditEvent> = {}): McpAudi
 		args: { code: 'print(1)', languageId: 'python' },
 		outcome: 'ok',
 		durationMs: 840,
+		pinnedWindowId: 1,
 		resultSummary: 'text(2 chars)',
 		...overrides,
 	};
@@ -49,7 +50,7 @@ describe('McpAuditFileWriter', () => {
 		expect(fs.existsSync(filePath)).toBe(false);
 
 		// Transient start events are never persisted, so they open no file either.
-		writer.write({ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot' });
+		writer.write({ type: 'tool-call-start', callId: 'c1', timestamp: 1, sessionId: 's', toolName: 'get-plot', pinnedWindowId: 1 });
 		expect(writer.path).toBeUndefined();
 		expect(fs.existsSync(filePath)).toBe(false);
 	});

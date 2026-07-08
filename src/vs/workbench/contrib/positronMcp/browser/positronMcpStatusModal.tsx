@@ -15,7 +15,7 @@ import { localize } from '../../../../nls.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { IMcpSessionInfo, mcpClientLabel } from '../../../../platform/positronMcp/common/positronMcp.js';
+import { ClaudeCliRegistrationState, IMcpSessionInfo, mcpClientLabel } from '../../../../platform/positronMcp/common/positronMcp.js';
 import { IMcpToolCallAuditEvent, McpCompletedAuditEvent } from '../../../../platform/positronMcp/common/positronMcpAudit.js';
 import { WorkspaceConfigState, bearerHeader, serverUrl } from './positronMcpWorkspace.js';
 
@@ -31,7 +31,7 @@ export interface IMcpStatusData {
 	readonly token: string;
 	/** The state of the first workspace folder's `.mcp.json` positron entry. */
 	readonly workspaceConfig: WorkspaceConfigState;
-	/** The live MCP sessions, oldest first. Empty when the server is stopped. */
+	/** The live MCP sessions across every window, oldest first. */
 	readonly sessions: IMcpSessionInfo[];
 	/** Recent audit events (completed tool calls + lifecycle), oldest first. */
 	readonly recentActivity: readonly McpCompletedAuditEvent[];
@@ -39,6 +39,8 @@ export interface IMcpStatusData {
 	readonly allowAllConsent: boolean;
 	/** Path of the JSONL audit file, once one exists for this Positron session. */
 	readonly auditLogPath?: string;
+	/** Whether the Claude Code CLI auto-registration succeeded. */
+	readonly claudeCliState: ClaudeCliRegistrationState;
 }
 
 /** The actions the panel triggers; the host runs the matching command and reports back. */
