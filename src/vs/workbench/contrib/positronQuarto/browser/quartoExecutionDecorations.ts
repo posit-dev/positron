@@ -9,7 +9,7 @@ import { IModelDeltaDecoration, IModelDecorationOptions, OverviewRulerLane, Trac
 import { Range } from '../../../../editor/common/core/range.js';
 import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { CellExecutionState, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
+import { CellExecutionState, ICellFragmentProgress, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { themeColorFromId } from '../../../../platform/theme/common/themeService.js';
@@ -104,6 +104,53 @@ function createRunningDecorationOptions(isError: boolean): IModelDecorationOptio
 }
 
 /**
+ * Creates decoration options for the "breathing" state - a synchronized pulse
+ * shown over the statement currently executing when a cell is split into
+ * individual statements (input boundary provider available).
+ * @param isError Whether this is for error state (red) or success state (green)
+ */
+function createBreathingDecorationOptions(isError: boolean): IModelDecorationOptions {
+	const prefix = isError ? 'error-' : '';
+	const color = isError ? cellStatusIconError : cellStatusIconSuccess;
+	const tooltip = isError
+		? localize('quartoErrorRunning', 'Executing with error')
+		: localize('quartoRunning', 'Currently executing');
+	return {
+		description: `quarto-${prefix}breathing-execution`,
+		isWholeLine: true,
+		linesDecorationsClassName: `quarto-execution-${prefix}breathing`,
+		linesDecorationsTooltip: tooltip,
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+		overviewRuler: {
+			color: themeColorFromId(color),
+			position: OverviewRulerLane.Full,
+		},
+	};
+}
+
+/**
+ * Creates decoration options for the "executed" state - solid, non-animated
+ * fill shown over statements that have already run when a cell is split into
+ * individual statements (input boundary provider available).
+ * @param isError Whether this is for error state (red) or success state (green)
+ */
+function createExecutedDecorationOptions(isError: boolean): IModelDecorationOptions {
+	const prefix = isError ? 'error-' : '';
+	const color = isError ? cellStatusIconError : cellStatusIconSuccess;
+	return {
+		description: `quarto-${prefix}executed-execution`,
+		isWholeLine: true,
+		linesDecorationsClassName: `quarto-execution-${prefix}executed`,
+		linesDecorationsTooltip: localize('quartoExecuted', 'Executed'),
+		stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+		overviewRuler: {
+			color: themeColorFromId(color),
+			position: OverviewRulerLane.Full,
+		},
+	};
+}
+
+/**
  * Creates decoration options for completed cells.
  * @param isError Whether this is for error state (red) or success state (green)
  * @param isFading Whether this is for the fading phase
@@ -122,6 +169,10 @@ function createCompletedDecorationOptions(isError: boolean, isFading: boolean): 
 // Pre-create decoration options for both success and error states
 const runningDecorationOptions = createRunningDecorationOptions(false);
 const errorRunningDecorationOptions = createRunningDecorationOptions(true);
+const breathingDecorationOptions = createBreathingDecorationOptions(false);
+const errorBreathingDecorationOptions = createBreathingDecorationOptions(true);
+const executedDecorationOptions = createExecutedDecorationOptions(false);
+const errorExecutedDecorationOptions = createExecutedDecorationOptions(true);
 const completedDecorationOptions = createCompletedDecorationOptions(false, false);
 const completedFadingDecorationOptions = createCompletedDecorationOptions(false, true);
 const errorCompletedDecorationOptions = createCompletedDecorationOptions(true, false);
@@ -234,6 +285,12 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			this._updateDecorations();
 		}));
 
+		// Listen for fragment-level progress changes (statement-by-statement
+		// execution) so the gutter updates as each statement runs.
+		this._disposables.add(this._executionManager.onDidChangeFragmentProgress(() => {
+			this._updateDecorations();
+		}));
+
 		// Listen for output to detect errors
 		this._disposables.add(this._executionManager.onDidReceiveOutput((e) => {
 			// Check if this is an error output
@@ -308,17 +365,28 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 				// Save the line range for the completion animation
 				this._runningCellRanges.set(cell.id, { startLine, endLine });
 
-				// Apply a separate decoration per line with a random animation delay variant
-				// This creates an organic "twinkle" effect where each line pulses independently
 				// Use error decorations if the cell has encountered an error
 				const hasError = this._cellsWithErrors.has(cell.id);
-				const decorationOptions = hasError ? errorRunningDecorationOptions : runningDecorationOptions;
-				for (let line = startLine; line <= endLine; line++) {
-					const variantIndex = Math.floor(Math.random() * RUNNING_DELAY_VARIANTS);
-					decorations.push({
-						range: new Range(line, 1, line, 1),
-						options: decorationOptions[variantIndex],
-					});
+
+				// When the cell's code was split into individual statements (an
+				// input boundary provider is available), show per-statement
+				// progress: solid green for statements that have already run, a
+				// breathing pulse for the statement currently running, and the
+				// queued treatment for statements not yet reached.
+				const fragmentProgress = this._executionManager.getFragmentProgress(cell.id);
+				if (fragmentProgress) {
+					this._addFragmentProgressDecorations(decorations, fragmentProgress, hasError);
+				} else {
+					// Apply a separate decoration per line with a random animation delay variant
+					// This creates an organic "twinkle" effect where each line pulses independently
+					const decorationOptions = hasError ? errorRunningDecorationOptions : runningDecorationOptions;
+					for (let line = startLine; line <= endLine; line++) {
+						const variantIndex = Math.floor(Math.random() * RUNNING_DELAY_VARIANTS);
+						decorations.push({
+							range: new Range(line, 1, line, 1),
+							options: decorationOptions[variantIndex],
+						});
+					}
 				}
 
 				// Also add queued decorations for any queued ranges within this running cell
@@ -444,6 +512,53 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			hadError,
 		});
 		// Decorations will be rendered by the caller's _updateDecorations call
+	}
+
+	/**
+	 * Add per-statement progress decorations for a cell whose code was split
+	 * into individual statements. Executed statements are shown solid, the
+	 * currently executing statement breathes, and pending statements use the
+	 * queued treatment.
+	 */
+	private _addFragmentProgressDecorations(
+		decorations: IModelDeltaDecoration[],
+		progress: ICellFragmentProgress,
+		hasError: boolean,
+	): void {
+		const executedOptions = hasError ? errorExecutedDecorationOptions : executedDecorationOptions;
+		for (const range of progress.executed) {
+			for (let line = range.startLineNumber; line <= range.endLineNumber; line++) {
+				decorations.push({
+					range: new Range(line, 1, line, 1),
+					options: executedOptions,
+				});
+			}
+		}
+
+		if (progress.executing) {
+			const breathingOptions = hasError ? errorBreathingDecorationOptions : breathingDecorationOptions;
+			for (let line = progress.executing.startLineNumber; line <= progress.executing.endLineNumber; line++) {
+				decorations.push({
+					range: new Range(line, 1, line, 1),
+					options: breathingOptions,
+				});
+			}
+		}
+
+		// Render all pending statements as one contiguous "filling up" bar:
+		// left and right walls on every line with a bottom cap on the last line,
+		// and no top border so the bar flows out of the filled (executed and
+		// executing) region above rather than drawing a divider per statement.
+		if (progress.pending.length > 0) {
+			const pendingStart = progress.pending[0].startLineNumber;
+			const pendingEnd = progress.pending[progress.pending.length - 1].endLineNumber;
+			for (let line = pendingStart; line <= pendingEnd; line++) {
+				decorations.push({
+					range: new Range(line, 1, line, 1),
+					options: line === pendingEnd ? queuedLastDecorationOptions : queuedMiddleDecorationOptions,
+				});
+			}
+		}
 	}
 
 	/**
