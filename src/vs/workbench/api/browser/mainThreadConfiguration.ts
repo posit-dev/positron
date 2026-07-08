@@ -13,7 +13,9 @@ import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions
 import { ConfigurationTarget, IConfigurationService, IConfigurationOverrides } from '../../../platform/configuration/common/configuration.js';
 import { IEnvironmentService } from '../../../platform/environment/common/environment.js';
 // --- Start Positron ---
+import * as nls from '../../../nls.js';
 import { ILogService } from '../../../platform/log/common/log.js';
+import { INotificationService, Severity } from '../../../platform/notification/common/notification.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry, ConfigurationKeyValuePairs } from '../../common/configuration.js';
 // --- End Positron ---
 
@@ -29,6 +31,7 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 		// --- Start Positron ---
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		// --- End Positron ---
 	) {
 		const proxy = extHostContext.getProxy(ExtHostContext.ExtHostConfiguration);
@@ -72,14 +75,43 @@ export class MainThreadConfiguration implements MainThreadConfigurationShape {
 			return true;
 		});
 
+		const policyConflicts = approved.filter(migration => {
+			const oldPolicyValue = this.configurationService.inspect(migration.key).policyValue;
+			const newPolicyValue = this.configurationService.inspect(migration.migrateTo).policyValue;
+			return oldPolicyValue !== undefined && newPolicyValue === undefined;
+		});
+
+		for (const migration of policyConflicts) {
+			this._logService.error(
+				`Admin policy enforces '${migration.key}' but not '${migration.migrateTo}'. ` +
+				`Migration registered by '${extensionId}' may not behave correctly.`
+			);
+		}
+
+		if (policyConflicts.length > 0) {
+			const keyList = policyConflicts.map(m => `'${m.key}'`).join(', ');
+			this._notificationService.notify({
+				severity: Severity.Warning,
+				message: nls.localize(
+					'positron.configurationMigration.policyConflict',
+					"Some configuration migrations registered by '{0}' are blocked by system policy ({1}). Contact your administrator to update the policy.",
+					extensionId,
+					keyList,
+				),
+			});
+		}
+
 		if (approved.length > 0) {
 			Registry.as<IConfigurationMigrationRegistry>(ConfigurationMigrationExtensions.ConfigurationMigration)
 				.registerConfigurationMigrations(approved.map(migration => ({
 					key: migration.key,
-					migrateFn: (value: unknown): ConfigurationKeyValuePairs => [
-						[migration.migrateTo, { value }],
-						[migration.key, { value: undefined }],
-					],
+					migrateFn: (value: unknown, accessor: (key: string) => unknown): ConfigurationKeyValuePairs => {
+						const pairs: ConfigurationKeyValuePairs = [[migration.key, { value: undefined }]];
+						if (value !== undefined && accessor(migration.migrateTo) === undefined) {
+							pairs.push([migration.migrateTo, { value }]);
+						}
+						return pairs;
+					},
 				})));
 		}
 	}
