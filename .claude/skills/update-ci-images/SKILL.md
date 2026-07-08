@@ -1,5 +1,6 @@
 ---
 name: update-ci-images
+disable-model-invocation: true
 description: Long-running orchestration to rebuild every Positron CI image (ubuntu24_04, rocky_8, debian, openSUSE15_6, SLES15_6, and postgres — each as a multi-arch amd64+arm64 manifest) at one new tag with a new Node version. Creates a branch + PR, bumps NODE_VERSION, dispatches the build workflows on that branch with bounded concurrency, monitors the runs, auto-fixes failures and retries, and leaves the PR open for human review once all 6 builds are green.
 ---
 
