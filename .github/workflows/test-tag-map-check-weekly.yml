@@ -53,6 +53,13 @@ jobs:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
 
+      # Pin Node for scripts/apply-test-tag-map-fixes.mjs rather than relying on
+      # whatever ships with ubuntu-latest.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
       - name: Refresh branch for drift recompute
         if: steps.detect.outputs.exists == 'true'
         env:

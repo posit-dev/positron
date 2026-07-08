@@ -81,11 +81,12 @@ runs:
 
         # Any human signal means someone may have hand-edited the PR, so the
         # caller should add commits on top (additive) instead of force-pushing.
-        BOT_FILTER='[.[] | select((.user.type // "User") != "Bot")] | length'
-        REVIEW_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" --jq "$BOT_FILTER")
-        ISSUE_COMMENTS=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --jq "$BOT_FILTER")
-        NON_BOT_COMMITS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/commits" \
-          --jq '[.[] | select((.author.type // "User") != "Bot")] | length')
+        # --paginate + `jq -s add`: without it only the first 30 items are seen,
+        # so a human comment/commit past page 1 goes uncounted -- the action
+        # would pick reset mode and force-push over their work.
+        REVIEW_COMMENTS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" | jq -s 'add | map(select((.user.type // "User") != "Bot")) | length')
+        ISSUE_COMMENTS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" | jq -s 'add | map(select((.user.type // "User") != "Bot")) | length')
+        NON_BOT_COMMITS=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/commits" | jq -s 'add | map(select((.author.type // "User") != "Bot")) | length')
         # Only a real review verdict counts. REVIEW_REQUIRED just means branch
         # protection wants a review -- every PR reports it, so treating it as a
         # human signal would force additive mode always and reset would never fire.
