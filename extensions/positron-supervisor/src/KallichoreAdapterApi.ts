@@ -506,10 +506,9 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create and listen on a handshake socket. kcserver connects to this
 		// socket once at startup and writes its connection details (transport,
-		// address, bearer token, etc.); we await that payload below instead of
-		// polling the filesystem for a connection file. The socket is
-		// same-user-locked, so the token travels over a channel no other local
-		// user can open.
+		// address, bearer token, etc.); we await that payload below. The socket
+		// is same-user-locked, so the token travels over a channel no other
+		// local user can open.
 		const handshake = await HandshakeSocket.create(`kallichore-${sessionId}`);
 		this.log(`Listening for supervisor handshake on ${handshake.socketPath}`);
 
@@ -707,9 +706,9 @@ export class KCApi implements PositronSupervisorApi {
 		const supervisorStartTime = Date.now();
 
 		// Reads any captured stdout/stderr from the server process, formatted for
-		// appending to a startup error message. Preserves the "server exited
-		// during startup, here is its captured output" diagnostics that made
-		// startup failures debuggable under the old file-polling approach.
+		// appending to a startup error message. This gives us "server exited
+		// during startup, here is its captured output" diagnostics that make
+		// startup failures debuggable.
 		const readServerOutput = (): string => {
 			try {
 				if (fs.existsSync(outFile)) {

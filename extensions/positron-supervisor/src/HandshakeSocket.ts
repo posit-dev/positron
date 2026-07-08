@@ -15,18 +15,14 @@ import { PromiseHandles } from './async.js';
  * A client-owned handshake socket used to receive connection details from the
  * Kallichore server (kcserver) at launch.
  *
- * Instead of kcserver writing a connection *file* that Positron polls for,
  * Positron creates and listens on this socket *first*, launches kcserver with
  * `--handshake-socket <path>`, and kcserver connects to it once and writes a
  * single JSON document ({@link KallichoreServerState}) describing the
  * connection (transport, address, bearer token, server id, pid, log path),
- * then closes. This avoids the "server wrote a file the client cannot see yet"
- * race (e.g. on Windows when aggressive antivirus scans the file) and keeps the
- * bearer token off disk.
+ * then closes. The bearer token never touches disk.
  *
  * The socket is same-user-only: on Unix it lives inside a `0700` directory and
- * the socket file itself is set to `0600`; on Windows it is a named pipe. This
- * preserves the same trust boundary the old `0600` connection file gave us.
+ * the socket file itself is set to `0600`; on Windows it is a named pipe.
  *
  * The wire contract (framing and field names) is defined by the kallichore side
  * (`crates/kcserver/src/handshake_socket.rs`); a behaviorally identical broker

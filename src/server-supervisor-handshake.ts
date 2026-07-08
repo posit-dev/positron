@@ -26,8 +26,7 @@ import * as net from 'node:net';
  *
  * The bearer token never touches disk and never enters an environment variable;
  * only the socket *path* is published (via POSITRON_SUPERVISOR_HANDSHAKE_SOCKET),
- * and a path is not a secret. This preserves the same same-user trust boundary
- * the old 0600 connection file gave us.
+ * and a path is not a secret. The socket is locked to the current user.
  *
  * This is the web/server counterpart to the desktop extension helper in
  * `extensions/positron-supervisor/src/HandshakeSocket.ts`; the two are
