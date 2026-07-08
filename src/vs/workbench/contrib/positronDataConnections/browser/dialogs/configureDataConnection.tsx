@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalDialogReactRenderer } from '../../../../../base/browser/positronModalDialogReactRenderer.js';
@@ -71,7 +72,7 @@ interface ConfigureDataConnectionProps {
  */
 export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => {
 	// Services.
-	const { positronDataConnectionsService } = usePositronReactServicesContext();
+	const { fileDialogService, labelService, pathService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Ref to the Connection Name input so we can drive initial focus to it (overriding the
 	// primary button's autoFocus, which fires during React commit before this effect runs).
@@ -161,6 +162,35 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			}
 		}));
 	}, []);
+
+	// Browse handler for file parameters. Opens a file picker (native on desktop, quick-picker on
+	// web/remote via IFileDialogService) and fills the field with the chosen path on selection.
+	const browseFileHandler = useCallback(async (parameterId: string) => {
+		// Seed the dialog's starting location from the current value when present, otherwise the
+		// default file path. defaultFilePath() yields a URI with the correct scheme/authority for
+		// local vs remote; combineLabelWithPathUri re-homes the typed path onto the server platform.
+		const currentValue = parameterFieldStates[parameterId]?.value;
+		const defaultFilePath = await fileDialogService.defaultFilePath();
+		const defaultUri = typeof currentValue === 'string' && currentValue.length > 0
+			? await combineLabelWithPathUri(currentValue, defaultFilePath, pathService)
+			: defaultFilePath;
+
+		// Show the open dialog.
+		const uris = await fileDialogService.showOpenDialog({
+			title: localize('positron.configureDataConnection.selectFile', "Select File"),
+			defaultUri,
+			openLabel: localize('positron.configureDataConnection.select', "Select"),
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+		});
+
+		// If the user made a selection, set the field to the chosen path, formatted for the platform
+		// the server is running on.
+		if (uris?.length) {
+			setParameterFieldState(parameterId, pathUriToLabel(uris[0], labelService));
+		}
+	}, [fileDialogService, labelService, parameterFieldStates, pathService, setParameterFieldState]);
 
 	// Cancel handler.
 	const cancelHandler = useCallback(() => {
@@ -274,6 +304,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 							parameters={props.mechanism.parameters}
 							redactedSecretValues={redactedSecretValues}
 							storedSecretIds={storedSecretIds}
+							onBrowseFile={browseFileHandler}
 							onParameterChanged={setParameterFieldState}
 						/>
 
