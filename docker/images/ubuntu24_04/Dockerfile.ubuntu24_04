@@ -1,0 +1,232 @@
+ARG ARCH=amd64
+
+FROM --platform=linux/${ARCH} ubuntu:24.04
+
+# Re-define ARCH after FROM to make it available in build stage
+ARG ARCH
+ARG TARGETPLATFORM=linux/${ARCH}
+
+# Define architecture-specific build-time arguments
+# These will be passed from docker-compose files
+ARG CPU_ARCH
+ARG NODE_ARCH
+ARG NODE_VERSION
+# Dated PPM snapshot for the build-time R dev-deps install (see the dev-deps
+# RUN below). Set per-OS in the docker-compose files; bump with
+# scripts/bump-ppm-snapshot.sh.
+ARG PPM_SNAPSHOT
+ARG TINYTEX_ARCH
+ARG AWS_ARCH
+ARG CONDA_ARCH
+ARG RIG_ARCH
+ARG QUARTO_ARCH
+ARG R_ARCH_SUFFIX
+
+# Log the architecture variables for verification
+RUN echo "Using architecture: ${ARCH}" && \
+    echo "CPU_ARCH: ${CPU_ARCH}" && \
+    echo "NODE_ARCH: ${NODE_ARCH}" && \
+    echo "NODE_VERSION: ${NODE_VERSION}" && \
+    echo "TINYTEX_ARCH: ${TINYTEX_ARCH}" && \
+    echo "AWS_ARCH: ${AWS_ARCH}" && \
+    echo "CONDA_ARCH: ${CONDA_ARCH}" && \
+    echo "RIG_ARCH: ${RIG_ARCH}" && \
+    echo "QUARTO_ARCH: ${QUARTO_ARCH}" && \
+    echo "R_ARCH_SUFFIX: ${R_ARCH_SUFFIX}"
+
+# Arguments
+ARG TOKEN
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV HOME=/root
+ENV PATH="${HOME}/.pyenv/bin:/opt/conda/bin:$PATH"
+ENV ELECTRON_ARCH=${ARCH}
+ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV QT_QUICK_BACKEND=software
+ENV QT_XCB_GL_INTEGRATION=none
+
+# Install system dependencies, VNC server, and window manager
+ADD deps/ubuntu2404_packages_${ARCH}.txt /tmp/apt_packages.txt
+RUN apt-get update && apt-get install -y $(cat /tmp/apt_packages.txt) \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /tmp/apt_packages.txt
+
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Configure Git for better permissions
+RUN git config --system core.sharedRepository group && \
+    git config --system core.fileMode true && \
+    git config --system --add safe.directory /__w/positron/positron && \
+    chmod 1777 /tmp
+
+# Install Node.js and npm
+RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz -o /tmp/node.tar.xz && \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 && \
+    rm /tmp/node.tar.xz && \
+    ln -sf /usr/local/bin/node /usr/bin/node && \
+    ln -sf /usr/local/bin/npm /usr/bin/npm
+
+# Verify Node.js
+RUN node -v && npm -v
+
+# Global npm deps
+RUN npm install -g node-gyp npm-run-all yarn
+
+# Quarto
+RUN wget -O quarto-linux-${QUARTO_ARCH}.deb \
+    --tries=5 \
+    --waitretry=2 \
+    --retry-connrefused \
+    https://quarto.org/download/latest/quarto-linux-${QUARTO_ARCH}.deb && \
+    dpkg -i quarto-linux-${QUARTO_ARCH}.deb && \
+    rm quarto-linux-${QUARTO_ARCH}.deb
+
+# Conda
+RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${CONDA_ARCH}.sh" && \
+    bash Miniforge3.sh -b -p "/opt/conda" && rm Miniforge3.sh && \
+    echo "source \"/opt/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
+
+RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda init bash"
+
+# Rig and R
+RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-${RIG_ARCH}-latest.tar.gz | tar xz -C /usr/local
+RUN rig add 4.5.2
+
+# Install R 4.4.2 without packages
+RUN rig add 4.4.2 && rig default 4.5.2
+
+# --- Install TinyTeX (arch-agnostic) ---
+# (Download, run installer with TMPDIR=/ to avoid noexec /tmp, then relocate)
+RUN set -eu; \
+    wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" && \
+    chmod +x /tmp/install-tinytex.sh && \
+    TMPDIR=/ /tmp/install-tinytex.sh && \
+    /root/.TinyTeX/bin/*/tlmgr path remove || true && \
+    mv /root/.TinyTeX /opt/TinyTeX && \
+    /opt/TinyTeX/bin/*/tlmgr option sys_bin /usr/local/bin && \
+    /opt/TinyTeX/bin/*/tlmgr path add
+
+# Ensure TinyTeX is on PATH explicitly (even though tlmgr created symlinks)
+ENV PATH="/usr/local/bin:/opt/TinyTeX/bin:${PATH}"
+
+# --- Make builds deterministic & fast ---
+# Update tlmgr, install pkgs, and warm caches.
+# Pin to a single complete CTAN mirror instead of the mirror.ctan.org round-robin
+# (each tlmgr call can otherwise land on a different, sometimes stale/unreachable
+# mirror) and retry the network-dependent tlmgr steps to ride out transient blips.
+RUN set -eu; \
+    TT_BIN="$(echo /opt/TinyTeX/bin/*)"; \
+    retry() { for i in 1 2 3; do "$@" && return 0; echo "tlmgr step failed (attempt $i), retrying in 15s..."; sleep 15; done; return 1; }; \
+    "$TT_BIN/tlmgr" option repository "https://ctan.math.illinois.edu/systems/texlive/tlnet"; \
+    "$TT_BIN/tlmgr" option autobackup 0; \
+    retry "$TT_BIN/tlmgr" update --self --all --reinstall-forcibly-removed; \
+    retry "$TT_BIN/tlmgr" install \
+    xetex latexmk \
+    collection-latexrecommended collection-fontsrecommended \
+    koma-script caption; \
+    "$TT_BIN/fmtutil-sys" --all || true; \
+    "$TT_BIN/mktexlsr"; \
+    fc-cache -f
+
+# Install uv (latest)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH before first use
+ENV PATH="/root/.local/bin:$PATH"
+
+# Create a uv-managed Python 3.10.12 venv and bootstrap pip
+RUN uv venv --python=3.10.12 /root/.venv && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
+
+# Install qa-example-content deps into that Python 3.10.12 env
+RUN curl -O https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt && \
+    uv pip install --python /root/.venv/bin/python --break-system-packages -r requirements.txt && \
+    /root/.venv/bin/python -m pip list
+
+# Ensure uv-managed Python is default
+ENV PATH="/root/.venv/bin:/root/.local/bin:$PATH"
+
+# Configure R for root user
+RUN echo 'options(\n  repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/noble/latest"),\n  HTTPUserAgent = sprintf("R/%s (ubuntu-2404)", getRversion())\n)' > ~/.Rprofile
+
+# Stable CRAN mirror
+ENV RSPM=https://packagemanager.posit.co/cran/__linux__/noble/latest
+
+# Use a shared site library (independent of $HOME)
+ENV R_LIBS_SITE=/usr/local/lib/R/site-library
+ENV R_LIBS_USER=/usr/local/lib/R/site-library
+RUN mkdir -p "$R_LIBS_SITE" && chmod -R 755 "$R_LIBS_SITE"
+
+# Ensure rig's R is on PATH at runtime
+ENV PATH="/root/.rig/bin:${PATH}"
+
+# Pin R 4.5.2 and install pak to the site library
+RUN rig add 4.5.2 && rig default 4.5.2 && \
+    Rscript -e "install.packages('pak', repos=Sys.getenv('RSPM'), lib=Sys.getenv('R_LIBS_SITE'))"
+
+# Install the project dev deps to the same site library. Pin to a dated PPM
+# snapshot (PPM_SNAPSHOT build arg) so the build can't hit the `latest`
+# publish-window race, where pak resolves a version from the PACKAGES metadata
+# but the matching file has already rotated out of `latest` (intermittent 404s).
+# noble's PPM repo serves arm64 binaries as well as amd64, so both arches use it
+# and nothing has to compile from source. The image's runtime .Rprofile/RSPM
+# stays on `latest`.
+RUN git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
+    cd /tmp/qa-example-content && \
+    Rscript -e "options(repos=c(RSPM='https://packagemanager.posit.co/cran/__linux__/noble/${PPM_SNAPSHOT}'), pak.no_build_vignettes=TRUE, pkg.sysreqs=FALSE, pkg.install.extra=c('--no-multiarch')); \
+    pak::local_install_dev_deps(ask=FALSE, dependencies=TRUE, lib=Sys.getenv('R_LIBS_SITE'))"
+
+# pyenv and alt Python
+RUN curl https://pyenv.run | bash
+RUN export PATH="$HOME/.pyenv/bin:$PATH" && \
+    eval "$(pyenv init --path)" && \
+    eval "$(pyenv virtualenv-init -)" && \
+    pyenv install 3.13.0 && \
+    pyenv global 3.13.0 && \
+    python -m pip install --upgrade pip ipykernel && \
+    pyenv global system
+
+# Hidden Python
+RUN mkdir -p ${HOME}/scratch && \
+    /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
+    conda create -y -p \"${HOME}/scratch/python-env\" python=3.12.10 pip setuptools && \
+    conda activate \"${HOME}/scratch/python-env\" && \
+    python -c \"import sys; print(f'Python {sys.version} is working!')\""
+
+# Hidden R
+RUN mkdir -p ${HOME}/scratch/R-4.4.1 && \
+    cd ${HOME}/scratch && \
+    curl -fLO "https://cdn.posit.co/r/ubuntu-2404/R-4.4.1-ubuntu-2404${R_ARCH_SUFFIX}.tar.gz" && \
+    tar -xzf R-4.4.1-ubuntu-2404${R_ARCH_SUFFIX}.tar.gz -C R-4.4.1 --strip-components=1 && \
+    sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/bin/R && \
+    sed -i "s|/opt/R/4.4.1|${HOME}/scratch/R-4.4.1|g" ${HOME}/scratch/R-4.4.1/lib/R/etc/Renviron && \
+    chmod +x ${HOME}/scratch/R-4.4.1/bin/R
+
+# Persist Cargo on PATH for this and future layers
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Positron License
+RUN set -eux; \
+    mkdir -p positron-license && \
+    cd positron-license && \
+    git clone --depth 1 https://x-access-token:${TOKEN}@github.com/posit-dev/positron-license.git . && \
+    git remote set-url origin https://github.com/posit-dev/positron-license.git && \
+    curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+    cd pdol && \
+    cargo build
+
+# Playwright/Electron/Positron
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    NODE_OPTIONS="--max-old-space-size=4095"
+
+# Expose ports
+EXPOSE 8080 5900 9323

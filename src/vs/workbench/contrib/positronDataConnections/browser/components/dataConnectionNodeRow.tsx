@@ -29,6 +29,10 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'database':
 			return 'positron-db-database';
 
+		// No dedicated plural glyph exists, so the "Databases" group reuses the database icon.
+		case 'group-databases':
+			return 'positron-db-database';
+
 		case 'group-schemas':
 			return 'positron-db-schemas';
 

@@ -54,9 +54,9 @@ suite('PostgreSQL Data Connection Integration', () => {
 		setupClient = new Client({
 			host: pgHost,
 			port: pgPort,
-			database: pgDatabase,
 			user: pgUser,
 			password: pgPassword,
+			database: pgDatabase,
 		});
 
 		try {
@@ -95,9 +95,9 @@ suite('PostgreSQL Data Connection Integration', () => {
 		return positron.dataConnections.connect('positron-data-driver-postgresql', 'password', {
 			host: pgHost,
 			port: pgPort,
-			database: pgDatabase,
 			user: pgUser,
 			password: pgPassword,
+			database: pgDatabase,
 			ssl: false,
 		});
 	}
@@ -219,7 +219,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 				assert.strictEqual(localServerMechanism, undefined);
 			} else {
 				assert.ok(localServerMechanism);
-				assert.deepStrictEqual(localServerMechanism.parameters.map(p => p.id), ['database', 'user', 'socketDirectory']);
+				assert.deepStrictEqual(localServerMechanism.parameters.map(p => p.id), ['user', 'database', 'socketDirectory']);
 			}
 
 			// The connection-string mechanism takes a single secret parameter and is offered on all
@@ -233,7 +233,7 @@ suite('PostgreSQL Data Connection Integration', () => {
 			// The client-certificate mechanism is offered on all platforms (it runs over TCP/TLS).
 			const certMechanism = pg.mechanisms.find(m => m.id === 'clientCert');
 			assert.ok(certMechanism);
-			assert.deepStrictEqual(certMechanism.parameters.map(p => p.id), ['host', 'port', 'database', 'user', 'sslrootcert', 'sslcert', 'sslkey']);
+			assert.deepStrictEqual(certMechanism.parameters.map(p => p.id), ['host', 'port', 'user', 'database', 'sslrootcert', 'sslcert', 'sslkey']);
 		});
 	});
 

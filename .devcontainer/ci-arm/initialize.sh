@@ -25,4 +25,16 @@ upsert() {  # key value file — replace the line if present, else append
 }
 upsert POSITRON_WORKSPACE_PATH "$ROOT" "$ENV"
 upsert POSITRON_GIT_COMMON_DIR "$GITCOMMON" "$ENV"
-echo "ci-arm initialize: workspace=$ROOT git-common=$GITCOMMON"
+
+# Compose's project name defaults to this directory's basename ("ci-arm"), identical for every
+# checkout of this repo -- so two checkouts (e.g. your main dev checkout and a dedicated lab
+# worktree) silently share one set of containers/volumes instead of erroring: whichever one runs
+# `docker compose up` last wins, and the other's postCreate/postStart commands fail with confusing
+# "not found" errors because the container is bind-mounted to a different path than expected. See
+# README Gotchas: "One dev container per checkout at a time". Pin a project name derived from this
+# checkout's own directory name so every checkout gets its own isolated containers automatically.
+PROJECT="$(basename "$ROOT")"
+PROJECT="$(printf '%s' "$PROJECT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')"
+upsert COMPOSE_PROJECT_NAME "$PROJECT" "$ENV"
+
+echo "ci-arm initialize: workspace=$ROOT git-common=$GITCOMMON project=$PROJECT"

@@ -1,0 +1,60 @@
+ARG ARCH=amd64
+
+FROM rockylinux:8
+
+ARG ARCH
+
+RUN dnf clean all && \
+    # Configure DNF to use mirrors with better error handling
+    echo "fastestmirror=1" >> /etc/dnf/dnf.conf && \
+    echo "max_parallel_downloads=10" >> /etc/dnf/dnf.conf && \
+    echo "retries=5" >> /etc/dnf/dnf.conf && \
+    # Ensure mirrorlist is enabled (default behavior)
+    sed -i 's|^#mirrorlist=|mirrorlist=|g' /etc/yum.repos.d/Rocky-*.repo && \
+    sed -i 's|^baseurl=|#baseurl=|g' /etc/yum.repos.d/Rocky-*.repo
+RUN dnf install -y epel-release
+RUN dnf config-manager --set-enabled powertools
+RUN dnf install -y \
+    alsa-lib \
+    clang \
+    cmake \
+    curl \
+    dbus \
+    dpkg \
+    fakeroot \
+    findutils \
+    gcc \
+    gcc-c++ \
+    gcc-plugin-annobin \
+    git \
+    gtk3 \
+    krb5-devel \
+    libxkbfile-devel \
+    libX11-devel \
+    libXScrnSaver \
+    libsecret-devel \
+    make \
+    mesa-libgbm \
+    nspr \
+    nss \
+    patch \
+    perl-Module-Build \
+    perl-CPAN \
+    pkgconfig \
+    python39 \
+    rpm-build \
+    rpm-sign \
+    vim \
+    xorg-x11-server-Xvfb \
+    xz
+
+RUN alternatives --set python3 /usr/bin/python3.9 && \
+    python3 --version && \
+    python3 -m pip install --upgrade pip
+
+RUN dnf module reset -y perl && \
+    dnf module enable -y perl:5.32 && \
+    dnf module install -y perl:5.32 --allowerasing && \
+    perl --version && \
+    (echo y;echo o conf prerequisites_policy follow;echo o conf commit)|cpan && \
+    perl -MCPAN -e 'CPAN::Shell->notest("install", "GUILLEM/Dpkg-1.21.22.tar.gz")'

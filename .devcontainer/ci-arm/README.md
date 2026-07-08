@@ -25,11 +25,17 @@ One-time setup:
    docker login ghcr.io -u <your_github_username>   # password = a GitHub PAT with read:packages
    ```
 
-3. Install the **[Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
-   extension in **VS Code** - it's what opens the container. The lab's own extensions (Task Buttons,
-   Playwright, etc) install automatically inside the container.
+3. Install the **[Dev Containers](https://vscode.dev/redirect?url=vscode%3Aextension%2Fms-vscode-remote.remote-containers)**
+   extension in **VS Code** (click the link to open straight to its install page) - it's what opens
+   the container. The lab's own extensions (Task Buttons, Playwright, etc) install automatically
+   inside the container.
 
 ## Setup
+
+Do this once per machine -- the lab worktree is meant to be long-lived. Check `git worktree list`
+first; if one already exists, reuse it ([User Workflows](#user-workflows-vs-code-ui) covers reopening)
+instead of creating a second one, which silently shares rather than isolates build state with the
+first (see the [Gotchas](#gotchas) entry on this).
 
 ### 1. Create the worktree
 
@@ -66,7 +72,13 @@ Then open the **Doctor** (status-bar button) to confirm everything's up.
 
 That's it - you have a working CI lab.
 
-## Common Workflows
+## Workflows
+
+Two audiences, two subsections below: a human driving VS Code's Dev Containers UI, or an agent (e.g.
+Claude Code) driving the same stack headlessly over `docker compose` / `docker exec`. Both need
+[Setup](#setup) done first.
+
+### User Workflows (VS Code UI)
 
 | To... | Do this |
 |---|---|
@@ -82,12 +94,12 @@ That's it - you have a working CI lab.
 > Keep the **Doctor** open: a live dashboard of build/service status, ports, and URLs. If a check
 > fails, it tells you which task fixes it.
 
-### Editing and the Watch task
+#### Editing and the Watch task
 
 The **Watch** task incrementally recompiles `src/` to `out/` on save. Start it when you're editing
 Positron's source; you don't need it to run or test the existing build. Dependency changes (for example, a new package-lock.json) require Reinstall deps (or Reinstall e2e deps) or Rebuild instead; the **Doctor** flags this.
 
-### Run Positron itself
+#### Run Positron itself
 Click these task buttons to run Positron:
 * **Server (Web)** - a licensed server at `http://localhost:8080/?tkn=dev-token` (browser).
 * **Desktop (Electron)** - the desktop app on the headless display; view via VNC.
@@ -96,20 +108,20 @@ Both run detached and restart cleanly on re-click; their URLs show in the Doctor
 tail their output (`/tmp/positron-{server,electron}.log`, inside the container). **Stop** shuts both
 down (and the report), leaving core services up.
 
-### Run tests
+#### Run tests
 
 Click the run icon in the gutter on any spec (if it's missing, check the selected Playwright project), or
 from the terminal: `npx playwright test --project e2e-electron --grep @:search`.
 
 Headed runs (`e2e-electron` and `e2e-chromium`) render on the headless display. Open the noVNC link in the **Doctor** to view it live. Use the **Report** task to serve the report at any time.
 
-### Test data (test-files)
+#### Test data (test-files)
 
 The e2e tests open files from `test/e2e/test-files` in the repo; the framework copies them into the
 test workspace on first run. To grab them up front for manual repro, run **Positron CI: Get QA
 content** - it's symlinked at `~/test-files`.
 
-### Debug
+#### Debug
 
 To debug **Positron's own source**, open the **Run and Debug** panel (`Cmd-Shift-D`), pick a profile,
 and run it. Set breakpoints in `src/` as usual; both run on the headless display, so view in VNC.
@@ -120,6 +132,137 @@ and run it. Set breakpoints in `src/` as usual; both run on the headless display
   the workbench frontend in Chromium. For web-only or `e2e-chromium` behavior.
 
 Debug **e2e tests** straight from the test files via the gutter run/debug icons, not a launch profile.
+
+### Claude Workflows (CLI-only, headless)
+
+Everything in [User Workflows](#user-workflows-vs-code-ui) assumes VS Code's Dev Containers UI. An
+agent (or any terminal-only workflow) can drive the same stack directly with `docker compose` +
+`docker exec`, once [Setup](#setup)'s steps 1-2 are done (worktree created, secrets added) -- the
+build itself can happen through this path too, no Dev Containers UI required.
+
+1. **Set the workspace env vars** (normally run by the `initializeCommand` hook):
+
+   ```bash
+   cd <worktree>/.devcontainer/ci-arm
+   ./initialize.sh   # writes POSITRON_WORKSPACE_PATH / POSITRON_GIT_COMMON_DIR into .env
+   ```
+
+2. **Point the worktree at the target branch** (skip this on a fresh worktree; it matters once the lab
+   is long-lived and reused across sessions). Don't assume the checked-out source matches whatever
+   you're currently investigating -- fetch and check out explicitly:
+
+   ```bash
+   cd <worktree>
+   git fetch origin <branch>
+   git checkout <branch>
+   ```
+
+   Switching branches can leave two things stale, both of which the Doctor's Build row already checks:
+
+   - **Dependencies.** Compare `package-lock.json`'s hash against the one recorded at the last install:
+
+     ```bash
+     docker compose exec test bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && [ \"\$(sha256sum package-lock.json | awk '{print \$1}')\" = \"\$(cat .build/.ci-arm-state/deps.sha 2>/dev/null)\" ] && echo OK || echo DRIFTED"
+     ```
+
+     A `DRIFTED` result means reinstall, via the same `reinstall-deps.sh` script the **Positron CI:
+     Reinstall deps** task calls:
+
+     ```bash
+     docker compose exec test bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/reinstall-deps.sh root"
+     ```
+
+     Repeat with `e2e` instead of `root` (**Positron CI: Reinstall e2e deps**) against
+     `test/e2e/package-lock.json` / `e2e-deps.sha` if the target branch also touched e2e's own deps.
+
+   - **Compiled output.** `out/` is bind-mounted and reflects whichever branch was last built here, so
+     recompile after switching:
+
+     ```bash
+     docker compose exec -d test bash -lc \
+       "cd \$POSITRON_WORKSPACE_PATH && npm exec -- npm-run-all --max_old_space_size=4095 -lp compile > /tmp/compile.log 2>&1"
+     ```
+
+     This is incremental -- the same thing the **Watch** task does -- so it's much faster than the
+     first-time build in step 5 below.
+
+3. **Bring up the stack.** `initialize.sh` (step 1) pins `COMPOSE_PROJECT_NAME` to this checkout's own
+   directory name, so its containers/volumes never collide with another checkout's -- the remaining
+   steps use `docker compose exec <service>` instead of a hardcoded container name, so they resolve
+   correctly regardless of what that project name is:
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. **Check whether the build is cold, warm, or hot** before doing anything else -- don't assume:
+
+   ```bash
+   docker compose exec test bash -lc \
+     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo WARM_OR_HOT || echo COLD"
+   ```
+
+   - **COLD** (fresh worktree, or after `reset.sh`): no `node_modules`/`.build` yet -> run the
+     first-time build (step 5) before anything else.
+   - **WARM** (built before, containers just recreated by step 3): skip straight to step 6.
+   - **HOT** (containers were already running, e.g. from an earlier session): skip both step 5 and 6's
+     `post-start.sh` call and go straight to step 7.
+
+   If step 7 fails with a `Cannot find module` or missing `out/main.js` error despite a "warm"
+   reading, treat it as effectively cold: rerun step 2's dependency-drift check and compile command,
+   or fall back to step 5.
+
+5. **First-time build only.** This mirrors `post-create.sh`'s dep install / compile / Electron build /
+   Playwright install / license setup -- the same script Dev Containers runs, just invoked directly.
+   It takes roughly 10 minutes and is not something to block a foreground shell on:
+
+   ```bash
+   docker compose exec -d test bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-create.sh > /tmp/post-create.log 2>&1"
+   ```
+
+   `-d` detaches immediately, so this returns right away instead of holding the shell for
+   10 minutes. Poll for completion instead of guessing at a fixed sleep -- check every minute or two,
+   not continuously, and read the log on failure:
+
+   ```bash
+   docker compose exec test bash -lc \
+     "test -f \$POSITRON_WORKSPACE_PATH/.build/.ci-arm-state/complete && echo DONE || tail -5 /tmp/post-create.log"
+   ```
+
+   The marker file (`.build/.ci-arm-state/complete`, written by `mark-build-state.sh`) is the same
+   completion signal step 4 checks -- once it's there, move on to step 6.
+
+6. **Per-start setup** (display, VNC, postgres reachability -- idempotent, safe to always run except
+   on an already-HOT container):
+
+   ```bash
+   docker compose exec test bash -lc "cd \$POSITRON_WORKSPACE_PATH && ./.devcontainer/ci-arm/post-start.sh"
+   ```
+
+7. **Run a test directly**, e.g. a single e2e spec:
+
+   ```bash
+   docker compose exec -e DISPLAY=:10 test bash -lc \
+     "cd \$POSITRON_WORKSPACE_PATH && npx playwright test test/e2e/tests/search/search.test.ts --project e2e-electron"
+   ```
+
+   All `docker compose` commands above must run from `<worktree>/.devcontainer/ci-arm` (step 1's
+   directory) so Compose finds the right project's `docker-compose.yml` and `.env`.
+
+Gotchas specific to this path:
+
+- **No `containerEnv` injection.** Values from `devcontainer.json`'s `containerEnv` block (interpreter
+  versions like `POSITRON_PY_VER_SEL`) are applied by the Dev Containers extension, not by plain
+  `docker compose`. Tests that depend on a specific interpreter version need those exported
+  explicitly (`docker compose exec -e POSITRON_PY_VER_SEL=... ...`).
+- **Don't skip the cold/warm/hot check.** Running `post-create.sh` on an already-built container just
+  wastes ~10 minutes (it's idempotent-safe but not idempotent-fast); skipping it on a truly cold
+  container fails every later step with confusing missing-module errors instead of one clear one.
+- **No `devcontainer` CLI required** -- this is plain `docker compose`, useful since the CLI isn't
+  installed by default on the host.
 
 ## Reference
 
@@ -235,20 +378,42 @@ It removes this project's dev container, its data volumes (root + e2e + remote `
 
 ### Gotchas
 
-- **Blank/white VNC window** means a stuck Electron instance. The Launch task auto-clears it now, so
-  just re-launch. If it persists, the build may not be ready (run the Doctor) or check the desktop
-  log.
+- **Blank/white VNC window** means a stuck Electron instance. The **Desktop** task auto-clears it
+  now, so just re-launch it. If it persists, the build may not be ready (run the Doctor) or check the
+  desktop log.
 - **`npm ci` may leave files staged in your worktree.** Positron's postinstall runs
   `git add --renormalize`, which stages line-ending changes in your bind-mounted index. It's
   harmless: `git restore --staged .`.
 - **Python/R interpreters dead after building one checkout both ways** - wrong-OS `pet`/`ark`/`kcserver`
   (see [Don't mix container and native builds](#dont-mix-container-and-native-builds)). The Doctor's
   **Interpreters** row flags this; run **Positron CI: Reinstall interpreters** to restore the Linux
-  binaries. (`out/` is shared too; recompile after switching.)
-- **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under the
-  running Watch/Positron/debug mid-session. Either switch before opening, or after the checkout
-  reload the window and let **Watch** recompile (restart any running Positron/debug).
-- **One dev container per checkout** at a time.
+  binaries.
+- **Switching branches:** the source is bind-mounted, so a `git checkout` changes files under any
+  running Watch/Positron/debug mid-session. Three ways to switch, cleanest first:
+  - **Recommended -- switch before opening.** From local VS Code (**Reopen Folder Locally**),
+    `git checkout` the target branch, then **Reopen in Container**. Nothing is running over the
+    files as they change.
+  - **Mid-session (messier).** `git checkout` in the open container, then reload the window and let
+    **Watch** recompile (restart any running Positron/debug). Note Watch recompiles but does *not*
+    check dependency drift -- rely on the Doctor's **Build** row to flag stale deps.
+  - **Headless.** [Claude Workflows](#claude-workflows-cli-only-headless)'s step 2 does the same
+    thing over the CLI, including the dependency-drift check Watch doesn't handle.
+
+  Whichever path you take, keep the **Doctor** open: its Build and Interpreters rows tell you what
+  went stale and which task fixes it.
+- **Each checkout gets its own containers automatically -- but only once `initialize.sh` has run for
+  it.** Compose's project name defaults to the directory *basename* holding `docker-compose.yml`,
+  which is `ci-arm` for every checkout of this repo (they all have the same `.devcontainer/ci-arm`
+  layout); without a fix, two checkouts would silently share one set of containers and volumes
+  instead of erroring. `initialize.sh` (Setup step 3 / CLI-only step 1) closes this by pinning
+  `COMPOSE_PROJECT_NAME` to the checkout's own directory name, so `docker compose up -d` always
+  creates that checkout's own containers. The one sharp edge: a checkout whose `.env` predates this
+  fix (no `COMPOSE_PROJECT_NAME` line) still defaults to the shared `ci-arm` name until
+  `initialize.sh` runs again -- which happens automatically on the next **Reopen in Container**, but
+  not mid-session. If you ever see a `postCreateCommand`/`postStartCommand` fail with a script "not
+  found" despite the file clearly being there, or a build behaving like it belongs to a different
+  branch, suspect a stale shared container from another checkout: `docker compose down` from the
+  checkout you're trying to use, then bring the stack back up.
 - **The Ports panel fills up** (30-40 entries). Positron auto-forwards many internal `127.0.0.1`
   ports (extension hosts, language servers, kernels); only the four labeled ones
   (8080/9323/6080/5900) matter. Run **Remote: Close Unused Ports** to declutter.
