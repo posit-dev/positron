@@ -259,3 +259,38 @@ find_unmapped_positron_dirs() {
 	[[ ${#out[@]} -eq 0 ]] && return 0
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
+
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web>
+# Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
+# code by precedence: required -> body -> files -> ark -> test-win -> test-web ->
+# auto. Booleans are the strings "true"/"false". Echoes comma-separated
+# "<tag>|<code>" pairs in <final_csv> order; empty final list echoes nothing.
+# Pure: presentation of an already-decided tag set, no gh / $GITHUB_OUTPUT.
+build_tag_reasons() {
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6"
+	local tag code author_nl map_nl
+	local -a out=()
+	author_nl="${author//,/$'\n'}"
+	map_nl="${map//,/$'\n'}"
+	while IFS= read -r tag; do
+		[[ -z "$tag" ]] && continue
+		if [[ "$tag" == "@:critical" ]]; then
+			code="required"
+		elif printf '%s\n' "$author_nl" | grep -qxF "$tag"; then
+			code="body"
+		elif printf '%s\n' "$map_nl" | grep -qxF "$tag"; then
+			code="files"
+		elif [[ "$tag" == "@:ark" && "$ark" == "true" ]]; then
+			code="ark"
+		elif [[ "$tag" == "@:win" && "$added_win" == "true" ]]; then
+			code="test-win"
+		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
+			code="test-web"
+		else
+			code="auto"
+		fi
+		out+=("$tag|$code")
+	done < <(printf '%s\n' "${final//,/$'\n'}")
+	[[ ${#out[@]} -eq 0 ]] && return 0
+	printf '%s\n' "${out[@]}" | paste -sd, -
+}

@@ -610,5 +610,28 @@ else
 fi
 rm -rf "$APPLY_DIR"
 
+# --- build_tag_reasons ---
+assert_eq "reasons: critical is required" "@:critical|required" \
+	"$(build_tag_reasons "@:critical" "" "" "false" "false" "false")"
+assert_eq "reasons: author tag is body" "@:critical|required,@:quarto|body" \
+	"$(build_tag_reasons "@:critical,@:quarto" "@:quarto" "" "false" "false" "false")"
+assert_eq "reasons: map tag is files" "@:critical|required,@:console|files" \
+	"$(build_tag_reasons "@:critical,@:console" "" "@:console" "false" "false" "false")"
+# Author + map overlap: explicit author intent (body) wins over files.
+assert_eq "reasons: author+map overlap prefers body" "@:critical|required,@:console|body" \
+	"$(build_tag_reasons "@:critical,@:console" "@:console" "@:console" "false" "false" "false")"
+assert_eq "reasons: ark injection" "@:critical|required,@:ark|ark" \
+	"$(build_tag_reasons "@:critical,@:ark" "" "" "true" "false" "false")"
+# @:win typed in the body reads as body, not test-win.
+assert_eq "reasons: author-typed win is body" "@:critical|required,@:win|body" \
+	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "false" "true" "false")"
+# @:win added only by the test scan reads as test-win.
+assert_eq "reasons: scan-added win is test-win" "@:critical|required,@:win|test-win" \
+	"$(build_tag_reasons "@:critical,@:win" "" "" "false" "true" "false")"
+assert_eq "reasons: scan-added web is test-web" "@:critical|required,@:web|test-web" \
+	"$(build_tag_reasons "@:critical,@:web" "" "" "false" "false" "true")"
+assert_eq "reasons: empty final yields nothing" "" \
+	"$(build_tag_reasons "" "" "" "false" "false" "false")"
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
