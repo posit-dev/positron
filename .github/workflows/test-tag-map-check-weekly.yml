@@ -110,10 +110,13 @@ jobs:
             ATTENTION=$(printf '\n\n**:warning: Still needs attention**\n\n- %s' "$ATTN_ITEM")
           fi
           BODY=$(printf '### Summary\n\nThis PR removes stale entries found by the [weekly test tag audit](%s).\n\n**:white_check_mark: Removed**\n\n%s%s\n\n--\n_This PR is auto-managed by the weekly test tag map check; the body may be overwritten on subsequent runs._' "$RUN_URL" "$REMOVED" "$ATTENTION")
+          # Randomized delimiter so a body line can't accidentally match it and
+          # truncate the multiline output.
+          DELIM="PR_BODY_EOF_$(openssl rand -hex 8)"
           {
-            echo "body<<PR_BODY_EOF"
+            echo "body<<$DELIM"
             printf '%s\n' "$BODY"
-            echo "PR_BODY_EOF"
+            echo "$DELIM"
           } >> "$GITHUB_OUTPUT"
 
       - name: Commit and sync PR

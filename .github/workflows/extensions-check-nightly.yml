@@ -253,10 +253,13 @@ jobs:
 
           _This PR is auto-managed by the nightly bootstrap-extensions workflow; the title and body may be overwritten on subsequent runs._"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          # Randomized delimiter so a body line can't accidentally match it and
+          # truncate the multiline output.
+          DELIM="PR_BODY_EOF_$(openssl rand -hex 8)"
           {
-            echo "body<<PR_BODY_EOF"
+            echo "body<<$DELIM"
             printf '%s\n' "$BODY"
-            echo "PR_BODY_EOF"
+            echo "$DELIM"
           } >> "$GITHUB_OUTPUT"
 
       - name: Commit and sync PR
