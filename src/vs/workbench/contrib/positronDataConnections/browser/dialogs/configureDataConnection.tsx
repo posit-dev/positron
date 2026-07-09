@@ -205,6 +205,11 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			canSelectFolders: false,
 			canSelectMany: false,
 			filters: getFileDialogFilters(parameter?.type === 'file' ? parameter.filters : undefined),
+			// The chosen path is passed to the driver as a plain string and opened on the extension
+			// host's file system, so restrict the picker to that file system. Without this, the
+			// web/remote quick-pick dialog offers a "Show Local" button whose browser-local files
+			// the driver could never open.
+			availableFileSystems: [defaultFilePath.scheme],
 		});
 
 		// If the user made a selection, set the field to the chosen path, formatted for the platform

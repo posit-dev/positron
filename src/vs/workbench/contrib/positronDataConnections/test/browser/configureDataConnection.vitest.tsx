@@ -95,6 +95,9 @@ describe('ConfigureDataConnection', () => {
 				{ name: 'DuckDB Files', extensions: ['duckdb', 'ddb'] },
 				{ name: 'All Files', extensions: ['*'] },
 			],
+			// Restricted to the extension host's file system (the default file path's scheme) so
+			// the web/remote picker never offers browser-local files the driver cannot open.
+			availableFileSystems: ['file'],
 		}));
 	});
 
