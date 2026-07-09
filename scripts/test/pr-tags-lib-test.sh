@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" "${DERIVE_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -693,6 +693,153 @@ if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
 else
 	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
 fi
+
+# --- derive-test-change-tags.mjs ---
+DERIVE_SCRIPT="$HERE/../derive-test-change-tags.mjs"
+DERIVE_DIR="$(mktemp -d)"
+
+# A trimmed-down stand-in for `playwright test --list --project e2e-electron
+# --reporter=json`'s shape: top-level suites keyed by file, nested describe
+# suites (each ALSO carrying its own "file" field, redundant with the parent
+# but present in every real level -- verified against a real capture; the
+# script's collectSpecs relies on it, so a fixture missing it at the nested
+# level would silently produce zero matches), leaf specs with `tags` (each
+# WITH a leading colon, e.g. ":console", matching real playwright output; the
+# script re-adds "@" via `@${t}` so it must already be there) and a
+# `tests[].expectedStatus` field ("skipped" for anything under a static
+# .skip/.fixme).
+#
+# console-other.test.ts / editor-other.test.ts exist purely to make
+# @:console and @:editor's repo-wide costs (7 each) clearly higher than
+# @:viewer's and @:plots's (2 each) -- without that asymmetry, @:console vs
+# @:viewer (and @:editor vs @:plots) would tie on cost, and which one wins
+# would depend on brute-force mask iteration order rather than demonstrating
+# real minimization.
+cat > "$DERIVE_DIR/list.json" <<'JSON'
+{
+  "suites": [
+    {
+      "file": "tests/viewer/viewer.test.ts",
+      "suites": [
+        {
+          "file": "tests/viewer/viewer.test.ts",
+          "specs": [
+            { "title": "Python - opens", "tags": [":viewer", ":console"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "R - opens", "tags": [":viewer", ":console", ":web"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/plots/plots.test.ts",
+      "suites": [
+        {
+          "file": "tests/plots/plots.test.ts",
+          "specs": [
+            { "title": "Python plot", "tags": [":plots", ":editor"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "R plot", "tags": [":plots", ":editor", ":ark"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/console/console-untagged.test.ts",
+      "suites": [
+        {
+          "file": "tests/console/console-untagged.test.ts",
+          "specs": [
+            { "title": "no tags here", "tags": [], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/console/console-skipped.test.ts",
+      "suites": [
+        {
+          "file": "tests/console/console-skipped.test.ts",
+          "specs": [
+            { "title": "statically skipped", "tags": [":console"], "tests": [{ "expectedStatus": "skipped" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/console/console-other.test.ts",
+      "suites": [
+        {
+          "file": "tests/console/console-other.test.ts",
+          "specs": [
+            { "title": "other console test 0", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other console test 1", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other console test 2", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other console test 3", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other console test 4", "tags": [":console"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/editor/editor-other.test.ts",
+      "suites": [
+        {
+          "file": "tests/editor/editor-other.test.ts",
+          "specs": [
+            { "title": "other editor test 0", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other editor test 1", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other editor test 2", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other editor test 3", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "other editor test 4", "tags": [":editor"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    }
+  ]
+}
+JSON
+
+changed_file() { printf '%s\n' "$1" > "$DERIVE_DIR/changed.txt"; }
+
+changed_file "test/e2e/tests/viewer/viewer.test.ts"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "touched file, nothing selected yet: picks the cheaper of its own tags" "@:viewer" "$OUT"
+
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "@:console" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "touched file already covered by an existing tag: nothing to add" "" "$OUT"
+
+printf '%s\n%s\n' "test/e2e/tests/viewer/viewer.test.ts" "test/e2e/tests/plots/plots.test.ts" > "$DERIVE_DIR/changed-two.txt"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed-two.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "two touched files, no shared tag: picks one cheap tag per file" "$(printf '@:plots\n@:viewer')" "$OUT"
+
+changed_file "test/e2e/tests/console/console-untagged.test.ts"
+WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json" 2>&1 1>/dev/null)"
+if printf '%s' "$WARN_OUT" | grep -qF "no declared tags"; then
+	echo "PASS: untagged touched test warns on stderr"
+else
+	echo "FAIL: untagged touched test should warn on stderr"; fail=1
+fi
+STDOUT_ONLY="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json" 2>/dev/null)"
+assert_eq "untagged touched test: nothing added to stdout" "" "$STDOUT_ONLY"
+
+changed_file "test/e2e/tests/console/console-skipped.test.ts"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "statically-skipped touched test: nothing to add" "" "$OUT"
+
+changed_file "test/e2e/tests/nonexistent/deleted.test.ts"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "touched file not in the listing (e.g. deleted): no-op" "" "$OUT"
+
+: > "$DERIVE_DIR/empty-changed.txt"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/empty-changed.txt" --selected-tags "@:critical" --list-json "$DERIVE_DIR/list.json")"
+assert_eq "no changed e2e test files: no-op" "" "$OUT"
+
+if node "$DERIVE_SCRIPT" --selected-tags "" --list-json "$DERIVE_DIR/list.json" >/dev/null 2>&1; then
+	echo "FAIL: script should require --changed-files"; fail=1
+else
+	echo "PASS: script fails loudly when --changed-files is missing"
+fi
+
+rm -rf "$DERIVE_DIR"
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail
