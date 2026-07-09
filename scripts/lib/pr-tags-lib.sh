@@ -260,18 +260,21 @@ find_unmapped_positron_dirs() {
 	printf '%s\n' "${out[@]}" | awk 'NF && !seen[$0]++'
 }
 
-# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web>
+# build_tag_reasons <final_csv> <author_csv> <map_csv> <ark> <added_win> <added_web> [<test_change_csv>]
 # Assigns each tag in <final_csv> (comma-separated, order-stable) a single source
 # code by precedence: required -> body -> files -> ark -> test-win -> test-web ->
-# auto. Booleans are the strings "true"/"false". Echoes comma-separated
-# "<tag>|<code>" pairs in <final_csv> order; empty final list echoes nothing.
-# Pure: presentation of an already-decided tag set, no gh / $GITHUB_OUTPUT.
+# test-changed -> auto. Booleans are the strings "true"/"false". Echoes
+# comma-separated "<tag>|<code>" pairs in <final_csv> order; empty final list
+# echoes nothing. <test_change_csv> defaults to empty (older 6-arg callers keep
+# working; those tags just fall through to "auto"). Pure: presentation of an
+# already-decided tag set, no gh / $GITHUB_OUTPUT.
 build_tag_reasons() {
-	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6"
-	local tag code author_nl map_nl
+	local final="$1" author="$2" map="$3" ark="$4" added_win="$5" added_web="$6" test_change="${7:-}"
+	local tag code author_nl map_nl test_change_nl
 	local -a out=()
 	author_nl="${author//,/$'\n'}"
 	map_nl="${map//,/$'\n'}"
+	test_change_nl="${test_change//,/$'\n'}"
 	while IFS= read -r tag; do
 		[[ -z "$tag" ]] && continue
 		if [[ "$tag" == "@:critical" ]]; then
@@ -286,6 +289,8 @@ build_tag_reasons() {
 			code="test-win"
 		elif [[ "$tag" == "@:web" && "$added_web" == "true" ]]; then
 			code="test-web"
+		elif printf '%s\n' "$test_change_nl" | grep -qxF "$tag"; then
+			code="test-changed"
 		else
 			code="auto"
 		fi
@@ -319,6 +324,7 @@ render_why_these_tags() {
 			ark)      label="Ark submodule bump" ;;
 			test-win) label="New test (tags.WIN)" ;;
 			test-web) label="New test (tags.WEB)" ;;
+			test-changed) label="Touched test file" ;;
 			*)        label="Auto-selected" ;;
 		esac
 		rows="${rows}| \`${tag}\` | ${label} |"$'\n'

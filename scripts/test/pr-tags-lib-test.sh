@@ -635,6 +635,12 @@ assert_eq "reasons: empty final yields nothing" "" \
 # A tag matching no source falls through to the defensive "auto" fallback.
 assert_eq "reasons: unattributed tag falls back to auto" "@:critical|required,@:mystery|auto" \
 	"$(build_tag_reasons "@:critical,@:mystery" "" "" "false" "false" "false")"
+assert_eq "reasons: test-change-derived tag is test-changed" "@:critical|required,@:viewer|test-changed" \
+	"$(build_tag_reasons "@:critical,@:viewer" "" "" "false" "false" "false" "@:viewer")"
+# A tag that's both map-derived AND test-change-derived: files (the earlier
+# source) wins, since it was already selected before the test-change step ran.
+assert_eq "reasons: map+test-change overlap prefers files" "@:critical|required,@:console|files" \
+	"$(build_tag_reasons "@:critical,@:console" "" "@:console" "false" "false" "false" "@:console")"
 
 # --- render_why_these_tags ---
 assert_eq "render: critical-only is not informative (empty)" "" \
@@ -692,6 +698,12 @@ if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
 	echo "PASS: render labels the test-web arm"
 else
 	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
+fi
+TESTCHANGE_OUT="$(render_why_these_tags "@:critical|required,@:viewer|test-changed")"
+if printf '%s' "$TESTCHANGE_OUT" | grep -qF '| `@:viewer` | Touched test file |'; then
+	echo "PASS: render labels the test-changed arm"
+else
+	echo "FAIL: render should label @:viewer as Touched test file"; fail=1
 fi
 
 # --- derive-test-change-tags.mjs ---
