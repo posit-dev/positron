@@ -13,7 +13,7 @@ import { ILogService, NullLogger } from '../../../../../platform/log/common/log.
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
+import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
 
 /**
  * Shared metadata fields for test stubs. Both tests use the same base shape;
@@ -38,6 +38,16 @@ function makeTestMetadata(overrides: Partial<ILanguageRuntimeMetadata>): ILangua
 		...overrides,
 	});
 }
+
+describe('getRuntimeDisplayPath', () => {
+	it('returns runtimeDisplayPath when set', () => {
+		expect(getRuntimeDisplayPath({ runtimePath: '/abs/path/R', runtimeDisplayPath: '~/bin/R' })).toBe('~/bin/R');
+	});
+
+	it('falls back to runtimePath when runtimeDisplayPath is undefined', () => {
+		expect(getRuntimeDisplayPath({ runtimePath: '/abs/path/R', runtimeDisplayPath: undefined })).toBe('/abs/path/R');
+	});
+});
 
 describe('Positron - LanguageRuntimeService', () => {
 	describe('default configuration', () => {
