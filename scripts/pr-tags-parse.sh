@@ -204,9 +204,19 @@ else
 		if [[ -n "$CHANGED_FILES" && -f "$DERIVE_TEST_CHANGE_SCRIPT" ]]; then
 			CHANGED_FILES_FILE="$(mktemp)"
 			printf '%s\n' "$CHANGED_FILES" > "$CHANGED_FILES_FILE"
-			TEST_CHANGE_TAGS="$(node "$DERIVE_TEST_CHANGE_SCRIPT" \
+			# Assignment is the `if` condition (not piped through `paste`) so a
+			# non-zero node exit is visible here -- under `set -e` with no
+			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed
+			# because `paste`'s exit status (always 0) masks node's failure.
+			if TEST_CHANGE_TAGS_RAW="$(node "$DERIVE_TEST_CHANGE_SCRIPT" \
 				--changed-files "$CHANGED_FILES_FILE" \
-				--selected-tags "$TAGS" | paste -sd, -)"
+				--selected-tags "$TAGS")"; then
+				TEST_CHANGE_TAGS="$(printf '%s' "$TEST_CHANGE_TAGS_RAW" | paste -sd, -)"
+			else
+				TEST_CHANGE_STATUS=$?
+				echo "Warning: derive-test-change-tags.mjs failed (exit $TEST_CHANGE_STATUS); skipping test-change tag derivation."
+				TEST_CHANGE_TAGS=""
+			fi
 			rm -f "$CHANGED_FILES_FILE"
 			if [[ -n "$TEST_CHANGE_TAGS" ]]; then
 				echo "Derived tags from changed e2e test files: $TEST_CHANGE_TAGS"

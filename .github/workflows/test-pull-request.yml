@@ -35,10 +35,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # Cheap pre-check so the Node setup + Playwright install below (needed
+      # only for derive-test-change-tags.mjs's `playwright test --list` call)
+      # run just for the PRs that actually touch e2e test files -- most PRs
+      # don't, and there's nothing for that script to derive otherwise.
+      - name: Check for e2e test file changes
+        id: e2e-test-changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          CHANGED_FILES=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${GITHUB_EVENT_PULL_REQUEST_NUMBER}/files" --paginate \
+            --header "Authorization: token ${GITHUB_TOKEN}" \
+            --jq '.[].filename' || true)
+          if echo "$CHANGED_FILES" | grep -qE '^test/e2e/tests/.*\.test\.ts$'; then
+            echo "PR touches e2e test files. Running e2e test-change tag derivation setup."
+            echo "has_e2e_test_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PR does not touch e2e test files. Skipping e2e test-change tag derivation setup."
+            echo "has_e2e_test_changes=false" >> "$GITHUB_OUTPUT"
+          fi
       # Needed for derive-test-change-tags.mjs's `playwright test --list` call
       # below (Task 2). Pinned via .nvmrc rather than relying on whatever
       # ubuntu-latest ships with.
       - name: Set up Node
+        if: steps.e2e-test-changes.outputs.has_e2e_test_changes == 'true'
         uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
@@ -48,6 +70,7 @@ jobs:
       # tests. See the design doc's "pr-tags job needs a new install step"
       # addendum for why both installs are necessary.
       - name: Install minimal Playwright + e2e test deps for test listing
+        if: steps.e2e-test-changes.outputs.has_e2e_test_changes == 'true'
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: |
