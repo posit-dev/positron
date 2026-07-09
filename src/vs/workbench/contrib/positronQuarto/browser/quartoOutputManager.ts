@@ -858,9 +858,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					if (!viewZone) {
 						viewZone = this._createViewZone(cell.id);
 						if (viewZone) {
-							// Cache-restored outputs are from a previous
-							// session; suppress Fix/Explain buttons.
-							viewZone.setFromCurrentSession(false);
 							this._viewZones.set(cell.id, viewZone);
 						}
 					}
@@ -907,9 +904,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				if (!viewZone) {
 					viewZone = this._createViewZone(cellId);
 					if (viewZone) {
-						// Suppress Fix/Explain on restored outputs; buttons
-						// should only appear on freshly-executed errors.
-						viewZone.setFromCurrentSession(false);
 						this._viewZones.set(cellId, viewZone);
 					}
 				}
@@ -983,8 +977,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._viewZones.set(cellId, viewZone);
 		}
 
-		// Provide cell context for quick-fix buttons (code, language, location)
-		viewZone.setCellContext(this._resolveCellContext(cellId));
+		// Enable quick-fix buttons with cell context (code, language, location)
+		viewZone.enableQuickFix(this._resolveCellContext(cellId));
 
 		// Add output to view zone
 		viewZone.addOutput(output);

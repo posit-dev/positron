@@ -354,9 +354,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
 	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
 
-	// Quick-fix support for error outputs
+	// Quick-fix support for error outputs (suppressed by default; the live
+	// execution path calls enableQuickFix() to opt in).
+	private _quickFixEnabled = false;
 	private _cellContext: QuartoCellErrorContext | undefined;
-	private _fromCurrentSession = true;
 	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
@@ -1032,18 +1033,13 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Set cell context for quick-fix buttons (code, language, location).
+	 * Enable Fix/Explain quick-fix buttons for error outputs in this view
+	 * zone. Only the live execution path calls this; restore paths leave
+	 * the default (suppressed) so stale errors don't show buttons.
 	 */
-	setCellContext(context: QuartoCellErrorContext | undefined): void {
+	enableQuickFix(context?: QuartoCellErrorContext): void {
+		this._quickFixEnabled = true;
 		this._cellContext = context;
-	}
-
-	/**
-	 * Set whether outputs in this view zone are from the current window
-	 * session. Quick-fix buttons are suppressed on cache-restored errors.
-	 */
-	setFromCurrentSession(value: boolean): void {
-		this._fromCurrentSession = value;
 	}
 
 	/**
@@ -2588,7 +2584,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Mount Fix/Explain quick-fix buttons for current-session errors.
 		// QuartoOutputQuickFix self-gates on assistant availability and
 		// renders nothing when the assistant is unavailable.
-		if (this._fromCurrentSession) {
+		if (this._quickFixEnabled) {
 			const quickFixContainer = document.createElement('div');
 			quickFixContainer.setAttribute('aria-live', 'off');
 			container.appendChild(quickFixContainer);
