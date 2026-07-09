@@ -175,46 +175,69 @@ else
 	SCRIPT_DIR="$(dirname "$0")"
 	MAP_FILE="$SCRIPT_DIR/../.github/workflows/test-tag-paths-map.json"
 
-	# Auto-inject feature tags derived from the PR's changed SOURCE files, unless
-	# the author opted out with @:no-auto-tags. Additive only -- never removes
-	# tags the author specified. Derivation is scoped to the source/extension
-	# PATH map: it targets the population that under-tags (devs fixing code who
-	# may not know which e2e suite covers it). Test-file changes are NOT
-	# auto-tagged -- those are almost always authored by QA, who tag deliberately,
-	# and deriving every feature tag off a multi-tagged test file over-selected
-	# whole sibling suites for no coverage gain on the impacted test.
+	# Auto-inject feature tags derived from the PR's changed files, unless the
+	# author opted out with @:no-auto-tags -- which now suppresses every
+	# derivation source uniformly (including the WIN/WEB scan below, which used
+	# to run unconditionally): authors need one total escape hatch to override
+	# auto-tagging at any time, not one exception carved out of it. Additive
+	# only -- never removes tags the author specified.
+	TEST_CHANGE_TAGS=""
 	if echo "$PR_BODY" | grep -q "@:no-auto-tags"; then
 		echo "Found @:no-auto-tags. Skipping derived tagging."
-	elif [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
-		MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
-		if [[ -n "$MAP_TAGS" ]]; then
-			echo "Derived tags from changed source files: $MAP_TAGS"
-			TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
+	else
+		# Source/extension PATH changes -> feature tags. Scoped to the
+		# source/extension PATH map: it targets the population that
+		# under-tags (devs fixing code who may not know which e2e suite
+		# covers it).
+		if [[ -n "$CHANGED_FILES" && -f "$MAP_FILE" ]]; then
+			MAP_TAGS="$(derive_map_tags "$CHANGED_FILES" "$MAP_FILE")"
+			if [[ -n "$MAP_TAGS" ]]; then
+				echo "Derived tags from changed source files: $MAP_TAGS"
+				TAGS="$(union_csv_tags "$TAGS" "$MAP_TAGS")"
+			fi
 		fi
-	fi
 
-	# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
-	# Runs regardless of @:no-auto-tags. Also add @:win/@:web to TAGS so the PR
-	# comment explains why those jobs ran.
-	# @json-encode each file's patch so embedded newlines don't merge files
-	# together when read line by line -- see scan_added_platform_tags_across_files.
-	declare -a TEST_FILE_PATCHES=()
-	while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
-		[[ -z "$ENCODED_PATCH" ]] && continue
-		TEST_FILE_PATCHES+=("$(jq -r '.' <<< "$ENCODED_PATCH")")
-	done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
-		--header "Authorization: token $GITHUB_TOKEN" \
-		--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | (.patch // "") | @json' || true)
-	read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags_across_files "${TEST_FILE_PATCHES[@]}")"
-	if [[ "$ADDED_WIN" == "true" ]]; then
-		echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
-		echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
-		TAGS="$(union_csv_tags "$TAGS" "@:win")"
-	fi
-	if [[ "$ADDED_WEB" == "true" ]]; then
-		echo "Newly added e2e test carries tags.WEB. Enabling web tests."
-		echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
-		TAGS="$(union_csv_tags "$TAGS" "@:web")"
+		# Touched/added e2e TEST files -> the minimal tag(s) needed to
+		# guarantee they actually run, without over-selecting sibling
+		# suites. See derive-test-change-tags.mjs and the design doc.
+		DERIVE_TEST_CHANGE_SCRIPT="$SCRIPT_DIR/derive-test-change-tags.mjs"
+		if [[ -n "$CHANGED_FILES" && -f "$DERIVE_TEST_CHANGE_SCRIPT" ]]; then
+			CHANGED_FILES_FILE="$(mktemp)"
+			printf '%s\n' "$CHANGED_FILES" > "$CHANGED_FILES_FILE"
+			TEST_CHANGE_TAGS="$(node "$DERIVE_TEST_CHANGE_SCRIPT" \
+				--changed-files "$CHANGED_FILES_FILE" \
+				--selected-tags "$TAGS" | paste -sd, -)"
+			rm -f "$CHANGED_FILES_FILE"
+			if [[ -n "$TEST_CHANGE_TAGS" ]]; then
+				echo "Derived tags from changed e2e test files: $TEST_CHANGE_TAGS"
+				TAGS="$(union_csv_tags "$TAGS" "$TEST_CHANGE_TAGS")"
+			fi
+		fi
+
+		# Enable Windows/web jobs when a test genuinely adds tags.WIN/tags.WEB.
+		# Also add @:win/@:web to TAGS so the PR comment explains why those
+		# jobs ran.
+		# @json-encode each file's patch so embedded newlines don't merge
+		# files together when read line by line -- see
+		# scan_added_platform_tags_across_files.
+		declare -a TEST_FILE_PATCHES=()
+		while IFS= read -r ENCODED_PATCH || [[ -n "$ENCODED_PATCH" ]]; do
+			[[ -z "$ENCODED_PATCH" ]] && continue
+			TEST_FILE_PATCHES+=("$(jq -r '.' <<< "$ENCODED_PATCH")")
+		done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+			--header "Authorization: token $GITHUB_TOKEN" \
+			--jq '.[] | select(.filename | startswith("test/e2e/tests/")) | (.patch // "") | @json' || true)
+		read -r ADDED_WIN ADDED_WEB <<< "$(scan_added_platform_tags_across_files "${TEST_FILE_PATCHES[@]}")"
+		if [[ "$ADDED_WIN" == "true" ]]; then
+			echo "Newly added e2e test carries tags.WIN. Enabling Windows tests."
+			echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+			TAGS="$(union_csv_tags "$TAGS" "@:win")"
+		fi
+		if [[ "$ADDED_WEB" == "true" ]]; then
+			echo "Newly added e2e test carries tags.WEB. Enabling web tests."
+			echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+			TAGS="$(union_csv_tags "$TAGS" "@:web")"
+		fi
 	fi
 
 	# Output the tags
@@ -266,7 +289,7 @@ TAGS="$(union_csv_tags "$TAGS" "")"
 if [[ -z "$TAGS" ]]; then
 	TAG_REASONS="@:all|body"
 else
-	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB")"
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB" "$TEST_CHANGE_TAGS")"
 fi
 echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 
