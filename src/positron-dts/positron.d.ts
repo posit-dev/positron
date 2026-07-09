@@ -1116,6 +1116,20 @@ declare module 'positron' {
 		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional event that fires when a previously registered runtime
+		 * should be removed, carrying the `runtimeId` of the runtime to remove.
+		 *
+		 * Used to retract a runtime that a manager previously surfaced (via
+		 * `discoverAllRuntimes()` or `onDidDiscoverRuntime`) but that no longer
+		 * exists or has been superseded -- for example when the underlying
+		 * environment is deleted, or when de-duplication collapses several
+		 * aliases of one interpreter and the alias already registered is not the
+		 * survivor. Without this, such stale runtimes linger in the picker until
+		 * the window is reloaded.
+		 */
+		onDidRemoveRuntime?: vscode.Event<string>;
+
+		/**
 		 * An optional metadata validation function. If provided, Positron will
 		 * validate any stored metadata before attempting to use it to create a
 		 * new session. This happens when a workspace is re-opened, for example.

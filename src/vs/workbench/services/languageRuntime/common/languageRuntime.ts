@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -27,6 +27,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter =
 		this._register(new Emitter<ILanguageRuntimeMetadata>);
+
+	// The event emitter for the onDidUnregisterRuntime event.
+	private readonly _onDidUnregisterRuntimeEmitter =
+		this._register(new Emitter<string>);
 
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
@@ -74,6 +78,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
+
+	// An event that fires when a runtime is unregistered, carrying its runtimeId.
+	readonly onDidUnregisterRuntime = this._onDidUnregisterRuntimeEmitter.event;
 
 	/**
 	 * Event tracking the current startup phase.
@@ -134,7 +141,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
 
 		return this._register(toDisposable(() => {
-			this._registeredRuntimesByRuntimeId.delete(metadata.runtimeId);
+			this.unregisterRuntime(metadata.runtimeId);
 		}));
 	}
 
@@ -144,7 +151,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtimeId The runtime identifier of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void {
-		this._registeredRuntimesByRuntimeId.delete(runtimeId);
+		if (this._registeredRuntimesByRuntimeId.delete(runtimeId)) {
+			this._onDidUnregisterRuntimeEmitter.fire(runtimeId);
+		}
 	}
 
 	/**
