@@ -37,6 +37,8 @@
 		"vs/platform/telemetry/*",
 		"vs/platform/assignment/*",
 		"vs/platform/terminal/*",
-		"vs/platform/externalTerminal/*"
+		"vs/platform/externalTerminal/*",
+		"vs/base/browser/*.tsx", // <-- add
+		"vs/platform/*/browser/*.tsx" // <-- add (covers platform-level React helpers too)
 	]
 }

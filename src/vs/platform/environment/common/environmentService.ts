@@ -75,7 +75,7 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 			const key = toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '');
 			// --- Start PWB ---
 			// Change this.args.logsPath from userDataPath to XDG_STATE_HOME if available, otherwise use ~/.local/state for logs
-			const userStatePath = process.env['XDG_STATE_HOME'];
+			const userStatePath = env['XDG_STATE_HOME'];
 			const productName = this.productService.applicationName;
 			if (userStatePath) {
 				this.args.logsPath = join(userStatePath, productName, 'logs', key);
