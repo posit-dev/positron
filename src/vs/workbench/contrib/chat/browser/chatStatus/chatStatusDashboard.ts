@@ -124,6 +124,16 @@ export interface IChatStatusDashboardOptions {
 	/** When true, disables the completions snooze button. */
 	disableCompletionsSnooze?: boolean;
 
+	// --- Start Positron ---
+	/**
+	 * When true (completions-only mode: chat is hidden but inline completions
+	 * stay available), hides the chat-specific parts of the dashboard: the
+	 * contributed status items (e.g. the codebase semantic index) and the chat
+	 * setup / "Enable AI Features" block. The plan header, usage rows, and
+	 * inline-suggestion controls stay visible.
+	 */
+	disableChatSections?: boolean;
+	// --- End Positron ---
 }
 
 export class ChatStatusDashboard extends DomWidget {
@@ -263,7 +273,11 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Contributions
-		{
+		// --- Start Positron ---
+		// Skip contributed chat status items (e.g. the codebase semantic index) in
+		// completions-only mode; they are chat features.
+		if (!this.options?.disableChatSections) {
+			// --- End Positron ---
 			for (const item of this.chatStatusItemService.getEntries()) {
 				this.element.appendChild($('hr'));
 
@@ -287,7 +301,11 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// New to Chat / Signed out
-		{
+		// --- Start Positron ---
+		// Hide the chat setup / "Enable AI Features" block in completions-only mode;
+		// completions don't use the chat setup flow.
+		if (!this.options?.disableChatSections) {
+			// --- End Positron ---
 			const newUser = isNewUser(this.chatEntitlementService);
 			const anonymousUser = this.chatEntitlementService.anonymous;
 			const disabled = this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted;
@@ -348,12 +366,18 @@ export class ChatStatusDashboard extends DomWidget {
 			const resetLabel = resetDate ? (resetDateHasTime ? localize('quotaResetsAt', "Resets {0} at {1}", this.dateFormatter.value.format(new Date(resetDate)), this.timeFormatter.value.format(new Date(resetDate))) : localize('quotaResets', "Resets {0}", this.dateFormatter.value.format(new Date(resetDate)))) : undefined;
 
 			let chatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			if (chatQuota && !chatQuota.unlimited && chatQuota.total > 0) {
+			// --- Start Positron ---
+			// Hide the "Chat messages" quota row in completions-only mode (chat is hidden).
+			if (!this.options?.disableChatSections && chatQuota && !chatQuota.unlimited && chatQuota.total > 0) {
+				// --- End Positron ---
 				chatQuotaIndicator = this.createQuotaIndicator(container, this._store, chatQuota, localize('chatsLabel', "Chat messages"), false, resetLabel);
 			}
 
 			let premiumChatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			if (premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.total > 0) {
+			// --- Start Positron ---
+			// Hide the "Premium requests" quota row in completions-only mode (chat is hidden).
+			if (!this.options?.disableChatSections && premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.total > 0) {
+				// --- End Positron ---
 				const premiumChatLabel = premiumChatQuota.overageEnabled ? localize('includedPremiumChatsLabel', "Included premium requests") : localize('premiumChatsLabel', "Premium requests");
 				premiumChatQuotaIndicator = this.createQuotaIndicator(container, this._store, premiumChatQuota, premiumChatLabel, true, resetLabel);
 			}
@@ -389,7 +413,10 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Anonymous Indicator
-		else if (this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
+		// --- Start Positron ---
+		// Hide the anonymous "Chat messages" quota row in completions-only mode (chat is hidden).
+		else if (!this.options?.disableChatSections && this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
+			// --- End Positron ---
 			this.createQuotaIndicator(container, this._store, localize('quotaLimited', "Limited"), localize('chatsLabel', "Chat messages"), false);
 		}
 	}
