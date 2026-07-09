@@ -40,8 +40,8 @@ describe('QuartoOutputQuickFix', () => {
 	function renderQuickFix(cellContext?: QuartoCellErrorContext) {
 		return rtl.render(
 			<QuartoOutputQuickFix
-				errorContent='NameError: name "x" is not defined'
 				cellContext={cellContext}
+				errorContent='NameError: name "x" is not defined'
 			/>
 		);
 	}
