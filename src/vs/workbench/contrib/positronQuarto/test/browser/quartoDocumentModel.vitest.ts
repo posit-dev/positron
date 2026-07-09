@@ -626,27 +626,4 @@ x = 1
 	});
 
 
-	describe('findCellByPreviousId', () => {
-		// Two identical chunks: same content hash, different indices.
-		const content = `\`\`\`{python}
-x = 1
-\`\`\`
-
-\`\`\`{python}
-x = 1
-\`\`\`
-`;
-
-		it('prefers the instance at the old index for duplicate chunks', () => {
-			const model = createModel(content);
-			const second = model.cells[1];
-			expect(model.findCellByPreviousId(second.id, second.contentHash)?.index).toBe(1);
-		});
-
-		it('falls back to the first hash match when the ID has no index', () => {
-			const model = createModel(content);
-			const hash = model.cells[0].contentHash;
-			expect(model.findCellByPreviousId('bogus-id', hash)?.index).toBe(0);
-		});
-	});
 });

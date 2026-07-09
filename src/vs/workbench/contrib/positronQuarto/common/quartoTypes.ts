@@ -243,13 +243,6 @@ export interface IQuartoDocumentModel extends IDisposable {
 	 */
 	findCellByContentHash(hash: string, preferIndex?: number): QuartoCodeCell | undefined;
 
-	/**
-	 * Find the current cell behind a cell ID from an earlier parse. Cell IDs
-	 * embed the cell's index, so a cell added or removed above changes the ID
-	 * without changing the chunk; this matches by content hash, preferring
-	 * the instance at the old index when duplicate chunks share a hash.
-	 */
-	findCellByPreviousId(previousCellId: string, contentHash: string): QuartoCodeCell | undefined;
 
 	/**
 	 * Get code content for a cell.

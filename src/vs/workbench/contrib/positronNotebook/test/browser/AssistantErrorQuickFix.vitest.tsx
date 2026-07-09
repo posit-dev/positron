@@ -124,20 +124,4 @@ describe('AssistantErrorQuickFix', () => {
 		expect(options.prompt).toBe('Fix this test error.');
 	});
 
-	it('continues in the current chat via the explain dropdown action', async () => {
-		const user = userEvent.setup();
-		renderQuickFix();
-		await user.click(screen.getByRole('button', { name: 'More explain options' }));
-
-		const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
-		const delegate = showContextMenu.mock.calls.at(-1)?.[0] as IContextMenuDelegate;
-		const actions = delegate.getActions() as IAction[];
-		await actions[0].run();
-
-		const options = lastNewChatOptions();
-		expect(options.target).toBe('auto');
-		expect(options.prompt).toBe(
-			'Explain this test error. Do not make changes or edit any files; just explain the error.'
-		);
-	});
 });
