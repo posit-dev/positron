@@ -19,7 +19,7 @@ This repository contains Docker images used for Positron continuous integration 
 These Docker images provide consistent testing environments for Positron across different architectures. They include:
 
 - Build dependencies
-- Required installations or R and Python, including packages from qa-example-content
+- Required installations of R and Python, including packages used by the e2e test content (`test/e2e/test-files`)
 - Runtime test dependencies such as Quarto
 - The positron license server
 - Fluxbox and x11vnc for locally viewing running tests

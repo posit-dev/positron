@@ -146,8 +146,8 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN uv venv --python=3.10.12 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
-# Install qa-example-content deps into that Python 3.10.12 env
-RUN curl -O https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt && \
+# Install the e2e test-content Python deps into that Python 3.10.12 env
+RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
     uv pip install --python /root/.venv/bin/python --break-system-packages -r requirements.txt && \
     /root/.venv/bin/python -m pip list
 
@@ -179,8 +179,8 @@ RUN rig add 4.5.2 && rig default 4.5.2 && \
 # noble's PPM repo serves arm64 binaries as well as amd64, so both arches use it
 # and nothing has to compile from source. The image's runtime .Rprofile/RSPM
 # stays on `latest`.
-RUN git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
-    cd /tmp/qa-example-content && \
+RUN mkdir -p /tmp/test-content && cd /tmp/test-content && \
+    curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
     Rscript -e "options(repos=c(RSPM='https://packagemanager.posit.co/cran/__linux__/noble/${PPM_SNAPSHOT}'), pak.no_build_vignettes=TRUE, pkg.sysreqs=FALSE, pkg.install.extra=c('--no-multiarch')); \
     pak::local_install_dev_deps(ask=FALSE, dependencies=TRUE, lib=Sys.getenv('R_LIBS_SITE'))"
 

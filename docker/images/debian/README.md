@@ -18,4 +18,4 @@ The PostgreSQL database image is built from the shared [`../postgres/`](../postg
 This docker image is used in GitHub Actions workflows for testing Positron. This includes the PR, Merge, Full Suite, Release, and Extension Verification workflows.
 
 ## Local Development
-See the [Debian 12 Local ARM](https://github.com/posit-dev/qa-example-content/tree/main/dockerfiles/arm-local) for details.
+See the [Debian 12 Local ARM](../../environments/arm-local/) for details.
