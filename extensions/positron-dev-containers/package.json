@@ -570,7 +570,7 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "follow-redirects": "^1.15.6",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.0",
     "jsonc-parser": "^3.2.1",
     "ncp": "^2.0.0",
     "proxy-agent": "^6.5.0",
