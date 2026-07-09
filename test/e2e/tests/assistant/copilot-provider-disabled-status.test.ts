@@ -26,7 +26,7 @@ const STATUS_ITEM = '.statusbar-item[id="chat.statusBarEntry"]';
 // The disabled state renders the copilot-unavailable codicon; a stable, state-specific marker.
 const DISABLED_ICON = `${STATUS_ITEM} .codicon-copilot-unavailable`;
 
-test.describe('Assistant: Copilot status reflects the provider setting', { tag: [tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Assistant: Copilot status reflects the provider setting', { tag: [tags.ASSISTANT] }, () => {
 
 	test.afterEach(async ({ settings }) => {
 		// Restore the fixture default (the provider is enabled by default).
