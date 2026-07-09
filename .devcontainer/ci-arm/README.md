@@ -1,12 +1,13 @@
 # Positron CI dev container (ubuntu24-arm64)
 
 Develop, debug, and run Positron **inside the actual CI image**
-(`ghcr.io/posit-dev/positron-ubuntu24-arm64`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
+(`ghcr.io/posit-dev/positron-ubuntu24:24.15.0`) so CI failures reproduce locally. You edit code in VS Code on your host; the build, tests, and Positron itself run in the container.
 
-> Validated on **arm64** (Apple Silicon) only. The arch is parameterized
-> (`POSITRON_CI_IMAGE_ARCH`), but amd64 isn't usable yet: arm64 and amd64 are tagged independently in
-> the CI images, so the single pinned tag only resolves for arm64 until those tags are synced (in
-> progress). Host: macOS with Docker Desktop + VirtioFS. Linux and Windows/WSL2 aren't validated yet.
+> Validated on **arm64** (Apple Silicon) only. The base image is a multi-arch
+> manifest, so Docker resolves the host arch automatically; `POSITRON_CI_IMAGE_ARCH`
+> now only selects the in-container Electron build arch. amd64 hosts should work but
+> aren't validated yet. Host: macOS with Docker Desktop + VirtioFS. Linux and
+> Windows/WSL2 aren't validated yet.
 
 <p align="center">
   <img src="doctor-and-task-buttons.png" width="600" alt="Terminal - Doctor View">
@@ -277,7 +278,7 @@ flowchart LR
         web["Browser"]
         src[/"Your checkout<br/>src, out/"/]
     end
-    subgraph ctr["Container: positron-ubuntu24-arm64"]
+    subgraph ctr["Container: positron-ubuntu24:24.15.0"]
         desk["Desktop app<br/>(Electron)"]
         srv["Web server<br/>:8080"]
         e2e["e2e tests"]
