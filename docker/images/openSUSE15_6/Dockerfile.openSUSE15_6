@@ -76,9 +76,18 @@ RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-li
 # Verify Node.js
 RUN node -v && npm -v
 
-# Configure node-gyp to use GCC 12 for C++20 support
+# Configure node-gyp to use GCC 12 for C++20 support.
+# CC/CXX cover tools that read them, but node-gyp's make targets fall back to a
+# bare "g++" when the env is not inherited by the spawned subprocess (as happens
+# for the positron/remote native rebuild). Point the default gcc/g++ at GCC 12 so
+# even bare invocations get C++20 support.
 ENV CC=gcc-12
 ENV CXX=g++-12
+RUN ln -sf /usr/bin/gcc-12 /usr/bin/gcc && \
+    ln -sf /usr/bin/g++-12 /usr/bin/g++
+
+# Sanity check: fail the build here if bare g++ cannot compile C++20.
+RUN echo 'int main(){}' | g++ -std=gnu++20 -x c++ - -o /dev/null && g++ --version
 
 # Global npm deps
 RUN npm install -g node-gyp npm-run-all yarn
