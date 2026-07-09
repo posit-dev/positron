@@ -27,6 +27,14 @@ inventing new tags, without expanding beyond the existing `--grep`-based CI
 mechanism, and without duplicating or fighting the existing source-derived
 tagging.
 
+## Success criteria
+
+- A PR that only touches e2e test files (no source, no author tags) never runs
+  zero e2e tests as a result — the touched tests' own suite runs.
+- The new `test-changed` provenance code (see Reporting below) makes this
+  spot-checkable per-PR: the "Why these tags?" comment names the tag and the
+  file that triggered it.
+
 ## Non-goals
 
 - Line-level / per-`describe`-block diff precision. Whole-file granularity only
@@ -73,31 +81,60 @@ short, already safe, and already proven in production.
 - Scope: `test/e2e/tests/**/*.test.ts` changes only.
 - Granularity: whole-file. Any changed line in a touched `.test.ts` file marks
   every `test.describe`/`test` block in that file as "touched" for this PR.
+- Deleted test files are a no-op: a file that no longer exists won't appear in
+  `playwright test --list` output, so it naturally contributes no tags. No
+  special-case handling needed.
 
 ### 2. Tag selection algorithm
 
 New Node script (matching the existing `apply-test-tag-map-fixes.mjs` precedent:
 bash orchestrates, Node handles JSON-heavy logic), tentatively
-`scripts/derive-test-change-tags.mjs`:
+`scripts/derive-test-change-tags.mjs`.
+
+**CLI contract** (pinned here so the bash and Node sides can be built and tested
+independently):
+
+- argv: `--changed-files <path-to-newline-delimited-file-list> --selected-tags
+  <comma-separated-tags-already-chosen>`
+- stdout: newline-separated tag names to additively union into `TAGS` (empty
+  output is valid — means nothing more is needed). Warnings (e.g. untagged
+  touched files, see below) go to stderr, not stdout, so they never contaminate
+  the tag list but can still surface in the Action log / PR comment.
+
+**Algorithm:**
 
 1. Run `npx playwright test --list --reporter=json` once. This is fast (~1.7s
    locally, no build daemon) and returns, for every test in the repo: its file,
    line, and full declared `tags` array. This doubles as the tag → test-count
-   table (group by tag, count).
+   table (group by tag, count). Before implementation, confirm (a) the pinned
+   Playwright version in `package.json` actually emits the per-spec `tags`
+   field in `--list --reporter=json` output, and (b) the invocation's cwd/config
+   path and expected runtime hold in the actual CI environment, not just a local
+   dev machine.
 2. For each touched file (from the PR's changed-files list, filtered to
    `test/e2e/tests/**/*.test.ts`), look up the tags already declared on its
    `test.describe` blocks via the JSON from step 1. These declared tags are the
-   **only** candidates ever considered — the script never invents a tag.
-3. Skip a touched test if it's already covered by the PR's already-selected tag
-   set at this point in the pipeline (author-typed tags + src-path-map-derived
-   tags + `@:critical` + `@:ark` injection, i.e. whatever `pr-tags-parse.sh` has
-   accumulated before this step runs).
+   **only** candidates ever considered — the script never invents a tag. If a
+   touched file has tests with zero declared tags, emit a stderr warning (e.g.
+   "`foo.test.ts` has no declared tags — add tags or tag the PR body
+   manually") — same advisory pattern as today's `unmapped_dirs` warning, never
+   a hard failure.
+3. Determine "already covered" **per individual test**, not per file: a touched
+   test is covered iff at least one of *its own* declared tags is already in the
+   PR's already-selected tag set (author-typed + src-path-map-derived +
+   `@:critical` + `@:ark`, i.e. whatever `pr-tags-parse.sh` has accumulated
+   before this step runs). A file with two differently-tagged `describe` blocks
+   where only one block's tag is already selected still needs a tag chosen for
+   the other block — coverage is never inferred at the whole-file level, only
+   detection (step 1 above) is.
 4. For touched tests not yet covered, solve for the minimal-additional-blast-radius
-   tag or small tag set: among the candidate tags gathered in step 2 (typically a
-   small universe per PR — a handful of touched files, each with a handful of
-   tags), find the choice that minimizes the total number of *additional* tests
-   pulled in (using the counts from step 1), subject to covering every
-   not-yet-covered touched test. Exact search is cheap at this scale.
+   tag or small tag set: among the candidate tags gathered in step 2, find the
+   choice that minimizes the total number of *additional* tests pulled in (using
+   the counts from step 1), subject to covering every not-yet-covered touched
+   test. In practice, a single PR's touched-file set is small (expect low single
+   digits of files, each with a handful of tags), so an exact brute-force search
+   over the candidate-tag combinations is cheap; this should be re-evaluated only
+   if real-world usage shows meaningfully larger touched-file counts per PR.
 5. Output the newly derived tag(s) for `pr-tags-parse.sh` to union into `TAGS` —
    additive only, same as every other derivation source today.
 
@@ -113,6 +150,13 @@ correctness signal). This design changes that: `@:no-auto-tags` will suppress
 test-change derivation, and the existing WIN/WEB scan (changed). Rationale:
 authors need one consistent, total escape hatch to override auto-tagging at any
 time, e.g. when the tooling picks something wrong.
+
+This is a breaking change for any in-flight PR that relies on `@:no-auto-tags`
+while also adding a new Windows/web test: the platform tag would previously
+auto-inject regardless, and after this change it won't. No migration/audit plan
+or announcement is planned for this — `@:no-auto-tags` usage is rare today, and
+this is accepted as a low-probability, easily-noticed-in-review risk rather than
+something worth building tooling around.
 
 ### 4. Reporting
 
@@ -133,8 +177,9 @@ needed it — following the exact pattern already used for `test-win`/`test-web`
 
 ## Open items for the implementation plan
 
-- Exact CLI contract for `scripts/derive-test-change-tags.mjs` (stdin/argv shape,
-  stdout format) — left to the implementation plan.
-- Whether the minimal-tag search is a small brute-force enumeration or a greedy
-  weighted set-cover — both are cheap at this scale; pick based on which is
-  simpler to implement and test correctly.
+- Confirm the pinned Playwright version emits the `tags` field in
+  `--list --reporter=json` output, and measure actual invocation time in CI
+  (not just local dev) before relying on it being fast.
+- Where exactly `derive-test-change-tags.mjs` is invoked from within
+  `pr-tags-parse.sh` (before/after the changed-files fetch that already
+  happens there — avoid a duplicate `gh api` call if possible).
