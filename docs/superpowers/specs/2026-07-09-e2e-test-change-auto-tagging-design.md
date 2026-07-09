@@ -103,23 +103,37 @@ independently):
 
 **Algorithm:**
 
-1. Run `npx playwright test --list --reporter=json` once. This is fast (~1.7s
-   locally, no build daemon) and returns, for every test in the repo: its file,
-   line, and full declared `tags` array. This doubles as the tag → test-count
-   table (group by tag, count). Before implementation, confirm (a) the pinned
-   Playwright version in `package.json` actually emits the per-spec `tags`
-   field in `--list --reporter=json` output, and (b) the invocation's cwd/config
-   path and expected runtime hold in the actual CI environment, not just a local
-   dev machine.
-2. For each touched file (from the PR's changed-files list, filtered to
-   `test/e2e/tests/**/*.test.ts`), look up the tags already declared on its
-   `test.describe` blocks via the JSON from step 1. These declared tags are the
-   **only** candidates ever considered — the script never invents a tag. If a
-   touched file has tests with zero declared tags, emit a stderr warning (e.g.
-   "`foo.test.ts` has no declared tags — add tags or tag the PR body
-   manually") — same advisory pattern as today's `unmapped_dirs` warning, never
-   a hard failure.
-3. Determine "already covered" **per individual test**, not per file: a touched
+1. Run `npx playwright test --list --project e2e-electron --reporter=json`
+   once. Scoping to a single project matters: run without `--project`, the
+   same logical test is listed once per matching Playwright project (9
+   projects are defined in `playwright.config.ts`), which would inflate every
+   count by however many platform variants match. `e2e-electron` is also the
+   semantically right scope regardless of the duplication bug — it's the lane
+   every PR always runs by default, so it's the blast radius cost calculations
+   should reflect. Verified empirically: unscoped listing showed
+   `viewer.test.ts`'s 5 tests 5 times each (25 entries); `--project
+   e2e-electron` gives exactly 5. Output returns, for every electron-project
+   test: its file, title, declared `tags` array (reported without the leading
+   `@`, e.g. `:console` not `@:console` — normalize when reading), and a
+   `tests[].expectedStatus` field that reports `"skipped"` for anything under
+   a static `test.describe.skip`/`test.skip`/`test.fixme`. This call doubles as
+   the tag → test-count table (group by tag, count, excluding skipped specs).
+2. Exclude any spec whose `tests[].expectedStatus` is `"skipped"` from
+   consideration entirely — a statically-skipped test won't execute regardless
+   of `--grep`, so it never needs a tag derived for it. (A *runtime-conditional*
+   skip, e.g. `test.skip(condition, reason)` called inside a test body, can't
+   be known at listing time by this mechanism or any other static means — not
+   a gap specific to this design.)
+3. For each touched file (from the PR's changed-files list, filtered to
+   `test/e2e/tests/**/*.test.ts`, matched against the JSON's `file` field
+   prefixed with `test/e2e/` since `testDir` is `./test/e2e`), look up the tags
+   already declared on each of its non-skipped tests via the JSON from step 1.
+   These declared tags are the **only** candidates ever considered — the
+   script never invents a tag. If a touched file has non-skipped tests with
+   zero declared tags, emit a stderr warning (e.g. "`foo.test.ts` has no
+   declared tags — add tags or tag the PR body manually") — same advisory
+   pattern as today's `unmapped_dirs` warning, never a hard failure.
+4. Determine "already covered" **per individual test**, not per file: a touched
    test is covered iff at least one of *its own* declared tags is already in the
    PR's already-selected tag set (author-typed + src-path-map-derived +
    `@:critical` + `@:ark`, i.e. whatever `pr-tags-parse.sh` has accumulated
@@ -127,15 +141,18 @@ independently):
    where only one block's tag is already selected still needs a tag chosen for
    the other block — coverage is never inferred at the whole-file level, only
    detection (step 1 above) is.
-4. For touched tests not yet covered, solve for the minimal-additional-blast-radius
-   tag or small tag set: among the candidate tags gathered in step 2, find the
-   choice that minimizes the total number of *additional* tests pulled in (using
-   the counts from step 1), subject to covering every not-yet-covered touched
-   test. In practice, a single PR's touched-file set is small (expect low single
-   digits of files, each with a handful of tags), so an exact brute-force search
-   over the candidate-tag combinations is cheap; this should be re-evaluated only
-   if real-world usage shows meaningfully larger touched-file counts per PR.
-5. Output the newly derived tag(s) for `pr-tags-parse.sh` to union into `TAGS` —
+5. For touched tests not yet covered, solve for the minimal-additional-blast-radius
+   tag or small tag set: among the candidate tags gathered in step 3, find the
+   choice that minimizes the total number of *additional* tests pulled in
+   (computed as true set-union size over each candidate tag's full matching-test
+   set, not a naive sum of per-tag counts, since two candidate tags can overlap
+   on the same test), subject to covering every not-yet-covered touched test. In
+   practice, a single PR's touched-file set is small (expect low single digits
+   of files, each with a handful of tags), so an exact brute-force search over
+   the candidate-tag combinations is cheap; fall back to a greedy weighted
+   set-cover if the candidate-tag universe ever exceeds ~20 (re-evaluate then,
+   not preemptively).
+6. Output the newly derived tag(s) for `pr-tags-parse.sh` to union into `TAGS` —
    additive only, same as every other derivation source today.
 
 This step runs in `pr-tags-parse.sh` after the src-path-map derivation (so it
@@ -177,9 +194,21 @@ needed it — following the exact pattern already used for `test-win`/`test-web`
 
 ## Open items for the implementation plan
 
-- Confirm the pinned Playwright version emits the `tags` field in
-  `--list --reporter=json` output, and measure actual invocation time in CI
-  (not just local dev) before relying on it being fast.
 - Where exactly `derive-test-change-tags.mjs` is invoked from within
   `pr-tags-parse.sh` (before/after the changed-files fetch that already
   happens there — avoid a duplicate `gh api` call if possible).
+
+## Addendum: `pr-tags` job needs a new install step
+
+The `pr-tags` job is dependency-free today (`actions/checkout` straight into
+bash/`gh`/`jq`) -- no `node_modules` exists for `npx playwright test --list` to
+run against. Investigated during plan-writing; resolved as: add
+`actions/setup-node` (pinned via `.nvmrc`) plus a scoped, browser-free install
+(`npm install --no-save @playwright/test@<version-from-root-package.json>` with
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, and `npm --prefix test/e2e ci` for the
+local fixture chain's real runtime deps, which `--list` must still import to
+discover tests). This is the same dependency set `setup-e2e-test-dependencies`
+already installs elsewhere in CI (proven to build on `ubuntu-latest`), just
+without the browser download/`install-deps` steps, which aren't needed for
+listing. Net effect: `pr-tags` gains a real but modest install cost it didn't
+have before -- affects tag-selection latency, not e2e run time itself.
