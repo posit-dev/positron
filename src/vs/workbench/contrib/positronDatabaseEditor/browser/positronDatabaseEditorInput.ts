@@ -22,6 +22,29 @@ import { IPositronDataConnectionsService } from '../../../services/positronDataC
 const DRIVER_WAIT_TIMEOUT_MS = 10000;
 
 /**
+ * Builds a data connection profile for a database file opened with the given driver. Shared by the
+ * editor input (for its ephemeral connection) and the "Create Data Connection" action (for a
+ * persistent, saved connection).
+ * @param id The profile id.
+ * @param driver The data connection driver.
+ * @param resource The database file resource.
+ */
+export function databaseConnectionProfile(id: string, driver: IDataConnectionDriver, resource: URI): IDataConnectionProfile {
+	return {
+		id,
+		driverMetadata: {
+			id: driver.metadata.id,
+			name: driver.metadata.name,
+			iconSvg: driver.metadata.iconSvg,
+			supportedLanguageIds: driver.metadata.supportedLanguageIds,
+		},
+		connectionName: basename(resource),
+		mechanismId: 'file',
+		parameterValues: { databasePath: resource.fsPath, readOnly: false },
+	};
+}
+
+/**
  * PositronDatabaseEditorInput. Opens a database file (DuckDB / SQLite) as a browsable connection:
  * a single-database schema tree on the left and a Data Explorer on the right. The connection is
  * bound to this input's lifetime -- created lazily on first resolve and torn down on dispose.
@@ -63,6 +86,11 @@ export class PositronDatabaseEditorInput extends EditorInput {
 		this._profileId = `positron-database-editor:${resource.toString()}`;
 	}
 
+	/** The data connection driver id used to open this file. */
+	get driverId(): string {
+		return this._driverId;
+	}
+
 	/**
 	 * Lazily creates (once) an ephemeral connection profile for this database file and connects.
 	 * The instance lives as long as this input; {@link dispose} tears it down.
@@ -82,20 +110,7 @@ export class PositronDatabaseEditorInput extends EditorInput {
 		}
 
 		const driver = await this._resolveDriver();
-
-		const profile: IDataConnectionProfile = {
-			id: this._profileId,
-			driverMetadata: {
-				id: driver.metadata.id,
-				name: driver.metadata.name,
-				iconSvg: driver.metadata.iconSvg,
-				supportedLanguageIds: driver.metadata.supportedLanguageIds,
-			},
-			connectionName: basename(this.resource),
-			mechanismId: 'file',
-			parameterValues: { databasePath: this.resource.fsPath, readOnly: false },
-		};
-		this._dataConnectionsService.addUpdateProfile(profile);
+		this._dataConnectionsService.addUpdateProfile(databaseConnectionProfile(this._profileId, driver, this.resource));
 		return this._dataConnectionsService.connect(this._profileId);
 	}
 

@@ -16,6 +16,7 @@ import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { PositronDatabaseEditor } from './positronDatabaseEditor.js';
 import { PositronDatabaseEditorInput } from './positronDatabaseEditorInput.js';
+import { registerPositronDatabaseEditorActions } from './positronDatabaseEditorActions.js';
 
 /**
  * File extensions the database editor claims, mapped to the driver that opens them.
@@ -99,3 +100,6 @@ registerWorkbenchContribution2(
 	PositronDatabaseEditorContribution,
 	WorkbenchPhase.BlockRestore
 );
+
+// Register the Positron database editor actions (e.g. the "Create Data Connection" toolbar button).
+registerPositronDatabaseEditorActions();
