@@ -18,7 +18,7 @@ class RuntimeQuickPickItem implements vscode.QuickPickItem {
 		public runtimeMetadata: positron.LanguageRuntimeMetadata,
 	) {
 		this.label = runtimeMetadata.runtimeName;
-		this.description = runtimeMetadata.runtimePath;
+		this.description = runtimeMetadata.runtimeDisplayPath ?? runtimeMetadata.runtimePath;
 		this.runtime = runtimeMetadata;
 	}
 }

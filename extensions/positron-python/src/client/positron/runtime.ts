@@ -250,13 +250,15 @@ export async function createPythonRuntimeMetadata(
     digest.update(pythonVersion);
     const runtimeId = digest.digest('hex').substring(0, 32);
 
-    // Create the runtime path.
-    // TODO@softwarenerd - We will need to update this for Windows.
+    // runtimePath is always the full absolute path to the interpreter so
+    // callers can use it directly with execFile etc. runtimeDisplayPath
+    // carries the human-friendly ~ shorthand shown in the UI.
     const homedir = os.homedir();
-    const runtimePath =
+    const runtimePath = interpreter.path;
+    const runtimeDisplayPath =
         os.platform() !== 'win32' && interpreter.path.startsWith(homedir)
             ? path.join('~', interpreter.path.substring(homedir.length))
-            : interpreter.path;
+            : undefined;
 
     // Save the ID of the Python environment for use when creating the language
     // runtime session.
@@ -292,6 +294,7 @@ export async function createPythonRuntimeMetadata(
         runtimeName,
         runtimeShortName,
         runtimePath,
+        runtimeDisplayPath,
         runtimeVersion: applicationEnv.packageJson.version,
         runtimeSource,
         languageId: PYTHON_LANGUAGE,

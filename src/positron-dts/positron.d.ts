@@ -627,8 +627,19 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** The path to the runtime. */
+		/**
+		 * The absolute path to the runtime executable. Always a fully-expanded
+		 * path suitable for use with execFile or equivalent; never contains ~
+		 * or other shorthand.
+		 */
 		runtimePath: string;
+
+		/**
+		 * The runtime path formatted for display to the user. May use ~ as
+		 * shorthand for the user's home directory on non-Windows platforms.
+		 * Falls back to runtimePath when not set.
+		 */
+		runtimeDisplayPath?: string;
 
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;

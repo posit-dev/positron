@@ -28,6 +28,14 @@ export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata
 	`version: ${metadata.languageVersion})`;
 
 /**
+ * Returns the display path for a runtime, preferring the human-friendly
+ * runtimeDisplayPath (which may use ~ shorthand) over the raw runtimePath.
+ * Use this everywhere a path is shown to the user.
+ */
+export const getRuntimeDisplayPath = (metadata: Pick<ILanguageRuntimeMetadata, 'runtimePath' | 'runtimeDisplayPath'>): string =>
+	metadata.runtimeDisplayPath ?? metadata.runtimePath;
+
+/**
  * Formats a language runtime session for logging.
  *
  * @param languageRuntimeSession The language runtime session to format for logging.
@@ -898,8 +906,18 @@ export function signaturesEqual(
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
-	/** The path to the kernel. */
+	/**
+	 * The absolute path to the runtime executable. Always a fully-expanded path
+	 * suitable for use with execFile; never contains ~ or other shorthand.
+	 */
 	readonly runtimePath: string;
+
+	/**
+	 * The runtime path formatted for display to the user. May use ~ as
+	 * shorthand for the user's home directory on non-Windows platforms.
+	 * Falls back to runtimePath when not set.
+	 */
+	readonly runtimeDisplayPath?: string;
 
 	/** A unique identifier for this runtime; usually a GUID */
 	readonly runtimeId: string;
