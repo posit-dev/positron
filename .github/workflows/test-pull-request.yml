@@ -35,6 +35,25 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # Needed for derive-test-change-tags.mjs's `playwright test --list` call
+      # below (Task 2). Pinned via .nvmrc rather than relying on whatever
+      # ubuntu-latest ships with.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+      # Scoped, browser-free install: just enough for `playwright test --list`
+      # to import every test file and discover its tags. No browser binaries,
+      # no install-deps, no tsc compile -- none of those are needed to list
+      # tests. See the design doc's "pr-tags job needs a new install step"
+      # addendum for why both installs are necessary.
+      - name: Install minimal Playwright + e2e test deps for test listing
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: |
+          PW_VERSION=$(node -pe "require('./package.json').devDependencies['@playwright/test']")
+          npm install --no-save "@playwright/test@${PW_VERSION}"
+          npm --prefix test/e2e ci
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh
