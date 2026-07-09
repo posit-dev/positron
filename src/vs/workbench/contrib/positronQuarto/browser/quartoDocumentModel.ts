@@ -142,6 +142,13 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		return matches[0];
 	}
 
+	findCellByPreviousId(previousCellId: string, contentHash: string): QuartoCodeCell | undefined {
+		// Cell IDs are "{index}-{hashPrefix}-{label}" (see generateCellId), so
+		// the old index disambiguates duplicate chunks with the same hash.
+		const oldIndex = parseInt(previousCellId, 10);
+		return this.findCellByContentHash(contentHash, isNaN(oldIndex) ? undefined : oldIndex);
+	}
+
 	getCellCode(cell: QuartoCodeCell): string {
 		const lines: string[] = [];
 		for (let i = cell.codeStartLine; i <= cell.codeEndLine; i++) {
@@ -149,6 +156,7 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 		return lines.join('\n');
 	}
+
 
 	private _parseDocument(): void {
 		const content = this._textModel.getValue();
