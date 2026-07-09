@@ -250,8 +250,8 @@ ENV PATH="/root/.local/bin:${PATH}"
 RUN uv venv --python=3.10.12 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
-# Install qa-example-content deps into that Python 3.10 env
-RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt -o /tmp/requirements.txt && \
+# Install the e2e test-content Python deps into that Python 3.10 env
+RUN curl -fsSL https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt -o /tmp/requirements.txt && \
     grep -v '^bokeh' /tmp/requirements.txt > /tmp/requirements-filtered.txt && \
     uv pip install --python /root/.venv/bin/python \
       -r /tmp/requirements-filtered.txt \
@@ -350,8 +350,8 @@ RUN GEOS_PREFIX=/opt/geos \
     Rscript -e 'pak::pkg_install("sf@1.0-20", lib = Sys.getenv("R_LIBS_SITE"))'
 
 # Install the project dev deps to the same site library via pak
-RUN git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
-    cd /tmp/qa-example-content && \
+RUN mkdir -p /tmp/test-content && cd /tmp/test-content && \
+    curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
     GEOS_PREFIX=/opt/geos \
     GDAL_PREFIX=/opt/gdal \
     LIBGIT2_PREFIX=/opt/libgit2 \

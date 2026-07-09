@@ -211,8 +211,8 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN uv venv --python=3.10.12 /root/.venv && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | /root/.venv/bin/python
 
-# Install qa-example-content deps into that Python 3.10.12 env
-RUN curl -O https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt && \
+# Install the e2e test-content Python deps into that Python 3.10.12 env
+RUN curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/requirements.txt && \
     uv pip install --python /root/.venv/bin/python --break-system-packages -r requirements.txt && \
     /root/.venv/bin/python -m pip list
 
@@ -249,8 +249,8 @@ RUN ARCH_NAME=$(uname -m) && \
         R_REPO="https://packagemanager.posit.co/cran/__linux__/opensuse156/${PPM_SNAPSHOT}"; \
     fi && \
     export MAKEFLAGS="-j$(nproc)" && \
-    git clone --depth 1 https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content && \
-    cd /tmp/qa-example-content && \
+    mkdir -p /tmp/test-content && cd /tmp/test-content && \
+    curl -O https://raw.githubusercontent.com/posit-dev/positron/main/test/e2e/test-files/DESCRIPTION && \
     Rscript -e "options(repos=c(CRAN='${R_REPO}'), pak.no_build_vignettes=TRUE, pkg.sysreqs=FALSE, pkg.install.extra=c('--no-multiarch'), pkgType='${PKG_TYPE}'); \
     pak::local_install_dev_deps(ask=FALSE, dependencies=TRUE, lib=Sys.getenv('R_LIBS_SITE'))"
 

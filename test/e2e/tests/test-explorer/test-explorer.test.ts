@@ -14,8 +14,8 @@ test.use({
 
 test.describe('R Test Explorer', { tag: [tags.TEST_EXPLORER, tags.R_PKG_DEVELOPMENT, tags.ARK, tags.WEB, tags.WIN] }, () => {
 	// A toy R package fixture, incubated inside positron-r (beside the vscodereporter
-	// resources) to avoid cross-repo coordination with qa-example-content while the
-	// test explorer e2e stabilizes.
+	// resources) rather than in the shared e2e test-files, while the test explorer
+	// e2e stabilizes.
 	const FIXTURE_NAME = 'r.pkg.test.explorer.fixture';
 	const FIXTURE_SOURCE = path.join(process.cwd(), 'extensions/positron-r/resources/testing', FIXTURE_NAME);
 
