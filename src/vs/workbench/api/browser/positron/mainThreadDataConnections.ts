@@ -20,7 +20,13 @@ function dtoToServiceParameter(dto: IDataConnectionParameterDTO): IDataConnectio
 		case 'boolean':
 			return { ...base, type: 'boolean', defaultValue: dto.defaultValue as boolean | undefined };
 		case 'file':
-			return { ...base, type: 'file', defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder };
+			return {
+				...base, type: 'file', defaultValue: dto.defaultValue as string | undefined, placeholder: dto.placeholder,
+				// Convert the wire-format filters dictionary (label -> extensions) to the ordered
+				// FileFilter array the file dialog service consumes. Insertion order is preserved,
+				// so the driver's first filter remains the picker's default selection.
+				filters: dto.filters && Object.entries(dto.filters).map(([name, extensions]) => ({ name, extensions })),
+			};
 		case 'number':
 			return { ...base, type: 'number', defaultValue: dto.defaultValue as number | undefined, placeholder: dto.placeholder };
 		case 'option':
@@ -46,6 +52,28 @@ function dtoToServiceMechanism(dto: IDataConnectionMechanismDTO): IDataConnectio
 		label: dto.label,
 		description: dto.description,
 		parameters: dto.parameters.map(dtoToServiceParameter),
+	};
+}
+
+/**
+ * Converts a service-level mechanism back to the wire DTO shape for driver summaries returned to
+ * the ext host. The service-level parameter variants are structurally assignable to the flat DTO
+ * except for the file variant's filters, which flatten from the ordered FileFilter array back to
+ * the wire's label -> extensions dictionary.
+ */
+function serviceMechanismToDto(mechanism: IDataConnectionMechanism): IDataConnectionMechanismDTO {
+	return {
+		...mechanism,
+		parameters: mechanism.parameters.map((parameter): IDataConnectionParameterDTO => {
+			if (parameter.type !== 'file') {
+				return parameter;
+			}
+			const { filters, ...rest } = parameter;
+			return {
+				...rest,
+				filters: filters && Object.fromEntries(filters.map(filter => [filter.name, filter.extensions])),
+			};
+		}),
 	};
 }
 
@@ -125,7 +153,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			id: driver.id,
 			name: driver.metadata.name,
 			description: driver.metadata.description,
-			mechanisms: driver.metadata.mechanisms,
+			mechanisms: driver.metadata.mechanisms.map(serviceMechanismToDto),
 			supportedLanguageIds: driver.metadata.supportedLanguageIds,
 		}));
 	}

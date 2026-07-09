@@ -7,7 +7,7 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { ConfigureDataConnectionParameters } from '../../browser/dialogs/configureDataConnectionParameters.js';
 import { IDataConnectionParameter } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import type { ParameterFieldStates } from '../../browser/dialogs/configureDataConnection.js';

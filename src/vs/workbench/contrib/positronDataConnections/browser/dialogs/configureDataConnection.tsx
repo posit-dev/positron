@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { ConfigureDataConnectionParameters } from './configureDataConnectionParameters.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -39,6 +40,24 @@ export interface ParameterFieldState {
  * UI-side form state for all parameter fields.
  */
 export type ParameterFieldStates = Record<string, ParameterFieldState>;
+
+/**
+ * Builds the "Browse..." file-picker filters for a file parameter. The filters the driver declared
+ * on the parameter are listed first so the driver's file type is the default selection in the
+ * picker, followed by an "All Files" option for databases stored with a non-standard extension.
+ * Parameters that declare no filters get "All Files" only.
+ * @param declaredFilters The filters declared on the file parameter, if any.
+ * @returns The ordered list of file filters for the open dialog.
+ */
+export function getFileDialogFilters(declaredFilters: FileFilter[] | undefined): FileFilter[] {
+	return [
+		...declaredFilters ?? [],
+		{
+			name: localize('positron.configureDataConnection.allFiles', "All Files"),
+			extensions: ['*'],
+		},
+	];
+}
 
 /**
  * ConfigureDataConnectionProps interface.
@@ -175,7 +194,9 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			? await combineLabelWithPathUri(currentValue, defaultFilePath, pathService)
 			: defaultFilePath;
 
-		// Show the open dialog.
+		// Show the open dialog. The filters default to the file type the driver declared on the
+		// parameter (e.g. DuckDB files for the DuckDB driver), while still offering "All Files".
+		const parameter = props.mechanism.parameters.find(parameter => parameter.id === parameterId);
 		const uris = await fileDialogService.showOpenDialog({
 			title: localize('positron.configureDataConnection.selectFile', "Select File"),
 			defaultUri,
@@ -183,6 +204,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 			canSelectFiles: true,
 			canSelectFolders: false,
 			canSelectMany: false,
+			filters: getFileDialogFilters(parameter?.type === 'file' ? parameter.filters : undefined),
 		});
 
 		// If the user made a selection, set the field to the chosen path, formatted for the platform
@@ -190,7 +212,7 @@ export const ConfigureDataConnection = (props: ConfigureDataConnectionProps) => 
 		if (uris?.length) {
 			setParameterFieldState(parameterId, pathUriToLabel(uris[0], labelService));
 		}
-	}, [fileDialogService, labelService, parameterFieldStates, pathService, setParameterFieldState]);
+	}, [fileDialogService, labelService, parameterFieldStates, pathService, props.mechanism.parameters, setParameterFieldState]);
 
 	// Cancel handler.
 	const cancelHandler = useCallback(() => {

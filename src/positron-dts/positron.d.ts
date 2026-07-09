@@ -2002,6 +2002,19 @@ declare module 'positron' {
 			type: DataConnectionParameterType.File;
 			defaultValue?: string;
 			placeholder?: string;
+
+			/**
+			 * File-type filters for the file picker opened by the field's Browse button, in the
+			 * same format as {@link vscode.OpenDialogOptions.filters}: each key is a human-readable
+			 * label and each value is a list of extensions without dots, for example:
+			 * ```ts
+			 * { 'SQLite Files': ['sqlite', 'sqlite3', 'db'] }
+			 * ```
+			 * Filters are shown in declaration order and the first one is the picker's default
+			 * selection. An "All Files" option is always appended, so drivers should not declare
+			 * one. When omitted, the picker shows "All Files" only.
+			 */
+			filters?: { [name: string]: string[] };
 		}
 		| {
 			type: DataConnectionParameterType.Number;
