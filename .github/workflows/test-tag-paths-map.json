@@ -23,6 +23,7 @@
   "src/vs/workbench/contrib/positronRuntimeSessions/": ["@:sessions"],
   "src/vs/workbench/contrib/positronSession/": ["@:sessions"],
 
+  "src/vs/workbench/services/chat/": ["@:assistant"],
   "src/vs/workbench/services/languageRuntime/": ["@:console", "@:interpreter"],
   "src/vs/workbench/services/runtimeSession/": ["@:sessions", "@:console", "@:interpreter"],
   "src/vs/workbench/services/runtimeStartup/": ["@:console", "@:interpreter"],
