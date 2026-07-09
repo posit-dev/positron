@@ -907,9 +907,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				if (!viewZone) {
 					viewZone = this._createViewZone(cellId);
 					if (viewZone) {
-						// Stash is same session; resolve cell context for
-						// quick-fix buttons.
-						viewZone.setCellContext(this._resolveCellContext(cellId));
+						// Suppress Fix/Explain on restored outputs; buttons
+						// should only appear on freshly-executed errors.
+						viewZone.setFromCurrentSession(false);
 						this._viewZones.set(cellId, viewZone);
 					}
 				}
