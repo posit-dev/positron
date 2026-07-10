@@ -77,6 +77,14 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: |
+          # `playwright test --list` eagerly loads the e2e infra, which computes
+          # the Positron version via `git rev-list --count <anchor>..HEAD`. The
+          # anchor is an old commit absent from the shallow actions/checkout, so
+          # that command crashes and dumps a (caught, harmless) stack trace into
+          # the log. Unshallow so the range resolves and the log stays clean.
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --unshallow --quiet || true
+          fi
           npm ci --ignore-scripts --no-audit --no-fund
           npm --prefix test/e2e ci --ignore-scripts --no-audit --no-fund
           # One test file (plots.test.ts) eagerly imports resemblejs -> canvas,
