@@ -104,6 +104,13 @@ if echo "$PR_BODY" | grep -q "@:remote-ssh"; then
 	echo "Found remote-ssh tag in PR body. Setting to run remote-ssh tests."
 	echo "remote_ssh_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+# Match a bare '@:connect' tag but not '@:connections' (which shares the prefix).
+# The tag must be followed by a non-tag character (anything outside
+# [a-zA-Z0-9_-]) or the end of the string.
+if echo "$PR_BODY" | grep -qE "@:connect([^a-zA-Z0-9_-]|\$)"; then
+	echo "Found connect tag in PR body. Setting to run connect (electron) tests."
+	echo "connect_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 
 # Provenance inputs for build_tag_reasons, defaulted so the @:all branch (which
 # skips the else block that sets them) and any skipped derivation still resolve.

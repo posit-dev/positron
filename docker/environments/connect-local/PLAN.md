@@ -146,31 +146,64 @@ naming nuance: `wb:connect` means "attach to the Workbench container", whereas
 
 ---
 
-## PR 2 -- Dedicated CI workflow (electron only)
+## PR 2 -- Dedicated CI workflow (electron only)  [IMPLEMENTED]
 
-### Changes
-- New `.github/workflows/test-e2e-connect.yml`, `ubuntu-latest` runner, modeled on
-  `test-e2e-ubuntu-run.yml`:
-  - Depends on the Positron electron BUILD artifact (download-artifact) -- `e2e-connect`
-    runs a real electron app; this is not optional boilerplate.
-  - Bring connect up via the PR-1 connect-only compose in a step AFTER checkout
-    (NOT GitHub Actions `services:` -- services start before checkout and cannot
-    bind-mount the gcfg/license files).
-  - Write `connect.lic` from the `CONNECT_LICENSE` 1Password secret (mirror the
-    Workbench workflow's license step); add the 1Password load step.
-  - Run the extracted bootstrap; export `CONNECT_PUBLISHER_API_KEY` (or point the
-    resolver at the token file).
-  - xvfb + playwright browsers, then `npx playwright test --project e2e-connect`.
+### Changes (as built)
+- New `.github/workflows/test-e2e-connect.yml`, `ubuntu-latest-8x` runner.
+  - **Structural model: `test-e2e-remote-ssh-ubuntu.yml`, not `test-e2e-ubuntu-run.yml`.**
+    Reason: `e2e-connect` must run docker compose on the host to stand up Connect
+    with bind-mounted gcfg/license (the `services:` limitation the plan called out),
+    and it needs the electron app + interpreters on that same host so
+    `localhost:3939` / the `connect` hostname resolve for both the app and the
+    published port. remote-ssh already does exactly this (plain host + `docker` +
+    a DEB-installed electron Positron); ubuntu-run runs inside the
+    `positron-ubuntu24` container where host docker/networking is not available.
+  - Depends on a Positron electron BUILD artifact: new
+    `.github/workflows/build-connect-linux.yml` builds a plain Positron DEB
+    (`positron-deb-connect-x64`, a trimmed copy of build-remote-ssh's DEB job --
+    no REH). The run workflow installs it with `dpkg -i` and runs electron with
+    `BUILD=/usr/share/positron`.
+  - Brings Connect up via the PR-1 connect-local compose in a step AFTER checkout
+    by calling `docker/environments/connect-local/run.sh` (same path as local),
+    then exports `CONNECT_PUBLISHER_API_KEY` from the bootstrapped token file
+    (read with `sudo` -- the one-shot token container writes it root-owned 0600).
+  - Writes `connect/connect.lic` from the `CONNECT_LICENSE` 1Password secret
+    (mirrors the Workbench workflow's license step) before `run.sh`.
+  - Installs interpreters on the host (R via rig, Python via setup-python, Quarto
+    via quarto-actions) -- mirrors `test-e2e-macos-run.yml`, since the electron
+    app runs on the host. **This is the most likely area to need iteration.**
+  - Adds `127.0.0.1 connect` to `/etc/hosts`, xvfb, then
+    `npx playwright test --project e2e-connect` (the project's own `grep`
+    scopes to `@:connect`).
+- Wired into `test-pull-request.yml`: `build-connect` + `e2e-connect` jobs gated
+  on `connect_tag_found` (build -> e2e via `needs`), mirroring the
+  build-remote-ssh -> e2e-remote-ssh pair.
+- `scripts/pr-tags-parse.sh` now sets `connect_tag_found=true` when the PR body
+  contains `@:connect` (word-boundary match so it does NOT fire on
+  `@:connections`); `pr-tags` job exposes it as an output.
+
+### Deviations from the original plan text
+- Runner is `ubuntu-latest-8x` (plain host) modeled on remote-ssh, not the
+  container-based `test-e2e-ubuntu-run.yml` -- see reason above. The plan's intent
+  (host + docker compose + downloaded electron build, NOT `services:`) is honored.
+- Single job (2 tests), no sharding / merge-reports -- unnecessary here and
+  keeps the non-blocking lane simple.
 
 ### Gotchas
-- Connect image is `linux/amd64` -- fine on amd64 runners (no emulation), but
-  bootstrap/reachability timing still needs generous waits.
+- Connect image is `linux/amd64` -- native on the amd64 runner (no emulation), but
+  bootstrap/reachability timing still needs generous waits (run.sh already waits).
+- Host interpreter install (R packages via PPM snapshot, system libs like
+  libgdal/libudunits) is the fragile part; expect to tune versions/deps.
+- `@:connect` lives in FeatureTags, so it is also auto-added to the default
+  electron lane's grep, but the `e2e-electron` project ignores `**/connect/**`,
+  so the connect tests do not double-run there. Only an explicit `@:connect` in
+  the PR body triggers this dedicated lane.
 - DO NOT wire this into `test-merge.yml` / `test-full-suite.yml` as a gate until it
   has had several green runs. New, non-blocking first.
 
 ### PR 2 verification
-- Workflow green several times unattended; then optionally add it as a job to
-  merge/full-suite.
+- Tag a PR `@:connect` -> `build-connect` + `e2e-connect` run; iterate until green
+  several times unattended; then optionally add it as a job to merge/full-suite.
 
 ---
 

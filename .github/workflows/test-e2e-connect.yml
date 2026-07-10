@@ -1,0 +1,207 @@
+name: "Test: E2E Connect (Ubuntu)"
+
+# Electron-only connect/publisher e2e lane. Drives a plain local Positron desktop
+# (installed from the DEB built by build-connect-linux.yml) against a standalone
+# Posit Connect container brought up via the connect-local compose -- no Workbench.
+# Complementary to the e2e-workbench lane, which provides the web/chromium coverage
+# for the same tests. See docker/environments/connect-local/PLAN.md.
+#
+# NOTE: new and intentionally NON-BLOCKING first (not wired into
+# test-merge.yml / test-full-suite.yml). Runs only when a PR is tagged @:connect.
+
+on:
+  workflow_call:
+    inputs:
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "connect"
+        type: string
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  e2e-connect-ubuntu:
+    name: ${{ inputs.display_name || 'connect' }}
+    runs-on: ubuntu-latest-8x
+    timeout-minutes: 80
+
+    env:
+      AWS_S3_BUCKET: positron-test-reports
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      GH_SUMMARY_REPORT: true
+      # Connect's image is linux/amd64 -- native on the amd64 runner (no emulation).
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Docker login (GHCR)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-duration-seconds: 21600
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"
+
+      - name: Write Connect license
+        run: |
+          mkdir -p docker/environments/connect-local/connect
+          echo "$CONNECT_LICENSE" > docker/environments/connect-local/connect/connect.lic
+
+      - name: Setup test dependencies and compile tests
+        uses: ./.github/actions/setup-e2e-test-dependencies
+
+      - name: Download DEB artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: "positron-deb-connect-x64"
+          path: /tmp/artifacts
+
+      - name: Install Positron from DEB
+        run: |
+          sudo apt-get update && sudo apt-get install -y xdg-utils
+          sudo dpkg -i /tmp/artifacts/Positron-connect-x64.deb
+
+      # --- Interpreters (electron runs on the host, so R/Python/Quarto must be
+      # available on the host -- mirrors test-e2e-macos-run.yml). ---
+      - name: Install system libraries for R packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev libudunits2-dev libcurl4-openssl-dev libssl-dev libxml2-dev
+
+      - name: Install rig and R
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-$(uname -m)-latest.tar.gz | sudo tar xz -C /usr/local
+          rig add 4.5.2
+          rig default 4.5.2
+
+      - name: Install R packages
+        env:
+          # Pin to a frozen PPM snapshot (see test-e2e-macos-run.yml for rationale).
+          PPM_REPO: https://packagemanager.posit.co/cran/__linux__/jammy/2026-06-30
+        run: |
+          cp test/e2e/test-files/DESCRIPTION DESCRIPTION
+          Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r test/e2e/test-files/requirements.txt
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
+      # --- Bring up standalone Posit Connect + bootstrap the publisher token.
+      # Uses the SAME connect-local compose + run.sh the local flow uses, so CI
+      # and local exercise one code path. run.sh brings connect up, waits for it
+      # to be healthy, and runs the one-shot token bootstrap, writing the token to
+      # docker/environments/connect-local/.tokens/connect_bootstrap_token. ---
+      - name: Start Connect and bootstrap token
+        run: |
+          cd docker/environments/connect-local
+          ./run.sh
+
+      - name: Export Connect publisher API key
+        run: |
+          TOKEN_FILE="docker/environments/connect-local/.tokens/connect_bootstrap_token"
+          # The one-shot token container runs as root, so the bootstrapped file is
+          # root-owned (mode 600) on the host -- read it with sudo.
+          if ! sudo test -s "$TOKEN_FILE"; then
+            echo "::error::Connect token was not bootstrapped at $TOKEN_FILE"
+            docker compose -f docker/environments/connect-local/docker-compose.yml logs connect || true
+            exit 1
+          fi
+          echo "CONNECT_PUBLISHER_API_KEY=$(sudo cat "$TOKEN_FILE")" >> "$GITHUB_ENV"
+
+      - name: Resolve Connect hostname
+        run: |
+          # The electron app publishes to the stored credential URL http://connect:3939;
+          # map that hostname to the published port on the host (see PLAN.md / README).
+          echo "127.0.0.1 connect" | sudo tee -a /etc/hosts
+
+      - name: Configure xvfb and dbus
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+        with:
+          identifier: e2e-connect
+
+      - name: 🧪 Run Playwright Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.5.2
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          REPORTER_REPO_NAME: positron
+          PW_PROJECT_NAME: e2e-connect
+        run: |
+          export DISPLAY=:10
+          # The e2e-connect project already scopes to @:connect via its grep; no
+          # --grep needed. Serial to keep the single Connect server unambiguous.
+          BUILD=/usr/share/positron npx playwright test --project e2e-connect --retries=1 --workers=1
+
+      - name: Upload Playwright Report to S3
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-connect-ubuntu-logs
+          path: test-logs
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Teardown
+        if: always()
+        run: |
+          cd docker/environments/connect-local
+          ./stop-containers.sh --wipe || true
