@@ -56,6 +56,23 @@ export interface CellExecution {
 }
 
 /**
+ * Fragment-level execution progress for a cell whose code was split into
+ * individual statements via an input boundary provider.
+ *
+ * Only populated when statement splitting is active and produced more than one
+ * fragment; callers should fall back to the whole-cell running treatment when
+ * this is undefined. All ranges use absolute (1-based) document line numbers.
+ */
+export interface ICellFragmentProgress {
+	/** Line ranges of fragments that have finished executing. */
+	readonly executed: Range[];
+	/** Line range of the fragment currently executing, if any. */
+	readonly executing: Range | undefined;
+	/** Line ranges of fragments queued but not yet executed. */
+	readonly pending: Range[];
+}
+
+/**
  * Output item from cell execution.
  * Simplified representation of notebook cell output.
  */
@@ -119,6 +136,14 @@ export interface ExecutionOutputEvent {
 }
 
 /**
+ * Event emitted when a cell's fragment-level execution progress changes.
+ */
+export interface FragmentProgressChangeEvent {
+	/** ID of the cell whose fragment progress changed */
+	readonly cellId: string;
+}
+
+/**
  * Configuration for execution behavior.
  */
 export interface IQuartoExecutionConfig {
@@ -154,6 +179,12 @@ export interface IQuartoExecutionManager {
 	 * Event fired when output is received from execution.
 	 */
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent>;
+
+	/**
+	 * Event fired when a cell's fragment-level execution progress changes.
+	 * Used to update the gutter as individual statements execute within a cell.
+	 */
+	readonly onDidChangeFragmentProgress: Event<FragmentProgressChangeEvent>;
 
 	/**
 	 * Execute a single cell.
@@ -228,6 +259,15 @@ export interface IQuartoExecutionManager {
 	 * @param cellId Cell ID
 	 */
 	getQueuedRanges(cellId: string): Range[];
+
+	/**
+	 * Get the fragment-level execution progress for a cell.
+	 * Only populated when the cell's code was split into individual statements
+	 * via an input boundary provider; returns undefined otherwise (callers
+	 * should fall back to the whole-cell running treatment).
+	 * @param cellId Cell ID
+	 */
+	getFragmentProgress(cellId: string): ICellFragmentProgress | undefined;
 
 	/**
 	 * Get IDs of cells currently queued for execution.
