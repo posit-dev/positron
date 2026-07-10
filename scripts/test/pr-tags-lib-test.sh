@@ -284,6 +284,13 @@ assert_eq "comment-only change: NOT tag-change only (deferred to comment helper)
 PATCH_COMMENT_PLUS_TAG_REMOVAL=$'@@ -1,2 +1,2 @@\n-\t// old note about the provider\n+\t// new note about the provider\n-\ttag: [tags.ASSISTANT, tags.POSIT_ASSISTANT],\n+\ttag: [tags.ASSISTANT],'
 assert_eq "comment reword + tag edit: tag-change only" "true" \
 	"$(patch_is_tag_change_only "$PATCH_COMMENT_PLUS_TAG_REMOVAL")"
+# A `tag: [...]` substring inside a STRING LITERAL (not a real options object)
+# must not be mistaken for a tag edit. No tags.X token is involved, so the
+# conservative bias holds and the file still derives even though norm() would
+# strip the string's bracketed text.
+PATCH_TAG_IN_STRING=$'@@ -1 +1 @@\n-\t\tawait expect(page.getByText("tag: [foo] here")).toBeVisible();\n+\t\tawait expect(page.getByText("tag: [bar] here")).toBeVisible();'
+assert_eq "tag:[...] inside a string literal: NOT tag-change only (conservative)" "false" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_IN_STRING")"
 # Empty patch: can't prove anything -> not tag-change only (conservative, tag it).
 assert_eq "empty patch: NOT tag-change only (conservative)" "false" \
 	"$(patch_is_tag_change_only "")"
@@ -1027,6 +1034,38 @@ assert_eq "touched file already covered by an existing tag: nothing to add" "" "
 printf '%s\n%s\n' "test/e2e/tests/viewer/viewer.test.ts" "test/e2e/tests/plots/plots.test.ts" > "$DERIVE_DIR/changed-two.txt"
 OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed-two.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json")"
 assert_eq "two touched files, no shared tag: picks one cheap tag per file" "$(printf '@:plots\n@:viewer')" "$OUT"
+
+# The core set-cover optimization: two touched files share a common tag, and
+# covering both with that ONE shared tag (repo-wide cost 2) is cheaper than
+# picking each file's own feature tag (:feat-a and :feat-b each appear on 3 extra
+# specs, so per-file selection costs 4 each). This is the case where
+# additionalCost's true set-union (not per-tag summation) is decisive, so the
+# result must be the single shared tag rather than the two per-file tags.
+cat > "$DERIVE_DIR/shared-list.json" <<'JSON'
+{
+  "suites": [
+    { "file": "tests/aaa/a.test.ts", "suites": [ { "file": "tests/aaa/a.test.ts", "specs": [
+      { "title": "a1", "tags": [":common", ":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
+    ] } ] },
+    { "file": "tests/bbb/b.test.ts", "suites": [ { "file": "tests/bbb/b.test.ts", "specs": [
+      { "title": "b1", "tags": [":common", ":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
+    ] } ] },
+    { "file": "tests/aaa/a-other.test.ts", "suites": [ { "file": "tests/aaa/a-other.test.ts", "specs": [
+      { "title": "ao0", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
+      { "title": "ao1", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] },
+      { "title": "ao2", "tags": [":feat-a"], "tests": [{ "expectedStatus": "passed" }] }
+    ] } ] },
+    { "file": "tests/bbb/b-other.test.ts", "suites": [ { "file": "tests/bbb/b-other.test.ts", "specs": [
+      { "title": "bo0", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
+      { "title": "bo1", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] },
+      { "title": "bo2", "tags": [":feat-b"], "tests": [{ "expectedStatus": "passed" }] }
+    ] } ] }
+  ]
+}
+JSON
+printf '%s\n%s\n' "test/e2e/tests/aaa/a.test.ts" "test/e2e/tests/bbb/b.test.ts" > "$DERIVE_DIR/changed-shared.txt"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed-shared.txt" --selected-tags "" --feature-tags "@:common,@:feat-a,@:feat-b" --list-json "$DERIVE_DIR/shared-list.json")"
+assert_eq "two touched files sharing a cheaper common tag: picks the one shared tag" "@:common" "$OUT"
 
 changed_file "test/e2e/tests/console/console-untagged.test.ts"
 WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/list.json" 2>&1 1>/dev/null)"

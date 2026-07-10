@@ -60,7 +60,13 @@ function fail(message) {
 // leading "@").
 function collectSpecs(suite, out) {
 	for (const spec of suite.specs ?? []) {
-		const skipped = (spec.tests ?? []).some(t => t.expectedStatus === 'skipped');
+		// Exclude a spec only if EVERY test run is statically skipped. Under the
+		// single `--project e2e-electron` listing this script uses there's one
+		// run per spec, so .every and .some coincide; .every is the safer
+		// semantic if this is ever pointed at a multi-project listing (a spec
+		// skipped in one project but live in another should still be covered).
+		const tests = spec.tests ?? [];
+		const skipped = tests.length > 0 && tests.every(t => t.expectedStatus === 'skipped');
 		if (skipped) { continue; }
 		out.push({
 			file: `test/e2e/${suite.file}`,

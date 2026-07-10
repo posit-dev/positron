@@ -149,8 +149,13 @@ patch_is_comment_or_whitespace_only() {
 #     tag-shaped to the matcher, so its residual differs and the file derives.
 #   - Any real code edited alongside the tags (a reworded describe title, a
 #     changed body line) changes the residual, so it won't be skipped.
-#   - At least one tag token must be involved, so a pure comment/whitespace change
-#     stays with patch_is_comment_or_whitespace_only (the predicates don't overlap).
+#   - At least one actual tags.X token must be involved, so a pure
+#     comment/whitespace change stays with patch_is_comment_or_whitespace_only
+#     (the predicates don't overlap) and a `tag: [...]` substring living inside a
+#     string literal isn't mistaken for a tag edit.
+# Known residual boundary: a changed line whose only difference is a tags.X token
+# inside a string literal would still normalize equal; that's rare enough to
+# accept, and the author can tag the PR body manually.
 # An empty patch echoes "false" for the same reason as the comment helper.
 patch_is_tag_change_only() {
 	local patch="$1"
@@ -176,7 +181,11 @@ patch_is_tag_change_only() {
 			if (s ~ /^\/\*/) { next }          # /* block opener
 			if (s ~ /^\*/) { next }            # * continuation or */ closer
 			real_lines++
-			if (line ~ /tags\./ || line ~ /tag:[ \t]*\[/) { tag_involved = 1 }
+			# Require an actual tags.X token, not just a "tag: [" substring: the
+			# latter also appears inside string literals (e.g. a getByText("tag:
+			# [x]") assertion), which would let a real code edit masquerade as a
+			# tag change. A genuine tag array always references tags.X on one side.
+			if (line ~ /tags\./) { tag_involved = 1 }
 			if (marker == "+") { added = added " " line } else { removed = removed " " line }
 		}
 		END {
