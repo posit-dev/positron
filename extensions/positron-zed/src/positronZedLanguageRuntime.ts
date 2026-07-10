@@ -54,6 +54,9 @@ const HelpLines = [
 	'busy X Y         - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
 	'cd X             - Changes the current working directory to X, or to a random directory if X is not specified',
 	'clock            - Show a plot containing a clock, using the notebook renderer API',
+	'console active   - Show the current active console editor (tests positron.window.activeConsoleEditor)',
+	'console watch    - Subscribe to onDidChangeActiveConsoleEditor and print each change',
+	'console watch stop - Stop watching for active console changes',
 	'connection X     - Create a database connection, optionally named X',
 	'connection close - Close a random database connection',
 	'code X Y         - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
@@ -190,6 +193,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * execution.
 	 */
 	private _busyInterruptSeconds: number;
+
+	/**
+	 * Disposable for the active `console watch` subscription; undefined when not watching.
+	 */
+	private _consoleWatchDisposable: vscode.Disposable | undefined;
 
 	/**
 	 * The number of seconds by which a shutdown should be delayed. This is used
@@ -935,6 +943,43 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 			case 'pwd': {
 				this.simulateSuccessfulCodeExecution(id, code, this._workingDirectory);
+				break;
+			}
+
+			case 'console active': {
+				const active = positron.window.activeConsoleEditor;
+				const msg = active
+					? `Active console: defined (session is live)`
+					: `Active console: none (no console is currently active)`;
+				this.simulateSuccessfulCodeExecution(id, code, msg);
+				break;
+			}
+
+			case 'console watch': {
+				if (this._consoleWatchDisposable) {
+					this.simulateSuccessfulCodeExecution(id, code, `Already watching. Use 'console watch stop' to stop.`);
+					break;
+				}
+				const watchId = id;
+				this._consoleWatchDisposable = positron.window.onDidChangeActiveConsoleEditor((activeConsole) => {
+					const msg = activeConsole
+						? `[console watch] Active console changed: defined`
+						: `[console watch] Active console changed: none`;
+					this.simulateOutputMessage(watchId, msg + '\n');
+				});
+				this.context.subscriptions.push(this._consoleWatchDisposable);
+				this.simulateSuccessfulCodeExecution(id, code, `Watching for active console changes. Switch consoles to see events. Use 'console watch stop' to stop.`);
+				break;
+			}
+
+			case 'console watch stop': {
+				if (this._consoleWatchDisposable) {
+					this._consoleWatchDisposable.dispose();
+					this._consoleWatchDisposable = undefined;
+					this.simulateSuccessfulCodeExecution(id, code, `Stopped watching for active console changes.`);
+				} else {
+					this.simulateSuccessfulCodeExecution(id, code, `Not currently watching. Use 'console watch' to start.`);
+				}
 				break;
 			}
 
