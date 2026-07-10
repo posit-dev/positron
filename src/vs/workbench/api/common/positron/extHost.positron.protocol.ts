@@ -355,6 +355,7 @@ export type ISerializedValidateAndExecuteCommandResult =
 		message?: string;
 	};
 
+
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
