@@ -108,7 +108,7 @@ suite('createPythonRuntimeMetadata path fields', () => {
         sandbox.stub(environmentTypeComparer, 'isVersionSupported').returns(true);
 
         // Stub vscode.workspace.getConfiguration used for the kernelSupervisor config.
-        when(mockedVSCodeNamespaces.workspace!).getConfiguration(anything()).thenReturn({
+        when(mockedVSCodeNamespaces.workspace!.getConfiguration(anything())).thenReturn({
             get: (_key: string, def?: unknown) => def,
         } as any);
 
