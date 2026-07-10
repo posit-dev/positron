@@ -504,6 +504,7 @@ import './contrib/opener/browser/opener.contribution.js';
 // --- Start Positron ---
 
 // Contributions
+import './contrib/positronAiCommands/browser/positronAiCommands.contribution.js';
 import './contrib/positronAssistant/browser/positronAssistant.contribution.js';
 import './contrib/positronConsole/browser/positronConsole.contribution.js';
 import './contrib/positronConsole/browser/positronConsoleView.js';
