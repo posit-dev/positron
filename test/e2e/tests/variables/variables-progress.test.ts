@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, () => {
+test.describe('Variables - Progress bars', { tag: [tags.WEB, tags.VARIABLES] }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.stackedLayout();
