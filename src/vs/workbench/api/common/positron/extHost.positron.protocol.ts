@@ -355,6 +355,29 @@ export type ISerializedValidateAndExecuteCommandResult =
 	};
 
 
+export interface ISerializedAllowedCommandArg {
+	name: string;
+	description?: string;
+	isOptional?: boolean;
+}
+
+export interface ISerializedAllowedCommandSource {
+	type: 'builtin' | 'extension';
+	/** Extension identifier (e.g. `ms-python.python`). Only present when type is 'extension'. */
+	id?: string;
+	/** Extension display name. Only present when type is 'extension'. */
+	displayName?: string;
+}
+
+export interface ISerializedAllowedCommand {
+	id: string;
+	description?: string;
+	args?: ISerializedAllowedCommandArg[];
+	returns?: string;
+	source: ISerializedAllowedCommandSource;
+	keybindings?: string[];
+}
+
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
@@ -379,6 +402,7 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
+	$getAllowedCommands(): Promise<ISerializedAllowedCommand[]>;
 }
 
 export interface ExtHostAiFeaturesShape {
