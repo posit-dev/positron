@@ -205,6 +205,29 @@ valid_enum_tags() {
 	grep -oE "'@:[a-zA-Z0-9_-]+'" "$enum_file" | tr -d "'" | sort -u
 }
 
+# feature_enum_tags <enum_file>
+# Echoes the newline-separated, unique @: tag strings declared in the
+# FeatureTags enum block of test-tags.ts -- the ONLY tags eligible for auto
+# test-change tag derivation. Platform/special tags (separate CI lanes,
+# author-controlled; @:win/@:web handled by scan_added_platform_tags) live in
+# other enum blocks and are deliberately excluded, so derivation never selects a
+# tag that widens the run without enabling its lane. Passed to
+# derive-test-change-tags.mjs as --feature-tags. Missing file echoes nothing.
+feature_enum_tags() {
+	local enum_file="$1"
+	[[ -f "$enum_file" ]] || return 0
+	awk '
+		/export enum FeatureTags[[:space:]]*\{/ { infeat = 1; next }
+		infeat && /\}/ { infeat = 0 }
+		infeat {
+			while (match($0, /@:[a-zA-Z0-9_-]+/)) {
+				print substr($0, RSTART, RLENGTH)
+				$0 = substr($0, RSTART + RLENGTH)
+			}
+		}
+	' "$enum_file" | sort -u
+}
+
 # split_valid_invalid_tags <csv_tags> <enum_file>
 # Splits a comma-separated tag list against the TestTags enum. Echoes
 # "<valid_csv>|<invalid_csv>" (pipe-separated so an empty side is still a

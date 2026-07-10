@@ -14,6 +14,12 @@
 //   changed-files: path to a newline-delimited file of repo-relative changed paths
 //   selected-tags: comma-separated tags already selected by earlier derivation
 //     steps (author + src-path-map + @:critical + @:ark). Default: empty.
+//   feature-tags: comma-separated allowlist of tags eligible to be selected as
+//     a cover (the FeatureTags enum -- see scripts/lib/pr-tags-lib.sh
+//     feature_enum_tags). Platform/special tags are excluded: they trigger
+//     their own CI lanes and adding one to the electron --grep would widen the
+//     run without enabling its lane. When omitted, no filtering is applied (all
+//     of a touched spec's tags are eligible).
 //   list-json: test-only override. When given, reads this file instead of
 //     invoking `playwright test --list --project e2e-electron --reporter=json`.
 //     Its shape must match that command's real JSON output.
@@ -155,6 +161,11 @@ function main() {
 	if (touchedFiles.length === 0) { return; }
 
 	const selected = new Set((args['selected-tags'] ?? '').split(',').map(t => t.trim()).filter(Boolean));
+	// null = no allowlist (all tags eligible); a Set = only these tags may be
+	// selected as a cover. See --feature-tags in the header.
+	const featureAllow = args['feature-tags'] !== undefined
+		? new Set(args['feature-tags'].split(',').map(t => t.trim()).filter(Boolean))
+		: null;
 	const allSpecs = listAllSpecs(args['list-json']);
 
 	const specId = (s, i) => `${s.file}::${i}`;
@@ -166,8 +177,21 @@ function main() {
 				console.error(`derive-test-change-tags: ${file} has no declared tags for "${spec.title}" -- add tags or tag the PR body manually.`);
 				continue;
 			}
+			// Already covered? Check against the spec's ORIGINAL tags: if a
+			// platform tag it carries is already selected (e.g. author added
+			// @:win), the test genuinely runs in that lane -- nothing to add.
 			const covered = [...spec.tags].some(t => selected.has(t));
-			if (!covered) { touchedUncovered.push(spec); }
+			if (covered) { continue; }
+			// Restrict the cover candidates to feature tags. A spec left with no
+			// eligible tag (only platform/special tags, e.g. a @:win-only test)
+			// can't be auto-covered -- warn like the untagged case rather than
+			// silently miss it or select a lane-triggering tag.
+			const eligible = featureAllow ? [...spec.tags].filter(t => featureAllow.has(t)) : [...spec.tags];
+			if (eligible.length === 0) {
+				console.error(`derive-test-change-tags: ${file} "${spec.title}" is tagged only with platform/non-feature tags (${[...spec.tags].join(', ')}) -- add a feature tag or tag the PR body manually.`);
+				continue;
+			}
+			touchedUncovered.push({ ...spec, tags: new Set(eligible) });
 		}
 	}
 	if (touchedUncovered.length === 0) { return; }

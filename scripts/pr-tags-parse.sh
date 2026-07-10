@@ -208,9 +208,15 @@ else
 			# non-zero node exit is visible here -- under `set -e` with no
 			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed
 			# because `paste`'s exit status (always 0) masks node's failure.
+			# Only feature tags are eligible to be auto-selected as a cover;
+			# platform/special tags trigger their own CI lanes and are
+			# author-controlled (see test-tags.ts). Pass the FeatureTags
+			# allowlist so derivation can't pick a lane-triggering tag.
+			FEATURE_TAGS_CSV="$(feature_enum_tags "$ENUM_FILE" | paste -sd, -)"
 			if TEST_CHANGE_TAGS_RAW="$(node "$DERIVE_TEST_CHANGE_SCRIPT" \
 				--changed-files "$CHANGED_FILES_FILE" \
-				--selected-tags "$TAGS")"; then
+				--selected-tags "$TAGS" \
+				--feature-tags "$FEATURE_TAGS_CSV")"; then
 				TEST_CHANGE_TAGS="$(printf '%s' "$TEST_CHANGE_TAGS_RAW" | paste -sd, -)"
 			else
 				TEST_CHANGE_STATUS=$?

@@ -200,6 +200,56 @@ assert_eq "split: empty input yields both sides empty" "|" \
 assert_eq "split: missing enum file treats all tags as invalid" "|@:console" \
 	"$(split_valid_invalid_tags "@:console" "/nonexistent/test-tags.ts")"
 
+# --- feature_enum_tags ---
+# test-tags.ts splits tags into FeatureTags / PlatformTags / SpecialTags enums,
+# merged into TestTags. feature_enum_tags returns ONLY the FeatureTags block --
+# the allowlist for auto test-change tag derivation. Platform/special tags must
+# be excluded (they trigger their own CI lanes / are author-controlled).
+ROLE_ENUM="$(mktemp)"
+cat > "$ROLE_ENUM" <<'TS'
+export enum FeatureTags {
+	CONSOLE = '@:console',
+	VARIABLES = '@:variables',
+	PERFORMANCE = '@:performance',
+}
+export enum PlatformTags {
+	WIN = '@:win',
+	WEB = '@:web',
+	CROSS_BROWSER = '@:cross-browser',
+}
+export enum SpecialTags {
+	SOFT_FAIL = '@:soft-fail',
+}
+export const TestTags = { ...FeatureTags, ...PlatformTags, ...SpecialTags };
+TS
+assert_eq "feature_enum_tags: returns only the FeatureTags block, sorted" \
+	"$(printf '@:console\n@:performance\n@:variables')" "$(feature_enum_tags "$ROLE_ENUM")"
+assert_eq "valid_enum_tags: still returns ALL tags across the three blocks" \
+	"$(printf '@:console\n@:cross-browser\n@:performance\n@:soft-fail\n@:variables\n@:web\n@:win')" \
+	"$(valid_enum_tags "$ROLE_ENUM")"
+assert_eq "feature_enum_tags: missing file yields nothing" "" "$(feature_enum_tags "/nonexistent/test-tags.ts")"
+rm -f "$ROLE_ENUM"
+
+# Drift guard against the REAL test-tags.ts: feature tags must include known
+# feature areas and must NOT include platform/special tags. Catches a tag
+# landing in (or moving to) the wrong enum block.
+REAL_ENUM="$HERE/../../test/e2e/infra/test-runner/test-tags.ts"
+REAL_FEATURE="$(feature_enum_tags "$REAL_ENUM")"
+for t in @:console @:variables @:plots @:performance; do
+	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
+		echo "PASS: real FeatureTags includes $t"
+	else
+		echo "FAIL: real FeatureTags should include $t"; fail=1
+	fi
+done
+for t in @:win @:web @:cross-browser @:soft-fail @:workbench @:remote-ssh; do
+	if printf '%s\n' "$REAL_FEATURE" | grep -qxF "$t"; then
+		echo "FAIL: real FeatureTags should NOT include platform/special tag $t"; fail=1
+	else
+		echo "PASS: real FeatureTags excludes $t"
+	fi
+done
+
 # --- check-test-tag-map.sh smoke ---
 # A map missing a known dir should fail; --warn-only should still exit 0.
 TMP_MAP="$(mktemp)"
@@ -850,6 +900,75 @@ if node "$DERIVE_SCRIPT" --selected-tags "" --list-json "$DERIVE_DIR/list.json" 
 else
 	echo "PASS: script fails loudly when --changed-files is missing"
 fi
+
+# --- derive: --feature-tags excludes platform tags from the cover ---
+# plat.test.ts's spec carries a platform tag (:cross-browser, repo-wide cost 1)
+# and a feature tag (:search, cost 6). Without the allowlist the algorithm would
+# pick the cheaper platform tag; with it, only the feature tag is eligible even
+# though it's more expensive -- because a platform tag in the electron --grep
+# widens the run without enabling its own lane.
+cat > "$DERIVE_DIR/plat-list.json" <<'JSON'
+{
+  "suites": [
+    {
+      "file": "tests/plat/plat.test.ts",
+      "suites": [
+        {
+          "file": "tests/plat/plat.test.ts",
+          "specs": [
+            { "title": "cross-browser search thing", "tags": [":cross-browser", ":search"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/search/search-other.test.ts",
+      "suites": [
+        {
+          "file": "tests/search/search-other.test.ts",
+          "specs": [
+            { "title": "s0", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "s1", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "s2", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "s3", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] },
+            { "title": "s4", "tags": [":search"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "tests/webonly/webonly.test.ts",
+      "suites": [
+        {
+          "file": "tests/webonly/webonly.test.ts",
+          "specs": [
+            { "title": "web only", "tags": [":web"], "tests": [{ "expectedStatus": "passed" }] }
+          ]
+        }
+      ]
+    }
+  ]
+}
+JSON
+
+FEATURE_ALLOW="@:search,@:viewer,@:console,@:plots,@:editor"
+
+changed_file "test/e2e/tests/plat/plat.test.ts"
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/plat-list.json")"
+assert_eq "no allowlist: cheapest tag wins even if it's a platform tag" "@:cross-browser" "$OUT"
+
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json")"
+assert_eq "with allowlist: platform tag excluded, pricier feature tag chosen" "@:search" "$OUT"
+
+changed_file "test/e2e/tests/webonly/webonly.test.ts"
+WARN_OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>&1 1>/dev/null)"
+if printf '%s' "$WARN_OUT" | grep -qF "platform/non-feature"; then
+	echo "PASS: platform-only touched test warns on stderr"
+else
+	echo "FAIL: platform-only touched test should warn on stderr"; fail=1
+fi
+STDOUT_ONLY="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json" 2>/dev/null)"
+assert_eq "platform-only touched test: nothing added to stdout" "" "$STDOUT_ONLY"
 
 rm -rf "$DERIVE_DIR"
 
