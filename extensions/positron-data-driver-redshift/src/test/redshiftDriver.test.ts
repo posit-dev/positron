@@ -6,6 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { RedshiftConnection, RedshiftConnectionConfig } from '../redshiftConnection.js';
+import { PgClientFactory, RedshiftClient, RedshiftFieldConfig } from '../redshiftClient.js';
 import { createDatabaseNode, createSchemaNode } from '../redshiftNodes.js';
 import { parseRedshiftEndpoint } from '../redshiftDriver.js';
 
@@ -470,6 +471,136 @@ suite('Redshift Cross-Database Detection', () => {
 		const columns = await columnsGroup.getChildren!();
 		assert.strictEqual(columns[0].name, 'id');
 		assert.strictEqual(columns[0].isPrimaryKey, false);
+	});
+});
+
+suite('Redshift Reconnecting Client', () => {
+
+	const FIELDS: RedshiftFieldConfig = {
+		host: 'my-cluster.abc123.us-east-1.redshift.amazonaws.com',
+		port: 5439,
+		database: 'dev',
+		user: 'testuser',
+		password: 'testpass',
+		ssl: true,
+	};
+
+	// A fake pg Client that records its lifecycle calls and answers queries from a per-instance
+	// handler (which may throw to simulate a query- or connection-level failure).
+	class FakeClient {
+		connectCount = 0;
+		endCount = 0;
+		constructor(private readonly _handler: (sql: string, params?: unknown[]) => { rows: unknown[] }) { }
+		async connect() { this.connectCount++; }
+		async query(sql: string, params?: unknown[]) { return this._handler(sql, params); }
+		async end() { this.endCount++; }
+		on() { return this; }
+	}
+
+	// Builds a PgClientFactory that hands out FakeClients driven by the given per-client handlers (the
+	// nth handler backs the nth client built), plus the list of clients created so far.
+	function makeFactory(handlers: Array<(sql: string, params?: unknown[]) => { rows: unknown[] }>) {
+		const clients: FakeClient[] = [];
+		const factory: PgClientFactory = () => {
+			const client = new FakeClient(handlers[clients.length] ?? (() => ({ rows: [] })));
+			clients.push(client);
+			// eslint-disable-next-line local/code-no-any-casts
+			return client as any;
+		};
+		return { factory, clients };
+	}
+
+	test('passes queries through the connected client', async () => {
+		const { factory, clients } = makeFactory([() => ({ rows: [{ n: 1 }] })]);
+		const client = new RedshiftClient(FIELDS, factory);
+
+		await client.connect();
+		const result = await client.query('SELECT 1');
+
+		assert.deepStrictEqual(result.rows, [{ n: 1 }]);
+		assert.strictEqual(clients.length, 1);
+		assert.strictEqual(clients[0].connectCount, 1);
+
+		await client.end();
+		assert.strictEqual(clients[0].endCount, 1);
+	});
+
+	test('reconnects once and retries when the socket is dead', async () => {
+		const { factory, clients } = makeFactory([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			() => ({ rows: [{ ok: true }] }),
+		]);
+		const client = new RedshiftClient(FIELDS, factory);
+
+		await client.connect();
+		const result = await client.query('SELECT 1');
+
+		assert.deepStrictEqual(result.rows, [{ ok: true }]);
+		assert.strictEqual(clients.length, 2);
+		assert.strictEqual(clients[0].endCount, 1, 'the dead client should be closed');
+		assert.strictEqual(clients[1].connectCount, 1, 'the replacement client should be connected');
+	});
+
+	test('does not reconnect on a non-connection error', async () => {
+		const syntaxError = Object.assign(new Error('syntax error at or near "SELCT"'), { code: '42601' });
+		const { factory, clients } = makeFactory([() => { throw syntaxError; }]);
+		const client = new RedshiftClient(FIELDS, factory);
+
+		await client.connect();
+		await assert.rejects(() => client.query('SELCT 1'), /syntax error/);
+		assert.strictEqual(clients.length, 1, 'a SQL error should not trigger a reconnect');
+	});
+
+	test('coalesces concurrent reconnects into one', async () => {
+		const { factory, clients } = makeFactory([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			(sql) => ({ rows: [{ sql }] }),
+		]);
+		const client = new RedshiftClient(FIELDS, factory);
+
+		await client.connect();
+		const [r1, r2] = await Promise.all([client.query('a'), client.query('b')]);
+
+		assert.strictEqual(clients.length, 2, 'two simultaneous failures should rebuild the client once');
+		assert.deepStrictEqual(
+			[(r1.rows[0] as { sql: string }).sql, (r2.rows[0] as { sql: string }).sql].sort(),
+			['a', 'b']
+		);
+	});
+
+	// A pg-client factory whose nth connect() throws the nth entry in `connectErrors` (undefined =
+	// succeed), so a resuming-workgroup connect sequence can be simulated. Records the attempt count.
+	function connectFactory(connectErrors: Array<Error | undefined>) {
+		const state = { attempts: 0 };
+		const factory: PgClientFactory = () => {
+			const err = connectErrors[state.attempts];
+			state.attempts++;
+			// eslint-disable-next-line local/code-no-any-casts
+			return {
+				connect: async () => { if (err) { throw err; } },
+				query: async () => ({ rows: [] }),
+				end: async () => { },
+				on: () => { },
+			} as any;
+		};
+		return { factory, state };
+	}
+
+	test('retries a transient failure during connect', async () => {
+		const { factory, state } = connectFactory([new Error('Connection terminated unexpectedly'), undefined]);
+		const client = new RedshiftClient(FIELDS, factory, async () => { });
+
+		await client.connect();
+		assert.strictEqual(state.attempts, 2, 'the dropped first connect should be retried');
+	});
+
+	test('does not retry a terminal error during connect', async () => {
+		const authError = Object.assign(new Error('password authentication failed'), { code: '28P01' });
+		const { factory, state } = connectFactory([authError]);
+		const client = new RedshiftClient(FIELDS, factory, async () => { });
+
+		await assert.rejects(() => client.connect(), /password authentication failed/);
+		assert.strictEqual(state.attempts, 1, 'a bad password should fail fast, not retry');
 	});
 });
 

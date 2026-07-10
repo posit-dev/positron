@@ -18,8 +18,8 @@
 // A `database` of `undefined` throughout means "the connected database" (single-database family);
 // a defined `database` means a specific database browsed cross-database.
 
-import { Client } from 'pg';
 import * as positron from 'positron';
+import { RedshiftClient } from './redshiftClient.js';
 
 // System schemas hidden from the tree in both families.
 const SYSTEM_SCHEMAS = ['pg_catalog', 'information_schema', 'pg_toast', 'pg_internal', 'catalog_history'];
@@ -27,15 +27,15 @@ const SYSTEM_SCHEMAS_SQL = SYSTEM_SCHEMAS.map(s => `'${s}'`).join(', ');
 
 /**
  * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
- * RedshiftConnection, which owns the dataset registration. `client` is the pg client the node was
+ * RedshiftConnection, which owns the dataset registration. `client` is the client the node was
  * built against; `database` is the database the object lives in (undefined for the connected
  * database in single-database mode), so cross-database previews use a three-part reference.
  */
 export interface IRedshiftPreviewHost {
 	/** Opens the given table or view in the Data Explorer. */
-	previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
 	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
 }
 
 // --- Single-database family (connected database, information_schema) ---
@@ -44,7 +44,7 @@ export interface IRedshiftPreviewHost {
  * Creates the root "Schemas" group node for the connected database. Lists every non-system schema
  * as a child schema node.
  */
-export function createSchemasGroupNode(client: Client, host: IRedshiftPreviewHost): positron.DataConnectionNode {
+export function createSchemasGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
@@ -61,7 +61,7 @@ export function createSchemasGroupNode(client: Client, host: IRedshiftPreviewHos
  * Creates a schema node in the connected database that expands to Tables and Views groups. Exported
  * so unit tests can construct a schema node directly against a mocked client.
  */
-export function createSchemaNode(client: Client, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
+export function createSchemaNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
@@ -75,7 +75,7 @@ export function createSchemaNode(client: Client, host: IRedshiftPreviewHost, sch
 }
 
 /** Creates the "Tables" group inside a connected-database schema. Lists base tables. */
-function createTablesGroupNode(client: Client, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
+function createTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
@@ -90,7 +90,7 @@ function createTablesGroupNode(client: Client, host: IRedshiftPreviewHost, schem
 }
 
 /** Creates the "Views" group inside a connected-database schema. Lists views. */
-function createViewsGroupNode(client: Client, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
+function createViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
@@ -110,7 +110,7 @@ function createViewsGroupNode(client: Client, host: IRedshiftPreviewHost, schema
  * Creates the root "Databases" group node, used when the connection supports cross-database queries.
  * Lists every database visible from the connection.
  */
-export function createDatabasesGroupNode(client: Client, host: IRedshiftPreviewHost): positron.DataConnectionNode {
+export function createDatabasesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost): positron.DataConnectionNode {
 	return {
 		name: 'Databases',
 		kind: positron.DataConnectionNodeKind.GroupDatabases,
@@ -127,7 +127,7 @@ export function createDatabasesGroupNode(client: Client, host: IRedshiftPreviewH
  * Creates a database node that expands to a "Schemas" group browsed cross-database. Exported so unit
  * tests can construct a database node directly against a mocked client.
  */
-export function createDatabaseNode(client: Client, host: IRedshiftPreviewHost, database: string): positron.DataConnectionNode {
+export function createDatabaseNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string): positron.DataConnectionNode {
 	return {
 		name: database,
 		kind: positron.DataConnectionNodeKind.Database,
@@ -138,7 +138,7 @@ export function createDatabaseNode(client: Client, host: IRedshiftPreviewHost, d
 }
 
 /** Creates the "Schemas" group inside a database node, via SVV_ALL_SCHEMAS. */
-function createCrossDatabaseSchemasGroupNode(client: Client, host: IRedshiftPreviewHost, database: string): positron.DataConnectionNode {
+function createCrossDatabaseSchemasGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
@@ -153,7 +153,7 @@ function createCrossDatabaseSchemasGroupNode(client: Client, host: IRedshiftPrev
 }
 
 /** Creates a cross-database schema node that expands to Tables and Views groups, via SVV_ALL_TABLES. */
-function createCrossDatabaseSchemaNode(client: Client, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+function createCrossDatabaseSchemaNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
@@ -171,7 +171,7 @@ function createCrossDatabaseSchemaNode(client: Client, host: IRedshiftPreviewHos
  * case-insensitively; anything that is not a view is treated as a table so external tables aren't
  * hidden.
  */
-function createCrossDatabaseTablesGroupNode(client: Client, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+function createCrossDatabaseTablesGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
@@ -186,7 +186,7 @@ function createCrossDatabaseTablesGroupNode(client: Client, host: IRedshiftPrevi
 }
 
 /** Creates the "Views" group inside a cross-database schema, via SVV_ALL_TABLES. */
-function createCrossDatabaseViewsGroupNode(client: Client, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+function createCrossDatabaseViewsGroupNode(client: RedshiftClient, host: IRedshiftPreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
@@ -208,7 +208,7 @@ function createCrossDatabaseViewsGroupNode(client: Client, host: IRedshiftPrevie
  * the preview reference (two-part vs three-part).
  */
 function createRelationNode(
-	client: Client,
+	client: RedshiftClient,
 	host: IRedshiftPreviewHost,
 	database: string | undefined,
 	schemaName: string,
@@ -233,7 +233,7 @@ function createRelationNode(
  * SVV_ALL_COLUMNS (primary-key detection is skipped, as the constraint views are per-connected-database).
  */
 function createColumnsGroupNode(
-	client: Client,
+	client: RedshiftClient,
 	host: IRedshiftPreviewHost,
 	database: string | undefined,
 	schemaName: string,
@@ -276,7 +276,7 @@ function createColumnsGroupNode(
 }
 
 /** Returns the set of column names that make up a table's declared primary key (connected database). */
-async function getPrimaryKeyColumns(client: Client, schemaName: string, tableName: string): Promise<Set<string>> {
+async function getPrimaryKeyColumns(client: RedshiftClient, schemaName: string, tableName: string): Promise<Set<string>> {
 	const result = await client.query(
 		`SELECT kcu.column_name FROM information_schema.table_constraints tc ` +
 		`JOIN information_schema.key_column_usage kcu ` +

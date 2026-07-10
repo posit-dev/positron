@@ -3,21 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Client } from 'pg';
 import * as positron from 'positron';
+import { PostgreSQLClient } from './postgresqlClient.js';
 
 /**
  * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
- * PostgreSQLConnection, which owns the dataset registration. The `client` is the pg client the node
+ * PostgreSQLConnection, which owns the dataset registration. The `client` is the client the node
  * was built against (the connection's own client in single-database mode, or a per-database client in
  * server mode) and `database` is the database the object lives in (undefined in single-database mode),
  * so previewed datasets stay unique across databases.
  */
 export interface IPostgresPreviewHost {
 	/** Opens the given table or view in the Data Explorer. */
-	previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	previewObject(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
 	/** Opens a single column of the given table or view in the Data Explorer. */
-	previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	previewColumn(client: PostgreSQLClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
 }
 
 /**
@@ -29,7 +29,7 @@ export interface IPostgresConnectionHost extends IPostgresPreviewHost {
 	/** Lists the names of the browsable (non-template) databases on the server. */
 	listDatabases(): Promise<string[]>;
 	/** Returns a pg client connected to the given database, creating and caching it on first use. */
-	getDatabaseClient(database: string): Promise<Client>;
+	getDatabaseClient(database: string): Promise<PostgreSQLClient>;
 }
 
 /**
@@ -68,7 +68,7 @@ export function createDatabaseNode(host: IPostgresConnectionHost, database: stri
  * `database` is the database the schemas live in (undefined in single-database mode), threaded down
  * to previews so their datasets stay unique across databases.
  */
-export function createSchemasGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined): positron.DataConnectionNode {
+export function createSchemasGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined): positron.DataConnectionNode {
 	return {
 		name: 'Schemas',
 		kind: positron.DataConnectionNodeKind.GroupSchemas,
@@ -86,7 +86,7 @@ export function createSchemasGroupNode(client: Client, host: IPostgresPreviewHos
  * unit tests can construct a schema node directly against a mocked client without having to
  * walk through the root Schemas group.
  */
-export function createSchemaNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
+export function createSchemaNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
@@ -102,7 +102,7 @@ export function createSchemaNode(client: Client, host: IPostgresPreviewHost, dat
 /**
  * Creates the "Tables" group inside a schema. Lists base tables in the schema.
  */
-function createTablesGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
+function createTablesGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Tables',
 		kind: positron.DataConnectionNodeKind.GroupTables,
@@ -119,7 +119,7 @@ function createTablesGroupNode(client: Client, host: IPostgresPreviewHost, datab
 /**
  * Creates the "Views" group inside a schema. Lists views in the schema.
  */
-function createViewsGroupNode(client: Client, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
+function createViewsGroupNode(client: PostgreSQLClient, host: IPostgresPreviewHost, database: string | undefined, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: 'Views',
 		kind: positron.DataConnectionNodeKind.GroupViews,
@@ -137,7 +137,7 @@ function createViewsGroupNode(client: Client, host: IPostgresPreviewHost, databa
  * Creates a table node that expands to two category groups: Columns and Indexes.
  */
 function createTableNode(
-	client: Client,
+	client: PostgreSQLClient,
 	host: IPostgresPreviewHost,
 	database: string | undefined,
 	schemaName: string,
@@ -163,7 +163,7 @@ function createTableNode(
  * the schema-browsing sense, so there's only one category under each view.
  */
 function createViewNode(
-	client: Client,
+	client: PostgreSQLClient,
 	host: IPostgresPreviewHost,
 	database: string | undefined,
 	schemaName: string,
@@ -186,7 +186,7 @@ function createViewNode(
  * strings; each column can be previewed as a single-column Data Explorer.
  */
 function createColumnsGroupNode(
-	client: Client,
+	client: PostgreSQLClient,
 	host: IPostgresPreviewHost,
 	database: string | undefined,
 	schemaName: string,
@@ -225,7 +225,7 @@ function createColumnsGroupNode(
 /**
  * Returns the set of column names that make up a table's primary key.
  */
-async function getPrimaryKeyColumns(client: Client, schemaName: string, tableName: string): Promise<Set<string>> {
+async function getPrimaryKeyColumns(client: PostgreSQLClient, schemaName: string, tableName: string): Promise<Set<string>> {
 	const result = await client.query(
 		`SELECT kcu.column_name FROM information_schema.table_constraints tc ` +
 		`JOIN information_schema.key_column_usage kcu ` +
@@ -240,7 +240,7 @@ async function getPrimaryKeyColumns(client: Client, schemaName: string, tableNam
  * Creates the "Indexes" group inside a table. Lists indexes as leaf nodes.
  */
 function createIndexesGroupNode(
-	client: Client,
+	client: PostgreSQLClient,
 	schemaName: string,
 	tableName: string
 ): positron.DataConnectionNode {

@@ -9,29 +9,13 @@
 // "server mode" that enumerates databases via the `postgres` maintenance database is intentionally
 // absent here. The top-level nodes are always the schemas of the connected database.
 
-import { Client } from 'pg';
 import * as positron from 'positron';
-import { ConnectionOptions } from 'tls';
+import { RedshiftClient, RedshiftFieldConfig } from './redshiftClient.js';
 import { createDatabasesGroupNode, createSchemasGroupNode, IRedshiftPreviewHost } from './redshiftNodes.js';
 import { IRedshiftDataExplorerHost, REDSHIFT_DATA_EXPLORER_PROVIDER_ID } from './redshiftDataExplorerRpcHandler.js';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
 let nextConnectionId = 1;
-
-/**
- * The discrete connection fields for a Redshift connection. Host, port, database, and user identify
- * the cluster and login; the password is optional only in that future auth mechanisms (IAM, Okta)
- * will mint a temporary one. SSL defaults on because Redshift endpoints expect an encrypted
- * connection.
- */
-export interface RedshiftFieldConfig {
-	host: string;
-	port: number;
-	database: string;
-	user: string;
-	password?: string;
-	ssl?: boolean;
-}
 
 /**
  * Connection configuration passed from the driver. Only the discrete-fields form is supported today;
@@ -40,28 +24,13 @@ export interface RedshiftFieldConfig {
 export type RedshiftConnectionConfig = { kind: 'fields' } & RedshiftFieldConfig;
 
 /**
- * Builds the `ssl` option for the pg Client. Redshift terminates TLS with an ACM-issued certificate;
- * verifying it requires bundling the Redshift CA, which this MVP does not yet do, so SSL is enabled
- * without server-certificate verification (the connection is still encrypted). Returns false only
- * when SSL is explicitly disabled.
- */
-function buildSslConfig(config: RedshiftFieldConfig): boolean | ConnectionOptions {
-	// Default to on: Redshift expects SSL, so treat an unset value as enabled.
-	if (config.ssl === false) {
-		return false;
-	}
-	// TODO: bundle the Redshift CA and switch to { rejectUnauthorized: true, ca } for verification.
-	return { rejectUnauthorized: false };
-}
-
-/**
- * A live Amazon Redshift connection implementing the DataConnection interface. Connects via the pg
- * Client and provides schema browsing via getChildren(), always scoped to the single configured
- * database.
+ * A live Amazon Redshift connection implementing the DataConnection interface. Connects via a
+ * reconnecting pg client and provides schema browsing via getChildren(), always scoped to the single
+ * configured database.
  */
 export class RedshiftConnection implements positron.DataConnection, IRedshiftPreviewHost {
-	// The pg client, or null after disconnect.
-	private _client: Client | null;
+	// The reconnecting pg client, or null after disconnect.
+	private _client: RedshiftClient | null;
 
 	// Whether the cluster supports cross-database queries (RA3 / Serverless). Detected on connect;
 	// when true, the top-level nodes are the databases in the namespace rather than the schemas of
@@ -83,19 +52,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 		private readonly _config: RedshiftConnectionConfig,
 		private readonly _dataExplorerHandler: IRedshiftDataExplorerHost
 	) {
-		this._client = this._buildClient();
-	}
-
-	/** Builds a pg client from the connection config. */
-	private _buildClient(): Client {
-		return new Client({
-			host: this._config.host,
-			port: this._config.port,
-			user: this._config.user,
-			password: this._config.password,
-			database: this._config.database,
-			ssl: buildSslConfig(this._config),
-		});
+		this._client = new RedshiftClient(this._config);
 	}
 
 	/** Establishes the connection. Must be called before any other method. */
@@ -154,7 +111,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * under a stable per-connection dataset id, then asks Positron to open (or focus) the explorer
 	 * backed by this extension's provider.
 	 */
-	async previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
 		this._ensureConnected();
 		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:${kind}:${schemaName}.${tableName}`;
 		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), database, schemaName, tableName, kind);
@@ -170,7 +127,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
 	 * Uses a dataset id distinct from the table's so both can be open at once.
 	 */
-	async previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(client: RedshiftClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
 		this._ensureConnected();
 		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:column:${schemaName}.${tableName}.${columnName}`;
 		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), database, schemaName, tableName, kind, columnName);
@@ -183,7 +140,7 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	}
 
 	/** A query client over the given pg client, for the Data Explorer table views. */
-	private _queryClient(client: Client) {
+	private _queryClient(client: RedshiftClient) {
 		return { runQuery: async (sql: string) => (await client.query(sql)).rows };
 	}
 
