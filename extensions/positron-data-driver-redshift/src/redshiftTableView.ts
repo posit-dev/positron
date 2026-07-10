@@ -73,6 +73,25 @@ export interface IRedshiftQueryClient {
 	runQuery(sql: string): Promise<Array<Record<string, unknown>>>;
 }
 
+/**
+ * A minimal sink for the table view's diagnostic logging, so the class stays decoupled from vscode.
+ * Structurally satisfied by a `vscode.LogOutputChannel`. Optional throughout; when absent, nothing
+ * is logged.
+ */
+export interface IProfileLogger {
+	info(message: string): void;
+}
+
+/**
+ * Cancellation signal for a column-profile pass. The RPC handler flips this when a newer request for
+ * the same dataset arrives, and the pass abandons itself at the next statement boundary so a burst of
+ * requests can't stack statements on the single connection. Structurally satisfied by a
+ * `vscode.CancellationToken`.
+ */
+export interface IProfileCancellation {
+	readonly isCancellationRequested: boolean;
+}
+
 /** Sentinel codes for special cell values, matching the Data Explorer wire protocol. */
 const SENTINEL_NULL = 0;
 const SENTINEL_NAN = 2;
@@ -218,6 +237,39 @@ export function makeWhereExpr(rowFilter: RowFilter): string {
 }
 
 /**
+ * Column-indexed aliases for the batched scalar-aggregate query, so the SELECT that emits them and
+ * the code that reads them back stay in lockstep. Redshift lowercases unquoted aliases, so these are
+ * lowercase and read back by the same key.
+ */
+const aggAlias = {
+	total: 'agg_total',
+	nonNull: (i: number) => `agg_nn_${i}`,
+	n: (i: number) => `agg_n_${i}`,
+	lo: (i: number) => `agg_lo_${i}`,
+	hi: (i: number) => `agg_hi_${i}`,
+	sum: (i: number) => `agg_s_${i}`,
+	sumSq: (i: number) => `agg_ss_${i}`,
+	numUnique: (i: number) => `agg_nu_${i}`,
+	numEmpty: (i: number) => `agg_ne_${i}`,
+	numTrue: (i: number) => `agg_nt_${i}`,
+	numFalse: (i: number) => `agg_nf_${i}`,
+	median: (i: number) => `agg_med_${i}`,
+};
+
+/** A column's histogram binning, planned client-side from the scalar row; its bins come from a batch query. */
+interface HistogramPlan {
+	columnIndex: number;
+	quotedName: string;
+	nonNull: number;
+	nullCount: number;
+	min: number;
+	max: number;
+	numBins: number;
+	binWidth: number;
+	degenerate: boolean;
+}
+
+/**
  * Serves Data Explorer requests for a single Redshift table or view. Translates each protocol
  * method into SQL run through the connection's `pg` client. Values are fetched raw and formatted in
  * TypeScript, while filtering, sorting, counts, and aggregations are pushed into SQL.
@@ -232,6 +284,12 @@ export class RedshiftTableView {
 	private _unfilteredRows: Promise<number>;
 	private _filteredRows: Promise<number>;
 
+	// Per-pass diagnostics for column profiling: a monotonically increasing pass id and the count of
+	// queries issued in the current pass, so the log can attribute each query to a pass and report a
+	// total. Overlapping passes (rare; the frontend cancels the prior one) may share the latest id.
+	private _profilePassId = 0;
+	private _profileQueryCount = 0;
+
 	/**
 	 * @param client The query client for the owning connection.
 	 * @param tableRef The schema-qualified, already-quoted table reference (e.g. `"public"."t"`).
@@ -239,6 +297,7 @@ export class RedshiftTableView {
 	 * @param objectKind Whether this is a table or a view. Retained for parity with the Postgres
 	 *   driver and future per-kind handling; Redshift has no ctid, so it does not affect sorting.
 	 * @param schema The resolved column schema.
+	 * @param _logger Optional diagnostic log sink for the column-profile query timeline.
 	 */
 	constructor(
 		private readonly client: IRedshiftQueryClient,
@@ -246,6 +305,7 @@ export class RedshiftTableView {
 		private readonly displayName: string,
 		private readonly objectKind: 'table' | 'view',
 		private readonly schema: Array<RedshiftSchemaEntry>,
+		private readonly _logger?: IProfileLogger,
 	) {
 		this._unfilteredRows = this._countRows('');
 		this._filteredRows = this._unfilteredRows;
@@ -614,45 +674,219 @@ export class RedshiftTableView {
 	/**
 	 * Computes the requested column profiles. Returns the event payload to send to the frontend;
 	 * the caller is responsible for delivering it (so this class stays free of vscode APIs).
+	 *
+	 * The whole batch is answered in at most three statements, independent of column count: one scalar
+	 * scan (null counts, summary aggregates including an exact median, and each histogram's count and
+	 * range), one UNION ALL for every histogram's bins, and one UNION ALL for every frequency table.
+	 * Each column's result is then assembled from those three results with no further round-trips --
+	 * the key to staying under budget on a warehouse where each statement carries ~1s of fixed cost.
 	 */
-	async computeColumnProfiles(params: GetColumnProfilesParams): Promise<ReturnColumnProfilesEvent> {
+	async computeColumnProfiles(params: GetColumnProfilesParams, token?: IProfileCancellation): Promise<ReturnColumnProfilesEvent> {
+		const passId = ++this._profilePassId;
+		this._profileQueryCount = 0;
+		const startedAt = Date.now();
+		this._logger?.info(`[profiles #${passId}] ${this.displayName}: ${params.profiles.length} column(s) in one request; ${this._summarizeRequestedTypes(params.profiles)}`);
+
+		// Bail at each statement boundary when a newer pass has superseded this one, so a burst of
+		// requests doesn't queue every pass's statements on the single connection.
+		const superseded = () => {
+			if (token?.isCancellationRequested) {
+				this._logger?.info(`[profiles #${passId}] ${this.displayName}: superseded after ${Date.now() - startedAt}ms, ${this._profileQueryCount} query/queries`);
+				return true;
+			}
+			return false;
+		};
+
 		const filteredRows = await this._filteredRows;
-		const profiles: ColumnProfileResult[] = [];
-		for (const request of params.profiles) {
-			profiles.push(await this._computeOneColumnProfile(request, filteredRows, params.format_options));
-		}
+		const scalar = await this._scalarAggregates(params.profiles, filteredRows);
+		if (superseded()) { return { callback_id: params.callback_id, profiles: [] }; }
+
+		const histogramPlans = this._planHistograms(params.profiles, scalar, filteredRows);
+		const histogramBins = await this._batchHistograms(histogramPlans);
+		if (superseded()) { return { callback_id: params.callback_id, profiles: [] }; }
+
+		const frequencyData = await this._batchFrequencyTables(params.profiles);
+		if (superseded()) { return { callback_id: params.callback_id, profiles: [] }; }
+
+		const profiles = params.profiles.map(request =>
+			this._assembleProfile(request, filteredRows, params.format_options, scalar, histogramPlans, histogramBins, frequencyData));
+
+		this._logger?.info(`[profiles #${passId}] ${this.displayName}: done in ${Date.now() - startedAt}ms across ${this._profileQueryCount} query/queries`);
 		return { callback_id: params.callback_id, profiles };
 	}
 
-	private async _computeOneColumnProfile(
+	/** Tallies the requested profile types across a batch for the pass-start log line. */
+	private _summarizeRequestedTypes(requests: Array<ColumnProfileRequest>): string {
+		const tally = new Map<string, number>();
+		for (const request of requests) {
+			for (const spec of request.profiles) {
+				tally.set(spec.profile_type, (tally.get(spec.profile_type) ?? 0) + 1);
+			}
+		}
+		return [...tally].map(([type, count]) => `${type} x${count}`).join(', ');
+	}
+
+	/**
+	 * Runs a profile-pass query through the query client, timing it and logging it against the current
+	 * pass. All column-profile SQL goes through here so the log shows the full per-pass query timeline.
+	 */
+	private async _profileQuery(label: string, sql: string): Promise<Array<Record<string, unknown>>> {
+		const startedAt = Date.now();
+		// Log before issuing so a query that hangs (never returns) is still visible in the timeline.
+		this._logger?.info(`[profiles #${this._profilePassId}]   issuing ${label}...`);
+		try {
+			const rows = await this.client.runQuery(sql);
+			this._profileQueryCount++;
+			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: ${Date.now() - startedAt}ms, ${rows.length} row(s)`);
+			return rows;
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			this._logger?.info(`[profiles #${this._profilePassId}]   ${label}: FAILED after ${Date.now() - startedAt}ms: ${message}`);
+			this._logger?.info(`[profiles #${this._profilePassId}]   failing SQL: ${sql}`);
+			throw err;
+		}
+	}
+
+	/**
+	 * Runs one query computing every single-pass scalar aggregate requested across the batch: the
+	 * non-null count for each column that asked for a null count, and the type-specific summary
+	 * aggregates (moments, distinct/empty counts, min/max, true/false counts) for each column that
+	 * asked for summary stats. Returns the single result row keyed by the aliases in `aggAlias`, or an
+	 * empty row when nothing single-pass was requested (e.g. a histogram-only batch).
+	 */
+	private async _scalarAggregates(
+		requests: Array<ColumnProfileRequest>,
+		filteredRows: number,
+	): Promise<Record<string, unknown>> {
+		// Deduplicate by alias so a column that needs, say, min for both its summary stats and its
+		// histogram contributes that expression once.
+		const exprByAlias = new Map<string, string>();
+		let needsTotal = false;
+		const add = (alias: string, expr: string) => {
+			if (!exprByAlias.has(alias)) {
+				exprByAlias.set(alias, `${expr} AS ${alias}`);
+			}
+		};
+		for (const request of requests) {
+			const i = request.column_index;
+			const entry = this.schema[i];
+			const quotedName = quoteIdentifier(entry.column_name);
+			for (const spec of request.profiles) {
+				switch (spec.profile_type) {
+					case ColumnProfileType.NullCount:
+						needsTotal = true;
+						add(aggAlias.nonNull(i), `count(${quotedName})`);
+						break;
+					case ColumnProfileType.SummaryStats:
+						if (filteredRows > 0) {
+							this._addSummaryNeeds(add, entry, quotedName, i);
+						}
+						break;
+					case ColumnProfileType.SmallHistogram:
+					case ColumnProfileType.LargeHistogram:
+						// Histogram planning needs the count and range; the bins come from _batchHistograms.
+						if (filteredRows > 0) {
+							add(aggAlias.n(i), `count(${quotedName})`);
+							add(aggAlias.lo(i), `min(${quotedName})`);
+							add(aggAlias.hi(i), `max(${quotedName})`);
+						}
+						break;
+					case ColumnProfileType.SmallFrequencyTable:
+					case ColumnProfileType.LargeFrequencyTable:
+						// The non-null count feeds the frequency table's "other" bucket.
+						add(aggAlias.nonNull(i), `count(${quotedName})`);
+						break;
+					default:
+						break;
+				}
+			}
+		}
+		const selects: Array<string> = [];
+		// count(*) backs every column's null count, so select it once when any is needed.
+		if (needsTotal) {
+			selects.push(`count(*) AS ${aggAlias.total}`);
+		}
+		selects.push(...exprByAlias.values());
+		if (selects.length === 0) {
+			return {};
+		}
+		const rows = await this._profileQuery(
+			`scalar aggregates (${selects.length} expr over the batch, one scan)`,
+			`SELECT ${selects.join(', ')} FROM ${this._quotedTable}${this._whereClause}`);
+		return rows[0] ?? {};
+	}
+
+	/** Adds a column's summary-stat aggregate expressions to the scalar query, by display type. */
+	private _addSummaryNeeds(add: (alias: string, expr: string) => void, entry: RedshiftSchemaEntry, quotedName: string, i: number): void {
+		switch (entry.type_display) {
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Decimal:
+				add(aggAlias.n(i), `count(${quotedName})`);
+				add(aggAlias.lo(i), `min(${quotedName})`);
+				add(aggAlias.hi(i), `max(${quotedName})`);
+				add(aggAlias.sum(i), `sum(${quotedName} * 1.0)`);
+				add(aggAlias.sumSq(i), `sum(${quotedName} * 1.0 * ${quotedName})`);
+				// Exact median folded in as an ordered-set aggregate -- no separate ORDER BY round-trip.
+				add(aggAlias.median(i), `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ${quotedName})`);
+				break;
+			case ColumnDisplayType.String:
+				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
+				add(aggAlias.numEmpty(i), `count(CASE WHEN ${quotedName} = '' THEN 1 END)`);
+				break;
+			case ColumnDisplayType.Boolean:
+				// Redshift has real booleans, so test the column directly rather than comparing to 0/1.
+				add(aggAlias.numTrue(i), `count(CASE WHEN ${quotedName} THEN 1 END)`);
+				add(aggAlias.numFalse(i), `count(CASE WHEN NOT ${quotedName} THEN 1 END)`);
+				break;
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+				add(aggAlias.lo(i), `min(${quotedName})`);
+				add(aggAlias.hi(i), `max(${quotedName})`);
+				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
+				break;
+			default:
+				add(aggAlias.numUnique(i), `count(DISTINCT ${quotedName})`);
+				break;
+		}
+	}
+
+	/** Assembles one column's profile result from the three precomputed statements -- no queries here. */
+	private _assembleProfile(
 		request: ColumnProfileRequest,
 		filteredRows: number,
 		formatOptions: FormatOptions,
-	): Promise<ColumnProfileResult> {
+		scalar: Record<string, unknown>,
+		histogramPlans: Map<number, HistogramPlan>,
+		histogramBins: Map<number, Map<number, number>>,
+		frequencyData: Map<number, Array<{ value: string; freq: number }>>,
+	): ColumnProfileResult {
 		const entry = this.schema[request.column_index];
-		const quotedName = quoteIdentifier(entry.column_name);
 		const result: ColumnProfileResult = {};
 
 		for (const spec of request.profiles) {
 			switch (spec.profile_type) {
 				case ColumnProfileType.NullCount:
-					result.null_count = await this._nullCount(quotedName);
+					result.null_count = this._nullCountFromRow(request.column_index, scalar);
 					break;
 				case ColumnProfileType.SummaryStats:
 					result.summary_stats = filteredRows === 0
 						? this._emptySummaryStats(entry)
-						: await this._summaryStats(entry, quotedName, formatOptions);
+						: this._summaryStatsFromRow(entry, request.column_index, scalar, formatOptions);
 					break;
 				case ColumnProfileType.SmallFrequencyTable:
 				case ColumnProfileType.LargeFrequencyTable:
-					result[spec.profile_type] = await this._frequencyTable(
-						quotedName, (spec.params as ColumnFrequencyTableParams).limit, filteredRows);
+					result[spec.profile_type] = this._buildFrequencyTable(
+						frequencyData.get(request.column_index) ?? [], request.column_index, scalar);
 					break;
 				case ColumnProfileType.SmallHistogram:
-				case ColumnProfileType.LargeHistogram:
-					result[spec.profile_type] = await this._histogram(
-						entry, quotedName, spec.params as ColumnHistogramParams, filteredRows);
+				case ColumnProfileType.LargeHistogram: {
+					const plan = histogramPlans.get(request.column_index);
+					if (plan) {
+						result[spec.profile_type] = this._buildHistogram(plan, histogramBins.get(request.column_index));
+					}
 					break;
+				}
 				default:
 					break;
 			}
@@ -660,84 +894,81 @@ export class RedshiftTableView {
 		return result;
 	}
 
-	private async _nullCount(quotedName: string): Promise<number> {
-		const rows = await this.client.runQuery(
-			`SELECT count(*) - count(${quotedName}) AS n FROM ${this._quotedTable}${this._whereClause}`);
-		return Number(rows[0]?.n ?? 0);
+	/** Null count for a column, read from the batched scalar-aggregate row: total minus non-null. */
+	private _nullCountFromRow(columnIndex: number, scalar: Record<string, unknown>): number {
+		const total = Number(scalar[aggAlias.total] ?? 0);
+		const nonNull = Number(scalar[aggAlias.nonNull(columnIndex)] ?? 0);
+		return Math.max(0, total - nonNull);
 	}
 
 	private _wherePlus(predicate: string): string {
 		return this._whereClause ? `${this._whereClause} AND ${predicate}` : `\nWHERE ${predicate}`;
 	}
 
-	private async _summaryStats(
+	/**
+	 * Assembles a column's summary statistics from the batched scalar-aggregate row -- including the
+	 * exact median, folded into that row as an ordered-set aggregate, so no query happens here.
+	 */
+	private _summaryStatsFromRow(
 		entry: RedshiftSchemaEntry,
-		quotedName: string,
+		i: number,
+		scalar: Record<string, unknown>,
 		formatOptions: FormatOptions,
-	): Promise<ColumnSummaryStats> {
+	): ColumnSummaryStats {
 		const display = entry.type_display;
 		if (display === ColumnDisplayType.Integer || display === ColumnDisplayType.Floating || display === ColumnDisplayType.Decimal) {
-			// One pass for the moment-based stats; a second query for the median.
-			const rows = await this.client.runQuery(
-				`SELECT count(${quotedName}) AS n, min(${quotedName}) AS lo, max(${quotedName}) AS hi, ` +
-				`sum(${quotedName} * 1.0) AS s, sum(${quotedName} * 1.0 * ${quotedName}) AS ss ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
-			const n = Number(rows[0]?.n ?? 0);
-			const sum = Number(rows[0]?.s ?? 0);
-			const sumsq = Number(rows[0]?.ss ?? 0);
+			const n = Number(scalar[aggAlias.n(i)] ?? 0);
+			const sum = Number(scalar[aggAlias.sum(i)] ?? 0);
+			const sumsq = Number(scalar[aggAlias.sumSq(i)] ?? 0);
+			const lo = scalar[aggAlias.lo(i)];
+			const hi = scalar[aggAlias.hi(i)];
+			const medianRaw = scalar[aggAlias.median(i)];
 			const mean = n > 0 ? sum / n : 0;
 			// Sample standard deviation from the sums of values and squares.
 			const variance = n > 1 ? Math.max(0, (sumsq - n * mean * mean) / (n - 1)) : 0;
-			const median = await this._quantile(quotedName, 0.5, n);
 			const fmt = (v: number) => formatFloat(v, formatOptions);
 			return {
 				type_display: display,
 				number_stats: {
-					min_value: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : String(rows[0].lo),
-					max_value: rows[0]?.hi === null || rows[0]?.hi === undefined ? undefined : String(rows[0].hi),
+					min_value: lo === null || lo === undefined ? undefined : String(lo),
+					max_value: hi === null || hi === undefined ? undefined : String(hi),
 					mean: n > 0 ? fmt(mean) : undefined,
-					median: median === undefined ? undefined : fmt(median),
+					median: medianRaw === null || medianRaw === undefined ? undefined : fmt(Number(medianRaw)),
 					stdev: n > 1 ? fmt(Math.sqrt(variance)) : undefined,
 				},
 			};
 		}
 		if (display === ColumnDisplayType.String) {
-			const rows = await this.client.runQuery(
-				`SELECT count(DISTINCT ${quotedName}) AS nunique, ` +
-				`count(CASE WHEN ${quotedName} = '' THEN 1 END) AS nempty ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
 			return {
 				type_display: ColumnDisplayType.String,
-				string_stats: { num_unique: Number(rows[0]?.nunique ?? 0), num_empty: Number(rows[0]?.nempty ?? 0) },
+				string_stats: {
+					num_unique: Number(scalar[aggAlias.numUnique(i)] ?? 0),
+					num_empty: Number(scalar[aggAlias.numEmpty(i)] ?? 0),
+				},
 			};
 		}
 		if (display === ColumnDisplayType.Boolean) {
-			// Redshift has real booleans, so test the column directly rather than comparing to 0/1.
-			const rows = await this.client.runQuery(
-				`SELECT count(CASE WHEN ${quotedName} THEN 1 END) AS ntrue, ` +
-				`count(CASE WHEN NOT ${quotedName} THEN 1 END) AS nfalse ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
 			return {
 				type_display: ColumnDisplayType.Boolean,
-				boolean_stats: { true_count: Number(rows[0]?.ntrue ?? 0), false_count: Number(rows[0]?.nfalse ?? 0) },
+				boolean_stats: {
+					true_count: Number(scalar[aggAlias.numTrue(i)] ?? 0),
+					false_count: Number(scalar[aggAlias.numFalse(i)] ?? 0),
+				},
 			};
 		}
 		if (display === ColumnDisplayType.Date || display === ColumnDisplayType.Datetime) {
-			const rows = await this.client.runQuery(
-				`SELECT min(${quotedName}) AS lo, max(${quotedName}) AS hi, count(DISTINCT ${quotedName}) AS nunique ` +
-				`FROM ${this._quotedTable}${this._whereClause}`);
+			const lo = scalar[aggAlias.lo(i)];
+			const hi = scalar[aggAlias.hi(i)];
 			const stats = {
-				num_unique: Number(rows[0]?.nunique ?? 0),
-				min_date: rows[0]?.lo === null || rows[0]?.lo === undefined ? undefined : stringifyExportCell(rows[0].lo),
-				max_date: rows[0]?.hi === null || rows[0]?.hi === undefined ? undefined : stringifyExportCell(rows[0].hi),
+				num_unique: Number(scalar[aggAlias.numUnique(i)] ?? 0),
+				min_date: lo === null || lo === undefined ? undefined : stringifyExportCell(lo),
+				max_date: hi === null || hi === undefined ? undefined : stringifyExportCell(hi),
 			};
 			return display === ColumnDisplayType.Date
 				? { type_display: display, date_stats: stats }
 				: { type_display: display, datetime_stats: stats };
 		}
-		const rows = await this.client.runQuery(
-			`SELECT count(DISTINCT ${quotedName}) AS nunique FROM ${this._quotedTable}${this._whereClause}`);
-		return { type_display: display, other_stats: { num_unique: Number(rows[0]?.nunique ?? 0) } };
+		return { type_display: display, other_stats: { num_unique: Number(scalar[aggAlias.numUnique(i)] ?? 0) } };
 	}
 
 	private _emptySummaryStats(entry: RedshiftSchemaEntry): ColumnSummaryStats {
@@ -760,86 +991,52 @@ export class RedshiftTableView {
 	}
 
 	/**
-	 * Computes a quantile (0..1) by ordering the non-null values and reading the value at the
-	 * corresponding offset. `n` is the count of non-null values.
+	 * Plans each requested histogram from the scalar row (count and range), client-side. Degenerate
+	 * cases -- no non-null values, or a single distinct value -- are marked so they need no bin query.
+	 * Bin width uses a quantile-free rule (Sturges/fixed), so a requested Freedman-Diaconis method is
+	 * approximated rather than costing the extra ordered-set round-trips its IQR would require.
 	 */
-	private async _quantile(quotedName: string, q: number, n: number): Promise<number | undefined> {
-		if (n === 0) {
-			return undefined;
-		}
-		const offset = Math.min(n - 1, Math.max(0, Math.floor(q * (n - 1))));
-		const rows = await this.client.runQuery(
-			`SELECT ${quotedName} AS v FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} ` +
-			`ORDER BY ${quotedName} LIMIT 1 OFFSET ${offset}`);
-		const value = rows[0]?.v;
-		return value === null || value === undefined ? undefined : Number(value);
-	}
-
-	private async _frequencyTable(quotedName: string, limit: number, filteredRows: number): Promise<ColumnFrequencyTable> {
-		const rows = await this.client.runQuery(
-			`SELECT ${quotedName} AS value, count(*) AS freq FROM ${this._quotedTable}` +
-			`${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY ${quotedName} ` +
-			`ORDER BY freq DESC, value ASC LIMIT ${limit}`);
-		const values: ColumnValue[] = [];
-		const counts: number[] = [];
-		let total = 0;
-		for (const row of rows) {
-			values.push(stringifyExportCell(row.value));
-			const freq = Number(row.freq);
-			counts.push(freq);
-			total += freq;
-		}
-		const nullCount = await this._nullCount(quotedName);
-		return { values, counts, other_count: Math.max(0, filteredRows - total - nullCount) };
-	}
-
-	private async _histogram(
-		entry: RedshiftSchemaEntry,
-		quotedName: string,
-		params: ColumnHistogramParams,
+	private _planHistograms(
+		requests: Array<ColumnProfileRequest>,
+		scalar: Record<string, unknown>,
 		filteredRows: number,
-	): Promise<ColumnHistogram> {
-		const nullCount = await this._nullCount(quotedName);
-		const nonNull = filteredRows - nullCount;
-		if (nonNull <= 0) {
-			return { bin_edges: ['NULL', 'NULL'], bin_counts: [nullCount], quantiles: [] };
-		}
-
-		const rows = await this.client.runQuery(
-			`SELECT min(${quotedName}) AS lo, max(${quotedName}) AS hi FROM ${this._quotedTable}${this._whereClause}`);
-		const minValue = Number(rows[0]?.lo);
-		const maxValue = Number(rows[0]?.hi);
-		const peakToPeak = maxValue - minValue;
-
-		// A degenerate range (single distinct value) collapses to one bin.
-		if (!isFinite(peakToPeak) || peakToPeak === 0) {
-			return { bin_edges: [String(minValue), String(maxValue)], bin_counts: [nonNull], quantiles: [] };
-		}
-
-		let binWidth = 0;
-		switch (params.method) {
-			case ColumnHistogramParamsMethod.Fixed:
-				binWidth = peakToPeak / params.num_bins;
-				break;
-			case ColumnHistogramParamsMethod.FreedmanDiaconis: {
-				const q1 = await this._quantile(quotedName, 0.25, nonNull);
-				const q3 = await this._quantile(quotedName, 0.75, nonNull);
-				const iqr = (q3 ?? 0) - (q1 ?? 0);
-				if (iqr > 0) {
-					binWidth = 2 * iqr * Math.pow(nonNull, -1 / 3);
+	): Map<number, HistogramPlan> {
+		const plans = new Map<number, HistogramPlan>();
+		for (const request of requests) {
+			const i = request.column_index;
+			for (const spec of request.profiles) {
+				if (spec.profile_type !== ColumnProfileType.SmallHistogram && spec.profile_type !== ColumnProfileType.LargeHistogram) {
+					continue;
 				}
-				break;
+				const entry = this.schema[i];
+				const quotedName = quoteIdentifier(entry.column_name);
+				const nonNull = filteredRows === 0 ? 0 : Number(scalar[aggAlias.n(i)] ?? 0);
+				const nullCount = Math.max(0, filteredRows - nonNull);
+				const min = Number(scalar[aggAlias.lo(i)]);
+				const max = Number(scalar[aggAlias.hi(i)]);
+				const peakToPeak = max - min;
+				if (nonNull <= 0 || !isFinite(peakToPeak) || peakToPeak === 0) {
+					plans.set(i, { columnIndex: i, quotedName, nonNull, nullCount, min, max, numBins: 0, binWidth: 0, degenerate: true });
+				} else {
+					const { numBins, binWidth } = this._histogramBinning(entry, min, max, nonNull, spec.params as ColumnHistogramParams);
+					plans.set(i, { columnIndex: i, quotedName, nonNull, nullCount, min, max, numBins, binWidth, degenerate: false });
+				}
 			}
-			case ColumnHistogramParamsMethod.Sturges:
-			case ColumnHistogramParamsMethod.Scott:
-			default:
-				binWidth = peakToPeak / (Math.log2(nonNull) + 1);
-				break;
 		}
+		return plans;
+	}
+
+	/** Computes a histogram's bin count and width without quantiles, from the count and range. */
+	private _histogramBinning(entry: RedshiftSchemaEntry, min: number, max: number, nonNull: number, params: ColumnHistogramParams): { numBins: number; binWidth: number } {
+		const peakToPeak = max - min;
+		// Freedman-Diaconis needs the IQR (an ordered-set pass); approximate it with Sturges here to
+		// keep the whole batch to three statements.
+		let binWidth = params.method === ColumnHistogramParamsMethod.Fixed
+			? peakToPeak / params.num_bins
+			: peakToPeak / (Math.log2(nonNull) + 1);
 		if (binWidth <= 0) {
 			binWidth = peakToPeak / params.num_bins;
 		}
-
 		let numBins = Math.ceil(peakToPeak / binWidth);
 		if (numBins > params.num_bins) {
 			numBins = params.num_bins;
@@ -849,22 +1046,159 @@ export class RedshiftTableView {
 			numBins = peakToPeak + 1;
 			binWidth = peakToPeak / numBins;
 		}
+		return { numBins, binWidth };
+	}
 
-		const binRows = await this.client.runQuery(
-			`SELECT CAST(FLOOR((${quotedName} * 1.0 - ${minValue}) / ${binWidth}) AS INTEGER) AS bin_id, count(*) AS bin_count ` +
-			`FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY bin_id`);
-		const histEntries = new Map<number, number>(
-			binRows.map(row => [Number(row.bin_id), Number(row.bin_count)]));
+	/**
+	 * Computes every planned histogram's bins in a single UNION ALL statement: one bucketized GROUP BY
+	 * branch per column, tagged by column index. Returns each column's bin-id -> count map.
+	 */
+	private async _batchHistograms(plans: Map<number, HistogramPlan>): Promise<Map<number, Map<number, number>>> {
+		const active = [...plans.values()].filter(plan => !plan.degenerate);
+		const bins = new Map<number, Map<number, number>>();
+		if (active.length === 0) {
+			return bins;
+		}
+		const branches = active.map(plan => {
+			const bucket = `CAST(FLOOR((${plan.quotedName} * 1.0 - ${plan.min}) / ${plan.binWidth}) AS INTEGER)`;
+			return `SELECT ${plan.columnIndex} AS h_col, ${bucket} AS h_bin, count(*) AS h_count ` +
+				`FROM ${this._quotedTable}${this._wherePlus(`${plan.quotedName} IS NOT NULL`)} GROUP BY ${bucket}`;
+		});
+		let rows: Array<Record<string, unknown>>;
+		try {
+			rows = await this._profileQuery(
+				`histograms for ${active.length} column(s) (one UNION ALL)`,
+				branches.join('\nUNION ALL\n'));
+		} catch {
+			// Degrade to empty histograms rather than failing the whole pass; the error is already logged.
+			return bins;
+		}
+		for (const row of rows) {
+			const col = Number(row.h_col);
+			let entries = bins.get(col);
+			if (!entries) {
+				entries = new Map<number, number>();
+				bins.set(col, entries);
+			}
+			entries.set(Number(row.h_bin), Number(row.h_count));
+		}
+		return bins;
+	}
 
+	/** Builds a ColumnHistogram from its plan and its bin-id -> count map (from _batchHistograms). */
+	private _buildHistogram(plan: HistogramPlan, entries: Map<number, number> | undefined): ColumnHistogram {
+		if (plan.nonNull <= 0) {
+			return { bin_edges: ['NULL', 'NULL'], bin_counts: [plan.nullCount], quantiles: [] };
+		}
+		if (plan.degenerate) {
+			// A single distinct value collapses to one bin.
+			return { bin_edges: [String(plan.min), String(plan.max)], bin_counts: [plan.nonNull], quantiles: [] };
+		}
+		const counts = entries ?? new Map<number, number>();
 		const histogram: ColumnHistogram = { bin_edges: [], bin_counts: [], quantiles: [] };
-		for (let i = 0; i < numBins; i++) {
-			histogram.bin_edges.push(String(minValue + binWidth * i));
-			histogram.bin_counts.push(histEntries.get(i) ?? 0);
+		for (let i = 0; i < plan.numBins; i++) {
+			histogram.bin_edges.push(String(plan.min + plan.binWidth * i));
+			histogram.bin_counts.push(counts.get(i) ?? 0);
 		}
 		// The final bin edge is exclusive, so fold the overflow bin into the last bin.
-		histogram.bin_counts[numBins - 1] += histEntries.get(numBins) ?? 0;
-		histogram.bin_edges.push(String(minValue + binWidth * numBins));
+		histogram.bin_counts[plan.numBins - 1] += counts.get(plan.numBins) ?? 0;
+		histogram.bin_edges.push(String(plan.min + plan.binWidth * plan.numBins));
 		return histogram;
+	}
+
+	/**
+	 * Computes every requested frequency table in a single UNION ALL statement: one top-k GROUP BY
+	 * branch per column, tagged by column index, with values cast to text so the branches union.
+	 * Returns each column's top values in order.
+	 */
+	/**
+	 * A text expression for a column's values in the frequency UNION ALL. Every branch must yield
+	 * varchar so the branches union, but Redshift won't implicitly cast several types: booleans render
+	 * via CASE, SUPER via JSON_SERIALIZE, VARBYTE via TO_HEX, and spatial types via ST_AsText.
+	 * Everything else casts directly. Any type still not covered is caught by _batchFrequencyTables,
+	 * which drops the chunk's frequency tables rather than failing the whole pass.
+	 */
+	private _frequencyValueExpr(entry: RedshiftSchemaEntry, quotedName: string): string {
+		if (entry.type_display === ColumnDisplayType.Boolean) {
+			return `CASE WHEN ${quotedName} THEN 'true' ELSE 'false' END`;
+		}
+		const rawType = entry.column_type.toLowerCase();
+		if (rawType.includes('super')) {
+			return `JSON_SERIALIZE(${quotedName})`;
+		}
+		if (rawType.includes('varbyte') || rawType.includes('binary')) {
+			return `TO_HEX(${quotedName})`;
+		}
+		if (rawType.includes('geometry') || rawType.includes('geography')) {
+			return `ST_AsText(${quotedName})`;
+		}
+		return `CAST(${quotedName} AS VARCHAR)`;
+	}
+
+	private async _batchFrequencyTables(requests: Array<ColumnProfileRequest>): Promise<Map<number, Array<{ value: string; freq: number }>>> {
+		const branches: Array<string> = [];
+		for (const request of requests) {
+			const i = request.column_index;
+			for (const spec of request.profiles) {
+				if (spec.profile_type !== ColumnProfileType.SmallFrequencyTable && spec.profile_type !== ColumnProfileType.LargeFrequencyTable) {
+					continue;
+				}
+				const entry = this.schema[i];
+				const quotedName = quoteIdentifier(entry.column_name);
+				const limit = (spec.params as ColumnFrequencyTableParams).limit;
+				branches.push(
+					`SELECT ${i} AS f_col, f_value, f_freq, f_rn FROM (` +
+					`SELECT ${this._frequencyValueExpr(entry, quotedName)} AS f_value, count(*) AS f_freq, ` +
+					`ROW_NUMBER() OVER (ORDER BY count(*) DESC, ${quotedName} ASC) AS f_rn ` +
+					`FROM ${this._quotedTable}${this._wherePlus(`${quotedName} IS NOT NULL`)} GROUP BY ${quotedName}` +
+					`) sub WHERE f_rn <= ${limit}`);
+			}
+		}
+		if (branches.length === 0) {
+			return new Map();
+		}
+		let rows: Array<Record<string, unknown>>;
+		try {
+			rows = await this._profileQuery(
+				`frequency tables for ${branches.length} column(s) (one UNION ALL)`,
+				branches.join('\nUNION ALL\n'));
+		} catch {
+			// A value type we couldn't render as text fails the whole UNION ALL. Rather than sink the
+			// entire pass, drop this chunk's frequency tables; the failure and SQL are already logged.
+			return new Map();
+		}
+		const collected = new Map<number, Array<{ value: string; freq: number; rn: number }>>();
+		for (const row of rows) {
+			const col = Number(row.f_col);
+			let arr = collected.get(col);
+			if (!arr) {
+				arr = [];
+				collected.set(col, arr);
+			}
+			arr.push({ value: String(row.f_value), freq: Number(row.f_freq), rn: Number(row.f_rn) });
+		}
+		// UNION ALL does not preserve per-branch ordering; restore top-k order via the row number.
+		const ordered = new Map<number, Array<{ value: string; freq: number }>>();
+		for (const [col, arr] of collected) {
+			arr.sort((a, b) => a.rn - b.rn);
+			ordered.set(col, arr.map(({ value, freq }) => ({ value, freq })));
+		}
+		return ordered;
+	}
+
+	/** Builds a ColumnFrequencyTable from its top values and the column's non-null count. */
+	private _buildFrequencyTable(rows: Array<{ value: string; freq: number }>, i: number, scalar: Record<string, unknown>): ColumnFrequencyTable {
+		const values: ColumnValue[] = [];
+		const counts: number[] = [];
+		let total = 0;
+		for (const row of rows) {
+			values.push(row.value);
+			counts.push(row.freq);
+			total += row.freq;
+		}
+		// other_count = filtered - shown - null = nonNull - shown (null count is filtered - nonNull).
+		const nonNull = Number(scalar[aggAlias.nonNull(i)] ?? 0);
+		return { values, counts, other_count: Math.max(0, nonNull - total) };
 	}
 }
 

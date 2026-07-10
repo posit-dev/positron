@@ -8,7 +8,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { IRedshiftQueryClient, RedshiftSchemaEntry, RedshiftTableView, redshiftDisplayType } from './redshiftTableView.js';
+import { IProfileLogger, IRedshiftQueryClient, RedshiftSchemaEntry, RedshiftTableView, redshiftDisplayType } from './redshiftTableView.js';
 import {
 	ConvertToCodeParams,
 	DataExplorerBackendRequest,
@@ -53,7 +53,15 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	private readonly _views = new Map<string, RedshiftTableView>();
 	private readonly _session: positron.DataExplorerRpcSession;
 
-	constructor() {
+	// Per-dataset column-profile coalescing. The frontend re-requests profiles on layout churn, so we
+	// run at most one pass per dataset at a time (the connection is single anyway); a newer request
+	// cancels the running pass and becomes the only pending one, so intermediate requests are dropped.
+	private readonly _profileCurrent = new Map<string, { isCancellationRequested: boolean }>();
+	private readonly _profilePending = new Map<string, GetColumnProfilesParams>();
+	private readonly _profileDraining = new Set<string>();
+
+	/** @param _logger Optional diagnostic log sink, threaded to each table view for profile timing. */
+	constructor(private readonly _logger?: IProfileLogger) {
 		this._session = positron.dataExplorer.registerRpcHandler(REDSHIFT_DATA_EXPLORER_PROVIDER_ID, {
 			handleRpc: (request) => this.handleRequest(request as DataExplorerRpc)
 		});
@@ -77,7 +85,7 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 		kind: 'table' | 'view',
 	): Promise<void> {
 		const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema));
+		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema, this._logger));
 	}
 
 	/**
@@ -98,12 +106,18 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
 		}
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column]));
+		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column], this._logger));
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
 	closeTableView(datasetId: string): void {
 		this._views.delete(datasetId);
+		// Abandon any in-flight or pending profile pass for the dataset.
+		const current = this._profileCurrent.get(datasetId);
+		if (current) {
+			current.isCancellationRequested = true;
+		}
+		this._profilePending.delete(datasetId);
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
@@ -151,23 +165,57 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	}
 
 	/**
-	 * Column profiles are computed asynchronously: acknowledge the request immediately, then push
-	 * the results to the frontend via the registration session.
+	 * Column profiles are computed asynchronously: acknowledge the request immediately, record it as
+	 * the dataset's latest pending pass (cancelling any running one), and let the drain loop compute it
+	 * and push the results to the frontend via the registration session.
 	 */
 	private _getColumnProfiles(view: RedshiftTableView, datasetId: string, params: GetColumnProfilesParams): void {
-		void (async () => {
-			try {
-				const profiles = await view.computeColumnProfiles(params);
-				this._session.sendUiEvent({
-					uri: datasetId,
-					method: DataExplorerFrontendEvent.ReturnColumnProfiles,
-					params: profiles,
-				} satisfies DataExplorerUiEvent);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : 'unknown error';
-				console.error(`Failed to compute Redshift column profiles: ${message}`);
+		this._profilePending.set(datasetId, params);
+		// Supersede a running pass so it abandons itself at the next statement boundary.
+		const current = this._profileCurrent.get(datasetId);
+		if (current) {
+			current.isCancellationRequested = true;
+		}
+		if (!this._profileDraining.has(datasetId)) {
+			void this._drainColumnProfiles(view, datasetId);
+		}
+	}
+
+	/**
+	 * Runs the dataset's pending profile passes one at a time until none remain. Because a newer
+	 * request overwrites the single pending slot and cancels the running pass, only the latest request
+	 * of a burst is fully computed; the connection never carries more than one pass's statements.
+	 */
+	private async _drainColumnProfiles(view: RedshiftTableView, datasetId: string): Promise<void> {
+		this._profileDraining.add(datasetId);
+		try {
+			let params: GetColumnProfilesParams | undefined;
+			while ((params = this._profilePending.get(datasetId)) !== undefined) {
+				this._profilePending.delete(datasetId);
+				const token = { isCancellationRequested: false };
+				this._profileCurrent.set(datasetId, token);
+				try {
+					const profiles = await view.computeColumnProfiles(params, token);
+					// A superseded pass returns empty; the newer pending pass will answer instead.
+					if (!token.isCancellationRequested) {
+						this._session.sendUiEvent({
+							uri: datasetId,
+							method: DataExplorerFrontendEvent.ReturnColumnProfiles,
+							params: profiles,
+						} satisfies DataExplorerUiEvent);
+					}
+				} catch (error) {
+					if (!token.isCancellationRequested) {
+						const message = error instanceof Error ? error.message : 'unknown error';
+						this._logger?.info(`Failed to compute column profiles for ${datasetId}: ${message}`);
+						console.error(`Failed to compute Redshift column profiles: ${message}`);
+					}
+				}
 			}
-		})();
+		} finally {
+			this._profileCurrent.delete(datasetId);
+			this._profileDraining.delete(datasetId);
+		}
 	}
 }
 

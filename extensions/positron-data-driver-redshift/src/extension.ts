@@ -13,8 +13,13 @@ import { RedshiftDataExplorerRpcHandler } from './redshiftDataExplorerRpcHandler
  * @param context The extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
+	// Diagnostic log channel, surfaced in the Output panel as "Redshift Data Explorer". Used to trace
+	// the column-profile query timeline while tuning summary performance.
+	const logger = vscode.window.createOutputChannel('Redshift Data Explorer', { log: true });
+	context.subscriptions.push(logger);
+
 	// Services Data Explorer RPCs for tables/views previewed from a Redshift connection.
-	const dataExplorerHandler = new RedshiftDataExplorerRpcHandler();
+	const dataExplorerHandler = new RedshiftDataExplorerRpcHandler(logger);
 	context.subscriptions.push(dataExplorerHandler);
 
 	// Create and register the driver and its cleanup.
