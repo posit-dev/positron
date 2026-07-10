@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron Amazon Redshift Data Connection Driver",
+	"description": "Provides an Amazon Redshift data connection driver for the Data Connections panel."
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Placeholder icon. Replace with the official Amazon Redshift product icon before shipping. -->
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+	<rect width="256" height="256" rx="24" fill="#205B99"/>
+	<circle cx="128" cy="128" r="70" fill="none" stroke="#8C4FFF" stroke-width="14"/>
+	<circle cx="128" cy="128" r="30" fill="#8C4FFF"/>
+	<circle cx="128" cy="44" r="14" fill="#FFFFFF"/>
+	<circle cx="212" cy="128" r="14" fill="#FFFFFF"/>
+	<circle cx="128" cy="212" r="14" fill="#FFFFFF"/>
+	<circle cx="44" cy="128" r="14" fill="#FFFFFF"/>
+</svg>
