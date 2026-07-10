@@ -102,19 +102,30 @@
 }
 
 /* Breathing: the statement currently executing when a cell is split into */
-/* individual statements. Unlike the twinkle above, every line shares the */
-/* same (undelayed) animation so the whole statement pulses in unison. The */
-/* pulse is capped below full opacity so the executing statement never looks */
-/* more solid (darker) than an already-executed one above it. */
+/* individual statements. It reuses the queued hollow-rectangle geometry (3px */
+/* inner fill + 1px left and right walls = 5px total, aligned with the queued */
+/* box above and below) but fills the interior, so the currently running line */
+/* reads as the queued outline "filling in". The walls use a darker green than */
+/* the queued outline to pick out the active line. Every line shares the same */
+/* (undelayed) animation so the whole statement pulses in unison, and the pulse */
+/* is capped below full opacity so it never looks more solid (darker) than an */
+/* already-executed statement above it. */
+/* Note: !important needed to override Monaco's inline width style. */
 .monaco-editor .quarto-execution-breathing {
-	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
+	width: 3px !important;
 	margin-left: 10px;
+	background-color: var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
+	border-left: 1px solid color-mix(in srgb, var(--vscode-notebookStatusSuccessIcon-foreground, #48985D), black 35%);
+	border-right: 1px solid color-mix(in srgb, var(--vscode-notebookStatusSuccessIcon-foreground, #48985D), black 35%);
 	animation: quarto-breathe 1.5s ease-in-out infinite;
 }
 
 .monaco-editor .quarto-execution-error-breathing {
-	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
+	width: 3px !important;
 	margin-left: 10px;
+	background-color: var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
+	border-left: 1px solid color-mix(in srgb, var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F), black 35%);
+	border-right: 1px solid color-mix(in srgb, var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F), black 35%);
 	animation: quarto-breathe 1.5s ease-in-out infinite;
 }
 

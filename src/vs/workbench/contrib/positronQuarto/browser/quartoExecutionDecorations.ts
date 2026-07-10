@@ -375,7 +375,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 				// queued treatment for statements not yet reached.
 				const fragmentProgress = this._executionManager.getFragmentProgress(cell.id);
 				if (fragmentProgress) {
-					this._addFragmentProgressDecorations(decorations, fragmentProgress, hasError);
+					this._addFragmentProgressDecorations(decorations, fragmentProgress, hasError, startLine, endLine);
 				} else {
 					// Apply a separate decoration per line with a random animation delay variant
 					// This creates an organic "twinkle" effect where each line pulses independently
@@ -519,45 +519,61 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 	 * into individual statements. Executed statements are shown solid, the
 	 * currently executing statement breathes, and pending statements use the
 	 * queued treatment.
+	 *
+	 * Each region is rendered as a contiguous span of lines - anchored on the
+	 * executing statement - rather than only the lines covered by fragments.
+	 * Fragments skip the blank lines that separate statements, so decorating
+	 * fragment lines alone would leave gaps in the gutter bar at those blank
+	 * lines. Filling the whole [startLine, endLine] range instead guarantees the
+	 * bar is continuous from the top of the cell to the bottom.
+	 *
+	 * @param startLine First line of the executed code range (1-based).
+	 * @param endLine Last line of the executed code range (1-based).
 	 */
 	private _addFragmentProgressDecorations(
 		decorations: IModelDeltaDecoration[],
 		progress: ICellFragmentProgress,
 		hasError: boolean,
+		startLine: number,
+		endLine: number,
 	): void {
+		const executing = progress.executing;
+
+		// Filled (already executed) region: from the top of the code range up to
+		// the line before the executing statement, including any blank lines
+		// between executed statements. When nothing is executing (every statement
+		// finished), the whole range is filled.
 		const executedOptions = hasError ? errorExecutedDecorationOptions : executedDecorationOptions;
-		for (const range of progress.executed) {
-			for (let line = range.startLineNumber; line <= range.endLineNumber; line++) {
-				decorations.push({
-					range: new Range(line, 1, line, 1),
-					options: executedOptions,
-				});
-			}
+		const filledEnd = executing ? executing.startLineNumber - 1 : endLine;
+		for (let line = startLine; line <= filledEnd; line++) {
+			decorations.push({
+				range: new Range(line, 1, line, 1),
+				options: executedOptions,
+			});
 		}
 
-		if (progress.executing) {
-			const breathingOptions = hasError ? errorBreathingDecorationOptions : breathingDecorationOptions;
-			for (let line = progress.executing.startLineNumber; line <= progress.executing.endLineNumber; line++) {
-				decorations.push({
-					range: new Range(line, 1, line, 1),
-					options: breathingOptions,
-				});
-			}
+		if (!executing) {
+			return;
 		}
 
-		// Render all pending statements as one contiguous "filling up" bar:
-		// left and right walls on every line with a bottom cap on the last line,
-		// and no top border so the bar flows out of the filled (executed and
-		// executing) region above rather than drawing a divider per statement.
-		if (progress.pending.length > 0) {
-			const pendingStart = progress.pending[0].startLineNumber;
-			const pendingEnd = progress.pending[progress.pending.length - 1].endLineNumber;
-			for (let line = pendingStart; line <= pendingEnd; line++) {
-				decorations.push({
-					range: new Range(line, 1, line, 1),
-					options: line === pendingEnd ? queuedLastDecorationOptions : queuedMiddleDecorationOptions,
-				});
-			}
+		// Executing region: the statement currently running (breathing pulse).
+		const breathingOptions = hasError ? errorBreathingDecorationOptions : breathingDecorationOptions;
+		for (let line = executing.startLineNumber; line <= executing.endLineNumber; line++) {
+			decorations.push({
+				range: new Range(line, 1, line, 1),
+				options: breathingOptions,
+			});
+		}
+
+		// Pending region: everything after the executing statement, rendered as
+		// one contiguous "filling up" bar. Left and right walls on every line with
+		// a bottom cap on the last line, and no top border so the bar flows out of
+		// the filled region above rather than drawing a divider per statement.
+		for (let line = executing.endLineNumber + 1; line <= endLine; line++) {
+			decorations.push({
+				range: new Range(line, 1, line, 1),
+				options: line === endLine ? queuedLastDecorationOptions : queuedMiddleDecorationOptions,
+			});
 		}
 	}
 
