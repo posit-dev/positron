@@ -3,12 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { CancelablePromise, createCancelablePromise, timeout } from '../../../../base/common/async.js';
 import { CancellationError } from '../../../../base/common/errors.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { NOTEBOOK_EDITOR_ID } from '../../notebook/common/notebookCommon.js';
 import { IEditorPane } from '../../../common/editor.js';
 
 /** Default timeout for waiting for notebook instance (5 seconds) */
@@ -61,6 +63,29 @@ export function waitForNotebook(
  */
 export function getNotebookInstanceFromActiveEditorPane(editorService: IEditorService): IPositronNotebookInstance | undefined {
 	return getNotebookInstanceFromEditorPane(editorService.activeEditorPane);
+}
+
+/**
+ * Actionable message shown when a notebook is open, but in the built-in
+ * (Jupyter) notebook editor rather than the Positron Notebook Editor. The
+ * Positron notebook API only operates on Positron Notebook Editor instances, so
+ * this tells the user how to switch editors.
+ */
+export const UNSUPPORTED_NOTEBOOK_EDITOR_MESSAGE = localize('positronNotebook.unsupportedEditor', "The active notebook is open in the default notebook editor, which does not support this operation. Reopen it in the Positron Notebook Editor (run the \"View: Reopen Editor With...\" command and choose \"Positron Notebook\", or set \"positron.notebook.enabled\" to true and reopen the notebook), then try again.");
+
+/**
+ * When the active editor holds a notebook that the Positron notebook API cannot
+ * operate on because it is open in the built-in notebook editor rather than the
+ * Positron Notebook Editor, returns an actionable message explaining how to
+ * switch editors. Returns undefined when the active editor is a Positron
+ * notebook or is not a notebook at all.
+ *
+ * @param editorService The editor service
+ */
+export function getUnsupportedNotebookEditorMessage(editorService: IEditorService): string | undefined {
+	return editorService.activeEditorPane?.getId() === NOTEBOOK_EDITOR_ID
+		? UNSUPPORTED_NOTEBOOK_EDITOR_MESSAGE
+		: undefined;
 }
 
 /**
