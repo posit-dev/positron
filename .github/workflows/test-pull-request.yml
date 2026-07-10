@@ -35,6 +35,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      # Install just enough for derive-test-change-tags.mjs's
+      # `playwright test --list` call. Gated to PRs that touch e2e test files.
+      # Shared with pr-e2e-comment.yml so the two derivation environments can't
+      # drift -- see the composite action for the full rationale.
+      - name: Set up e2e tag listing
+        uses: ./.github/actions/e2e-tag-listing-setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-repository: ${{ github.repository }}
+          pull-request-number: ${{ github.event.pull_request.number }}
       # Guardrail for the tag-derivation scripts; fail fast before relying on them below.
       - name: Unit test the tag-derivation helpers
         run: bash scripts/test/pr-tags-lib-test.sh

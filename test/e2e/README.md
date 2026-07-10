@@ -254,7 +254,8 @@ When creating a pull request, the test runner automatically scans the PR descrip
 
 In addition to scanning your PR description, the `pr-tags` job derives tags from the files your PR changes, so the right suites run even if you forget to tag them. Derived tags are **added to** (never replace) the tags you write, and `@:critical` always runs.
 
-- **Source / extension changes** map to feature tags via [`.github/workflows/test-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`). Test-file changes are not auto-tagged -- tag those PRs yourself (they are almost always deliberate test authoring).
+- **Source / extension changes** map to feature tags via [`.github/workflows/test-tag-paths-map.json`](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json) (for example, a change under `contrib/positronConsole/` adds `@:console`).
+- **E2E test-file changes** map to the minimal tag(s) needed to guarantee the touched/added tests actually run, chosen to add as few additional sibling tests as possible -- see [`scripts/derive-test-change-tags.mjs`](https://github.com/posit-dev/positron/blob/main/scripts/derive-test-change-tags.mjs). A test file with no declared tags gets a warning in the job log instead of a guessed tag.
 - **Opt out:** add `@:no-auto-tags` to the PR description to disable this derivation for the PR (the `@:critical` floor still applies).
 - **Unmapped dirs:** if your PR touches a Positron dir with no entry in the map, the E2E Tests comment will note it so you (or a maintainer) can add a mapping.
 - **Typo'd tags:** any `@:tag` in your description that isn't declared in [`test-tags.ts`](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts) is dropped and called out in the E2E Tests comment instead of silently matching nothing.
