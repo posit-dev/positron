@@ -8,10 +8,11 @@ import {
 	MainThreadLanguageRuntimeShape,
 	MainPositronContext,
 	ExtHostPositronContext,
-	RuntimeInitialState
+	RuntimeInitialState,
+	IActiveRuntimeSessionMetadataDto
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageSpec, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -55,7 +56,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { LanguageRuntimeDynState } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -217,6 +218,8 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 	private readonly _onDidUpdateResourceUsageEmitter = new Emitter<ILanguageRuntimeResourceUsage>();
+	private readonly _onDidDisconnectEmitter = new Emitter<void>();
+	private readonly _onDidReconnectEmitter = new Emitter<void>();
 
 	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
@@ -258,6 +261,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	) {
 
 		super();
+
+		// Register the connection-state emitters for disposal.
+		this._register(this._onDidDisconnectEmitter);
+		this._register(this._onDidReconnectEmitter);
 
 		// Save handle
 		this.handle = initialState.handle;
@@ -562,6 +569,22 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		} else {
 			this._logService.warn(`Client instance '${id}' not found; dropping state change: ${state}`);
 		}
+	}
+
+	/** Fires when this session's connection to the underlying runtime is lost. */
+	readonly onDidDisconnect = this._onDidDisconnectEmitter.event;
+
+	/** Fires when this session's connection to the underlying runtime is re-established. */
+	readonly onDidReconnect = this._onDidReconnectEmitter.event;
+
+	/** Emits a disconnect event; called when the owning extension host reports a disconnect. */
+	emitDisconnect(): void {
+		this._onDidDisconnectEmitter.fire();
+	}
+
+	/** Emits a reconnect event; called when the owning extension host reports a reconnect. */
+	emitReconnect(): void {
+		this._onDidReconnectEmitter.fire();
 	}
 
 	/** Gets the current state of the notebook runtime */
@@ -1559,6 +1582,12 @@ export class MainThreadLanguageRuntime
 	private readonly _evaluationStateListeners: Map<string, IDisposable> = new Map();
 
 	/**
+	 * Per-session event forwarding subscriptions for proxy handles held by this
+	 * extension host (sessions it does not own). Keyed by session ID.
+	 */
+	private readonly _proxySessionSubscriptions: Map<string, DisposableStore> = new Map();
+
+	/**
 	 * Instance counter
 	 */
 	private static MAX_ID = 0;
@@ -1730,6 +1759,14 @@ export class MainThreadLanguageRuntime
 		this.findSession(sessionId).emitResourceUsage(usage);
 	}
 
+	$emitLanguageRuntimeDisconnect(sessionId: string): void {
+		this.findSession(sessionId).emitDisconnect();
+	}
+
+	$emitLanguageRuntimeReconnect(sessionId: string): void {
+		this.findSession(sessionId).emitReconnect();
+	}
+
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
 		this._registeredRuntimes.set(metadata.runtimeId, metadata);
@@ -1740,39 +1777,84 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
-	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]> {
+	$getActiveSessions(): Promise<IActiveRuntimeSessionMetadataDto[]> {
 		return Promise.resolve(
 			this._runtimeSessionService.getActiveSessions().map(
 				activeSession => this.toActiveSessionMetadata(activeSession.session)!));
 	}
 
-	toActiveSessionMetadata(session?: ILanguageRuntimeSession): ActiveRuntimeSessionMetadata | undefined {
+	toActiveSessionMetadata(session?: ILanguageRuntimeSession): IActiveRuntimeSessionMetadataDto | undefined {
 		if (!session) {
 			return undefined;
 		}
 		return {
 			metadata: session.metadata,
 			runtimeMetadata: session.runtimeMetadata,
+			runtimeState: session.getRuntimeState(),
 		};
 	}
 
-	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined> {
+	$getForegroundSession(): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
 		const session = this._runtimeSessionService.foregroundSession;
 		return Promise.resolve(this.toActiveSessionMetadata(session));
 	}
 
-	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined> {
+	$getSession(sessionId: string): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
 		const session = this._runtimeSessionService.getSession(sessionId);
 		return Promise.resolve(this.toActiveSessionMetadata(session));
 	}
 
-	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined> {
+	$getNotebookSession(notebookUri: URI): Promise<IActiveRuntimeSessionMetadataDto | undefined> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
 		// Get the session for the notebook URI
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
 		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	/**
+	 * Subscribes this extension host to state changes and connection events for
+	 * a session it does not own, so that its proxy handle stays in sync. Called
+	 * by the extension host when it creates a proxy for a session.
+	 */
+	$subscribeToSession(sessionId: string): void {
+		// If we're already forwarding events for this session, there's nothing
+		// to do.
+		if (this._proxySessionSubscriptions.has(sessionId)) {
+			return;
+		}
+
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return;
+		}
+
+		const store = new DisposableStore();
+		store.add(session.onDidChangeRuntimeState(state => {
+			this._proxy.$updateProxySessionState(sessionId, state);
+		}));
+
+		// Connection events are only available on API-backed sessions.
+		if (session instanceof ExtHostLanguageRuntimeSessionAdapter) {
+			store.add(session.onDidDisconnect(() => {
+				this._proxy.$notifyProxySessionDisconnected(sessionId);
+			}));
+			store.add(session.onDidReconnect(() => {
+				this._proxy.$notifyProxySessionReconnected(sessionId);
+			}));
+		}
+
+		this._proxySessionSubscriptions.set(sessionId, store);
+	}
+
+	/**
+	 * Stops forwarding events for a proxied session. Called by the extension
+	 * host when it disposes a proxy.
+	 */
+	$unsubscribeFromSession(sessionId: string): void {
+		this._proxySessionSubscriptions.get(sessionId)?.dispose();
+		this._proxySessionSubscriptions.delete(sessionId);
 	}
 
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState> {
@@ -2012,7 +2094,8 @@ export class MainThreadLanguageRuntime
 		languageId: string,
 		sessionId: string | undefined,
 		code: string,
-		evaluationId: string
+		evaluationId: string,
+		whenBusy: RuntimeBusyBehavior = RuntimeBusyBehavior.Queue
 	): Promise<EvalResult> {
 		// Find the appropriate session
 		let activeSession;
@@ -2046,6 +2129,21 @@ export class MainThreadLanguageRuntime
 		}
 
 		const resolvedSessionId = activeSession.session.sessionId;
+
+		// If the caller asked to fail closed when the runtime is busy, reject the
+		// evaluation instead of queueing it. The session is considered busy if it
+		// is not idle, or if there is already queued or executing work for it.
+		if (whenBusy === RuntimeBusyBehavior.Reject) {
+			const state = activeSession.session.getRuntimeState();
+			const isIdle = state === RuntimeState.Idle || state === RuntimeState.Ready;
+			const existingQueue = this._evaluationQueues.get(resolvedSessionId);
+			const hasPendingWork = !!existingQueue && existingQueue.length > 0;
+			if (!isIdle || hasPendingWork) {
+				throw new Error(
+					`Cannot evaluate code: session '${resolvedSessionId}' is busy ` +
+					`(state '${state}').`);
+			}
+		}
 
 		// If the UI client isn't ready yet, wait for it. This handles the case
 		// where we just started a session and the UI comm hasn't been established.
@@ -2263,6 +2361,10 @@ export class MainThreadLanguageRuntime
 		// Dispose any remaining picker contributions
 		this._pickerContributionDisposables.forEach((disposable) => disposable.dispose());
 		this._pickerContributionDisposables.clear();
+
+		// Dispose any proxy session event forwarding subscriptions
+		this._proxySessionSubscriptions.forEach((store) => store.dispose());
+		this._proxySessionSubscriptions.clear();
 
 		this._disposables.dispose();
 	}
