@@ -522,6 +522,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getEnabledProviders(): Thenable<string[]> {
 				return extHostAiFeatures.getEnabledProviders();
 			},
+			getAllowedCommands(): Thenable<positron.ai.AllowedCommand[]> {
+				return extHostAiFeatures.getAllowedCommands();
+			},
 			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
 		};
 

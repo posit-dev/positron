@@ -3652,6 +3652,58 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
 		 */
 		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
+
+		/**
+		 * A parameter accepted by an allowed command.
+		 */
+		export interface AllowedCommandArg {
+			/** Parameter name. */
+			name: string;
+			/** Human-readable description of the parameter. */
+			description?: string;
+			/** Whether the parameter may be omitted. */
+			isOptional?: boolean;
+		}
+
+		/**
+		 * Where a command was registered from.
+		 */
+		export interface AllowedCommandSource {
+			/** `'builtin'` for core Positron/VS Code commands; `'extension'` for extension-contributed commands. */
+			type: 'builtin' | 'extension';
+			/** Extension identifier (e.g. `ms-python.python`). Only present when `type` is `'extension'`. */
+			id?: string;
+			/** Extension display name. Only present when `type` is `'extension'`. */
+			displayName?: string;
+		}
+
+		/**
+		 * Metadata for a single Positron command available to AI agents.
+		 */
+		export interface AllowedCommand {
+			/** Unique command identifier (e.g. `workbench.action.files.save`). */
+			id: string;
+			/** Human-readable description of what the command does. */
+			description?: string;
+			/** Ordered list of parameters the command accepts. */
+			args?: AllowedCommandArg[];
+			/** Description of the command's return value, if any. */
+			returns?: string;
+			/** Where the command was registered from. */
+			source: AllowedCommandSource;
+			/** Default keyboard shortcuts bound to this command (e.g. `["Ctrl+Z"]`). */
+			keybindings?: string[];
+		}
+
+		/**
+		 * Returns all commands available to AI agents, including their IDs,
+		 * descriptions, and parameter/return-value metadata.
+		 *
+		 * In the future this may be filtered to a configured allowlist.
+		 *
+		 * @returns A Thenable that resolves to an array of command descriptors.
+		 */
+		export function getAllowedCommands(): Thenable<AllowedCommand[]>;
 	}
 
 	/**
