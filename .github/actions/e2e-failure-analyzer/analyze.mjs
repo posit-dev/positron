@@ -223,8 +223,29 @@ function buildHistoryByKey(history) {
 
 function findHistoryFor(historyMap, title, file) {
 	if (!historyMap || historyMap.size === 0) { return null; }
-	const key = `${title}|||${normalizeSpecPath(file)}`;
-	return historyMap.get(key) || null;
+	const specPath = normalizeSpecPath(file);
+
+	// Fast path: the composed key matches an entry outright. Works when the blob
+	// title is already the full Playwright title path, or when the API keys tests
+	// by their leaf title.
+	const exact = historyMap.get(`${title}|||${specPath}`);
+	if (exact) { return exact; }
+
+	// Fall back to spec-path + leaf-title-suffix matching. The e2e-test-insights
+	// API keys tests by their FULL Playwright title path (suite ancestors joined
+	// with " > "), e.g. "Console Pane: Python > Python - Verify ...", while the
+	// blob report yields only the leaf title "Python - Verify ...". The normalized
+	// spec path uniquely narrows the file, so within that file a testName equal to
+	// the leaf title -- or ending in "> <leaf title>" -- is the same test. This
+	// keeps history matching working regardless of whether either side prefixes
+	// the suite chain.
+	const suffix = `> ${title}`;
+	for (const entry of historyMap.values()) {
+		if (normalizeSpecPath(entry.specPath) !== specPath) { continue; }
+		const name = entry.testName || '';
+		if (name === title || name.endsWith(suffix)) { return entry; }
+	}
+	return null;
 }
 
 function renderHistoryForTest(entry) {
