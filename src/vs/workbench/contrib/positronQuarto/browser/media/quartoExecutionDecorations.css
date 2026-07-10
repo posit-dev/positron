@@ -142,10 +142,17 @@
 	}
 }
 
-/* Executed: a statement that has finished running when a cell is split into */
-/* individual statements. A one-shot "settle" eases up from the breathing peak */
-/* to a solid fill and holds there, so the hand-off reads as the breath */
-/* relaxing to rest while staying at least as solid as the executing line. */
+/* Executed (settling): a statement that has just finished running when a cell */
+/* is split into individual statements. A one-shot "settle" eases up from the */
+/* breathing peak to a solid fill and holds there, so the hand-off reads as the */
+/* breath relaxing to rest while staying at least as solid as the executing */
+/* line. This animated class is applied only on the single update where the */
+/* statement first becomes executed; the manager then swaps the line to the */
+/* static "-solid" variant below. That matters because Monaco re-renders the */
+/* margin overlays on every cursor move, recreating the decoration node and */
+/* restarting any keyframe animation on it -- leaving the animation attached */
+/* would replay the settle and flash the gutter whenever the caret passed */
+/* through a finished line. */
 .monaco-editor .quarto-execution-executed {
 	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
 	margin-left: 10px;
@@ -156,6 +163,21 @@
 	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
 	margin-left: 10px;
 	animation: quarto-settle 0.75s ease-out forwards;
+}
+
+/* Executed (settled): the resting state a statement holds once its settle has */
+/* played. Static opacity with no animation, so re-rendering the margin (e.g. */
+/* on cursor move) never replays a pulse. */
+.monaco-editor .quarto-execution-executed-solid {
+	border-left: 5px solid var(--vscode-notebookStatusSuccessIcon-foreground, #48985D);
+	margin-left: 10px;
+	opacity: 1;
+}
+
+.monaco-editor .quarto-execution-error-executed-solid {
+	border-left: 5px solid var(--vscode-notebookStatusErrorIcon-foreground, #D32F2F);
+	margin-left: 10px;
+	opacity: 1;
 }
 
 /* Settle from the breathing peak up to a solid fill. Starting at the peak */
