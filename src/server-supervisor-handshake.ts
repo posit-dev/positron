@@ -103,8 +103,9 @@ export class SupervisorHandshakeBroker {
 	 * Creates and starts listening on a handshake broker socket, secured to the
 	 * current user.
 	 *
-	 * @param baseName A short, unique base name (e.g. including the process id)
-	 *  used to derive the socket path / pipe name.
+	 * @param baseName A short, unique base name used to derive the Windows named
+	 *  pipe name. Ignored on Unix, where the per-call private directory already
+	 *  guarantees uniqueness.
 	 * @returns A promise that resolves with the listening broker.
 	 */
 	public static async create(baseName: string): Promise<SupervisorHandshakeBroker> {
@@ -120,11 +121,15 @@ export class SupervisorHandshakeBroker {
 
 		// Unix: create the socket inside a private 0700 directory under
 		// XDG_RUNTIME_DIR (a user-private location) when set, else the temp dir.
-		// mkdtemp creates the directory with 0700 permissions. Keep the base
-		// short to stay under the platform's Unix socket path length limit.
+		// mkdtemp creates the directory with 0700 permissions and a unique name,
+		// so the socket file itself uses a short constant name: uniqueness is
+		// already handled by the directory, and a short path keeps us well under
+		// the platform's Unix socket path length limit (104 bytes on macOS, the
+		// binding case since XDG_RUNTIME_DIR is Linux-only and macOS falls back
+		// to a long os.tmpdir()).
 		const runtimeDir = process.env['XDG_RUNTIME_DIR'] || os.tmpdir();
 		const socketDir = await fs.promises.mkdtemp(path.join(runtimeDir, 'kc-handshake-'));
-		const socketPath = path.join(socketDir, `${baseName}.sock`);
+		const socketPath = path.join(socketDir, 's.sock');
 		const server = await SupervisorHandshakeBroker.listen(socketPath);
 
 		// Lock the socket file down to the current user only.
