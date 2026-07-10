@@ -2585,6 +2585,16 @@ declare module 'positron' {
 		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
 
 		/**
+		 * The currently active console, or `undefined` if no console is active.
+		 */
+		export const activeConsoleEditor: Console | undefined;
+
+		/**
+		 * An event that fires when the active console changes.
+		 */
+		export const onDidChangeActiveConsoleEditor: vscode.Event<Console | undefined>;
+
+		/**
 		 * Fires when the width of the console input changes. The new width is passed as
 		 * a number, which represents the number of characters that can fit in the
 		 * console horizontally.

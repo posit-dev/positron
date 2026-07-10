@@ -163,12 +163,14 @@ export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
 	$getSessionIdForLanguage(languageId: string): Promise<string | undefined>;
 	$tryPasteText(sessionId: string, text: string): void;
+	$getActiveConsoleSessionId(): Promise<string | undefined>;
 }
 
 export interface ExtHostConsoleServiceShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 	$addConsole(sessionId: string): void;
 	$removeConsole(sessionId: string): void;
+	$onDidChangeActiveConsole(sessionId: string | undefined): void;
 }
 
 export interface MainThreadMethodsShape { }

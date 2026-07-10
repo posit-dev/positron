@@ -235,6 +235,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getConsoleForLanguage(languageId: string) {
 				return extHostConsoleService.getConsoleForLanguage(languageId);
 			},
+			get activeConsoleEditor() {
+				return extHostConsoleService.activeConsole;
+			},
+			get onDidChangeActiveConsoleEditor() {
+				return extHostConsoleService.onDidChangeActiveConsole;
+			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;
 			},

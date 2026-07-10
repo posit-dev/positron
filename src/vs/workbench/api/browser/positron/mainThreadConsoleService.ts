@@ -56,6 +56,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			})
 		);
 
+		// Forward active console changes to the extension host
+		this._disposables.add(
+			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((instance) => {
+				this._proxy.$onDidChangeActiveConsole(instance?.sessionId);
+			})
+		);
+
 		// TODO:
 		// As of right now, we never delete console instances from the maps in
 		// `MainThreadConsoleService` and `ExtHostConsoleService` because we don't have a hook to
@@ -122,6 +129,10 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		}
 
 		return Promise.resolve(undefined);
+	}
+
+	$getActiveConsoleSessionId(): Promise<string | undefined> {
+		return Promise.resolve(this._positronConsoleService.activePositronConsoleInstance?.sessionId);
 	}
 
 	$tryPasteText(sessionId: string, text: string): void {

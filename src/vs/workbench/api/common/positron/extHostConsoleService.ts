@@ -25,6 +25,14 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
 
+	private readonly _onDidChangeActiveConsole = new Emitter<positron.Console | undefined>();
+
+	private _activeConsoleSessionId: string | undefined;
+
+	// Guards the startup seed: once a live $onDidChangeActiveConsole arrives we
+	// must not let the async startup promise overwrite it.
+	private _receivedLiveActiveConsoleEvent = false;
+
 	private readonly _proxy: extHostProtocol.MainThreadConsoleServiceShape;
 
 	constructor(
@@ -32,9 +40,34 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		private readonly _logService: ILogService,
 	) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsoleService);
+
+		// Fetch the current active console session on startup so we don't miss
+		// consoles that were already active before this ext host started.
+		this._proxy.$getActiveConsoleSessionId().then((sessionId) => {
+			// A live $onDidChangeActiveConsole event already arrived; skip so we
+			// don't overwrite it with a potentially stale startup value.
+			if (this._receivedLiveActiveConsoleEvent) {
+				return;
+			}
+			this._activeConsoleSessionId = sessionId;
+			// If $addConsole already registered this session before the promise
+			// resolved, the re-fire guard in $addConsole was skipped. Fire now.
+			if (sessionId !== undefined && this._extHostConsolesBySessionId.has(sessionId)) {
+				this._onDidChangeActiveConsole.fire(this.activeConsole);
+			}
+		});
 	}
 
 	onDidChangeConsoleWidth = this._onDidChangeConsoleWidth.event;
+
+	onDidChangeActiveConsole = this._onDidChangeActiveConsole.event;
+
+	get activeConsole(): positron.Console | undefined {
+		if (this._activeConsoleSessionId === undefined) {
+			return undefined;
+		}
+		return this._extHostConsolesBySessionId.get(this._activeConsoleSessionId)?.getConsole();
+	}
 
 	/**
 	 * Queries the main thread for the current width of the console input.
@@ -86,6 +119,11 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	$addConsole(sessionId: string): void {
 		const extHostConsole = new ExtHostConsole(sessionId, this._proxy, this._logService);
 		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
+		// If the active session ID arrived before this console was registered, re-fire now that
+		// the map is populated so listeners receive the resolved console instead of undefined.
+		if (sessionId === this._activeConsoleSessionId) {
+			this._onDidChangeActiveConsole.fire(this.activeConsole);
+		}
 	}
 
 	// Called when a console instance is removed
@@ -94,6 +132,13 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
 		dispose(extHostConsole);
+	}
+
+	// Called when the active console changes
+	$onDidChangeActiveConsole(sessionId: string | undefined): void {
+		this._receivedLiveActiveConsoleEvent = true;
+		this._activeConsoleSessionId = sessionId;
+		this._onDidChangeActiveConsole.fire(this.activeConsole);
 	}
 }
 
