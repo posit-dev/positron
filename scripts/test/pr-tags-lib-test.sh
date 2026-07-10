@@ -161,6 +161,133 @@ assert_eq "across_files: genuine add in one file survives unrelated edit in anot
 assert_eq "across_files: no genuine addition anywhere stays false" "false false" \
 	"$(scan_added_platform_tags_across_files "$PATCH_SAME_LINE_EDIT" "$FILE_B_UNRELATED_EDIT_MENTIONS_WIN")"
 
+# --- patch_is_comment_or_whitespace_only ---
+# "true" iff every added/removed line in the patch is blank, whitespace-only, or
+# a comment -- i.e. the file's runtime behavior is unchanged, so a touched e2e
+# test doesn't need an auto-derived tag. Bias is toward "false" (tag it): any
+# line we can't prove is a comment counts as code.
+# Regression for #14798: a test file whose only change is a reworded // comment.
+PATCH_LINE_COMMENT_ONLY=$'@@ -14,8 +14,8 @@ test.use({\n \ttest.describe("R Test Explorer", { tag: [tags.TEST_EXPLORER] }, () => {\n-\t\t// resources) to avoid cross-repo coordination with qa-example-content while the\n-\t\t// test explorer e2e stabilizes.\n+\t\t// resources) rather than in the shared e2e test-files, while the test explorer\n+\t\t// e2e stabilizes.\n \t\tconst FIXTURE_NAME = "r.pkg.test.explorer.fixture";'
+assert_eq "comment-only (line //): comment/whitespace only" "true" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_LINE_COMMENT_ONLY")"
+# A block comment reflow: /* opener, * continuation, */ closer all count as comment.
+PATCH_BLOCK_COMMENT_ONLY=$'@@ -1,3 +1,3 @@\n-\t/* old summary\n-\t * old detail line\n-\t */\n+\t/* new summary\n+\t * new detail line\n+\t */'
+assert_eq "comment-only (block /* * */): comment/whitespace only" "true" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_BLOCK_COMMENT_ONLY")"
+# A removed comment line, code kept only as context, is still comment-only.
+PATCH_REMOVED_COMMENT=$'@@ -1,2 +1 @@\n-\t// stale note about the fixture\n \tawait app.workbench.doThing();'
+assert_eq "removed comment line, code is context only: comment/whitespace only" "true" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_REMOVED_COMMENT")"
+# Blank-line-only edit (added empty line).
+PATCH_BLANK_LINE=$'@@ -1 +1,2 @@\n \tconst a = 1;\n+'
+assert_eq "blank line added: comment/whitespace only" "true" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_BLANK_LINE")"
+# Whitespace-only line (tabs only).
+PATCH_WHITESPACE_LINE=$'@@ -0,0 +1 @@\n+\t\t'
+assert_eq "whitespace-only added line: comment/whitespace only" "true" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_WHITESPACE_LINE")"
+# A genuine code change is NOT comment/whitespace only.
+PATCH_CODE=$'@@ -1 +1 @@\n-\t\tawait page.click(".foo");\n+\t\tawait page.dblclick(".foo");'
+assert_eq "code change: not comment/whitespace only" "false" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_CODE")"
+# Mixed: a comment reword AND a code change -> code wins, not comment-only.
+PATCH_MIXED=$'@@ -1,2 +1,2 @@\n-\t\t// reword this\n+\t\t// reworded\n-\t\tawait foo();\n+\t\tawait bar();'
+assert_eq "mixed comment + code: not comment/whitespace only" "false" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_MIXED")"
+# Inline trailing comment change on a code line: the code text is present on the
+# changed line, so we conservatively treat it as code (can't prove code half is unchanged).
+PATCH_INLINE_COMMENT=$'@@ -1 +1 @@\n-\t\tawait foo(); // old note\n+\t\tawait foo(); // new note'
+assert_eq "inline trailing-comment edit on code line: not comment/whitespace only" "false" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_INLINE_COMMENT")"
+# A new file (all added code lines) is not comment/whitespace only.
+PATCH_NEW_FILE=$'@@ -0,0 +1,3 @@\n+import { test } from "../infra";\n+\n+test("does a thing", async () => {});'
+assert_eq "new file with code: not comment/whitespace only" "false" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_NEW_FILE")"
+# Two hunks: one comment-only, one real code change -> not comment-only.
+PATCH_TWO_HUNKS_MIXED=$'@@ -1 +1 @@\n-\t\t// reword\n+\t\t// reworded\n@@ -20 +20 @@\n-\t\tconst timeout = 1000;\n+\t\tconst timeout = 2000;'
+assert_eq "two hunks, one comment one code: not comment/whitespace only" "false" \
+	"$(patch_is_comment_or_whitespace_only "$PATCH_TWO_HUNKS_MIXED")"
+# An empty patch (e.g. gh omits .patch for a pure rename): can't prove it's
+# comment-only, so bias to "false" (tag it).
+assert_eq "empty patch: not comment/whitespace only (conservative)" "false" \
+	"$(patch_is_comment_or_whitespace_only "")"
+
+# --- patch_is_tag_change_only ---
+# "true" iff the change only edits tag metadata -- adding OR removing tags, or
+# inserting/removing a simple `{ tag: [<literal array>] }` options object --
+# while every non-tag token stays identical. Recategorizing a test (e.g. #14731
+# consolidating @:posit-assistant, or #14681 backfilling missing feature tags)
+# doesn't change what the test does, so a touched test needs no derived feature
+# tag. tags.WIN/WEB adds still enable their lanes via scan_added_platform_tags.
+#
+# Conservative by construction: only a LITERAL `tag: [ ... ]` array is stripped.
+# A ternary (`tag: cond ? [...] : []`) or data-driven (`tags?: string[]` +
+# `tags: [...]` rows) pattern isn't tag-shaped to the matcher, so its non-tag
+# residual differs and the file still derives. And any real code edited on a tag
+# line (a reworded describe title, a changed body) changes the residual too.
+# Regression for #14731: a multi-line describe option array losing one tag.
+PATCH_TAG_REMOVAL_MULTILINE=$'@@ -143,4 +143,4 @@\n \ttest.describe.skip("Assistant Layout", {\n-\t\ttag: [tags.ASSISTANT, tags.POSIT_ASSISTANT],\n+\t\ttag: [tags.ASSISTANT],\n \t\tannotation: [{ type: "issue" }]\n \t}, () => {'
+assert_eq "tag removal (multi-line array): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_REMOVAL_MULTILINE")"
+# Single-line describe, one tag dropped, title untouched.
+PATCH_TAG_REMOVAL_INLINE=$'@@ -29 +29 @@\n-test.describe("Chat Command Palette Gating", { tag: [tags.ASSISTANT, tags.POSIT_ASSISTANT] }, () => {\n+test.describe("Chat Command Palette Gating", { tag: [tags.ASSISTANT] }, () => {'
+assert_eq "tag removal (inline describe, title unchanged): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_REMOVAL_INLINE")"
+# Dropping the last remaining tag (array emptied) is still tag-change only.
+PATCH_TAG_REMOVAL_TO_EMPTY=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT],\n+\ttag: [],'
+assert_eq "tag removal to empty array: tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_REMOVAL_TO_EMPTY")"
+# Adding a FEATURE tag to an existing array is recategorization -> tag-change only.
+PATCH_TAG_ADD_FEATURE=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT],\n+\ttag: [tags.ASSISTANT, tags.VARIABLES],'
+assert_eq "tag addition to existing array (feature): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_ADD_FEATURE")"
+# Adding tags.WEB is tag-change only for feature derivation; its lane is enabled
+# separately by scan_added_platform_tags.
+PATCH_TAG_ADD_WEB=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT],\n+\ttag: [tags.ASSISTANT, tags.WEB],'
+assert_eq "tag addition (WEB platform): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_ADD_WEB")"
+# A tag swap (remove one, add another) is still only tag metadata.
+PATCH_TAG_SWAP=$'@@ -1 +1 @@\n-\ttag: [tags.ASSISTANT, tags.OLD],\n+\ttag: [tags.ASSISTANT, tags.NEW],'
+assert_eq "tag swap (remove OLD, add NEW): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_SWAP")"
+# Inserting a simple `{ tag: [literal] }` options object onto a previously
+# untagged test (#14681's dominant pattern): the inserted scaffold collapses,
+# leaving the test signature identical -> tag-change only.
+PATCH_OPTS_INSERT=$'@@ -1 +1 @@\n-\ttest("Opens a table in the Data Explorer", async function ({ app }) {\n+\ttest("Opens a table in the Data Explorer", { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {'
+assert_eq "options-object insertion (simple literal array): tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_OPTS_INSERT")"
+# CONSERVATIVE boundary: a ternary tag expression is not a literal array, so it
+# isn't stripped -> residual differs -> still derives (#14681 convert-to-code).
+PATCH_TERNARY=$'@@ -1 +1 @@\n-\ttest("copy code behavior", async function ({ app }) {\n+\ttest("copy code behavior", { tag: environment === "DuckDB" ? [tags.DUCK_DB] : [] }, async function ({ app }) {'
+assert_eq "ternary tag insertion: NOT tag-change only (conservative)" "false" \
+	"$(patch_is_tag_change_only "$PATCH_TERNARY")"
+# CONSERVATIVE boundary: adding a `tags?: string[]` data-interface field is not
+# tag-shaped -> still derives.
+PATCH_DATA_FIELD=$'@@ -1,2 +1,3 @@\n \tinterface DataCase {\n \t\tenv: string;\n+\t\ttags?: string[];'
+assert_eq "data-driven tags?: field addition: NOT tag-change only (conservative)" "false" \
+	"$(patch_is_tag_change_only "$PATCH_DATA_FIELD")"
+# A tag edited on the same line a real code token (the describe title) changed:
+# the non-tag residual differs, so NOT tag-change only (don't skip real code).
+PATCH_TAG_AND_TITLE=$'@@ -1 +1 @@\n-test.describe("Old Title", { tag: [tags.A, tags.B] }, () => {\n+test.describe("New Title", { tag: [tags.A] }, () => {'
+assert_eq "tag edit + title change on same line: NOT tag-change only" "false" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_AND_TITLE")"
+# A tag edit in one hunk plus a genuine code change in another -> not tag-change only.
+PATCH_TAG_AND_CODE=$'@@ -1 +1 @@\n-\ttag: [tags.A, tags.B],\n+\ttag: [tags.A],\n@@ -20 +20 @@\n-\t\tconst timeout = 1000;\n+\t\tconst timeout = 2000;'
+assert_eq "tag edit + unrelated code change: NOT tag-change only" "false" \
+	"$(patch_is_tag_change_only "$PATCH_TAG_AND_CODE")"
+# A pure comment change carries no tag metadata -> not tag-change (the comment
+# helper owns that case); keeps the two predicates from overlapping.
+assert_eq "comment-only change: NOT tag-change only (deferred to comment helper)" "false" \
+	"$(patch_is_tag_change_only "$PATCH_LINE_COMMENT_ONLY")"
+# A comment reword alongside a tag edit: comment lines ignored, the tag line is
+# tag-change only -> still tag-change only.
+PATCH_COMMENT_PLUS_TAG_REMOVAL=$'@@ -1,2 +1,2 @@\n-\t// old note about the provider\n+\t// new note about the provider\n-\ttag: [tags.ASSISTANT, tags.POSIT_ASSISTANT],\n+\ttag: [tags.ASSISTANT],'
+assert_eq "comment reword + tag edit: tag-change only" "true" \
+	"$(patch_is_tag_change_only "$PATCH_COMMENT_PLUS_TAG_REMOVAL")"
+# Empty patch: can't prove anything -> not tag-change only (conservative, tag it).
+assert_eq "empty patch: NOT tag-change only (conservative)" "false" \
+	"$(patch_is_tag_change_only "")"
+
 # --- is_infra_only ---
 assert_eq "infra only" "true" "$(is_infra_only "$(printf '.github/workflows/x.yml\ndocs/y.md')")"
 assert_eq "mixed not infra" "false" "$(is_infra_only "$(printf 'docs/y.md\nsrc/vs/z.ts')")"

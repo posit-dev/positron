@@ -202,8 +202,41 @@ else
 		# suites. See derive-test-change-tags.mjs and the design doc.
 		DERIVE_TEST_CHANGE_SCRIPT="$SCRIPT_DIR/derive-test-change-tags.mjs"
 		if [[ -n "$CHANGED_FILES" && -f "$DERIVE_TEST_CHANGE_SCRIPT" ]]; then
+			# Drop touched e2e test files whose change doesn't alter what the
+			# test does, so they don't need a derived feature tag:
+			#   - comments/whitespace only (#14798: a reworded comment that spun
+			#     up the test-explorer lane for nothing), or
+			#   - tag metadata only (#14731 consolidating @:posit-assistant,
+			#     #14681 backfilling missing tags): recategorizing a test doesn't
+			#     change what it does. tags.WIN/WEB adds still enable their lanes
+			#     via the separate scan below.
+			# Fetch filename+patch together so each patch maps back to its file;
+			# @json keeps embedded newlines from merging files when read line by line.
+			SKIPPED_TEST_FILES=""
+			while IFS=$'\t' read -r TEST_FILE ENCODED_PATCH || [[ -n "$TEST_FILE" ]]; do
+				[[ -z "$TEST_FILE" ]] && continue
+				FILE_PATCH="$(jq -r '.' <<< "$ENCODED_PATCH")"
+				if [[ "$(patch_is_comment_or_whitespace_only "$FILE_PATCH")" == "true" ]]; then
+					SKIPPED_TEST_FILES+="$TEST_FILE"$'\n'
+					echo "Skipping test-change derivation for $TEST_FILE (comments/whitespace only)."
+				elif [[ "$(patch_is_tag_change_only "$FILE_PATCH")" == "true" ]]; then
+					SKIPPED_TEST_FILES+="$TEST_FILE"$'\n'
+					echo "Skipping test-change derivation for $TEST_FILE (tag recategorization only)."
+				fi
+			done < <(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate \
+				--header "Authorization: token $GITHUB_TOKEN" \
+				--jq '.[] | select(.filename | test("^test/e2e/tests/.*\\.test\\.ts$")) | "\(.filename)\t\((.patch // "") | @json)"' || true)
+
 			CHANGED_FILES_FILE="$(mktemp)"
-			printf '%s\n' "$CHANGED_FILES" > "$CHANGED_FILES_FILE"
+			if [[ -n "$SKIPPED_TEST_FILES" ]]; then
+				# grep -v empties its output (exit 1) if every changed file was
+				# skipped; guard so set -e doesn't abort on that.
+				printf '%s\n' "$CHANGED_FILES" \
+					| grep -vxF -f <(printf '%s' "$SKIPPED_TEST_FILES") \
+					> "$CHANGED_FILES_FILE" || true
+			else
+				printf '%s\n' "$CHANGED_FILES" > "$CHANGED_FILES_FILE"
+			fi
 			# Assignment is the `if` condition (not piped through `paste`) so a
 			# non-zero node exit is visible here -- under `set -e` with no
 			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed

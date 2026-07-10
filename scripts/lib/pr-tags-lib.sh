@@ -91,6 +91,104 @@ scan_added_platform_tags_across_files() {
 	echo "$win $web"
 }
 
+# patch_is_comment_or_whitespace_only <patch_text for ONE file>
+# Echoes "true" iff every added/removed line in the patch is blank,
+# whitespace-only, or a comment -- meaning the file's runtime behavior is
+# unchanged and a touched e2e test file does NOT need an auto-derived tag
+# (see #14798: a reworded comment shouldn't spin up that test's lane).
+#
+# Bias is deliberately toward "false" (keep tagging): the dangerous mistake is
+# skipping a real code change, so any changed line we can't prove is a comment
+# counts as code. An empty patch (gh omits .patch for pure renames) echoes
+# "false" for the same reason -- we can't see the change, so don't skip it.
+#
+# Comment forms recognized (after stripping leading whitespace): "//" line
+# comments, "/*" openers, and "*"-led block-comment continuations/closers
+# ("* detail", "*/"). Known boundary: a code line that begins with "*" after
+# indentation (e.g. a wrapped "* b" multiplication) would be misread as a
+# comment; this is vanishingly rare in e2e specs, and the author can always tag
+# the PR body manually if it ever bites.
+patch_is_comment_or_whitespace_only() {
+	local patch="$1"
+	# No patch text at all -> can't prove it's a no-op, so treat as code.
+	[[ -z "$patch" ]] && { echo false; return 0; }
+	printf '%s\n' "$patch" | awk '
+		/^\+\+\+/ || /^---/ { next }   # file headers, not content
+		/^@@/ { next }                 # hunk headers
+		/^[+-]/ {
+			line = substr($0, 2)               # drop the +/- marker
+			sub(/^[ \t]+/, "", line)           # strip leading whitespace
+			if (line == "") { next }           # blank / whitespace-only
+			if (line ~ /^\/\//) { next }       # // line comment
+			if (line ~ /^\/\*/) { next }       # /* block opener
+			if (line ~ /^\*/) { next }         # * continuation or */ closer
+			has_code = 1
+		}
+		END { print (has_code ? "false" : "true") }
+	'
+}
+
+# patch_is_tag_change_only <patch_text for ONE file>
+# Echoes "true" iff the change only edits tag metadata -- adding OR removing tags
+# in an array, or inserting/removing a simple `{ tag: [<literal array>] }`
+# options object -- while every non-tag token stays identical. Recategorizing a
+# test (e.g. #14731 consolidating @:posit-assistant, or #14681 backfilling
+# missing feature tags) doesn't change what the test does, so a touched test
+# needs no auto-derived feature tag. tags.WIN/WEB adds still enable their lanes
+# via scan_added_platform_tags, which runs separately.
+#
+# How it decides: it joins the removed (-) lines into one fragment and the added
+# (+) lines into another (comments/whitespace ignored), strips tag metadata from
+# each -- literal `tag: [ ... ]` clauses, `tags.X` tokens, and the empty braces
+# they leave behind -- plus whitespace and commas, then compares. Equal residual
+# means only tags moved.
+#
+# Deliberately conservative (bias toward "false" / keep tagging):
+#   - Only a LITERAL `tag: [ ... ]` array is stripped. A ternary
+#     (`tag: cond ? [...] : []`) or data-driven (`tags?: string[]`) pattern isn't
+#     tag-shaped to the matcher, so its residual differs and the file derives.
+#   - Any real code edited alongside the tags (a reworded describe title, a
+#     changed body line) changes the residual, so it won't be skipped.
+#   - At least one tag token must be involved, so a pure comment/whitespace change
+#     stays with patch_is_comment_or_whitespace_only (the predicates don't overlap).
+# An empty patch echoes "false" for the same reason as the comment helper.
+patch_is_tag_change_only() {
+	local patch="$1"
+	[[ -z "$patch" ]] && { echo false; return 0; }
+	printf '%s\n' "$patch" | awk '
+		function norm(x) {
+			gsub(/tag:[ \t]*\[[^]]*\]/, "", x)  # literal tag: [ ... ] clause
+			gsub(/tags\.[A-Za-z0-9_]+/, "", x)   # stray tag tokens (e.g. data rows)
+			gsub(/[ \t]/, "", x)
+			gsub(/,/, "", x)
+			gsub(/\{\}/, "", x)                  # empty options object left behind
+			gsub(/\[\]/, "", x)                  # empty array left behind
+			return x
+		}
+		/^\+\+\+/ || /^---/ { next }
+		/^@@/ { next }
+		/^[+-]/ {
+			marker = substr($0, 1, 1)
+			line = substr($0, 2)
+			s = line; sub(/^[ \t]+/, "", s)
+			if (s == "") { next }              # blank / whitespace-only
+			if (s ~ /^\/\//) { next }          # // line comment
+			if (s ~ /^\/\*/) { next }          # /* block opener
+			if (s ~ /^\*/) { next }            # * continuation or */ closer
+			real_lines++
+			if (line ~ /tags\./ || line ~ /tag:[ \t]*\[/) { tag_involved = 1 }
+			if (marker == "+") { added = added " " line } else { removed = removed " " line }
+		}
+		END {
+			ok = 1
+			if (real_lines == 0) { ok = 0 }        # nothing but comments/whitespace
+			if (!tag_involved) { ok = 0 }          # not a tag edit at all
+			if (norm(removed) != norm(added)) { ok = 0 }  # non-tag code must match
+			print (ok ? "true" : "false")
+		}
+	'
+}
+
 # is_infra_only <changed_files>
 # Echoes "true" iff EVERY changed file is an infra/doc/lockfile path (no feature
 # e2e coverage expected). Used only to suppress the no-match warning comment;
