@@ -72,8 +72,8 @@ runs:
         if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
           git fetch --unshallow --quiet || true
         fi
-        npm ci --ignore-scripts --no-audit --no-fund
-        npm --prefix test/e2e ci --ignore-scripts --no-audit --no-fund
+        npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+        npm --prefix test/e2e ci --ignore-scripts --no-audit --no-fund --prefer-offline
         # One test file (plots.test.ts) eagerly imports resemblejs -> canvas,
         # a native addon left unbuilt by --ignore-scripts. Playwright aborts
         # the entire listing if any single file fails to import, so replace

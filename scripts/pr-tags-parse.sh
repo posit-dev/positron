@@ -213,10 +213,21 @@ else
 			# author-controlled (see test-tags.ts). Pass the FeatureTags
 			# allowlist so derivation can't pick a lane-triggering tag.
 			FEATURE_TAGS_CSV="$(feature_enum_tags "$ENUM_FILE" | paste -sd, -)"
+			# Only pass --feature-tags when we actually found some. An empty
+			# "--feature-tags ''" is NOT the same as omitting it: the script reads
+			# an empty string as an empty (but truthy) allowlist, which makes every
+			# tag ineligible and silently kills all derivation. Omit the flag so it
+			# falls back to "no allowlist" if feature_enum_tags found nothing.
+			FEATURE_TAGS_ARG=()
+			if [[ -n "$FEATURE_TAGS_CSV" ]]; then
+				FEATURE_TAGS_ARG=(--feature-tags "$FEATURE_TAGS_CSV")
+			else
+				echo "Warning: feature_enum_tags returned nothing (missing/renamed FeatureTags enum?); deriving without a feature-tag allowlist."
+			fi
 			if TEST_CHANGE_TAGS_RAW="$(node "$DERIVE_TEST_CHANGE_SCRIPT" \
 				--changed-files "$CHANGED_FILES_FILE" \
 				--selected-tags "$TAGS" \
-				--feature-tags "$FEATURE_TAGS_CSV")"; then
+				"${FEATURE_TAGS_ARG[@]}")"; then
 				TEST_CHANGE_TAGS="$(printf '%s' "$TEST_CHANGE_TAGS_RAW" | paste -sd, -)"
 			else
 				TEST_CHANGE_STATUS=$?
