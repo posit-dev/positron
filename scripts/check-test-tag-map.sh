@@ -14,9 +14,13 @@
 #      test-tags.ts. This check IS run by CI (`--tags-only`, in
 #      test-pull-request.yml) since it's static and doesn't need PR scoping --
 #      a typo'd or deleted tag is a genuine error the moment it's introduced.
-# Usage: scripts/check-test-tag-map.sh [--warn-only] [--tags-only]
+# Usage: scripts/check-test-tag-map.sh [--warn-only] [--tags-only] [--json]
 #   --warn-only: report failures but exit 0 (used for local/manual runs).
 #   --tags-only: skip checks #1 and #2 (the tree-wide sweeps) and run only #3.
+#   --json: emit {"missing":[...],"stale":[...],"invalid_tags":[...],
+#     "untested_tags":[...],"unresolved_tags":[...]} on stdout
+#     instead of the human-readable report, for the auto-fix workflow to
+#     consume. Exit code semantics are unchanged.
 # Env: MAP_FILE overrides the map path (used by tests).
 set -uo pipefail
 
@@ -29,10 +33,12 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAP_FILE="${MAP_FILE:-$REPO_ROOT/.github/workflows/test-tag-paths-map.json}"
 WARN_ONLY=false
 TAGS_ONLY=false
+JSON_OUT=false
 for arg in "$@"; do
 	case "$arg" in
 		--warn-only) WARN_ONLY=true ;;
 		--tags-only) TAGS_ONLY=true ;;
+		--json) JSON_OUT=true ;;
 	esac
 done
 
@@ -125,6 +131,30 @@ if [[ -f "$ENUM_FILE" ]]; then
 			untested_tags+=("$tag")
 		fi
 	done < <(jq -r '.[][]?' "$MAP_FILE" | sort -u)
+fi
+
+if $JSON_OUT; then
+	# Empty-array guard: bash 3.2 (macOS default) treats "${arr[@]}" as an
+	# unbound-variable error under `set -u` when the array has zero elements.
+	missing_json="[]"
+	[[ ${#missing[@]} -gt 0 ]] && missing_json="$(printf '%s\n' "${missing[@]}" | jq -R . | jq -s .)"
+	stale_json="[]"
+	[[ ${#stale[@]} -gt 0 ]] && stale_json="$(printf '%s\n' "${stale[@]}" | jq -R . | jq -s .)"
+	invalid_json="[]"
+	[[ ${#invalid_tags[@]} -gt 0 ]] && invalid_json="$(printf '%s\n' "${invalid_tags[@]}" | jq -R . | jq -s .)"
+	untested_json="[]"
+	[[ ${#untested_tags[@]} -gt 0 ]] && untested_json="$(printf '%s\n' "${untested_tags[@]}" | jq -R . | jq -s .)"
+	unresolved_json="[]"
+	[[ ${#unresolved_tags[@]} -gt 0 ]] && unresolved_json="$(printf '%s\n' "${unresolved_tags[@]}" | jq -R . | jq -s .)"
+	jq -n \
+		--argjson missing "$missing_json" --argjson stale "$stale_json" --argjson invalid_tags "$invalid_json" \
+		--argjson untested_tags "$untested_json" --argjson unresolved_tags "$unresolved_json" \
+		'{missing: $missing, stale: $stale, invalid_tags: $invalid_tags, untested_tags: $untested_tags, unresolved_tags: $unresolved_tags}'
+	if [[ ${#missing[@]} -eq 0 && ${#stale[@]} -eq 0 && ${#invalid_tags[@]} -eq 0 ]]; then
+		exit 0
+	fi
+	$WARN_ONLY && exit 0
+	exit 1
 fi
 
 # Advisory (never fails): valid tags with no test carrying them today.

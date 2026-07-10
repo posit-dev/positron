@@ -347,16 +347,10 @@ cmd_up() {
 	# Sources .env first (may set GITHUB_TOKEN), then fills auth gaps from gh and
 	# logs into ghcr.io -- must run before the image pull below.
 	wb_ensure_auth
-	# The amd64 and arm64 images have independent tag sequences, so a single
-	# default tag cannot serve both arches. Pick the arch-correct default unless
-	# the user pinned one in .env (sourced above by wb_bootstrap_env).
-	if [ "${WB_ARCH}" = "arm64" ]; then
-		export WB_IMAGE_TAG="${WB_IMAGE_TAG:-127}"
-		export PG_IMAGE_TAG="${PG_IMAGE_TAG:-143}"
-	else
-		export WB_IMAGE_TAG="${WB_IMAGE_TAG:-141}"
-		export PG_IMAGE_TAG="${PG_IMAGE_TAG:-142}"
-	fi
+	# The base images are multi-arch manifests pinned to a single tag in the
+	# compose file, so Docker resolves the arch automatically -- no per-arch tag
+	# selection is needed here. ARCH_SUFFIX (set above) still drives the
+	# in-container Positron download.
 	# Connect requires a valid base64 Bootstrap.SecretKey; the compose default
 	# ("testkey") is not valid base64 and makes the connect container exit. Mint
 	# one the first time and persist it to .env: test carries this var too, so a

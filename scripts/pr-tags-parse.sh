@@ -105,6 +105,14 @@ if echo "$PR_BODY" | grep -q "@:remote-ssh"; then
 	echo "remote_ssh_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
 
+# Provenance inputs for build_tag_reasons, defaulted so the @:all branch (which
+# skips the else block that sets them) and any skipped derivation still resolve.
+AUTHOR_TAGS=""
+MAP_TAGS=""
+ARK_INJECTED="false"
+ADDED_WIN="false"
+ADDED_WEB="false"
+
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
 	echo "Found @:all tag in PR body. Setting tags to run all tests."
@@ -132,6 +140,10 @@ else
 	fi
 	echo "invalid_tags=$INVALID_TAGS" >> "$GITHUB_OUTPUT"
 
+	# Snapshot the author-typed valid tags (post-validation, pre-injection) so
+	# build_tag_reasons can label them "PR description".
+	AUTHOR_TAGS="$TAGS"
+
 	# Always add @:critical if not already included
 	if [[ ! "$TAGS" =~ "@:critical" ]]; then
 		if [[ -n "$TAGS" ]]; then
@@ -151,6 +163,7 @@ else
 		echo "Warning: could not fetch changed files; skipping @:ark injection."
 	elif echo "$CHANGED_FILES" | grep -qxF "extensions/positron-r/ark"; then
 		echo "Ark submodule changed. Injecting @:ark tag."
+		ARK_INJECTED="true"
 		if [[ -n "$TAGS" ]]; then
 			TAGS="$TAGS,@:ark"
 		else
@@ -247,6 +260,15 @@ echo "unmapped_dirs=$(printf '%s' "$UNMAPPED_DIRS" | paste -sd, -)" >> "$GITHUB_
 # empty list collapses any repeats so neither the --grep nor the PR comment shows
 # a tag twice.
 TAGS="$(union_csv_tags "$TAGS" "")"
+
+# Per-tag provenance for the PR comment's "Why these tags?" collapse. An empty
+# TAGS means the author wrote @:all (run everything) -- label it as a body tag.
+if [[ -z "$TAGS" ]]; then
+	TAG_REASONS="@:all|body"
+else
+	TAG_REASONS="$(build_tag_reasons "$TAGS" "$AUTHOR_TAGS" "$MAP_TAGS" "$ARK_INJECTED" "$ADDED_WIN" "$ADDED_WEB")"
+fi
+echo "tag_reasons=$TAG_REASONS" >> "$GITHUB_OUTPUT"
 
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
 if [[ -n "$GITHUB_OUTPUT" ]]; then

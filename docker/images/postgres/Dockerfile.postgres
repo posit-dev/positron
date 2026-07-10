@@ -1,0 +1,18 @@
+FROM postgres:latest
+
+# This image expects the following standard Postgres environment variables:
+# - POSTGRES_USER
+# - POSTGRES_PASSWORD
+# - POSTGRES_DB
+# 
+# In GitHub Actions, these will be set from the E2E_* secrets
+
+# Copy initialization scripts (run automatically by the Postgres entrypoint)
+COPY init-scripts/ /docker-entrypoint-initdb.d/
+
+# Copy the SQL dumps to a location that is NOT auto-run by the entrypoint;
+# 10-init-databases.sh loads them into their respective databases.
+COPY sql/ /sql/
+
+# Make sure scripts are executable
+RUN chmod +x /docker-entrypoint-initdb.d/*.sh

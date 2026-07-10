@@ -87,6 +87,22 @@ class TestLanguageModelsService implements ILanguageModelsService {
 	async setModelConfiguration(): Promise<void> { }
 	getModelConfigurationActions(_modelId: string) { return []; }
 	async configureModel(): Promise<void> { }
+	hasResolvedVendor(_vendor: string): boolean { return false; }
+	async renameLanguageModelsProviderGroup(): Promise<void> { }
+	async updateLanguageModelsProviderGroupApiKey(): Promise<void> { }
+	async addLanguageModelsProviderGroupModel(): Promise<void> { }
+	async openLanguageModelsProviderGroupSettings(): Promise<void> { }
+	getPinnedModelIds(): string[] { return []; }
+	pinModel(_modelIdentifier: string): void { }
+	unpinModel(_modelIdentifier: string): void { }
+	isModelPinned(_modelIdentifier: string): boolean { return false; }
+	onDidChangePinnedModels: Event<void> = new Emitter<void>().event;
+	isModelHidden(_modelIdentifier: string): boolean { return false; }
+	isGroupHidden(_vendor: string, _groupName: string): boolean { return false; }
+	setModelHidden(_modelIdentifier: string, _hidden: boolean): void { }
+	setGroupHidden(_vendor: string, _groupName: string, _hidden: boolean): void { }
+	getHiddenModelIds(): string[] { return []; }
+	onDidChangeModelVisibility: Event<void> = new Emitter<void>().event;
 }
 // --- End Positron ---
 

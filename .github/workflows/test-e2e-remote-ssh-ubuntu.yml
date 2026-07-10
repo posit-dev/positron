@@ -86,7 +86,7 @@ jobs:
 
       - name: Start Docker Container
         run: |
-          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24-amd64:141 \
+          docker run -d --name test -p 3456:22 ghcr.io/posit-dev/positron-ubuntu24:24.15.0 \
             /bin/bash -c 'while true; do sleep 3600; done'
 
       - name: Setup SSH install script

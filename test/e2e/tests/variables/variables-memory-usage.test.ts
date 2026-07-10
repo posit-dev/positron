@@ -80,6 +80,32 @@ test.describe('Variables: Memory Usage', {
 		await variables.expectLowMemoryWarning(true);
 	});
 
+	test('Memory bar segments render with their designated colors', { tag: [tags.WEB] }, async function ({ app, sessions, settings }) {
+		const { variables } = app.workbench;
+
+		// Poll quickly so the meter populates fast, and disable the low-memory
+		// state (both thresholds 0) so the overhead/other segments keep their
+		// normal colors instead of the error color. Reload on web since the live
+		// value update does not propagate there.
+		await settings.set({
+			'memoryUsage.pollingIntervalMs': 1000,
+			'memoryUsage.lowMemoryThresholdPercent': 0,
+			'memoryUsage.lowMemoryThresholdMB': 0,
+		}, { reload: 'web' });
+
+		// Start a Python session so the variables pane shows a populated memory meter.
+		await sessions.start(['python']);
+
+		// Wait for the meter to report a real measurement (not the loading state).
+		await variables.expectMemoryMeterReady();
+
+		// The Positron-overhead and other-process segments must render with their
+		// designated Positron colors. This guards against the upstream-merge
+		// regression where the removed `--vscode-gauge-*` colors left these
+		// segments transparent.
+		await variables.expectMemoryBarSegmentsColored();
+	});
+
 	test.skip('Reconnected session reappears in memory usage meter after extension host restart', {
 		annotation: { type: 'issue', description: 'https://github.com/posit-dev/positron/issues/12476' }
 	}, async function ({ app, sessions, settings }) {

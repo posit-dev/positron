@@ -519,6 +519,14 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		}
 	};
 
+	// Determine whether any entry in this menu has an icon. If none do, the icon column is
+	// collapsed (see the 'no-icons' class in the CSS) so labels aren't pushed right by an
+	// empty icon gutter.
+	const menuHasIcons = props.entries.some(entry =>
+		(entry instanceof CustomContextMenuItem || entry instanceof CustomContextMenuSubmenu) &&
+		(!!entry.options.icon || !!entry.options.iconSrc)
+	);
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -533,7 +541,14 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 			renderer={props.renderer}
 			width={props.width}
 		>
-			<div className='custom-context-menu-items' role='menu' onKeyDown={handleKeyDown}>
+			<div
+				className={positronClassNames(
+					'custom-context-menu-items',
+					{ 'no-icons': !menuHasIcons }
+				)}
+				role='menu'
+				onKeyDown={handleKeyDown}
+			>
 				{props.entries.map((entry, index) => {
 					if (entry instanceof CustomContextMenuItem) {
 						return <MenuItem key={index} {...entry.options} />;

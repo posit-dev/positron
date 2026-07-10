@@ -353,14 +353,18 @@ export class PositAssistant {
 		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
 		//    group, less-preferred models (e.g. those flagged with a warning note,
 		//    like Microsoft Foundry's "model-router") are collapsed under a "More
-		//    models" inline disclosure -- a plain <button>, not a menuitem. Wait
-		//    for the submenu to render (the model itself or the disclosure), then
-		//    expand the disclosure if the model isn't already shown.
+		//    models" inline disclosure -- a plain <button>, not a menuitem. When
+		//    more than one provider group is signed in, several "More models"
+		//    disclosures render at once, so the locator must not assume a single
+		//    match. Wait for the submenu to render (the model itself or a
+		//    disclosure), then expand disclosures one at a time -- re-querying,
+		//    since clicking removes the button -- until the model is shown or every
+		//    group has been expanded.
 		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
-		const moreModels = this.frame.locator('button:has-text("More models")');
-		await expect(model.or(moreModels).first()).toBeVisible();
-		if (!(await model.isVisible())) {
-			await moreModels.click();
+		const moreModels = this.frame.getByRole('button', { name: 'More models' });
+		await expect(model.or(moreModels.first()).first()).toBeVisible();
+		for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
+			await moreModels.first().click();
 		}
 
 		// 4. Click the model.

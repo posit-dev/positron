@@ -3859,6 +3859,11 @@ declare module 'positron' {
 
 		/**
 		 * Get the outputs from a code cell
+		 *
+		 * SVG outputs (image/svg+xml) are rasterized to base64-encoded PNG
+		 * (image/png) so they can be attached as images for language models;
+		 * the raw SVG text is returned only when rasterization fails.
+		 *
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell
 		 * @returns Array of output objects with MIME type and data

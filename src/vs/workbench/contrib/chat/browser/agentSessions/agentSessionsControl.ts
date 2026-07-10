@@ -41,7 +41,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { ChatEditorInput } from '../widgetHosts/editor/chatEditorInput.js';
 import { IMouseEvent } from '../../../../../base/browser/mouseEvent.js';
 import { IChatWidget } from '../chat.js';
-import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 
 export interface IAgentSessionsControlOptions {
@@ -89,6 +89,7 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	private static readonly RECENT_SESSIONS_FOR_EXPAND = 5;
 
 	private sessionsListFindIsOpen = false;
+	private _isProgrammaticCollapseChange = false;
 	private readonly _recentRepositoryLabels = new Set<string>();
 
 	private readonly updateSessionsListThrottler = this._register(new Throttler());
@@ -191,6 +192,38 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 
 	private static readonly SECTION_COLLAPSE_STATE_KEY = 'agentSessions.sectionCollapseState';
 
+	private getSavedCollapseState(section: AgentSessionSection): boolean | undefined {
+		const raw = this.storageService.get(AgentSessionsControl.SECTION_COLLAPSE_STATE_KEY, StorageScope.PROFILE);
+		if (raw) {
+			try {
+				const state: Record<string, boolean> = JSON.parse(raw);
+				if (typeof state[section] === 'boolean') {
+					return state[section];
+				}
+			} catch {
+				// ignore corrupt data
+			}
+		}
+		return undefined;
+	}
+
+	private saveSectionCollapseState(section: AgentSessionSection, collapsed: boolean): void {
+		let state: Record<string, boolean> = {};
+		const raw = this.storageService.get(AgentSessionsControl.SECTION_COLLAPSE_STATE_KEY, StorageScope.PROFILE);
+		if (raw) {
+			try {
+				const parsed = JSON.parse(raw);
+				if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+					state = parsed;
+				}
+			} catch {
+				// ignore corrupt data
+			}
+		}
+		state[section] = collapsed;
+		this.storageService.store(AgentSessionsControl.SECTION_COLLAPSE_STATE_KEY, JSON.stringify(state), StorageScope.PROFILE, StorageTarget.USER);
+	}
+
 	resetSectionCollapseState(): void {
 		this.storageService.remove(AgentSessionsControl.SECTION_COLLAPSE_STATE_KEY, StorageScope.PROFILE);
 	}
@@ -198,6 +231,12 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	private createList(container: HTMLElement): void {
 		const collapseByDefault = (element: unknown) => {
 			if (isAgentSessionSection(element)) {
+				// Check for persisted user preference first
+				const saved = this.getSavedCollapseState(element.section);
+				if (saved !== undefined) {
+					return saved;
+				}
+
 				if (element.section === AgentSessionSection.More && !this.options.filter.getExcludes().read) {
 					return true; // More section is always collapsed unless only showing unread
 				}
@@ -529,6 +568,16 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 
 			this.updateSectionCollapseStates();
 		}));
+
+		this._register(list.onDidChangeCollapseState(e => {
+			if (this._isProgrammaticCollapseChange) {
+				return;
+			}
+			const element = e.node.element?.element;
+			if (element && isAgentSessionSection(element)) {
+				this.saveSectionCollapseState(element.section, e.node.collapsed);
+			}
+		}));
 	}
 
 	private updateEmpty(isEmpty: boolean): void {
@@ -665,6 +714,19 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 			return;
 		}
 
+		this._isProgrammaticCollapseChange = true;
+		try {
+			this._updateSectionCollapseStatesCore();
+		} finally {
+			this._isProgrammaticCollapseChange = false;
+		}
+	}
+
+	private _updateSectionCollapseStatesCore(): void {
+		if (!this.sessionsList) {
+			return;
+		}
+
 		const model = this.agentSessionsService.model;
 		for (const child of this.sessionsList.getNode(model).children) {
 			if (!isAgentSessionSection(child.element)) {
@@ -739,8 +801,12 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 	focus(): void {
 		this.sessionsList?.domFocus();
 
-		if ((this.sessionsList?.getFocus().length ?? 0) === 0) {
-			this.sessionsList?.focusFirst();
+		try {
+			if ((this.sessionsList?.getFocus().length ?? 0) === 0) {
+				this.sessionsList?.focusFirst();
+			}
+		} catch {
+			// Tree model may be temporarily inconsistent during async refresh.
 		}
 	}
 
@@ -775,8 +841,13 @@ export class AgentSessionsControl extends Disposable implements IAgentSessionsCo
 			return false;
 		}
 
-		if (this.sessionsList.getRelativeTop(session) === null) {
-			this.sessionsList.reveal(session, 0.5); // only reveal when not already visible
+		try {
+			if (this.sessionsList.getRelativeTop(session) === null) {
+				this.sessionsList.reveal(session, 0.5); // only reveal when not already visible
+			}
+		} catch {
+			// Tree model may be temporarily inconsistent during async refresh.
+			return false;
 		}
 
 		this.sessionsList.setFocus([session]);

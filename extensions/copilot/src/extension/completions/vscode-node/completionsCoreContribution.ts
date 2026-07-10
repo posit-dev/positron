@@ -38,11 +38,16 @@ export class CompletionsCoreContribution extends Disposable {
 			// const extensionUnification = unificationStateValue?.extensionUnification ?? false;
 			const extensionUnification = true;
 			// --- End Positron ---
+			const copilotToken = this._copilotToken.read(reader);
 
 			let hasInstantiatedProvider = false;
+			// Completions require a Copilot token to call the completions endpoint, so don't
+			// register the provider in air-gapped / signed-out scenarios — it would just fail
+			// with GitHubLoginFailedError on every keystroke.
+			const wantsProvider = unificationStateValue?.codeUnification || extensionUnification || configEnabled || copilotToken?.isNoAuthUser;
 			// --- Start Positron ---
 			// Added displayName property for showing in Completion Providers and always register provider
-			if (unificationStateValue?.codeUnification || extensionUnification || configEnabled || this._copilotToken.read(reader)?.isNoAuthUser || Math.random() > 0) {
+			if (wantsProvider && copilotToken || Math.random() > 0) {
 				const provider = _copilotInlineCompletionItemProviderService.getOrCreateProvider();
 				reader.store.add(
 					languages.registerInlineCompletionItemProvider(

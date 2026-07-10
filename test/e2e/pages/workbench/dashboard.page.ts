@@ -86,13 +86,37 @@ export class DashboardPage {
 		await this.code.driver.currentPage.getByRole('button', { name: 'Open Folder', exact: true }).click();
 		await this.quickInput.waitForQuickInputOpened();
 
-		// When the picker opens already pointed at the target folder, its path is prefilled
-		// in the input box and the list shows the folder's *contents* (no row matches the
-		// folder name), so selectQuickInputElementContaining would fail. In that case just
-		// confirm with OK; otherwise navigate to the folder first.
+		// The Open Folder picker can open in one of two states depending on the Workbench
+		// build and timing:
+		//   - prefilled *inside* the target folder: the input path ends with the folder name
+		//     and the list shows the folder's *contents* (no row matches the folder name);
+		//     confirming with OK opens it.
+		//   - opened at the *parent*: the list shows a row for the folder that must be
+		//     selected first.
+		// Reading the input value immediately after the picker opens races the (slower) stable
+		// Workbench build still prefilling the path -- it returns '' or the parent path, so we
+		// wrongly try to select a folder row that never appears and time out. Wait for the
+		// picker to settle into either recognizable state before deciding what to do. Reading
+		// the actual prefilled path (rather than hard-coding a home dir) keeps this correct for
+		// both the user1 dashboard flow and the Azure JIT user's differing home directory.
 		const input = this.code.driver.currentPage.locator('.quick-input-widget .quick-input-box input');
-		const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
-		if (!currentPath.endsWith(`/${folderToOpen}`)) {
+		// Match how selectQuickInputElementContaining targets the row (aria-label *contains* the
+		// folder name), so "parent" detection agrees with the row we would go on to select.
+		const folderRow = this.code.driver.currentPage
+			.locator(`.quick-input-widget .quick-input-list .monaco-list-row[aria-label*="${folderToOpen}"]`)
+			.first();
+
+		let prefilledInsideFolder = false;
+		await expect(async () => {
+			const currentPath = (await input.inputValue().catch(() => '')).replace(/\/$/, '');
+			if (currentPath.endsWith(`/${folderToOpen}`)) {
+				prefilledInsideFolder = true;
+				return;
+			}
+			await expect(folderRow).toBeVisible({ timeout: 250 });
+		}).toPass({ timeout: 10000 });
+
+		if (!prefilledInsideFolder) {
 			await this.quickInput.selectQuickInputElementContaining(folderToOpen);
 		}
 		await this.quickInput.clickOkButton();

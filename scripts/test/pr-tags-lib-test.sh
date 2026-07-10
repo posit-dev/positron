@@ -9,7 +9,7 @@ source "$HERE/../lib/pr-tags-lib.sh"
 fail=0
 # Clean up every temp resource on exit (including SIGINT/SIGTERM), so an
 # interrupted run doesn't leave files behind. Vars are empty until each mktemp.
-trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" 2>/dev/null || true' EXIT
+trap 'rm -rf "${MAP:-}" "${TMP_MAP:-}" "${MAP2:-}" "${ENUM:-}" "${TAGS_ONLY_MAP:-}" "${POSIT_FILE:-}" "${MSFT_FILE:-}" "${EMPTY_MAP:-}" "${FALLBACK_ROOT:-}" "${STALE_MAP:-}" "${POSIT_FILE_LATE_HEADER:-}" "${POSIT_FILE_TOO_LATE:-}" "${LAST_MEMBER_ENUM:-}" "${LAST_MEMBER_MAP:-}" "${EMPTY_TESTS_DIR:-}" "${JSON_MAP:-}" "${EMPTY_JSON_MAP:-}" "${CRUFT_ROOT:-}" "${CRUFT_MAP:-}" "${APPLY_DIR:-}" 2>/dev/null || true' EXIT
 
 assert_eq() {
 	local desc="$1" expected="$2" actual="$3"
@@ -248,6 +248,53 @@ else
 	echo "PASS: guardrail leaves a genuinely-tracked entry alone"
 fi
 
+# --json emits a machine-readable envelope instead of the human report, for
+# the auto-fix workflow to consume. One entry exercises stale + invalid_tags
+# together; missing[] is left unasserted on content (the real repo tree makes
+# it large against this near-empty map) beyond "is an array".
+JSON_MAP="$(mktemp)"
+cat > "$JSON_MAP" <<'JSON'
+{
+  "scripts/lib/pr-tags-lib.sh": [],
+  "definitely/not/a/real/path/": ["@:not-a-real-tag"]
+}
+JSON
+JSON_OUTPUT="$(MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json 2>&1)"
+if printf '%s' "$JSON_OUTPUT" | jq -e '.stale == ["definitely/not/a/real/path/"]' >/dev/null 2>&1; then
+	echo "PASS: --json reports the stale entry"
+else
+	echo "FAIL: --json should report the stale entry"; fail=1
+fi
+if printf '%s' "$JSON_OUTPUT" | jq -e '.invalid_tags == ["@:not-a-real-tag"]' >/dev/null 2>&1; then
+	echo "PASS: --json reports the invalid tag"
+else
+	echo "FAIL: --json should report the invalid tag"; fail=1
+fi
+if printf '%s' "$JSON_OUTPUT" | jq -e '.missing | type == "array" and length > 0' >/dev/null 2>&1; then
+	echo "PASS: --json reports missing as a non-empty array"
+else
+	echo "FAIL: --json should report missing as a non-empty array"; fail=1
+fi
+if MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json >/dev/null 2>&1; then
+	echo "FAIL: --json should still exit non-zero on drift"; fail=1
+else
+	echo "PASS: --json still exits non-zero on drift"
+fi
+if MAP_FILE="$JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json --warn-only >/dev/null 2>&1; then
+	echo "PASS: --json --warn-only exits 0"
+else
+	echo "FAIL: --json --warn-only should exit 0"; fail=1
+fi
+EMPTY_JSON_MAP="$(mktemp)"
+echo '{}' > "$EMPTY_JSON_MAP"
+EMPTY_JSON_OUTPUT="$(MAP_FILE="$EMPTY_JSON_MAP" bash "$HERE/../check-test-tag-map.sh" --json --tags-only 2>&1)"
+if printf '%s' "$EMPTY_JSON_OUTPUT" | jq -e '. == {missing: [], stale: [], invalid_tags: [], untested_tags: [], unresolved_tags: []}' >/dev/null 2>&1; then
+	echo "PASS: --json --tags-only on an empty map reports all-empty arrays"
+else
+	echo "FAIL: --json --tags-only on an empty map should report all-empty arrays"; fail=1
+fi
+rm -f "$JSON_MAP" "$EMPTY_JSON_MAP"
+
 # --tags-only still fails on a map tag that isn't a real TestTags member.
 TAGS_ONLY_MAP="$(mktemp)"
 echo '{"foo/bar/": ["@:not-a-real-tag"]}' > "$TAGS_ONLY_MAP"
@@ -459,6 +506,193 @@ else
 	echo "FAIL: guardrail should flag the tracked-but-unmapped dir"; fail=1
 fi
 rm -rf "$CRUFT_ROOT" "$CRUFT_MAP"
+
+# --- apply-test-tag-map-fixes.mjs (stale removal only) ---
+# Node (not bash/jq) because the map is hand-curated with blank-line grouping
+# that a jq round-trip would flatten -- see the script's own header comment.
+APPLY_SCRIPT="$HERE/../apply-test-tag-map-fixes.mjs"
+APPLY_DIR="$(mktemp -d)"
+cat > "$APPLY_DIR/map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "src/vs/workbench/contrib/positronPlots/": ["@:plots"],
+
+  "extensions/positron-gone/": [],
+  "extensions/positron-real/": ["@:reticulate"]
+}
+JSON
+echo '["extensions/positron-gone/"]' > "$APPLY_DIR/stale.json"
+APPLY_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" --stale "$APPLY_DIR/stale.json" 2>&1)"
+if node -e "JSON.parse(require('fs').readFileSync('$APPLY_DIR/map.json','utf8')); console.log('ok')" >/dev/null 2>&1; then
+	echo "PASS: apply script leaves valid JSON behind"
+else
+	echo "FAIL: apply script should leave valid JSON behind"; fail=1
+fi
+if grep -qF '"extensions/positron-gone/"' "$APPLY_DIR/map.json"; then
+	echo "FAIL: apply script should remove the stale entry"; fail=1
+else
+	echo "PASS: apply script removes the stale entry"
+fi
+if printf '%s' "$APPLY_OUTPUT" | grep -qF '"removed":["extensions/positron-gone/"]'; then
+	echo "PASS: apply script reports the removed key"
+else
+	echo "FAIL: apply script should report the removed key"; fail=1
+fi
+# The removed entry opened its blank-line-separated group -- the group
+# boundary before "positron-real" must survive even though the entry that
+# used to carry it is gone. Line-splicing preserves it for free (the blank
+# line is never rewritten); this guards against a regression to that.
+if [[ "$(grep -c '^$' "$APPLY_DIR/map.json")" -eq 1 ]]; then
+	echo "PASS: apply script preserves the blank-line group boundary after removing its first entry"
+else
+	echo "FAIL: apply script should preserve the blank-line group boundary"; fail=1
+fi
+cp "$APPLY_DIR/map.json" "$APPLY_DIR/map.before-noop.json"
+NOOP_OUTPUT="$(node "$APPLY_SCRIPT" --map "$APPLY_DIR/map.json" 2>&1)"
+if printf '%s' "$NOOP_OUTPUT" | grep -qF '"removed":[]'; then
+	echo "PASS: apply script reports a no-op with no stale arg"
+else
+	echo "FAIL: apply script should report a no-op with no stale arg"; fail=1
+fi
+if diff -q "$APPLY_DIR/map.before-noop.json" "$APPLY_DIR/map.json" >/dev/null; then
+	echo "PASS: apply script leaves the file untouched on a no-op"
+else
+	echo "FAIL: apply script should not rewrite the file when there's nothing to do"; fail=1
+fi
+
+# Removing the last entry when the preceding one is a multi-line array leaves a
+# dangling comma on the `]` line the single-line splice can't strip, so the
+# output would be invalid JSON. The validation backstop must catch that and
+# refuse to write rather than corrupt the map.
+cat > "$APPLY_DIR/bad-map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": [
+    "@:console"
+  ],
+  "extensions/positron-real/": ["@:reticulate"]
+}
+JSON
+cp "$APPLY_DIR/bad-map.json" "$APPLY_DIR/bad-map.orig.json"
+echo '["extensions/positron-real/"]' > "$APPLY_DIR/bad-stale.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/bad-map.json" --stale "$APPLY_DIR/bad-stale.json" >/dev/null 2>&1; then
+	echo "FAIL: apply script should refuse to write when a splice would produce invalid JSON"; fail=1
+else
+	echo "PASS: apply script refuses to write when a splice would produce invalid JSON"
+fi
+if diff -q "$APPLY_DIR/bad-map.orig.json" "$APPLY_DIR/bad-map.json" >/dev/null; then
+	echo "PASS: apply script leaves the map untouched when it refuses"
+else
+	echo "FAIL: apply script should not modify the map it refused to write"; fail=1
+fi
+
+# A stale key whose array spans multiple lines can't be matched by the
+# single-line splice. Rather than silently no-op (leaving the drift in place
+# while reporting success), the script must fail loudly.
+cat > "$APPLY_DIR/multiline-map.json" <<'JSON'
+{
+  "src/vs/workbench/contrib/positronConsole/": ["@:console"],
+  "extensions/positron-gone/": [
+    "@:reticulate"
+  ]
+}
+JSON
+cp "$APPLY_DIR/multiline-map.json" "$APPLY_DIR/multiline-map.orig.json"
+echo '["extensions/positron-gone/"]' > "$APPLY_DIR/multiline-stale.json"
+if node "$APPLY_SCRIPT" --map "$APPLY_DIR/multiline-map.json" --stale "$APPLY_DIR/multiline-stale.json" >/dev/null 2>&1; then
+	echo "FAIL: apply script should fail loudly on a stale key it can't splice, not no-op"; fail=1
+else
+	echo "PASS: apply script fails loudly on a multi-line stale key it can't remove"
+fi
+if diff -q "$APPLY_DIR/multiline-map.orig.json" "$APPLY_DIR/multiline-map.json" >/dev/null; then
+	echo "PASS: apply script leaves the map untouched when it can't splice a stale key"
+else
+	echo "FAIL: apply script should not modify the map when it can't splice a stale key"; fail=1
+fi
+rm -rf "$APPLY_DIR"
+
+# --- build_tag_reasons ---
+assert_eq "reasons: critical is required" "@:critical|required" \
+	"$(build_tag_reasons "@:critical" "" "" "false" "false" "false")"
+assert_eq "reasons: author tag is body" "@:critical|required,@:quarto|body" \
+	"$(build_tag_reasons "@:critical,@:quarto" "@:quarto" "" "false" "false" "false")"
+assert_eq "reasons: map tag is files" "@:critical|required,@:console|files" \
+	"$(build_tag_reasons "@:critical,@:console" "" "@:console" "false" "false" "false")"
+# Author + map overlap: explicit author intent (body) wins over files.
+assert_eq "reasons: author+map overlap prefers body" "@:critical|required,@:console|body" \
+	"$(build_tag_reasons "@:critical,@:console" "@:console" "@:console" "false" "false" "false")"
+assert_eq "reasons: ark injection" "@:critical|required,@:ark|ark" \
+	"$(build_tag_reasons "@:critical,@:ark" "" "" "true" "false" "false")"
+# @:win typed in the body reads as body, not test-win.
+assert_eq "reasons: author-typed win is body" "@:critical|required,@:win|body" \
+	"$(build_tag_reasons "@:critical,@:win" "@:win" "" "false" "true" "false")"
+# @:win added only by the test scan reads as test-win.
+assert_eq "reasons: scan-added win is test-win" "@:critical|required,@:win|test-win" \
+	"$(build_tag_reasons "@:critical,@:win" "" "" "false" "true" "false")"
+assert_eq "reasons: scan-added web is test-web" "@:critical|required,@:web|test-web" \
+	"$(build_tag_reasons "@:critical,@:web" "" "" "false" "false" "true")"
+assert_eq "reasons: empty final yields nothing" "" \
+	"$(build_tag_reasons "" "" "" "false" "false" "false")"
+# A tag matching no source falls through to the defensive "auto" fallback.
+assert_eq "reasons: unattributed tag falls back to auto" "@:critical|required,@:mystery|auto" \
+	"$(build_tag_reasons "@:critical,@:mystery" "" "" "false" "false" "false")"
+
+# --- render_why_these_tags ---
+assert_eq "render: critical-only is not informative (empty)" "" \
+	"$(render_why_these_tags "@:critical|required")"
+assert_eq "render: empty input yields nothing" "" \
+	"$(render_why_these_tags "")"
+RENDER_OUT="$(render_why_these_tags "@:critical|required,@:quarto|body,@:console|files")"
+if printf '%s' "$RENDER_OUT" | grep -qF "<summary>Why these tags?</summary>"; then
+	echo "PASS: render includes the collapse summary"
+else
+	echo "FAIL: render should include the collapse summary"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:critical` | Always runs (required) |'; then
+	echo "PASS: render annotates critical as required"
+else
+	echo "FAIL: render should annotate critical as required"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:quarto` | PR description |'; then
+	echo "PASS: render annotates an author tag as PR description"
+else
+	echo "FAIL: render should annotate the author tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF '| `@:console` | Changed files |'; then
+	echo "PASS: render annotates a map tag as Changed files"
+else
+	echo "FAIL: render should annotate the map tag"; fail=1
+fi
+if printf '%s' "$RENDER_OUT" | grep -qF "#automatic-tags-from-changed-files"; then
+	echo "PASS: render moves the why-these-tags link into the collapse"
+else
+	echo "FAIL: render should include the README link inside the collapse"; fail=1
+fi
+ALL_OUT="$(render_why_these_tags "@:all|body")"
+if printf '%s' "$ALL_OUT" | grep -qF '| `@:all` | PR description |'; then
+	echo "PASS: render handles the @:all case"
+else
+	echo "FAIL: render should annotate @:all as PR description"; fail=1
+fi
+# The ark / test-win / test-web label arms: one assertion each so a typo or
+# label change in those arms is caught (they aren't exercised by the cases above).
+ARK_OUT="$(render_why_these_tags "@:critical|required,@:ark|ark")"
+if printf '%s' "$ARK_OUT" | grep -qF '| `@:ark` | Ark submodule bump |'; then
+	echo "PASS: render labels the ark arm"
+else
+	echo "FAIL: render should label @:ark as Ark submodule bump"; fail=1
+fi
+WIN_OUT="$(render_why_these_tags "@:critical|required,@:win|test-win")"
+if printf '%s' "$WIN_OUT" | grep -qF '| `@:win` | New test (tags.WIN) |'; then
+	echo "PASS: render labels the test-win arm"
+else
+	echo "FAIL: render should label @:win as New test (tags.WIN)"; fail=1
+fi
+WEB_OUT="$(render_why_these_tags "@:critical|required,@:web|test-web")"
+if printf '%s' "$WEB_OUT" | grep -qF '| `@:web` | New test (tags.WEB) |'; then
+	echo "PASS: render labels the test-web arm"
+else
+	echo "FAIL: render should label @:web as New test (tags.WEB)"; fail=1
+fi
 
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

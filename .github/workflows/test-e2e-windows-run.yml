@@ -463,7 +463,7 @@ jobs:
       # Postgres for the data-connection / connections e2e tests.
       #
       # GitHub Actions `services:` containers only work on Linux runners, and
-      # positron-postgres is a Linux/amd64 image, so a service block can't be
+      # positron-postgres is a Linux image, so a service block can't be
       # used here. Windows Server 2025 (the windows-latest image) ships WSL2,
       # which can run Linux containers. We install docker inside a WSL2 Ubuntu
       # distro and run the SAME image the Ubuntu job uses, keeping the
@@ -507,7 +507,7 @@ jobs:
           wsl -d Ubuntu -u root -- bash -c 'echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin'
           # POSTGRES_DB stays "postgres": the image's init scripts create the
           # "periodic" and "dvdrental" databases (and the "e2e" user) themselves.
-          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres-amd64:142'
+          wsl -d Ubuntu -u root -- bash -c 'docker run -d --name postgres -p 5432:5432 -e POSTGRES_USER="$E2E_POSTGRES_USER" -e POSTGRES_PASSWORD="$E2E_POSTGRES_PASSWORD" -e POSTGRES_DB=postgres ghcr.io/posit-dev/positron-postgres:24.15.0'
           # Wait for the seeded "periodic" database to accept connections. Run
           # the loop in this step's bash and let each `wsl -- <cmd> <args>` pass
           # straight through to Linux: a complex program (loops, $(), ;) sent via
