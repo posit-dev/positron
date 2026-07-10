@@ -24,7 +24,7 @@ import { dirname, basename, extname } from '../../../../base/common/resources.js
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
@@ -33,6 +33,7 @@ import { ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, RuntimeOu
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { ILabelService } from '../../../../platform/label/common/label.js';
 
 // Workspace storage key for collapsed inline outputs. Value is JSON:
 // `{ [documentUri]: string[] }` - each entry is the list of cell IDs whose
@@ -219,6 +220,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IResourceUsageHistoryService private readonly _resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@ILabelService private readonly _labelService: ILabelService,
 	) {
 		super();
 
@@ -931,6 +933,32 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._logService.debug('[QuartoOutputContribution] Restored outputs from stash for', restoredCount, 'cells');
 	}
 
+	/**
+	 * Resolve the cell context (code, language, location) for quick-fix buttons.
+	 */
+	private _resolveCellContext(cellId: string): QuartoCellErrorContext | undefined {
+		if (!this._documentUri) {
+			return undefined;
+		}
+		const model = this._editor.getModel();
+		if (!model) {
+			return undefined;
+		}
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellById(cellId);
+		if (!cell) {
+			return undefined;
+		}
+		return {
+			code: quartoModel.getCellCode(cell),
+			language: cell.language,
+			label: cell.label,
+			path: this._labelService.getUriLabel(this._documentUri, { relative: true }),
+			codeStartLine: cell.codeStartLine,
+			codeEndLine: cell.codeEndLine,
+		};
+	}
+
 	private _handleOutput(cellId: string, output: ICellOutput): void {
 		this._logService.debug('[QuartoOutputContribution] Received output for cell', cellId);
 
@@ -948,6 +976,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 			this._viewZones.set(cellId, viewZone);
 		}
+
+		// Enable quick-fix buttons with cell context (code, language, location)
+		viewZone.enableQuickFix(this._resolveCellContext(cellId));
 
 		// Add output to view zone
 		viewZone.addOutput(output);

@@ -114,6 +114,25 @@ export interface ICellOutput {
 }
 
 /**
+ * The code chunk that produced an error output, used to point the assistant
+ * at the failing code instead of letting it hunt through the whole document.
+ */
+export interface QuartoCellErrorContext {
+	/** Workspace-relative path of the Quarto document. */
+	path: string;
+	/** Language of the code chunk (e.g. 'python', 'r'). */
+	language: string;
+	/** Optional chunk label from the chunk options. */
+	label?: string;
+	/** Source code of the chunk (without the fences). */
+	code: string;
+	/** First line of the chunk's code (1-based). */
+	codeStartLine: number;
+	/** Last line of the chunk's code (1-based). */
+	codeEndLine: number;
+}
+
+/**
  * Event emitted when execution state changes.
  */
 export interface ExecutionStateChangeEvent {

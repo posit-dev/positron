@@ -11,7 +11,7 @@ import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { localize } from '../../../../nls.js';
-import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState } from '../common/quartoExecutionTypes.js';
+import { ICellOutput, ICellOutputItem, DATA_EXPLORER_MIME_TYPE, CellExecutionState, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { formatCellDuration, getRelativeTime } from '../../positronNotebook/browser/notebookCells/cellExecutionUtils.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -38,6 +38,7 @@ import { IResourceUsageHistoryService } from '../../../services/positronConsole/
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
+import { QuartoOutputQuickFix } from './QuartoOutputQuickFix.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -352,6 +353,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// to persist the state to workspace storage.
 	private readonly _onDidChangeCollapsed = this._register(new Emitter<boolean>());
 	readonly onDidChangeCollapsed: VSEvent<boolean> = this._onDidChangeCollapsed.event;
+
+	// Quick-fix support for error outputs (suppressed by default; the live
+	// execution path calls enableQuickFix() to opt in).
+	private _quickFixEnabled = false;
+	private _cellContext: QuartoCellErrorContext | undefined;
+	private _quickFixRenderer: PositronReactRenderer | undefined;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -1026,6 +1033,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Enable Fix/Explain quick-fix buttons for error outputs in this view
+	 * zone. Only the live execution path calls this; restore paths leave
+	 * the default (suppressed) so stale errors don't show buttons.
+	 */
+	enableQuickFix(context?: QuartoCellErrorContext): void {
+		this._quickFixEnabled = true;
+		this._cellContext = context;
+	}
+
+	/**
 	 * Add an output to the view zone.
 	 */
 	addOutput(output: ICellOutput): void {
@@ -1100,6 +1117,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Dispose all webviews and React renderers
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 
 		// Reset recomputing state
 		this._isRecomputing = false;
@@ -1253,6 +1272,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 		if (this._copyButtonTimeout) {
 			clearTimeout(this._copyButtonTimeout);
 		}
@@ -2194,6 +2215,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _renderAllOutputs(): void {
 		this._disposeAllWebviews();
 		this._disposeAllReactRenderers();
+		this._quickFixRenderer?.dispose();
+		this._quickFixRenderer = undefined;
 		dom.clearNode(this._outputContainer);
 
 		for (const output of this._outputs) {
@@ -2527,7 +2550,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _renderError(data: string): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'quarto-output-error';
-		container.setAttribute('role', 'alert');
 
 		let errorText: string;
 		try {
@@ -2550,11 +2572,32 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			errorText = data;
 		}
 
-		// Process ANSI escape sequences in error output
+		// Process ANSI escape sequences in error output. The alert role lives
+		// on the error text, not the container, so the interactive quick-fix
+		// buttons mounted below stay outside the assertive live region.
 		const pre = document.createElement('pre');
+		pre.setAttribute('role', 'alert');
 		const outputLines = ANSIOutput.processOutput(errorText);
 		this._renderAnsiOutputLines(outputLines, pre);
 		container.appendChild(pre);
+
+		// Mount Fix/Explain quick-fix buttons for current-session errors.
+		// QuartoOutputQuickFix self-gates on assistant availability and
+		// renders nothing when the assistant is unavailable.
+		if (this._quickFixEnabled) {
+			const quickFixContainer = document.createElement('div');
+			quickFixContainer.setAttribute('aria-live', 'off');
+			container.appendChild(quickFixContainer);
+
+			this._quickFixRenderer?.dispose();
+			this._quickFixRenderer = new PositronReactRenderer(quickFixContainer);
+			this._quickFixRenderer.render(
+				React.createElement(QuartoOutputQuickFix, {
+					errorContent: errorText,
+					cellContext: this._cellContext,
+				})
+			);
+		}
 
 		return container;
 	}
