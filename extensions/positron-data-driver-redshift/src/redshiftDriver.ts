@@ -237,8 +237,8 @@ export function createRedshiftDriver(
 	// Return the driver.
 	return {
 		id: 'positron-data-driver-redshift',
-		name: 'Amazon Redshift',
-		description: vscode.l10n.t('Connect to an Amazon Redshift cluster'),
+		name: 'Redshift',
+		description: vscode.l10n.t('Connect to a Redshift cluster or workgroup'),
 		iconSvg,
 		supportedLanguageIds: ['python', 'r'],
 		mechanisms: [passwordMechanism],
