@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as positron from 'positron';
 import { RedshiftConnection, RedshiftConnectionConfig } from '../redshiftConnection.js';
-import { createSchemaNode } from '../redshiftNodes.js';
+import { createDatabaseNode, createSchemaNode } from '../redshiftNodes.js';
 import { parseRedshiftEndpoint } from '../redshiftDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -391,6 +391,85 @@ suite('Redshift Driver Tests', () => {
 		const tables = await tablesOf(schema);
 		assert.ok(tables[0].preview);
 		await tables[0].preview!();
+	});
+});
+
+suite('Redshift Cross-Database Detection', () => {
+
+	test('connect enables the Databases group when SVV_REDSHIFT_DATABASES is available', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_REDSHIFT_DATABASES')) {
+				return { rows: [{ database_name: 'dev' }, { database_name: 'analytics' }] };
+			}
+			return { rows: [] };
+		});
+		const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
+		// eslint-disable-next-line local/code-no-any-casts
+		(conn as any)._client = mock;
+		await conn.connect();
+
+		const roots = await conn.getChildren();
+		assert.strictEqual(roots.length, 1);
+		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupDatabases);
+
+		const databases = await roots[0].getChildren!();
+		assert.deepStrictEqual(databases.map(d => d.name), ['dev', 'analytics']);
+		databases.forEach(d => assert.strictEqual(d.kind, positron.DataConnectionNodeKind.Database));
+
+		await conn.disconnect();
+	});
+
+	test('connect falls back to the Schemas group when SVV_REDSHIFT_DATABASES is unavailable', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_REDSHIFT_DATABASES')) {
+				throw new Error('relation "svv_redshift_databases" does not exist');
+			}
+			return { rows: [] };
+		});
+		const conn = new RedshiftConnection(TEST_CONFIG, noopHost);
+		// eslint-disable-next-line local/code-no-any-casts
+		(conn as any)._client = mock;
+		await conn.connect();
+
+		const roots = await conn.getChildren();
+		assert.strictEqual(roots[0].kind, positron.DataConnectionNodeKind.GroupSchemas);
+
+		await conn.disconnect();
+	});
+
+	test('database node browses schemas/tables/columns via the SVV_ALL_* views', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SVV_ALL_SCHEMAS')) {
+				return { rows: [{ schema_name: 'public' }] };
+			}
+			if (sql.includes('SVV_ALL_TABLES') && sql.includes("<> 'VIEW'")) {
+				return { rows: [{ table_name: 'events' }] };
+			}
+			if (sql.includes('SVV_ALL_TABLES') && sql.includes("= 'VIEW'")) {
+				return { rows: [{ table_name: 'events_daily' }] };
+			}
+			if (sql.includes('SVV_ALL_COLUMNS')) {
+				return { rows: [{ column_name: 'id', data_type: 'integer', character_maximum_length: null, numeric_precision: 32, numeric_scale: 0 }] };
+			}
+			return { rows: [] };
+		});
+
+		const dbNode = createDatabaseNode(mock, noopHost, 'analytics');
+		const [schemasGroup] = await dbNode.getChildren!();
+		assert.strictEqual(schemasGroup.kind, positron.DataConnectionNodeKind.GroupSchemas);
+
+		const schemas = await schemasGroup.getChildren!();
+		assert.deepStrictEqual(schemas.map(s => s.name), ['public']);
+
+		const groups = await schemas[0].getChildren!();
+		const tables = await groups.find(g => g.kind === positron.DataConnectionNodeKind.GroupTables)!.getChildren!();
+		assert.deepStrictEqual(tables.map(t => t.name), ['events']);
+
+		// Columns come from SVV_ALL_COLUMNS; primary-key detection is skipped cross-database.
+		const columnsGroup = (await tables[0].getChildren!())[0];
+		const columns = await columnsGroup.getChildren!();
+		assert.strictEqual(columns[0].name, 'id');
+		assert.strictEqual(columns[0].isPrimaryKey, false);
 	});
 });
 

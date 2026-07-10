@@ -12,7 +12,7 @@
 import { Client } from 'pg';
 import * as positron from 'positron';
 import { ConnectionOptions } from 'tls';
-import { createSchemasGroupNode, IRedshiftPreviewHost } from './redshiftNodes.js';
+import { createDatabasesGroupNode, createSchemasGroupNode, IRedshiftPreviewHost } from './redshiftNodes.js';
 import { IRedshiftDataExplorerHost, REDSHIFT_DATA_EXPLORER_PROVIDER_ID } from './redshiftDataExplorerRpcHandler.js';
 
 /** Monotonically increasing id so each connection's previewed datasets get a unique key. */
@@ -63,6 +63,11 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	// The pg client, or null after disconnect.
 	private _client: Client | null;
 
+	// Whether the cluster supports cross-database queries (RA3 / Serverless). Detected on connect;
+	// when true, the top-level nodes are the databases in the namespace rather than the schemas of
+	// the single connected database.
+	private _crossDatabase = false;
+
 	// Unique id for this connection, used to key its previewed datasets.
 	private readonly _connectionId = `redshift-${nextConnectionId++}`;
 
@@ -104,6 +109,23 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 			this._client = null;
 			throw new Error(`Failed to connect to Redshift at ${this._config.host}:${this._config.port}: ${err.message}`);
 		}
+		// Detect cross-database support once the connection is up. A failure here is non-fatal: the
+		// connection still works, it just browses the single connected database.
+		this._crossDatabase = await this._detectCrossDatabase();
+	}
+
+	/**
+	 * Probes for cross-database query support by reading the SVV_REDSHIFT_DATABASES catalog view,
+	 * which exists only where cross-database queries are available (RA3 clusters and Serverless).
+	 * Returns false on any error (e.g. the view is missing on DC2 clusters, or is not permitted).
+	 */
+	private async _detectCrossDatabase(): Promise<boolean> {
+		try {
+			await this._client!.query('SELECT 1 FROM SVV_REDSHIFT_DATABASES LIMIT 1');
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	/**
@@ -115,11 +137,15 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	}
 
 	/**
-	 * Returns top-level children: a single "Schemas" group that lists every non-system schema in the
-	 * connected database.
+	 * Returns top-level children. When the cluster supports cross-database queries, this is a single
+	 * "Databases" group listing every database in the namespace; otherwise it is a single "Schemas"
+	 * group listing the non-system schemas of the connected database.
 	 */
 	async getChildren(): Promise<positron.DataConnectionNode[]> {
 		this._ensureConnected();
+		if (this._crossDatabase) {
+			return [createDatabasesGroupNode(this._client!, this)];
+		}
 		return [createSchemasGroupNode(this._client!, this)];
 	}
 
@@ -128,10 +154,10 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * under a stable per-connection dataset id, then asks Positron to open (or focus) the explorer
 	 * backed by this extension's provider.
 	 */
-	async previewObject(client: Client, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
+	async previewObject(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void> {
 		this._ensureConnected();
-		const datasetId = `redshift:${this._connectionId}:${kind}:${schemaName}.${tableName}`;
-		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), schemaName, tableName, kind);
+		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:${kind}:${schemaName}.${tableName}`;
+		await this._dataExplorerHandler.openTableView(datasetId, this._queryClient(client), database, schemaName, tableName, kind);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: REDSHIFT_DATA_EXPLORER_PROVIDER_ID,
@@ -144,10 +170,10 @@ export class RedshiftConnection implements positron.DataConnection, IRedshiftPre
 	 * Opens a single column of the given table or view in the Data Explorer as a one-column grid.
 	 * Uses a dataset id distinct from the table's so both can be open at once.
 	 */
-	async previewColumn(client: Client, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
+	async previewColumn(client: Client, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void> {
 		this._ensureConnected();
-		const datasetId = `redshift:${this._connectionId}:column:${schemaName}.${tableName}.${columnName}`;
-		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), schemaName, tableName, kind, columnName);
+		const datasetId = `redshift:${this._connectionId}:${database ?? ''}:column:${schemaName}.${tableName}.${columnName}`;
+		await this._dataExplorerHandler.openColumnView(datasetId, this._queryClient(client), database, schemaName, tableName, kind, columnName);
 		this._openedDatasets.add(datasetId);
 		await positron.dataExplorer.open({
 			providerId: REDSHIFT_DATA_EXPLORER_PROVIDER_ID,

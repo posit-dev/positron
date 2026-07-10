@@ -34,9 +34,9 @@ export const REDSHIFT_DATA_EXPLORER_PROVIDER_ID = 'positron-data-driver-redshift
  */
 export interface IRedshiftDataExplorerHost {
 	/** Builds and registers a table view for a table or view under the given dataset id. */
-	openTableView(datasetId: string, client: IRedshiftQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
+	openTableView(datasetId: string, client: IRedshiftQueryClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view'): Promise<void>;
 	/** Builds and registers a single-column view of a table or view under the given dataset id. */
-	openColumnView(datasetId: string, client: IRedshiftQueryClient, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
+	openColumnView(datasetId: string, client: IRedshiftQueryClient, database: string | undefined, schemaName: string, tableName: string, kind: 'table' | 'view', columnName: string): Promise<void>;
 	/** Drops a dataset's view. */
 	closeTableView(datasetId: string): void;
 }
@@ -71,12 +71,13 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	async openTableView(
 		datasetId: string,
 		client: IRedshiftQueryClient,
+		database: string | undefined,
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
 	): Promise<void> {
-		const schema = await buildRedshiftSchema(client, schemaName, tableName);
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(schemaName, tableName), tableName, kind, schema));
+		const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
+		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema));
 	}
 
 	/**
@@ -86,17 +87,18 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	async openColumnView(
 		datasetId: string,
 		client: IRedshiftQueryClient,
+		database: string | undefined,
 		schemaName: string,
 		tableName: string,
 		kind: 'table' | 'view',
 		columnName: string,
 	): Promise<void> {
-		const schema = await buildRedshiftSchema(client, schemaName, tableName);
+		const schema = await buildRedshiftSchema(client, database, schemaName, tableName);
 		const column = schema.find(c => c.column_name === columnName);
 		if (!column) {
 			throw new Error(`Column '${columnName}' not found in '${schemaName}.${tableName}'`);
 		}
-		this._views.set(datasetId, new RedshiftTableView(client, tableRef(schemaName, tableName), tableName, kind, [column]));
+		this._views.set(datasetId, new RedshiftTableView(client, tableRef(database, schemaName, tableName), tableName, kind, [column]));
 	}
 
 	/** Drops a dataset's view, e.g. when its connection is disconnected. */
@@ -169,27 +171,38 @@ export class RedshiftDataExplorerRpcHandler implements vscode.Disposable, IRedsh
 	}
 }
 
-/** Builds a schema-qualified, double-quote-escaped table reference (e.g. `"public"."t"`). */
-function tableRef(schemaName: string, tableName: string): string {
+/**
+ * Builds a double-quote-escaped table reference. A defined `database` produces a three-part
+ * `"db"."schema"."table"` reference for cross-database queries; otherwise a two-part
+ * `"schema"."table"` reference against the connected database.
+ */
+function tableRef(database: string | undefined, schemaName: string, tableName: string): string {
 	const quote = (name: string) => '"' + name.replace(/"/g, '""') + '"';
-	return `${quote(schemaName)}.${quote(tableName)}`;
+	const parts = database === undefined ? [schemaName, tableName] : [database, schemaName, tableName];
+	return parts.map(quote).join('.');
 }
 
 /**
- * Reads a table or view's column schema via information_schema.columns and resolves each column's
- * display type. Schema and table names are inlined as escaped string literals.
+ * Reads a table or view's column schema and resolves each column's display type. When `database` is
+ * undefined the columns come from information_schema.columns (connected database); otherwise from the
+ * cross-database SVV_ALL_COLUMNS view filtered by database. Names are inlined as escaped string
+ * literals.
  */
 export async function buildRedshiftSchema(
 	client: IRedshiftQueryClient,
+	database: string | undefined,
 	schemaName: string,
 	relationName: string,
 ): Promise<RedshiftSchemaEntry[]> {
 	const literal = (value: string) => `'${value.replace(/'/g, '\'\'')}'`;
-	const rows = await client.runQuery(
-		`SELECT column_name, data_type FROM information_schema.columns ` +
+	const sql = database === undefined
+		? `SELECT column_name, data_type FROM information_schema.columns ` +
 		`WHERE table_schema = ${literal(schemaName)} AND table_name = ${literal(relationName)} ` +
 		`ORDER BY ordinal_position`
-	);
+		: `SELECT column_name, data_type FROM SVV_ALL_COLUMNS ` +
+		`WHERE database_name = ${literal(database)} AND schema_name = ${literal(schemaName)} AND table_name = ${literal(relationName)} ` +
+		`ORDER BY ordinal_position`;
+	const rows = await client.runQuery(sql);
 	return rows.map(row => {
 		const dataType = String(row.data_type);
 		return {
