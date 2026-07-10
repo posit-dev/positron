@@ -42,9 +42,12 @@ jobs:
     env:
       AWS_S3_BUCKET: positron-test-reports
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      R_LIBS_SITE: /usr/local/lib/R/site-library
-      R_LIBS_USER: /usr/local/lib/R/site-library
       GH_SUMMARY_REPORT: true
+      # NOTE: do NOT set R_LIBS_SITE/R_LIBS_USER here. R is installed via rig on the
+      # host (see below) and pak lands in rig's managed library; forcing a custom
+      # lib path hides it ("there is no package called 'pak'"). The macOS run (also
+      # rig-based) sets neither. remote-ssh sets them only because its R runs in the
+      # remote container, not on the host.
       # Connect's image is linux/amd64 -- native on the amd64 runner (no emulation).
 
     steps:
@@ -110,7 +113,9 @@ jobs:
       - name: Install R packages
         env:
           # Pin to a frozen PPM snapshot (see test-e2e-macos-run.yml for rationale).
-          PPM_REPO: https://packagemanager.posit.co/cran/__linux__/jammy/2026-06-30
+          # Use the noble (24.04) binary repo -- the runner and rig's R deb are both
+          # ubuntu-2404, so jammy binaries would be the wrong distro.
+          PPM_REPO: https://packagemanager.posit.co/cran/__linux__/noble/2026-06-30
         run: |
           cp test/e2e/test-files/DESCRIPTION DESCRIPTION
           Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
