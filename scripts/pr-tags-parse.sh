@@ -227,16 +227,11 @@ else
 				--header "Authorization: token $GITHUB_TOKEN" \
 				--jq '.[] | select(.filename | test("^test/e2e/tests/.*\\.test\\.ts$")) | "\(.filename)\t\((.patch // "") | @json)"' || true)
 
+			# Drop the skipped files from the changed-files list fed to the
+			# deriver. exclude_paths handles the all-skipped case (empty output,
+			# exit 0) so this stays safe under set -e.
 			CHANGED_FILES_FILE="$(mktemp)"
-			if [[ -n "$SKIPPED_TEST_FILES" ]]; then
-				# grep -v empties its output (exit 1) if every changed file was
-				# skipped; guard so set -e doesn't abort on that.
-				printf '%s\n' "$CHANGED_FILES" \
-					| grep -vxF -f <(printf '%s' "$SKIPPED_TEST_FILES") \
-					> "$CHANGED_FILES_FILE" || true
-			else
-				printf '%s\n' "$CHANGED_FILES" > "$CHANGED_FILES_FILE"
-			fi
+			exclude_paths "$CHANGED_FILES" "$SKIPPED_TEST_FILES" > "$CHANGED_FILES_FILE"
 			# Assignment is the `if` condition (not piped through `paste`) so a
 			# non-zero node exit is visible here -- under `set -e` with no
 			# `pipefail`, `x="$(node ... | paste ...)"` would silently succeed

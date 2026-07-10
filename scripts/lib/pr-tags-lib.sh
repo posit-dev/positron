@@ -207,6 +207,22 @@ is_infra_only() {
 	$any && echo true || echo false
 }
 
+# exclude_paths <all_paths> <paths_to_exclude>
+# Echoes the newline-separated lines of <all_paths> that do NOT appear
+# (whole-line exact) in <paths_to_exclude>, preserving order. Blank lines are
+# dropped. Used by pr-tags-parse.sh to remove no-op test files from the
+# changed-files list before deriving tags. When every path is excluded the
+# output is empty and the exit status is 0 -- callers depend on this: `grep -v`
+# exits 1 on no match, which under `set -e` would abort the whole tag step.
+exclude_paths() {
+	local all="$1" exclude="$2"
+	# Two-file awk: read the exclude list first (NR==FNR) into a set, then print
+	# lines of the all list not in it. Avoids `awk -v` (which rejects embedded
+	# newlines on BSD/macOS awk) and grep -v's exit-1-on-no-match.
+	awk 'NR==FNR { if ($0 != "") skip[$0] = 1; next } $0 != "" && !($0 in skip)' \
+		<(printf '%s\n' "$exclude") <(printf '%s\n' "$all")
+}
+
 # union_csv_tags <csv_a> <csv_b>
 # Merges two comma-separated tag lists into one de-duplicated, order-stable
 # comma-separated list (a's order first, then new tags from b).

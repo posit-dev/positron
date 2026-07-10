@@ -293,6 +293,34 @@ assert_eq "infra only" "true" "$(is_infra_only "$(printf '.github/workflows/x.ym
 assert_eq "mixed not infra" "false" "$(is_infra_only "$(printf 'docs/y.md\nsrc/vs/z.ts')")"
 assert_eq "empty is not infra" "false" "$(is_infra_only "")"
 
+# --- exclude_paths ---
+# Removes whole-line-exact entries of the second list from the first, preserving
+# order. Used by pr-tags-parse.sh to drop no-op test files from the changed-files
+# list before deriving. The all-excluded case MUST yield empty output with exit 0
+# (grep -v would exit 1 and, under set -e, abort the whole tag step).
+ALL_PATHS="$(printf 'src/a.ts\ntest/e2e/tests/x.test.ts\ntest/e2e/tests/y.test.ts')"
+assert_eq "exclude_paths: empty exclude returns everything" "$ALL_PATHS" \
+	"$(exclude_paths "$ALL_PATHS" "")"
+assert_eq "exclude_paths: removes one, preserves order" "$(printf 'src/a.ts\ntest/e2e/tests/y.test.ts')" \
+	"$(exclude_paths "$ALL_PATHS" "test/e2e/tests/x.test.ts")"
+assert_eq "exclude_paths: removes several" "src/a.ts" \
+	"$(exclude_paths "$ALL_PATHS" "$(printf 'test/e2e/tests/x.test.ts\ntest/e2e/tests/y.test.ts')")"
+# The regression this whole helper exists for: every path excluded -> empty, exit 0.
+EXCLUDE_ALL_OUT="$(exclude_paths "$(printf 'test/e2e/tests/x.test.ts\ntest/e2e/tests/y.test.ts')" "$(printf 'test/e2e/tests/x.test.ts\ntest/e2e/tests/y.test.ts')")"
+EXCLUDE_ALL_STATUS=$?
+assert_eq "exclude_paths: all excluded yields empty output" "" "$EXCLUDE_ALL_OUT"
+assert_eq "exclude_paths: all excluded still exits 0" "0" "$EXCLUDE_ALL_STATUS"
+# A path not present in the list is a no-op (everything returned).
+assert_eq "exclude_paths: absent exclude is a no-op" "$ALL_PATHS" \
+	"$(exclude_paths "$ALL_PATHS" "test/e2e/tests/not-here.test.ts")"
+# Whole-line match only: a prefix/substring path must NOT wrongly remove a longer one.
+assert_eq "exclude_paths: substring path does not remove a longer line" \
+	"$(printf 'a/b.test.ts\na/b.test.ts.map')" \
+	"$(exclude_paths "$(printf 'a/b.test.ts\na/b.test.ts.map')" "a/b.test")"
+# Empty input list yields empty output.
+assert_eq "exclude_paths: empty input yields empty output" "" \
+	"$(exclude_paths "" "test/e2e/tests/x.test.ts")"
+
 # --- union_csv_tags ---
 assert_eq "union dedup order-stable" "@:critical,@:console,@:plots" \
 	"$(union_csv_tags "@:critical,@:console" "@:console,@:plots")"
