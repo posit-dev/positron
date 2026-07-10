@@ -50,6 +50,7 @@ export enum FeatureTags {
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
 	CATALOG_EXPLORER = '@:catalog-explorer',
+	CONNECT = '@:connect',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',

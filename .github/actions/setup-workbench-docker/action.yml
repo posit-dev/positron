@@ -64,6 +64,7 @@ runs:
 
         # Copy scripts into the container
         docker cp "$SCRIPTS_DIR/install-workbench.sh" test:/tmp/install-workbench.sh
+        docker cp "$SCRIPTS_DIR/ensure-connect-token.sh" test:/tmp/ensure-connect-token.sh
         docker cp "$SCRIPTS_DIR/positronDownload.sh" test:/tmp/positronDownload.sh
         docker cp "$SCRIPTS_DIR/get-latest-wb-noble-url.sh" test:/tmp/get-latest-wb-noble-url.sh
         docker cp "$SCRIPTS_DIR/configure-datasources.sh" test:/tmp/configure-datasources.sh
@@ -75,6 +76,7 @@ runs:
 
         # Make scripts executable
         docker exec test chmod +x /tmp/install-workbench.sh
+        docker exec test chmod +x /tmp/ensure-connect-token.sh
         docker exec test chmod +x /tmp/positronDownload.sh
         docker exec test chmod +x /tmp/get-latest-wb-noble-url.sh
         docker exec test chmod +x /tmp/configure-datasources.sh

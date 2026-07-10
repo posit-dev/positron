@@ -9,7 +9,7 @@ WB_TTL_PIDFILE="${SCRIPT_DIR}/.ttl.pid"
 source "${SCRIPT_DIR}/workbench-local-lib.sh"
 
 WB_SCRIPTS_DIR="${REPO_ROOT}/wb-local"
-WB_SCRIPTS=(install-workbench.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
+WB_SCRIPTS=(install-workbench.sh ensure-connect-token.sh positronDownload.sh get-latest-wb-noble-url.sh configure-datasources.sh)
 
 wb_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
