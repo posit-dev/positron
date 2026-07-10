@@ -6,14 +6,21 @@
 /// <reference types="vitest/globals" />
 
 import { raceTimeout } from '../../../../../base/common/async.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IPathService } from '../../../../services/path/common/pathService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
+
+const TEST_USER_HOME = URI.file('/home/testuser');
+const pathServiceStub = stubInterface<IPathService>({
+	userHome: vi.fn().mockReturnValue(TEST_USER_HOME),
+});
 
 /**
  * Shared metadata fields for test stubs. Both tests use the same base shape;
@@ -55,6 +62,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, new TestConfigurationService())
+			.stub(IPathService, pathServiceStub)
 			.build();
 
 		it('register and unregister a runtime', async () => {
@@ -87,8 +95,10 @@ describe('Positron - LanguageRuntimeService', () => {
 			await raceTimeout(didRegisterRuntime, 10, () => timedOut = true);
 			expect(timedOut, 'Awaiting onDidRegisterRuntime event timed out').toBe(false);
 
-			// Check that the runtime was registered.
-			expect(languageRuntimeService.registeredRuntimes).toEqual([metadata]);
+			// Check that the runtime was registered (with workbench-computed display path).
+			expect(languageRuntimeService.registeredRuntimes).toMatchObject([
+				{ runtimeId: metadata.runtimeId, runtimePath: metadata.runtimePath },
+			]);
 
 			// Unregister the runtime.
 			languageRuntimeService.unregisterRuntime(metadata.runtimeId);
@@ -99,6 +109,20 @@ describe('Positron - LanguageRuntimeService', () => {
 			// No-op since we already unregistered the runtime.
 			runtimeDisposable.dispose();
 		});
+
+		it('enriches runtimeDisplayPath via tildify on registration', () => {
+			const languageRuntimeService = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+
+			// A path under the test user home should be tildified.
+			const underHome = makeTestMetadata({ runtimeId: 'tilde-1', runtimePath: '/home/testuser/bin/R' });
+			languageRuntimeService.registerRuntime(underHome);
+			expect(languageRuntimeService.registeredRuntimes[0].runtimeDisplayPath).toBe('~/bin/R');
+
+			// A system path should be left unchanged.
+			const system = makeTestMetadata({ runtimeId: 'tilde-2', runtimePath: '/usr/bin/R' });
+			languageRuntimeService.registerRuntime(system);
+			expect(languageRuntimeService.registeredRuntimes[1].runtimeDisplayPath).toBe('/usr/bin/R');
+		});
 	});
 
 	describe('onDidUnregisterRuntime', () => {
@@ -106,6 +130,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, new TestConfigurationService())
+			.stub(IPathService, pathServiceStub)
 			.build();
 
 		it('fires with the runtimeId and removes the runtime when unregistered', () => {
@@ -158,6 +183,7 @@ describe('Positron - LanguageRuntimeService', () => {
 			.withRuntimeServices()
 			.stub(ILogService, new NullLogger())
 			.stub(IConfigurationService, configService)
+			.stub(IPathService, pathServiceStub)
 			.build();
 
 		it('cannot register a runtime when the language is disabled in configuration', async () => {

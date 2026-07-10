@@ -7,7 +7,6 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs-extra';
-import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
@@ -250,15 +249,7 @@ export async function createPythonRuntimeMetadata(
     digest.update(pythonVersion);
     const runtimeId = digest.digest('hex').substring(0, 32);
 
-    // runtimePath is always the full absolute path to the interpreter so
-    // callers can use it directly with execFile etc. runtimeDisplayPath
-    // carries the human-friendly ~ shorthand shown in the UI.
-    const homedir = os.homedir();
     const runtimePath = interpreter.path;
-    const runtimeDisplayPath =
-        os.platform() !== 'win32' && interpreter.path.startsWith(homedir)
-            ? path.join('~', interpreter.path.substring(homedir.length))
-            : undefined;
 
     // Save the ID of the Python environment for use when creating the language
     // runtime session.
@@ -294,7 +285,6 @@ export async function createPythonRuntimeMetadata(
         runtimeName,
         runtimeShortName,
         runtimePath,
-        runtimeDisplayPath,
         runtimeVersion: applicationEnv.packageJson.version,
         runtimeSource,
         languageId: PYTHON_LANGUAGE,

@@ -634,13 +634,6 @@ declare module 'positron' {
 		 */
 		runtimePath: string;
 
-		/**
-		 * The runtime path formatted for display to the user. May use ~ as
-		 * shorthand for the user's home directory on non-Windows platforms.
-		 * Falls back to runtimePath when not set.
-		 */
-		runtimeDisplayPath?: string;
-
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
 

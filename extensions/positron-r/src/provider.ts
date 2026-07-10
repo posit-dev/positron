@@ -642,13 +642,7 @@ export async function makeMetadata(
 	const homedir = os.homedir();
 	const isUserInstallation = rInst.binpath.startsWith(homedir);
 
-	// runtimePath is always the full absolute path to the binary so callers
-	// can use it directly with execFile etc. runtimeDisplayPath carries the
-	// human-friendly ~ shorthand shown in the UI.
 	const runtimePath = rInst.binpath;
-	const runtimeDisplayPath = os.platform() !== 'win32' && isUserInstallation ?
-		path.join('~', rInst.binpath.substring(homedir.length)) :
-		undefined;
 
 	// Create the Rscript path.
 	// The Rscript path is the same as the R binary path, but with the 'R' or 'R.exe' executable
@@ -729,7 +723,6 @@ export async function makeMetadata(
 		runtimeName,
 		runtimeShortName,
 		runtimePath,
-		runtimeDisplayPath,
 		runtimeVersion: packageJson.version,
 		runtimeSource,
 		languageId: 'r',

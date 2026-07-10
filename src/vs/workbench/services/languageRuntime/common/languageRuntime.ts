@@ -5,6 +5,7 @@
 
 import * as nls from '../../../../nls.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
+import { tildify } from '../../../../base/common/labels.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -13,6 +14,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -50,7 +52,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	constructor(
 		@ILogService private readonly _logService: ILogService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -131,11 +134,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`the '${metadata.languageId}' language is disabled.`);
 		}
 
+		// Enrich metadata with a workbench-computed display path (~-shortened
+		// on non-Windows; absolute path unchanged on Windows or system paths).
+		const userHome = this._pathService.userHome({ preferLocal: true }).fsPath;
+		const enriched: ILanguageRuntimeMetadata = {
+			...metadata,
+			runtimeDisplayPath: tildify(metadata.runtimePath, userHome),
+		};
+
 		// Add the runtime to the registered runtimes.
-		this._registeredRuntimesByRuntimeId.set(metadata.runtimeId, metadata);
+		this._registeredRuntimesByRuntimeId.set(enriched.runtimeId, enriched);
 
 		// Signal that the set of registered runtimes has changed.
-		this._onDidRegisterRuntimeEmitter.fire(metadata);
+		this._onDidRegisterRuntimeEmitter.fire(enriched);
 
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
