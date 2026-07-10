@@ -379,6 +379,16 @@ class AuxiliaryEditorPartImpl extends EditorPart implements IAuxiliaryEditorPart
 	updateOptions(options: { compact: boolean }): void {
 		this.isCompact = options.compact;
 
+		// --- Start Positron ---
+		// Mirror the compact state into a context key so features gated on
+		// IsCompactTitleBarContext (notably suppressing the editor action bar in
+		// compact windows) work even when there is no custom title bar to set it,
+		// e.g. auxiliary windows opened with a native title bar. This runs before
+		// the window is used: AuxiliaryEditorPart.create() always calls
+		// updateOptions() right after constructing this part.
+		IsCompactTitleBarContext.bindTo(this.scopedContextKeyService).set(options.compact);
+		// --- End Positron ---
+
 		if (options.compact) {
 			if (!this.optionsDisposable.value) {
 				this.optionsDisposable.value = this.enforcePartOptions({
