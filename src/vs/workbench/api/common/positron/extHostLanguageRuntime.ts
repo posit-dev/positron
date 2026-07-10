@@ -206,8 +206,12 @@ export class ExtHostRuntimeSessionProxy
 	/** Holds the emitters below so they can be disposed with the proxy. */
 	private readonly _store = new DisposableStore();
 
+	private readonly _onDidChangeRuntimeState = this._store.add(new Emitter<RuntimeState>());
 	private readonly _onDidDisconnect = this._store.add(new Emitter<void>());
 	private readonly _onDidReconnect = this._store.add(new Emitter<void>());
+
+	/** Fires when the session's runtime state changes. */
+	readonly onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 
 	/** Fires when the session's connection to the runtime is lost. */
 	readonly onDidDisconnect = this._onDidDisconnect.event;
@@ -259,11 +263,15 @@ export class ExtHostRuntimeSessionProxy
 	}
 
 	/**
-	 * Updates the cached runtime state. Called when the main thread forwards a
-	 * state change for this session.
+	 * Updates the cached runtime state and fires `onDidChangeRuntimeState`.
+	 * Called when the main thread forwards a state change for this session.
 	 */
 	setRuntimeState(state: RuntimeState): void {
+		if (this._runtimeState === state) {
+			return;
+		}
 		this._runtimeState = state;
+		this._onDidChangeRuntimeState.fire(state);
 	}
 
 	/**

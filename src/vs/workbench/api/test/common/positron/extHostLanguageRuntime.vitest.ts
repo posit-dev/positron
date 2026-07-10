@@ -460,6 +460,8 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 
 		let disconnects = 0;
 		let reconnects = 0;
+		const stateChanges: RuntimeState[] = [];
+		disposables.add(session.onDidChangeRuntimeState(state => stateChanges.push(state)));
 		disposables.add(session.onDidDisconnect(() => disconnects++));
 		disposables.add(session.onDidReconnect(() => reconnects++));
 
@@ -467,8 +469,25 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		runtime.$notifyProxySessionDisconnected('s1');
 		runtime.$notifyProxySessionReconnected('s1');
 
-		expect({ state: session.getRuntimeState(), disconnects, reconnects })
-			.toEqual({ state: RuntimeState.Busy, disconnects: 1, reconnects: 1 });
+		expect({ state: session.getRuntimeState(), stateChanges, disconnects, reconnects })
+			.toEqual({ state: RuntimeState.Busy, stateChanges: [RuntimeState.Busy], disconnects: 1, reconnects: 1 });
+	});
+
+	it('does not fire onDidChangeRuntimeState when the forwarded state is unchanged', async () => {
+		const shape = createProxyShape(fakeSessionDto({ runtimeState: RuntimeState.Idle }));
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		const session = await runtime.getSession('s1') as ExtHostRuntimeSessionProxy;
+		disposables.add(session);
+
+		const stateChanges: RuntimeState[] = [];
+		disposables.add(session.onDidChangeRuntimeState(state => stateChanges.push(state)));
+
+		// Re-forwarding the current state is a no-op; a real transition fires once.
+		runtime.$updateProxySessionState('s1', RuntimeState.Idle);
+		runtime.$updateProxySessionState('s1', RuntimeState.Busy);
+
+		expect(stateChanges).toEqual([RuntimeState.Busy]);
 	});
 
 	it('unsubscribes from main-thread forwarding when the proxy is disposed', async () => {

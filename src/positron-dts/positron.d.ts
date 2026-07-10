@@ -1465,6 +1465,16 @@ declare module 'positron' {
 		getRuntimeState?(): RuntimeState;
 
 		/**
+		 * An event that fires when the session's runtime state changes.
+		 *
+		 * Unlike `getRuntimeState()` (which reports the last known state at any
+		 * time), this only emits on transitions. Pair the two: read
+		 * `getRuntimeState()` for the current value, and subscribe here to be
+		 * notified of subsequent changes.
+		 */
+		onDidChangeRuntimeState?: vscode.Event<RuntimeState>;
+
+		/**
 		 * An event that fires when the session's connection to the underlying
 		 * runtime is lost. This can happen if, for example, the transport to the
 		 * kernel supervisor drops while the runtime itself keeps running.
