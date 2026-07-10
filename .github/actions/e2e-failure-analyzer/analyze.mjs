@@ -239,13 +239,19 @@ function findHistoryFor(historyMap, title, file) {
 	// the leaf title -- or ending in "> <leaf title>" -- is the same test. This
 	// keeps history matching working regardless of whether either side prefixes
 	// the suite chain.
+	//
+	// Fail closed on ambiguity: two tests in the same file can share a leaf title
+	// under different suites, and the leaf-only blob title can't tell them apart.
+	// Returning the first hit could attach the wrong history, so require exactly
+	// one candidate; otherwise return null and let the caller show "no entry".
 	const suffix = `> ${title}`;
+	const candidates = [];
 	for (const entry of historyMap.values()) {
 		if (normalizeSpecPath(entry.specPath) !== specPath) { continue; }
 		const name = entry.testName || '';
-		if (name === title || name.endsWith(suffix)) { return entry; }
+		if (name === title || name.endsWith(suffix)) { candidates.push(entry); }
 	}
-	return null;
+	return candidates.length === 1 ? candidates[0] : null;
 }
 
 function renderHistoryForTest(entry) {
