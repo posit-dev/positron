@@ -10,6 +10,7 @@ import { ServicesAccessor } from '../../../../../platform/instantiation/common/i
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookInstance } from '../../browser/IPositronNotebookInstance.js';
+import { singleKeybinding } from './keybindingTestUtils.js';
 import {
 	DeleteCellAction,
 	POSITRON_NOTEBOOK_COMMAND_MODE,
@@ -203,11 +204,11 @@ describe('PositronNotebookInstance.delete*', () => {
 		it('declares Backspace and D D keybindings scoped to command mode', () => {
 			const action = new DeleteCellAction();
 			expect(action.desc.id).toBe('positronNotebook.cell.delete');
-			expect(action.desc.keybinding?.primary).toBe(KeyCode.Backspace);
-			expect(action.desc.keybinding?.secondary).toEqual([
+			expect(singleKeybinding(action.desc.keybinding)?.primary).toBe(KeyCode.Backspace);
+			expect(singleKeybinding(action.desc.keybinding)?.secondary).toEqual([
 				KeyChord(KeyCode.KeyD, KeyCode.KeyD),
 			]);
-			expect(action.desc.keybinding?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
+			expect(singleKeybinding(action.desc.keybinding)?.when).toBe(POSITRON_NOTEBOOK_COMMAND_MODE);
 		});
 
 		it('invoking the action calls deleteCells() on the notebook', () => {

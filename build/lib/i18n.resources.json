@@ -801,7 +801,11 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/agentHost",
+			"name": "vs/sessions/contrib/providers",
+			"project": "vscode-sessions"
+		},
+		{
+			"name": "vs/sessions/contrib/providers/agentHost",
 			"project": "vscode-sessions"
 		},
 		{
@@ -821,7 +825,7 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/copilotChatSessions",
+			"name": "vs/sessions/contrib/providers/copilotChatSessions",
 			"project": "vscode-sessions"
 		},
 		{
@@ -841,6 +845,10 @@
 			"project": "vscode-sessions"
 		},
 		{
+			"name": "vs/sessions/contrib/search",
+			"project": "vscode-sessions"
+		},
+		{
 			"name": "vs/sessions/contrib/policyBlocked",
 			"project": "vscode-sessions"
 		},
@@ -853,7 +861,7 @@
 			"project": "vscode-sessions"
 		},
 		{
-			"name": "vs/sessions/contrib/remoteAgentHost",
+			"name": "vs/sessions/contrib/providers/remoteAgentHost",
 			"project": "vscode-sessions"
 		},
 		{
@@ -866,6 +874,10 @@
 		},
 		{
 			"name": "vs/sessions/contrib/welcome",
+			"project": "vscode-sessions"
+		},
+		{
+			"name": "vs/sessions/contrib/aquarium",
 			"project": "vscode-sessions"
 		},
 		{

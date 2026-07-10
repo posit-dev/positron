@@ -1116,6 +1116,20 @@ declare module 'positron' {
 		onDidDiscoverRuntime?: vscode.Event<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional event that fires when a previously registered runtime
+		 * should be removed, carrying the `runtimeId` of the runtime to remove.
+		 *
+		 * Used to retract a runtime that a manager previously surfaced (via
+		 * `discoverAllRuntimes()` or `onDidDiscoverRuntime`) but that no longer
+		 * exists or has been superseded -- for example when the underlying
+		 * environment is deleted, or when de-duplication collapses several
+		 * aliases of one interpreter and the alias already registered is not the
+		 * survivor. Without this, such stale runtimes linger in the picker until
+		 * the window is reloaded.
+		 */
+		onDidRemoveRuntime?: vscode.Event<string>;
+
+		/**
 		 * An optional metadata validation function. If provided, Positron will
 		 * validate any stored metadata before attempting to use it to create a
 		 * new session. This happens when a workspace is re-opened, for example.
@@ -2173,6 +2187,7 @@ declare module 'positron' {
 		View = 'view',
 		Field = 'field',
 		// Category containers that group sibling nodes (e.g. "Tables", "Views").
+		GroupDatabases = 'group-databases',
 		GroupSchemas = 'group-schemas',
 		GroupTables = 'group-tables',
 		GroupViews = 'group-views',
@@ -3844,6 +3859,11 @@ declare module 'positron' {
 
 		/**
 		 * Get the outputs from a code cell
+		 *
+		 * SVG outputs (image/svg+xml) are rasterized to base64-encoded PNG
+		 * (image/png) so they can be attached as images for language models;
+		 * the raw SVG text is returned only when rasterization fails.
+		 *
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell
 		 * @returns Array of output objects with MIME type and data

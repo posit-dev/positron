@@ -19,7 +19,7 @@ interface ServerReadyAction {
 	pattern: string;
 	// --- Start Positron ---
 	// Add an action to open the URI in the Viewer pane.
-	action?: 'openExternally' | 'openInViewer' | 'debugWithChrome' | 'debugWithEdge' | 'startDebugging';
+	action?: 'openExternally' | 'openIntegratedBrowser' | 'openInViewer' | 'debugWithChrome' | 'debugWithEdge' | 'startDebugging';
 	// --- End Positron ---
 	uriFormat?: string;
 	webRoot?: string;
@@ -197,6 +197,10 @@ class ServerReadyDetector extends vscode.Disposable {
 
 			case 'openExternally':
 				await vscode.env.openExternal(vscode.Uri.parse(uri));
+				break;
+
+			case 'openIntegratedBrowser':
+				vscode.commands.executeCommand('workbench.action.browser.open', uri);
 				break;
 
 			case 'debugWithChrome':

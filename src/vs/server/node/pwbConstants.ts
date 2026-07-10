@@ -46,9 +46,7 @@ function resolveProductLabel(): string {
 }
 
 export const VSCODE_STATIC_PREFIX = `/${resolveProductLabel()}-static`;
-// --- End PWB ---
 
-// --- Start PWB: Workbench deployment path prefix ---
 // Deployment path prefix for Workbench installations mounted under a sub-path (e.g. behind a
 // front-end reverse proxy that only routes /rstudio/* to Workbench). rserver passes the session
 // URL via RS_SESSION_URL, which looks like "/rstudio/s/<session-id>/" or "/s/<session-id>/" --

@@ -2,7 +2,7 @@
 
 A home for various scripts, file and configurations to test the behaviour and affordances of Positron Assistant.
 
-In order to leverage the custom agents/prompts/instructions, this workspace must be opened directly, not just as part of the qa-example-content workspace.
+In order to leverage the custom agents/prompts/instructions, this workspace must be opened directly, not just as part of the larger e2e test-files workspace.
 
 ## Key Files
 

@@ -7,8 +7,7 @@
 	<!-- Start PWB: serve same origin -->
 	<!-- Start Positron -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-y+ZUV5GJ1fru8c6ZhDtgOKtFfwiCl3BLQBAhjhqKqfc=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
-	<!-- End Positron -->
+		content="default-src 'none'; script-src 'sha256-8+wpbl9zAtTQSNL7wdqpog+ZLPHo9zCOO72J0fOZKUo=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -552,7 +551,7 @@
 		 * @param {MouseEvent} event
 		 */
 		const handleInnerClick = (event) => {
-			if (!event?.view?.document) {
+			if (!event.isTrusted || !event?.view?.document) {
 				return;
 			}
 
@@ -625,7 +624,8 @@
 				e.preventDefault();
 			}
 
-			hostMessaging.postMessage('did-keydown', {
+			/** @type {import('../webviewMessages').FromWebviewMessage['did-keydown']} */
+			const data = {
 				key: e.key,
 				keyCode: e.keyCode,
 				code: e.code,
@@ -633,14 +633,17 @@
 				altKey: e.altKey,
 				ctrlKey: e.ctrlKey,
 				metaKey: e.metaKey,
-				repeat: e.repeat
-			});
+				repeat: e.repeat,
+				isTrusted: e.isTrusted
+			};
+			hostMessaging.postMessage('did-keydown', data);
 		};
 		/**
 		 * @param {KeyboardEvent} e
 		 */
 		const handleInnerKeyup = (e) => {
-			hostMessaging.postMessage('did-keyup', {
+			/** @type {import('../webviewMessages').FromWebviewMessage['did-keyup']} */
+			const data = {
 				key: e.key,
 				keyCode: e.keyCode,
 				code: e.code,
@@ -648,8 +651,10 @@
 				altKey: e.altKey,
 				ctrlKey: e.ctrlKey,
 				metaKey: e.metaKey,
-				repeat: e.repeat
-			});
+				repeat: e.repeat,
+				isTrusted: e.isTrusted
+			};
+			hostMessaging.postMessage('did-keyup', data);
 		};
 
 		/**

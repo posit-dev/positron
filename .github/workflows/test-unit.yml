@@ -37,10 +37,10 @@ jobs:
     runs-on: ubuntu-latest-4x
     timeout-minutes: 40
     # Run inside the shared CI image, which bakes in the system dependencies,
-    # Node (matching .nvmrc), and R 4.5.2 + qa-example-content deps that this
+    # Node (matching .nvmrc), and R 4.5.2 + test-files deps that this
     # job used to install at runtime. See posit-dev/positron-ci-images.
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:141
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
       # --shm-size: the Electron unit runner loads each test file's full module
       # graph over file://. A wide graph (>~256 parallel fetches) exhausts the
       # container's default 64MB /dev/shm and fails with "Failed to fetch
@@ -177,11 +177,11 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # R 4.5.2 and the qa-example-content deps are baked into the container
-      # image. One unit test ("Can list tables and fields from R connections")
-      # reads a DESCRIPTION file from the repo root, so still fetch that.
-      - name: Download R DESCRIPTION file
-        run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+      # R 4.5.2 and the test-files deps are baked into the container image. One
+      # unit test ("Can list tables and fields from R connections") reads a
+      # DESCRIPTION file from the repo root, so stage that from test-files.
+      - name: Stage R DESCRIPTION file
+        run: cp test/e2e/test-files/DESCRIPTION DESCRIPTION
 
       - name: 🧪 Run VS Code Tests (Electron)
         id: electron-unit-tests

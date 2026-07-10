@@ -5,9 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';

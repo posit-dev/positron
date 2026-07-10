@@ -162,27 +162,6 @@ jobs:
             ls -la positron | head -20
           fi
 
-      - name: Seed system tmp cache from bundled cache
-        run: |
-          if [ -d test/e2e/qa-example-content-cache ]; then
-            rm -rf /tmp/qa-example-content-cache || true
-            mv test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
-            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-              echo "✓ Seeded /tmp/qa-example-content-cache"
-            fi
-          fi
-
-      - name: Validate bundled QA cache
-        run: |
-          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
-          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
-          else
-            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
-            echo "Contents of /tmp:"; ls -la /tmp || true
-            exit 1
-          fi
-
       - name: Install Rig and R
         run: |
           if brew list --cask | grep -q "^r$"; then
@@ -225,7 +204,7 @@ jobs:
           # metadata and binaries consistent.
           PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          cp test/e2e/test-files/DESCRIPTION DESCRIPTION
           Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
 
       - name: Install pyenv and Python
@@ -246,7 +225,7 @@ jobs:
           eval "$(pyenv init --path)"
           eval "$(pyenv init -)"
           pyenv global 3.10.10
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          cp test/e2e/test-files/requirements.txt requirements.txt
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 

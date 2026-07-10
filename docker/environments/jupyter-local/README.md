@@ -149,7 +149,7 @@ The CI process (running in a different repo) will:
 
 2. Run the installation script from this repo:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/{ORG}/{REPO}/{BRANCH}/dockerfiles/jupyter-local/install-jupyter-positron.sh | bash -s -- --ci
+   curl -fsSL https://raw.githubusercontent.com/{ORG}/{REPO}/{BRANCH}/docker/environments/jupyter-local/install-jupyter-positron.sh | bash -s -- --ci
    ```
 
 3. The license will be provided via GitHub secret and written to `/opt/positron.lic` before running the install script.
@@ -204,7 +204,7 @@ This means the container isn't running with systemd as PID 1. This should be han
 ### Script not found error
 If you see `/opt/scripts/install-jupyter-positron.sh: No such file or directory`:
 - The scripts are copied to `/opt/scripts/` (not `/tmp/`) to avoid tmpfs clearing
-- Make sure you're running `connect.sh` from the `dockerfiles/jupyter-local` directory
+- Make sure you're running `connect.sh` from the `docker/environments/jupyter-local` directory
 - The scripts should be automatically copied when you run `npm run jupyter:connect`
 
 ### Python externally-managed-environment error

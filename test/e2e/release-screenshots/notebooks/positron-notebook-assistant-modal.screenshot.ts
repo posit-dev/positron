@@ -47,7 +47,7 @@ test.describe('Release Screenshots - Positron Notebook Assistant Panel', () => {
 
 		// capture screenshot
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'positron-demos-notebooks');
+		await overrideWorkspaceName(page, 'test-files', 'positron-demos-notebooks');
 		await captureFullWindow(page, 'positron-notebook-assistant-panel.png');
 	});
 });

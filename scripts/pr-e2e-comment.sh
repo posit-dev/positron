@@ -1,14 +1,31 @@
 #!/bin/bash
 
-# Script to update or create a PR comment with E2E test tags
-# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>"
-# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto"
+# Script to update or create the single E2E PR comment: the tags that will run,
+# plus advisory warnings (no feature tags auto-selected, and/or touched Positron
+# dirs missing from the tag map) folded into the same comment.
+# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>" [<no_matches>] [<unmapped_dirs>] [<invalid_tags>] [<tag_reasons>]
+# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto" "false" "" ""
 
 set -e
 
 # Arguments
-COMMENT_MARKER="$1"  # e.g., "<!-- PR Tags -->"
-TAGS="$2"            # e.g., "@:critical,@:quarto"
+COMMENT_MARKER="$1"        # e.g., "<!-- PR Tags -->"
+TAGS="$2"                  # e.g., "@:critical,@:quarto"
+NO_MATCHES="${3:-false}"   # "true" when only @:critical resolved (no feature tags)
+UNMAPPED_DIRS="${4:-}"     # comma-joined Positron dirs with no entry in the tag map
+INVALID_TAGS="${5:-}"      # comma-joined author-typed tags not in the TestTags enum
+TAG_REASONS="${6:-}"       # build_tag_reasons encoding: "<tag>|<code>,..." (or "@:all|body")
+
+# Pure helpers (is_infra_only, union_csv_tags) used below.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/lib/pr-tags-lib.sh"
+
+# Defensively de-duplicate the tags before rendering, so an overlap between
+# author-provided and auto-derived tags never shows a tag twice in the comment.
+# Order-stable; union with an empty list just collapses repeats. Empty (=@:all)
+# passes through unchanged.
+TAGS="$(union_csv_tags "$TAGS" "")"
 
 # Ensure required arguments are provided
 if [ -z "$COMMENT_MARKER" ]; then
@@ -47,8 +64,55 @@ fi
 # Add the "🚨 RED ALERT!" note
 RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t go here, they belong above ^ in the PR description using this proper format: \`@:tag\`. Changing them here won't do anything (trust us, we’ve tried). Confused? Check out the README hyperlink.\n-->"
 
-# Build the new comment body with proper newlines
-NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>" "$FORMATTED_TAGS")
+# Advisory warnings, folded into this single comment. Suppressed for infra-only
+# PRs (docs/scripts/config), where feature e2e coverage isn't expected, so the
+# warnings would just be noise. Rebuilt every run, so they clear on a push that
+# resolves them.
+WARN_FMT=""
+# Unlike the warnings below, this is about the PR description itself, not the
+# changed files -- always show it regardless of infra-only status.
+if [ -n "$INVALID_TAGS" ]; then
+  BT='`'
+  TAGS_LINK="[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)"
+  INVALID_FORMATTED=$(echo "$INVALID_TAGS" | sed "s/,/\` \`/g" | sed "s/^/${BT}/" | sed "s/\$/${BT}/")
+  WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> Unrecognized tag(s) in the PR description, ignored: ${INVALID_FORMATTED}. Check for a typo, or see the ${TAGS_LINK} list."
+fi
+CHANGED_FILES="$(gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate --header "Authorization: token $GITHUB_TOKEN" --jq '.[].filename' || true)"
+if [ "$(is_infra_only "$CHANGED_FILES")" != "true" ]; then
+  if [ "$NO_MATCHES" = "true" ]; then
+    # Info, not warning: only-critical is common and often benign (refactors,
+    # infra, test-only PRs), so a louder style would just be noise.
+    WARN_FMT="${WARN_FMT}\n\n> [!NOTE]\n> No feature tags detected. If this PR needs feature coverage, add the tag above and retrigger the workflow."
+  fi
+  if [ -n "$UNMAPPED_DIRS" ]; then
+    # Warning: a missing map entry is a concrete, fixable gap -- until it's added,
+    # every future PR touching this dir silently won't auto-tag. Each dir path is
+    # monospaced (the token the reader acts on); the map filename is a plain link.
+    # One dir reads inline; 2+ get a bulleted list so a long run doesn't wrap.
+    BT='`'
+    MAP_LINK="[test-tag-paths-map.json](https://github.com/posit-dev/positron/blob/main/.github/workflows/test-tag-paths-map.json)"
+    N="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | grep -c .)"
+    if [ "$N" -ge 2 ]; then
+      BULLETS="$(printf '%s' "$UNMAPPED_DIRS" | tr ',' '\n' | while IFS= read -r d || [ -n "$d" ]; do [ -n "$d" ] && printf '> - %s%s%s\\n' "$BT" "$d" "$BT"; done)"
+      WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches Positron directories that aren't mapped in ${MAP_LINK}:\n>\n${BULLETS}>\n> Add an entry for each (an e2e tag or ${BT}[]${BT} for no coverage) so future changes are tagged automatically."
+    else
+      WARN_FMT="${WARN_FMT}\n\n> [!WARNING]\n> This PR touches a Positron directory that isn't mapped in ${MAP_LINK}: ${BT}${UNMAPPED_DIRS}${BT}. Add an entry (an e2e tag or ${BT}[]${BT} for no coverage) so future changes are tagged automatically."
+    fi
+  fi
+fi
+
+# "Why these tags?" collapse (empty when there's nothing to explain). Prefix two
+# newlines only when present so it separates cleanly from the tags line and
+# collapses to nothing otherwise. Real newlines -> rendered with %s below.
+WHY_BLOCK="$(render_why_these_tags "$TAG_REASONS")"
+if [ -n "$WHY_BLOCK" ]; then
+  WHY_BLOCK=$'\n\n'"$WHY_BLOCK"
+fi
+
+# Build the new comment body with proper newlines (%s = tags, %b = warnings).
+# Layout: tags -> advisory block (if any) -> footer links last, so the links
+# always sit at the bottom rather than wedged between the tags and the note.
+NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s%s%b\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>" "$FORMATTED_TAGS" "$WHY_BLOCK" "$WARN_FMT")
 
 if [ -n "$COMMENT_ID" ]; then
   # Update the existing comment

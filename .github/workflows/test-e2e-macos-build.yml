@@ -68,24 +68,10 @@ jobs:
         run: |
           npm run prelaunch
 
-      - name: Clone QA example content
-        run: |
-          echo "Cloning QA example content (always fresh)..."
-          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache
-          COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
-          echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
-          echo "Cloned QA content at commit: $COMMIT_SHA"
-
       - name: Create Build Artifact
         run: |
-          # Ensure QA example content is bundled
-          mkdir -p test/e2e
-          if [ -d "/tmp/qa-example-content-cache" ]; then
-            echo "Copying cached QA content to workspace"
-            cp -R /tmp/qa-example-content-cache test/e2e/qa-example-content-cache || true
-          else
-            echo "Warning: QA content cache not found at /tmp/qa-example-content-cache"
-          fi
+          # The e2e test content lives in-repo at test/e2e/test-files and is included
+          # in the tarball below, so downstream runners get it without network access.
 
           # Create a tarball of the positron workspace
           mkdir -p /tmp/artifacts

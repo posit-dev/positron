@@ -40,6 +40,7 @@
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "positron",
+	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
 	"releaseNotesUrl": "https://cdn.posit.co/positron",
@@ -98,7 +99,7 @@
 			"version": "2026.7.5",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "4653f543e2eb5aa933320b99937a7fcb600ad22a5d7bbbe21cc05a94311b0a0c",
+			"sha256": "68fd34383f485992ae5348ebd5dff0d7d5c3ab79f463d19933df7219dbb11f57",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -117,7 +118,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.56.0",
+			"version": "2026.60.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -252,8 +253,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.134.0",
-			"sha256": "df2a4f8e2e68486a9c7e108ebebe2030c098890be9486d930f2303393f5ffbe4",
+			"version": "1.135.0",
+			"sha256": "45211fbff7706f45bb8be12c3d5e35a9584b658e7bac7dc12b6668a072087016",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -291,8 +292,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.144.0",
-			"sha256": "c9358907d2d3a3a70989e264b362a66b8b4f31f718115902dec2a513ec64c372",
+			"version": "0.156.0",
+			"sha256": "e92de13cb9a7a73f71029aa827b8e4f8b104fbdea628dd23d90e4ddec3afa309",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -399,7 +400,8 @@
 		"upgradePlanUrl": "https://aka.ms/github-copilot-upgrade-plan",
 		"signUpUrl": "https://aka.ms/github-sign-up",
 		"tokenEntitlementUrl": "https://api.github.com/copilot_internal/v2/token",
-		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry"
+		"mcpRegistryDataUrl": "https://api.github.com/copilot/mcp_registry",
+		"managedSettingsUrl": "https://api.github.com/copilot_internal/managed_settings"
 	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
@@ -829,5 +831,6 @@
 	],
 	"builtInExtensionsEnabledWithAutoUpdates": [
 		"GitHub.copilot-chat"
-	]
+	],
+	"sessionsWindowAllowedExtensions": []
 }

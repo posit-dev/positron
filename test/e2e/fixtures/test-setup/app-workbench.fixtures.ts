@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { join } from 'path';
 import { Application, createApp } from '../../infra';
-import { cloneTestRepo } from '../../infra/test-runner';
+import { provisionTestFiles } from '../../infra/test-runner';
 import { AppFixtureOptions } from './app.fixtures';
 import { runDockerCommand, copyUserSettingsToContainer, copyKeyBindingsToContainer, dockerSettingsOverrides, RunResult } from './docker-utils';
 
@@ -42,19 +42,19 @@ export async function WorkbenchApp(
 
 		// Get the browser context for OAuth flows
 		const context = app.code.driver.currentPage.context();
-		await app.positWorkbench.dashboard.openSession('qa-example-content', context, managedCredentials);
+		await app.positWorkbench.dashboard.openSession('test-files', context, managedCredentials);
 
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 
 		// For the Azure shard, the dashboard's createNewProject skipped the Open Folder step
-		// because the JIT user (rstudio-ide-test) doesn't have qa-example-content in their home
+		// because the JIT user (rstudio-ide-test) doesn't have test-files in their home
 		// dir at launch time. Now that PAM has created /home/rstudio-ide-test (triggered by the
 		// session launch), copy the workspace in and open it the same way the other shards do.
 		if (managedCredentials === 'azure') {
 			await runDockerCommand(
-				`docker exec ${CONTAINER_NAME} bash -c "cp -r /home/user1/qa-example-content /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/qa-example-content"`,
-				'Copy qa-example-content into rstudio-ide-test home (Azure JIT user)'
+				`docker exec ${CONTAINER_NAME} bash -c "cp -r /home/user1/test-files /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/test-files"`,
+				'Copy test-files into rstudio-ide-test home (Azure JIT user)'
 			);
 			// The Azure session runs as the JIT user rstudio-ide-test, which reads
 			// settings from its own home dir (created by PAM on session launch), not
@@ -67,7 +67,7 @@ export async function WorkbenchApp(
 				'rstudio-ide-test',
 				dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant })
 			);
-			await app.positWorkbench.dashboard.openWorkspaceFolder('qa-example-content');
+			await app.positWorkbench.dashboard.openWorkspaceFolder('test-files');
 		}
 		// The Azure shard runs as a freshly-provisioned JIT user (rstudio-ide-test)
 		// whose interpreter discovery / runtime startup does not settle the way
@@ -90,7 +90,7 @@ export async function WorkbenchApp(
 		// Exit Posit Workbench session
 		try {
 			await app.positWorkbench.dashboard.goTo();
-			await app.positWorkbench.dashboard.quitSession('qa-example-content');
+			await app.positWorkbench.dashboard.quitSession('test-files');
 		} catch (error) {
 			console.warn('Failed to quit workbench session:', error);
 		}
@@ -113,8 +113,8 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 		console.log(`Workbench fixture: expecting managed credential "${managedCredentials}" to be provisioned in the container`);
 	}
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
-	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'
+	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'test-files');
+	const WORKBENCH_WORKSPACE_PATH = '/home/user1/test-files/'
 	const WORKBENCH_USER_SERVER_DIR = '/home/user1/.positron-server/';
 	const WORKBENCH_USER_DATA_DIR = `${WORKBENCH_USER_SERVER_DIR}User/`;
 
@@ -122,11 +122,11 @@ async function setupWorkbenchEnvironment(managedCredentials?: 'snowflake' | 'dat
 	await runDockerCommand(`docker exec ${CONTAINER_NAME} mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
 
 	// The Playwright VS Code extension's "play" button does not run globalSetup, which is what
-	// normally clones qa-example-content into the temp workspace. When that step was skipped the
-	// tar below fails with "could not chdir to <workspace>". Stage it on demand from the clone
-	// cache (fast, works offline) so single-test runs from the extension behave like the CLI.
+	// normally provisions test-files into the temp workspace. When that step was skipped the
+	// tar below fails with "could not chdir to <workspace>". Stage it on demand from the local
+	// test-files directory so single-test runs from the extension behave like the CLI.
 	if (!fs.existsSync(DEFAULT_WORKSPACE_PATH)) {
-		cloneTestRepo(DEFAULT_WORKSPACE_PATH);
+		provisionTestFiles(DEFAULT_WORKSPACE_PATH);
 	}
 
 	const src = DEFAULT_WORKSPACE_PATH;

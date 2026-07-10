@@ -22,6 +22,9 @@ import { LocationLink } from '../../../../common/languages.js';
 import { ILanguageService } from '../../../../common/languages/language.js';
 import { ITextModelService } from '../../../../common/services/resolverService.js';
 import { ClickLinkGesture, ClickLinkKeyboardEvent, ClickLinkMouseEvent } from './clickLinkGesture.js';
+// --- Start Positron ---
+import { getClickToViewProvider } from './clickToViewProvider.js';
+// --- End Positron ---
 import { PeekContext } from '../../../peekView/browser/peekView.js';
 import * as nls from '../../../../../nls.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
@@ -60,7 +63,29 @@ export class GotoDefinitionAtPositionEditorContribution implements IEditorContri
 			this.startFindDefinitionFromMouse(mouseEvent, keyboardEvent ?? undefined);
 		}));
 
-		this.toUnhook.add(linkGesture.onExecute((mouseEvent: ClickLinkMouseEvent) => {
+		// --- Start Positron ---
+		// this.toUnhook.add(linkGesture.onExecute((mouseEvent: ClickLinkMouseEvent) => {
+		//
+		// Give a registered click-to-view provider (e.g. a data frame -> Data
+		// Explorer gesture) the first chance to handle a modifier+click, before
+		// go-to-definition. This is deliberately gated on isClickCandidate rather
+		// than isEnabled, so it does not require a definition provider for the
+		// model: language features in Quarto chunks and some runtimes (e.g.
+		// R/Python via vdocs) are not registered against the visible document's
+		// model. If the provider handles the click, skip go-to-definition so the
+		// two gestures don't both fire. The listener is made async to await the
+		// provider.
+
+		this.toUnhook.add(linkGesture.onExecute(async (mouseEvent: ClickLinkMouseEvent) => {
+			if (this.isClickCandidate(mouseEvent)) {
+				const provider = getClickToViewProvider();
+				const model = this.editor.getModel();
+				if (provider && model && await provider.handleClick(model, mouseEvent.target.position!)) {
+					this.removeLinkDecorations();
+					return;
+				}
+			}
+			// --- End Positron ---
 			if (this.isEnabled(mouseEvent)) {
 				this.gotoDefinition(mouseEvent.target.position!, mouseEvent.hasSideBySideModifier)
 					.catch((error: Error) => {
@@ -280,6 +305,23 @@ export class GotoDefinitionAtPositionEditorContribution implements IEditorContri
 	private removeLinkDecorations(): void {
 		this.linkDecorations.clear();
 	}
+
+	// --- Start Positron ---
+	// A modifier+click on real editor text: isEnabled without the
+	// definitionProvider.has(...) requirement. Duplicated (rather than factored
+	// out of isEnabled) to keep the upstream isEnabled untouched for easier
+	// merges. Lets a click-to-view provider handle a click even when no
+	// definition provider is registered for the model (e.g. Quarto chunks, or
+	// R/Python served via vdocs).
+	private isClickCandidate(mouseEvent: ClickLinkMouseEvent, withKey?: ClickLinkKeyboardEvent): boolean {
+		return this.editor.hasModel()
+			&& mouseEvent.isLeftClick
+			&& mouseEvent.isNoneOrSingleMouseDown
+			&& mouseEvent.target.type === MouseTargetType.CONTENT_TEXT
+			&& !(mouseEvent.target.detail.injectedText?.options instanceof ModelDecorationInjectedTextOptions)
+			&& (mouseEvent.hasTriggerModifier || (withKey ? withKey.keyCodeIsTriggerKey : false));
+	}
+	// --- End Positron ---
 
 	private isEnabled(mouseEvent: ClickLinkMouseEvent, withKey?: ClickLinkKeyboardEvent): boolean {
 		return this.editor.hasModel()

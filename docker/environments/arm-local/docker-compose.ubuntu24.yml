@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   test:
-    image: ghcr.io/posit-dev/positron-ubuntu24-arm64:127
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
     container_name: test
     init: true
     ports:
@@ -26,7 +26,7 @@ services:
       - POSITRON_DEV_LICENSE=${POSITRON_DEV_LICENSE}
 
   postgres:
-    image: ghcr.io/posit-dev/positron-postgres-arm64:143
+    image: ghcr.io/posit-dev/positron-postgres:24.15.0
     container_name: postgres
     ports:
       - "5432:5432"

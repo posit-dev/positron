@@ -186,6 +186,10 @@ suite('Python runtime manager', () => {
     });
 
     test('selectLanguageRuntimeFromPath: calls positron.runtime.selectLanguageRuntime with the corresponding runtime ID', async () => {
+        // An already-registered path is re-resolved (createPythonRuntimeMetadata)
+        // to catch stale versions; the cached runtime is kept when the resolved
+        // runtimeId matches.
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
         pythonRuntimeManager.registeredPythonRuntimes.set(pythonPath, runtimeMetadata.object);
 
         await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath);
@@ -707,5 +711,49 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.notCalled(otherShutdown);
         sinon.assert.notCalled(nonPythonShutdown);
         sinon.assert.notCalled(selectSpy);
+    });
+
+    test('interpreter replacement: retracts old alias and re-registers survivor with forceRefresh', async () => {
+        // De-duplication collapsed a symlink alias into a shorter survivor path.
+        // The survivor must be re-registered with forceRefresh so a stale cached
+        // version for its path is re-resolved and superseded, not returned as is.
+        const oldPath = '/path/to/long/symlink/python';
+        const newPath = '/path/to/python';
+        pythonRuntimeManager.registeredPythonRuntimes.set(oldPath, {
+            runtimeId: 'old',
+            extraRuntimeData: { pythonPath: oldPath },
+        } as any);
+        const registerStub = sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: oldPath } as any, new: { path: newPath } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(oldPath), false);
+        sinon.assert.calledOnceWithExactly(registerStub, newPath, false, true);
+    });
+
+    test('a rejected change handler does not poison the queue for later events', async () => {
+        // If handling one event rejects (e.g. registration throws), the serialized
+        // queue must stay resolved so later events are still handled -- otherwise a
+        // single transient failure freezes interpreter syncing until reload.
+        const registerStub = sinon
+            .stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath')
+            .rejects(new Error('transient failure'));
+
+        const laterDeletedPath = '/path/to/later/python';
+        pythonRuntimeManager.registeredPythonRuntimes.set(laterDeletedPath, {
+            runtimeId: 'r',
+            extraRuntimeData: { pythonPath: laterDeletedPath },
+        } as any);
+
+        // First event rejects while being handled; the second must still run.
+        onDidChangeInterpretersEmitter.fire({ old: undefined, new: { path: '/path/to/added/python' } as any });
+        onDidChangeInterpretersEmitter.fire({ old: { path: laterDeletedPath } as any, new: undefined });
+
+        // Let the serialized queue drain.
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.called(registerStub);
+        assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(laterDeletedPath), false);
     });
 });

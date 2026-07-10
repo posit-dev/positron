@@ -52,7 +52,7 @@ test.describe('Release Screenshots - Snippets', () => {
 		await expect(workspaceRow).toBeVisible();
 
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 
 		// Crop to the top of the picker (search box + first ~5 rows); the full
 		// picker has 100+ language rows. Extra width on the right gives the
@@ -134,7 +134,7 @@ test.describe('Release Screenshots - Snippets', () => {
 		}
 
 		await prepareForScreenshot(app, page);
-		await overrideWorkspaceName(page, 'qa-example-content', 'my-project');
+		await overrideWorkspaceName(page, 'test-files', 'my-project');
 
 		const rBox = await rRow.boundingBox();
 		if (!rBox) {

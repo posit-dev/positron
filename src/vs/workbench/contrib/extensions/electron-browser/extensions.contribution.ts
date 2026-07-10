@@ -25,6 +25,8 @@ import { CleanUpExtensionsFolderAction, OpenExtensionsFolderAction } from './ext
 import { ExtensionsAutoProfiler } from './extensionsAutoProfiler.js';
 import { InstallRemoteExtensionsContribution, RemoteExtensionsInitializerContribution } from './remoteExtensionsInit.js';
 import { IExtensionHostProfileService, OpenExtensionHostProfileACtion, RuntimeExtensionsEditor, SaveExtensionHostProfileAction, StartExtensionHostProfileAction, StopExtensionHostProfileAction } from './runtimeExtensionsEditor.js';
+import { ShowRuntimeExtensionsAction } from '../browser/abstractRuntimeExtensionsEditor.js';
+
 // --- Start Positron ---
 import { PositronCustomGalleryValidation } from './positronCustomGalleryValidation.js';
 // --- End Positron ---
@@ -92,3 +94,4 @@ registerAction2(StartExtensionHostProfileAction);
 registerAction2(StopExtensionHostProfileAction);
 registerAction2(SaveExtensionHostProfileAction);
 registerAction2(OpenExtensionHostProfileACtion);
+registerAction2(ShowRuntimeExtensionsAction);

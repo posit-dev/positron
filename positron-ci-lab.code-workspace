@@ -100,7 +100,7 @@
 				"label": "Positron CI: Reinstall deps",
 				"detail": "After a pull/branch-switch changed the root package-lock.json.",
 				"type": "shell",
-				"command": "npm ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh root",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh root",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			},
@@ -108,7 +108,7 @@
 				"label": "Positron CI: Reinstall e2e deps",
 				"detail": "After a pull/branch-switch changed test/e2e/package-lock.json (the Doctor flags e2e-deps drift separately from root deps).",
 				"type": "shell",
-				"command": "npm --prefix test/e2e ci --fetch-timeout 120000 && ./.devcontainer/ci-arm/mark-build-state.sh e2e",
+				"command": "./.devcontainer/ci-arm/reinstall-deps.sh e2e",
 				"presentation": { "panel": "dedicated", "reveal": "always", "focus": false },
 				"problemMatcher": []
 			},
@@ -130,7 +130,7 @@
 			},
 			{
 				"label": "Positron CI: Get QA content",
-				"detail": "Fetch/refresh qa-example-content (the files the e2e tests open) for manual repro; linked at ~/qa-example-content so it's easy to open. Re-run to cycle it to the latest.",
+				"detail": "Provision test-files (the files the e2e tests open) for manual repro; linked at ~/test-files so it's easy to open. Re-run to refresh it from the current checkout.",
 				"type": "shell",
 				"command": "./.devcontainer/ci-arm/get-qa-content.sh",
 				"presentation": { "panel": "dedicated", "reveal": "silent", "focus": false },
