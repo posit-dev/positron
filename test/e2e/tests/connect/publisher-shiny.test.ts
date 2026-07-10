@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PermissionPayload } from '../../../pages/connect.js';
-import { test, tags, expect } from '../../_test.setup';
+import { PermissionPayload } from '../../pages/connect.js';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -12,32 +12,53 @@ test.use({
 
 let userId: string;
 let pythonVersion: string;
+// Resolved in beforeAll: the password used both to set user1's PAM password in
+// the connect container and to sign in at the end. Falls back to a default so
+// the local (e2e-connect) run needs no env setup; the Workbench run keeps using
+// POSIT_WORKBENCH_PASSWORD.
+let connectUserPassword: string;
 const connectServer = 'http://connect:3939';
 
-test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
-		// Read previously bootstrapped token from the shared volume
-		const { stdout } = await runDockerCommand(
-			`docker exec test bash -lc 'set -euo pipefail; [ -s /tokens/connect_bootstrap_token ] && cat /tokens/connect_bootstrap_token'`,
-			'Read Connect API key'
-		);
+		// Local electron run (connect-local stack) vs the Workbench web run.
+		const isLocal = test.info().project.name === 'e2e-connect';
 
-		const connectApiKey = stdout.trim();
-		if (!connectApiKey) {
-			throw new Error('Connect API key file was empty or missing at /tokens/connect_bootstrap_token');
+		connectUserPassword = process.env.POSIT_WORKBENCH_PASSWORD || 'testpassword';
+
+		// Skip the suite when Connect isn't up (e.g. the full local suite is run
+		// without the connect-local stack started).
+		test.skip(!(await app.workbench.positConnect.isReachable()), 'Posit Connect is not reachable at http://localhost:3939');
+
+		// Resolve the publisher API key: env -> local token file -> Workbench volume.
+		const connectApiKey = await app.workbench.positConnect.resolveApiKey(isLocal ? undefined : runDockerCommand);
+		app.workbench.positConnect.setConnectApiKey(connectApiKey);
+
+		if (!(await app.workbench.positConnect.isApiKeyValid())) {
+			throw new Error('Connect API key did not authenticate against http://localhost:3939');
 		}
 
-		app.workbench.positConnect.setConnectApiKey(connectApiKey);
+		// Local self-heal: if the connect-data volume was wiped and re-bootstrapped,
+		// a saved publisher credential holds a stale key -- clear it so the publish
+		// flow re-enters the fresh key.
+		if (isLocal && app.workbench.positConnect.recordKeyAndDetectRotation(connectApiKey)) {
+			await app.workbench.publisher.clearSavedCredentials();
+		}
+
+		// Ensure the PAM/system user1 exists with the current password on EVERY
+		// run. The system account lives in the connect container filesystem (reset
+		// when the container is recreated), while the Connect DB user record lives
+		// in the persistent connect-data volume -- so gating this on the Connect
+		// user existing leaves the PAM password unset/stale and sign-in fails.
+		// groupadd/useradd are guarded so they're idempotent; chpasswd always runs.
+		await runDockerCommand(`docker exec connect bash -c 'getent group user1g >/dev/null 2>&1 || sudo groupadd -g 1100 user1g'`, 'Ensure group user1g');
+		await runDockerCommand(`docker exec connect bash -c 'id -u user1 >/dev/null 2>&1 || sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1'`, 'Ensure user user1');
+		await runDockerCommand(`docker exec connect bash -c 'echo "user1":"${connectUserPassword}" | sudo chpasswd'`, 'Set password for user1');
 
 		const user1Present = await app.workbench.positConnect.getUserId('user1');
 		if (!user1Present) {
-
-			await runDockerCommand('docker exec connect sudo groupadd -g 1100 user1g', 'Create group user1g');
-			await runDockerCommand('docker exec connect sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1', 'Create user user1');
-			await runDockerCommand(`docker exec connect bash -c \'echo "user1":"${process.env.POSIT_WORKBENCH_PASSWORD}" | sudo chpasswd\'`, 'Set password for user1');
-
 			userId = await app.workbench.positConnect.createUser();
 		} else {
 			userId = user1Present;
@@ -166,7 +187,7 @@ test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, ()
 			await app.code.driver.currentPage.locator('[data-automation="signin"]').click();
 
 			await app.code.driver.currentPage.fill('input[name="username"]', 'user1');
-			await app.code.driver.currentPage.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+			await app.code.driver.currentPage.fill('input[name="password"]', connectUserPassword);
 			await app.code.driver.currentPage.locator('[data-automation="login-panel-submit"]').click();
 
 			await app.code.driver.currentPage.locator('[data-automation="content-table__row__display-name"]').first().click();

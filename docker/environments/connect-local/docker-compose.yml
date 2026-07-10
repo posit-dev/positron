@@ -1,0 +1,60 @@
+version: '3.8'
+
+# Standalone Posit Connect for running the publisher/connect e2e tests locally
+# against a plain local Positron desktop (no Workbench). See README.md.
+services:
+  connect:
+    image: rstudio/rstudio-connect-preview:dev-jammy-daily
+    platform: linux/amd64
+    container_name: connect
+    networks:
+      - connectnet
+    ports:
+      - "3939:3939"
+    environment:
+      - CONNECT_BOOTSTRAP_ENABLED=true
+      - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY}
+      - CONNECT_APPLICATIONS_PACKAGEAUDITINGENABLED=true
+      - CONNECT_TENSORFLOW_ENABLED=false
+    privileged: true
+    volumes:
+      # Persistent data volume: the bootstrap key stays valid across runs, so a
+      # saved publisher keychain credential keeps working (see PLAN.md section 6).
+      - connect-data:/var/lib/rstudio-connect
+      - /var/lib/rstudio-connect
+      - ./connect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg:ro
+      - ./connect/connect.lic:/var/lib/rstudio-connect/connect.lic:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3939"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # One-shot token bootstrap. Runs the SAME ensure-connect-token.sh the Workbench
+  # flow uses, against connect, and writes the token to a bind-mounted local file
+  # the test resolver reads (docker/environments/connect-local/.tokens/). Kept out
+  # of the default `up` via a profile; run.sh invokes it explicitly. Avoids a host
+  # rsconnect dependency by borrowing the positron-ubuntu24 image (has rsconnect).
+  token:
+    image: ghcr.io/posit-dev/positron-ubuntu24:24.15.0
+    profiles: ["token"]
+    depends_on:
+      connect:
+        condition: service_healthy
+    networks:
+      - connectnet
+    environment:
+      - CONNECT_BOOTSTRAP_SECRETKEY=${CONNECT_BOOTSTRAP_SECRETKEY}
+      - CONNECT_URL=http://connect:3939
+    volumes:
+      - ../wb-local/ensure-connect-token.sh:/usr/local/bin/ensure-connect-token.sh:ro
+      - ./.tokens:/tokens
+    command: ["/bin/bash", "/usr/local/bin/ensure-connect-token.sh", "/tokens/connect_bootstrap_token", "http://connect:3939"]
+
+networks:
+  connectnet:
+    driver: bridge
+
+volumes:
+  connect-data:

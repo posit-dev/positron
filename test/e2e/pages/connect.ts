@@ -4,7 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Code } from '../infra/code.js';
+
+/**
+ * A callback that runs a shell command and returns its captured output. Matches
+ * the `runDockerCommand` test fixture so the resolver can reach the Workbench
+ * `test` container without this page object depending on the fixture module.
+ */
+export type DockerRunner = (command: string, description: string) => Promise<{ stdout: string; stderr: string }>;
+
+/**
+ * Default local path (relative to the repo root / Playwright CWD) where the
+ * connect-local one-shot bootstrap container writes the Connect API token.
+ */
+const LOCAL_TOKEN_FILE = path.resolve(process.cwd(), 'docker/environments/connect-local/.tokens/connect_bootstrap_token');
+
+/**
+ * Local marker recording the last-seen API key, used to detect a connect-data
+ * volume wipe + re-bootstrap (the key changes) so a stale saved publisher
+ * credential can be self-healed. Local-only.
+ */
+const KEY_MARKER_FILE = path.resolve(process.cwd(), 'docker/environments/connect-local/.tokens/.last_publisher_key');
+
+const PING_URL = 'http://localhost:3939';
 
 type CreateUserBody = {
 	email: string;
@@ -86,6 +110,124 @@ export class PositConnect {
 
 	getConnectApiKey() {
 		return this.connectApiKey;
+	}
+
+	/**
+	 * Resolve the Connect publisher API token, trying (in order):
+	 *   1. `CONNECT_PUBLISHER_API_KEY` env var
+	 *   2. a local token file (`CONNECT_PUBLISHER_TOKEN_FILE` env var, else the
+	 *      connect-local one-shot bootstrap output)
+	 *   3. the Workbench `test` container's shared `/tokens` volume (via docker exec)
+	 *
+	 * The docker-exec fallback keeps the Workbench (`e2e-workbench`) run working
+	 * unchanged; the first two branches are what the standalone `e2e-connect`
+	 * local run exercises.
+	 *
+	 * @param dockerRunner optional runner used only for the docker-exec fallback.
+	 */
+	async resolveApiKey(dockerRunner?: DockerRunner): Promise<string> {
+		// 1. Environment variable (e.g. exported by a CI workflow).
+		const envKey = process.env.CONNECT_PUBLISHER_API_KEY?.trim();
+		if (envKey) {
+			return envKey;
+		}
+
+		// 2. Local token file written by the connect-local bootstrap container.
+		const tokenFile = process.env.CONNECT_PUBLISHER_TOKEN_FILE?.trim() || LOCAL_TOKEN_FILE;
+		try {
+			const fileKey = fs.readFileSync(tokenFile, 'utf8').trim();
+			if (fileKey) {
+				return fileKey;
+			}
+		} catch {
+			// File not present in this mode; fall through to the docker-exec branch.
+		}
+
+		// 3. Workbench shared volume (existing behavior, kept for the e2e-workbench run).
+		if (dockerRunner) {
+			const { stdout } = await dockerRunner(
+				`docker exec test bash -lc 'set -euo pipefail; [ -s /tokens/connect_bootstrap_token ] && cat /tokens/connect_bootstrap_token'`,
+				'Read Connect API key'
+			);
+			const dockerKey = stdout.trim();
+			if (dockerKey) {
+				return dockerKey;
+			}
+		}
+
+		throw new Error(
+			`Could not resolve a Connect publisher API key. Set CONNECT_PUBLISHER_API_KEY, ` +
+			`provide a token file at ${tokenFile} (CONNECT_PUBLISHER_TOKEN_FILE to override), ` +
+			`or ensure the Workbench 'test' container has /tokens/connect_bootstrap_token.`
+		);
+	}
+
+	/**
+	 * Whether the Connect server is reachable at all (unauthenticated). Used to
+	 * skip the local suite gracefully when connect has not been started.
+	 */
+	async isReachable(): Promise<boolean> {
+		// Mirror ensure-connect-token.sh: accept either the ping endpoint or the
+		// root responding, so a missing /__ping__ doesn't spuriously skip.
+		for (const url of [`${PING_URL}/__ping__`, PING_URL]) {
+			const controller = new AbortController();
+			const t = setTimeout(() => controller.abort(), 5_000);
+			try {
+				const res = await fetch(url, { signal: controller.signal });
+				if (res.ok) {
+					return true;
+				}
+			} catch {
+				// Try the next URL.
+			} finally {
+				clearTimeout(t);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Record the resolved API key and report whether it changed since the last
+	 * local run. A change means the connect-data volume was wiped and
+	 * re-bootstrapped, so any saved publisher credential now holds a stale key.
+	 * The first-ever run returns `false` (nothing to heal). Best-effort: any I/O
+	 * failure is treated as "no rotation". Local-only concern (marker lives under
+	 * the connect-local token dir).
+	 */
+	recordKeyAndDetectRotation(key: string): boolean {
+		let previous: string | undefined;
+		try {
+			previous = fs.readFileSync(KEY_MARKER_FILE, 'utf8').trim();
+		} catch {
+			// No prior marker; treat as first run.
+		}
+		try {
+			fs.mkdirSync(path.dirname(KEY_MARKER_FILE), { recursive: true });
+			fs.writeFileSync(KEY_MARKER_FILE, key, 'utf8');
+		} catch {
+			// Best-effort; a write failure just disables self-heal detection.
+		}
+		return previous !== undefined && previous !== key;
+	}
+
+	/**
+	 * Whether the currently-set API key authenticates against the Connect API.
+	 * A `false` return after a volume wipe means the stored key is stale.
+	 */
+	async isApiKeyValid(): Promise<boolean> {
+		const controller = new AbortController();
+		const t = setTimeout(() => controller.abort(), 10_000);
+		try {
+			const res = await fetch(`${apiServer}users?page_size=1`, {
+				headers: this.headers,
+				signal: controller.signal,
+			});
+			return res.ok;
+		} catch {
+			return false;
+		} finally {
+			clearTimeout(t);
+		}
 	}
 
 	// Create a new user and return the user guid
