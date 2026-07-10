@@ -205,6 +205,29 @@ naming nuance: `wb:connect` means "attach to the Workbench container", whereas
 - Tag a PR `@:connect` -> `build-connect` + `e2e-connect` run; iterate until green
   several times unattended; then optionally add it as a job to merge/full-suite.
 
+### PR 2 CI bring-up -- first green (run 29126155881, 2026-07-10)
+`build-connect` + `e2e-connect` both green; only the two publisher tests ran:
+`publisher-quarto-r` (2.5m) and `publisher-shiny` (1.0m), 2 passed / 0 failed.
+Three fixes were needed after the first attempts (all in this PR):
+1. Dropped job-level `R_LIBS_SITE`/`R_LIBS_USER` -- they overrode rig-managed R's
+   library path so the freshly-installed `pak` was invisible. (rig-based macOS run
+   sets neither; remote-ssh sets them only because its R runs in the container.)
+2. `PPM_REPO` -> noble (24.04) binary repo (was jammy); matches the runner and
+   rig's ubuntu-2404 R.
+3. `playwright.config.ts` e2e-connect project `grep: /@:connect/` -> `/@:connect(?![\w-])/`.
+   The bare regex substring-matched `@:connections`, dragging the Postgres/Snowflake
+   connections suite into the Connect-only lane. (Locally masked because the README
+   command passes a `test/e2e/tests/connect/` path; CI runs the project without a path.)
+
+Known non-fatal noise: the run logs `API failed after 3 attempts: HTTP 401` from the
+metrics/insights reporter (this lane sets no `CONNECT_API_KEY`/reporter creds); it does
+not affect pass/fail. Clean up later if desired.
+
+Watch-outs when writing the PR description: the PR-tag parser (pr-tags-parse.sh) and
+the Playwright project grep BOTH scan for tag literals as substrings, so writing
+`@:workbench`/`@:connections` in prose triggers those lanes / suites. Keep tag
+literals out of prose (or the body will spin up the Workbench build).
+
 ---
 
 ## Locked decisions
