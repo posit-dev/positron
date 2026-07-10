@@ -208,7 +208,13 @@ export class AuxiliaryEditorPart {
 		// Titlebar
 		let titlebarPart: IAuxiliaryTitlebarPart | undefined = undefined;
 		let titlebarVisible = false;
-		const useCustomTitle = isNative && hasCustomTitlebar(this.configurationService); // custom title in aux windows only enabled in native
+		// --- Start Positron ---
+		// When the window is opened with a native OS title bar, skip the custom
+		// title bar so we do not draw two bars. `hasCustomTitlebar` is hardcoded
+		// to true upstream, so the `nativeTitlebar` option is the only signal.
+		// const useCustomTitle = isNative && hasCustomTitlebar(this.configurationService); // custom title in aux windows only enabled in native
+		const useCustomTitle = isNative && hasCustomTitlebar(this.configurationService) && options?.nativeTitlebar !== true; // custom title in aux windows only enabled in native
+		// --- End Positron ---
 		if (useCustomTitle) {
 			titlebarPart = disposables.add(this.titleService.createAuxiliaryTitlebarPart(auxiliaryWindow.container, editorPart, scopedEditorPartInstantiationService));
 			titlebarPart.updateOptions({ compact });
