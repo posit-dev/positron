@@ -18,8 +18,9 @@
 //     a cover (the FeatureTags enum -- see scripts/lib/pr-tags-lib.sh
 //     feature_enum_tags). Platform/special tags are excluded: they trigger
 //     their own CI lanes and adding one to the electron --grep would widen the
-//     run without enabling its lane. When omitted, no filtering is applied (all
-//     of a touched spec's tags are eligible).
+//     run without enabling its lane. When omitted or empty, no filtering is
+//     applied (all of a touched spec's tags are eligible) -- an empty value is
+//     treated the same as omitting the flag, never as an empty allowlist.
 //   list-json: test-only override. When given, reads this file instead of
 //     invoking `playwright test --list --project e2e-electron --reporter=json`.
 //     Its shape must match that command's real JSON output.
@@ -167,11 +168,12 @@ function main() {
 	if (touchedFiles.length === 0) { return; }
 
 	const selected = new Set((args['selected-tags'] ?? '').split(',').map(t => t.trim()).filter(Boolean));
-	// null = no allowlist (all tags eligible); a Set = only these tags may be
-	// selected as a cover. See --feature-tags in the header.
-	const featureAllow = args['feature-tags'] !== undefined
-		? new Set(args['feature-tags'].split(',').map(t => t.trim()).filter(Boolean))
-		: null;
+	// null = no allowlist (all tags eligible); a non-empty Set = only these tags
+	// may be selected as a cover. See --feature-tags in the header. An empty or
+	// missing value is treated as null, NOT an empty Set: an empty Set is truthy
+	// and would make every tag ineligible, silently killing all derivation.
+	const featureTags = (args['feature-tags'] ?? '').split(',').map(t => t.trim()).filter(Boolean);
+	const featureAllow = featureTags.length > 0 ? new Set(featureTags) : null;
 	const allSpecs = listAllSpecs(args['list-json']);
 
 	const specId = (s, i) => `${s.file}::${i}`;

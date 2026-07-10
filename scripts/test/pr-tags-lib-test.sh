@@ -1151,6 +1151,14 @@ changed_file "test/e2e/tests/plat/plat.test.ts"
 OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --list-json "$DERIVE_DIR/plat-list.json")"
 assert_eq "no allowlist: cheapest tag wins even if it's a platform tag" "@:cross-browser" "$OUT"
 
+# Regression for the empty-allowlist Medium bug: an empty --feature-tags must
+# behave exactly like omitting the flag (no allowlist -> all tags eligible), NOT
+# like an empty allowlist that makes every tag ineligible and silently derives
+# nothing. pr-tags-parse.sh also guards against passing "", but making the
+# script itself robust means that guard isn't the only thing preventing the bug.
+OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "" --list-json "$DERIVE_DIR/plat-list.json")"
+assert_eq "empty --feature-tags behaves like no allowlist (not an empty allowlist)" "@:cross-browser" "$OUT"
+
 OUT="$(node "$DERIVE_SCRIPT" --changed-files "$DERIVE_DIR/changed.txt" --selected-tags "" --feature-tags "$FEATURE_ALLOW" --list-json "$DERIVE_DIR/plat-list.json")"
 assert_eq "with allowlist: platform tag excluded, pricier feature tag chosen" "@:search" "$OUT"
 
