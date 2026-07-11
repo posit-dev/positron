@@ -1149,7 +1149,7 @@ describe('QuartoExecutionManager', () => {
 		});
 
 		it('does not report fragment progress when statement splitting is disabled', async () => {
-			await configurationService.setUserConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
+			await configurationService.setUserConfiguration(QUARTO_INLINE_OUTPUT_SPLIT_STATEMENTS_KEY, false);
 			const { documentUri, cell } = setupThreeStatementCell('test-no-split-progress');
 			registerLinewiseProvider();
 
