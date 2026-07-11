@@ -6,17 +6,34 @@
 /**
  * Use the tags listed below to selectively run e2e tests against your PR.
  *
- * Feature tags:
- * Each tag corresponds to a specific feature, functionality of the application. Use them
- * thoughtfully to ensure your tests align with the intended scope.
+ * Tags are split across three enums by role, then merged into a single
+ * `TestTags` object (and `TestTags` type) so tests keep using them uniformly
+ * (`tags.CONSOLE`, `tags.WIN`, ...). The split is the source of truth for the
+ * PR auto-tagging scripts, which infer a tag's role from the enum it lives in
+ * (scripts/lib/pr-tags-lib.sh `feature_enum_tags` parses the FeatureTags block).
  *
- * Platform tags:
- * By default PRs will only run e2e tests against Linux / Electron.
- * Add `@:win` tag to enable the tests to run on windows. Add the `@:web` tag to enable a web run.
+ * FeatureTags:
+ * Each tag corresponds to a feature/area of the application and runs in the
+ * default Linux/Electron lane. These are the ONLY tags the auto test-change
+ * tag derivation may select -- touching an e2e test auto-adds the minimal
+ * feature tag(s) needed to run it (see scripts/derive-test-change-tags.mjs).
  *
- * Cross-browser tag:
- * Add `@:cross-browser` to tests that run in multiple browsers (Chrome, Firefox, WebKit, Edge).
- * This signals that changes to these tests should consider cross-browser compatibility.
+ * PlatformTags:
+ * Platform/lane selectors. By default PRs only run Linux/Electron; these opt
+ * into other OSes, browsers, or Workbench/remote lanes, each of which spins up
+ * a dedicated CI job. They are author-controlled (add the tag to the PR body)
+ * and are NOT auto-derived from test-file changes -- the one exception is
+ * @:win/@:web, which a newly-added tags.WIN/tags.WEB in a test file enables via
+ * scripts/lib/pr-tags-lib.sh `scan_added_platform_tags`.
+ *
+ * SpecialTags:
+ * Modifiers that don't select a feature area or a lane (e.g. @:soft-fail marks
+ * a test that shouldn't fail merge to main). Never auto-derived.
+ *
+ * Cross-browser:
+ * Add `@:cross-browser` to tests that run in multiple browsers (Chrome,
+ * Firefox, WebKit, Edge). This signals that changes should consider
+ * cross-browser compatibility.
  *
  * Adding a new feature tag:
  * If it corresponds to a source directory, add that directory to
@@ -25,13 +42,15 @@
  *
 */
 
-export enum TestTags {
-	// feature tags
+// Feature/area tags -- run in the default Linux/Electron lane and are the only
+// tags eligible for auto test-change tag derivation.
+export enum FeatureTags {
 	ACCESSIBILITY = '@:accessibility',
 	APPS = '@:apps',
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
 	CATALOG_EXPLORER = '@:catalog-explorer',
+	CONNECT = '@:connect',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
@@ -58,6 +77,7 @@ export enum TestTags {
 	OUTPUT = '@:output',
 	PACKAGES_PANE = '@:packages-pane',
 	PDF = '@:pdf',
+	PERFORMANCE = '@:performance',
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',
 	PUBLISHER = '@:publisher',
@@ -75,11 +95,12 @@ export enum TestTags {
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
 	VSCODE_SETTINGS = '@:vscode-settings',
+}
 
-	// performance tags
-	PERFORMANCE = '@:performance',
-
-	// platform  tags
+// Platform/lane selectors -- each opts into a dedicated CI job. Author-controlled
+// and never auto-derived from test-file changes (except @:win/@:web via the
+// newly-added-tag scan). Excluded from the auto test-change tag derivation.
+export enum PlatformTags {
 	CROSS_BROWSER = '@:cross-browser',
 	RHEL_ELECTRON = '@:rhel-electron',
 	RHEL_WEB = '@:rhel-web',
@@ -99,10 +120,20 @@ export enum TestTags {
 	WORKBENCH_AZURE = '@:workbench-azure',
 	REMOTE_SSH = '@:remote-ssh',
 	REMOTE_WSL = '@:remote-wsl',
-
-	// soft fail tag for tests that shouldn't fail merge to main
-	SOFT_FAIL = '@:soft-fail'
 }
+
+// Modifiers that select neither a feature area nor a lane. Never auto-derived.
+export enum SpecialTags {
+	// Soft fail tag for tests that shouldn't fail merge to main.
+	SOFT_FAIL = '@:soft-fail',
+}
+
+// Merge the role enums into a single value + type so tests use tags uniformly
+// (`tags.CONSOLE`, `tags.WIN`) regardless of role. Declaration merging keeps
+// `TestTags` usable as both a value (member access) and a type (`TestTags[]`),
+// exactly as the single enum was.
+export const TestTags = { ...FeatureTags, ...PlatformTags, ...SpecialTags };
+export type TestTags = FeatureTags | PlatformTags | SpecialTags;
 
 
 type TestTagValue = `@:${string}`;

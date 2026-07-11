@@ -275,6 +275,14 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronWelcome",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/positronQuarto",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/repl",
 			"project": "vscode-workbench"
 		},

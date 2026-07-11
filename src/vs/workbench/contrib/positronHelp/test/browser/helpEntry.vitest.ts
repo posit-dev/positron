@@ -5,11 +5,12 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IOverlayWebview, IWebviewService } from '../../../webview/browser/webview.js';
+import { IOverlayWebview, IWebviewService, WebviewMessageReceivedEvent } from '../../../webview/browser/webview.js';
 import { HelpEntry } from '../../browser/helpEntry.js';
 
 type HelpMessage = {
@@ -17,9 +18,17 @@ type HelpMessage = {
 	readonly findValue?: string;
 };
 
+const LOCALHOST_HELP_URL = 'http://localhost/help/library/graphics/html/plot.html';
+
 describe('HelpEntry', () => {
 	let messages: HelpMessage[];
 	let helpEntry: HelpEntry;
+
+	// Emitter used to simulate messages posted from the help webview (e.g. a
+	// link click). Created at describe scope so the webview stub can hand out
+	// its `.event` reference; fired from individual tests.
+	const onMessageEmitter = new Emitter<WebviewMessageReceivedEvent>();
+	const open = vi.fn(async () => true);
 
 	const overlayWebview = (): IOverlayWebview => stubInterface<IOverlayWebview>({
 		container: document.createElement('div'),
@@ -34,7 +43,7 @@ describe('HelpEntry', () => {
 		onDidUpdateState: Event.None,
 		onFatalError: Event.None,
 		onMissingCsp: Event.None,
-		onMessage: Event.None,
+		onMessage: onMessageEmitter.event,
 		onDidNavigate: Event.None,
 		onDidLoad: Event.None,
 		intrinsicContentSize: undefined,
@@ -54,9 +63,10 @@ describe('HelpEntry', () => {
 		.stub(IWebviewService, {
 			createWebviewOverlay: () => overlayWebview(),
 		})
+		.stub(IOpenerService, { open })
 		.build();
 
-	function createHelpEntry(): void {
+	function createHelpEntry(sourceUrl: string = LOCALHOST_HELP_URL): void {
 		messages = [];
 
 		helpEntry = ctx.disposables.add(ctx.instantiationService.createInstance(
@@ -65,8 +75,8 @@ describe('HelpEntry', () => {
 			'r',
 			'test-session',
 			'R',
-			'http://localhost/help/library/graphics/html/plot.html',
-			URI.parse('http://localhost/help/library/graphics/html/plot.html').toString(),
+			sourceUrl,
+			URI.parse(LOCALHOST_HELP_URL).toString(),
 		));
 
 		const anchor = document.createElement('div');
@@ -91,6 +101,44 @@ describe('HelpEntry', () => {
 			await vi.runAllTimersAsync();
 
 			expect(messages).toEqual([{ id: 'positron-help-find-next', findValue: 'title' }]);
+		});
+	});
+
+	describe('Link navigation', () => {
+		it('opens external links from the welcome page whose source URL is relative', async () => {
+			vi.useFakeTimers();
+			// The welcome page uses a relative source URL ('welcome.html'), which
+			// is not a valid absolute URL. See issue #14810.
+			createHelpEntry('welcome.html');
+
+			onMessageEmitter.fire({
+				message: {
+					id: 'positron-help-navigate',
+					url: 'https://github.com/posit-dev/positron/discussions',
+				},
+			});
+			await vi.runAllTimersAsync();
+
+			expect(open).toHaveBeenCalledWith(
+				'https://github.com/posit-dev/positron/discussions',
+				{ openExternal: true },
+			);
+		});
+
+		it('navigates internally for same-origin help links', async () => {
+			vi.useFakeTimers();
+			createHelpEntry();
+			const navigated: string[] = [];
+			ctx.disposables.add(helpEntry.onDidNavigate(url => navigated.push(url.toString())));
+
+			const sameOriginUrl = 'http://localhost/help/library/graphics/html/hist.html';
+			onMessageEmitter.fire({
+				message: { id: 'positron-help-navigate', url: sameOriginUrl },
+			});
+			await vi.runAllTimersAsync();
+
+			expect(navigated).toEqual([sameOriginUrl]);
+			expect(open).not.toHaveBeenCalled();
 		});
 	});
 });

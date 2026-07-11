@@ -39,7 +39,7 @@ const EDITOR_PRESETUP_ITEMS = ['Explain', 'Fix', 'Code Review'];
 const HIDE_AI_COMMAND = 'Learn How to Hide AI Features';
 const USE_AI_FEATURES_COMMAND = 'Use AI Features with Copilot for free';
 
-test.describe('Assistant: Copilot setup on-ramp suppressed', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Assistant: Copilot setup on-ramp suppressed', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
 
 	test('Command palette does not list the Copilot "Use AI Features with Copilot for free..." command', async function ({ app }) {
 		const { hotKeys, quickInput } = app.workbench;
@@ -65,7 +65,7 @@ test.describe('Assistant: Copilot setup on-ramp suppressed', { tag: [tags.WIN, t
 // already hidden by that gate. We turn AI features on so the gate passes and the dropped menu /
 // f1 entries are the only thing keeping them out of view; otherwise the assertions would pass
 // trivially. The default is restored afterward.
-test.describe('Assistant: Copilot sign-in surfaces suppressed with AI features on', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Assistant: Copilot sign-in surfaces suppressed with AI features on', { tag: [tags.WIN, tags.ASSISTANT] }, () => {
 
 	test.beforeAll(async ({ settings }) => {
 		await settings.set({ 'chat.disableAIFeatures': false }, { reload: true });

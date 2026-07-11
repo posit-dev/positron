@@ -96,6 +96,17 @@ export interface IChatStatusDashboardOptions {
 	 * in compact mode to place action buttons in the host header.
 	 */
 	ctaButtonsContainer?: HTMLElement;
+
+	// --- Start Positron ---
+	/**
+	 * When true (completions-only mode: chat is hidden but inline completions
+	 * stay available), hides the chat-specific parts of the dashboard: the
+	 * contributed status items (e.g. the codebase semantic index) and the chat
+	 * setup / "Enable AI Features" block. The plan header, usage rows, and
+	 * inline-suggestion controls stay visible.
+	 */
+	disableChatSections?: boolean;
+	// --- End Positron ---
 }
 
 export class ChatStatusDashboard extends DomWidget {
@@ -267,12 +278,21 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Contributed sections (e.g. Codebase Semantic Index) — each gets its own collapsible
-		if (contributedEntries.length > 0) {
+		// --- Start Positron ---
+		// Skip contributed chat status items in completions-only mode; they are chat features.
+		if (!this.options?.disableChatSections && contributedEntries.length > 0) {
+			// --- End Positron ---
 			this.renderContributedSections(contributedEntries);
 		}
 
 		// New to Chat / Signed out
-		this.renderSetupSection();
+		// --- Start Positron ---
+		// Hide the chat setup / "Enable AI Features" block in completions-only mode;
+		// completions don't use the chat setup flow.
+		if (!this.options?.disableChatSections) {
+			this.renderSetupSection();
+		}
+		// --- End Positron ---
 	}
 
 	private renderUsageContent(container: HTMLElement, token: CancellationToken, headerAdditionalSpendButton: Button | undefined, headerUpgradeButton: Button | undefined, updatePromise: Promise<void>): void {
@@ -298,7 +318,10 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let chatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			if (chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
+			// --- Start Positron ---
+			// Hide the "Chat messages" quota row in completions-only mode (chat is hidden).
+			if (!this.options?.disableChatSections && chatQuota && !chatQuota.unlimited && (!this.chatEntitlementService.quotas.usageBasedBilling || this.chatEntitlementService.entitlement === ChatEntitlement.Free)) {
+				// --- End Positron ---
 				const chatLabel = this.chatEntitlementService.quotas.usageBasedBilling && this.chatEntitlementService.entitlement === ChatEntitlement.Free
 					? localize('creditsLabel', "Credits")
 					: localize('chatsLabel', "Chat messages");
@@ -306,7 +329,10 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			let premiumChatQuotaIndicator: ((quota: IQuotaSnapshot | string) => void) | undefined;
-			if (premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
+			// --- Start Positron ---
+			// Hide the "Premium requests" quota row in completions-only mode (chat is hidden).
+			if (!this.options?.disableChatSections && premiumChatQuota && !premiumChatQuota.unlimited && premiumChatQuota.percentRemaining >= 0) {
+				// --- End Positron ---
 				const isUBB = this.chatEntitlementService.quotas.usageBasedBilling;
 				const premiumChatLabel = isUBB
 					? localize('creditsLabel', "Credits")
@@ -359,7 +385,10 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Anonymous Indicator
-		else if (this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
+		// --- Start Positron ---
+		// Hide the anonymous "Chat messages" quota row in completions-only mode (chat is hidden).
+		else if (!this.options?.disableChatSections && this.chatEntitlementService.anonymous && this.chatEntitlementService.sentiment.completed) {
+			// --- End Positron ---
 			this.createQuotaIndicator(container, localize('quotaLimited', "Limited"), localize('chatsLabel', "Chat messages"));
 		}
 	}

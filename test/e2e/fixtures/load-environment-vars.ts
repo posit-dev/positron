@@ -72,6 +72,7 @@ function loadEnvFile(envFilePath: string): ProjectEnvironmentVars {
 const PROJECT_ENV_FILES: Record<string, string[]> = {
 	'e2e-workbench': ['.env.e2e-workbench'],
 	'e2e-jupyter': ['.env.e2e-jupyter'],
+	'e2e-connect': ['.env.e2e-connect'],
 	default: ['.env.e2e']
 } as const;
 

@@ -51,6 +51,9 @@ import { captureExpectedAbortCommandId, captureExpectedConfirmCommandId, capture
 import { InlineEditLogger } from './parts/inlineEditLogger';
 import { VSCodeWorkspace } from './parts/vscodeWorkspace';
 import { makeSettable } from './utils/observablesUtils';
+// --- Start Positron ---
+import { Emitter } from '../../../util/vs/base/common/event';
+// --- End Positron ---
 
 export class JointCompletionsProviderContribution extends Disposable implements IExtensionContribution {
 
@@ -101,7 +104,45 @@ export class JointCompletionsProviderContribution extends Disposable implements 
 
 		const useJointCompletionsProviderObs = _configurationService.getExperimentBasedConfigObservable(ConfigKey.TeamInternal.InlineEditsJointCompletionsProviderEnabled, _expService);
 
+		// --- Start Positron ---
+		// This is the single entry point for all Copilot inline suggestion
+		// registration (inline completions and Next Edit Suggestions, in both
+		// the joint and fallback paths). Gate it on Positron's AI master switch
+		// (ai.enabled) and the GitHub Copilot provider enable setting, so every
+		// Copilot suggestion is blocked when either is off, matching chat.
+		//
+		// ai.enabled is also checked at extension activation, but that only
+		// covers startup; reading it live here also handles runtime toggles
+		// (ai.enabled is permit-only, default true). The provider setting
+		// defaults on, so this only blocks when a setting is explicitly off (or
+		// enforced off via Workbench). The `positron.assistant` prefixed key is
+		// the one declared for Copilot; see extensions/authentication/package.json.
+		const suggestionsAllowedEmitter = this._register(new Emitter<void>());
+		this._register(vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('ai.enabled') || e.affectsConfiguration('positron.assistant.provider.githubCopilot.enable')) {
+				suggestionsAllowedEmitter.fire();
+			}
+		}));
+		const copilotSuggestionsAllowed = observableFromEvent(
+			this,
+			suggestionsAllowedEmitter.event,
+			() => {
+				const aiEnabled = vscode.workspace.getConfiguration().get<boolean>('ai.enabled') !== false;
+				const providerEnabled = vscode.workspace.getConfiguration('positron.assistant.provider.githubCopilot').get<boolean>('enable') ?? true;
+				return aiEnabled && providerEnabled;
+			}
+		);
+		// --- End Positron ---
+
 		this._register(autorun((reader) => { // FX
+			// --- Start Positron ---
+			// Register no Copilot inline suggestion providers when the AI master
+			// switch or the Copilot provider is off. The autorun re-runs when
+			// either setting changes.
+			if (!copilotSuggestionsAllowed.read(reader)) {
+				return;
+			}
+			// --- End Positron ---
 			const useJointCompletionsProvider = useJointCompletionsProviderObs.read(reader);
 			if (!useJointCompletionsProvider) {
 				reader.store.add(_instantiationService.createInstance(InlineEditProviderFeatureContribution));

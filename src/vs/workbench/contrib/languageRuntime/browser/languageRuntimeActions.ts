@@ -1391,6 +1391,7 @@ export function registerLanguageRuntimeActions() {
 			const consoleService = accessor.get(IPositronConsoleService);
 			const notificationService = accessor.get(INotificationService);
 			const quickInputService = accessor.get(IQuickInputService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 			let fromPrompt = false;
 
 			// TODO: Should this be a "Developer: " command?
@@ -1427,7 +1428,7 @@ export function registerLanguageRuntimeActions() {
 			// If no language ID is provided, try to get the language ID from
 			// the active session.
 			if (!args.langId) {
-				const foreground = accessor.get(IRuntimeSessionService).foregroundSession;
+				const foreground = runtimeSessionService.foregroundSession;
 				if (foreground) {
 					args.langId = foreground.runtimeMetadata.languageId;
 				} else {

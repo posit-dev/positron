@@ -12,7 +12,7 @@ import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { InMemoryStorageService } from '../../../../../platform/storage/common/storage.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { ChatEntitlementContext, ChatEntitlementContextKeys } from '../../common/chatEntitlementService.js';
+import { ChatEntitlementContext, ChatEntitlementContextKeys, IChatSentiment, isCompletionsOnlyMode } from '../../common/chatEntitlementService.js';
 
 // `ai.enabled` is Positron's main AI switch. When it's off, the chat UI (the
 // chat pane and the Copilot status icon) must hide just like Copilot's own
@@ -78,4 +78,48 @@ describe('ChatEntitlementContext ai.enabled gating', () => {
 		await Promise.resolve();
 		expect(isHidden()).toBe(false);
 	});
+});
+
+// Positron keeps Copilot inline completions (and their status UI) available when
+// the chat UI is hidden by `chat.disableAIFeatures`, but not when the `ai.enabled`
+// main switch is off. `isCompletionsOnlyMode` encodes exactly that.
+describe('isCompletionsOnlyMode', () => {
+	const installed: IChatSentiment = { installed: true };
+
+	type Case = {
+		name: string;
+		aiEnabled?: boolean;
+		chatDisabled?: boolean;
+		sentiment: IChatSentiment;
+		expected: boolean;
+	};
+
+	const cases: Case[] = [
+		// Master switch off: everything, completions included, stays off.
+		{ name: 'ai.enabled off wins over chat disabled', aiEnabled: false, chatDisabled: true, sentiment: installed, expected: false },
+		// Chat hidden only by `chat.disableAIFeatures`: completions stay available.
+		{ name: 'chat disabled, ai unset', chatDisabled: true, sentiment: installed, expected: true },
+		{ name: 'chat disabled, ai on', aiEnabled: true, chatDisabled: true, sentiment: installed, expected: true },
+		// Full Copilot UI (upstream default): the getter does not apply.
+		{ name: 'chat not disabled', aiEnabled: true, chatDisabled: false, sentiment: installed, expected: false },
+		{ name: 'both unset', sentiment: installed, expected: false },
+		// Extension not usable, even with chat disabled.
+		{ name: 'not installed', chatDisabled: true, sentiment: {}, expected: false },
+		{ name: 'disabled extension', chatDisabled: true, sentiment: { installed: true, disabled: true }, expected: false },
+		{ name: 'untrusted workspace', chatDisabled: true, sentiment: { installed: true, untrusted: true }, expected: false },
+	];
+
+	for (const { name, aiEnabled, chatDisabled, sentiment, expected } of cases) {
+		it(name, () => {
+			const configurationService = new TestConfigurationService();
+			if (typeof aiEnabled === 'boolean') {
+				configurationService.setUserConfiguration('ai.enabled', aiEnabled);
+			}
+			if (typeof chatDisabled === 'boolean') {
+				configurationService.setUserConfiguration('chat.disableAIFeatures', chatDisabled);
+			}
+
+			expect(isCompletionsOnlyMode(configurationService, sentiment)).toBe(expected);
+		});
+	}
 });
