@@ -16,7 +16,7 @@ import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
 import { computeDeleteCellEdit, computeInsertCellEdit, computeJoinCellsEdit } from './quartoCellOperations.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument, usingQuartoCellToolbar } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, affectsQuartoConfig, isQuartoDocument, usingQuartoCellToolbar } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -72,7 +72,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		// Listen for the "show cell toolbar" setting being toggled so toolbars
 		// appear/disappear live without requiring a reload.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY)) {
+			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY, POSITRON_QUARTO_INLINE_OUTPUT_SHOW_CELL_TOOLBAR_KEY)) {
 				this._logService.debug('[QuartoCellToolbarController] Show cell toolbar setting changed');
 				this._onEditorModelChanged();
 			}

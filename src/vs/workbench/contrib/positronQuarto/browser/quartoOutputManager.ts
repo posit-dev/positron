@@ -25,7 +25,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService, QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
-import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, affectsQuartoConfig, getQuartoConfigValue, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -237,7 +237,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._documentUri = model?.uri;
 
 		// Get max lines configuration
-		this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
+		this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 
 		// Check if feature is enabled (context key checks both setting and extension installation)
 		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
@@ -251,8 +251,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		// Listen for max lines configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
-				this._maxLines = this._configurationService.getValue<number>(POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY) ?? 40;
+			if (affectsQuartoConfig(e, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY)) {
+				this._maxLines = getQuartoConfigValue(this._configurationService, QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, POSITRON_QUARTO_INLINE_OUTPUT_MAX_LINES_KEY, 40);
 				// Update all existing view zones
 				for (const viewZone of this._viewZones.values()) {
 					viewZone.maxLines = this._maxLines;

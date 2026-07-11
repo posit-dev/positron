@@ -10,6 +10,10 @@ const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
 			await settingsFile.append({
+				// Intentionally uses the deprecated `positron.quarto.*` alias to
+				// verify it still enables inline output end-to-end. The canonical
+				// `quarto.inlineOutput.enabled` key is exercised by the rest of the
+				// Quarto e2e suite.
 				'positron.quarto.inlineOutput.enabled': true,
 				'console.showNotebookConsoles': true,
 				'workbench.editor.enablePreview': false,
