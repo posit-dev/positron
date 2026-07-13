@@ -281,12 +281,20 @@ test('example', async ({ packages }) => {
 
 ### cleanup (Test-scoped)
 
-Test cleanup utilities.
+Test cleanup utilities (`TestTeardown`).
 
 ```typescript
 test.afterAll(async ({ cleanup }) => {
-	// Remove files created during test
+	// Remove specific files created during the test
 	await cleanup.removeTestFiles(['output.txt', 'generated.csv']);
+
+	// Remove an entire folder created during the test
+	await cleanup.removeTestFolder('generated-output');
+
+	// Reset the whole workspace (git reset --hard + git clean -fd) --
+	// use when tests edit existing workspace files, so edits don't leak
+	// into later test files
+	await cleanup.discardAllChanges();
 });
 ```
 

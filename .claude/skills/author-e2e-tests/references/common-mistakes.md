@@ -251,6 +251,14 @@ test.describe('Tests', () => {
 });
 ```
 
+If tests edit workspace files, reset them in `afterAll` with `cleanup.discardAllChanges()` (`git reset --hard` + `git clean -fd` on the workspace) so edits don't leak into later test files:
+
+```typescript
+test.afterAll(async ({ cleanup }) => {
+	await cleanup.discardAllChanges();
+});
+```
+
 ### 13. Tests Depending on Order
 
 **WRONG:**
