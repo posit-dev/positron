@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { buildUpdateUrl } from '../../common/positronUpdateUtils.js';
+import { buildUpdateUrl, IActiveLanguageRecord, reportableLanguages, resolveReportableLanguages, serializeActiveLanguageRecord } from '../../common/positronUpdateUtils.js';
 
 describe('buildUpdateUrl', function () {
 	const baseUrl = 'https://updates.example.com/releases/darwin/arm64/releases.json';
@@ -64,5 +64,83 @@ describe('buildUpdateUrl', function () {
 			const result = buildUpdateUrl(baseUrl, ['python'], true, anonymousId);
 			expect(result.indexOf('python=1'), 'language should come before uuid').toBeLessThan(result.indexOf('uuid='));
 		});
+	});
+});
+
+describe('reportableLanguages', function () {
+	const maxAgeDays = 7;
+	// A fixed "now" so age math is deterministic.
+	const now = Date.parse('2026-07-11T09:00:00Z');
+
+	it('returns the languages when the record is from yesterday', () => {
+		// The core design intent: report the last active day at cold start.
+		const record: IActiveLanguageRecord = { day: '2026-07-10', languages: ['python'] };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['python']);
+	});
+
+	it('returns the languages at exactly the max age boundary', () => {
+		const record: IActiveLanguageRecord = { day: '2026-07-04', languages: ['r'] };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual(['r']);
+	});
+
+	it('returns empty when the record is older than the max age', () => {
+		const record: IActiveLanguageRecord = { day: '2026-07-03', languages: ['python'] };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
+	});
+
+	it('returns empty when the record is undefined', () => {
+		expect(reportableLanguages(undefined, now, maxAgeDays)).toEqual([]);
+	});
+
+	it('returns empty when the record day is malformed', () => {
+		const record: IActiveLanguageRecord = { day: 'not-a-date', languages: ['python'] };
+		expect(reportableLanguages(record, now, maxAgeDays)).toEqual([]);
+	});
+});
+
+// The read/write decision the update service delegates to. These exercise the
+// same logic getReportableLanguages / updateActiveLanguages run, without the
+// electron-main service's dependency graph and constructor side effects.
+describe('active-language reporting (service logic)', function () {
+	const maxAgeDays = 7;
+	const now = Date.parse('2026-07-11T09:00:00Z');
+
+	describe('serializeActiveLanguageRecord', function () {
+		it('does not store an empty set, so a usage-free day cannot clobber a stored day', () => {
+			expect(serializeActiveLanguageRecord([], now)).toBeUndefined();
+		});
+
+		it('stores the day and languages for a non-empty set', () => {
+			const stored = serializeActiveLanguageRecord(['python', 'r'], now);
+			expect(JSON.parse(stored!)).toEqual({ day: '2026-07-11', languages: ['python', 'r'] });
+		});
+	});
+
+	describe('resolveReportableLanguages', function () {
+		it('prefers the live session set over the stored record', () => {
+			const stored = serializeActiveLanguageRecord(['r'], now);
+			expect(resolveReportableLanguages(['python'], stored, now, maxAgeDays)).toEqual(['python']);
+		});
+
+		it('falls back to the stored record when the live set is empty', () => {
+			const stored = serializeActiveLanguageRecord(['python'], now);
+			expect(resolveReportableLanguages([], stored, now, maxAgeDays)).toEqual(['python']);
+		});
+
+		it('returns empty when the live set is empty and nothing is stored', () => {
+			expect(resolveReportableLanguages([], undefined, now, maxAgeDays)).toEqual([]);
+		});
+
+		it('returns empty when the stored record is corrupt JSON', () => {
+			expect(resolveReportableLanguages([], '{not valid json', now, maxAgeDays)).toEqual([]);
+		});
+	});
+
+	it('round-trips a stored day into the next launch report', () => {
+		// Session 1 persists today's usage; session 2 launches the next day with
+		// no live usage yet and reports what was stored.
+		const stored = serializeActiveLanguageRecord(['python', 'r'], now);
+		const nextDay = Date.parse('2026-07-12T09:00:00Z');
+		expect(resolveReportableLanguages([], stored, nextDay, maxAgeDays)).toEqual(['python', 'r']);
 	});
 });
