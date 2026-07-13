@@ -155,7 +155,7 @@ All performance/metric tests must include `tags.PERFORMANCE` in their tag list.
 5. **No timeout on assertions** - use `{ timeout: 30000 }` for async operations
 6. **No `test.step()`** - wrap complex multi-action sequences for better reports
 
-See `references/common-mistakes.md` for 28 detailed gotchas with code examples.
+See `references/common-mistakes.md` for 29 detailed gotchas with code examples.
 
 ## Running Tests
 

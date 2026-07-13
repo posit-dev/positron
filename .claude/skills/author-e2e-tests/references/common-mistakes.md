@@ -611,6 +611,39 @@ test('example', async function ({ app, settings }) {
 
 To avoid the reload cost, set `positron.notebook.enabled` via `settingsFile.append()` in a `beforeApp` worker fixture instead, so it's applied before the app starts (see the "Custom Test Setup Files" example in `references/fixtures.md`).
 
+### 29. Setting Config Mid-Test When Pre-Launch Would Do
+
+More generally than #28: any `settings.set(...)` after the app has launched costs a reload, and for discovery/session-gating settings a reload can be flaky (it doesn't always re-run every cold-launch code path).
+
+**WRONG:**
+```typescript
+test.beforeAll(async ({ settings }) => {
+	await settings.set({ 'some.gating.setting': true }, { reload: true });
+});
+```
+
+**CORRECT -- setting is already a base worker option** (check `test/e2e/tests/_test.setup.ts` for `useLegacyNotebookEditor`, `enableDataConnections`, `enableFoundryAssistant`):
+```typescript
+test.use({ useLegacyNotebookEditor: true });   // No custom setup file needed
+```
+
+**CORRECT -- no existing option covers it, isolated to one file:**
+```typescript
+import { test as base, expect, tags, TestFixtures, WorkerFixtures } from '../_test.setup';
+
+const test = base.extend<TestFixtures, WorkerFixtures>({
+	beforeApp: [
+		async ({ settingsFile }, use) => {
+			await settingsFile.append({ 'some.gating.setting': true });
+			await use();
+		},
+		{ scope: 'worker' }
+	],
+});
+```
+
+**CORRECT -- applies to a whole feature directory:** put either form above in a `_test.setup.ts` in that directory (see `test/e2e/tests/notebook/_test.setup.ts` for overriding an existing option, `test/e2e/tests/notebooks-positron/_test.setup.ts` for defining a new one) and have every file in the directory import `test` from `./_test.setup.js` instead of `../_test.setup`.
+
 ## Summary: Pre-Submit Checklist
 
 Before submitting a test, verify:
@@ -619,6 +652,7 @@ Before submitting a test, verify:
 - [ ] Has `test.use({ suiteId: __filename })`
 - [ ] Uses `function` syntax (not arrow functions)
 - [ ] Has appropriate tags (`tags.WEB`, `tags.WIN`, feature tag)
+- [ ] Settings known before the test runs are applied pre-launch (`beforeApp`/`settingsFile`), not via a mid-test `settings.set()` reload
 - [ ] All assertions have explicit timeouts for async operations
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`

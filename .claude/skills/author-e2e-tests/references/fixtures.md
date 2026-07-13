@@ -388,9 +388,31 @@ settingsFile → userDataDir → options
 
 ## Custom Test Setup Files
 
-Some test categories have their own `_test.setup.ts` that extends base fixtures with worker-scoped options, applied via the `beforeApp` fixture (runs before the app starts, so settings changes don't need a reload).
+**Prefer applying settings before the app launches over applying them mid-test.** `settings.set(...)` after the app is already running forces a window reload to take effect -- reloads are slow, and for settings that gate discovery/session behavior they can be flaky (a reload doesn't always re-run every startup code path a cold launch does). If the setting is known up front, write it via the `settingsFile` fixture inside a `beforeApp` worker fixture instead, so it's baked into the launch and there's no reload at all.
 
-**Example: `test/e2e/tests/notebooks-positron/_test.setup.ts`**
+Check `test/e2e/tests/_test.setup.ts` for existing worker options first -- `useLegacyNotebookEditor`, `enableDataConnections`, `enableFoundryAssistant` are all already wired into its `beforeApp`. If one covers your setting, no custom setup file is needed at all -- just override it directly in your test file:
+
+```typescript
+import { test, expect, tags } from '../_test.setup';
+
+test.use({ useLegacyNotebookEditor: true });
+```
+
+If several files in a feature directory need the same override, centralize it in a `_test.setup.ts` in that directory instead of repeating `test.use()` in every file -- see `test/e2e/tests/notebook/_test.setup.ts`:
+
+```typescript
+import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';
+
+export const test = base.extend<TestFixtures, WorkerFixtures>({
+	useLegacyNotebookEditor: [true, { scope: 'worker' }],
+});
+```
+
+Every file in that directory then imports `test` from `./_test.setup.js` instead of `../_test.setup` to pick up the override.
+
+If no existing option covers your setting, define your own worker-scoped option and `beforeApp` override the same way base `_test.setup.ts` does -- inline in a single file if it's isolated, or in a directory `_test.setup.ts` if it applies to a whole feature area.
+
+**Example: `test/e2e/tests/notebooks-positron/_test.setup.ts`** (a directory-wide, custom option)
 
 ```typescript
 import { test as base, TestFixtures, WorkerFixtures } from '../_test.setup';

@@ -5,7 +5,7 @@ For comprehensive e2e test guidance, use the `author-e2e-tests` skill which prov
 - Available fixtures (`python`, `r`, `sessions`, `executeCode`, etc.)
 - Page object documentation (`app.workbench.*`), with guidance on how to look up exact method signatures directly from `test/e2e/pages/*.ts`
 - Assertion and waiting patterns
-- 28 common mistakes to avoid
+- 29 common mistakes to avoid
 
 ## Quick Commands
 
