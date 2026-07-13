@@ -128,8 +128,11 @@ suite('createPythonRuntimeMetadata path fields', () => {
 
     test('runtimePath is always the full absolute interpreter path', async () => {
         const interpreterPath = '/usr/bin/python3';
-        const metadata = await createPythonRuntimeMetadata(makeInterpreter(interpreterPath), serviceContainer.object, false);
+        const metadata = await createPythonRuntimeMetadata(
+            makeInterpreter(interpreterPath),
+            serviceContainer.object,
+            false,
+        );
         assert.strictEqual(metadata.runtimePath, interpreterPath);
     });
-
 });
