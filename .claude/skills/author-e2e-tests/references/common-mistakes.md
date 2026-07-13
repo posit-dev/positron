@@ -65,14 +65,13 @@ test('test 2', async ({ app }) => {
 **CORRECT:**
 ```typescript
 test('test 2', async ({ app, python }) => {
-	// python fixture ensures Python is running
-	await app.workbench.console.executeCode('Python', 'x = 1');
+	// python (or 'r') fixture ensures Python/R is running
 });
 
-// Or use sessions for manual control
+// Or use sessions for manual control or if you need to capture session id or name
 test('test 2', async ({ app, sessions }) => {
-	await sessions.start('python', { reuse: true });
-	await app.workbench.console.executeCode('Python', 'x = 1');
+	const pythonSession = await sessions.start('python', { reuse: true });
+	await sessions.expectSessionPickerToBe(pythonSession.name);
 });
 ```
 
@@ -93,6 +92,8 @@ test.beforeAll(async ({ settings }) => {
 ```
 
 `settings` is worker-scoped (shared across tests in a file). Setting it per-test can cause unexpected behavior.
+
+**Even better, when the setting is known up front:** apply it before the app launches instead of in `test.beforeAll`, so there's no reload at all -- see #26. Reach for `test.beforeAll` + `settings.set()` when the value can't be known until runtime (e.g. computed from something set up earlier in the worker) and a pre-launch fixture genuinely can't express it.
 
 ## Assertion Mistakes
 
@@ -341,7 +342,8 @@ test('execute code', async ({ sessions, app }) => {
 ```typescript
 test('execute code', async ({ python, app }) => {
 	// python fixture waits for ready state
-	await app.workbench.console.executeCode('Python', 'x = 1');
+	const pythonSession = await app.workbench.console.executeCode('Python', 'x = 1');
+	await sessions.expectSessionPickerToBe(pythonSession.name);
 });
 
 // Or manually wait
