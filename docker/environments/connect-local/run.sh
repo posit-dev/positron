@@ -86,23 +86,20 @@ done
 
 TOKEN_FILE="${SCRIPT_DIR}/.tokens/connect_bootstrap_token"
 
-# Whether the token file holds a key that authenticates against Connect.
-token_authenticates() {
-  [ -s "$TOKEN_FILE" ] && curl -fsS -o /dev/null \
-    -H "Authorization: Key $(cat "$TOKEN_FILE")" \
-    "http://localhost:3939/__api__/v1/users?page_size=1"
-}
-
 echo "Bootstrapping Connect API token (one-shot)..."
 docker compose -f "$COMPOSE_FILE" run --rm token
 
 echo ""
-# The data dir was just wiped, so bootstrap runs against a fresh instance and
-# should always mint a working key. Validate to fail fast if something is off.
-if token_authenticates; then
+# Presence check only: the one-shot token container runs as root, so the token
+# file is root-owned (mode 600) on Linux/CI and this script (non-root) can't read
+# its contents -- but `test -s` only stats the file, so it works regardless of
+# ownership. Callers that need the value read it with sudo (see the CI workflow).
+# Since the data dir was just wiped, bootstrap runs against a fresh instance and
+# should always produce a token; auth itself is validated by the tests.
+if [ -s "$TOKEN_FILE" ]; then
   echo "Connect is up. Token written to: ${TOKEN_FILE}"
 else
-  echo "ERROR: bootstrapped token at ${TOKEN_FILE} does not authenticate." >&2
+  echo "ERROR: token was not bootstrapped at ${TOKEN_FILE}." >&2
   echo "       Check the connect logs: docker compose -f ${COMPOSE_FILE} logs connect" >&2
   exit 1
 fi
