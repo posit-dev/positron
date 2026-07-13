@@ -145,11 +145,6 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 		});
 	}
 
-	/**
-	 * Builds a MainThreadNotebookFeatures against a stubbed editor state: the
-	 * given active pane, editors in most-recently-active order, and the open
-	 * Positron notebook instances.
-	 */
 	/** A foreground session stub attached to the given notebook. */
 	function createForegroundNotebookSession(uriString: string): ILanguageRuntimeSession {
 		return stubInterface<ILanguageRuntimeSession>({
@@ -159,6 +154,11 @@ describe('MainThreadNotebookFeatures $getActiveNotebookContext', () => {
 		});
 	}
 
+	/**
+	 * Builds a MainThreadNotebookFeatures against a stubbed editor state: the
+	 * given active pane, editors in most-recently-active order, the open
+	 * Positron notebook instances, and optionally the foreground session.
+	 */
 	function createContextFeatures(options: {
 		activeEditorPane: IVisibleEditorPane | undefined;
 		mruEditors: EditorInput[];
