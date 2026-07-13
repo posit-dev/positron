@@ -92,7 +92,7 @@ await variables.doubleClickVariableRow('df');
 await dataExplorer.grid.verifyTableData([{ col: 'value' }]);
 ```
 
-See `references/page-objects.md` for usage idioms. For exact method signatures, run `npm run e2e-gen-pom-reference` (a couple of seconds, git-ignored output) then read `references/generated/<pomName>.md` (start from `references/generated/index.md`). **Never guess or paraphrase a method name -- copy it from the generated reference.**
+See `references/page-objects.md` for usage idioms and "Finding the Exact Source" for how to look up the exact signature directly from `test/e2e/pages/*.ts`. **Never guess or paraphrase a method name -- copy it from the source file.**
 
 ## Quick Reference: Assertions
 
@@ -187,7 +187,6 @@ For detailed information, read the bundled reference docs:
 - **`references/test-structure.md`** - Complete test file structure and organization
 - **`references/fixtures.md`** - All available fixtures and their usage
 - **`references/page-objects.md`** - Page object usage idioms (curated, not exhaustive)
-- **`references/generated/`** - Not committed (git-ignored). Run `npm run e2e-gen-pom-reference` to generate POM method signatures fresh, then start from `index.md`
 - **`references/assertions.md`** - Assertion patterns and waiting strategies
 - **`references/common-mistakes.md`** - Comprehensive list of gotchas to avoid
 

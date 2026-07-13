@@ -529,7 +529,7 @@ Page objects encapsulate:
 
 ### 24. Not Checking Page Object Methods First
 
-Before writing custom locator code, check `references/generated/<pomName>.md` (or `references/generated/index.md` to find the right file) for an existing method. Most common operations are already implemented -- copy the exact method name from there rather than guessing or paraphrasing it.
+Before writing custom locator code, check the POM's source file in `test/e2e/pages/` for an existing method (see `references/page-objects.md`, "Finding the Exact Source", for how to locate it from `app.workbench.<name>`). Most common operations are already implemented -- copy the exact method name from source rather than guessing or paraphrasing it.
 
 ```typescript
 // Instead of custom code, use:
@@ -623,6 +623,6 @@ Before submitting a test, verify:
 - [ ] Uses `toPass` for potentially flaky operations
 - [ ] Has cleanup in `afterEach`
 - [ ] Uses environment variables for interpreter versions
-- [ ] Uses page object methods instead of raw locators where possible, with method names copied from `references/generated/<pomName>.md` (not guessed)
+- [ ] Uses page object methods instead of raw locators where possible, with method names copied from source in `test/e2e/pages/` (not guessed)
 - [ ] Raw Playwright sequences (not already a POM call) are wrapped in `test.step()`; POM calls that already self-wrap are not double-wrapped
 - [ ] Test is independent (doesn't rely on other tests)

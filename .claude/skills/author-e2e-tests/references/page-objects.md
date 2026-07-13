@@ -2,7 +2,7 @@
 
 Documentation of page objects available via `app.workbench.*`.
 
-**For the authoritative method list, run `npm run e2e-gen-pom-reference` (a couple of seconds) then read `references/generated/<pomName>.md`** (or `references/generated/index.md` for the full list of POMs). That directory is git-ignored and generated fresh from `test/e2e/pages/*.ts` by `scripts/generate-pom-reference.ts` each time -- there's nothing to keep in sync, just regenerate before reading. This page is a curated set of common usage idioms, not an exhaustive method list. Don't guess a method name from here -- generate and check the reference first.
+**For the authoritative method list, read the POM's source file directly** (see "Finding the Exact Source" below). This page is a curated set of common usage idioms, not an exhaustive method list -- don't guess a method name from here.
 
 ## Page Object Architecture
 
@@ -26,7 +26,7 @@ await console.waitForConsoleContents('expected text');
 await console.waitForReady('>>>');
 ```
 
-Full list: `references/generated/console.md`.
+Source: `test/e2e/pages/console.ts`.
 
 ## Variables (`app.workbench.variables`)
 
@@ -37,7 +37,7 @@ await variables.expectVariableToBe('x', '42');  // Python shows 'x', R shows "x"
 await variables.expectVariableToNotExist('df');
 ```
 
-Full list: `references/generated/variables.md`.
+Source: `test/e2e/pages/variables.ts`.
 
 ## Data Explorer (`app.workbench.dataExplorer`)
 
@@ -48,7 +48,7 @@ await dataExplorer.filters.add({ columnName: 'Name', condition: 'contains', valu
 await dataExplorer.summaryPanel.show();
 ```
 
-Sub-objects: `grid`, `filters`, `summaryPanel`, `convertToCodeModal`, `editorActionBar`. Full list: `references/generated/dataExplorer.md`.
+Sub-objects: `grid`, `filters`, `summaryPanel`, `convertToCodeModal`, `editorActionBar` -- all in the same source file. Source: `test/e2e/pages/dataExplorer.ts`.
 
 ## Plots (`app.workbench.plots`)
 
@@ -59,7 +59,7 @@ await plots.nextPlotButton.click();   // A Locator, not a nextPlot() method
 await plots.savePlotFromPlotsPane({ name: 'my-plot', format: 'PNG' });
 ```
 
-Full list: `references/generated/plots.md`.
+Source: `test/e2e/pages/plots.ts`.
 
 ## Notebooks (`app.workbench.notebooks`)
 
@@ -73,7 +73,7 @@ await notebooks.runAllCells();
 await notebooks.assertCellOutput('expected', 0);   // Assertion, not a getter -- no getCellOutput/waitForCellOutput
 ```
 
-Full list: `references/generated/notebooks.md` (shared) and `references/generated/notebooksPositron.md` (Positron-specific).
+Source: `test/e2e/pages/notebooks.ts` (shared) and `test/e2e/pages/notebooksPositron.ts` (Positron-specific).
 
 ## Sessions (`app.workbench.sessions`)
 
@@ -83,7 +83,7 @@ await sessions.expectAllSessionsToBeReady();
 const active = await sessions.getActiveSessions();   // Plural, returns an array
 ```
 
-Full list: `references/generated/sessions.md`.
+Source: `test/e2e/pages/sessions.ts`.
 
 ## HotKeys (`app.workbench.hotKeys`)
 
@@ -95,7 +95,7 @@ await hotKeys.closeAllEditors();
 await hotKeys.stackedLayout();
 ```
 
-Full list: `references/generated/hotKeys.md`.
+Source: `test/e2e/pages/hotKeys.ts`.
 
 ## Context Menu (`app.workbench.contextMenu`)
 
@@ -103,11 +103,11 @@ Full list: `references/generated/hotKeys.md`.
 await contextMenu.triggerAndClick({ menuTrigger: someLocator, menuItemLabel: 'Menu Item' });
 ```
 
-Full list: `references/generated/contextMenu.md`.
+Source: `test/e2e/pages/dialog-contextMenu.ts`.
 
 ## Other Page Objects
 
-See `references/generated/index.md` for the complete, generated list of all `app.workbench.*` properties (editors, explorer, layouts, modals, toasts, quickaccess, quickInput, connections, help, terminal, viewer, settings, debug, scm, search, outline, output, problems, testExplorer, clipboard, assistant, and more).
+`app.workbench.*` has ~49 properties total (editors, explorer, layouts, modals, toasts, quickaccess, quickInput, connections, help, terminal, viewer, settings, debug, scm, search, outline, output, problems, testExplorer, clipboard, assistant, and more). See "Finding the Exact Source" below to look up any of them.
 
 ## Page Object Pattern
 
@@ -130,7 +130,12 @@ export class MyPageObject {
 }
 ```
 
-## Finding Available Methods
+## Finding the Exact Source
 
-1. Run `npm run e2e-gen-pom-reference`, then read `references/generated/<pomName>.md` for the exact signature (start from `references/generated/index.md` if you don't know the file name).
-2. For anything the generated reference doesn't answer -- parameter shapes it can't express, retry/wait internals -- read the source in `test/e2e/pages/` directly.
+`test/e2e/infra/workbench.ts` is the index: every `app.workbench.*` property is declared there as `readonly propName: TypeName`, with `TypeName` imported from its source file right at the top of the same file. To find or verify a method:
+
+1. Grep `workbench.ts` for the property name, e.g. `grep -n "readonly assistant" test/e2e/infra/workbench.ts` -- note the `TypeName`.
+2. Grep the same file for that `TypeName`'s import, e.g. `grep -n "import { Assistant }" test/e2e/infra/workbench.ts` -- that's the source path.
+3. Read or grep that file directly (e.g. `grep -n "async " test/e2e/pages/<file>.ts`) for the exact method signature.
+
+Never guess or paraphrase a method name from this skill's prose -- copy it from the source file.

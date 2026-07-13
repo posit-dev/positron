@@ -43,7 +43,6 @@ pwb-version
 !.claude/rules/
 !.claude/settings.json
 .claude/skills/positron-qa-verify/output/
-.claude/skills/author-e2e-tests/references/generated/
 demo-videos/
 # Often used for agent and personal notes
 /thoughts
